@@ -1,13 +1,13 @@
 import React from 'react';
 
 import { AppRole } from '../constants/roles';
-import AccountantStack from './stacks/AccountantStack';
-import AdminStack from './stacks/AdminStack';
-import HMStack from './stacks/HMStack';
-import PrincipalStack from './stacks/PrincipalStack';
-import StudentStack from './stacks/StudentStack';
-import TeacherStack from './stacks/TeacherStack';
-import VisitorStack from './stacks/VisitorStack';
+import AccountantStack from './AccountantStack';
+import AdminStack from './AdminStack';
+import HMStack from './HMStack';
+import PrincipalStack from './PrincipalStack';
+import StudentStack from './StudentStack';
+import TeacherStack from './TeacherStack';
+import VisitorStack from './VisitorStack';
 
 type Props = {
   role: AppRole;

@@ -13,6 +13,14 @@ const API = axios.create({
   },
 });
 
+export const setAuthToken = (token?: string | null) => {
+  if (token) {
+    API.defaults.headers.common.Authorization = `Bearer ${token}`;
+    return;
+  }
+  delete API.defaults.headers.common.Authorization;
+};
+
 /**
  * Request Interceptor
  * Automatically injects Auth and Tenant headers before the request leaves the app.

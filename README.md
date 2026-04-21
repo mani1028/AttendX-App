@@ -1,97 +1,198 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# AttendX React Native App
 
-# Getting Started
+AttendX is a React Native CLI project with Android and iOS targets.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
-
-## Step 1: Start Metro
-
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
-
-To start the Metro dev server, run the following command from the root of your React Native project:
+## Run Locally
 
 ```sh
-# Using npm
+npm install
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
+In another terminal:
 
 ```sh
-# Using npm
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+or
 
 ```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
 npm run ios
-
-# OR using Yarn
-yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+For iOS pods:
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+```sh
+cd ios
+bundle install
+bundle exec pod install
+cd ..
+```
 
-## Step 3: Modify your app
+## Full App Structure (All Tracked Files)
 
-Now that you have successfully run the app, let's make changes!
+This list is generated from the repository tracked files (`git ls-files`) so no tracked file is missed.
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+```text
+.bundle/config
+.eslintrc.js
+.gitignore
+.prettierrc.js
+.watchmanconfig
+App.tsx
+Gemfile
+Gemfile.lock
+README.md
+__tests__/App.test.tsx
+android/app/build.gradle
+android/app/debug.keystore
+android/app/proguard-rules.pro
+android/app/src/main/AndroidManifest.xml
+android/app/src/main/java/com/attendx/MainActivity.kt
+android/app/src/main/java/com/attendx/MainApplication.kt
+android/app/src/main/res/drawable/rn_edit_text_material.xml
+android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png
+android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png
+android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png
+android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png
+android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png
+android/app/src/main/res/values/strings.xml
+android/app/src/main/res/values/styles.xml
+android/build.gradle
+android/gradle.properties
+android/gradle/wrapper/gradle-wrapper.jar
+android/gradle/wrapper/gradle-wrapper.properties
+android/gradlew
+android/gradlew.bat
+android/settings.gradle
+app.json
+babel.config.js
+index.js
+ios/.xcode.env
+ios/AttendX.xcodeproj/project.pbxproj
+ios/AttendX.xcodeproj/xcshareddata/xcschemes/AttendX.xcscheme
+ios/AttendX.xcworkspace/contents.xcworkspacedata
+ios/AttendX/AppDelegate.swift
+ios/AttendX/Images.xcassets/AppIcon.appiconset/Contents.json
+ios/AttendX/Images.xcassets/Contents.json
+ios/AttendX/Info.plist
+ios/AttendX/LaunchScreen.storyboard
+ios/AttendX/PrivacyInfo.xcprivacy
+ios/Podfile
+ios/Podfile.lock
+jest.config.js
+jest.setup.js
+metro.config.js
+package-lock.json
+package.json
+src/api/authService.ts
+src/api/client.ts
+src/api/studentService.ts
+src/assets/logo.png
+src/components/RoleCard.tsx
+src/components/ScreenContainer.tsx
+src/components/common/AppButton.tsx
+src/components/common/AppCard.tsx
+src/components/common/AppInput.tsx
+src/components/common/AppText.tsx
+src/components/common/Header.tsx
+src/components/common/Loader.tsx
+src/constants/colors.ts
+src/constants/config.ts
+src/constants/roles.ts
+src/constants/routes.ts
+src/constants/theme.ts
+src/context/AuthContext.tsx
+src/hooks/useApi.ts
+src/hooks/useAuth.ts
+src/navigation/AccountantStack.tsx
+src/navigation/AdminStack.tsx
+src/navigation/AppNavigator.tsx
+src/navigation/AuthStack.tsx
+src/navigation/HMStack.tsx
+src/navigation/MainStack.tsx
+src/navigation/MainTabs.tsx
+src/navigation/PrincipalStack.tsx
+src/navigation/StudentStack.tsx
+src/navigation/TeacherStack.tsx
+src/navigation/stacks/AccountantStack.tsx
+src/navigation/stacks/AdminStack.tsx
+src/navigation/stacks/HMStack.tsx
+src/navigation/stacks/PrincipalStack.tsx
+src/navigation/stacks/StudentStack.tsx
+src/navigation/stacks/TeacherStack.tsx
+src/navigation/stacks/VisitorStack.tsx
+src/navigation/types.ts
+src/screens/accountant/AccountantDashboardScreen.tsx
+src/screens/accountant/ExpenseScreen.tsx
+src/screens/accountant/FeeManagementScreen.tsx
+src/screens/accountant/PaymentEntryScreen.tsx
+src/screens/accountant/PayrollScreen.tsx
+src/screens/accountant/ReportsScreen.tsx
+src/screens/accountant/SettingsScreen.tsx
+src/screens/admin/AdminDashboardScreen.tsx
+src/screens/admin/NotificationManagerScreen.tsx
+src/screens/admin/SchoolDetailsScreen.tsx
+src/screens/admin/SettingsScreen.tsx
+src/screens/auth/ForgotPasswordScreen.tsx
+src/screens/auth/LoginScreen.tsx
+src/screens/auth/RegisterSchoolScreen.tsx
+src/screens/auth/ResetPasswordScreen.tsx
+src/screens/auth/VerifyOtpScreen.tsx
+src/screens/common/LoadingScreen.tsx
+src/screens/common/NotificationsScreen.tsx
+src/screens/common/ProfileScreen.tsx
+src/screens/hm/AnnouncementsScreen.tsx
+src/screens/hm/AttendanceScreen.tsx
+src/screens/hm/ExamsScreen.tsx
+src/screens/hm/ExpenseScreen.tsx
+src/screens/hm/FeeManagementScreen.tsx
+src/screens/hm/HMDashboardScreen.tsx
+src/screens/hm/ReportsScreen.tsx
+src/screens/hm/SettingsScreen.tsx
+src/screens/hm/StudentManagementScreen.tsx
+src/screens/hm/TeacherManagementScreen.tsx
+src/screens/principal/BranchDetailsScreen.tsx
+src/screens/principal/HMRegistrationScreen.tsx
+src/screens/principal/PrincipalDashboardScreen.tsx
+src/screens/student/AttendanceScreen.tsx
+src/screens/student/FeeScreen.tsx
+src/screens/student/HomeworkScreen.tsx
+src/screens/student/LeaveScreen.tsx
+src/screens/student/MarksScreen.tsx
+src/screens/student/StudentAttendanceScreen.tsx
+src/screens/student/StudentDashboardScreen.tsx
+src/screens/student/StudentFeeScreen.tsx
+src/screens/student/StudentMarksScreen.tsx
+src/screens/teacher/AttendanceScreen.tsx
+src/screens/teacher/HomeworkScreen.tsx
+src/screens/teacher/LeaveApprovalScreen.tsx
+src/screens/teacher/LeaveRequestScreen.tsx
+src/screens/teacher/MarksEntryScreen.tsx
+src/screens/teacher/SkinDiseaseScreen.tsx
+src/screens/teacher/StudentListScreen.tsx
+src/screens/teacher/TeacherDashboardScreen.tsx
+src/screens/teacher/VitalScanScreen.tsx
+src/screens/visitor/VisitorDashboardScreen.tsx
+src/services/adminService.ts
+src/services/api.ts
+src/services/authService.ts
+src/services/studentService.ts
+src/services/teacherService.ts
+src/services/visitorService.ts
+src/theme/theme.ts
+src/types/api.types.ts
+src/types/auth.types.ts
+src/types/navigation.types.ts
+src/utils/helpers.ts
+src/utils/roleMapper.ts
+src/utils/storage.ts
+src/utils/validators.ts
+tsconfig.json
+```
