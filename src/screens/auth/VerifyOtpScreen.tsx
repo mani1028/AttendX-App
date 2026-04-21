@@ -19,10 +19,23 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
     try {
       setLoading(true);
       const res = await authService.verifyOtp(schoolId, identifier, otp);
+
+      const resetToken =
+        res?.data?.reset_token ||
+        res?.data?.resetToken ||
+        res?.data?.data?.reset_token ||
+        res?.data?.data?.resetToken ||
+        '';
+
+      if (!resetToken) {
+        Alert.alert('Error', 'Unable to verify OTP. Please try again.');
+        return;
+      }
+
       navigation.navigate('ResetPassword', {
         schoolId,
         identifier,
-        resetToken: res.data?.reset_token || '',
+        resetToken,
       });
     } catch {
       Alert.alert('Error', 'Invalid OTP');

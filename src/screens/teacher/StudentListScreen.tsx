@@ -14,11 +14,10 @@ import {
   FlatList,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import API from '../../services/api';
-import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import { teacherService } from '../../services/teacherService';
 
 // Types
 interface Student {
@@ -174,14 +173,7 @@ export default function StudentListScreen() {
     if (!schoolCode || !branchId || !employeeId) return;
     
     try {
-      const res = await API.get('/manage/teacher/assigned-classes', {
-        params: {
-          school_code: schoolCode,
-          branch_id: branchId,
-          employee_id: employeeId,
-        },
-      });
-      const assigned = res.data?.assigned_classes || [];
+      const assigned = await teacherService.getAssignedClasses(schoolCode, branchId, employeeId);
       setAssignedClasses(assigned);
       
       // Auto-select first class if available
@@ -202,15 +194,13 @@ export default function StudentListScreen() {
     
     setLoading(true);
     try {
-      const res = await API.get('/manage/students', {
-        params: {
-          school_code: schoolCode,
-          branch_id: branchId,
-          class_grade: selectedClass,
-          section: selectedSection,
-        },
-      });
-      setRecords(res.data?.students || []);
+      const students = await teacherService.getStudentsByClass(
+        schoolCode,
+        branchId,
+        selectedClass,
+        selectedSection,
+      );
+      setRecords(students);
       setCurrentPage(1);
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch students');
@@ -473,9 +463,9 @@ export default function StudentListScreen() {
 
             <ScrollView style={styles.modalBody}>
               {DETAIL_GROUPS.map((group) => {
-                const entries = group.keys
+                const entries: Array<[string, unknown]> = group.keys
                   .filter(k => viewStudent?.[k as keyof Student] !== undefined && viewStudent?.[k as keyof Student] !== '')
-                  .map(k => [k, viewStudent?.[k as keyof Student]]);
+                  .map(k => [k, viewStudent?.[k as keyof Student]] as [string, unknown]);
                 if (entries.length === 0) return null;
                 return (
                   <View key={group.label} style={styles.detailGroup}>
@@ -487,7 +477,7 @@ export default function StudentListScreen() {
                       {entries.map(([k, v], i) => (
                         <View key={k} style={[styles.gridCell, i % 2 === 0 && styles.gridCellLeft]}>
                           <Text style={styles.gridLabel}>{fmt(k)}</Text>
-                          <Text style={styles.gridValue}>{v || '—'}</Text>
+                          <Text style={styles.gridValue}>{String(v ?? '—')}</Text>
                         </View>
                       ))}
                     </View>

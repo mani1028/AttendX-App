@@ -264,7 +264,7 @@ export default function StudentMarksScreen() {
                     <Text style={[styles.tableCell, styles.colPassMarks]}>{row.pass_marks}</Text>
                     <Text style={[styles.tableCell, styles.colObtained]}>{row.marks_obtained}</Text>
                     <Text style={[styles.tableCell, styles.colGrade]}>{row.grade || '-'}</Text>
-                    <View style={[styles.tableCell, styles.colResult]}>
+                    <View style={styles.colResult}>
                       <ResultBadge status={row.result_status} />
                     </View>
                   </View>

@@ -1,6 +1,6 @@
 import React from "react";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
-import AppText from "@/components/common/AppText";
+import AppText from '../../components/common/AppText';
 
 const VisitSuccessScreen: React.FC<any> = ({ route, navigation }) => {
   const visitorNo = route.params?.visitor_no || "N/A";

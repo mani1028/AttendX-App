@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from "react-native";
-import AppText from "@/components/common/AppText";
-import API from "@/services/api";
+import AppText from '../../components/common/AppText';
+import API from '../../services/api';
 
 const TeacherRegistrationScreen = () => {
   const [form, setForm] = useState({

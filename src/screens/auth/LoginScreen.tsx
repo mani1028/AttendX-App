@@ -1,91 +1,87 @@
-import React, { useState } from "react";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useState } from 'react';
 import {
-  View,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import AppText from "@/components/common/AppText";
-import API from "@/services/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import { authService } from '../../api/authService';
+import { useAuth } from '../../context/AuthContext';
 
 type Props = {
   navigation: any;
 };
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
-  const [schoolId, setSchoolId] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const { signIn } = useAuth();
+  const [schoolId, setSchoolId] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  /* ================= LOGIN ================= */
-
   const handleLogin = async () => {
-    if (!username || !password) {
-      Alert.alert("Error", "Enter username & password");
+    if (!schoolId || !username || !password) {
+      Alert.alert('Required', 'Please enter school code, username and password');
       return;
     }
 
     setLoading(true);
 
     try {
-      const payload = {
-        school_id: schoolId.trim(),
-        username: username.trim(),
-        password,
-      };
+      const schoolCode = schoolId.trim();
+      const normalized = await authService.login(schoolCode, username.trim(), password);
+      const name = normalized.user?.name || username.trim();
 
-      const res = await API.post("/auth/login", payload);
+      const toStore: [string, string][] = [
+        ['token', normalized.token || ''],
+        ['role', normalized.role],
+        ['userRole', normalized.role],
+        ['school_code', normalized.schoolCode || schoolCode],
+        ['schoolCode', normalized.schoolCode || schoolCode],
+        ['user_name', name],
+      ];
 
-      if (res.data?.status !== "success") {
-        Alert.alert("Login Failed", "Invalid credentials");
-        return;
+      if (normalized.user?.branchId) {
+        toStore.push(['branch_id', normalized.user.branchId]);
+        toStore.push(['branchId', normalized.user.branchId]);
       }
 
-      const { role, token, user, school_code } = res.data;
-
-      /* ================= STORE DATA ================= */
-
-      await AsyncStorage.multiSet([
-        ["token", token || ""],
-        ["role", role || ""],
-        ["userRole", role || ""],
-        ["school_code", school_code || ""],
-        ["user_name", user?.name || ""],
-        ["user_id", String(user?.id || "")],
-      ]);
-
-      /* ================= ROLE BASED NAV ================= */
-
-      if (role === "admin") {
-        navigation.replace("AdminStack");
-      } else if (role === "teacher") {
-        navigation.replace("TeacherStack");
-      } else if (role === "student") {
-        navigation.replace("StudentStack");
-      } else if (role === "hm") {
-        navigation.replace("HMStack");
-      } else if (role === "principal") {
-        navigation.replace("PrincipalStack");
-      } else {
-        Alert.alert("Error", "Unknown role");
+      if (normalized.user?.studentId) {
+        toStore.push(['student_id', normalized.user.studentId]);
+        toStore.push(['studentId', normalized.user.studentId]);
       }
+
+      if (normalized.user?.employeeId) {
+        toStore.push(['employee_id', normalized.user.employeeId]);
+        toStore.push(['employeeId', normalized.user.employeeId]);
+      }
+
+      if (normalized.user?.userId) {
+        toStore.push(['user_id', normalized.user.userId]);
+        toStore.push(['userId', normalized.user.userId]);
+      }
+
+      await AsyncStorage.multiSet(toStore);
+      await signIn(normalized.role, name, normalized.token);
+      navigation.replace('MainTabs');
 
     } catch (err: any) {
-      Alert.alert(
-        "Error",
-        err?.response?.data?.detail || "Login failed"
-      );
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.detail ||
+        err?.message ||
+        'Login failed';
+      Alert.alert('Login Failed', message);
     } finally {
       setLoading(false);
     }
   };
-
-  /* ================= UI ================= */
 
   return (
     <KeyboardAvoidingView
@@ -93,7 +89,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View style={styles.card}>
-        <AppText style={styles.title}>AttendX Login</AppText>
+        <Text style={styles.title}>AttendX Login</Text>
 
         <TextInput
           placeholder="School ID"
@@ -122,15 +118,13 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           onPress={handleLogin}
           disabled={loading}
         >
-          <AppText style={styles.btnText}>
-            {loading ? "Logging in..." : "Login"}
-          </AppText>
+          <Text style={styles.btnText}>{loading ? 'Logging in...' : 'Login'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => navigation.navigate("ForgotPassword")}
         >
-          <AppText style={styles.link}>Forgot Password?</AppText>
+          <Text style={styles.link}>Forgot Password?</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -138,8 +132,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 export default LoginScreen;
-
-/* ================= STYLES ================= */
 
 const styles = StyleSheet.create({
   container: {

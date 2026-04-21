@@ -1,6 +1,6 @@
 import React from "react";
 import { View, StyleSheet, ActivityIndicator } from "react-native";
-import AppText from "./AppText";
+import AppText from '../../components/common/AppText';
 
 /* ================= TYPES ================= */
 

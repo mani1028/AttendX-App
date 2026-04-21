@@ -5,7 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from "react-native";
-import AppText from "@/components/common/AppText";
+import AppText from '../../components/common/AppText';
 
 const VisitorDashboardScreen: React.FC = () => {
   const [visitors, setVisitors] = useState([

@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
-import AppText from "@/components/common/AppText";
-import Loader from "@/components/common/Loader";
+import AppText from '../../components/common/AppText';
+import Loader from '../../components/common/Loader';
 
 const VisitFormScreen: React.FC<any> = ({ route, navigation }) => {
   const { token } = route.params || {};

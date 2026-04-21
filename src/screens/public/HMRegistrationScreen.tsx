@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from "react-native";
-import AppText from "@/components/common/AppText";
-import API from "@/services/api";
+import AppText from '../../components/common/AppText';
+import API from '../../services/api';
 
 const HMRegistrationScreen = () => {
   const [form, setForm] = useState({
