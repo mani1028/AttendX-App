@@ -57,8 +57,8 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 	<key>NSCameraUsageDescription</key>
-	<string>This app needs camera access to capture attendance photos</string>
+	<string>This app needs camera access to take photos of skin for disease analysis and capture attendance</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app needs photo library access to upload attendance images</string>
+	<string>This app needs photo library access to select skin images for analysis</string>
 </dict>
 </plist>
