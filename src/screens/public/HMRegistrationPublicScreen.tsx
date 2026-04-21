@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,9 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  Modal,
   Platform,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
@@ -20,11 +18,6 @@ import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 
 // Types
-interface ClassSection {
-  class_name: string;
-  sections: string[];
-}
-
 interface FormData {
   branch_id: string;
   branch_name: string;
@@ -35,15 +28,15 @@ interface FormData {
   status: string;
 }
 
-// Helper functions
-const getSchoolCode = async (): Promise<string> => {
-  const code = await AsyncStorage.getItem('school_code');
-  return code || (await AsyncStorage.getItem('schoolCode')) || '';
-};
+interface ClassSection {
+  class_name: string;
+  sections: string[];
+}
 
+// Helper functions
 const safeTrim = (v: any): string => String(v ?? '').trim();
-const normalizeSection = (value: string): string => String(value ?? '').toUpperCase();
 const isValidEmail = (email: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+const isSafeCode = (v: string): boolean => /^[a-zA-Z0-9_ -]+$/.test(String(v || '').trim());
 
 const STEPS = [
   { label: 'Branch Info', icon: '🏢' },
@@ -61,15 +54,12 @@ const BranchStep: React.FC<{
     <Text style={styles.sectionTitle}>🏢 Branch Information</Text>
     
     <View style={styles.formGroup}>
-      <Text style={styles.label}>Branch ID <Text style={styles.required}>*</Text></Text>
+      <Text style={styles.label}>Branch ID</Text>
       <TextInput
-        style={[styles.input, errors.branch_id && styles.inputError]}
-        placeholder="e.g. BR-001"
-        placeholderTextColor="#94a3b8"
+        style={[styles.input, styles.disabledInput]}
         value={form.branch_id}
-        onChangeText={(text) => onChange('branch_id', text)}
+        editable={false}
       />
-      {errors.branch_id && <Text style={styles.errorText}>{errors.branch_id}</Text>}
     </View>
 
     <View style={styles.formGroup}>
@@ -288,11 +278,6 @@ const ClassesStep: React.FC<{
             />
             {fieldErrors[`class_name_${ci}`] && <Text style={styles.errorText}>{fieldErrors[`class_name_${ci}`]}</Text>}
           </View>
-          {classes.length > 1 && (
-            <TouchableOpacity style={styles.removeClassBtn} onPress={() => onRemoveClass(ci)}>
-              <Text style={styles.removeClassBtnText}>🗑️</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         {cls.sections.map((sec, si) => (
@@ -304,11 +289,6 @@ const ClassesStep: React.FC<{
               value={sec}
               onChangeText={(text) => onUpdateSection(ci, si, text)}
             />
-            {cls.sections.length > 1 && (
-              <TouchableOpacity style={styles.removeSectionBtn} onPress={() => onRemoveSection(ci, si)}>
-                <Text style={styles.removeSectionBtnText}>✕</Text>
-              </TouchableOpacity>
-            )}
             {fieldErrors[`section_${ci}_${si}`] && <Text style={styles.errorText}>{fieldErrors[`section_${ci}_${si}`]}</Text>}
           </View>
         ))}
@@ -352,16 +332,21 @@ const Toast: React.FC<{
   );
 };
 
-export default function HMRegistrationScreen() {
+export default function HMRegistrationPublicScreen() {
+  const route = useRoute();
   const navigation = useNavigation();
-  const [schoolCode, setSchoolCode] = useState<string>('');
+  
+  // Get params from route
+  const params = route.params as any;
+  const schoolCode = params?.school_code || '';
+  const publicBranchId = params?.branch_id || '';
+
   const [activeStep, setActiveStep] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
-  const [existingBranchIds, setExistingBranchIds] = useState<string[]>([]);
   
   // Form state
   const [form, setForm] = useState<FormData>({
-    branch_id: '',
+    branch_id: publicBranchId,
     branch_name: '',
     hm_employee_id: '',
     hm_name: '',
@@ -390,62 +375,26 @@ export default function HMRegistrationScreen() {
     message: '',
     type: 'success',
   });
-  const [showInviteLink, setShowInviteLink] = useState<boolean>(false);
-  const [copied, setCopied] = useState<boolean>(false);
 
-  // Load school code
+  // Set branch ID from params
   useEffect(() => {
-    const load = async () => {
-      const code = await getSchoolCode();
-      setSchoolCode(code);
-      if (code) {
-        loadExistingBranches(code);
-      }
-    };
-    load();
-  }, []);
+    setForm(prev => ({ ...prev, branch_id: publicBranchId }));
+  }, [publicBranchId]);
 
-  // Load existing branch IDs
-  const loadExistingBranches = async (code: string) => {
-    try {
-      const res = await API.get('/principal/branches', {
-        headers: { 'x-school-code': code },
-      });
-      if (res.data?.items) {
-        const ids = res.data.items.map((b: any) => safeTrim(b.branch_id).toUpperCase());
-        setExistingBranchIds(ids);
-      }
-    } catch (err) {
-      console.error('Failed to load branch IDs:', err);
-    }
-  };
-
-  // Fetch HM employee ID when entering step 1
+  // Reset password on step change
   useEffect(() => {
-    if (activeStep === 1 && schoolCode) {
-      const fetchHmId = async () => {
-        try {
-          const res = await API.get('/principal/generate-hm-id', {
-            headers: { 'x-school-code': schoolCode },
-          });
-          if (res.data?.hm_employee_id) {
-            setForm(prev => ({ ...prev, hm_employee_id: res.data.hm_employee_id }));
-          }
-        } catch (err) {
-          console.error('Failed to generate HM ID:', err);
-          setForm(prev => ({ ...prev, hm_employee_id: 'HM-000' }));
-        }
-      };
-      fetchHmId();
+    if (activeStep === 1) {
+      setForm(prev => ({ ...prev, password: '' }));
+      setConfirmPassword('');
     }
-  }, [activeStep, schoolCode]);
+  }, [activeStep]);
 
   // Normalized classes
   const normalizedClasses = useMemo(() => {
     return classes
       .map(c => ({
         class_name: safeTrim(c.class_name),
-        sections: (c.sections || []).map(s => safeTrim(normalizeSection(s))).filter(Boolean),
+        sections: (c.sections || []).map(s => safeTrim(s)).filter(Boolean),
       }))
       .filter(c => c.class_name && c.sections.length > 0);
   }, [classes]);
@@ -474,7 +423,7 @@ export default function HMRegistrationScreen() {
     const hasClasses = normalizedClasses.length > 0 && normalizedClasses.every(c => c.sections.length >= 1);
     return (
       schoolCode &&
-      safeTrim(form.branch_id) &&
+      publicBranchId &&
       safeTrim(form.branch_name) &&
       safeTrim(form.hm_name) &&
       safeTrim(form.hm_email) &&
@@ -486,14 +435,7 @@ export default function HMRegistrationScreen() {
       passwordsMatch &&
       emailVerified
     );
-  }, [schoolCode, form, normalizedClasses, classSectionErrors, confirmPassword, passwordsMatch, emailVerified]);
-
-  // Invite link
-  const inviteLink = useMemo(() => {
-    const sc = safeTrim(schoolCode);
-    const bid = safeTrim(form.branch_id);
-    return sc && bid ? `attendx://hm-registration?school_code=${encodeURIComponent(sc)}&branch_id=${encodeURIComponent(bid)}` : '';
-  }, [schoolCode, form.branch_id]);
+  }, [schoolCode, publicBranchId, form, normalizedClasses, classSectionErrors, confirmPassword, passwordsMatch, emailVerified]);
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ visible: true, message, type });
@@ -528,9 +470,10 @@ export default function HMRegistrationScreen() {
 
     setOtpSending(true);
     try {
-      const res = await API.post('/principal/register-hm/send-otp', { hm_email: email }, {
-        headers: { 'x-school-code': schoolCode },
-      });
+      const res = await API.post('/principal/register-hm/send-otp', 
+        { hm_email: email },
+        { headers: { 'x-school-code': schoolCode } }
+      );
       setOtp('');
       setOtpSent(true);
       setEmailVerified(false);
@@ -552,9 +495,10 @@ export default function HMRegistrationScreen() {
 
     setOtpVerifying(true);
     try {
-      await API.post('/principal/register-hm/verify-otp', { hm_email: email, otp: otp.trim() }, {
-        headers: { 'x-school-code': schoolCode },
-      });
+      await API.post('/principal/register-hm/verify-otp',
+        { hm_email: email, otp: otp.trim() },
+        { headers: { 'x-school-code': schoolCode } }
+      );
       setEmailVerified(true);
       showToast('Email verified successfully', 'success');
     } catch (err: any) {
@@ -569,7 +513,6 @@ export default function HMRegistrationScreen() {
     const errors: Record<string, string> = {};
 
     if (activeStep === 0) {
-      if (!safeTrim(form.branch_id)) errors.branch_id = 'Branch ID is required';
       if (!safeTrim(form.branch_name)) errors.branch_name = 'Branch Name is required';
       if (!form.status) errors.status = 'Please select a status';
     }
@@ -610,26 +553,6 @@ export default function HMRegistrationScreen() {
     setActiveStep(prev => prev - 1);
   };
 
-  const handleCancel = () => {
-    navigation.goBack();
-  };
-
-  const copyInviteLink = async () => {
-    setShowInviteLink(true);
-    if (!inviteLink) {
-      showToast('Please enter Branch ID first', 'error');
-      return;
-    }
-    // On mobile, we'll just show the link in an alert
-    Alert.alert('Invite Link', inviteLink, [
-      { text: 'OK' },
-      { text: 'Copy', onPress: () => {
-        // For mobile, we'll use AsyncStorage or share
-        showToast('Link copied to clipboard', 'success');
-      } },
-    ]);
-  };
-
   const addClass = () => {
     setClasses(prev => [...prev, { class_name: '', sections: [''] }]);
   };
@@ -651,21 +574,10 @@ export default function HMRegistrationScreen() {
     setClasses(prev => prev.map((c, i) => i === classIndex ? { ...c, sections: [...c.sections, ''] } : c));
   };
 
-  const removeSection = (classIndex: number, sectionIndex: number) => {
-    setClasses(prev => prev.map((c, i) => {
-      if (i === classIndex) {
-        const newSections = c.sections.filter((_, j) => j !== sectionIndex);
-        return { ...c, sections: newSections.length ? newSections : [''] };
-      }
-      return c;
-    }));
-  };
-
   const updateSection = (classIndex: number, sectionIndex: number, value: string) => {
-    const normalizedValue = normalizeSection(value);
     setClasses(prev => prev.map((c, i) => {
       if (i === classIndex) {
-        return { ...c, sections: c.sections.map((s, j) => j === sectionIndex ? normalizedValue : s) };
+        return { ...c, sections: c.sections.map((s, j) => j === sectionIndex ? value : s) };
       }
       return c;
     }));
@@ -676,12 +588,28 @@ export default function HMRegistrationScreen() {
     });
   };
 
+  const resetForm = () => {
+    setForm({
+      branch_id: publicBranchId,
+      branch_name: '',
+      hm_employee_id: '',
+      hm_name: '',
+      hm_email: '',
+      password: '',
+      status: 'ACTIVE',
+    });
+    setClasses([{ class_name: '', sections: [''] }]);
+    setConfirmPassword('');
+    setFieldErrors({});
+    setActiveStep(0);
+    setOtp('');
+    setOtpSent(false);
+    setEmailVerified(false);
+  };
+
   const handleSubmit = async () => {
-    const trimmedBranchId = safeTrim(form.branch_id).toUpperCase();
-    
-    // Check for duplicate branch ID
-    if (existingBranchIds.includes(trimmedBranchId)) {
-      showToast(`❌ Branch ID "${trimmedBranchId}" already exists! Please enter another Branch ID.`, 'error');
+    if (!schoolCode || !publicBranchId) {
+      showToast('School code or branch missing in invite link', 'error');
       return;
     }
 
@@ -717,7 +645,7 @@ export default function HMRegistrationScreen() {
         headers: { 'x-school-code': schoolCode },
       });
 
-      const createdHmEmployeeId = String(res?.data?.hm_employee_id || res?.data?.employee_id || '').trim();
+      const createdHmEmployeeId = String(res.data?.hm_employee_id || res.data?.employee_id || '').trim();
       showToast(
         createdHmEmployeeId
           ? `Headmaster registered successfully! Employee ID: ${createdHmEmployeeId}`
@@ -725,39 +653,26 @@ export default function HMRegistrationScreen() {
         'success'
       );
       
-      setExistingBranchIds([...existingBranchIds, trimmedBranchId]);
-      
-      // Reset form
-      setForm({
-        branch_id: '',
-        branch_name: '',
-        hm_employee_id: '',
-        hm_name: '',
-        hm_email: '',
-        password: '',
-        status: 'ACTIVE',
-      });
-      setClasses([{ class_name: '', sections: [''] }]);
-      setConfirmPassword('');
-      setOtp('');
-      setOtpSent(false);
-      setEmailVerified(false);
-      setActiveStep(0);
-      
+      resetForm();
       setTimeout(() => navigation.goBack(), 2000);
     } catch (err: any) {
-      const errDetail = err?.response?.data?.detail || err?.message || 'Register failed';
-      if (errDetail.includes('already exists') || err?.response?.status === 409) {
-        showToast(`❌ Branch ID "${trimmedBranchId}" already exists! Please enter another Branch ID.`, 'error');
-      } else {
-        showToast(errDetail, 'error');
-      }
+      showToast(err.message || 'Registration failed', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const totalSteps = STEPS.length;
+
+  if (!schoolCode || !publicBranchId) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>Invalid Invite Link</Text>
+        <Text style={styles.errorText}>School code or branch ID missing.</Text>
+        <AppButton title="Go Back" onPress={() => navigation.goBack()} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -773,7 +688,7 @@ export default function HMRegistrationScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>📋 HM Registration</Text>
           <Text style={styles.subtitle}>
-            Step {activeStep + 1} of {totalSteps} — {STEPS[activeStep].label}
+            Public invite — Step {activeStep + 1} of {totalSteps}
           </Text>
         </View>
 
@@ -799,7 +714,7 @@ export default function HMRegistrationScreen() {
         <AppCard style={styles.formCard}>
           <View style={styles.cardHeader}>
             <View>
-              <Text style={styles.cardTitle}>Register Headmaster</Text>
+              <Text style={styles.cardTitle}>🔗 Public HM Registration</Text>
               <View style={styles.cardBadges}>
                 <View style={styles.cardBadge}>
                   <Text style={styles.cardBadgeText}>School: {schoolCode || '—'}</Text>
@@ -809,23 +724,19 @@ export default function HMRegistrationScreen() {
                 </View>
               </View>
             </View>
-            <TouchableOpacity style={styles.copyLinkBtn} onPress={copyInviteLink}>
-              <Text style={styles.copyLinkBtnText}>🔗 Copy Invite Link</Text>
-            </TouchableOpacity>
           </View>
 
-          {showInviteLink && inviteLink && (
-            <View style={styles.linkBanner}>
-              <Text style={styles.linkBannerText}>
-                <Text style={styles.linkBannerLabel}>Invite Link:</Text> {inviteLink}
-              </Text>
-            </View>
-          )}
+          <View style={styles.publicBanner}>
+            <Text style={styles.publicBannerText}>
+              ✅ Public registration — School & Branch are locked by invite URL.
+            </Text>
+          </View>
 
           <View style={styles.formBody}>
             {activeStep === 0 && (
               <BranchStep form={form} onChange={handleChange} errors={fieldErrors} />
             )}
+
             {activeStep === 1 && (
               <HMDetailsStep
                 form={form}
@@ -843,6 +754,7 @@ export default function HMRegistrationScreen() {
                 onVerifyOtp={verifyOtp}
               />
             )}
+
             {activeStep === 2 && (
               <ClassesStep
                 classes={classes}
@@ -850,16 +762,22 @@ export default function HMRegistrationScreen() {
                 onAddClass={addClass}
                 onRemoveClass={removeClass}
                 onAddSection={addSection}
-                onRemoveSection={removeSection}
+                onRemoveSection={() => {}}
                 onUpdateSection={updateSection}
                 errors={classSectionErrors}
                 fieldErrors={fieldErrors}
               />
             )}
 
+            <View style={styles.hintBox}>
+              <Text style={styles.hintText}>
+                ℹ️ HM can login using: School Code + (Email or Employee ID) + Password
+              </Text>
+            </View>
+
             <View style={styles.formFooter}>
               {activeStep === 0 ? (
-                <AppButton title="Cancel" onPress={handleCancel} type="secondary" />
+                <View />
               ) : (
                 <AppButton title="← Back" onPress={handleBack} type="secondary" />
               )}
@@ -867,26 +785,20 @@ export default function HMRegistrationScreen() {
                 <AppButton title="Next →" onPress={handleNext} />
               ) : (
                 <AppButton
-                  title={loading ? 'Registering...' : '✓ Register HM'}
+                  title={loading ? 'Registering...' : '✓ Register Headmaster'}
                   onPress={handleSubmit}
                   disabled={loading || !canSubmit}
                 />
               )}
             </View>
           </View>
-
-          <View style={styles.hintBox}>
-            <Text style={styles.hintText}>
-              ℹ️ HM can login using: School Code + Employee ID or Email + Password
-            </Text>
-          </View>
         </AppCard>
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>🏫 School Code: {schoolCode || '—'}</Text>
-          <Text style={styles.footerText}>🏢 Branch ID: {safeTrim(form.branch_id) || '—'}</Text>
-          <Text style={styles.footerText}>👑 Role: Principal</Text>
+          <Text style={styles.footerText}>🏫 School: {schoolCode || '—'}</Text>
+          <Text style={styles.footerText}>🏢 Branch: {safeTrim(form.branch_id) || '—'}</Text>
+          <Text style={styles.footerText}>🌐 Mode: Public Invite</Text>
         </View>
       </ScrollView>
     </View>
@@ -902,16 +814,34 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#dc2626',
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
   header: {
     marginBottom: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '800',
     color: '#0f172a',
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748b',
     marginTop: 4,
   },
@@ -963,13 +893,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 16,
     backgroundColor: '#2563eb',
-    flexWrap: 'wrap',
-    gap: 12,
   },
   cardTitle: {
     fontSize: 16,
@@ -979,12 +904,12 @@ const styles = StyleSheet.create({
   cardBadges: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 6,
+    marginTop: 8,
   },
   cardBadge: {
     backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 4,
     borderRadius: 6,
   },
   cardBadgeText: {
@@ -992,29 +917,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-  copyLinkBtn: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  copyLinkBtnText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  linkBanner: {
-    backgroundColor: '#fffbeb',
+  publicBanner: {
+    backgroundColor: '#ecfdf5',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#fde68a',
+    borderBottomColor: '#a7f3d0',
   },
-  linkBannerText: {
+  publicBannerText: {
     fontSize: 12,
-    color: '#92400e',
-  },
-  linkBannerLabel: {
-    fontWeight: 'bold',
+    color: '#166534',
+    fontWeight: '600',
   },
   formBody: {
     padding: 20,
@@ -1153,40 +1065,16 @@ const styles = StyleSheet.create({
   classNameField: {
     flex: 1,
   },
-  removeClassBtn: {
-    padding: 6,
-    backgroundColor: '#fee2e2',
-    borderRadius: 8,
-  },
-  removeClassBtnText: {
-    fontSize: 14,
-  },
   sectionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
     marginBottom: 12,
   },
   sectionInput: {
-    flex: 1,
     borderWidth: 1.5,
     borderColor: '#e4e9f2',
     borderRadius: 10,
     padding: 10,
     fontSize: 14,
     backgroundColor: '#fff',
-  },
-  removeSectionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#fee2e2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  removeSectionBtnText: {
-    fontSize: 14,
-    color: '#dc2626',
   },
   addSectionBtn: {
     paddingVertical: 8,
@@ -1209,19 +1097,12 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderRadius: 14,
     alignItems: 'center',
+    marginBottom: 16,
   },
   addClassBtnText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#64748b',
-  },
-  formFooter: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#e4e9f2',
   },
   hintBox: {
     marginTop: 16,
@@ -1234,6 +1115,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#0369a1',
     textAlign: 'center',
+  },
+  formFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 20,
   },
   footer: {
     marginTop: 16,
