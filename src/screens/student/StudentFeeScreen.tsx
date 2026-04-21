@@ -184,7 +184,7 @@ export default function StudentFeeScreen() {
           </Text>
           {schoolCode && studentId && (
             <Text style={styles.infoText}>
-              {fees.length} record{s fees.length !== 1 ? 's' : ''} • {schoolCode} • ID: {studentId}
+              {fees.length} record{fees.length !== 1 ? 's' : ''} • {schoolCode} • ID: {studentId}
             </Text>
           )}
         </View>
@@ -245,7 +245,7 @@ export default function StudentFeeScreen() {
                     <Text style={[styles.tableCell, styles.colDue]}>
                       ₹{fee.due_amount.toFixed(2)}
                     </Text>
-                    <View style={[styles.tableCell, styles.colStatus]}>
+                    <View style={styles.colStatus}>
                       <StatusBadge status={fee.status} />
                     </View>
                     <Text style={[styles.tableCell, styles.colDueDate]}>

@@ -1,57 +1,61 @@
-import axios from 'axios';
-import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Your base URL is perfectly fine for production
-const API_BASE_URL = 'https://attendex-api.vshiftx.com/api';
+/* ================= BASE URL ================= */
+
+// 🔴 CHANGE THIS TO YOUR BACKEND
+const API_BASE = "http://10.0.2.2:8000/api"; 
+// Android emulator → 10.0.2.2
+// iOS → localhost
+// real device → your PC IP
+
+/* ================= AXIOS INSTANCE ================= */
 
 const API = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: API_BASE,
+  timeout: 60000,
 });
 
-export const setAuthToken = (token?: string | null) => {
+/* ================= REQUEST INTERCEPTOR ================= */
+
+API.interceptors.request.use(async (config) => {
+  config.headers = config.headers || {};
+
+  // Token
+  const token = await AsyncStorage.getItem("token");
   if (token) {
-    API.defaults.headers.common.Authorization = `Bearer ${token}`;
-    return;
+    config.headers.Authorization = `Bearer ${token}`;
   }
-  delete API.defaults.headers.common.Authorization;
-};
 
-/**
- * Request Interceptor
- * Automatically injects Auth and Tenant headers before the request leaves the app.
- */
-API.interceptors.request.use(
-  async (config) => {
-    try {
-      // Fetch stored session data
-      const token = await AsyncStorage.getItem('userToken');
-      const schoolCode = await AsyncStorage.getItem('schoolCode');
-      const branchId = await AsyncStorage.getItem('branchId');
+  // School Code
+  const schoolCode =
+    (await AsyncStorage.getItem("school_code")) ||
+    (await AsyncStorage.getItem("schoolCode"));
 
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
+  if (schoolCode) {
+    config.headers["X-School-Code"] = schoolCode;
+  }
 
-      // CRITICAL: Your backend needs these for schema isolation
-      if (schoolCode) {
-        config.headers['X-School-Code'] = schoolCode;
-      }
-      
-      if (branchId) {
-        config.headers['X-Branch-Id'] = branchId;
-      }
+  // Branch ID
+  const branchId =
+    (await AsyncStorage.getItem("branch_id")) ||
+    (await AsyncStorage.getItem("branchId"));
 
-      return config;
-    } catch (error) {
-      return Promise.reject(error);
-    }
-  },
-  (error) => Promise.reject(error)
+  if (branchId) {
+    config.headers["X-Branch-Id"] = branchId;
+  }
+
+  return config;
+});
+
+/* ================= RESPONSE ================= */
+
+API.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    console.log("API ERROR:", err?.response?.data || err.message);
+    return Promise.reject(err);
+  }
 );
 
 export default API;

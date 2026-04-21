@@ -16,7 +16,6 @@ export type AuthStackParamList = {
 };
 
 export type StudentStackParamList = {
-  StudentDashboard: undefined;
   StudentAttendance: undefined;
   StudentMarks: undefined;
   StudentFee: undefined;

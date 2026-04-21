@@ -1,45 +1,80 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState } from "react";
+import {
+  View,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+} from "react-native";
+import AppText from "@/components/common/AppText";
 
-import ScreenContainer from '../../components/ScreenContainer';
-import { colors } from '../../constants/theme';
-import { useAuth } from '../../context/AuthContext';
+const VisitorDashboardScreen: React.FC = () => {
+  const [visitors, setVisitors] = useState([
+    { id: 1, name: "Ravi", purpose: "Meeting", status: "pending" },
+    { id: 2, name: "Sneha", purpose: "Pickup", status: "checked_in" },
+  ]);
 
-export default function VisitorDashboardScreen() {
-  const { signOut } = useAuth();
+  const renderItem = ({ item }: any) => (
+    <View style={styles.card}>
+      <AppText style={styles.name}>{item.name}</AppText>
+      <AppText>{item.purpose}</AppText>
+      <AppText>Status: {item.status}</AppText>
+
+      {item.status === "pending" && (
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.approve}>
+            <AppText>Approve</AppText>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.reject}>
+            <AppText>Reject</AppText>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
 
   return (
-    <ScreenContainer>
-      <View style={styles.card}>
-        <Text style={styles.heading}>Visitor Dashboard</Text>
-        <Text style={styles.text}>Visitor passes, requests, and checkpoints go here.</Text>
-        <Text style={styles.link} onPress={() => void signOut()}>
-          Sign out
-        </Text>
-      </View>
-    </ScreenContainer>
+    <View style={styles.container}>
+      <AppText style={styles.title}>Visitor Dashboard</AppText>
+
+      <FlatList
+        data={visitors}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={renderItem}
+      />
+    </View>
   );
-}
+};
+
+export default VisitorDashboardScreen;
 
 const styles = StyleSheet.create({
+  container: { flex: 1, padding: 16 },
+  title: { fontSize: 22, fontWeight: "bold", marginBottom: 10 },
+
   card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: "#fff",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+
+  name: { fontWeight: "bold" },
+
+  actions: {
+    flexDirection: "row",
     gap: 10,
+    marginTop: 10,
   },
-  heading: {
-    color: colors.textPrimary,
-    fontWeight: '800',
-    fontSize: 20,
+
+  approve: {
+    backgroundColor: "#bbf7d0",
+    padding: 8,
+    borderRadius: 6,
   },
-  text: {
-    color: colors.textMuted,
-  },
-  link: {
-    color: colors.accent,
-    fontWeight: '700',
+
+  reject: {
+    backgroundColor: "#fecaca",
+    padding: 8,
+    borderRadius: 6,
   },
 });
