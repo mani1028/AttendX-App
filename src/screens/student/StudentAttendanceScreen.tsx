@@ -270,7 +270,7 @@ export default function StudentAttendanceScreen() {
               items.map((row) => (
                 <View key={row.attendance_id} style={styles.tableRow}>
                   <Text style={[styles.tableCell, styles.colDate]}>{row.attendance_date}</Text>
-                  <View style={[styles.colStatus, styles.statusWrap]}>
+                  <View style={[styles.tableCell, styles.colStatus]}>
                     <StatusBadge status={row.status || ''} />
                   </View>
                   <Text style={[styles.tableCell, styles.colClass]}>{row.class_name || '-'}</Text>
@@ -482,10 +482,6 @@ const styles = StyleSheet.create({
   },
   colStatus: {
     width: 100,
-  },
-  statusWrap: {
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   colClass: {
     width: 80,
