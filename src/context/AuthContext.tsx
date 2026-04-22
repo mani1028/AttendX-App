@@ -1,73 +1,72 @@
+// src/context/AuthContext.tsx
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getStoredRole, isAuthenticated } from '../utils/authSession';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import EventEmitter from '../utils/eventEmitter';
 
-import { AppRole } from '../constants/roles';
-import { setAuthToken } from '../services/api';
-
-type AuthSession = {
-  role: AppRole;
-  name: string;
-  token?: string;
-};
-
-type AuthContextType = {
-  isBootstrapping: boolean;
-  session: AuthSession | null;
-  signIn: (role: AppRole, name: string, token?: string) => Promise<void>;
-  signOut: () => Promise<void>;
-};
-
-const SESSION_KEY = '@attendx/session';
+interface AuthContextType {
+  userRole: string | null;
+  isLoading: boolean;
+  setIsLoading: (loading: boolean) => void;
+  refreshAuth: () => Promise<void>;
+  logout: () => Promise<void>;
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [isBootstrapping, setIsBootstrapping] = useState(true);
-  const [session, setSession] = useState<AuthSession | null>(null);
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const refreshAuth = async () => {
+    try {
+      const role = await getStoredRole();
+      setUserRole(role);
+    } catch (error) {
+      console.error('Refresh auth error:', error);
+      setUserRole(null);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        'userRole', 'role', 'token', 'user', 'school_code', 'branch_id'
+      ]);
+      setUserRole(null);
+      EventEmitter.emit('app-logout');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   useEffect(() => {
-    const loadSession = async () => {
-      try {
-        const raw = await AsyncStorage.getItem(SESSION_KEY);
-        if (raw) {
-          const saved = JSON.parse(raw) as AuthSession;
-          setSession(saved);
-          setAuthToken(saved.token);
-        }
-      } finally {
-        setIsBootstrapping(false);
-      }
+    refreshAuth();
+    
+    // Listen for auth changes
+    const handleAuthChange = () => {
+      refreshAuth();
     };
-
-    void loadSession();
+    
+    EventEmitter.on('auth-change', handleAuthChange);
+    
+    return () => {
+      EventEmitter.off('auth-change', handleAuthChange);
+    };
   }, []);
 
-  const value = useMemo<AuthContextType>(
-    () => ({
-      isBootstrapping,
-      session,
-      signIn: async (role, name, token) => {
-        const nextSession = { role, name, token };
-        setSession(nextSession);
-        setAuthToken(token);
-        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
-      },
-      signOut: async () => {
-        setSession(null);
-        setAuthToken(null);
-        await AsyncStorage.removeItem(SESSION_KEY);
-      },
-    }),
-    [isBootstrapping, session],
+  return (
+    <AuthContext.Provider value={{ userRole, isLoading, setIsLoading, refreshAuth, logout }}>
+      {children}
+    </AuthContext.Provider>
   );
+};
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+};

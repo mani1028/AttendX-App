@@ -1,9 +1,22 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 /* ================= BASE URL ================= */
 
-const API_BASE = 'https://attendex-api.vshiftx.com/api';
+const getBaseUrl = (): string => {
+  if (__DEV__) {
+    if (Platform.OS === 'android') {
+      return 'http://10.0.2.2:5000'; // Android emulator
+    } else if (Platform.OS === 'ios') {
+      return 'http://localhost:5000'; // iOS simulator
+    }
+    return 'http://localhost:5000'; // default
+  }
+  return 'https://attendex-api.vshiftx.com/api'; // Production URL
+};
+
+const API_BASE = getBaseUrl();
 
 let authToken: string | null = null;
 
@@ -15,7 +28,7 @@ export function setAuthToken(token?: string | null) {
 
 const API = axios.create({
   baseURL: API_BASE,
-  timeout: 60000,
+  timeout: 30000,
 });
 
 /* ================= REQUEST INTERCEPTOR ================= */

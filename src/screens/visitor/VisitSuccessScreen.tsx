@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-import React from "react";
-import { View, StyleSheet, TouchableOpacity } from "react-native";
-import AppText from '../../components/common/AppText';
-=======
 import React, { useEffect } from 'react';
 import {
   View,
@@ -16,7 +11,6 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
->>>>>>> 4aa598e46ea8373f23f520e5f18a1987be4526c9
 
 // Helper function to format visitor number
 const formatVisitorNo = (visitorNo: string): string => {

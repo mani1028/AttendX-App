@@ -5,10 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-<<<<<<< HEAD
-} from "react-native";
-import AppText from '../../components/common/AppText';
-=======
   RefreshControl,
   ActivityIndicator,
   Modal,
@@ -23,7 +19,6 @@ import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import QRCode from 'react-native-qrcode-svg';
->>>>>>> 4aa598e46ea8373f23f520e5f18a1987be4526c9
 
 // Types
 interface Visitor {

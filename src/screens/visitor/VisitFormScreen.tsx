@@ -7,10 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
-<<<<<<< HEAD
-} from "react-native";
-import AppText from '../../components/common/AppText';
-=======
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -20,7 +16,6 @@ import { visitorApi } from '../../services/visitorApi';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
->>>>>>> 4aa598e46ea8373f23f520e5f18a1987be4526c9
 import Loader from '../../components/common/Loader';
 
 // Types

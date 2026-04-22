@@ -1,19 +1,4 @@
-import React, { useState } from "react";
-import { View, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from "react-native";
-import AppText from "@/components/common/AppText";
-import API from "@/services/api";
-
-const TeacherRegistrationScreen = () => {
-  const [form, setForm] = useState({
-    teacher_full_name: "",
-    email_id: "",
-    mobile_number: "",
-    password: "",
-  });
-
-  const handleSubmit = async () => {
-    try {
-      await API.post("/teacher/register", form);import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -294,7 +279,7 @@ export default function TeacherRegisterPublicScreen() {
   };
 
   const openCamera = () => {
-    launchCamera({ mediaType: 'photo', quality: 0.9 }, (response) => {
+    launchCamera({ mediaType: 'photo', quality: 0.9 }, (response: any) => {
       if (response.assets && response.assets[0]) {
         const asset = response.assets[0];
         setPhotoFile(asset);
@@ -305,7 +290,7 @@ export default function TeacherRegisterPublicScreen() {
   };
 
   const openGallery = () => {
-    launchImageLibrary({ mediaType: 'photo', quality: 0.9 }, (response) => {
+    launchImageLibrary({ mediaType: 'photo', quality: 0.9 }, (response: any) => {
       if (response.assets && response.assets[0]) {
         const asset = response.assets[0];
         setPhotoFile(asset);
@@ -657,7 +642,7 @@ export default function TeacherRegisterPublicScreen() {
                     value={formData.date_of_birth ? new Date(formData.date_of_birth) : new Date()}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={(event, date) => {
+                    onChange={(_event: any, date?: Date) => {
                       if (date) handleChange('date_of_birth', date.toISOString().split('T')[0]);
                       setShowDOBPicker(false);
                     }}
@@ -993,7 +978,7 @@ export default function TeacherRegisterPublicScreen() {
                     value={formData.date_of_joining ? new Date(formData.date_of_joining) : new Date()}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={(event, date) => {
+                    onChange={(_event: any, date?: Date) => {
                       if (date) handleChange('date_of_joining', date.toISOString().split('T')[0]);
                       setShowJoiningPicker(false);
                     }}
@@ -1662,34 +1647,4 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     padding: 4,
   },
-});
-      Alert.alert("Success", "Teacher Registered");
-    } catch {
-      Alert.alert("Error", "Failed");
-    }
-  };
-
-  return (
-    <ScrollView style={styles.container}>
-      <AppText style={styles.title}>Teacher Registration</AppText>
-
-      <TextInput placeholder="Name" style={styles.input} onChangeText={(v) => setForm({ ...form, teacher_full_name: v })} />
-      <TextInput placeholder="Email" style={styles.input} onChangeText={(v) => setForm({ ...form, email_id: v })} />
-      <TextInput placeholder="Mobile" style={styles.input} onChangeText={(v) => setForm({ ...form, mobile_number: v })} />
-      <TextInput placeholder="Password" secureTextEntry style={styles.input} onChangeText={(v) => setForm({ ...form, password: v })} />
-
-      <TouchableOpacity style={styles.btn} onPress={handleSubmit}>
-        <AppText style={{ color: "#fff" }}>Register</AppText>
-      </TouchableOpacity>
-    </ScrollView>
-  );
-};
-
-export default TeacherRegistrationScreen;
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  title: { fontSize: 22, marginBottom: 20, fontWeight: "bold" },
-  input: { borderWidth: 1, padding: 10, marginBottom: 10, borderRadius: 8 },
-  btn: { backgroundColor: "#2563eb", padding: 12, borderRadius: 8, alignItems: "center" },
 });
