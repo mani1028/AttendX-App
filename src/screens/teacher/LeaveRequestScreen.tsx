@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,22 @@ const getTeacherId = async (): Promise<string> => {
   return id || (await AsyncStorage.getItem('teacherId')) || 
          (await AsyncStorage.getItem('employee_id')) || 
          (await AsyncStorage.getItem('employeeId')) || '';
+};
+
+const getTodayDate = (): string => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const isValidYear = (dateString: string): boolean => {
+  if (!dateString) return true;
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return false;
+  const year = date.getFullYear();
+  return year >= 1000 && year <= new Date().getFullYear();
 };
 
 // Status Badge Component
@@ -108,6 +124,7 @@ export default function LeaveRequestScreen() {
   const [teacherId, setTeacherId] = useState<string>('');
   
   // Form fields
+  const [leaveType, setLeaveType] = useState<'one-day' | 'multiple'>('one-day');
   const [fromDate, setFromDate] = useState<Date | null>(null);
   const [toDate, setToDate] = useState<Date | null>(null);
   const [reason, setReason] = useState<string>('');
@@ -117,12 +134,12 @@ export default function LeaveRequestScreen() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [history, setHistory] = useState<LeaveRequest[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
-  const [msg, setMsg] = useState<string>('');
-  const [error, setError] = useState<string>('');
   
   // Date picker states
   const [showFromDatePicker, setShowFromDatePicker] = useState<boolean>(false);
   const [showToDatePicker, setShowToDatePicker] = useState<boolean>(false);
+
+  const minDate = getTodayDate();
 
   // Load credentials
   useEffect(() => {
@@ -141,6 +158,18 @@ export default function LeaveRequestScreen() {
       loadHistory();
     }
   }, [schoolCode, teacherId]);
+
+  // Check for duplicate leave requests (exact same date range)
+  const hasDuplicateLeave = (newFromDate: string, newToDate: string): boolean => {
+    return history.some((leave) => {
+      // Only check against PENDING and APPROVED requests
+      const status = (leave.status || '').toUpperCase();
+      if (status === 'REJECTED') return false;
+      
+      // Only reject if exact same from_date AND to_date
+      return leave.from_date === newFromDate && leave.to_date === newToDate;
+    });
+  };
 
   const loadHistory = async () => {
     if (!schoolCode || !teacherId) return;
@@ -180,35 +209,56 @@ export default function LeaveRequestScreen() {
 
   const handleSubmit = async () => {
     if (!fromDate) {
-      Alert.alert('Error', 'Please select from date');
+      Alert.alert('Error', 'Please select a leave date');
       return;
     }
 
-    if (!toDate) {
-      Alert.alert('Error', 'Please select to date');
+    // For one-day leave, toDate is same as fromDate
+    const finalToDate = leaveType === 'one-day' ? fromDate : toDate;
+
+    if (!finalToDate) {
+      Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
-    if (toDate < fromDate) {
+    if (leaveType === 'multiple' && toDate && toDate < fromDate) {
       Alert.alert('Error', 'To date must be after from date');
       return;
     }
 
+    // Validate year for both dates
+    if (!isValidYear(formatDate(fromDate))) {
+      Alert.alert('Error', 'Invalid year in From Date. Please use a valid year (e.g., 1991, 1823, 2026)');
+      return;
+    }
+
+    if (!isValidYear(formatDate(finalToDate))) {
+      Alert.alert('Error', 'Invalid year in To Date. Please use a valid year (e.g., 1991, 1823, 2026)');
+      return;
+    }
+
+    // Check for duplicate leave requests (exact same dates)
+    if (hasDuplicateLeave(formatDate(fromDate), formatDate(finalToDate))) {
+      Alert.alert(
+        'Duplicate Request',
+        'You already have a leave request for the exact same dates. Please choose different dates.'
+      );
+      return;
+    }
+
     if (!reason.trim()) {
-      Alert.alert('Error', 'Please provide a reason for leave');
+      Alert.alert('Error', 'Please provide a reason for your leave');
       return;
     }
 
     setSubmitting(true);
-    setMsg('');
-    setError('');
 
     try {
       await API.post('/manage/teacher/leave-requests/submit', {
         school_code: schoolCode,
         teacher_id: teacherId,
         from_date: formatDate(fromDate),
-        to_date: formatDate(toDate),
+        to_date: formatDate(finalToDate),
         reason: reason.trim(),
       });
 
@@ -218,6 +268,7 @@ export default function LeaveRequestScreen() {
       setFromDate(null);
       setToDate(null);
       setReason('');
+      setLeaveType('one-day');
       await loadHistory();
     } catch (error: any) {
       const errorMsg = error?.response?.data?.detail || 'Failed to submit leave request';
@@ -268,12 +319,39 @@ export default function LeaveRequestScreen() {
           <AppCard style={styles.formCard}>
             <Text style={styles.cardTitle}>Apply for Leave</Text>
             <View style={styles.formBody}>
+              {/* Leave Type Selection */}
+              <View style={styles.field}>
+                <Text style={styles.label}>Leave Type</Text>
+                <View style={styles.radioGroup}>
+                  <TouchableOpacity
+                    style={[styles.radioOption, leaveType === 'one-day' && styles.radioOptionActive]}
+                    onPress={() => setLeaveType('one-day')}
+                  >
+                    <View style={[styles.radioCircle, leaveType === 'one-day' && styles.radioCircleActive]} />
+                    <Text style={[styles.radioText, leaveType === 'one-day' && styles.radioTextActive]}>
+                      One Day
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.radioOption, leaveType === 'multiple' && styles.radioOptionActive]}
+                    onPress={() => setLeaveType('multiple')}
+                  >
+                    <View style={[styles.radioCircle, leaveType === 'multiple' && styles.radioCircleActive]} />
+                    <Text style={[styles.radioText, leaveType === 'multiple' && styles.radioTextActive]}>
+                      Multiple Days
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
               {/* From Date */}
               <View style={styles.field}>
-                <Text style={styles.label}>From Date</Text>
+                <Text style={styles.label}>
+                  {leaveType === 'one-day' ? 'Leave Date' : 'From Date'}
+                </Text>
                 <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowFromDatePicker(true)}>
                   <Text style={styles.datePickerText}>
-                    {fromDate ? formatDate(fromDate) : 'Select from date'}
+                    {fromDate ? formatDate(fromDate) : 'Select date'}
                   </Text>
                   <Text style={styles.calendarIcon}>📅</Text>
                 </TouchableOpacity>
@@ -283,30 +361,32 @@ export default function LeaveRequestScreen() {
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     onChange={onFromDateChange}
-                    minimumDate={new Date()}
+                    minimumDate={new Date(minDate)}
                   />
                 )}
               </View>
 
-              {/* To Date */}
-              <View style={styles.field}>
-                <Text style={styles.label}>To Date</Text>
-                <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowToDatePicker(true)}>
-                  <Text style={styles.datePickerText}>
-                    {toDate ? formatDate(toDate) : 'Select to date'}
-                  </Text>
-                  <Text style={styles.calendarIcon}>📅</Text>
-                </TouchableOpacity>
-                {showToDatePicker && (
-                  <DateTimePicker
-                    value={toDate || new Date()}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={onToDateChange}
-                    minimumDate={fromDate || new Date()}
-                  />
-                )}
-              </View>
+              {/* To Date (only for multiple days) */}
+              {leaveType === 'multiple' && (
+                <View style={styles.field}>
+                  <Text style={styles.label}>To Date</Text>
+                  <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowToDatePicker(true)}>
+                    <Text style={styles.datePickerText}>
+                      {toDate ? formatDate(toDate) : 'Select date'}
+                    </Text>
+                    <Text style={styles.calendarIcon}>📅</Text>
+                  </TouchableOpacity>
+                  {showToDatePicker && (
+                    <DateTimePicker
+                      value={toDate || new Date()}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={onToDateChange}
+                      minimumDate={fromDate || new Date(minDate)}
+                    />
+                  )}
+                </View>
+              )}
 
               {/* Reason */}
               <View style={styles.field}>
@@ -412,6 +492,34 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textTransform: 'uppercase',
     marginBottom: 8,
+  },
+  radioGroup: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  radioOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#94a3b8',
+  },
+  radioCircleActive: {
+    borderColor: '#2563eb',
+    backgroundColor: '#2563eb',
+  },
+  radioText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  radioTextActive: {
+    color: '#2563eb',
   },
   datePickerBtn: {
     flexDirection: 'row',

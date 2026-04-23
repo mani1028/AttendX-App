@@ -1,20 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
   RefreshControl,
+  ActivityIndicator,
+  TextInput,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from 'react-native-vector-icons/Feather';
-import API from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import AvatarBubble from '../../components/common/AvatarBubble';
-import AppText from '../../components/common/AppText';
-import { colors } from '../../constants/theme';
+import API from '../../services/api';
+import { colors } from '../../constants/colors';
+import AppButton from '../../components/common/AppButton';
+import AppCard from '../../components/common/AppCard';
+import Loader from '../../components/common/Loader';
 
 // Types
 interface AttendanceRecord {
@@ -51,14 +53,14 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const getBadgeStyle = () => {
     const upperStatus = status?.toUpperCase() || '';
     if (upperStatus === 'PRESENT') return styles.badgePresent;
-    if (upperStatus === 'LATE') return styles.badgeLate;
+    if (upperStatus === 'LATE' || upperStatus === 'HALF_DAY') return styles.badgeLate;
     return styles.badgeAbsent;
   };
 
   const getTextStyle = () => {
     const upperStatus = status?.toUpperCase() || '';
     if (upperStatus === 'PRESENT') return styles.badgeTextPresent;
-    if (upperStatus === 'LATE') return styles.badgeTextLate;
+    if (upperStatus === 'LATE' || upperStatus === 'HALF_DAY') return styles.badgeTextLate;
     return styles.badgeTextAbsent;
   };
 
@@ -70,7 +72,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 
   return (
     <View style={[styles.badge, getBadgeStyle()]}>
-      <AppText style={[styles.badgeText, getTextStyle()]}>{getDisplayText()}</AppText>
+      <Text style={[styles.badgeText, getTextStyle()]}>{getDisplayText()}</Text>
     </View>
   );
 };
@@ -78,12 +80,12 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 // Stat Card Component
 const StatCard: React.FC<{ label: string; value: string | number }> = ({ label, value }) => (
   <View style={styles.statCard}>
-    <AppText style={styles.statLabel}>{label}</AppText>
-    <AppText style={styles.statValue}>{value}</AppText>
+    <Text style={styles.statLabel}>{label}</Text>
+    <Text style={styles.statValue}>{value}</Text>
   </View>
 );
 
-export default function StudentAttendanceScreen({ navigation }: any) {
+export default function StudentAttendanceScreen() {
   const { userName } = useAuth();
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [studentId, setStudentId] = useState<string>('');
@@ -117,7 +119,7 @@ export default function StudentAttendanceScreen({ navigation }: any) {
     if (schoolCode && studentId) {
       fetchAttendance();
     }
-  }, [schoolCode, studentId]);
+  }, [schoolCode, studentId, month, year]);
 
   const fetchAttendance = async (showLoading = true) => {
     if (!schoolCode || !studentId) return;
@@ -157,10 +159,6 @@ export default function StudentAttendanceScreen({ navigation }: any) {
     setRefreshing(false);
   };
 
-  const handleApplyFilters = () => {
-    fetchAttendance();
-  };
-
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Morning';
@@ -170,140 +168,173 @@ export default function StudentAttendanceScreen({ navigation }: any) {
 
   // Generate month options (1-12)
   const monthOptions = [
-    { label: 'All', value: '' },
+    { label: 'All Months', value: '' },
     ...Array.from({ length: 12 }, (_, i) => ({
       label: `${i + 1}`,
       value: `${i + 1}`,
     })),
   ];
 
+  // Year options (last 5 years to next 5 years)
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 11 }, (_, i) => ({
+    label: String(currentYear - 5 + i),
+    value: String(currentYear - 5 + i),
+  }));
+
   return (
     <ScrollView
       style={styles.container}
+      contentContainerStyle={styles.contentContainer}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
       }
     >
-      <View style={styles.content}>
-        {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <View>
-            <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Student'}!</AppText>
-            <AppText style={styles.welcomeSub}>Track your attendance and academic progress.</AppText>
-          </View>
-          <View style={styles.dateBadge}>
-            <Icon name="calendar" size={12} color={colors.textMuted} />
-            <AppText style={styles.dateText}>
-              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </AppText>
-          </View>
+      {/* Welcome Section */}
+      <View style={styles.welcomeSection}>
+        <View>
+          <Text style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Student'}!</Text>
+          <Text style={styles.welcomeSub}>Track your attendance and academic progress.</Text>
         </View>
-
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <AppText style={styles.title}>Attendance Summary</AppText>
-            <AppText style={styles.subText}>{items.length} records found</AppText>
-          </View>
-          <TouchableOpacity style={styles.refreshBtn} onPress={() => fetchAttendance()}>
-            <Icon name="refresh-cw" size={16} color={colors.textPrimary} />
-          </TouchableOpacity>
+        <View style={styles.dateBadge}>
+          <Text style={styles.dateBadgeIcon}>📅</Text>
+          <Text style={styles.dateText}>
+            {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </Text>
         </View>
+      </View>
 
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <StatCard label="Total" value={summary.total_days} />
-          <StatCard label="Present" value={summary.present_days} />
-          <StatCard
-            label="Half Day"
-            value={summary.half_day_count || summary.late_days || 0}
-          />
-          <StatCard label="Absent" value={summary.absent_days} />
-          <StatCard label="Attendance %" value={`${summary.attendance_percentage}%`} />
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>📊 Attendance</Text>
+          <Text style={styles.subText}>{items.length} records found</Text>
         </View>
+        <TouchableOpacity style={styles.refreshBtn} onPress={() => fetchAttendance()}>
+          <Text style={styles.refreshBtnText}>🔄</Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Filters Card */}
-        <View style={styles.card}>
-          <View style={styles.filterRow}>
-            <View style={styles.pickerWrapper}>
-              <AppText style={styles.pickerLabel}>Select Month</AppText>
-              <View style={styles.pickerContainer}>
+      {/* Stats Grid - 5 cards as in web version */}
+      <View style={styles.statsGrid}>
+        <StatCard label="Total Days" value={summary.total_days} />
+        <StatCard label="Present" value={summary.present_days} />
+        <StatCard label="Half Day" value={summary.half_day_count || summary.late_days || 0} />
+        <StatCard label="Absent" value={summary.absent_days} />
+        <StatCard label="Attendance %" value={`${summary.attendance_percentage}%`} />
+      </View>
+
+      {/* Filters Card */}
+      <AppCard style={styles.filterCard}>
+        <View style={styles.filterRow}>
+          {/* Month Picker */}
+          <View style={styles.filterField}>
+            <Text style={styles.filterLabel}>Month</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.chipContainer}>
                 {monthOptions.map((option) => (
                   <TouchableOpacity
                     key={option.value || 'all'}
                     style={[
-                      styles.monthOption,
-                      month === option.value && styles.monthOptionActive,
+                      styles.filterChip,
+                      month === option.value && styles.filterChipActive,
                     ]}
                     onPress={() => setMonth(option.value)}
                   >
-                    <AppText
+                    <Text
                       style={[
-                        styles.monthOptionText,
-                        month === option.value && styles.monthOptionTextActive,
+                        styles.filterChipText,
+                        month === option.value && styles.filterChipTextActive,
                       ]}
                     >
                       {option.label}
-                    </AppText>
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
-            </View>
-
-            <View style={styles.inputWrapper}>
-              <AppText style={styles.inputLabel}>Year</AppText>
-              <TextInput
-                style={styles.input}
-                placeholder="Year"
-                placeholderTextColor={colors.textMuted}
-                value={year}
-                onChangeText={setYear}
-                keyboardType="numeric"
-              />
-            </View>
-
-            <TouchableOpacity style={styles.applyBtn} onPress={handleApplyFilters}>
-              <AppText style={styles.applyBtnText}>Apply Filters</AppText>
-            </TouchableOpacity>
+            </ScrollView>
           </View>
 
-          {/* Attendance Table */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View>
-              {/* Table Header */}
-              <View style={styles.tableHeader}>
-                <AppText style={[styles.tableHeaderText, styles.colDate]}>Date</AppText>
-                <AppText style={[styles.tableHeaderText, styles.colStatus]}>Status</AppText>
-                <AppText style={[styles.tableHeaderText, styles.colClass]}>Class</AppText>
-                <AppText style={[styles.tableHeaderText, styles.colSection]}>Section</AppText>
-                <AppText style={[styles.tableHeaderText, styles.colMarkedBy]}>Marked By</AppText>
+          {/* Year Picker - Changed to chips for better UX */}
+          <View style={styles.filterField}>
+            <Text style={styles.filterLabel}>Year</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.chipContainer}>
+                {yearOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.filterChip,
+                      year === option.value && styles.filterChipActive,
+                    ]}
+                    onPress={() => setYear(option.value)}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        year === option.value && styles.filterChipTextActive,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
+            </ScrollView>
+          </View>
 
-              {/* Table Body */}
-              {loading ? (
-                <View style={styles.loaderContainer}>
-                  <ActivityIndicator size="large" color="#6366f1" />
-                </View>
-              ) : items.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <AppText style={styles.emptyText}>No records found</AppText>
-                </View>
-              ) : (
-                items.map((row) => (
-                  <View key={row.attendance_id} style={styles.tableRow}>
-                    <AppText style={[styles.tableCell, styles.colDate]}>{row.attendance_date}</AppText>
-                    <View style={styles.colStatus}>
-                      <StatusBadge status={row.status || ''} />
-                    </View>
-                    <AppText style={[styles.tableCell, styles.colClass]}>{row.class_name || '-'}</AppText>
-                    <AppText style={[styles.tableCell, styles.colSection]}>{row.section_name || '-'}</AppText>
-                    <AppText style={[styles.tableCell, styles.colMarkedBy]}>{row.marked_by || '-'}</AppText>
-                  </View>
-                ))
-              )}
-            </View>
-          </ScrollView>
+          {/* Apply Button */}
+          <TouchableOpacity style={styles.applyBtn} onPress={() => fetchAttendance()}>
+            <Text style={styles.applyBtnText}>🔄 Apply Filters</Text>
+          </TouchableOpacity>
         </View>
+      </AppCard>
+
+      {/* Attendance Table */}
+      <AppCard style={styles.tableCard}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View>
+            {/* Table Header */}
+            <View style={styles.tableHeader}>
+              <Text style={[styles.tableHeaderText, styles.colDate]}>Date</Text>
+              <Text style={[styles.tableHeaderText, styles.colStatus]}>Status</Text>
+              <Text style={[styles.tableHeaderText, styles.colClass]}>Class</Text>
+              <Text style={[styles.tableHeaderText, styles.colSection]}>Section</Text>
+              <Text style={[styles.tableHeaderText, styles.colMarkedBy]}>Marked By</Text>
+            </View>
+
+            {/* Table Body */}
+            {loading ? (
+              <View style={styles.loaderContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : items.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyIcon}>📋</Text>
+                <Text style={styles.emptyTitle}>No records found</Text>
+                <Text style={styles.emptyText}>No attendance records available for selected filters</Text>
+              </View>
+            ) : (
+              items.map((row) => (
+                <View key={row.attendance_id} style={styles.tableRow}>
+                  <Text style={[styles.tableCell, styles.colDate]}>{row.attendance_date}</Text>
+                  <View style={[styles.tableCell, styles.colStatus]}>
+                    <StatusBadge status={row.status || ''} />
+                  </View>
+                  <Text style={[styles.tableCell, styles.colClass]}>{row.class_name || '-'}</Text>
+                  <Text style={[styles.tableCell, styles.colSection]}>{row.section_name || '-'}</Text>
+                  <Text style={[styles.tableCell, styles.colMarkedBy]}>{row.marked_by || '-'}</Text>
+                </View>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      </AppCard>
+
+      {/* Footer Info */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>👨‍🎓 Student ID: {studentId || '—'}</Text>
+        <Text style={styles.footerText}>🏫 School: {schoolCode || '—'}</Text>
       </View>
     </ScrollView>
   );
@@ -312,42 +343,46 @@ export default function StudentAttendanceScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: '#f3f6fb',
   },
-  content: {
+  contentContainer: {
     padding: 16,
+    paddingBottom: 40,
   },
   welcomeSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   welcomeTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: '#0f172a',
   },
   welcomeSub: {
     fontSize: 13,
-    color: colors.textMuted,
+    color: '#64748b',
     marginTop: 2,
   },
   dateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.surface,
+    backgroundColor: '#ffffff',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#e2e8f0',
+  },
+  dateBadgeIcon: {
+    fontSize: 12,
   },
   dateText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#0f172a',
   },
   header: {
     flexDirection: 'row',
@@ -358,147 +393,133 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: '#0f172a',
   },
   subText: {
-    color: colors.textMuted,
+    color: '#64748b',
     fontSize: 13,
   },
   refreshBtn: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#ffffff',
     padding: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#e2e8f0',
+  },
+  refreshBtnText: {
+    fontSize: 16,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
     marginBottom: 20,
   },
   statCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#e7edf5',
     borderRadius: 16,
-    padding: 12,
-    flex: 1,
-    minWidth: '30%',
+    padding: 14,
+    width: '18%',
+    minWidth: 90,
     alignItems: 'center',
+    marginBottom: 8,
   },
   statLabel: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 4,
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 6,
   },
   statValue: {
-    color: colors.textPrimary,
-    fontSize: 18,
+    color: '#0f172a',
+    fontSize: 20,
     fontWeight: '800',
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    overflow: 'hidden',
+  filterCard: {
+    padding: 16,
+    marginBottom: 16,
   },
   filterRow: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    marginBottom: 0,
   },
-  pickerWrapper: {
+  filterField: {
     marginBottom: 16,
   },
-  pickerLabel: {
+  filterLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
+    fontWeight: '700',
+    color: '#64748b',
     marginBottom: 8,
+    textTransform: 'uppercase',
   },
-  pickerContainer: {
+  chipContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
   },
-  monthOption: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: colors.bg,
+  filterChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#e2e8f0',
   },
-  monthOptionActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+  filterChipActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
   },
-  monthOptionText: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  monthOptionTextActive: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  inputWrapper: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-    marginBottom: 8,
-  },
-  input: {
-    height: 44,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bg,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+  filterChipText: {
     fontSize: 14,
-    color: colors.textPrimary,
+    color: '#475569',
+  },
+  filterChipTextActive: {
+    color: '#ffffff',
   },
   applyBtn: {
-    backgroundColor: colors.accent,
+    backgroundColor: '#2563eb',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
+    marginTop: 8,
   },
   applyBtnText: {
     color: '#ffffff',
     fontWeight: '700',
     fontSize: 14,
   },
+  tableCard: {
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: colors.bg,
+    backgroundColor: '#f8fafc',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#e2e8f0',
   },
   tableHeaderText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.textMuted,
+    color: '#94a3b8',
     textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   tableRow: {
     flexDirection: 'row',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#e2e8f0',
     alignItems: 'center',
   },
   tableCell: {
     fontSize: 13,
-    color: colors.textPrimary,
+    color: '#0f172a',
   },
   colDate: { width: 90 },
   colStatus: { width: 90 },
@@ -507,18 +528,65 @@ const styles = StyleSheet.create({
   colMarkedBy: { width: 110 },
   badge: {
     paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    borderRadius: 12,
     alignSelf: 'flex-start',
   },
-  badgePresent: { backgroundColor: 'rgba(21, 128, 61, 0.15)' },
-  badgeLate: { backgroundColor: 'rgba(180, 83, 9, 0.15)' },
-  badgeAbsent: { backgroundColor: 'rgba(185, 28, 28, 0.15)' },
-  badgeText: { fontSize: 11, fontWeight: '700' },
-  badgeTextPresent: { color: '#22c55e' },
-  badgeTextLate: { color: '#f59e0b' },
-  badgeTextAbsent: { color: '#ef4444' },
-  loaderContainer: { padding: 40, alignItems: 'center' },
-  emptyContainer: { padding: 40, alignItems: 'center' },
-  emptyText: { color: colors.textMuted, fontWeight: '500' },
+  badgePresent: {
+    backgroundColor: '#dcfce7',
+  },
+  badgeLate: {
+    backgroundColor: '#fef3c7',
+  },
+  badgeAbsent: {
+    backgroundColor: '#fee2e2',
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  badgeTextPresent: {
+    color: '#15803d',
+  },
+  badgeTextLate: {
+    color: '#b45309',
+  },
+  badgeTextAbsent: {
+    color: '#b91c1c',
+  },
+  loaderContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    padding: 48,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+    opacity: 0.5,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0f172a',
+    marginBottom: 4,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center',
+  },
+  footer: {
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    paddingHorizontal: 4,
+  },
+  footerText: {
+    fontSize: 11,
+    color: '#94a3b8',
+  },
 });

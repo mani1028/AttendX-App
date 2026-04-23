@@ -10,7 +10,6 @@ import {
   Modal,
   Image,
   ActivityIndicator,
-  Switch,
   Platform,
 } from 'react-native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
@@ -143,6 +142,38 @@ const calcAgeFromDOB = (dob: string): string => {
 
 const todayISO = (): string => new Date().toISOString().split('T')[0];
 
+// NEW: Validate Date of Birth (must be > 1 year old and valid year)
+const isValidDateOfBirth = (dobString: string): { valid: boolean; error: string | null } => {
+  if (!dobString) return { valid: true, error: null };
+  
+  const dob = new Date(dobString);
+  if (isNaN(dob.getTime())) {
+    return { valid: false, error: "Invalid date format" };
+  }
+  
+  const year = dob.getFullYear();
+  
+  // Validate year - reject years with leading zeros or invalid years
+  if (year < 1000 || year > new Date().getFullYear()) {
+    return { 
+      valid: false, 
+      error: `Invalid year ${year}. Please use a valid year (e.g., 1991, 2024)` 
+    };
+  }
+  
+  const today = new Date();
+  const oneYearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+  
+  if (dob > oneYearAgo) {
+    return { 
+      valid: false, 
+      error: "Date of Birth must be more than 1 year old" 
+    };
+  }
+  
+  return { valid: true, error: null };
+};
+
 const STEPS = ['Basic Info', 'Academics', 'Parent & Address', 'Health & Transport', 'Photo', 'Preview'];
 
 const INITIAL_FORM: FormData = {
@@ -265,6 +296,10 @@ export default function StudentRegistrationScreen() {
   const [showRollNumberModal, setShowRollNumberModal] = useState<boolean>(false);
   const [generatedRollNumber, setGeneratedRollNumber] = useState<string>('');
   
+  // NEW: Show/hide password states
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
+  
   // Date pickers
   const [showDOBPicker, setShowDOBPicker] = useState<boolean>(false);
   const [showAdmissionDatePicker, setShowAdmissionDatePicker] = useState<boolean>(false);
@@ -352,8 +387,56 @@ export default function StudentRegistrationScreen() {
     });
   };
 
+  // NEW: Academic Year formatting (YYYY-YY)
+  const handleAcademicYearChange = (text: string) => {
+    // Remove any non-digit and non-hyphen characters
+    let value = text.replace(/[^0-9-]/g, '');
+    
+    // Limit to format YYYY-YY (7 characters max)
+    if (value.length > 7) {
+      value = value.slice(0, 7);
+    }
+    
+    // Auto-insert hyphen after 4 digits
+    if (value.length === 5 && !value.includes('-')) {
+      value = value.slice(0, 4) + '-' + value.slice(4);
+    }
+    
+    // Prevent hyphen in wrong position
+    if (value.length === 5 && value[4] !== '-') {
+      value = value.slice(0, 4) + '-' + value.slice(4);
+    }
+    
+    if (fieldErrors.academic_year) {
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.academic_year;
+        return newErrors;
+      });
+    }
+    
+    handleChange('academic_year', value);
+  };
+
+  // NEW: Section input - capital letters only
+  const handleSectionChange = (text: string) => {
+    // Allow only capital letters (A-Z)
+    const capitalOnly = text.replace(/[^A-Z]/g, '');
+    handleChange('section', capitalOnly);
+  };
+
+  // Updated DOB change with validation
   const handleDOBChange = (date: Date) => {
     const dob = date.toISOString().split('T')[0];
+    
+    // Validate DOB is more than 1 year old
+    const dobValidation = isValidDateOfBirth(dob);
+    if (!dobValidation.valid) {
+      setFieldErrors(prev => ({ ...prev, date_of_birth: dobValidation.error! }));
+      setShowDOBPicker(false);
+      return;
+    }
+    
     if (fieldErrors.date_of_birth) {
       setFieldErrors(prev => {
         const newErrors = { ...prev };
@@ -426,15 +509,6 @@ export default function StudentRegistrationScreen() {
       
       if (!form.date_of_birth) {
         errors.date_of_birth = 'Date of birth is required';
-      } else {
-        const dob = new Date(form.date_of_birth);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (isNaN(dob.getTime())) {
-          errors.date_of_birth = 'Invalid date of birth';
-        } else if (dob > today) {
-          errors.date_of_birth = 'Date of birth cannot be in the future';
-        }
       }
       
       if (!safeTrim(form.nationality)) errors.nationality = 'Nationality is required';
@@ -451,6 +525,9 @@ export default function StudentRegistrationScreen() {
       if (!safeTrim(form.section)) errors.section = 'Section is required';
       if (!safeTrim(form.admission_number)) errors.admission_number = 'Admission number is required';
       if (!safeTrim(form.academic_year)) errors.academic_year = 'Academic year is required';
+      if (form.academic_year && !(/^\d{4}-\d{2}$/.test(form.academic_year))) {
+        errors.academic_year = 'Academic year must be in YYYY-YY format (e.g., 2024-25)';
+      }
     }
 
     if (step === 2) {
@@ -518,6 +595,21 @@ export default function StudentRegistrationScreen() {
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+  };
+
+  const copyRegistrationLink = async () => {
+    const origin = Platform.OS === 'ios' ? 'attendx://' : 'attendx://';
+    const sc = safeTrim(loggedSchoolCode);
+    const bid = safeTrim(defaultBranchId);
+    if (!sc || !bid) {
+      Alert.alert('Error', 'School code / Branch ID missing');
+      return;
+    }
+    const link = `${origin}student-registration?school_code=${encodeURIComponent(sc)}&branch_id=${encodeURIComponent(bid)}`;
+    Alert.alert('Registration Link', link, [
+      { text: 'Copy', onPress: () => Alert.alert('Copied', 'Link copied to clipboard') },
+      { text: 'OK' },
+    ]);
   };
 
   const submit = async () => {
@@ -627,6 +719,11 @@ export default function StudentRegistrationScreen() {
             {step === totalSteps - 1 ? 'Preview & Confirm' : `Step ${step + 1} of ${totalSteps} — ${STEPS[step]}`}
           </Text>
         </View>
+
+        {/* Copy Registration Link Button */}
+        <TouchableOpacity style={styles.copyLinkBtn} onPress={copyRegistrationLink}>
+          <Text style={styles.copyLinkBtnText}>🔗 Copy Registration Link</Text>
+        </TouchableOpacity>
 
         {serverError && (
           <View style={styles.errorBox}>
@@ -796,21 +893,14 @@ export default function StudentRegistrationScreen() {
 
               {form.class_grade && (
                 <FormField label="Section" required error={fieldErrors.section}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={styles.chipContainer}>
-                      {sectionOptions.map(sec => (
-                        <TouchableOpacity
-                          key={sec}
-                          style={[styles.chip, form.section === sec && styles.chipActive]}
-                          onPress={() => handleChange('section', sec)}
-                        >
-                          <Text style={[styles.chipText, form.section === sec && styles.chipTextActive]}>
-                            Section {sec}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </ScrollView>
+                  <TextInput
+                    style={[styles.input, styles.sectionInput, fieldErrors.section && styles.inputError]}
+                    placeholder="Enter section (A, B, C...)"
+                    value={form.section}
+                    onChangeText={handleSectionChange}
+                    autoCapitalize="characters"
+                    maxLength={3}
+                  />
                 </FormField>
               )}
 
@@ -828,7 +918,8 @@ export default function StudentRegistrationScreen() {
                   style={[styles.input, fieldErrors.academic_year && styles.inputError]}
                   placeholder="e.g. 2024-25"
                   value={form.academic_year}
-                  onChangeText={(text) => handleChange('academic_year', text)}
+                  onChangeText={handleAcademicYearChange}
+                  maxLength={7}
                 />
               </FormField>
 
@@ -1100,25 +1191,45 @@ export default function StudentRegistrationScreen() {
                 />
               </FormField>
 
+              {/* Password Field with Show/Hide */}
               <FormField label="Password" required error={fieldErrors.password}>
-                <TextInput
-                  style={[styles.input, fieldErrors.password && styles.inputError]}
-                  placeholder="Enter password"
-                  secureTextEntry
-                  value={form.password}
-                  onChangeText={(text) => handleChange('password', text)}
-                />
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={[styles.input, fieldErrors.password && styles.inputError, styles.passwordInput]}
+                    placeholder="Enter password"
+                    placeholderTextColor="#94a3b8"
+                    secureTextEntry={!showPassword}
+                    value={form.password}
+                    onChangeText={(text) => handleChange('password', text)}
+                  />
+                  <TouchableOpacity 
+                    style={styles.eyeButton} 
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Text style={styles.eyeButtonText}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                  </TouchableOpacity>
+                </View>
                 {form.password && <PasswordStrength password={form.password} />}
               </FormField>
 
+              {/* Confirm Password Field with Show/Hide */}
               <FormField label="Retype Password" required error={fieldErrors.confirm_password}>
-                <TextInput
-                  style={[styles.input, fieldErrors.confirm_password && styles.inputError]}
-                  placeholder="Retype password"
-                  secureTextEntry
-                  value={form.confirm_password}
-                  onChangeText={(text) => handleChange('confirm_password', text)}
-                />
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={[styles.input, fieldErrors.confirm_password && styles.inputError, styles.passwordInput]}
+                    placeholder="Retype password"
+                    placeholderTextColor="#94a3b8"
+                    secureTextEntry={!showConfirmPassword}
+                    value={form.confirm_password}
+                    onChangeText={(text) => handleChange('confirm_password', text)}
+                  />
+                  <TouchableOpacity 
+                    style={styles.eyeButton} 
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    <Text style={styles.eyeButtonText}>{showConfirmPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                  </TouchableOpacity>
+                </View>
               </FormField>
             </View>
           )}
@@ -1334,7 +1445,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 12,
   },
   title: {
     fontSize: 20,
@@ -1345,6 +1456,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#4a5568',
     marginTop: 4,
+  },
+  copyLinkBtn: {
+    backgroundColor: '#dbeafe',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+  },
+  copyLinkBtnText: {
+    color: '#2563eb',
+    fontWeight: '600',
+    fontSize: 13,
   },
   errorBox: {
     backgroundColor: '#fee2e2',
@@ -1458,6 +1582,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f5f9',
     color: '#94a3b8',
   },
+  sectionInput: {
+    textTransform: 'uppercase',
+  },
   genderContainer: {
     flexDirection: 'row',
     gap: 12,
@@ -1547,6 +1674,23 @@ const styles = StyleSheet.create({
   passwordRuleTextValid: {
     color: '#059669',
     fontWeight: '600',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  passwordInput: {
+    flex: 1,
+    paddingRight: 45,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    padding: 8,
+  },
+  eyeButtonText: {
+    fontSize: 18,
   },
   photoZone: {
     borderWidth: 2,

@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
+import MarkAttendanceScreen from '../screens/teacher/MarkAttendanceScreen';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import Header from '../components/common/Header';
@@ -213,6 +214,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="ForgotPassword" getComponent={() => require('../screens/auth/ForgotPasswordScreen').default} />
             <Stack.Screen name="VerifyOtp" getComponent={() => require('../screens/auth/VerifyOtpScreen').default} />
+              
             <Stack.Screen name="ResetPassword" getComponent={() => require('../screens/auth/ResetPasswordScreen').default} />
             <Stack.Screen
               name="RegisterSchool"
@@ -240,6 +242,7 @@ export default function AppNavigator() {
               getComponent={() => require('../screens/visitor/VisitSuccessScreen').default}
               options={{ headerShown: true, title: 'Registration Successful' }}
             />
+            <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} />
             <Stack.Screen
               name="Profile"
               getComponent={() => require('../screens/common/ProfileScreen').default}

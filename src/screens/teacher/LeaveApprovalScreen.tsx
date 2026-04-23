@@ -60,6 +60,12 @@ const getBranchId = async (): Promise<string> => {
   return id || (await AsyncStorage.getItem('branchId')) || '';
 };
 
+const formatDate = (dateString: string): string => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  return date.toLocaleDateString();
+};
+
 // Status Badge Component
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const getStatusStyle = () => {
@@ -99,12 +105,6 @@ const LeaveRequestCard: React.FC<{
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
 }> = ({ request, onApprove, onReject }) => {
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
-  };
-
   return (
     <AppCard style={styles.requestCard}>
       <View style={styles.cardHeader}>
@@ -412,6 +412,7 @@ export default function LeaveApprovalScreen() {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Confirm',
+          style: action === 'APPROVED' ? 'default' : 'destructive',
           onPress: async () => {
             try {
               await API.put('/manage/teacher/leave-requests/action', {
@@ -858,8 +859,8 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: '#f0f2f7',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   modalCloseText: {
     fontSize: 16,
