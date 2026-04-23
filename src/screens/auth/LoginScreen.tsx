@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -6,13 +5,19 @@ import {
   Platform,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
+  Image,
+  TouchableOpacity,
+  ScrollView,
 } from "react-native";
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../../api/authService';
 import { useAuth } from '../../context/AuthContext';
+import { setAuthToken } from '../../services/api';
+import AppInput from '../../components/common/AppInput';
+import AppButton from '../../components/common/AppButton';
+import ScreenContainer from '../../components/ScreenContainer';
+import { colors } from '../../constants/theme';
 
 type Props = {
   navigation: any;
@@ -32,102 +37,96 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     setLoading(true);
-
     try {
       const schoolCode = schoolId.trim();
       const normalized = await authService.login(schoolCode, username.trim(), password);
-      const name = normalized.user?.name || username.trim();
 
       const toStore: [string, string][] = [
         ['token', normalized.token || ''],
         ['role', normalized.role],
-        ['userRole', normalized.role],
-        ['school_code', normalized.schoolCode || schoolCode],
-        ['schoolCode', normalized.schoolCode || schoolCode],
-        ['user_name', name],
+        ['school_code', schoolCode],
       ];
 
-      if (normalized.user?.branchId) {
-        toStore.push(['branch_id', normalized.user.branchId]);
-        toStore.push(['branchId', normalized.user.branchId]);
-      }
-
-      if (normalized.user?.studentId) {
-        toStore.push(['student_id', normalized.user.studentId]);
-        toStore.push(['studentId', normalized.user.studentId]);
-      }
-
-      if (normalized.user?.employeeId) {
-        toStore.push(['employee_id', normalized.user.employeeId]);
-        toStore.push(['employeeId', normalized.user.employeeId]);
-      }
-
-      if (normalized.user?.userId) {
-        toStore.push(['user_id', normalized.user.userId]);
-        toStore.push(['userId', normalized.user.userId]);
+      if (normalized.user?.branch_id) {
+        toStore.push(['branch_id', String(normalized.user.branch_id)]);
       }
 
       await AsyncStorage.multiSet(toStore);
-      await signIn(normalized.role, name, normalized.token);
-      navigation.replace('MainTabs');
-
+      setAuthToken(normalized.token);
+      signIn(normalized);
     } catch (err: any) {
-      const message =
-        err?.response?.data?.message ||
-        err?.response?.data?.detail ||
-        err?.message ||
-        'Login failed';
-      Alert.alert('Login Failed', message);
+      Alert.alert("Login Failed", err.message || "Invalid credentials");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View style={styles.card}>
-        <Text style={styles.title}>AttendX Login</Text>
+    <ScreenContainer contentStyle={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Logo Section */}
+          <View style={styles.headerSection}>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.brandTitle}>Attendance Reimagined</Text>
+            <Text style={styles.brandSubtitle}>
+              The next generation of educational management, built with security and scalability
+            </Text>
+          </View>
 
-        <TextInput
-          placeholder="School ID"
-          style={styles.input}
-          value={schoolId}
-          onChangeText={setSchoolId}
-        />
+          {/* Login Card */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Secure Login</Text>
+            <Text style={styles.cardSubtitle}>Enter credentials to proceed</Text>
 
-        <TextInput
-          placeholder="Username"
-          style={styles.input}
-          value={username}
-          onChangeText={setUsername}
-        />
+            <AppInput
+              label="SCHOOL ID"
+              placeholder="XXXXXXXXX"
+              value={schoolId}
+              onChangeText={setSchoolId}
+              autoCapitalize="characters"
+            />
 
-        <TextInput
-          placeholder="Password"
-          style={styles.input}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
+            <AppInput
+              label="EMAIL / EMPLOYEE ID"
+              placeholder="XXXXXXXXX"
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+            />
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          <Text style={styles.btnText}>{loading ? 'Logging in...' : 'Login'}</Text>
-        </TouchableOpacity>
+            <AppInput
+              label="PASSWORD"
+              placeholder="XXXXXXXXX"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
 
-        <TouchableOpacity
-          onPress={() => navigation.navigate("ForgotPassword")}
-        >
-          <Text style={styles.link}>Forgot Password?</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+            <AppButton
+              title={loading ? "SIGNING IN..." : "SIGN IN"}
+              onPress={handleLogin}
+              disabled={loading}
+              style={styles.signInButton}
+            />
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ForgotPassword')}
+              style={styles.forgotPasswordContainer}
+            >
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ScreenContainer>
   );
 };
 
@@ -135,49 +134,76 @@ export default LoginScreen;
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: '#F8FAFC', // Light background matching the UI
+  },
+  keyboardView: {
     flex: 1,
-    justifyContent: "center",
-    padding: 20,
-    backgroundColor: "#0f172a",
   },
-
-  card: {
-    backgroundColor: "#1e293b",
-    padding: 20,
-    borderRadius: 12,
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    justifyContent: 'center',
   },
-
-  title: {
+  headerSection: {
+    alignItems: 'center',
+    marginBottom: 40,
+    marginTop: 20,
+  },
+  logo: {
+    width: 220,
+    height: 100,
+    marginBottom: 16,
+  },
+  brandTitle: {
     fontSize: 22,
-    marginBottom: 20,
-    color: "#fff",
-    textAlign: "center",
-    fontWeight: "bold",
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 8,
   },
-
-  input: {
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+  brandSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 20,
   },
-
-  button: {
-    backgroundColor: "#2563eb",
-    padding: 14,
-    borderRadius: 10,
-    alignItems: "center",
-    marginTop: 10,
+  card: {
+    backgroundColor: '#FFFFFF',
+    padding: 24,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
-
-  btnText: {
-    color: "#fff",
-    fontWeight: "bold",
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1E293B',
+    textAlign: 'center',
   },
-
-  link: {
-    color: "#60a5fa",
-    marginTop: 15,
-    textAlign: "center",
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginBottom: 32,
+    marginTop: 4,
+  },
+  signInButton: {
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#2563EB',
+    marginTop: 24,
+  },
+  forgotPasswordContainer: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  forgotPasswordText: {
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

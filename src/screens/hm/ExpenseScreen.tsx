@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TextInput,
@@ -15,6 +14,25 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
+import { colors } from '../../constants/theme';
+import AppText from '../../components/common/AppText';
+
+// Local theme bridge
+const C = {
+  bg: colors.bg,
+  card: colors.surface,
+  border: colors.border,
+  text: colors.textPrimary,
+  textMuted: colors.textMuted,
+  primary: colors.primary,
+  success: colors.success,
+  successSoft: colors.successSoft,
+  error: colors.error,
+  errorSoft: colors.errorSoft,
+  warning: colors.warning,
+  warningSoft: colors.warningSoft,
+  danger: colors.error,
+};
 
 interface Expense {
   id: string;
@@ -41,21 +59,21 @@ const categories = [
 ];
 
 const categoryColors: Record<string, string> = {
-  Supplies: '#fef3c7',
-  Utilities: '#dbeafe',
-  Maintenance: '#e0e7ff',
-  Salaries: '#d1fae5',
-  Equipment: '#fce7f3',
-  Other: '#f3f4f6',
+  Supplies: 'rgba(217, 119, 6, 0.2)',    // warning soft
+  Utilities: 'rgba(37, 99, 235, 0.2)',    // secondary soft
+  Maintenance: 'rgba(99, 102, 241, 0.2)', // primary soft
+  Salaries: 'rgba(22, 163, 74, 0.2)',    // success soft
+  Equipment: 'rgba(236, 72, 153, 0.2)',  // pink soft
+  Other: 'rgba(148, 163, 184, 0.2)',     // muted soft
 };
 
 const categoryTextColors: Record<string, string> = {
-  Supplies: '#92400e',
-  Utilities: '#1e40af',
-  Maintenance: '#3730a3',
-  Salaries: '#065f46',
-  Equipment: '#9d174d',
-  Other: '#374151',
+  Supplies: '#fbbf24',    // amber-400
+  Utilities: '#60a5fa',   // blue-400
+  Maintenance: '#818cf8', // indigo-400
+  Salaries: '#4ade80',    // green-400
+  Equipment: '#f472b6',  // pink-400
+  Other: '#94a3b8',      // slate-400
 };
 
 const ExpenseManagement = () => {
@@ -240,23 +258,23 @@ const ExpenseManagement = () => {
       activeOpacity={0.7}
     >
       <View style={styles.expenseInfo}>
-        <Text style={styles.expenseTitle}>{item.title}</Text>
+        <AppText style={styles.expenseTitle}>{item.title}</AppText>
         <View style={styles.expenseMeta}>
           <View style={[styles.categoryBadge, { backgroundColor: getCategoryStyle(item.category).backgroundColor }]}>
-            <Text style={[styles.categoryText, { color: getCategoryStyle(item.category).color }]}>
+            <AppText style={[styles.categoryText, { color: getCategoryStyle(item.category).color }]}>
               {item.category}
-            </Text>
+            </AppText>
           </View>
-          <Text style={styles.expenseDate}>{formatDate(item.date)}</Text>
+          <AppText style={styles.expenseDate}>{formatDate(item.date)}</AppText>
         </View>
       </View>
       <View style={styles.expenseAmountContainer}>
-        <Text style={styles.expenseAmount}>{formatAmount(item.amount)}</Text>
+        <AppText style={styles.expenseAmount}>{formatAmount(item.amount)}</AppText>
         <TouchableOpacity 
           onPress={() => confirmDelete(item.id)}
           style={styles.deleteIcon}
         >
-          <Text style={styles.deleteIconText}>🗑️</Text>
+          <AppText style={styles.deleteIconText}>🗑️</AppText>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -267,29 +285,31 @@ const ExpenseManagement = () => {
       <ScrollView 
         style={styles.scrollView}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
       >
         {/* Form Section */}
         <View style={styles.formSection}>
-          <Text style={styles.formTitle}>➕ Add Expense</Text>
+          <AppText style={styles.formTitle}>➕ Add Expense</AppText>
           
           <View style={styles.formGroup}>
             <View>
-              <Text style={styles.label}>Title</Text>
+              <AppText style={styles.label}>Title</AppText>
               <TextInput
                 style={styles.input}
                 placeholder="e.g., Stationery Purchase"
+                placeholderTextColor={C.textMuted}
                 value={formData.title}
                 onChangeText={(text) => handleInputChange('title', text)}
               />
             </View>
 
             <View>
-              <Text style={styles.label}>Amount (₹)</Text>
+              <AppText style={styles.label}>Amount (₹)</AppText>
               <TextInput
                 style={styles.input}
                 placeholder="Enter amount"
+                placeholderTextColor={C.textMuted}
                 keyboardType="numeric"
                 value={formData.amount}
                 onChangeText={(text) => handleInputChange('amount', text)}
@@ -297,7 +317,7 @@ const ExpenseManagement = () => {
             </View>
 
             <View>
-              <Text style={styles.label}>Category</Text>
+              <AppText style={styles.label}>Category</AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
                 <View style={styles.categoryContainer}>
                   {categories.map((cat) => (
@@ -310,7 +330,7 @@ const ExpenseManagement = () => {
                       ]}
                       onPress={() => handleInputChange('category', cat)}
                     >
-                      <Text 
+                      <AppText
                         style={[
                           styles.categoryOptionText,
                           formData.category === cat && styles.categoryOptionTextSelected,
@@ -318,7 +338,7 @@ const ExpenseManagement = () => {
                         ]}
                       >
                         {cat}
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -326,12 +346,12 @@ const ExpenseManagement = () => {
             </View>
 
             <View>
-              <Text style={styles.label}>Date</Text>
+              <AppText style={styles.label}>Date</AppText>
               <TouchableOpacity 
                 style={styles.dateInput}
                 onPress={() => setShowDatePicker(true)}
               >
-                <Text style={styles.dateText}>{formData.date}</Text>
+                <AppText style={styles.dateText}>{formData.date}</AppText>
               </TouchableOpacity>
             </View>
 
@@ -343,7 +363,7 @@ const ExpenseManagement = () => {
               {loading ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.submitButtonText}>Add Expense</Text>
+                <AppText style={styles.submitButtonText}>Add Expense</AppText>
               )}
             </TouchableOpacity>
           </View>
@@ -352,32 +372,32 @@ const ExpenseManagement = () => {
         {/* Expense List Section */}
         <View style={styles.listSection}>
           <View style={styles.listHeader}>
-            <Text style={styles.listTitle}>📋 Expense List</Text>
+            <AppText style={styles.listTitle}>📋 Expense List</AppText>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryLabel}>Total Expenses</Text>
-              <Text style={styles.summaryAmount}>{formatAmount(getTotalExpenses())}</Text>
+              <AppText style={styles.summaryLabel}>Total Expenses</AppText>
+              <AppText style={styles.summaryAmount}>{formatAmount(getTotalExpenses())}</AppText>
             </View>
           </View>
 
           {loading && expenses.length === 0 ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#dc2626" />
-              <Text style={styles.loadingText}>Loading expenses...</Text>
+              <ActivityIndicator size="large" color={C.danger} />
+              <AppText style={styles.loadingText}>Loading expenses...</AppText>
             </View>
           ) : expenses.length > 0 ? (
             <>
               {/* Category Summary */}
               <View style={styles.categorySummary}>
-                <Text style={styles.categorySummaryTitle}>Expenses by Category</Text>
+                <AppText style={styles.categorySummaryTitle}>Expenses by Category</AppText>
                 <View style={styles.categorySummaryGrid}>
                   {Object.entries(getExpensesByCategory()).map(([category, amount]) => (
                     <View key={category} style={styles.categorySummaryItem}>
                       <View style={[styles.categorySummaryBadge, { backgroundColor: categoryColors[category] }]}>
-                        <Text style={[styles.categorySummaryText, { color: categoryTextColors[category] }]}>
+                        <AppText style={[styles.categorySummaryText, { color: categoryTextColors[category] }]}>
                           {category}
-                        </Text>
+                        </AppText>
                       </View>
-                      <Text style={styles.categorySummaryAmount}>{formatAmount(amount)}</Text>
+                      <AppText style={styles.categorySummaryAmount}>{formatAmount(amount)}</AppText>
                     </View>
                   ))}
                 </View>
@@ -386,7 +406,7 @@ const ExpenseManagement = () => {
               {/* Expense List */}
               <View style={styles.expenseList}>
                 <View style={styles.expenseListHeader}>
-                  <Text style={styles.expenseListHeaderText}>Recent Expenses</Text>
+                  <AppText style={styles.expenseListHeaderText}>Recent Expenses</AppText>
                 </View>
                 {expenses.map((expense) => (
                   <React.Fragment key={expense.id}>
@@ -397,8 +417,8 @@ const ExpenseManagement = () => {
             </>
           ) : (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No expenses found.</Text>
-              <Text style={styles.emptySubtext}>Tap + to add your first expense</Text>
+              <AppText style={styles.emptyText}>No expenses found.</AppText>
+              <AppText style={styles.emptySubtext}>Tap + to add your first expense</AppText>
             </View>
           )}
         </View>
@@ -423,22 +443,22 @@ const ExpenseManagement = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Delete Expense</Text>
-            <Text style={styles.modalMessage}>
+            <AppText style={styles.modalTitle}>Delete Expense</AppText>
+            <AppText style={styles.modalMessage}>
               Are you sure you want to delete this expense? This action cannot be undone.
-            </Text>
+            </AppText>
             <View style={styles.modalButtons}>
               <TouchableOpacity 
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setShowDeleteModal(false)}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <AppText style={styles.cancelButtonText}>Cancel</AppText>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.modalButton, styles.deleteButton]}
                 onPress={handleDeleteExpense}
               >
-                <Text style={styles.deleteButtonText}>Delete</Text>
+                <AppText style={styles.deleteButtonText}>Delete</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -451,24 +471,24 @@ const ExpenseManagement = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: C.bg,
   },
   scrollView: {
     flex: 1,
   },
   formSection: {
-    backgroundColor: '#f7f9fc',
+    backgroundColor: C.card,
     padding: 20,
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#dc2626',
+    borderLeftColor: C.danger,
     margin: 16,
     marginBottom: 8,
   },
   formTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
     marginBottom: 16,
   },
   formGroup: {
@@ -476,28 +496,29 @@ const styles = StyleSheet.create({
   },
   label: {
     fontWeight: '600',
-    color: '#4a5568',
+    color: C.textMuted,
     fontSize: 14,
     marginBottom: 6,
   },
   input: {
     padding: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     borderRadius: 8,
     fontSize: 14,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.bg,
+    color: C.text,
   },
   dateInput: {
     padding: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     borderRadius: 8,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.bg,
   },
   dateText: {
     fontSize: 14,
-    color: '#0d1b2a',
+    color: C.text,
   },
   categoryScroll: {
     flexDirection: 'row',
@@ -516,7 +537,7 @@ const styles = StyleSheet.create({
   },
   categoryOptionSelected: {
     borderWidth: 2,
-    borderColor: '#dc2626',
+    borderColor: C.danger,
   },
   categoryOptionText: {
     fontSize: 14,
@@ -526,7 +547,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   submitButton: {
-    backgroundColor: '#dc2626',
+    backgroundColor: C.danger,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
@@ -553,38 +574,38 @@ const styles = StyleSheet.create({
   listTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   summaryCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
   },
   summaryLabel: {
     fontSize: 12,
-    color: '#8898aa',
+    color: C.textMuted,
     fontWeight: '500',
   },
   summaryAmount: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#dc2626',
+    color: C.danger,
   },
   categorySummary: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
   },
   categorySummaryTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0d1b2a',
+    color: C.text,
     marginBottom: 12,
   },
   categorySummaryGrid: {
@@ -609,26 +630,26 @@ const styles = StyleSheet.create({
   categorySummaryAmount: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   expenseList: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     overflow: 'hidden',
   },
   expenseListHeader: {
-    backgroundColor: '#f7f9fc',
+    backgroundColor: C.bg,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   expenseListHeaderText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0d1b2a',
+    color: C.text,
   },
   expenseRow: {
     flexDirection: 'row',
@@ -637,7 +658,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   expenseInfo: {
     flex: 1,
@@ -645,7 +666,7 @@ const styles = StyleSheet.create({
   expenseTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0d1b2a',
+    color: C.text,
     marginBottom: 4,
   },
   expenseMeta: {
@@ -665,7 +686,7 @@ const styles = StyleSheet.create({
   },
   expenseDate: {
     fontSize: 12,
-    color: '#8898aa',
+    color: C.textMuted,
   },
   expenseAmountContainer: {
     alignItems: 'flex-end',
@@ -675,7 +696,7 @@ const styles = StyleSheet.create({
   expenseAmount: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#dc2626',
+    color: C.text,
   },
   deleteIcon: {
     padding: 4,
@@ -689,47 +710,49 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: '#8898aa',
+    color: C.textMuted,
   },
   emptyContainer: {
     padding: 48,
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
   },
   emptyText: {
     fontSize: 16,
-    color: '#8898aa',
+    color: C.textMuted,
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#cbd5e1',
+    color: C.border,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderRadius: 12,
     padding: 20,
     width: '80%',
     maxWidth: 320,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
     marginBottom: 12,
   },
   modalMessage: {
     fontSize: 14,
-    color: '#4a5568',
+    color: C.textMuted,
     marginBottom: 20,
     lineHeight: 20,
   },
@@ -744,14 +767,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: C.bg,
   },
   cancelButtonText: {
-    color: '#4a5568',
+    color: C.text,
     fontWeight: '600',
   },
   deleteButton: {
-    backgroundColor: '#dc2626',
+    backgroundColor: C.danger,
   },
   deleteButtonText: {
     color: '#ffffff',

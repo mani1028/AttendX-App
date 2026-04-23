@@ -12,10 +12,10 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import API from '../services/api';
-import { colors } from '../constants/colors';
-import AppButton from '../components/common/AppButton';
-import AppCard from '../components/common/AppCard';
+import API from '../../services/api';
+import { colors } from '../../constants/colors';
+import AppButton from '../../components/common/AppButton';
+import AppCard from '../../components/common/AppCard';
 
 // Types
 interface Plan {

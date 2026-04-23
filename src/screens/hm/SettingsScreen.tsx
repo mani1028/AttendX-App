@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -12,19 +11,21 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Feather';
 import API from '../../services/api';
+import { colors } from '../../constants/theme';
+import AppText from '../../components/common/AppText';
 
 const C = {
-  bg: '#f0f4fa',
-  white: '#ffffff',
-  text: '#0f172a',
-  textMuted: '#64748b',
-  border: '#dbe3ef',
-  primary: '#2563eb',
-  primaryHover: '#1d4ed8',
-  successBg: '#dcfce7',
-  successText: '#166534',
-  errorBg: '#fee2e2',
-  errorText: '#991b1b',
+  bg: colors.bg,
+  card: colors.surface,
+  text: colors.textPrimary,
+  textMuted: colors.textMuted,
+  border: colors.border,
+  primary: colors.primary,
+  primaryHover: colors.secondary,
+  successBg: colors.successSoft,
+  successText: colors.success,
+  errorBg: colors.errorSoft,
+  errorText: colors.error,
 };
 
 export default function HMSettingsPage() {
@@ -144,19 +145,19 @@ export default function HMSettingsPage() {
       <ScrollView
         style={styles.scrollView}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
       >
         <View style={styles.card}>
           <View style={styles.header}>
             <Icon name="settings" size={18} color={C.text} />
-            <Text style={styles.title}>HM Settings</Text>
+            <AppText style={styles.title}>HM Settings</AppText>
           </View>
 
           <View style={styles.body}>
             {/* Daily Attendance Frequency */}
             <View style={styles.settingGroup}>
-              <Text style={styles.label}>Daily Attendance Frequency</Text>
+              <AppText style={styles.label}>Daily Attendance Frequency</AppText>
               <View style={styles.optionContainer}>
                 <TouchableOpacity
                   style={[
@@ -166,14 +167,14 @@ export default function HMSettingsPage() {
                   onPress={() => setDailySessions(1)}
                   disabled={loading || saving}
                 >
-                  <Text
+                  <AppText
                     style={[
                       styles.optionText,
                       dailySessions === 1 && styles.optionTextActive,
                     ]}
                   >
                     Take attendance 1 time per day
-                  </Text>
+                  </AppText>
                   {dailySessions === 1 && (
                     <Icon name="check" size={16} color={C.primary} />
                   )}
@@ -187,14 +188,14 @@ export default function HMSettingsPage() {
                   onPress={() => setDailySessions(2)}
                   disabled={loading || saving}
                 >
-                  <Text
+                  <AppText
                     style={[
                       styles.optionText,
                       dailySessions === 2 && styles.optionTextActive,
                     ]}
                   >
                     Take attendance 2 times per day
-                  </Text>
+                  </AppText>
                   {dailySessions === 2 && (
                     <Icon name="check" size={16} color={C.primary} />
                   )}
@@ -203,16 +204,16 @@ export default function HMSettingsPage() {
 
               <View style={styles.hintContainer}>
                 <Icon name="info" size={12} color={C.textMuted} />
-                <Text style={styles.hintText}>
+                <AppText style={styles.hintText}>
                   Once configured, the system allows attendance only this many times per day.
                   Extra attempts are blocked automatically.
-                </Text>
+                </AppText>
               </View>
             </View>
 
             {/* Marks Notification Setting */}
             <View style={styles.settingGroup}>
-              <Text style={styles.label}>Marks Notification to Student Dashboard</Text>
+              <AppText style={styles.label}>Marks Notification to Student Dashboard</AppText>
               <View style={styles.optionContainer}>
                 <TouchableOpacity
                   style={[
@@ -222,14 +223,14 @@ export default function HMSettingsPage() {
                   onPress={() => setMarksNotificationEnabled(true)}
                   disabled={loading || saving}
                 >
-                  <Text
+                  <AppText
                     style={[
                       styles.optionText,
                       marksNotificationEnabled && styles.optionTextActive,
                     ]}
                   >
                     Enabled: send marks update notifications
-                  </Text>
+                  </AppText>
                   {marksNotificationEnabled && (
                     <Icon name="check" size={16} color={C.primary} />
                   )}
@@ -243,14 +244,14 @@ export default function HMSettingsPage() {
                   onPress={() => setMarksNotificationEnabled(false)}
                   disabled={loading || saving}
                 >
-                  <Text
+                  <AppText
                     style={[
                       styles.optionText,
                       !marksNotificationEnabled && styles.optionTextActive,
                     ]}
                   >
                     Disabled: do not send marks notifications
-                  </Text>
+                  </AppText>
                   {!marksNotificationEnabled && (
                     <Icon name="check" size={16} color={C.primary} />
                   )}
@@ -259,10 +260,10 @@ export default function HMSettingsPage() {
 
               <View style={styles.hintContainer}>
                 <Icon name="info" size={12} color={C.textMuted} />
-                <Text style={styles.hintText}>
+                <AppText style={styles.hintText}>
                   When enabled, saving marks in teacher marks entry posts a marks notification that
                   students can see in student dashboard notifications.
-                </Text>
+                </AppText>
               </View>
             </View>
 
@@ -278,7 +279,7 @@ export default function HMSettingsPage() {
                 ) : (
                   <>
                     <Icon name="save" size={16} color="#fff" />
-                    <Text style={styles.saveButtonText}>Save Setting</Text>
+                    <AppText style={styles.saveButtonText}>Save Setting</AppText>
                   </>
                 )}
               </TouchableOpacity>
@@ -288,15 +289,15 @@ export default function HMSettingsPage() {
             <View style={styles.infoRow}>
               <View style={styles.infoItem}>
                 <Icon name="calendar" size={14} color={C.textMuted} />
-                <Text style={styles.infoText}>
+                <AppText style={styles.infoText}>
                   Applies to teacher verification and student attendance marking.
-                </Text>
+                </AppText>
               </View>
               <View style={styles.infoItem}>
                 <Icon name="bell" size={14} color={C.textMuted} />
-                <Text style={styles.infoText}>
+                <AppText style={styles.infoText}>
                   Applies to marks updates pushed to student notifications.
-                </Text>
+                </AppText>
               </View>
             </View>
 
@@ -313,14 +314,14 @@ export default function HMSettingsPage() {
                   size={16}
                   color={msgType === 'error' ? C.errorText : C.successText}
                 />
-                <Text
+                <AppText
                   style={[
                     styles.messageText,
                     msgType === 'error' ? styles.errorText : styles.successText,
                   ]}
                 >
                   {msg}
-                </Text>
+                </AppText>
               </View>
             ) : null}
 
@@ -328,7 +329,7 @@ export default function HMSettingsPage() {
             {loading && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color={C.primary} />
-                <Text style={styles.loadingText}>Loading settings...</Text>
+                <AppText style={styles.loadingText}>Loading settings...</AppText>
               </View>
             )}
           </View>
@@ -347,7 +348,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   card: {
-    backgroundColor: C.white,
+    backgroundColor: C.card,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: C.border,
@@ -397,11 +398,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: C.border,
-    backgroundColor: C.white,
+    backgroundColor: C.card,
   },
   optionButtonActive: {
     borderColor: C.primary,
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.primary + '15',
   },
   optionText: {
     fontSize: 14,
@@ -491,7 +492,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: C.bg + 'CC',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,

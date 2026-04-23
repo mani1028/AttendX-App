@@ -15,8 +15,8 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+import RNFS from 'react-native-fs';
+import RNShare from 'react-native-share';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
@@ -605,17 +605,6 @@ export default function ViewAttendanceScreen() {
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.logoBox}>
-            <Text style={styles.logoText}>📋</Text>
-          </View>
-          <View>
-            <Text style={styles.title}>Student Attendance</Text>
-            <Text style={styles.subtitle}>View daily records & export data</Text>
-          </View>
-        </View>
-
         {/* Stats Cards */}
         <View style={styles.statsGrid}>
           <AppCard style={styles.statCard}>
@@ -824,33 +813,6 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 16,
     paddingBottom: 40,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    marginBottom: 24,
-  },
-  logoBox: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: '#2563eb',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    fontSize: 22,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0d1b2a',
-  },
-  subtitle: {
-    fontSize: 12,
-    color: '#4a5568',
-    marginTop: 2,
   },
   statsGrid: {
     flexDirection: 'row',

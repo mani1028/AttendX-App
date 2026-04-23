@@ -1,40 +1,42 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Feather';
+import { Svg, Circle } from 'react-native-svg';
 import API from '../../services/api';
+import AvatarBubble from '../../components/common/AvatarBubble';
+import { useAuth } from '../../context/AuthContext';
+import { colors } from '../../constants/theme';
+import AppText from '../../components/common/AppText';
+
+// Local theme bridge for consistency
+const C = {
+  bg: colors.bg,
+  card: colors.surface,
+  border: colors.border,
+  text: colors.textPrimary,
+  muted: colors.textMuted,
+  primary: colors.primary,
+  success: colors.success,
+  successSoft: colors.successSoft,
+  error: colors.error,
+  errorSoft: colors.errorSoft,
+  warning: colors.warning,
+  warningSoft: colors.warningSoft,
+  accent: colors.accent,
+};
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-const T = {
-  bg: '#f0f2f7',
-  surface: '#ffffff',
-  surfaceAlt: '#f7f9fc',
-  border: '#e4e9f2',
-  text: '#0d1b2a',
-  textSec: '#4a5568',
-  textMuted: '#8898aa',
-  blue: '#2563eb',
-  blueLight: '#dbeafe',
-  green: '#059669',
-  greenLight: '#d1fae5',
-  amber: '#d97706',
-  amberLight: '#fef3c7',
-  violet: '#7c3aed',
-  violetLight: '#ede9fe',
-  red: '#dc2626',
-  redLight: '#fee2e2',
-};
 
 interface ClassData {
   class_id?: string;
@@ -78,21 +80,21 @@ const AttendanceRing = ({ pct, color, size = 80 }: { pct: number; color: string;
   return (
     <View style={{ width: size, height: size, position: 'relative' }}>
       <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-        <Text style={[styles.ringPercentage, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
+        <AppText style={[styles.ringPercentage, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
           {Math.round(pct)}%
-        </Text>
+        </AppText>
       </View>
       <View style={{ transform: [{ rotate: '-90deg' }] }}>
-        <svg width={size} height={size} viewBox="0 0 120 120">
-          <circle
+        <Svg width={size} height={size} viewBox="0 0 120 120">
+          <Circle
             cx="60"
             cy="60"
             r={radius}
             fill="none"
-            stroke={T.border}
+            stroke={C.border}
             strokeWidth="10"
           />
-          <circle
+          <Circle
             cx="60"
             cy="60"
             r={radius}
@@ -103,7 +105,7 @@ const AttendanceRing = ({ pct, color, size = 80 }: { pct: number; color: string;
             strokeDashoffset={strokeDashoffset}
             strokeLinecap="round"
           />
-        </svg>
+        </Svg>
       </View>
     </View>
   );
@@ -119,12 +121,11 @@ const StatCard = ({
   trend, 
   trendUp, 
   accentColor,
-  delay,
   onPress,
   loading 
 }: any) => (
   <TouchableOpacity 
-    style={[styles.statCard, { borderTopColor: accentColor || T.blue }]} 
+    style={[styles.statCard, { borderTopColor: accentColor || C.primary }]}
     onPress={onPress}
     activeOpacity={0.7}
   >
@@ -134,51 +135,51 @@ const StatCard = ({
       </View>
       {trend && (
         <View style={[styles.trendBadge, trendUp ? styles.trendUp : styles.trendDown]}>
-          <Icon name={trendUp ? 'arrow-up' : 'arrow-down'} size={8} color={trendUp ? T.green : T.red} />
-          <Text style={[styles.trendText, { color: trendUp ? T.green : T.red }]}>{trend}</Text>
+          <Icon name={trendUp ? 'arrow-up' : 'arrow-down'} size={8} color={trendUp ? C.success : C.error} />
+          <AppText style={[styles.trendText, { color: trendUp ? C.success : C.error }]}>{trend}</AppText>
         </View>
       )}
     </View>
-    <Text style={styles.cardLabel}>{label}</Text>
+    <AppText style={styles.cardLabel}>{label}</AppText>
     {loading ? (
       <View style={styles.skeletonText} />
     ) : (
-      <Text style={[styles.cardValue, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
+      <AppText style={[styles.cardValue, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
         {value}
-      </Text>
+      </AppText>
     )}
     {loading ? (
       <View style={[styles.skeletonText, { width: '60%', marginTop: 8 }]} />
     ) : (
-      <Text style={styles.cardSub}>{subtext}</Text>
+      <AppText style={styles.cardSub}>{subtext}</AppText>
     )}
   </TouchableOpacity>
 );
 
 const BarRow = ({ label, percentage, present, total, onPress }: any) => (
   <TouchableOpacity style={styles.barRow} onPress={onPress} activeOpacity={0.7}>
-    <Text style={styles.barLabel}>{label}</Text>
+    <AppText style={styles.barLabel}>{label}</AppText>
     <View style={styles.barTrack}>
       <View 
         style={[
           styles.barFill, 
           { 
             width: `${percentage}%`,
-            backgroundColor: percentage >= 75 ? T.green : percentage >= 50 ? T.amber : T.red
+            backgroundColor: percentage >= 75 ? C.success : percentage >= 50 ? C.warning : C.error
           }
         ]} 
       />
     </View>
-    <Text style={[
+    <AppText style={[
       styles.barPct, 
       { 
-        color: percentage >= 75 ? T.green : percentage >= 50 ? T.amber : T.red,
+        color: percentage >= 75 ? C.success : percentage >= 50 ? C.warning : C.error,
         fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'
       }
     ]}>
       {percentage}%
-    </Text>
-    <Text style={styles.barCount}>{present}/{total}</Text>
+    </AppText>
+    <AppText style={styles.barCount}>{present}/{total}</AppText>
   </TouchableOpacity>
 );
 
@@ -186,21 +187,22 @@ const ClassChip = ({ label, percentage, present, total, onPress }: any) => {
   const isGood = percentage >= 75;
   return (
     <TouchableOpacity 
-      style={[styles.classChip, { backgroundColor: isGood ? T.greenLight : T.redLight, borderColor: isGood ? '#bbf7d0' : '#fecaca' }]}
+      style={[styles.classChip, { backgroundColor: isGood ? C.successSoft : C.errorSoft, borderColor: isGood ? C.successSoft : C.errorSoft }]}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Text style={styles.chipLabel}>Class {label}</Text>
-      <Text style={[styles.chipPct, { color: isGood ? T.green : T.red, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
+      <AppText style={styles.chipLabel}>Class {label}</AppText>
+      <AppText style={[styles.chipPct, { color: isGood ? C.success : C.error, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
         {percentage}%
-      </Text>
-      <Text style={styles.chipSub}>{present}/{total} present</Text>
+      </AppText>
+      <AppText style={styles.chipSub}>{present}/{total} present</AppText>
     </TouchableOpacity>
   );
 };
 
 export default function DashboardPage() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  const { userName } = useAuth();
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
   const [stats, setStats] = useState<StatsData | null>(null);
@@ -321,32 +323,28 @@ export default function DashboardPage() {
     <ScrollView 
       style={styles.container}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.text} />
       }
     >
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Welcome Section */}
+      <View style={styles.welcomeSection}>
         <View>
-          <Text style={styles.title}>Good {getGreeting()}, Head Master 👋</Text>
-          <Text style={styles.subtitle}>Here's what's happening at your school today</Text>
+          <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'HM'}!</AppText>
+          <AppText style={styles.welcomeSub}>Manage your school's daily attendance and activities.</AppText>
         </View>
-        <View style={styles.metaRow}>
-          <View style={styles.datePill}>
-            <Icon name="calendar" size={12} color="#fff" />
-            <Text style={styles.datePillText}>{today}</Text>
-          </View>
-          <TouchableOpacity style={styles.refreshBtn} onPress={loadDashboardData}>
-            <Icon name="refresh-cw" size={12} color={T.textSec} />
-            <Text style={styles.refreshBtnText}>Refresh</Text>
-          </TouchableOpacity>
+        <View style={styles.dateBadge}>
+          <Icon name="calendar" size={12} color={C.muted} />
+          <AppText style={styles.dateText}>
+            {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </AppText>
         </View>
       </View>
 
       {/* Error Banner */}
       {error ? (
         <View style={styles.errorBanner}>
-          <Icon name="alert-circle" size={16} color={T.red} />
-          <Text style={styles.errorText}>⚠ {error}</Text>
+          <Icon name="alert-circle" size={16} color={C.error} />
+          <AppText style={styles.errorText}>⚠ {error}</AppText>
         </View>
       ) : null}
 
@@ -357,11 +355,11 @@ export default function DashboardPage() {
           value={(cards.total_teachers ?? 0).toLocaleString()}
           subtext={`${teacherAtt.present ?? 0} present today`}
           icon="users"
-          iconBg={T.blueLight}
-          iconColor={T.blue}
+          iconBg={C.primary + '15'}
+          iconColor={C.primary}
           trend="Live"
           trendUp={true}
-          accentColor={T.blue}
+          accentColor={C.primary}
           onPress={() => goToAttendanceView('teachers')}
           loading={loading}
         />
@@ -371,11 +369,11 @@ export default function DashboardPage() {
           value={(cards.total_students ?? 0).toLocaleString()}
           subtext={`${studentAtt.present ?? 0} present today`}
           icon="user"
-          iconBg={T.greenLight}
-          iconColor={T.green}
+          iconBg={C.successSoft}
+          iconColor={C.success}
           trend="Live"
           trendUp={true}
-          accentColor={T.green}
+          accentColor={C.success}
           onPress={() => goToAttendanceView('students')}
           loading={loading}
         />
@@ -385,11 +383,11 @@ export default function DashboardPage() {
           value={(cards.total_classes ?? 0).toLocaleString()}
           subtext={`${classes.length} sections tracked`}
           icon="grid"
-          iconBg={T.amberLight}
-          iconColor={T.amber}
+          iconBg={C.warningSoft}
+          iconColor={C.warning}
           trend="Active"
           trendUp={true}
-          accentColor={T.amber}
+          accentColor={C.warning}
           onPress={() => goToAttendanceView('students')}
           loading={loading}
         />
@@ -397,13 +395,13 @@ export default function DashboardPage() {
         <StatCard
           label="Today's Attendance"
           value={`${cards.today_attendance_pct ?? 0}%`}
-          subtext="teachers + students combined"
+          subtext="combined percentage"
           icon="trending-up"
-          iconBg={T.violetLight}
-          iconColor={T.violet}
+          iconBg="rgba(124, 58, 237, 0.1)"
+          iconColor="#7c3aed"
           trend={(cards.today_attendance_pct ?? 0) >= 75 ? 'Good' : 'Low'}
           trendUp={(cards.today_attendance_pct ?? 0) >= 75}
-          accentColor={T.violet}
+          accentColor="#7c3aed"
           onPress={() => goToAttendanceView('students')}
           loading={loading}
         />
@@ -415,10 +413,10 @@ export default function DashboardPage() {
         <View style={styles.panel}>
           <View style={styles.panelHead}>
             <View>
-              <Text style={styles.panelTitle}>Class-wise Attendance Today</Text>
-              <Text style={styles.panelSub}>
+              <AppText style={styles.panelTitle}>Class-wise Attendance Today</AppText>
+              <AppText style={styles.panelSub}>
                 {loading ? 'Loading…' : `${classes.length} sections · sorted by %`}
-              </Text>
+              </AppText>
             </View>
           </View>
 
@@ -433,7 +431,7 @@ export default function DashboardPage() {
               ))
             ) : !sortedClasses.length ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No class data available.</Text>
+                <AppText style={styles.emptyText}>No class data available.</AppText>
               </View>
             ) : (
               sortedClasses.map((c, i) => (
@@ -454,8 +452,8 @@ export default function DashboardPage() {
         <View style={styles.panel}>
           <View style={styles.panelHead}>
             <View>
-              <Text style={styles.panelTitle}>Attendance Breakdown</Text>
-              <Text style={styles.panelSub}>{breakdown.date || today}</Text>
+              <AppText style={styles.panelTitle}>Attendance Breakdown</AppText>
+              <AppText style={styles.panelSub}>{breakdown.date || today}</AppText>
             </View>
           </View>
 
@@ -479,17 +477,17 @@ export default function DashboardPage() {
                   onPress={() => goToAttendanceView('teachers')}
                   activeOpacity={0.7}
                 >
-                  <AttendanceRing pct={teacherAtt.attendance_pct ?? 0} color={T.blue} />
+                  <AttendanceRing pct={teacherAtt.attendance_pct ?? 0} color={C.primary} />
                   <View style={styles.ringInfo}>
-                    <Text style={styles.ringLabel}>Teachers</Text>
-                    <Text style={[styles.ringValue, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
+                    <AppText style={styles.ringLabel}>Teachers</AppText>
+                    <AppText style={[styles.ringValue, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
                       {teacherAtt.present ?? 0}
-                      <Text style={styles.ringTotal}> / {teacherAtt.total ?? 0}</Text>
-                    </Text>
-                    <Text style={styles.ringSub}>{teacherAtt.absent ?? 0} absent today</Text>
-                    <Text style={[styles.ringPct, { color: (teacherAtt.attendance_pct ?? 0) >= 75 ? T.green : T.red }]}>
+                      <AppText style={styles.ringTotal}> / {teacherAtt.total ?? 0}</AppText>
+                    </AppText>
+                    <AppText style={styles.ringSub}>{teacherAtt.absent ?? 0} absent today</AppText>
+                    <AppText style={[styles.ringPct, { color: (teacherAtt.attendance_pct ?? 0) >= 75 ? C.success : C.error }]}>
                       {teacherAtt.attendance_pct ?? 0}% attendance
-                    </Text>
+                    </AppText>
                   </View>
                 </TouchableOpacity>
 
@@ -498,17 +496,17 @@ export default function DashboardPage() {
                   onPress={() => goToAttendanceView('students')}
                   activeOpacity={0.7}
                 >
-                  <AttendanceRing pct={studentAtt.attendance_pct ?? 0} color={T.green} />
+                  <AttendanceRing pct={studentAtt.attendance_pct ?? 0} color={C.success} />
                   <View style={styles.ringInfo}>
-                    <Text style={styles.ringLabel}>Students</Text>
-                    <Text style={[styles.ringValue, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
+                    <AppText style={styles.ringLabel}>Students</AppText>
+                    <AppText style={[styles.ringValue, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
                       {studentAtt.present ?? 0}
-                      <Text style={styles.ringTotal}> / {studentAtt.total ?? 0}</Text>
-                    </Text>
-                    <Text style={styles.ringSub}>{studentAtt.absent ?? 0} absent today</Text>
-                    <Text style={[styles.ringPct, { color: (studentAtt.attendance_pct ?? 0) >= 75 ? T.green : T.red }]}>
+                      <AppText style={styles.ringTotal}> / {studentAtt.total ?? 0}</AppText>
+                    </AppText>
+                    <AppText style={styles.ringSub}>{studentAtt.absent ?? 0} absent today</AppText>
+                    <AppText style={[styles.ringPct, { color: (studentAtt.attendance_pct ?? 0) >= 75 ? C.success : C.error }]}>
                       {studentAtt.attendance_pct ?? 0}% attendance
-                    </Text>
+                    </AppText>
                   </View>
                 </TouchableOpacity>
               </>
@@ -518,22 +516,22 @@ export default function DashboardPage() {
           {!loading && (
             <View style={styles.summaryStrip}>
               <TouchableOpacity style={styles.sumItem} onPress={() => goToAttendanceView('students')}>
-                <Text style={[styles.sumVal, { color: T.green, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
+                <AppText style={[styles.sumVal, { color: C.success, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
                   {(teacherAtt.present ?? 0) + (studentAtt.present ?? 0)}
-                </Text>
-                <Text style={styles.sumLabel}>Present</Text>
+                </AppText>
+                <AppText style={styles.sumLabel}>Present</AppText>
               </TouchableOpacity>
               <TouchableOpacity style={styles.sumItem} onPress={() => goToAttendanceView('students')}>
-                <Text style={[styles.sumVal, { color: T.red, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
+                <AppText style={[styles.sumVal, { color: C.error, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
                   {(teacherAtt.absent ?? 0) + (studentAtt.absent ?? 0)}
-                </Text>
-                <Text style={styles.sumLabel}>Absent</Text>
+                </AppText>
+                <AppText style={styles.sumLabel}>Absent</AppText>
               </TouchableOpacity>
               <TouchableOpacity style={styles.sumItem} onPress={() => goToAttendanceView('students')}>
-                <Text style={[styles.sumVal, { color: T.violet, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
+                <AppText style={[styles.sumVal, { color: '#7c3aed', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
                   {cards.today_attendance_pct ?? 0}%
-                </Text>
-                <Text style={styles.sumLabel}>Overall</Text>
+                </AppText>
+                <AppText style={styles.sumLabel}>Overall</AppText>
               </TouchableOpacity>
             </View>
           )}
@@ -542,13 +540,13 @@ export default function DashboardPage() {
 
       {/* Section Overview */}
       {(loading || classes.length > 0) && (
-        <View style={[styles.panel, { marginBottom: 20 }]}>
+        <View style={[styles.panel, { marginBottom: 20, marginHorizontal: 16 }]}>
           <View style={styles.panelHead}>
             <View>
-              <Text style={styles.panelTitle}>Section Overview</Text>
-              <Text style={styles.panelSub}>
-                {loading ? 'Loading sections…' : `${classes.length} sections · green ≥ 75% · red < 75%`}
-              </Text>
+              <AppText style={styles.panelTitle}>Section Overview</AppText>
+              <AppText style={styles.panelSub}>
+                {loading ? 'Loading sections…' : `${classes.length} sections tracked`}
+              </AppText>
             </View>
           </View>
 
@@ -585,20 +583,16 @@ export default function DashboardPage() {
       {/* Bottom Bar */}
       <View style={styles.bottomBar}>
         <View style={styles.bottomItem}>
-          <Icon name="home" size={13} color={T.blue} />
-          <Text style={styles.bottomText}>School: <Text style={styles.bottomStrong}>{schoolCode || '—'}</Text></Text>
+          <Icon name="home" size={13} color="#6366f1" />
+          <AppText style={styles.bottomText}>School: <AppText style={styles.bottomStrong}>{schoolCode || '—'}</AppText></AppText>
         </View>
         <View style={styles.bottomItem}>
-          <Icon name="git-branch" size={13} color={T.blue} />
-          <Text style={styles.bottomText}>Branch: <Text style={styles.bottomStrong}>{branchId || '—'}</Text></Text>
-        </View>
-        <View style={styles.bottomItem}>
-          <Icon name="shield" size={13} color={T.blue} />
-          <Text style={styles.bottomText}>Role: <Text style={styles.bottomStrong}>Head Master</Text></Text>
+          <Icon name="git-branch" size={13} color="#6366f1" />
+          <AppText style={styles.bottomText}>Branch: <AppText style={styles.bottomStrong}>{branchId || '—'}</AppText></AppText>
         </View>
         <View style={[styles.bottomItem, styles.liveIndicator]}>
           <View style={styles.liveDot} />
-          <Text style={styles.bottomText}>Live</Text>
+          <AppText style={styles.bottomText}>Live</AppText>
         </View>
       </View>
     </ScrollView>
@@ -608,103 +602,84 @@ export default function DashboardPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: T.bg,
+    backgroundColor: C.bg,
   },
-  header: {
-    padding: 20,
+  welcomeSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    flexWrap: 'wrap',
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    marginBottom: 16,
   },
-  title: {
-    fontSize: 24,
+  welcomeTitle: {
+    fontSize: 20,
     fontWeight: '800',
-    color: T.text,
-    letterSpacing: -0.4,
+    color: C.text,
   },
-  subtitle: {
-    fontSize: 14,
-    color: T.textMuted,
-    marginTop: 4,
+  welcomeSub: {
+    fontSize: 13,
+    color: C.muted,
+    marginTop: 2,
   },
-  metaRow: {
+  dateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-  },
-  datePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: T.blue,
+    gap: 6,
+    backgroundColor: C.card,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-  datePillText: {
-    color: '#fff',
+  dateText: {
     fontSize: 12,
-    fontWeight: '600',
-  },
-  refreshBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: T.surface,
-    borderWidth: 1.5,
-    borderColor: T.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  refreshBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: T.textSec,
+    fontWeight: '700',
+    color: C.text,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: T.redLight,
+    backgroundColor: C.errorSoft,
     marginHorizontal: 16,
     marginBottom: 16,
     padding: 12,
     borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#fecaca',
+    borderWidth: 1,
+    borderColor: C.errorSoft,
   },
   errorText: {
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: T.red,
+    color: C.error,
   },
   grid4: {
     paddingHorizontal: 16,
-    gap: 16,
+    gap: 12,
     marginBottom: 24,
   },
   statCard: {
-    backgroundColor: T.surface,
+    backgroundColor: C.card,
     borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: T.border,
-    padding: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 16,
     borderTopWidth: 4,
   },
   cardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -715,39 +690,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 20,
+    backgroundColor: C.bg,
   },
   trendUp: {
-    backgroundColor: T.greenLight,
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
   },
   trendDown: {
-    backgroundColor: T.redLight,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
   trendText: {
     fontSize: 10,
     fontWeight: '700',
   },
   cardLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    color: T.textMuted,
+    color: C.muted,
     marginBottom: 6,
   },
   cardValue: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
-    color: T.text,
-    letterSpacing: -1,
+    color: C.text,
   },
   cardSub: {
-    fontSize: 12,
-    color: T.textMuted,
-    marginTop: 8,
+    fontSize: 11,
+    color: C.muted,
+    marginTop: 6,
   },
   skeletonText: {
     height: 16,
-    backgroundColor: T.border,
+    backgroundColor: C.border,
     borderRadius: 8,
     marginTop: 4,
   },
@@ -757,29 +732,25 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   panel: {
-    backgroundColor: T.surface,
+    backgroundColor: C.card,
     borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: T.border,
+    borderWidth: 1,
+    borderColor: C.border,
     overflow: 'hidden',
   },
   panelHead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 16,
-    borderBottomWidth: 1.5,
-    borderBottomColor: T.border,
-    backgroundColor: T.surfaceAlt,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
   },
   panelTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: T.text,
+    color: C.text,
   },
   panelSub: {
     fontSize: 12,
-    color: T.textMuted,
+    color: C.muted,
     marginTop: 2,
   },
   barBody: {
@@ -794,21 +765,21 @@ const styles = StyleSheet.create({
   barLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: T.text,
+    color: C.text,
     width: 52,
   },
   barTrack: {
     flex: 1,
-    height: 20,
-    backgroundColor: T.surfaceAlt,
-    borderRadius: 6,
+    height: 16,
+    backgroundColor: C.bg,
+    borderRadius: 4,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: T.border,
+    borderColor: C.border,
   },
   barFill: {
     height: '100%',
-    borderRadius: 6,
+    borderRadius: 4,
   },
   barPct: {
     fontSize: 11,
@@ -818,7 +789,7 @@ const styles = StyleSheet.create({
   },
   barCount: {
     fontSize: 11,
-    color: T.textMuted,
+    color: C.muted,
     width: 52,
     textAlign: 'right',
   },
@@ -831,33 +802,32 @@ const styles = StyleSheet.create({
     gap: 16,
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: T.border,
+    borderBottomColor: C.border,
   },
   ringInfo: {
     flex: 1,
   },
   ringLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    color: T.textMuted,
+    color: C.muted,
     marginBottom: 4,
   },
   ringValue: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
-    color: T.text,
-    letterSpacing: -1,
+    color: C.text,
   },
   ringTotal: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '400',
-    color: T.textMuted,
+    color: C.muted,
   },
   ringSub: {
     fontSize: 11,
-    color: T.textMuted,
+    color: C.muted,
     marginTop: 4,
   },
   ringPct: {
@@ -868,30 +838,27 @@ const styles = StyleSheet.create({
   ringPercentage: {
     fontSize: 18,
     fontWeight: '800',
-    color: T.text,
+    color: C.text,
   },
   summaryStrip: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     padding: 16,
-    borderTopWidth: 1.5,
-    borderTopColor: T.border,
-    backgroundColor: T.surfaceAlt,
+    backgroundColor: C.bg,
   },
   sumItem: {
     alignItems: 'center',
   },
   sumVal: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
   },
   sumLabel: {
     fontSize: 10,
-    color: T.textMuted,
+    color: C.muted,
     marginTop: 2,
     fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
   },
   classGrid: {
     flexDirection: 'row',
@@ -901,73 +868,68 @@ const styles = StyleSheet.create({
   },
   classChip: {
     borderRadius: 12,
-    borderWidth: 1.5,
-    padding: 14,
+    borderWidth: 1,
+    padding: 12,
     alignItems: 'center',
     width: SCREEN_WIDTH > 400 ? '47%' : '100%',
   },
   chipLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
-    color: T.text,
-    marginBottom: 6,
+    color: C.text,
+    marginBottom: 4,
   },
   chipPct: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
   },
   chipSub: {
     fontSize: 10,
-    color: T.textMuted,
+    color: C.muted,
     marginTop: 4,
   },
   bottomBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
+    gap: 16,
     flexWrap: 'wrap',
-    backgroundColor: T.surface,
+    backgroundColor: C.card,
     borderRadius: 12,
     padding: 12,
     marginHorizontal: 16,
-    marginBottom: 20,
-    borderWidth: 1.5,
-    borderColor: T.border,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   bottomItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   bottomText: {
-    fontSize: 12,
-    color: T.textSec,
+    fontSize: 11,
+    color: C.muted,
   },
   bottomStrong: {
     fontWeight: '700',
-    color: T.text,
+    color: C.text,
   },
   liveIndicator: {
     marginLeft: 'auto',
   },
   liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: T.green,
-    shadowColor: T.green,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    elevation: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: C.success,
   },
   emptyState: {
-    padding: 32,
+    padding: 24,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 14,
-    color: T.textMuted,
+    fontSize: 13,
+    color: C.muted,
   },
   skeletonBarRow: {
     flexDirection: 'row',
@@ -975,8 +937,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   skeletonBox: {
-    backgroundColor: T.border,
-    borderRadius: 8,
+    backgroundColor: C.border,
+    borderRadius: 6,
   },
   skeletonRingRow: {
     flexDirection: 'row',
@@ -986,9 +948,9 @@ const styles = StyleSheet.create({
   },
   skeletonClassChip: {
     borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: T.border,
-    padding: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 12,
     width: SCREEN_WIDTH > 400 ? '47%' : '100%',
   },
 });

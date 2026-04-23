@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -12,31 +11,31 @@ import {
   Modal,
   Platform,
   Image,
-  Switch,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import DocumentPicker from 'react-native-document-picker';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Feather';
 import API from '../../services/api';
+import { colors } from '../../constants/theme';
+import AppText from '../../components/common/AppText';
 
-const Colors = {
-  primary: '#2563eb',
-  primaryLight: '#3b82f6',
-  primarySoft: '#dbeafe',
-  success: '#059669',
-  danger: '#dc2626',
-  bg: '#f8fafc',
-  cardBg: '#ffffff',
-  textPrimary: '#0f172a',
-  textSecondary: '#475569',
-  textTertiary: '#64748b',
-  textMuted: '#94a3b8',
-  border: '#e2e8f0',
-  borderLight: '#f1f5f9',
+// Local theme bridge
+const C = {
+  bg: colors.bg,
+  card: colors.surface,
+  border: colors.border,
+  text: colors.textPrimary,
+  muted: colors.textMuted,
+  primary: colors.primary,
+  success: colors.success,
+  successSoft: colors.successSoft,
+  error: colors.error,
+  errorSoft: colors.errorSoft,
+  warning: colors.warning,
+  warningSoft: colors.warningSoft,
 };
 
 const STEPS = ['Basics', 'Contact', 'Emergency', 'Employment', 'Preview'];
@@ -223,7 +222,6 @@ export default function TeacherPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [serverError, setServerError] = useState('');
   const [serverSuccess, setServerSuccess] = useState('');
-  const [preview, setPreview] = useState<string | null>(null);
   const [items, setItems] = useState<Teacher[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [listErr, setListErr] = useState('');
@@ -242,7 +240,6 @@ export default function TeacherPage() {
   const [emailVerified, setEmailVerified] = useState(false);
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
-  const [inviteLink, setInviteLink] = useState('');
   const [copied, setCopied] = useState(false);
 
   const ITEMS_PER_PAGE = 10;
@@ -479,7 +476,6 @@ export default function TeacherPage() {
 
   const resetForm = () => {
     setStep(0);
-    setPreview(null);
     setFieldErrors({});
     setOtp('');
     setOtpSent(false);
@@ -648,27 +644,24 @@ export default function TeacherPage() {
       const response = await API.get('/hm/teachers/download', {
         headers: getHeaders(),
         params: { file_format: 'csv' },
-        responseType: 'blob',
       });
 
-      const blob = response.data;
-      if (!blob || !blob.size) throw new Error('Export returned empty file');
+      const content = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+      const filename = `teachers_${schoolCode}_${branchId}.csv`;
+      const filePath = `${RNFS.DocumentDirectoryPath}/${filename}`;
 
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = async () => {
-        const base64Data = reader.result as string;
-        const filename = `teachers_${schoolCode}_${branchId}.csv`;
-        const filePath = `${RNFS.DocumentDirectoryPath}/${filename}`;
-        await RNFS.writeFile(filePath, base64Data.split(',')[1], 'base64');
-        await Share.open({
-          url: `file://${filePath}`,
-          type: 'text/csv',
-          title: 'Export Teachers',
-        });
-      };
+      await RNFS.writeFile(filePath, content, 'utf8');
+
+      await Share.open({
+        url: `file://${filePath}`,
+        type: 'text/csv',
+        filename: filename,
+        title: 'Export Teachers',
+      });
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Download failed');
+      if (err.message !== 'User did not share') {
+        Alert.alert('Error', err?.message || 'Download failed');
+      }
     }
   };
 
@@ -676,7 +669,7 @@ export default function TeacherPage() {
     const sc = String(schoolCode || '').trim();
     const bid = String(branchId || '').trim();
     if (!sc || !bid) return '';
-    return `https://yourapp.com/teacher-registration?school_code=${encodeURIComponent(sc)}&branch_id=${encodeURIComponent(bid)}`;
+    return `https://attendx.edu/teacher-registration?school_code=${encodeURIComponent(sc)}&branch_id=${encodeURIComponent(bid)}`;
   };
 
   const handleCopyLink = async () => {
@@ -685,11 +678,8 @@ export default function TeacherPage() {
       setListErr('School code or branch id missing.');
       return;
     }
-    // On React Native, we can show the link in an Alert for copying
     Alert.alert('Invite Link', url, [
       { text: 'Copy', onPress: () => {
-        // Copy to clipboard using AsyncStorage or a library
-        setInviteLink(url);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } },
@@ -736,43 +726,43 @@ export default function TeacherPage() {
   const renderTeacherItem = (teacher: Teacher, index: number) => (
     <View key={teacher.teacher_id || index} style={styles.teacherRow}>
       <View style={styles.teacherCellName}>
-        <View style={styles.teacherAvatar}>
-          <Text style={styles.avatarText}>
+        <View style={[styles.teacherAvatar, { backgroundColor: C.primary }]}>
+          <AppText style={styles.avatarText} weight="bold">
             {teacher.teacher_full_name ? teacher.teacher_full_name.charAt(0).toUpperCase() : 'T'}
-          </Text>
+          </AppText>
         </View>
         <View>
-          <Text style={styles.teacherName}>{teacher.teacher_full_name || '—'}</Text>
-          <Text style={styles.teacherEmail}>{teacher.email_id || '—'}</Text>
+          <AppText style={styles.teacherName} weight="semiBold">{teacher.teacher_full_name || '—'}</AppText>
+          <AppText style={styles.teacherEmail}>{teacher.email_id || '—'}</AppText>
         </View>
       </View>
       <View style={styles.teacherCellEmpId}>
-        <Text style={styles.teacherText}>{teacher.employee_id || '—'}</Text>
+        <AppText style={styles.teacherText}>{teacher.employee_id || '—'}</AppText>
       </View>
       <View style={styles.teacherCellContact}>
-        <Text style={styles.teacherText}>{teacher.mobile_number || '—'}</Text>
-        <Text style={styles.teacherSubText}>{teacher.gender || '—'}{teacher.age ? ` • ${teacher.age}y` : ''}</Text>
+        <AppText style={styles.teacherText}>{teacher.mobile_number || '—'}</AppText>
+        <AppText style={styles.teacherSubText}>{teacher.gender || '—'}{teacher.age ? ` • ${teacher.age}y` : ''}</AppText>
       </View>
       <View style={styles.teacherCellDesignation}>
-        <Text style={styles.teacherText}>{teacher.designation || '—'}</Text>
+        <AppText style={styles.teacherText}>{teacher.designation || '—'}</AppText>
       </View>
       <View style={styles.teacherCellDept}>
-        <Text style={styles.teacherText}>{teacher.department_subject || '—'}</Text>
+        <AppText style={styles.teacherText}>{teacher.department_subject || '—'}</AppText>
       </View>
       <View style={styles.teacherCellStatus}>
         <View style={[styles.statusPill, teacher.teacher_status === 'ACTIVE' ? styles.statusActive : styles.statusInactive]}>
-          <Icon name={teacher.teacher_status === 'ACTIVE' ? 'check-circle' : 'x-circle'} size={10} color={teacher.teacher_status === 'ACTIVE' ? '#059669' : '#dc2626'} />
-          <Text style={[styles.statusText, teacher.teacher_status === 'ACTIVE' ? styles.statusActiveText : styles.statusInactiveText]}>
+          <Icon name={teacher.teacher_status === 'ACTIVE' ? 'check-circle' : 'x-circle'} size={10} color={teacher.teacher_status === 'ACTIVE' ? C.success : C.error} />
+          <AppText style={[styles.statusText, teacher.teacher_status === 'ACTIVE' ? styles.statusActiveText : styles.statusInactiveText]} weight="bold">
             {teacher.teacher_status || 'INACTIVE'}
-          </Text>
+          </AppText>
         </View>
       </View>
       <View style={styles.teacherCellActions}>
         <TouchableOpacity style={styles.iconBtn} onPress={() => setViewTeacher(teacher)}>
-          <Icon name="eye" size={16} color={Colors.textTertiary} />
+          <Icon name="eye" size={16} color={C.muted} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.iconBtn} onPress={() => openEditTeacher(teacher)}>
-          <Icon name="edit-2" size={16} color={Colors.textTertiary} />
+          <Icon name="edit-2" size={16} color={C.muted} />
         </TouchableOpacity>
       </View>
     </View>
@@ -785,20 +775,21 @@ export default function TeacherPage() {
     if (type === 'select' && options) {
       return (
         <View key={name} style={styles.formGroup}>
-          <Text style={styles.label}>{label}</Text>
+          <AppText style={styles.label} weight="semiBold">{label}</AppText>
           <View style={styles.pickerContainer}>
             <Picker
               selectedValue={value}
               onValueChange={(val) => handleChange(name, val)}
               style={styles.picker}
+              dropdownIconColor={C.muted}
             >
-              <Picker.Item label={`Select ${label}`} value="" />
+              <Picker.Item label={`Select ${label}`} value="" color={C.muted} />
               {options.map(opt => (
-                <Picker.Item key={opt} label={opt} value={opt} />
+                <Picker.Item key={opt} label={opt} value={opt} color={C.text} />
               ))}
             </Picker>
           </View>
-          {error && <Text style={styles.errorText}>{error}</Text>}
+          {error && <AppText style={styles.errorText}>{error}</AppText>}
         </View>
       );
     }
@@ -806,7 +797,7 @@ export default function TeacherPage() {
     if (type === 'date') {
       return (
         <View key={name} style={styles.formGroup}>
-          <Text style={styles.label}>{label}</Text>
+          <AppText style={styles.label} weight="semiBold">{label}</AppText>
           <TouchableOpacity
             style={[styles.input, error && styles.inputError]}
             onPress={() => {
@@ -814,27 +805,28 @@ export default function TeacherPage() {
               setShowDatePicker(true);
             }}
           >
-            <Text style={value ? styles.dateText : styles.placeholderText}>
+            <AppText style={value ? styles.dateText : styles.placeholderText}>
               {value || `Select ${label}`}
-            </Text>
+            </AppText>
           </TouchableOpacity>
-          {error && <Text style={styles.errorText}>{error}</Text>}
+          {error && <AppText style={styles.errorText}>{error}</AppText>}
         </View>
       );
     }
 
     return (
       <View key={name} style={styles.formGroup}>
-        <Text style={styles.label}>{label}</Text>
+        <AppText style={styles.label} weight="semiBold">{label}</AppText>
         <TextInput
           style={[styles.input, error && styles.inputError]}
           placeholder={placeholder}
+          placeholderTextColor={C.muted}
           value={value}
           onChangeText={(text) => handleChange(name, text)}
           keyboardType={type === 'number' ? 'numeric' : 'default'}
           secureTextEntry={name === 'password'}
         />
-        {error && <Text style={styles.errorText}>{error}</Text>}
+        {error && <AppText style={styles.errorText}>{error}</AppText>}
       </View>
     );
   };
@@ -845,26 +837,26 @@ export default function TeacherPage() {
         style={styles.scrollView}
         refreshControl={
           activeTab === 'list' ? (
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
           ) : undefined
         }
       >
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>
+            <AppText style={styles.title} weight="bold">
               Teacher Management{' '}
-              <Text style={styles.titleSub}>
+              <AppText style={styles.titleSub}>
                 {activeTab === 'list' ? `${filtered.length} records` : `Step ${step + 1} of ${STEPS.length}`}
-              </Text>
-            </Text>
+              </AppText>
+            </AppText>
           </View>
           <View style={styles.headerActions}>
             {activeTab === 'list' && (
               <>
                 <TouchableOpacity style={styles.secondaryBtn} onPress={handleCopyLink}>
-                  <Icon name="link" size={14} color={Colors.textSecondary} />
-                  <Text style={styles.secondaryBtnText}>{copied ? 'Copied!' : 'Invite'}</Text>
+                  <Icon name="link" size={14} color={C.text} />
+                  <AppText style={styles.secondaryBtnText} weight="semiBold">{copied ? 'Copied!' : 'Invite'}</AppText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.primaryBtn}
@@ -877,14 +869,14 @@ export default function TeacherPage() {
                   }}
                 >
                   <Icon name="plus" size={14} color="#fff" />
-                  <Text style={styles.primaryBtnText}>Add Teacher</Text>
+                  <AppText style={styles.primaryBtnText} weight="semiBold">Add Teacher</AppText>
                 </TouchableOpacity>
               </>
             )}
             {activeTab === 'enroll' && (
               <TouchableOpacity style={styles.secondaryBtn} onPress={() => setActiveTab('list')}>
-                <Icon name="chevron-left" size={14} color={Colors.textSecondary} />
-                <Text style={styles.secondaryBtnText}>Back</Text>
+                <Icon name="chevron-left" size={14} color={C.text} />
+                <AppText style={styles.secondaryBtnText} weight="semiBold">Back</AppText>
               </TouchableOpacity>
             )}
           </View>
@@ -896,7 +888,7 @@ export default function TeacherPage() {
             style={[styles.tab, activeTab === 'list' && styles.activeTab]}
             onPress={() => setActiveTab('list')}
           >
-            <Text style={[styles.tabText, activeTab === 'list' && styles.activeTabText]}>Staff Directory</Text>
+            <AppText style={[styles.tabText, activeTab === 'list' && styles.activeTabText]} weight="semiBold">Staff Directory</AppText>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'enroll' && styles.activeTab]}
@@ -908,19 +900,19 @@ export default function TeacherPage() {
               await fetchNextEmployeeId();
             }}
           >
-            <Text style={[styles.tabText, activeTab === 'enroll' && styles.activeTabText]}>Register Teacher</Text>
+            <AppText style={[styles.tabText, activeTab === 'enroll' && styles.activeTabText]} weight="semiBold">Register Teacher</AppText>
           </TouchableOpacity>
         </View>
 
         {/* Messages */}
         {serverError && activeTab === 'enroll' && (
           <View style={styles.errorBox}>
-            <Text style={styles.errorBoxText}>{serverError}</Text>
+            <AppText style={styles.errorBoxText}>{serverError}</AppText>
           </View>
         )}
         {serverSuccess && activeTab === 'enroll' && (
           <View style={styles.successBox}>
-            <Text style={styles.successBoxText}>{serverSuccess}</Text>
+            <AppText style={styles.successBoxText}>{serverSuccess}</AppText>
           </View>
         )}
 
@@ -942,13 +934,13 @@ export default function TeacherPage() {
                       step === i && styles.stepActive,
                       i > step && styles.stepInactive,
                     ]}>
-                      {step > i ? <Icon name="check" size={12} color="#fff" /> : <Text style={styles.stepNumber}>{i + 1}</Text>}
+                      {step > i ? <Icon name="check" size={12} color="#fff" /> : <AppText style={styles.stepNumber} weight="bold">{i + 1}</AppText>}
                     </View>
-                    <Text style={[
+                    <AppText style={[
                       styles.stepLabel,
                       step === i && styles.stepLabelActive,
                       step > i && styles.stepLabelCompleted,
-                    ]}>{label}</Text>
+                    ]} weight={step === i ? "bold" : "regular"}>{label}</AppText>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -957,25 +949,25 @@ export default function TeacherPage() {
             <View style={styles.formBody}>
               {step === 0 && (
                 <>
-                  <Text style={styles.sectionTitle}>Personal Details</Text>
+                  <AppText style={styles.sectionTitle} weight="bold">Personal Details</AppText>
                   <View style={styles.formGrid}>
-                    {renderFormField('branch_id', 'Branch ID', '', 'text')}
                     {renderFormField('teacher_full_name', 'Full Name *', 'e.g. Ramesh Kumar', 'text')}
                     {renderFormField('gender', 'Gender *', 'Select Gender', 'select', GENDER_OPTIONS)}
                     {renderFormField('date_of_birth', 'Date of Birth *', '', 'date')}
                     <View style={styles.formGroup}>
-                      <Text style={styles.label}>Age (auto-calculated)</Text>
+                      <AppText style={styles.label} weight="semiBold">Age (auto-calculated)</AppText>
                       <TextInput style={[styles.input, styles.readOnlyInput]} value={formData.age ? `${formData.age} years` : ''} editable={false} />
                     </View>
                     {renderFormField('blood_group', 'Blood Group', 'Select', 'select', BLOOD_GROUPS)}
                     {renderFormField('nationality', 'Nationality *', 'Indian', 'text')}
                     {renderFormField('mother_tongue', 'Mother Tongue *', '', 'text')}
                     <View style={styles.formGroupFull}>
-                      <Text style={styles.label}>Email ID *</Text>
+                      <AppText style={styles.label} weight="semiBold">Email ID *</AppText>
                       <View style={styles.emailRow}>
                         <TextInput
                           style={[styles.input, styles.emailInput, fieldErrors.email_id && styles.inputError]}
                           placeholder="teacher@email.com"
+                          placeholderTextColor={C.muted}
                           value={formData.email_id}
                           onChangeText={(text) => handleChange('email_id', text)}
                           editable={!emailVerified}
@@ -987,23 +979,24 @@ export default function TeacherPage() {
                           onPress={handleSendOtp}
                           disabled={otpSending || emailVerified}
                         >
-                          <Text style={styles.verifyBtnText}>
+                          <AppText style={styles.verifyBtnText} weight="bold">
                             {emailVerified ? 'Verified' : otpSending ? 'Sending...' : 'Verify'}
-                          </Text>
+                          </AppText>
                         </TouchableOpacity>
                       </View>
-                      {fieldErrors.email_id && <Text style={styles.errorText}>{fieldErrors.email_id}</Text>}
+                      {fieldErrors.email_id && <AppText style={styles.errorText}>{fieldErrors.email_id}</AppText>}
                       {otpSent && !emailVerified && (
                         <View style={styles.otpRow}>
                           <TextInput
                             style={[styles.input, styles.otpInput]}
                             placeholder="Enter OTP"
+                            placeholderTextColor={C.muted}
                             value={otp}
                             onChangeText={setOtp}
                             keyboardType="numeric"
                           />
                           <TouchableOpacity style={styles.verifyBtn} onPress={handleVerifyOtp} disabled={otpVerifying}>
-                            <Text style={styles.verifyBtnText}>{otpVerifying ? 'Verifying...' : 'Verify OTP'}</Text>
+                            <AppText style={styles.verifyBtnText} weight="bold">{otpVerifying ? 'Verifying...' : 'Verify OTP'}</AppText>
                           </TouchableOpacity>
                         </View>
                       )}
@@ -1017,7 +1010,7 @@ export default function TeacherPage() {
 
               {step === 1 && (
                 <>
-                  <Text style={styles.sectionTitle}>Contact & Address</Text>
+                  <AppText style={styles.sectionTitle} weight="bold">Contact & Address</AppText>
                   <View style={styles.formGrid}>
                     {renderFormField('mobile_number', 'Mobile Number *', '10-digit mobile', 'number')}
                     {renderFormField('alternate_mobile_number', 'Alternate Mobile', '10-digit mobile', 'number')}
@@ -1034,7 +1027,7 @@ export default function TeacherPage() {
 
               {step === 2 && (
                 <>
-                  <Text style={styles.sectionTitle}>Emergency Contact</Text>
+                  <AppText style={styles.sectionTitle} weight="bold">Emergency Contact</AppText>
                   <View style={styles.formGrid}>
                     {renderFormField('emergency_contact_name', 'Contact Name *', '', 'text')}
                     {renderFormField('emergency_contact_number', 'Contact Number *', '10-digit mobile', 'number')}
@@ -1045,16 +1038,16 @@ export default function TeacherPage() {
 
               {step === 3 && (
                 <>
-                  <Text style={styles.sectionTitle}>Employment Details</Text>
+                  <AppText style={styles.sectionTitle} weight="bold">Employment Details</AppText>
                   <View style={styles.formGrid}>
                     <View style={styles.formGroup}>
-                      <Text style={styles.label}>Employee ID</Text>
+                      <AppText style={styles.label} weight="semiBold">Employee ID</AppText>
                       <TextInput
                         style={[styles.input, styles.readOnlyInput]}
                         value={formData.employee_id}
                         editable={false}
                       />
-                      <Text style={styles.hintText}>Employee ID will be assigned after save.</Text>
+                      <AppText style={styles.hintText}>Employee ID will be assigned after save.</AppText>
                     </View>
                     {renderFormField('designation', 'Designation *', '', 'select', DESIGNATION_OPTIONS)}
                     {renderFormField('department_subject', 'Department / Subject *', '', 'text')}
@@ -1064,7 +1057,7 @@ export default function TeacherPage() {
                     {renderFormField('employment_type', 'Employment Type', '', 'select', EMPLOYMENT_TYPES)}
                     {renderFormField('teacher_status', 'Teacher Status', '', 'select', STATUS_OPTIONS)}
                     <View style={styles.formGroupFull}>
-                      <Text style={styles.label}>Email *</Text>
+                      <AppText style={styles.label} weight="semiBold">Email *</AppText>
                       <TextInput style={[styles.input, styles.readOnlyInput]} value={formData.email_id} editable={false} />
                     </View>
                     {renderFormField('password', 'Password *', 'Min. 6 characters', 'text')}
@@ -1075,34 +1068,30 @@ export default function TeacherPage() {
 
               {step === 4 && (
                 <>
-                  <Text style={styles.sectionTitle}>Registration Preview</Text>
-                  <Text style={styles.previewHint}>Review all details before submitting.</Text>
+                  <AppText style={styles.sectionTitle} weight="bold">Registration Preview</AppText>
+                  <AppText style={styles.previewHint}>Review all details before submitting.</AppText>
 
                   <View style={styles.previewCard}>
                     <View style={styles.previewHeader}>
                       <View style={styles.previewPhoto}>
-                        {preview ? (
-                          <Image source={{ uri: preview }} style={styles.previewImage} />
-                        ) : (
-                          <Text style={styles.previewInitial}>
-                            {formData.teacher_full_name ? formData.teacher_full_name.charAt(0).toUpperCase() : 'T'}
-                          </Text>
-                        )}
+                        <AppText style={styles.previewInitial} weight="bold">
+                          {formData.teacher_full_name ? formData.teacher_full_name.charAt(0).toUpperCase() : 'T'}
+                        </AppText>
                       </View>
                       <View style={styles.previewInfo}>
-                        <Text style={styles.previewName}>{formData.teacher_full_name || '—'}</Text>
-                        <Text style={styles.previewDesignation}>
+                        <AppText style={styles.previewName} weight="bold">{formData.teacher_full_name || '—'}</AppText>
+                        <AppText style={styles.previewDesignation}>
                           {formData.designation || '—'} · {formData.department_subject || '—'}
-                        </Text>
-                        <Text style={styles.previewEmail}>{formData.email_id || '—'}</Text>
+                        </AppText>
+                        <AppText style={styles.previewEmail}>{formData.email_id || '—'}</AppText>
                         <View style={[styles.previewStatus, formData.teacher_status === 'ACTIVE' ? styles.previewStatusActive : styles.previewStatusInactive]}>
                           <Icon name={formData.teacher_status === 'ACTIVE' ? 'check-circle' : 'x-circle'} size={10} color="#fff" />
-                          <Text style={styles.previewStatusText}>{formData.teacher_status}</Text>
+                          <AppText style={styles.previewStatusText} weight="bold">{formData.teacher_status}</AppText>
                         </View>
                       </View>
                     </View>
 
-                    <Text style={styles.previewSectionTitle}>Personal Information</Text>
+                    <AppText style={styles.previewSectionTitle} weight="bold">Personal Information</AppText>
                     <View style={styles.previewGrid}>
                       {[
                         ['Gender', formData.gender], ['Date of Birth', formData.date_of_birth],
@@ -1112,13 +1101,13 @@ export default function TeacherPage() {
                         ['Aadhaar', formData.aadhaar_number || '—'],
                       ].map(([label, value]) => (
                         <View key={label} style={styles.previewItem}>
-                          <Text style={styles.previewLabel}>{label}</Text>
-                          <Text style={styles.previewValue}>{value || '—'}</Text>
+                          <AppText style={styles.previewLabel} weight="bold">{label}</AppText>
+                          <AppText style={styles.previewValue} weight="semiBold">{value || '—'}</AppText>
                         </View>
                       ))}
                     </View>
 
-                    <Text style={styles.previewSectionTitle}>Contact & Address</Text>
+                    <AppText style={styles.previewSectionTitle} weight="bold">Contact & Address</AppText>
                     <View style={styles.previewGrid}>
                       {[
                         ['Mobile', formData.mobile_number], ['Alt Mobile', formData.alternate_mobile_number || '—'],
@@ -1128,13 +1117,13 @@ export default function TeacherPage() {
                         ['Pin Code', formData.pin_code],
                       ].map(([label, value]) => (
                         <View key={label} style={styles.previewItem}>
-                          <Text style={styles.previewLabel}>{label}</Text>
-                          <Text style={styles.previewValue}>{value || '—'}</Text>
+                          <AppText style={styles.previewLabel} weight="bold">{label}</AppText>
+                          <AppText style={styles.previewValue} weight="semiBold">{value || '—'}</AppText>
                         </View>
                       ))}
                     </View>
 
-                    <Text style={styles.previewSectionTitle}>Emergency Contact</Text>
+                    <AppText style={styles.previewSectionTitle} weight="bold">Emergency Contact</AppText>
                     <View style={styles.previewGrid}>
                       {[
                         ['Contact Name', formData.emergency_contact_name],
@@ -1142,13 +1131,13 @@ export default function TeacherPage() {
                         ['Relationship', formData.emergency_contact_relationship],
                       ].map(([label, value]) => (
                         <View key={label} style={styles.previewItem}>
-                          <Text style={styles.previewLabel}>{label}</Text>
-                          <Text style={styles.previewValue}>{value || '—'}</Text>
+                          <AppText style={styles.previewLabel} weight="bold">{label}</AppText>
+                          <AppText style={styles.previewValue} weight="semiBold">{value || '—'}</AppText>
                         </View>
                       ))}
                     </View>
 
-                    <Text style={styles.previewSectionTitle}>Employment Details</Text>
+                    <AppText style={styles.previewSectionTitle} weight="bold">Employment Details</AppText>
                     <View style={styles.previewGrid}>
                       {[
                         ['Employee ID', formData.employee_id], ['Designation', formData.designation],
@@ -1158,8 +1147,8 @@ export default function TeacherPage() {
                         ['Salary', formData.salary_amount || '—'],
                       ].map(([label, value]) => (
                         <View key={label} style={styles.previewItem}>
-                          <Text style={styles.previewLabel}>{label}</Text>
-                          <Text style={styles.previewValue}>{value || '—'}</Text>
+                          <AppText style={styles.previewLabel} weight="bold">{label}</AppText>
+                          <AppText style={styles.previewValue} weight="semiBold">{value || '—'}</AppText>
                         </View>
                       ))}
                     </View>
@@ -1170,14 +1159,14 @@ export default function TeacherPage() {
 
             <View style={styles.formFooter}>
               <TouchableOpacity style={styles.cancelBtn} onPress={step === 0 ? () => setActiveTab('list') : prevStep} disabled={loading}>
-                <Icon name="chevron-left" size={16} color={Colors.textSecondary} />
-                <Text style={styles.cancelBtnText}>{step === 0 ? 'Cancel' : 'Back'}</Text>
+                <Icon name="chevron-left" size={16} color={C.text} />
+                <AppText style={styles.cancelBtnText} weight="semiBold">{step === 0 ? 'Cancel' : 'Back'}</AppText>
               </TouchableOpacity>
               <View style={styles.footerRight}>
-                <Text style={styles.stepIndicator}>{step + 1}/{STEPS.length}</Text>
+                <AppText style={styles.stepIndicator}>{step + 1}/{STEPS.length}</AppText>
                 {step < STEPS.length - 1 ? (
                   <TouchableOpacity style={styles.nextBtn} onPress={nextStep} disabled={loading}>
-                    <Text style={styles.nextBtnText}>Next</Text>
+                    <AppText style={styles.nextBtnText} weight="bold">Next</AppText>
                     <Icon name="chevron-right" size={16} color="#fff" />
                   </TouchableOpacity>
                 ) : (
@@ -1187,7 +1176,7 @@ export default function TeacherPage() {
                     ) : (
                       <>
                         <Icon name="check-circle" size={16} color="#fff" />
-                        <Text style={styles.submitBtnText}>Register</Text>
+                        <AppText style={styles.submitBtnText} weight="bold">Register</AppText>
                       </>
                     )}
                   </TouchableOpacity>
@@ -1202,17 +1191,17 @@ export default function TeacherPage() {
           <View style={styles.tableContainer}>
             <View style={styles.filterBar}>
               <View style={styles.searchInput}>
-                <Icon name="search" size={14} color={Colors.textMuted} />
+                <Icon name="search" size={14} color={C.muted} />
                 <TextInput
                   style={styles.searchField}
                   placeholder="Search name, ID, email, mobile..."
                   value={q}
                   onChangeText={setQ}
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={C.muted}
                 />
                 {q ? (
                   <TouchableOpacity onPress={() => setQ('')}>
-                    <Icon name="x" size={14} color={Colors.textMuted} />
+                    <Icon name="x" size={14} color={C.muted} />
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -1222,10 +1211,11 @@ export default function TeacherPage() {
                     selectedValue={statusFilter}
                     onValueChange={setStatusFilter}
                     style={styles.picker}
+                    dropdownIconColor={C.muted}
                   >
-                    <Picker.Item label="All Status" value="all" />
-                    <Picker.Item label="Active" value="active" />
-                    <Picker.Item label="Inactive" value="inactive" />
+                    <Picker.Item label="All Status" value="all" color={C.text} />
+                    <Picker.Item label="Active" value="active" color={C.text} />
+                    <Picker.Item label="Inactive" value="inactive" color={C.text} />
                   </Picker>
                 </View>
                 <View style={styles.pickerSmall}>
@@ -1233,69 +1223,70 @@ export default function TeacherPage() {
                     selectedValue={deptFilter}
                     onValueChange={setDeptFilter}
                     style={styles.picker}
+                    dropdownIconColor={C.muted}
                   >
                     {departments.map(d => (
-                      <Picker.Item key={d} label={d === 'all' ? 'All Departments' : d} value={d} />
+                      <Picker.Item key={d} label={d === 'all' ? 'All Departments' : d} value={d} color={C.text} />
                     ))}
                   </Picker>
                 </View>
                 <TouchableOpacity style={styles.filterBtn} onPress={loadTeachers}>
-                  <Icon name="refresh-cw" size={14} color={Colors.textSecondary} />
-                  <Text style={styles.filterBtnText}>Refresh</Text>
+                  <Icon name="refresh-cw" size={14} color={C.text} />
+                  <AppText style={styles.filterBtnText} weight="semiBold">Refresh</AppText>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.exportBtn} onPress={handleExport}>
                   <Icon name="download" size={14} color="#fff" />
-                  <Text style={styles.exportBtnText}>Export</Text>
+                  <AppText style={styles.exportBtnText} weight="semiBold">Export</AppText>
                 </TouchableOpacity>
               </View>
             </View>
 
             {listErr ? (
               <View style={styles.errorBox}>
-                <Text style={styles.errorBoxText}>{listErr}</Text>
+                <AppText style={styles.errorBoxText}>{listErr}</AppText>
               </View>
             ) : null}
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.table}>
                 <View style={styles.tableHeader}>
-                  <Text style={[styles.headerCell, styles.cellName]}>Teacher</Text>
-                  <Text style={[styles.headerCell, styles.cellEmpId]}>Emp ID</Text>
-                  <Text style={[styles.headerCell, styles.cellContact]}>Contact</Text>
-                  <Text style={[styles.headerCell, styles.cellDesignation]}>Designation</Text>
-                  <Text style={[styles.headerCell, styles.cellDept]}>Department</Text>
-                  <Text style={[styles.headerCell, styles.cellStatus]}>Status</Text>
-                  <Text style={[styles.headerCell, styles.cellActions]}>Actions</Text>
+                  <AppText style={[styles.headerCell, styles.cellName]} weight="bold">Teacher</AppText>
+                  <AppText style={[styles.headerCell, styles.cellEmpId]} weight="bold">Emp ID</AppText>
+                  <AppText style={[styles.headerCell, styles.cellContact]} weight="bold">Contact</AppText>
+                  <AppText style={[styles.headerCell, styles.cellDesignation]} weight="bold">Designation</AppText>
+                  <AppText style={[styles.headerCell, styles.cellDept]} weight="bold">Department</AppText>
+                  <AppText style={[styles.headerCell, styles.cellStatus]} weight="bold">Status</AppText>
+                  <AppText style={[styles.headerCell, styles.cellActions]} weight="bold">Actions</AppText>
                 </View>
 
                 {listLoading ? (
                   <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={Colors.primary} />
-                    <Text style={styles.loadingText}>Loading teachers...</Text>
+                    <ActivityIndicator size="large" color={C.primary} />
+                    <AppText style={styles.loadingText}>Loading teachers...</AppText>
                   </View>
                 ) : paginated.length > 0 ? (
                   paginated.map((teacher, idx) => renderTeacherItem(teacher, idx))
                 ) : (
                   <View style={styles.emptyState}>
-                    <Icon name="users" size={48} color={Colors.textMuted} />
-                    <Text style={styles.emptyTitle}>No teachers found</Text>
-                    <Text style={styles.emptyText}>Try adjusting your search or filters</Text>
+                    <Icon name="users" size={48} color={C.muted} />
+                    <AppText style={styles.emptyTitle} weight="bold">No teachers found</AppText>
+                    <AppText style={styles.emptyText}>Try adjusting your search or filters</AppText>
                   </View>
                 )}
               </View>
             </ScrollView>
 
             <View style={styles.tableFooter}>
-              <Text style={styles.footerText}>
+              <AppText style={styles.footerText}>
                 Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
-              </Text>
+              </AppText>
               <View style={styles.pagination}>
                 <TouchableOpacity
                   style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
                   onPress={() => setCurrentPage(p => Math.max(p - 1, 1))}
                   disabled={currentPage === 1}
                 >
-                  <Icon name="chevron-left" size={14} color={currentPage === 1 ? Colors.textMuted : Colors.textSecondary} />
+                  <Icon name="chevron-left" size={14} color={currentPage === 1 ? C.muted : C.text} />
                 </TouchableOpacity>
                 {[...Array(Math.min(5, totalPages))].map((_, i) => {
                   let p = totalPages <= 5 ? i + 1 : currentPage <= 3 ? i + 1 : currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i;
@@ -1305,7 +1296,7 @@ export default function TeacherPage() {
                       style={[styles.pageBtn, currentPage === p && styles.pageBtnActive]}
                       onPress={() => setCurrentPage(p)}
                     >
-                      <Text style={[styles.pageBtnText, currentPage === p && styles.pageBtnTextActive]}>{p}</Text>
+                      <AppText style={[styles.pageBtnText, currentPage === p && styles.pageBtnTextActive]} weight={currentPage === p ? "bold" : "regular"}>{p}</AppText>
                     </TouchableOpacity>
                   );
                 })}
@@ -1314,7 +1305,7 @@ export default function TeacherPage() {
                   onPress={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
                   disabled={currentPage === totalPages || totalPages === 0}
                 >
-                  <Icon name="chevron-right" size={14} color={currentPage === totalPages ? Colors.textMuted : Colors.textSecondary} />
+                  <Icon name="chevron-right" size={14} color={currentPage === totalPages ? C.muted : C.text} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -1347,17 +1338,17 @@ export default function TeacherPage() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Teacher Details</Text>
+              <AppText style={styles.modalTitle} weight="bold">Teacher Details</AppText>
               <TouchableOpacity onPress={() => setViewTeacher(null)}>
-                <Icon name="x" size={20} color={Colors.textSecondary} />
+                <Icon name="x" size={20} color={C.text} />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalBody}>
               <View style={styles.detailGrid}>
                 {viewTeacher && Object.entries(viewTeacher).map(([key, value]) => (
                   <View key={key} style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>{key.replace(/_/g, ' ').toUpperCase()}</Text>
-                    <Text style={styles.detailValue}>{value || '—'}</Text>
+                    <AppText style={styles.detailLabel} weight="bold">{key.replace(/_/g, ' ').toUpperCase()}</AppText>
+                    <AppText style={styles.detailValue} weight="semiBold">{value || '—'}</AppText>
                   </View>
                 ))}
               </View>
@@ -1371,9 +1362,9 @@ export default function TeacherPage() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, styles.modalLarge]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Teacher</Text>
+              <AppText style={styles.modalTitle} weight="bold">Edit Teacher</AppText>
               <TouchableOpacity onPress={() => setEditTeacher(null)}>
-                <Icon name="x" size={20} color={Colors.textSecondary} />
+                <Icon name="x" size={20} color={C.text} />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalBody}>
@@ -1392,15 +1383,16 @@ export default function TeacherPage() {
                   if (type === 'select' && options) {
                     return (
                       <View key={name} style={styles.formGroup}>
-                        <Text style={styles.label}>{label}</Text>
+                        <AppText style={styles.label} weight="semiBold">{label}</AppText>
                         <View style={styles.pickerContainer}>
                           <Picker
                             selectedValue={value}
                             onValueChange={(val) => setEditForm((p: any) => ({ ...p, [name]: val }))}
                             style={styles.picker}
+                            dropdownIconColor={C.muted}
                           >
                             {options.map(opt => (
-                              <Picker.Item key={opt} label={opt} value={opt} />
+                              <Picker.Item key={opt} label={opt} value={opt} color={C.text} />
                             ))}
                           </Picker>
                         </View>
@@ -1409,10 +1401,11 @@ export default function TeacherPage() {
                   }
                   return (
                     <View key={name} style={styles.formGroup}>
-                      <Text style={styles.label}>{label}</Text>
+                      <AppText style={styles.label} weight="semiBold">{label}</AppText>
                       <TextInput
                         style={styles.input}
                         value={value}
+                        placeholderTextColor={C.muted}
                         onChangeText={(val) => setEditForm((p: any) => ({ ...p, [name]: val }))}
                       />
                     </View>
@@ -1422,10 +1415,10 @@ export default function TeacherPage() {
             </ScrollView>
             <View style={styles.modalFooter}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditTeacher(null)}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+                <AppText style={styles.cancelBtnText} weight="semiBold">Cancel</AppText>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveBtn} onPress={saveEditTeacher} disabled={savingEdit}>
-                <Text style={styles.saveBtnText}>{savingEdit ? 'Saving...' : 'Save Changes'}</Text>
+                <AppText style={styles.saveBtnText} weight="bold">{savingEdit ? 'Saving...' : 'Save Changes'}</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -1435,16 +1428,16 @@ export default function TeacherPage() {
       {/* School Info Footer */}
       <View style={styles.footer}>
         <View style={styles.footerItem}>
-          <Icon name="home" size={12} color={Colors.primary} />
-          <Text style={styles.footerText}>School: <Text style={styles.footerStrong}>{schoolCode || '—'}</Text></Text>
+          <Icon name="home" size={12} color={C.primary} />
+          <AppText style={styles.footerText}>School: <AppText style={styles.footerStrong} weight="bold">{schoolCode || '—'}</AppText></AppText>
         </View>
         <View style={styles.footerItem}>
-          <Icon name="git-branch" size={12} color={Colors.primary} />
-          <Text style={styles.footerText}>Branch: <Text style={styles.footerStrong}>{branchId || '—'}</Text></Text>
+          <Icon name="git-branch" size={12} color={C.primary} />
+          <AppText style={styles.footerText}>Branch: <AppText style={styles.footerStrong} weight="bold">{branchId || '—'}</AppText></AppText>
         </View>
         <View style={styles.footerItem}>
-          <Icon name="shield" size={12} color={Colors.primary} />
-          <Text style={styles.footerText}>Role: <Text style={styles.footerStrong}>Head Master</Text></Text>
+          <Icon name="shield" size={12} color={C.primary} />
+          <AppText style={styles.footerText}>Role: <AppText style={styles.footerStrong} weight="bold">Head Master</AppText></AppText>
         </View>
       </View>
     </View>
@@ -1452,97 +1445,96 @@ export default function TeacherPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+  container: { flex: 1, backgroundColor: C.bg },
   scrollView: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingBottom: 12 },
-  title: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
-  titleSub: { fontSize: 12, color: Colors.textTertiary, fontWeight: '400' },
+  title: { fontSize: 20, color: C.text },
+  titleSub: { fontSize: 12, color: C.muted, fontWeight: '400' },
   headerActions: { flexDirection: 'row', gap: 8 },
-  primaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
-  primaryBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  secondaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.cardBg, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border },
-  secondaryBtnText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
-  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.borderLight, marginHorizontal: 16 },
+  primaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  primaryBtnText: { color: '#fff', fontSize: 13 },
+  secondaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.card, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border },
+  secondaryBtnText: { color: C.text, fontSize: 13 },
+  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: C.border, marginHorizontal: 16 },
   tab: { paddingVertical: 10, paddingHorizontal: 16, marginRight: 8 },
-  activeTab: { borderBottomWidth: 2, borderBottomColor: Colors.primary },
-  tabText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
-  activeTabText: { color: Colors.primary },
-  errorBox: { margin: 16, padding: 12, backgroundColor: '#fee2e2', borderRadius: 8, borderWidth: 1, borderColor: '#fecaca' },
-  errorBoxText: { color: Colors.danger, fontSize: 13 },
-  successBox: { margin: 16, padding: 12, backgroundColor: '#d1fae5', borderRadius: 8, borderWidth: 1, borderColor: '#a7f3d0' },
-  successBoxText: { color: Colors.success, fontSize: 13 },
-  formCard: { backgroundColor: Colors.cardBg, margin: 16, borderRadius: 12, borderWidth: 1, borderColor: Colors.borderLight, overflow: 'hidden' },
-  formCardHeader: { padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.borderLight, backgroundColor: '#f8fafc' },
+  activeTab: { borderBottomWidth: 2, borderBottomColor: C.primary },
+  tabText: { fontSize: 14, color: C.muted },
+  activeTabText: { color: C.primary },
+  errorBox: { margin: 16, padding: 12, backgroundColor: C.errorSoft, borderRadius: 8, borderWidth: 1, borderColor: C.error },
+  errorBoxText: { color: C.error, fontSize: 13 },
+  successBox: { margin: 16, padding: 12, backgroundColor: C.successSoft, borderRadius: 8, borderWidth: 1, borderColor: C.success },
+  successBoxText: { color: C.success, fontSize: 13 },
+  formCard: { backgroundColor: C.card, margin: 16, borderRadius: 12, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  formCardHeader: { padding: 16, borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.bg },
   stepsContainer: { flexDirection: 'row', justifyContent: 'space-between' },
   stepItem: { alignItems: 'center', flex: 1 },
-  stepCircle: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.borderLight },
-  stepActive: { backgroundColor: Colors.primary },
-  stepCompleted: { backgroundColor: Colors.success },
-  stepInactive: { backgroundColor: Colors.borderLight, opacity: 0.5 },
-  stepNumber: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
-  stepLabel: { fontSize: 10, marginTop: 4, color: Colors.textMuted, textAlign: 'center' },
-  stepLabelActive: { color: Colors.primary, fontWeight: '600' },
-  stepLabelCompleted: { color: Colors.success },
+  stepCircle: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: C.bg },
+  stepActive: { backgroundColor: C.primary },
+  stepCompleted: { backgroundColor: C.success },
+  stepInactive: { backgroundColor: C.bg, opacity: 0.5 },
+  stepNumber: { color: C.muted, fontSize: 12 },
+  stepLabel: { fontSize: 10, marginTop: 4, color: C.muted, textAlign: 'center' },
+  stepLabelActive: { color: C.primary },
+  stepLabelCompleted: { color: C.success },
   formBody: { padding: 16 },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary, marginBottom: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  sectionTitle: { fontSize: 14, color: C.text, marginBottom: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: C.border },
   formGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   formGroup: { flex: 1, minWidth: '45%' },
   formGroupFull: { width: '100%' },
-  label: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: Colors.borderLight, borderRadius: 8, padding: 10, fontSize: 14, backgroundColor: Colors.bg },
-  inputError: { borderColor: Colors.danger },
-  readOnlyInput: { backgroundColor: '#f1f5f9', color: Colors.textMuted },
-  pickerContainer: { borderWidth: 1, borderColor: Colors.borderLight, borderRadius: 8, overflow: 'hidden' },
-  picker: { height: 44 },
-  pickerSmall: { minWidth: 120, borderWidth: 1, borderColor: Colors.borderLight, borderRadius: 8, overflow: 'hidden' },
+  label: { fontSize: 12, color: C.muted, marginBottom: 4 },
+  input: { borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 10, fontSize: 14, backgroundColor: C.bg, color: C.text },
+  inputError: { borderColor: C.error },
+  readOnlyInput: { backgroundColor: C.bg, color: C.muted, opacity: 0.7 },
+  pickerContainer: { borderWidth: 1, borderColor: C.border, borderRadius: 8, overflow: 'hidden', backgroundColor: C.bg },
+  picker: { height: 44, color: C.text },
+  pickerSmall: { minWidth: 120, borderWidth: 1, borderColor: C.border, borderRadius: 8, overflow: 'hidden', backgroundColor: C.bg },
   emailRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   emailInput: { flex: 1 },
-  verifyBtn: { paddingHorizontal: 12, paddingVertical: 10, backgroundColor: Colors.primary, borderRadius: 8 },
-  verifyBtnSuccess: { backgroundColor: Colors.success },
-  verifyBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  verifyBtn: { paddingHorizontal: 12, paddingVertical: 10, backgroundColor: C.primary, borderRadius: 8 },
+  verifyBtnSuccess: { backgroundColor: C.success },
+  verifyBtnText: { color: '#fff', fontSize: 12 },
   otpRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
   otpInput: { flex: 1 },
-  hintText: { fontSize: 11, color: Colors.textMuted, marginTop: 4 },
-  formFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderTopWidth: 1, borderTopColor: Colors.borderLight, backgroundColor: '#f8fafc' },
+  hintText: { fontSize: 11, color: C.muted, marginTop: 4 },
+  formFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.bg },
   footerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  stepIndicator: { fontSize: 12, color: Colors.textMuted },
-  cancelBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.cardBg },
-  cancelBtnText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '600' },
-  nextBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  nextBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  submitBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.success, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  submitBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  previewHint: { fontSize: 12, color: Colors.textTertiary, marginBottom: 16 },
-  previewCard: { borderWidth: 1, borderColor: Colors.borderLight, borderRadius: 12, overflow: 'hidden' },
-  previewHeader: { flexDirection: 'row', gap: 16, padding: 16, backgroundColor: Colors.primary },
+  stepIndicator: { fontSize: 12, color: C.muted },
+  cancelBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.card },
+  cancelBtnText: { color: C.text, fontSize: 14 },
+  nextBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  nextBtnText: { color: '#fff', fontSize: 14 },
+  submitBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.success, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  submitBtnText: { color: '#fff', fontSize: 14 },
+  previewHint: { fontSize: 12, color: C.muted, marginBottom: 16 },
+  previewCard: { borderWidth: 1, borderColor: C.border, borderRadius: 12, overflow: 'hidden', backgroundColor: C.card },
+  previewHeader: { flexDirection: 'row', gap: 16, padding: 16, backgroundColor: C.primary },
   previewPhoto: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  previewImage: { width: 64, height: 64, borderRadius: 32 },
-  previewInitial: { fontSize: 24, fontWeight: '700', color: '#fff' },
+  previewInitial: { fontSize: 24, color: '#fff' },
   previewInfo: { flex: 1 },
-  previewName: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  previewName: { fontSize: 16, color: '#fff' },
   previewDesignation: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
   previewEmail: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
   previewStatus: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginTop: 6 },
   previewStatusActive: { backgroundColor: 'rgba(16,185,129,0.3)' },
   previewStatusInactive: { backgroundColor: 'rgba(239,68,68,0.3)' },
-  previewStatusText: { color: '#fff', fontSize: 10, fontWeight: '600' },
-  previewSectionTitle: { fontSize: 11, fontWeight: '700', color: Colors.primary, padding: 12, paddingBottom: 8, backgroundColor: Colors.bg, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  previewStatusText: { color: '#fff', fontSize: 10 },
+  previewSectionTitle: { fontSize: 11, color: C.primary, padding: 12, paddingBottom: 8, backgroundColor: C.bg, borderBottomWidth: 1, borderBottomColor: C.border },
   previewGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  previewItem: { width: '50%', padding: 10, borderBottomWidth: 1, borderBottomColor: Colors.borderLight, borderRightWidth: 1, borderRightColor: Colors.borderLight },
-  previewLabel: { fontSize: 10, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase' },
-  previewValue: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary, marginTop: 2 },
-  tableContainer: { backgroundColor: Colors.cardBg, margin: 16, borderRadius: 12, borderWidth: 1, borderColor: Colors.borderLight, overflow: 'hidden' },
-  filterBar: { padding: 12, borderBottomWidth: 1, borderBottomColor: Colors.borderLight, gap: 12 },
-  searchInput: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: Colors.borderLight, borderRadius: 8, paddingHorizontal: 12, height: 40, backgroundColor: Colors.bg },
-  searchField: { flex: 1, fontSize: 14 },
+  previewItem: { width: '50%', padding: 10, borderBottomWidth: 1, borderBottomColor: C.border, borderRightWidth: 1, borderRightColor: C.border },
+  previewLabel: { fontSize: 10, color: C.muted, textTransform: 'uppercase' },
+  previewValue: { fontSize: 12, color: C.text, marginTop: 2 },
+  tableContainer: { backgroundColor: C.card, margin: 16, borderRadius: 12, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  filterBar: { padding: 12, borderBottomWidth: 1, borderBottomColor: C.border, gap: 12 },
+  searchInput: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: C.border, borderRadius: 8, paddingHorizontal: 12, height: 40, backgroundColor: C.bg },
+  searchField: { flex: 1, fontSize: 14, color: C.text },
   filterGroup: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.cardBg },
-  filterBtnText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
-  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: Colors.success },
-  exportBtnText: { fontSize: 12, fontWeight: '600', color: '#fff' },
+  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.card },
+  filterBtnText: { fontSize: 12, color: C.text },
+  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: C.success },
+  exportBtnText: { fontSize: 12, color: '#fff' },
   table: { minWidth: 800 },
-  tableHeader: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  headerCell: { fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase' },
+  tableHeader: { flexDirection: 'row', backgroundColor: C.bg, paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.border },
+  headerCell: { fontSize: 11, color: C.muted, textTransform: 'uppercase' },
   cellName: { width: '22%' },
   cellEmpId: { width: '10%' },
   cellContact: { width: '15%' },
@@ -1550,57 +1542,57 @@ const styles = StyleSheet.create({
   cellDept: { width: '15%' },
   cellStatus: { width: '10%' },
   cellActions: { width: '10%' },
-  teacherRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: Colors.borderLight, alignItems: 'center' },
+  teacherRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.border, alignItems: 'center' },
   teacherCellName: { width: '22%', flexDirection: 'row', alignItems: 'center', gap: 10 },
-  teacherAvatar: { width: 32, height: 32, borderRadius: 8, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  teacherName: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
-  teacherEmail: { fontSize: 11, color: Colors.textTertiary },
+  teacherAvatar: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: '#fff', fontSize: 13 },
+  teacherName: { fontSize: 14, color: C.text },
+  teacherEmail: { fontSize: 11, color: C.muted },
   teacherCellEmpId: { width: '10%' },
   teacherCellContact: { width: '15%' },
   teacherCellDesignation: { width: '15%' },
   teacherCellDept: { width: '15%' },
   teacherCellStatus: { width: '10%' },
   teacherCellActions: { width: '10%', flexDirection: 'row', gap: 8 },
-  teacherText: { fontSize: 13, color: Colors.textPrimary },
-  teacherSubText: { fontSize: 11, color: Colors.textTertiary, marginTop: 2 },
+  teacherText: { fontSize: 13, color: C.text },
+  teacherSubText: { fontSize: 11, color: C.muted, marginTop: 2 },
   iconBtn: { padding: 6, borderRadius: 6 },
   statusPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' },
-  statusActive: { backgroundColor: '#d1fae5' },
-  statusInactive: { backgroundColor: '#fee2e2' },
-  statusText: { fontSize: 10, fontWeight: '600' },
-  statusActiveText: { color: Colors.success },
-  statusInactiveText: { color: Colors.danger },
-  tableFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderTopWidth: 1, borderTopColor: Colors.borderLight, backgroundColor: '#f8fafc' },
-  footerText: { fontSize: 12, color: Colors.textTertiary },
+  statusActive: { backgroundColor: C.successSoft },
+  statusInactive: { backgroundColor: C.errorSoft },
+  statusText: { fontSize: 10 },
+  statusActiveText: { color: C.success },
+  statusInactiveText: { color: C.error },
+  tableFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.bg },
+  footerText: { fontSize: 12, color: C.muted },
   pagination: { flexDirection: 'row', gap: 6 },
-  pageBtn: { width: 32, height: 32, borderRadius: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.borderLight },
-  pageBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  pageBtn: { width: 32, height: 32, borderRadius: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
+  pageBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
   pageBtnDisabled: { opacity: 0.5 },
-  pageBtnText: { fontSize: 12, color: Colors.textSecondary },
+  pageBtnText: { fontSize: 12, color: C.muted },
   pageBtnTextActive: { color: '#fff' },
   loadingContainer: { padding: 48, alignItems: 'center' },
-  loadingText: { marginTop: 12, color: Colors.textMuted },
+  loadingText: { marginTop: 12, color: C.muted },
   emptyState: { alignItems: 'center', padding: 48 },
-  emptyTitle: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary, marginTop: 12 },
-  emptyText: { fontSize: 13, color: Colors.textTertiary, marginTop: 4 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 16 },
-  modalContent: { backgroundColor: Colors.cardBg, borderRadius: 12, width: '90%', maxHeight: '80%' },
+  emptyTitle: { fontSize: 16, color: C.text, marginTop: 12 },
+  emptyText: { fontSize: 13, color: C.muted, marginTop: 4 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 16 },
+  modalContent: { backgroundColor: C.card, borderRadius: 12, width: '90%', maxHeight: '80%', borderWidth: 1, borderColor: C.border },
   modalLarge: { width: '95%', maxWidth: 800 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
-  modalTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: C.border },
+  modalTitle: { fontSize: 16, color: C.text },
   modalBody: { padding: 16 },
-  modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, padding: 16, borderTopWidth: 1, borderTopColor: Colors.borderLight },
-  saveBtn: { backgroundColor: Colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  saveBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, padding: 16, borderTopWidth: 1, borderTopColor: C.border },
+  saveBtn: { backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  saveBtnText: { color: '#fff', fontSize: 14 },
   detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  detailItem: { width: '48%', backgroundColor: Colors.bg, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: Colors.borderLight },
-  detailLabel: { fontSize: 10, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase' },
-  detailValue: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary, marginTop: 4 },
-  dateText: { fontSize: 14, color: Colors.textPrimary },
-  placeholderText: { fontSize: 14, color: Colors.textMuted },
-  errorText: { fontSize: 11, color: Colors.danger, marginTop: 4 },
-  footer: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, padding: 16, backgroundColor: Colors.cardBg, borderTopWidth: 1, borderTopColor: Colors.borderLight },
+  detailItem: { width: '48%', backgroundColor: C.bg, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: C.border },
+  detailLabel: { fontSize: 10, color: C.muted, textTransform: 'uppercase' },
+  detailValue: { fontSize: 13, color: C.text, marginTop: 4 },
+  dateText: { fontSize: 14, color: C.text },
+  placeholderText: { fontSize: 14, color: C.muted },
+  errorText: { fontSize: 11, color: C.error, marginTop: 4 },
+  footer: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, padding: 16, backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.border },
   footerItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  footerStrong: { fontWeight: '700', color: Colors.textPrimary },
+  footerStrong: { color: C.text },
 });

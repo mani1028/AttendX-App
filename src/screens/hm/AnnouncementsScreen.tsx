@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
@@ -13,6 +12,28 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import API from "../../services/api";
+import { colors } from "../../constants/theme";
+import AppText from "../../components/common/AppText";
+import Icon from "react-native-vector-icons/Feather";
+
+// Local theme bridge
+const C = {
+  bg: colors.bg,
+  card: colors.surface,
+  border: colors.border,
+  text: colors.textPrimary,
+  textMuted: colors.textMuted,
+  primary: colors.primary,
+  primarySoft: colors.primary + '20',
+  success: colors.success,
+  successSoft: colors.successSoft,
+  error: colors.error,
+  errorSoft: colors.errorSoft,
+  warning: colors.warning,
+  warningSoft: colors.warningSoft,
+  info: colors.info || '#0ea5e9',
+  infoSoft: (colors.info || '#0ea5e9') + '20',
+};
 
 type Announcement = {
   id: number;
@@ -33,16 +54,16 @@ const announcementTypes = [
 ];
 
 const getTypeColor = (type: string) => {
-  const colors: any = {
-    event: { bg: "#dbeafe", color: "#1e40af" },
-    program: { bg: "#dcfce7", color: "#15803d" },
-    festival: { bg: "#fef3c7", color: "#92400e" },
-    holiday: { bg: "#f3e8ff", color: "#6b21a8" },
-    announcement: { bg: "#fecdd3", color: "#9f1239" },
-    urgent: { bg: "#fecaca", color: "#991b1b" },
+  const typeMap: any = {
+    event: { bg: C.primarySoft, color: C.primary },
+    program: { bg: C.successSoft, color: C.success },
+    festival: { bg: C.warningSoft, color: C.warning },
+    holiday: { bg: '#f3e8ff20', color: '#a855f7' },
+    announcement: { bg: C.infoSoft, color: C.info },
+    urgent: { bg: C.errorSoft, color: C.error },
   };
 
-  return colors[type?.toLowerCase()] || colors.event;
+  return typeMap[type?.toLowerCase()] || typeMap.event;
 };
 
 const AnnouncementsScreen = () => {
@@ -258,39 +279,41 @@ const AnnouncementsScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.header}>
+      <AppText style={styles.header}>
         📢 School Announcements Manager
-      </Text>
+      </AppText>
 
       {/* Form Section */}
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>
+        <AppText style={styles.sectionTitle}>
           Post New Announcement
-        </Text>
+        </AppText>
 
-        <Text style={styles.label}>Announcement Title *</Text>
+        <AppText style={styles.label}>Announcement Title *</AppText>
         <TextInput
           style={styles.input}
           placeholder="Annual Sports Day 2025"
+          placeholderTextColor={C.textMuted}
           value={formData.title}
           onChangeText={(text) =>
             handleInputChange("title", text)
           }
         />
 
-        <Text style={styles.label}>Description *</Text>
+        <AppText style={styles.label}>Description *</AppText>
         <TextInput
           style={[styles.input, styles.textArea]}
           multiline
           placeholder="Enter announcement details..."
+          placeholderTextColor={C.textMuted}
           value={formData.description}
           onChangeText={(text) =>
             handleInputChange("description", text)
           }
         />
 
-        <Text style={styles.label}>Type</Text>
+        <AppText style={styles.label}>Type</AppText>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.typeRow}>
@@ -306,7 +329,7 @@ const AnnouncementsScreen = () => {
                   handleInputChange("notification_type", type)
                 }
               >
-                <Text
+                <AppText
                   style={[
                     styles.typeText,
                     formData.notification_type === type &&
@@ -314,18 +337,19 @@ const AnnouncementsScreen = () => {
                   ]}
                 >
                   {type}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </View>
         </ScrollView>
 
-        <Text style={styles.label}>
+        <AppText style={styles.label}>
           Event Date (Optional)
-        </Text>
+        </AppText>
         <TextInput
           style={styles.input}
           placeholder="YYYY-MM-DD"
+          placeholderTextColor={C.textMuted}
           value={formData.event_date}
           onChangeText={(text) =>
             handleInputChange("event_date", text)
@@ -340,9 +364,9 @@ const AnnouncementsScreen = () => {
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.submitText}>
+            <AppText style={styles.submitText}>
               Post Announcement
-            </Text>
+            </AppText>
           )}
         </TouchableOpacity>
       </View>
@@ -350,14 +374,14 @@ const AnnouncementsScreen = () => {
       {/* History Section */}
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>
+        <AppText style={styles.sectionTitle}>
           Announcement History
-        </Text>
+        </AppText>
 
         {listLoading ? (
-          <ActivityIndicator size="large" />
+          <ActivityIndicator size="large" color={C.primary} />
         ) : announcements.length === 0 ? (
-          <Text>No announcements posted yet</Text>
+          <AppText style={styles.emptyText}>No announcements posted yet</AppText>
         ) : (
           announcements.map((announcement) => {
             const typeColor = getTypeColor(
@@ -369,7 +393,7 @@ const AnnouncementsScreen = () => {
                 key={announcement.id}
                 style={styles.announcementCard}
               >
-                <Text
+                <AppText
                   style={[
                     styles.badge,
                     {
@@ -378,58 +402,64 @@ const AnnouncementsScreen = () => {
                     },
                   ]}
                 >
-                  {announcement.type}
-                </Text>
+                  {announcement.type.toUpperCase()}
+                </AppText>
 
-                <Text style={styles.title}>
+                <AppText style={styles.title}>
                   {announcement.title}
-                </Text>
+                </AppText>
 
-                <Text style={styles.description}>
+                <AppText style={styles.description}>
                   {announcement.description}
-                </Text>
+                </AppText>
 
                 {announcement.event_date ? (
-                  <Text style={styles.meta}>
+                  <AppText style={styles.meta}>
                     📅 Event Date:{" "}
                     {formatDate(announcement.event_date)}
-                  </Text>
+                  </AppText>
                 ) : null}
 
-                <Text style={styles.meta}>
+                <AppText style={styles.meta}>
                   🕐 Posted:{" "}
                   {formatDate(announcement.created_at)}{" "}
                   {formatTime(announcement.created_at)}
-                </Text>
+                </AppText>
 
-                <TouchableOpacity
-                  style={styles.resendButton}
-                  onPress={() =>
-                    handleResend(announcement)
-                  }
-                  disabled={
-                    resendingId === announcement.id
-                  }
-                >
-                  {resendingId === announcement.id ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.buttonText}>
-                      Resend to All
-                    </Text>
-                  )}
-                </TouchableOpacity>
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={styles.resendButton}
+                    onPress={() =>
+                      handleResend(announcement)
+                    }
+                    disabled={
+                      resendingId === announcement.id
+                    }
+                  >
+                    {resendingId === announcement.id ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <>
+                        <Icon name="send" size={14} color="#fff" style={{marginRight: 6}} />
+                        <AppText style={styles.buttonText}>
+                          Resend
+                        </AppText>
+                      </>
+                    )}
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() =>
-                    handleDelete(announcement.id)
-                  }
-                >
-                  <Text style={styles.buttonText}>
-                    Delete
-                  </Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() =>
+                      handleDelete(announcement.id)
+                    }
+                  >
+                    <Icon name="trash-2" size={14} color="#fff" style={{marginRight: 6}} />
+                    <AppText style={styles.buttonText}>
+                      Delete
+                    </AppText>
+                  </TouchableOpacity>
+                </View>
               </View>
             );
           })
@@ -444,7 +474,7 @@ export default AnnouncementsScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f0f2f7",
+    backgroundColor: C.bg,
     padding: 16,
   },
 
@@ -452,34 +482,40 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "700",
     marginBottom: 20,
-    color: "#0d1b2a",
+    color: C.text,
   },
 
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: C.card,
     padding: 16,
     borderRadius: 12,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: C.border,
   },
 
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 16,
+    color: C.text,
   },
 
   label: {
     fontWeight: "600",
     marginBottom: 8,
     marginTop: 10,
+    color: C.text,
+    fontSize: 14,
   },
 
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: C.border,
     borderRadius: 8,
     padding: 12,
-    backgroundColor: "#fff",
+    backgroundColor: C.bg,
+    color: C.text,
   },
 
   textArea: {
@@ -493,18 +529,24 @@ const styles = StyleSheet.create({
   },
 
   typeButton: {
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: "#eee",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: C.bg,
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: C.border,
   },
 
   activeType: {
-    backgroundColor: "#2563eb",
+    backgroundColor: C.primary,
+    borderColor: C.primary,
   },
 
   typeText: {
-    color: "#000",
+    color: C.textMuted,
+    fontSize: 13,
+    fontWeight: "600",
   },
 
   activeTypeText: {
@@ -512,69 +554,92 @@ const styles = StyleSheet.create({
   },
 
   submitButton: {
-    backgroundColor: "#2563eb",
+    backgroundColor: C.primary,
     padding: 14,
     borderRadius: 8,
-    marginTop: 20,
+    marginTop: 24,
     alignItems: "center",
   },
 
   submitText: {
     color: "#fff",
     fontWeight: "700",
+    fontSize: 16,
   },
 
   announcementCard: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: C.bg,
     padding: 16,
     borderRadius: 10,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: C.border,
   },
 
   badge: {
     alignSelf: "flex-start",
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    fontWeight: "700",
+    paddingVertical: 4,
+    borderRadius: 6,
+    fontSize: 11,
+    fontWeight: "800",
     marginBottom: 10,
   },
 
   title: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
+    color: C.text,
   },
 
   description: {
-    marginTop: 10,
-    marginBottom: 10,
-    color: "#444",
+    marginTop: 8,
+    marginBottom: 12,
+    color: C.textMuted,
+    lineHeight: 20,
   },
 
   meta: {
-    fontSize: 13,
-    marginBottom: 6,
-    color: "#666",
+    fontSize: 12,
+    marginBottom: 4,
+    color: C.textMuted,
+  },
+
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
   },
 
   resendButton: {
-    backgroundColor: "#2563eb",
-    padding: 12,
+    flex: 1,
+    backgroundColor: C.primary,
+    padding: 10,
     borderRadius: 8,
-    marginTop: 12,
     alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
 
   deleteButton: {
-    backgroundColor: "#dc2626",
-    padding: 12,
+    flex: 1,
+    backgroundColor: C.error,
+    padding: 10,
     borderRadius: 8,
-    marginTop: 10,
     alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
 
   buttonText: {
     color: "#fff",
     fontWeight: "700",
+    fontSize: 13,
   },
+
+  emptyText: {
+    color: C.textMuted,
+    textAlign: 'center',
+    paddingVertical: 20,
+  }
 });

@@ -283,12 +283,18 @@ export const performLogout = async (navigation?: any) => {
       key.includes("token") || 
       key.includes("session") || 
       key.includes("user") ||
-      key === "is_class_teacher"
+      key === "is_class_teacher" ||
+      key === "schoolCode" ||
+      key === "branchId"
     );
     
     if (sessionKeysToClear.length > 0) {
       await AsyncStorage.multiRemove(sessionKeysToClear);
     }
+
+    // Reset API state
+    const { setAuthToken } = require('../services/api');
+    setAuthToken(null);
 
     // Emit logout event for any listeners
     eventEmitter.emit('app-logout');

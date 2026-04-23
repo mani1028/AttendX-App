@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TextInput,
@@ -16,6 +15,25 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Feather';
 import API from '../../services/api';
+import { colors } from '../../constants/theme';
+import AppText from '../../components/common/AppText';
+
+// Local theme bridge
+const C = {
+  bg: colors.bg,
+  card: colors.surface,
+  border: colors.border,
+  text: colors.textPrimary,
+  textMuted: colors.textMuted,
+  primary: colors.primary,
+  primarySoft: colors.primary + '20',
+  success: colors.success,
+  successSoft: colors.successSoft,
+  error: colors.error,
+  errorSoft: colors.errorSoft,
+  warning: colors.warning,
+  warningSoft: colors.warningSoft,
+};
 
 interface Student {
   id: string;
@@ -207,11 +225,11 @@ const FeeManagement = () => {
   const getStatusStyle = (status: string) => {
     switch (status) {
       case 'paid':
-        return { backgroundColor: '#d1fae5', color: '#065f46' };
+        return { backgroundColor: C.successSoft, color: C.success };
       case 'partial':
-        return { backgroundColor: '#fef3c7', color: '#92400e' };
+        return { backgroundColor: C.warningSoft, color: C.warning };
       default:
-        return { backgroundColor: '#fee2e2', color: '#991b1b' };
+        return { backgroundColor: C.errorSoft, color: C.error };
     }
   };
 
@@ -280,19 +298,19 @@ const FeeManagement = () => {
         activeOpacity={0.7}
       >
         <View style={styles.feeInfo}>
-          <Text style={styles.studentName}>{item.student_name || 'N/A'}</Text>
+          <AppText style={styles.studentName}>{item.student_name || 'N/A'}</AppText>
           <View style={styles.feeDetails}>
-            <Text style={styles.feeAmount}>Total: {formatAmount(item.total_fee)}</Text>
-            <Text style={styles.paidAmount}>Paid: {formatAmount(item.paid_amount)}</Text>
-            <Text style={styles.dueAmount}>Due: {formatAmount(item.due_amount)}</Text>
+            <AppText style={styles.feeAmount}>Total: {formatAmount(item.total_fee)}</AppText>
+            <AppText style={styles.paidAmount}>Paid: {formatAmount(item.paid_amount)}</AppText>
+            <AppText style={styles.dueAmount}>Due: {formatAmount(item.due_amount)}</AppText>
           </View>
           <View style={styles.feeMeta}>
             <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
-              <Text style={[styles.statusText, { color: statusStyle.color }]}>
+              <AppText style={[styles.statusText, { color: statusStyle.color }]}>
                 {getStatusText(item.status)}
-              </Text>
+              </AppText>
             </View>
-            <Text style={styles.dueDate}>Due: {formatDate(item.due_date)}</Text>
+            <AppText style={styles.dueDate}>Due: {formatDate(item.due_date)}</AppText>
           </View>
         </View>
         {item.status !== 'paid' && (
@@ -306,7 +324,7 @@ const FeeManagement = () => {
               }}
             >
               <Icon name="credit-card" size={16} color="#fff" />
-              <Text style={styles.paymentButtonText}>Pay</Text>
+              <AppText style={styles.paymentButtonText}>Pay</AppText>
             </TouchableOpacity>
           </View>
         )}
@@ -324,20 +342,20 @@ const FeeManagement = () => {
       >
         {/* Form Section */}
         <View style={styles.formSection}>
-          <Text style={styles.formTitle}>📋 Assign Fee to Student</Text>
+          <AppText style={styles.formTitle}>📋 Assign Fee to Student</AppText>
           
           <View style={styles.formGroup}>
             <View>
-              <Text style={styles.label}>Student</Text>
+              <AppText style={styles.label}>Student</AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.studentScroll}>
                 <View style={styles.studentContainer}>
                   <TouchableOpacity
                     style={[styles.studentOption, !formData.student_id && styles.studentOptionSelected]}
                     onPress={() => handleInputChange('student_id', '')}
                   >
-                    <Text style={[styles.studentOptionText, !formData.student_id && styles.studentOptionTextSelected]}>
+                    <AppText style={[styles.studentOptionText, !formData.student_id && styles.studentOptionTextSelected]}>
                       Select Student
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                   {students.map((student) => (
                     <TouchableOpacity
@@ -345,10 +363,10 @@ const FeeManagement = () => {
                       style={[styles.studentOption, formData.student_id === student.id && styles.studentOptionSelected]}
                       onPress={() => handleInputChange('student_id', student.id)}
                     >
-                      <Text style={[styles.studentOptionText, formData.student_id === student.id && styles.studentOptionTextSelected]}>
+                      <AppText style={[styles.studentOptionText, formData.student_id === student.id && styles.studentOptionTextSelected]}>
                         {getStudentName(student)}
                         {getStudentClass(student) && ` (${getStudentClass(student)})`}
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -356,10 +374,11 @@ const FeeManagement = () => {
             </View>
 
             <View>
-              <Text style={styles.label}>Total Fee (₹)</Text>
+              <AppText style={styles.label}>Total Fee (₹)</AppText>
               <TextInput
                 style={styles.input}
                 placeholder="Enter amount"
+                placeholderTextColor={C.textMuted}
                 keyboardType="numeric"
                 value={formData.total_fee}
                 onChangeText={(text) => handleInputChange('total_fee', text)}
@@ -367,12 +386,12 @@ const FeeManagement = () => {
             </View>
 
             <View>
-              <Text style={styles.label}>Due Date</Text>
+              <AppText style={styles.label}>Due Date</AppText>
               <TouchableOpacity 
                 style={styles.dateInput}
                 onPress={() => setShowDatePicker(true)}
               >
-                <Text style={styles.dateText}>{formData.due_date || 'Select Date'}</Text>
+                <AppText style={styles.dateText}>{formData.due_date || 'Select Date'}</AppText>
               </TouchableOpacity>
             </View>
 
@@ -386,7 +405,7 @@ const FeeManagement = () => {
               ) : (
                 <>
                   <Icon name="plus" size={16} color="#fff" />
-                  <Text style={styles.submitButtonText}>Create Fee</Text>
+                  <AppText style={styles.submitButtonText}>Create Fee</AppText>
                 </>
               )}
             </TouchableOpacity>
@@ -396,30 +415,30 @@ const FeeManagement = () => {
         {/* Summary Cards */}
         <View style={styles.summaryContainer}>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Total Fees</Text>
-            <Text style={styles.summaryValue}>{formatAmount(getTotalFees())}</Text>
+            <AppText style={styles.summaryLabel}>Total Fees</AppText>
+            <AppText style={styles.summaryValue}>{formatAmount(getTotalFees())}</AppText>
           </View>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Collected</Text>
-            <Text style={[styles.summaryValue, styles.collectedValue]}>{formatAmount(getTotalCollected())}</Text>
+            <AppText style={styles.summaryLabel}>Collected</AppText>
+            <AppText style={[styles.summaryValue, styles.collectedValue]}>{formatAmount(getTotalCollected())}</AppText>
           </View>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Pending</Text>
-            <Text style={[styles.summaryValue, styles.pendingValue]}>{formatAmount(getTotalPending())}</Text>
+            <AppText style={styles.summaryLabel}>Pending</AppText>
+            <AppText style={[styles.summaryValue, styles.pendingValue]}>{formatAmount(getTotalPending())}</AppText>
           </View>
         </View>
 
         {/* Fees List Section */}
         <View style={styles.listSection}>
           <View style={styles.listHeader}>
-            <Text style={styles.listTitle}>📊 All Fees</Text>
-            <Text style={styles.feeCount}>{fees.length} Records</Text>
+            <AppText style={styles.listTitle}>📊 All Fees</AppText>
+            <AppText style={styles.feeCount}>{fees.length} Records</AppText>
           </View>
 
           {loading && fees.length === 0 ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#2563eb" />
-              <Text style={styles.loadingText}>Loading fees...</Text>
+              <ActivityIndicator size="large" color={C.primary} />
+              <AppText style={styles.loadingText}>Loading fees...</AppText>
             </View>
           ) : fees.length > 0 ? (
             <View style={styles.feesList}>
@@ -431,8 +450,8 @@ const FeeManagement = () => {
             </View>
           ) : (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No fees found.</Text>
-              <Text style={styles.emptySubtext}>Assign fees to students to get started</Text>
+              <AppText style={styles.emptyText}>No fees found.</AppText>
+              <AppText style={styles.emptySubtext}>Assign fees to students to get started</AppText>
             </View>
           )}
         </View>
@@ -452,39 +471,40 @@ const FeeManagement = () => {
       <Modal
         visible={showPaymentModal}
         transparent={true}
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowPaymentModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Record Payment</Text>
+              <AppText style={styles.modalTitle}>Record Payment</AppText>
               <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
-                <Icon name="x" size={24} color="#4a5568" />
+                <Icon name="x" size={24} color={C.textMuted} />
               </TouchableOpacity>
             </View>
 
             {selectedFee && (
               <>
                 <View style={styles.modalInfo}>
-                  <Text style={styles.modalLabel}>Student</Text>
-                  <Text style={styles.modalValue}>{selectedFee.student_name || 'N/A'}</Text>
+                  <AppText style={styles.modalLabel}>Student</AppText>
+                  <AppText style={styles.modalValue}>{selectedFee.student_name || 'N/A'}</AppText>
                   
-                  <Text style={styles.modalLabel}>Total Fee</Text>
-                  <Text style={styles.modalValue}>{formatAmount(selectedFee.total_fee)}</Text>
+                  <AppText style={styles.modalLabel}>Total Fee</AppText>
+                  <AppText style={styles.modalValue}>{formatAmount(selectedFee.total_fee)}</AppText>
                   
-                  <Text style={styles.modalLabel}>Amount Paid</Text>
-                  <Text style={styles.modalValue}>{formatAmount(selectedFee.paid_amount)}</Text>
+                  <AppText style={styles.modalLabel}>Amount Paid</AppText>
+                  <AppText style={styles.modalValue}>{formatAmount(selectedFee.paid_amount)}</AppText>
                   
-                  <Text style={styles.modalLabel}>Due Amount</Text>
-                  <Text style={[styles.modalValue, styles.dueAmountValue]}>{formatAmount(selectedFee.due_amount)}</Text>
+                  <AppText style={styles.modalLabel}>Due Amount</AppText>
+                  <AppText style={[styles.modalValue, styles.dueAmountValue]}>{formatAmount(selectedFee.due_amount)}</AppText>
                 </View>
 
                 <View style={styles.modalForm}>
-                  <Text style={styles.label}>Payment Amount (₹)</Text>
+                  <AppText style={styles.label}>Payment Amount (₹)</AppText>
                   <TextInput
                     style={styles.input}
                     placeholder="Enter amount"
+                    placeholderTextColor={C.textMuted}
                     keyboardType="numeric"
                     value={paymentAmount}
                     onChangeText={setPaymentAmount}
@@ -496,7 +516,7 @@ const FeeManagement = () => {
                     style={[styles.modalButton, styles.cancelButton]}
                     onPress={() => setShowPaymentModal(false)}
                   >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                    <AppText style={styles.cancelButtonText}>Cancel</AppText>
                   </TouchableOpacity>
                   <TouchableOpacity 
                     style={[styles.modalButton, styles.payButton]}
@@ -506,7 +526,7 @@ const FeeManagement = () => {
                     {processingPayment ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <Text style={styles.payButtonText}>Record Payment</Text>
+                      <AppText style={styles.payButtonText}>Record Payment</AppText>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -522,24 +542,26 @@ const FeeManagement = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: C.bg,
   },
   scrollView: {
     flex: 1,
   },
   formSection: {
-    backgroundColor: '#f7f9fc',
+    backgroundColor: C.card,
     padding: 20,
-    borderRadius: 8,
+    borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#2563eb',
+    borderLeftColor: C.primary,
     margin: 16,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   formTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
     marginBottom: 16,
   },
   formGroup: {
@@ -547,7 +569,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontWeight: '600',
-    color: '#4a5568',
+    color: C.text,
     fontSize: 14,
     marginBottom: 6,
   },
@@ -563,19 +585,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.bg,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     marginRight: 8,
     marginBottom: 8,
   },
   studentOptionSelected: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: C.primary,
+    borderColor: C.primary,
   },
   studentOptionText: {
     fontSize: 14,
-    color: '#0d1b2a',
+    color: C.text,
   },
   studentOptionTextSelected: {
     color: '#ffffff',
@@ -583,24 +605,25 @@ const styles = StyleSheet.create({
   input: {
     padding: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     borderRadius: 8,
     fontSize: 14,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.bg,
+    color: C.text,
   },
   dateInput: {
     padding: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     borderRadius: 8,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.bg,
   },
   dateText: {
     fontSize: 14,
-    color: '#0d1b2a',
+    color: C.text,
   },
   submitButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: C.primary,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
@@ -623,29 +646,29 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     alignItems: 'center',
   },
   summaryLabel: {
     fontSize: 12,
-    color: '#8898aa',
+    color: C.textMuted,
     fontWeight: '500',
     marginBottom: 4,
   },
   summaryValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#0d1b2a',
+    color: C.text,
   },
   collectedValue: {
-    color: '#059669',
+    color: C.success,
   },
   pendingValue: {
-    color: '#dc2626',
+    color: C.error,
   },
   listSection: {
     margin: 16,
@@ -660,17 +683,17 @@ const styles = StyleSheet.create({
   listTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   feeCount: {
     fontSize: 14,
-    color: '#8898aa',
+    color: C.textMuted,
   },
   feesList: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     overflow: 'hidden',
   },
   feeRow: {
@@ -679,7 +702,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   feeInfo: {
     flex: 1,
@@ -687,7 +710,7 @@ const styles = StyleSheet.create({
   studentName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0d1b2a',
+    color: C.text,
     marginBottom: 8,
   },
   feeDetails: {
@@ -697,16 +720,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   feeAmount: {
-    fontSize: 14,
-    color: '#4a5568',
+    fontSize: 13,
+    color: C.text,
   },
   paidAmount: {
-    fontSize: 14,
-    color: '#059669',
+    fontSize: 13,
+    color: C.success,
   },
   dueAmount: {
-    fontSize: 14,
-    color: '#dc2626',
+    fontSize: 13,
+    color: C.error,
   },
   feeMeta: {
     flexDirection: 'row',
@@ -724,14 +747,14 @@ const styles = StyleSheet.create({
   },
   dueDate: {
     fontSize: 12,
-    color: '#8898aa',
+    color: C.textMuted,
   },
   paymentButtonContainer: {
     justifyContent: 'center',
   },
   paymentButton: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 16,
+    backgroundColor: C.primary,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     flexDirection: 'row',
@@ -741,7 +764,7 @@ const styles = StyleSheet.create({
   paymentButtonText: {
     color: '#ffffff',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 13,
   },
   loadingContainer: {
     padding: 32,
@@ -749,35 +772,35 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: '#8898aa',
+    color: C.textMuted,
   },
   emptyContainer: {
     padding: 48,
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
   },
   emptyText: {
     fontSize: 16,
-    color: '#8898aa',
+    color: C.text,
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#cbd5e1',
+    color: C.textMuted,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
+    backgroundColor: C.card,
+    borderRadius: 16,
+    padding: 24,
     width: '90%',
     maxWidth: 400,
   },
@@ -790,7 +813,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   modalInfo: {
     marginBottom: 20,
@@ -798,17 +821,17 @@ const styles = StyleSheet.create({
   modalLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#8898aa',
+    color: C.textMuted,
     marginBottom: 4,
   },
   modalValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0d1b2a',
+    color: C.text,
     marginBottom: 12,
   },
   dueAmountValue: {
-    color: '#dc2626',
+    color: C.error,
   },
   modalForm: {
     marginBottom: 20,
@@ -824,14 +847,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: C.bg,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   cancelButtonText: {
-    color: '#4a5568',
+    color: C.textMuted,
     fontWeight: '600',
   },
   payButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: C.primary,
   },
   payButtonText: {
     color: '#ffffff',

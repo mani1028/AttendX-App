@@ -14,7 +14,7 @@ import {
   Platform,
   Switch,
 } from 'react-native';
-import { Camera, useCameraDevices } from 'react-native-vision-camera';
+import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -124,6 +124,7 @@ export default function TeacherAttendanceScreen() {
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [cameraActive, setCameraActive] = useState<boolean>(false);
   const cameraRef = useRef<Camera>(null);
+  const device = useCameraDevice('back');
   
   // Form
   const [form, setForm] = useState({
@@ -465,7 +466,7 @@ export default function TeacherAttendanceScreen() {
             <Camera
               ref={cameraRef}
               style={styles.camera}
-              device={useCameraDevices().back}
+              device={device!}
               isActive={cameraActive}
               photo={true}
             />

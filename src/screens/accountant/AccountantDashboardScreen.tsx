@@ -1,45 +1,111 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-
-import ScreenContainer from '../../components/ScreenContainer';
-import { colors } from '../../constants/theme';
+import { StyleSheet, TouchableOpacity, View, ScrollView } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 import { useAuth } from '../../context/AuthContext';
+import AvatarBubble from '../../components/common/AvatarBubble';
+import AppText from '../../components/common/AppText';
+import { colors } from '../../constants/theme';
 
-export default function AccountantDashboardScreen() {
-  const { signOut } = useAuth();
+type Props = {
+  navigation: any;
+};
+
+export default function AccountantDashboardScreen({ navigation }: Props) {
+  const { userName } = useAuth();
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Morning';
+    if (hour < 17) return 'Afternoon';
+    return 'Evening';
+  };
 
   return (
-    <ScreenContainer>
-      <View style={styles.card}>
-        <Text style={styles.heading}>Accountant Dashboard</Text>
-        <Text style={styles.text}>Fee collection, dues, and transaction records go here.</Text>
-        <Text style={styles.link} onPress={() => void signOut()}>
-          Sign out
-        </Text>
+    <ScrollView style={styles.container}>
+      <View style={styles.content}>
+        {/* Welcome Section */}
+        <View style={styles.welcomeSection}>
+          <View>
+            <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Accountant'}!</AppText>
+            <AppText style={styles.welcomeSub}>Manage fees and school finances today.</AppText>
+          </View>
+          <View style={styles.dateBadge}>
+            <Icon name="calendar" size={12} color={colors.textMuted} />
+            <AppText style={styles.dateText}>
+              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </AppText>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <AppText style={styles.cardTitle}>Recent Transactions</AppText>
+          <AppText style={styles.text}>No recent transactions found.</AppText>
+        </View>
+
+        <View style={styles.card}>
+          <AppText style={styles.cardTitle}>Fee Collection</AppText>
+          <AppText style={styles.text}>Collect fees from students here.</AppText>
+        </View>
       </View>
-    </ScreenContainer>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  container: {
+    flex: 1,
+    backgroundColor: colors.bg,
+  },
+  content: {
+    padding: 16,
+  },
+  welcomeSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  welcomeTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  welcomeSub: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 16,
-    padding: 16,
-    gap: 10,
   },
-  heading: {
+  dateText: {
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.textPrimary,
-    fontWeight: '800',
-    fontSize: 20,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cardTitle: {
+    color: colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   text: {
     color: colors.textMuted,
-  },
-  link: {
-    color: colors.accent,
-    fontWeight: '700',
   },
 });

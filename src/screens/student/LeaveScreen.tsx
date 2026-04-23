@@ -14,9 +14,12 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+import { colors } from '../../constants/theme';
+import { useAuth } from '../../context/AuthContext';
+import Icon from 'react-native-vector-icons/Feather';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
+import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 
 // Types
@@ -77,6 +80,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 };
 
 export default function LeaveScreen() {
+    const { userName } = useAuth();
     const [schoolCode, setSchoolCode] = useState<string>('');
     const [studentId, setStudentId] = useState<string>('');
     const [parentId, setParentId] = useState<string>('');
@@ -243,20 +247,41 @@ export default function LeaveScreen() {
         }
     };
 
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Morning';
+        if (hour < 17) return 'Afternoon';
+        return 'Evening';
+    };
+
     return (
         <View style={styles.container}>
             <ScrollView
                 contentContainerStyle={styles.contentContainer}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAll} />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor={colors.accent} />}
             >
+                {/* Welcome Section */}
+                <View style={styles.welcomeSection}>
+                    <View>
+                        <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Student'}!</AppText>
+                        <AppText style={styles.welcomeSub}>Manage your leave requests and track approvals.</AppText>
+                    </View>
+                    <View style={styles.dateBadge}>
+                        <Icon name="calendar" size={12} color={colors.textMuted} />
+                        <AppText style={styles.dateText}>
+                            {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </AppText>
+                    </View>
+                </View>
+
                 {/* Header */}
                 <View style={styles.header}>
-                    <View style={styles.titleWrap}>
-                        <Text style={styles.title}>📅 Leave Request</Text>
-                        <Text style={styles.subText}>{history.length} records</Text>
+                    <View>
+                        <AppText style={styles.title}>Leave Request</AppText>
+                        <AppText style={styles.subText}>{history.length} records found</AppText>
                     </View>
                     <TouchableOpacity style={styles.refreshBtn} onPress={loadHistory}>
-                        <Text style={styles.refreshBtnText}>🔄 Refresh</Text>
+                        <Icon name="refresh-cw" size={16} color={colors.textPrimary} />
                     </TouchableOpacity>
                 </View>
 
@@ -417,67 +442,95 @@ export default function LeaveScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f3f6fb',
+        backgroundColor: colors.bg,
     },
     contentContainer: {
-        padding: 20,
+        padding: 16,
         paddingBottom: 40,
+    },
+    welcomeSection: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 24,
+    },
+    welcomeTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: colors.textPrimary,
+    },
+    welcomeSub: {
+        fontSize: 13,
+        color: colors.textMuted,
+        marginTop: 2,
+    },
+    dateBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: colors.surface,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    dateText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: colors.textPrimary,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 22,
-    },
-    titleWrap: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
+        marginBottom: 20,
     },
     title: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: '800',
-        color: '#0f172a',
+        color: colors.textPrimary,
     },
     subText: {
-        color: '#64748b',
-        fontSize: 14,
-        marginLeft: 8,
+        color: colors.textMuted,
+        fontSize: 13,
     },
     refreshBtn: {
-        borderWidth: 1,
-        borderColor: '#dbe3ee',
-        backgroundColor: '#ffffff',
-        paddingVertical: 10,
-        paddingHorizontal: 16,
+        backgroundColor: colors.surface,
+        padding: 10,
         borderRadius: 12,
-    },
-    refreshBtnText: {
-        color: '#475569',
-        fontWeight: '700',
-        fontSize: 14,
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     grid: {
         flexDirection: 'column',
-        gap: 22,
+        gap: 20,
     },
     formCard: {
         padding: 0,
         overflow: 'hidden',
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 16,
     },
     historyCard: {
         padding: 0,
         overflow: 'hidden',
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 16,
     },
     cardTitle: {
         fontSize: 16,
         fontWeight: '800',
-        color: '#0f172a',
+        color: colors.textPrimary,
         padding: 18,
         paddingBottom: 0,
     },
     formBody: {
-        padding: 20,
+        padding: 18,
     },
     field: {
         marginBottom: 16,
@@ -485,7 +538,7 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 12,
         fontWeight: '800',
-        color: '#64748b',
+        color: colors.textMuted,
         textTransform: 'uppercase',
         marginBottom: 8,
     },
@@ -498,22 +551,23 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 16,
         borderRadius: 20,
-        backgroundColor: '#f8fafc',
+        backgroundColor: colors.bg,
         borderWidth: 1,
-        borderColor: '#dbe3ee',
+        borderColor: colors.border,
         marginRight: 8,
         marginBottom: 8,
     },
     teacherChipActive: {
-        backgroundColor: '#2563eb',
-        borderColor: '#2563eb',
+        backgroundColor: colors.accent,
+        borderColor: colors.accent,
     },
     teacherChipText: {
         fontSize: 14,
-        color: '#475569',
+        color: colors.textMuted,
     },
     teacherChipTextActive: {
         color: '#ffffff',
+        fontWeight: '600',
     },
     datePickerBtn: {
         flexDirection: 'row',
@@ -521,14 +575,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         height: 46,
         borderWidth: 1,
-        borderColor: '#dbe3ee',
-        backgroundColor: '#f8fafc',
+        borderColor: colors.border,
+        backgroundColor: colors.bg,
         borderRadius: 12,
         paddingHorizontal: 14,
     },
     datePickerText: {
         fontSize: 14,
-        color: '#0f172a',
+        color: colors.textPrimary,
     },
     calendarIcon: {
         fontSize: 16,
@@ -536,29 +590,30 @@ const styles = StyleSheet.create({
     textArea: {
         minHeight: 100,
         borderWidth: 1,
-        borderColor: '#dbe3ee',
-        backgroundColor: '#f8fafc',
+        borderColor: colors.border,
+        backgroundColor: colors.bg,
         borderRadius: 12,
         padding: 12,
         fontSize: 14,
-        color: '#0f172a',
+        color: colors.textPrimary,
         textAlignVertical: 'top',
     },
     submitBtn: {
         marginTop: 8,
+        backgroundColor: colors.accent,
     },
     tableHeader: {
         flexDirection: 'row',
-        backgroundColor: '#f8fafc',
+        backgroundColor: colors.bg,
         paddingVertical: 14,
         paddingHorizontal: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#edf2f7',
+        borderBottomColor: colors.border,
     },
     tableHeaderText: {
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: '800',
-        color: '#94a3b8',
+        color: colors.textMuted,
         textTransform: 'uppercase',
         letterSpacing: 0.4,
     },
@@ -567,11 +622,11 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         paddingHorizontal: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#edf2f7',
+        borderBottomColor: colors.border,
     },
     tableCell: {
-        fontSize: 14,
-        color: '#0f172a',
+        fontSize: 13,
+        color: colors.textPrimary,
     },
     colTeacher: {
         width: 120,
@@ -595,37 +650,37 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start',
     },
     badgeApproved: {
-        backgroundColor: '#dcfce7',
+        backgroundColor: 'rgba(21, 128, 61, 0.15)',
     },
     badgeRejected: {
-        backgroundColor: '#fee2e2',
+        backgroundColor: 'rgba(185, 28, 28, 0.15)',
     },
     badgePending: {
-        backgroundColor: '#fef3c7',
+        backgroundColor: 'rgba(180, 83, 9, 0.15)',
     },
     badgeText: {
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: '700',
     },
     badgeTextApproved: {
-        color: '#15803d',
+        color: '#22c55e',
     },
     badgeTextRejected: {
-        color: '#b91c1c',
+        color: '#ef4444',
     },
     badgeTextPending: {
-        color: '#b45309',
+        color: '#f59e0b',
     },
     emptyContainer: {
         padding: 40,
         alignItems: 'center',
     },
     emptyText: {
-        color: '#64748b',
+        color: colors.textMuted,
         fontWeight: '600',
     },
     noDataText: {
-        color: '#94a3b8',
+        color: colors.textMuted,
         fontSize: 14,
         paddingVertical: 8,
     },

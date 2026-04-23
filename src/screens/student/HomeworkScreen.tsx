@@ -13,11 +13,14 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import Icon from 'react-native-vector-icons/Feather';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
 
 // Types
 interface Subject {
@@ -84,6 +87,7 @@ const HomeworkCard: React.FC<{
 );
 
 export default function HomeworkScreen() {
+  const { userName } = useAuth();
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [studentId, setStudentId] = useState<string>('');
   const [subjectFilter, setSubjectFilter] = useState<string>('ALL');
@@ -229,20 +233,41 @@ export default function HomeworkScreen() {
     }
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Morning';
+    if (hour < 17) return 'Afternoon';
+    return 'Evening';
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAll} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor={colors.accent} />}
       >
+        {/* Welcome Section */}
+        <View style={styles.welcomeSection}>
+          <View>
+            <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Student'}!</AppText>
+            <AppText style={styles.welcomeSub}>Stay updated with your daily assignments.</AppText>
+          </View>
+          <View style={styles.dateBadge}>
+            <Icon name="calendar" size={12} color={colors.textMuted} />
+            <AppText style={styles.dateText}>
+              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </AppText>
+          </View>
+        </View>
+
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.titleWrap}>
-            <Text style={styles.title}>📚 Homework</Text>
-            <Text style={styles.subText}>{filteredItems.length} records</Text>
+            <AppText style={styles.title}>📚 Homework</AppText>
+            <AppText style={styles.subText}>{filteredItems.length} records</AppText>
           </View>
           <TouchableOpacity style={styles.refreshBtn} onPress={refreshAll}>
-            <Text style={styles.refreshBtnText}>🔄 Refresh</Text>
+            <Icon name="refresh-cw" size={16} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -379,17 +404,49 @@ export default function HomeworkScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background || '#f8fbff',
+    backgroundColor: colors.bg,
   },
   contentContainer: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 40,
+  },
+  welcomeSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  welcomeTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  welcomeSub: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  dateText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 22,
+    marginBottom: 20,
   },
   titleWrap: {
     flexDirection: 'row',
@@ -397,32 +454,24 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   subText: {
-    color: '#64748b',
-    fontSize: 14,
+    color: colors.textMuted,
+    fontSize: 13,
     marginLeft: 8,
   },
   refreshBtn: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#ffffff',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    backgroundColor: colors.surface,
+    padding: 10,
     borderRadius: 12,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   refreshBtnText: {
-    color: '#475569',
-    fontWeight: '700',
-    fontSize: 14,
+    display: 'none',
   },
   filterCard: {
     padding: 18,

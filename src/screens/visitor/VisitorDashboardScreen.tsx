@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -11,13 +10,19 @@ import {
   TextInput,
   Alert,
   Platform,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Icon from 'react-native-vector-icons/Feather';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { visitorApi, qrApi } from '../../services/visitorApi';
-import { colors } from '../../constants/colors';
+import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
+import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
+import AvatarBubble from '../../components/common/AvatarBubble';
+import { useAuth } from '../../context/AuthContext';
 import QRCode from 'react-native-qrcode-svg';
 
 // Types
@@ -76,21 +81,21 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const getStatusConfig = () => {
     switch (status) {
       case 'pending':
-        return { bg: '#fef3c7', color: '#d97706', label: 'PENDING' };
+        return { bg: 'rgba(217, 119, 6, 0.15)', color: '#fbbf24', label: 'PENDING' };
       case 'checked_in':
-        return { bg: '#d1fae5', color: '#059669', label: 'CHECKED IN' };
+        return { bg: 'rgba(5, 150, 105, 0.15)', color: '#34d399', label: 'CHECKED IN' };
       case 'checked_out':
-        return { bg: '#dbeafe', color: '#2563eb', label: 'CHECKED OUT' };
+        return { bg: 'rgba(37, 99, 235, 0.15)', color: '#60a5fa', label: 'CHECKED OUT' };
       case 'rejected':
-        return { bg: '#fee2e2', color: '#dc2626', label: 'REJECTED' };
+        return { bg: 'rgba(220, 38, 38, 0.15)', color: '#f87171', label: 'REJECTED' };
       default:
-        return { bg: '#f1f5f9', color: '#64748b', label: status?.toUpperCase() || 'UNKNOWN' };
+        return { bg: 'rgba(148, 163, 184, 0.1)', color: colors.textMuted, label: status?.toUpperCase() || 'UNKNOWN' };
     }
   };
   const config = getStatusConfig();
   return (
     <View style={[styles.badge, { backgroundColor: config.bg }]}>
-      <Text style={[styles.badgeText, { color: config.color }]}>{config.label}</Text>
+      <AppText style={[styles.badgeText, { color: config.color }]}>{config.label}</AppText>
     </View>
   );
 };
@@ -103,11 +108,11 @@ const StatCard: React.FC<{
   color?: string;
 }> = ({ title, value, loading, color }) => (
   <AppCard style={styles.statCard}>
-    <Text style={styles.statTitle}>{title}</Text>
+    <AppText style={styles.statTitle}>{title}</AppText>
     {loading ? (
-      <ActivityIndicator size="small" color={color || colors.primary} />
+      <ActivityIndicator size="small" color={color || colors.accent} />
     ) : (
-      <Text style={[styles.statValue, color && { color }]}>{value}</Text>
+      <AppText style={[styles.statValue, color && { color }]}>{value}</AppText>
     )}
   </AppCard>
 );
@@ -123,48 +128,48 @@ const VisitorRow: React.FC<{
   const isCheckedIn = visitor.status === 'checked_in';
 
   return (
-    <View style={styles.visitorRow}>
+    <AppCard style={styles.visitorRow}>
       <View style={styles.visitorHeader}>
-        <Text style={styles.visitorNo}>{visitor.visitor_no?.slice(0, 8) || '-'}</Text>
+        <AppText style={styles.visitorNo}>{visitor.visitor_no?.slice(0, 8) || '-'}</AppText>
         <StatusBadge status={visitor.status} />
       </View>
       
       <View style={styles.visitorInfo}>
         <View style={styles.visitorName}>
-          <Text style={styles.visitorNameText}>{visitor.full_name}</Text>
-          <Text style={styles.visitorPhone}>{visitor.phone}</Text>
+          <AppText style={styles.visitorNameText}>{visitor.full_name}</AppText>
+          <AppText style={styles.visitorPhone}>{visitor.phone}</AppText>
         </View>
         <View style={styles.visitorStudent}>
-          <Text style={styles.visitorStudentName}>{visitor.student_name}</Text>
-          <Text style={styles.visitorClass}>
+          <AppText style={styles.visitorStudentName}>{visitor.student_name}</AppText>
+          <AppText style={styles.visitorClass}>
             {visitor.class_name} {visitor.class_grade ? `(${visitor.class_grade})` : ''}
-          </Text>
+          </AppText>
         </View>
       </View>
 
       <View style={styles.visitorDetails}>
-        <Text style={styles.visitorPurpose}>Purpose: {visitor.purpose}</Text>
-        <Text style={styles.visitorTime}>Time: {formatTime(visitor.visited_at)}</Text>
+        <AppText style={styles.visitorPurpose}>Purpose: {visitor.purpose}</AppText>
+        <AppText style={styles.visitorTime}>Time: {formatTime(visitor.visited_at)}</AppText>
       </View>
 
       <View style={styles.visitorActions}>
         {isPending && (
           <View style={styles.actionButtons}>
             <TouchableOpacity style={[styles.actionBtn, styles.approveBtn]} onPress={() => onApprove(visitor.id)}>
-              <Text style={styles.actionBtnText}>✓ Approve</Text>
+              <AppText style={styles.actionBtnText}>✓ Approve</AppText>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.actionBtn, styles.rejectBtn]} onPress={() => onReject(visitor.id)}>
-              <Text style={styles.actionBtnText}>✗ Reject</Text>
+              <AppText style={styles.actionBtnText}>✗ Reject</AppText>
             </TouchableOpacity>
           </View>
         )}
         {isCheckedIn && (
           <TouchableOpacity style={[styles.actionBtn, styles.checkoutBtn]} onPress={() => onCheckout(visitor.id)}>
-            <Text style={styles.actionBtnText}>Checkout</Text>
+            <AppText style={styles.actionBtnText}>Checkout</AppText>
           </TouchableOpacity>
         )}
       </View>
-    </View>
+    </AppCard>
   );
 };
 
@@ -180,28 +185,28 @@ const QRModal: React.FC<{
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Visitor QR Code</Text>
+          <AppText style={styles.modalTitle}>Visitor QR Code</AppText>
           
           {qrData.qrImage ? (
             <Image source={{ uri: qrData.qrImage }} style={styles.qrImage} />
           ) : qrData.url ? (
             <View style={styles.qrCodeContainer}>
-              <QRCode value={qrData.url} size={200} />
+              <QRCode value={qrData.url} size={200} backgroundColor={colors.surface} color={colors.textPrimary} />
             </View>
           ) : null}
 
           {qrData.url && (
             <View style={styles.qrUrlContainer}>
-              <Text style={styles.qrUrlLabel}>Registration Link:</Text>
-              <Text style={styles.qrUrlText} selectable>{qrData.url}</Text>
+              <AppText style={styles.qrUrlLabel}>Registration Link:</AppText>
+              <AppText style={styles.qrUrlText} selectable>{qrData.url}</AppText>
             </View>
           )}
 
-          <Text style={styles.modalMessage}>
+          <AppText style={styles.modalMessage}>
             Scan this QR code for visitors to register and check-in
-          </Text>
+          </AppText>
           
-          <AppButton title="Close" onPress={onClose} />
+          <AppButton title="Close" onPress={onClose} style={{ marginTop: 20, width: '100%' }} />
         </View>
       </View>
     </Modal>
@@ -244,17 +249,17 @@ const FilterModal: React.FC<{
       <View style={styles.modalOverlay}>
         <View style={styles.filterModalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Filter Visitors</Text>
+            <AppText style={styles.modalTitle}>Filter Visitors</AppText>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <Text style={styles.modalCloseText}>✕</Text>
+              <AppText style={styles.modalCloseText}>✕</AppText>
             </TouchableOpacity>
           </View>
 
           <View style={styles.filterBody}>
             <View style={styles.filterField}>
-              <Text style={styles.filterLabel}>From Date</Text>
+              <AppText style={styles.filterLabel}>From Date</AppText>
               <TouchableOpacity style={styles.dateBtn} onPress={() => setShowFromPicker(true)}>
-                <Text style={styles.dateText}>{localDateFrom || 'Select date'}</Text>
+                <AppText style={styles.dateText}>{localDateFrom || 'Select date'}</AppText>
               </TouchableOpacity>
               {showFromPicker && (
                 <DateTimePicker
@@ -270,9 +275,9 @@ const FilterModal: React.FC<{
             </View>
 
             <View style={styles.filterField}>
-              <Text style={styles.filterLabel}>To Date</Text>
+              <AppText style={styles.filterLabel}>To Date</AppText>
               <TouchableOpacity style={styles.dateBtn} onPress={() => setShowToPicker(true)}>
-                <Text style={styles.dateText}>{localDateTo || 'Select date'}</Text>
+                <AppText style={styles.dateText}>{localDateTo || 'Select date'}</AppText>
               </TouchableOpacity>
               {showToPicker && (
                 <DateTimePicker
@@ -289,8 +294,8 @@ const FilterModal: React.FC<{
           </View>
 
           <View style={styles.filterFooter}>
-            <AppButton title="Reset" onPress={handleReset} type="secondary" />
-            <AppButton title="Apply Filters" onPress={handleApply} />
+            <AppButton title="Reset" onPress={handleReset} type="secondary" style={{ flex: 1 }} />
+            <AppButton title="Apply Filters" onPress={handleApply} style={{ flex: 1 }} />
           </View>
         </View>
       </View>
@@ -298,7 +303,8 @@ const FilterModal: React.FC<{
   );
 };
 
-export default function VisitorDashboardScreen() {
+export default function VisitorDashboardScreen({ navigation }: any) {
+  const { userName } = useAuth();
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loadingVisitors, setLoadingVisitors] = useState(true);
@@ -342,8 +348,13 @@ export default function VisitorDashboardScreen() {
       const visitorsRes = await visitorApi.listVisitors(filters);
       setVisitors(visitorsRes.data?.data || []);
     } catch (error: any) {
+      console.log('DEBUG 403 ERROR:', error.response?.data);
       console.error('Failed to fetch visitors:', error);
-      setErrorMsg(error?.response?.data?.detail || 'Failed to load visitor data');
+
+      const message = error?.response?.data?.detail ||
+                    error?.response?.data?.message ||
+                    'You do not have permission to view visitor data.';
+      setErrorMsg(message);
     } finally {
       setLoadingVisitors(false);
     }
@@ -453,21 +464,42 @@ export default function VisitorDashboardScreen() {
     return visitors.filter(v => v.status === activeTab);
   }, [visitors, activeTab]);
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Morning';
+    if (hour < 17) return 'Afternoon';
+    return 'Evening';
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
+        {/* Welcome Section */}
+        <View style={styles.welcomeSection}>
+          <View>
+            <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'User'}!</AppText>
+            <AppText style={styles.welcomeSub}>Manage campus visitors and check-ins.</AppText>
+          </View>
+          <View style={styles.dateBadge}>
+            <Icon name="calendar" size={12} color={colors.textMuted} />
+            <AppText style={styles.dateText}>
+              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </AppText>
+          </View>
+        </View>
+
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>📋 Visitor Management</Text>
+          <AppText style={styles.title}>Visitor Management</AppText>
           <View style={styles.headerActions}>
             <TouchableOpacity style={styles.qrBtn} onPress={loadQRCode}>
-              <Text style={styles.qrBtnText}>📱 QR Code</Text>
+              <AppText style={styles.qrBtnText}>📱 QR Code</AppText>
             </TouchableOpacity>
             <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
-              <Text style={styles.refreshBtnText}>🔄</Text>
+              <Icon name="refresh-cw" size={16} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -475,16 +507,16 @@ export default function VisitorDashboardScreen() {
         {/* Error Message */}
         {errorMsg && (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{errorMsg}</Text>
+            <AppText style={styles.errorText}>{errorMsg}</AppText>
           </View>
         )}
 
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
           <StatCard title="Total Visitors" value={stats?.total_visitors || 0} loading={loadingStats} />
-          <StatCard title="Today's Visitors" value={stats?.today_visitors || 0} loading={loadingStats} color="#3b82f6" />
-          <StatCard title="Currently Present" value={stats?.currently_present || 0} loading={loadingStats} color="#059669" />
-          <StatCard title="Pending Approval" value={stats?.pending_approval || 0} loading={loadingStats} color="#d97706" />
+          <StatCard title="Today's" value={stats?.today_visitors || 0} loading={loadingStats} color={colors.accent} />
+          <StatCard title="Present" value={stats?.currently_present || 0} loading={loadingStats} color={colors.success} />
+          <StatCard title="Pending" value={stats?.pending_approval || 0} loading={loadingStats} color={colors.warning} />
         </View>
 
         {/* Tabs */}
@@ -493,42 +525,42 @@ export default function VisitorDashboardScreen() {
             style={[styles.tab, activeTab === 'pending' && styles.tabActive]}
             onPress={() => handleTabChange('pending')}
           >
-            <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>
+            <AppText style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>
               ⏳ Pending ({stats?.pending_approval || 0})
-            </Text>
+            </AppText>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'checked_in' && styles.tabActive]}
             onPress={() => handleTabChange('checked_in')}
           >
-            <Text style={[styles.tabText, activeTab === 'checked_in' && styles.tabTextActive]}>
+            <AppText style={[styles.tabText, activeTab === 'checked_in' && styles.tabTextActive]}>
               ✅ Checked In ({stats?.currently_present || 0})
-            </Text>
+            </AppText>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'all' && styles.tabActive]}
             onPress={() => handleTabChange('all')}
           >
-            <Text style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>
-              📋 All Visitors
-            </Text>
+            <AppText style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>
+              📋 All
+            </AppText>
           </TouchableOpacity>
         </View>
 
         {/* Filter Button */}
         {(dateFrom || dateTo) && (
           <View style={styles.activeFilters}>
-            <Text style={styles.activeFiltersLabel}>Active Filters:</Text>
-            {dateFrom && <View style={styles.filterTag}><Text style={styles.filterTagText}>From: {dateFrom}</Text></View>}
-            {dateTo && <View style={styles.filterTag}><Text style={styles.filterTagText}>To: {dateTo}</Text></View>}
+            <AppText style={styles.activeFiltersLabel}>Active Filters:</AppText>
+            {dateFrom && <View style={styles.filterTag}><AppText style={styles.filterTagText}>From: {dateFrom}</AppText></View>}
+            {dateTo && <View style={styles.filterTag}><AppText style={styles.filterTagText}>To: {dateTo}</AppText></View>}
             <TouchableOpacity onPress={handleResetFilters}>
-              <Text style={styles.clearFiltersText}>Clear</Text>
+              <AppText style={styles.clearFiltersText}>Clear</AppText>
             </TouchableOpacity>
           </View>
         )}
 
         <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilterModal(true)}>
-          <Text style={styles.filterBtnText}>🔽 Filter by Date</Text>
+          <AppText style={styles.filterBtnText}>🔽 Filter by Date</AppText>
         </TouchableOpacity>
 
         {/* Visitors List */}
@@ -536,9 +568,9 @@ export default function VisitorDashboardScreen() {
           <Loader />
         ) : filteredVisitors.length === 0 ? (
           <AppCard style={styles.emptyCard}>
-            <Text style={styles.emptyIcon}>👥</Text>
-            <Text style={styles.emptyTitle}>No visitors found</Text>
-            <Text style={styles.emptyText}>Try adjusting your filters</Text>
+            <AppText style={styles.emptyIcon}>👥</AppText>
+            <AppText style={styles.emptyTitle}>No visitors found</AppText>
+            <AppText style={styles.emptyText}>Try adjusting your filters</AppText>
           </AppCard>
         ) : (
           filteredVisitors.map(visitor => (
@@ -576,11 +608,43 @@ export default function VisitorDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: colors.bg,
   },
   contentContainer: {
     padding: 16,
     paddingBottom: 40,
+  },
+  welcomeSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  welcomeTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  welcomeSub: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  dateText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
   header: {
     flexDirection: 'row',
@@ -589,16 +653,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
-    color: '#0d1b2a',
+    color: colors.textPrimary,
   },
   headerActions: {
     flexDirection: 'row',
     gap: 10,
   },
   qrBtn: {
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.accentSoft,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -609,24 +673,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   refreshBtn: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   refreshBtnText: {
     fontSize: 16,
   },
   errorContainer: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.errorSoft,
     padding: 12,
     borderRadius: 10,
     marginBottom: 16,
   },
   errorText: {
-    color: '#b91c1c',
+    color: colors.error,
     fontSize: 13,
   },
   statsGrid: {
@@ -645,20 +711,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
-    color: '#64748b',
+    color: colors.textMuted,
     marginBottom: 8,
   },
   statValue: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#0d1b2a',
+    color: colors.textPrimary,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     marginBottom: 16,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   tab: {
     flex: 1,
@@ -666,15 +734,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabActive: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
   },
   tabText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textMuted,
   },
   tabTextActive: {
-    color: '#2563eb',
+    color: colors.accent,
   },
   activeFilters: {
     flexDirection: 'row',
@@ -683,54 +751,50 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
     padding: 10,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.surface,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   activeFiltersLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textMuted,
   },
   filterTag: {
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.bg,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   filterTagText: {
     fontSize: 11,
-    color: '#334155',
+    color: colors.textPrimary,
   },
   clearFiltersText: {
     fontSize: 11,
-    color: '#dc2626',
+    color: colors.error,
     fontWeight: '600',
   },
   filterBtn: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: colors.border,
     alignSelf: 'flex-start',
     marginBottom: 16,
   },
   filterBtnText: {
     fontSize: 13,
-    color: '#475569',
+    color: colors.textMuted,
     fontWeight: '600',
   },
   visitorRow: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   visitorHeader: {
     flexDirection: 'row',
@@ -741,11 +805,13 @@ const styles = StyleSheet.create({
   visitorNo: {
     fontSize: 11,
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bg,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
-    color: '#64748b',
+    color: colors.textMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   visitorInfo: {
     flexDirection: 'row',
@@ -758,12 +824,12 @@ const styles = StyleSheet.create({
   visitorNameText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   visitorPhone: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   visitorStudent: {
     flex: 1,
@@ -771,24 +837,25 @@ const styles = StyleSheet.create({
   visitorStudentName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0d1b2a',
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   visitorClass: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   visitorDetails: {
     marginBottom: 12,
   },
   visitorPurpose: {
     fontSize: 13,
-    color: '#4a5568',
+    color: colors.textPrimary,
     marginBottom: 4,
+    opacity: 0.8,
   },
   visitorTime: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   visitorActions: {
     marginTop: 8,
@@ -802,19 +869,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center',
+    flex: 1,
   },
   approveBtn: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: 'rgba(21, 128, 61, 0.2)',
   },
   rejectBtn: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: 'rgba(185, 28, 28, 0.2)',
   },
   checkoutBtn: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: 'rgba(37, 99, 235, 0.2)',
+    width: '100%',
   },
   actionBtnText: {
     fontSize: 12,
     fontWeight: '600',
+    color: colors.textPrimary,
   },
   badge: {
     paddingHorizontal: 10,
@@ -837,34 +907,39 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0d1b2a',
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   emptyText: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textMuted,
     textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 24,
     width: '100%',
     maxWidth: 400,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   filterModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     width: '100%',
     maxWidth: 400,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -872,28 +947,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: colors.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: colors.textPrimary,
   },
   modalClose: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalCloseText: {
     fontSize: 16,
-    color: '#4a5568',
+    color: colors.textPrimary,
   },
   modalMessage: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textMuted,
     textAlign: 'center',
     marginTop: 16,
   },
@@ -906,26 +981,26 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#4a5568',
+    color: colors.textMuted,
     marginBottom: 6,
   },
   dateBtn: {
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: colors.border,
     borderRadius: 10,
     padding: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bg,
   },
   dateText: {
     fontSize: 14,
-    color: '#0d1b2a',
+    color: colors.textPrimary,
   },
   filterFooter: {
     flexDirection: 'row',
     gap: 12,
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e4e9f2',
+    borderTopColor: colors.border,
   },
   qrImage: {
     width: 200,
@@ -936,22 +1011,27 @@ const styles = StyleSheet.create({
   qrCodeContainer: {
     alignItems: 'center',
     marginVertical: 16,
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 12,
   },
   qrUrlContainer: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bg,
     padding: 12,
     borderRadius: 10,
     width: '100%',
     marginTop: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   qrUrlLabel: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textMuted,
     marginBottom: 4,
   },
   qrUrlText: {
     fontSize: 12,
-    color: '#1e293b',
+    color: colors.textPrimary,
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
   },
 });

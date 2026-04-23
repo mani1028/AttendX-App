@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -13,6 +12,25 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Feather';
 import API from '../../services/api';
+import { colors } from '../../constants/theme';
+import AppText from '../../components/common/AppText';
+
+// Local theme bridge
+const C = {
+  bg: colors.bg,
+  card: colors.surface,
+  border: colors.border,
+  text: colors.textPrimary,
+  textMuted: colors.textMuted,
+  primary: colors.primary,
+  primarySoft: colors.primary + '20',
+  success: colors.success,
+  successSoft: colors.successSoft,
+  error: colors.error,
+  errorSoft: colors.errorSoft,
+  warning: colors.warning,
+  warningSoft: colors.warningSoft,
+};
 
 interface LeaveRequest {
   leave_id: string;
@@ -143,11 +161,11 @@ export default function HMTeacherLeavesPage() {
   const getStatusStyle = (status: string) => {
     switch (status) {
       case 'APPROVED':
-        return { bg: '#dcfce7', color: '#15803d', icon: 'check-circle' };
+        return { bg: C.successSoft, color: C.success, icon: 'check-circle' };
       case 'REJECTED':
-        return { bg: '#fee2e2', color: '#b91c1c', icon: 'x-circle' };
+        return { bg: C.errorSoft, color: C.error, icon: 'x-circle' };
       default:
-        return { bg: '#fef3c7', color: '#b45309', icon: 'clock' };
+        return { bg: C.warningSoft, color: C.warning, icon: 'clock' };
     }
   };
 
@@ -162,51 +180,51 @@ export default function HMTeacherLeavesPage() {
         <View style={styles.cardHeader}>
           <View style={styles.teacherInfo}>
             <View style={styles.teacherAvatar}>
-              <Text style={styles.avatarText}>
+              <AppText style={styles.avatarText}>
                 {(item.teacher_full_name || item.teacher_id).charAt(0).toUpperCase()}
-              </Text>
+              </AppText>
             </View>
             <View>
-              <Text style={styles.teacherName}>
+              <AppText style={styles.teacherName}>
                 {item.teacher_full_name || item.teacher_id}
-              </Text>
-              <Text style={styles.employeeId}>
+              </AppText>
+              <AppText style={styles.employeeId}>
                 ID: {item.employee_id || '-'} • {item.designation || 'Teacher'}
-              </Text>
+              </AppText>
             </View>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
             <Icon name={statusStyle.icon as any} size={12} color={statusStyle.color} />
-            <Text style={[styles.statusText, { color: statusStyle.color }]}>
+            <AppText style={[styles.statusText, { color: statusStyle.color }]}>
               {item.status}
-            </Text>
+            </AppText>
           </View>
         </View>
 
         <View style={styles.cardBody}>
           <View style={styles.dateRange}>
             <View style={styles.dateItem}>
-              <Icon name="calendar" size={14} color="#64748b" />
-              <Text style={styles.dateLabel}>From:</Text>
-              <Text style={styles.dateValue}>{formatDate(item.from_date)}</Text>
+              <Icon name="calendar" size={14} color={C.textMuted} />
+              <AppText style={styles.dateLabel}>From:</AppText>
+              <AppText style={styles.dateValue}>{formatDate(item.from_date)}</AppText>
             </View>
             <View style={styles.dateItem}>
-              <Icon name="calendar" size={14} color="#64748b" />
-              <Text style={styles.dateLabel}>To:</Text>
-              <Text style={styles.dateValue}>{formatDate(item.to_date)}</Text>
+              <Icon name="calendar" size={14} color={C.textMuted} />
+              <AppText style={styles.dateLabel}>To:</AppText>
+              <AppText style={styles.dateValue}>{formatDate(item.to_date)}</AppText>
             </View>
           </View>
 
           <View style={styles.reasonContainer}>
-            <Text style={styles.reasonLabel}>Reason:</Text>
-            <Text style={styles.reasonText}>{item.reason}</Text>
+            <AppText style={styles.reasonLabel}>Reason:</AppText>
+            <AppText style={styles.reasonText}>{item.reason}</AppText>
           </View>
 
           <View style={styles.appliedDate}>
-            <Icon name="clock" size={12} color="#94a3b8" />
-            <Text style={styles.appliedDateText}>
+            <Icon name="clock" size={12} color={C.textMuted} />
+            <AppText style={styles.appliedDateText}>
               Applied on: {formatDate(item.created_at)}
-            </Text>
+            </AppText>
           </View>
         </View>
 
@@ -218,7 +236,7 @@ export default function HMTeacherLeavesPage() {
               disabled={actionLoading}
             >
               <Icon name="check" size={14} color="#fff" />
-              <Text style={styles.actionBtnText}>Approve</Text>
+              <AppText style={styles.actionBtnText}>Approve</AppText>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionBtn, styles.rejectBtn]}
@@ -226,16 +244,16 @@ export default function HMTeacherLeavesPage() {
               disabled={actionLoading}
             >
               <Icon name="x" size={14} color="#fff" />
-              <Text style={styles.actionBtnText}>Reject</Text>
+              <AppText style={styles.actionBtnText}>Reject</AppText>
             </TouchableOpacity>
           </View>
         )}
 
         {!isPending && (
           <View style={styles.resolvedStatus}>
-            <Text style={styles.resolvedText}>
+            <AppText style={styles.resolvedText}>
               {item.status === 'APPROVED' ? '✓ Approved' : '✗ Rejected'}
-            </Text>
+            </AppText>
           </View>
         )}
       </View>
@@ -253,17 +271,17 @@ export default function HMTeacherLeavesPage() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.titleWrap}>
-            <Icon name="calendar" size={20} color="#2563eb" />
+            <Icon name="calendar" size={20} color={C.primary} />
             <View>
-              <Text style={styles.title}>Teacher Leave Approvals</Text>
-              <Text style={styles.subText}>
+              <AppText style={styles.title}>Teacher Leave Approvals</AppText>
+              <AppText style={styles.subText}>
                 {pendingCount > 0 ? `${pendingCount} pending` : 'All reviewed'}
-              </Text>
+              </AppText>
             </View>
           </View>
           <TouchableOpacity style={styles.refreshBtn} onPress={loadRequests} disabled={loading}>
-            <Icon name="refresh-cw" size={16} color="#475569" />
-            <Text style={styles.refreshBtnText}>Refresh</Text>
+            <Icon name="refresh-cw" size={16} color={C.text} />
+            <AppText style={styles.refreshBtnText}>Refresh</AppText>
           </TouchableOpacity>
         </View>
 
@@ -275,33 +293,33 @@ export default function HMTeacherLeavesPage() {
                 style={[styles.filterChip, status === '' && styles.filterChipActive]}
                 onPress={() => setStatus('')}
               >
-                <Text style={[styles.filterChipText, status === '' && styles.filterChipTextActive]}>
+                <AppText style={[styles.filterChipText, status === '' && styles.filterChipTextActive]}>
                   All Status
-                </Text>
+                </AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.filterChip, status === 'PENDING' && styles.filterChipActive]}
                 onPress={() => setStatus('PENDING')}
               >
-                <Text style={[styles.filterChipText, status === 'PENDING' && styles.filterChipTextActive]}>
+                <AppText style={[styles.filterChipText, status === 'PENDING' && styles.filterChipTextActive]}>
                   Pending
-                </Text>
+                </AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.filterChip, status === 'APPROVED' && styles.filterChipActive]}
                 onPress={() => setStatus('APPROVED')}
               >
-                <Text style={[styles.filterChipText, status === 'APPROVED' && styles.filterChipTextActive]}>
+                <AppText style={[styles.filterChipText, status === 'APPROVED' && styles.filterChipTextActive]}>
                   Approved
-                </Text>
+                </AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.filterChip, status === 'REJECTED' && styles.filterChipActive]}
                 onPress={() => setStatus('REJECTED')}
               >
-                <Text style={[styles.filterChipText, status === 'REJECTED' && styles.filterChipTextActive]}>
+                <AppText style={[styles.filterChipText, status === 'REJECTED' && styles.filterChipTextActive]}>
                   Rejected
-                </Text>
+                </AppText>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -310,61 +328,61 @@ export default function HMTeacherLeavesPage() {
         {/* Messages */}
         {msg ? (
           <View style={[styles.message, styles.successMessage]}>
-            <Icon name="check-circle" size={16} color="#1d4ed8" />
-            <Text style={styles.successMessageText}>{msg}</Text>
+            <Icon name="check-circle" size={16} color={C.success} />
+            <AppText style={styles.successMessageText}>{msg}</AppText>
           </View>
         ) : null}
         
         {error ? (
           <View style={[styles.message, styles.errorMessage]}>
-            <Icon name="alert-circle" size={16} color="#b91c1c" />
-            <Text style={styles.errorMessageText}>{error}</Text>
+            <Icon name="alert-circle" size={16} color={C.error} />
+            <AppText style={styles.errorMessageText}>{error}</AppText>
           </View>
         ) : null}
 
         {/* Stats Summary */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{items.length}</Text>
-            <Text style={styles.statLabel}>Total Requests</Text>
+            <AppText style={styles.statNumber}>{items.length}</AppText>
+            <AppText style={styles.statLabel}>Total Requests</AppText>
           </View>
           <View style={styles.statCard}>
-            <Text style={[styles.statNumber, styles.pendingNumber]}>{pendingCount}</Text>
-            <Text style={styles.statLabel}>Pending</Text>
+            <AppText style={[styles.statNumber, styles.pendingNumber]}>{pendingCount}</AppText>
+            <AppText style={styles.statLabel}>Pending</AppText>
           </View>
           <View style={styles.statCard}>
-            <Text style={[styles.statNumber, styles.approvedNumber]}>
+            <AppText style={[styles.statNumber, styles.approvedNumber]}>
               {items.filter(i => i.status === 'APPROVED').length}
-            </Text>
-            <Text style={styles.statLabel}>Approved</Text>
+            </AppText>
+            <AppText style={styles.statLabel}>Approved</AppText>
           </View>
           <View style={styles.statCard}>
-            <Text style={[styles.statNumber, styles.rejectedNumber]}>
+            <AppText style={[styles.statNumber, styles.rejectedNumber]}>
               {items.filter(i => i.status === 'REJECTED').length}
-            </Text>
-            <Text style={styles.statLabel}>Rejected</Text>
+            </AppText>
+            <AppText style={styles.statLabel}>Rejected</AppText>
           </View>
         </View>
 
         {/* Leave Requests List */}
         {loading && items.length === 0 ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2563eb" />
-            <Text style={styles.loadingText}>Loading leave requests...</Text>
+            <ActivityIndicator size="large" color={C.primary} />
+            <AppText style={styles.loadingText}>Loading leave requests...</AppText>
           </View>
         ) : items.length === 0 ? (
           <View style={styles.emptyState}>
-            <Icon name="calendar" size={48} color="#94a3b8" />
-            <Text style={styles.emptyTitle}>No leave requests found</Text>
-            <Text style={styles.emptyText}>
+            <Icon name="calendar" size={48} color={C.textMuted} />
+            <AppText style={styles.emptyTitle}>No leave requests found</AppText>
+            <AppText style={styles.emptyText}>
               {status ? `No ${status.toLowerCase()} leave requests` : 'No leave requests available'}
-            </Text>
+            </AppText>
           </View>
         ) : (
           <View style={styles.leavesList}>
             <View style={styles.listHeader}>
-              <Text style={styles.listHeaderTitle}>Leave Requests</Text>
-              <Text style={styles.listHeaderCount}>{items.length} total</Text>
+              <AppText style={styles.listHeaderTitle}>Leave Requests</AppText>
+              <AppText style={styles.listHeaderCount}>{items.length} total</AppText>
             </View>
             {items.map(renderLeaveCard)}
           </View>
@@ -381,22 +399,22 @@ export default function HMTeacherLeavesPage() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Confirm Action</Text>
+              <AppText style={styles.modalTitle}>Confirm Action</AppText>
               <TouchableOpacity onPress={() => setShowStatusModal(false)}>
-                <Icon name="x" size={20} color="#64748b" />
+                <Icon name="x" size={20} color={C.textMuted} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalBody}>
-              <Text style={styles.modalMessage}>
+              <AppText style={styles.modalMessage}>
                 Are you sure you want to {selectedLeave?.status === 'PENDING' ? 'process this' : ''} leave request for
-              </Text>
-              <Text style={styles.modalTeacherName}>
+              </AppText>
+              <AppText style={styles.modalTeacherName}>
                 {selectedLeave?.teacher_full_name || selectedLeave?.teacher_id}
-              </Text>
-              <Text style={styles.modalDates}>
+              </AppText>
+              <AppText style={styles.modalDates}>
                 From {selectedLeave ? formatDate(selectedLeave.from_date) : ''} to {selectedLeave ? formatDate(selectedLeave.to_date) : ''}
-              </Text>
+              </AppText>
             </View>
 
             <View style={styles.modalFooter}>
@@ -404,7 +422,7 @@ export default function HMTeacherLeavesPage() {
                 style={[styles.modalBtn, styles.cancelModalBtn]}
                 onPress={() => setShowStatusModal(false)}
               >
-                <Text style={styles.cancelModalBtnText}>Cancel</Text>
+                <AppText style={styles.cancelModalBtnText}>Cancel</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.approveModalBtn]}
@@ -416,7 +434,7 @@ export default function HMTeacherLeavesPage() {
                 ) : (
                   <>
                     <Icon name="check" size={14} color="#fff" />
-                    <Text style={styles.approveModalBtnText}>Approve</Text>
+                    <AppText style={styles.approveModalBtnText}>Approve</AppText>
                   </>
                 )}
               </TouchableOpacity>
@@ -430,7 +448,7 @@ export default function HMTeacherLeavesPage() {
                 ) : (
                   <>
                     <Icon name="x" size={14} color="#fff" />
-                    <Text style={styles.rejectModalBtnText}>Reject</Text>
+                    <AppText style={styles.rejectModalBtnText}>Reject</AppText>
                   </>
                 )}
               </TouchableOpacity>
@@ -445,7 +463,7 @@ export default function HMTeacherLeavesPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f6fb',
+    backgroundColor: C.bg,
   },
   scrollView: {
     flex: 1,
@@ -466,10 +484,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: C.text,
   },
   subText: {
-    color: '#64748b',
+    color: C.textMuted,
     fontSize: 13,
     marginTop: 2,
   },
@@ -477,9 +495,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: C.border,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
@@ -487,7 +505,7 @@ const styles = StyleSheet.create({
   refreshBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#475569',
+    color: C.text,
   },
   filterContainer: {
     paddingHorizontal: 16,
@@ -501,18 +519,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: C.border,
   },
   filterChipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: C.primary,
+    borderColor: C.primary,
   },
   filterChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#475569',
+    color: C.textMuted,
   },
   filterChipTextActive: {
     color: '#ffffff',
@@ -527,26 +545,26 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   successMessage: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: C.successSoft,
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: C.success + '40',
   },
   successMessageText: {
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
-    color: '#1d4ed8',
+    color: C.success,
   },
   errorMessage: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: C.errorSoft,
     borderWidth: 1,
-    borderColor: '#fecaca',
+    borderColor: C.error + '40',
   },
   errorMessageText: {
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
-    color: '#b91c1c',
+    color: C.error,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -556,30 +574,30 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderRadius: 12,
     padding: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: C.border,
   },
   statNumber: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0f172a',
+    color: C.text,
   },
   pendingNumber: {
-    color: '#b45309',
+    color: C.warning,
   },
   approvedNumber: {
-    color: '#15803d',
+    color: C.success,
   },
   rejectedNumber: {
-    color: '#b91c1c',
+    color: C.error,
   },
   statLabel: {
     fontSize: 11,
-    color: '#64748b',
+    color: C.textMuted,
     marginTop: 4,
   },
   loadingContainer: {
@@ -588,24 +606,24 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: '#64748b',
+    color: C.textMuted,
   },
   emptyState: {
     alignItems: 'center',
     padding: 48,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     marginHorizontal: 16,
     borderRadius: 16,
   },
   emptyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0f172a',
+    color: C.text,
     marginTop: 12,
   },
   emptyText: {
     fontSize: 13,
-    color: '#64748b',
+    color: C.textMuted,
     marginTop: 4,
   },
   leavesList: {
@@ -622,18 +640,18 @@ const styles = StyleSheet.create({
   listHeaderTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0f172a',
+    color: C.text,
   },
   listHeaderCount: {
     fontSize: 12,
-    color: '#64748b',
+    color: C.textMuted,
   },
   leaveCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: C.border,
     overflow: 'hidden',
   },
   cardHeader: {
@@ -642,7 +660,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: C.border,
   },
   teacherInfo: {
     flexDirection: 'row',
@@ -653,23 +671,23 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#e0f2fe',
+    backgroundColor: C.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0284c7',
+    color: C.primary,
   },
   teacherName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: C.text,
   },
   employeeId: {
     fontSize: 11,
-    color: '#64748b',
+    color: C.textMuted,
     marginTop: 2,
   },
   statusBadge: {
@@ -699,12 +717,12 @@ const styles = StyleSheet.create({
   },
   dateLabel: {
     fontSize: 12,
-    color: '#64748b',
+    color: C.textMuted,
   },
   dateValue: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#0f172a',
+    color: C.text,
   },
   reasonContainer: {
     marginBottom: 12,
@@ -712,12 +730,12 @@ const styles = StyleSheet.create({
   reasonLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#64748b',
+    color: C.textMuted,
     marginBottom: 4,
   },
   reasonText: {
     fontSize: 13,
-    color: '#334155',
+    color: C.text,
     lineHeight: 18,
   },
   appliedDate: {
@@ -727,14 +745,14 @@ const styles = StyleSheet.create({
   },
   appliedDateText: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: C.textMuted,
   },
   cardActions: {
     flexDirection: 'row',
     gap: 10,
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: C.border,
   },
   actionBtn: {
     flex: 1,
@@ -746,10 +764,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   approveBtn: {
-    backgroundColor: '#22c55e',
+    backgroundColor: C.success,
   },
   rejectBtn: {
-    backgroundColor: '#ef4444',
+    backgroundColor: C.error,
   },
   actionBtnText: {
     color: '#ffffff',
@@ -759,22 +777,22 @@ const styles = StyleSheet.create({
   resolvedStatus: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: C.border,
     alignItems: 'center',
   },
   resolvedText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748b',
+    color: C.textMuted,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderRadius: 16,
     width: '85%',
     maxWidth: 340,
@@ -786,12 +804,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: C.border,
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: C.text,
   },
   modalBody: {
     padding: 20,
@@ -799,26 +817,26 @@ const styles = StyleSheet.create({
   },
   modalMessage: {
     fontSize: 14,
-    color: '#475569',
+    color: C.text,
     textAlign: 'center',
     marginBottom: 8,
   },
   modalTeacherName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: C.text,
     marginBottom: 4,
   },
   modalDates: {
     fontSize: 13,
-    color: '#64748b',
+    color: C.textMuted,
   },
   modalFooter: {
     flexDirection: 'row',
     gap: 10,
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: C.border,
   },
   modalBtn: {
     flex: 1,
@@ -830,15 +848,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   cancelModalBtn: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: C.bg,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   cancelModalBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#475569',
+    color: C.textMuted,
   },
   approveModalBtn: {
-    backgroundColor: '#22c55e',
+    backgroundColor: C.success,
   },
   approveModalBtnText: {
     fontSize: 13,
@@ -846,7 +866,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   rejectModalBtn: {
-    backgroundColor: '#ef4444',
+    backgroundColor: C.error,
   },
   rejectModalBtnText: {
     fontSize: 13,

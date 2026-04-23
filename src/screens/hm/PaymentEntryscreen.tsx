@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TextInput,
@@ -14,6 +13,25 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Feather';
 import API from '../../services/api';
+import { colors } from '../../constants/theme';
+import AppText from '../../components/common/AppText';
+
+// Local theme bridge
+const C = {
+  bg: colors.bg,
+  card: colors.surface,
+  border: colors.border,
+  text: colors.textPrimary,
+  textMuted: colors.textMuted,
+  primary: colors.primary,
+  success: colors.success,
+  successSoft: colors.successSoft,
+  error: colors.error,
+  errorSoft: colors.errorSoft,
+  warning: colors.warning,
+  warningSoft: colors.warningSoft,
+  danger: colors.error,
+};
 
 interface Fee {
   id: string;
@@ -213,14 +231,14 @@ const PaymentEntry = () => {
   const renderPaymentItem = ({ item }: { item: Payment }) => (
     <View style={styles.paymentRow}>
       <View style={styles.paymentInfo}>
-        <Text style={styles.paymentAmount}>{formatAmount(item.amount)}</Text>
+        <AppText style={styles.paymentAmount}>{formatAmount(item.amount)}</AppText>
         <View style={[styles.methodBadge, item.method === 'cash' ? styles.cashBadge : styles.onlineBadge]}>
-          <Text style={styles.methodText}>{item.method.toUpperCase()}</Text>
+          <AppText style={styles.methodText}>{item.method.toUpperCase()}</AppText>
         </View>
       </View>
-      <Text style={styles.paymentDate}>{formatDate(item.date)}</Text>
+      <AppText style={styles.paymentDate}>{formatDate(item.date)}</AppText>
       {item.receipt_number && (
-        <Text style={styles.receiptNumber}>Receipt: {item.receipt_number}</Text>
+        <AppText style={styles.receiptNumber}>Receipt: {item.receipt_number}</AppText>
       )}
     </View>
   );
@@ -230,25 +248,25 @@ const PaymentEntry = () => {
       <ScrollView 
         style={styles.scrollView}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
       >
         {/* Form Section */}
         <View style={styles.formSection}>
-          <Text style={styles.formTitle}>💳 Add Payment</Text>
+          <AppText style={styles.formTitle}>💳 Add Payment</AppText>
           
           <View style={styles.formGroup}>
             <View>
-              <Text style={styles.label}>Select Fee</Text>
+              <AppText style={styles.label}>Select Fee</AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.feeScroll}>
                 <View style={styles.feeContainer}>
                   <TouchableOpacity
                     style={[styles.feeOption, !formData.fee_id && styles.feeOptionSelected]}
                     onPress={() => handleFeeChange('')}
                   >
-                    <Text style={[styles.feeOptionText, !formData.fee_id && styles.feeOptionTextSelected]}>
+                    <AppText style={[styles.feeOptionText, !formData.fee_id && styles.feeOptionTextSelected]}>
                       Select Fee
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                   {fees.map((fee) => (
                     <TouchableOpacity
@@ -256,9 +274,9 @@ const PaymentEntry = () => {
                       style={[styles.feeOption, formData.fee_id === fee.id && styles.feeOptionSelected]}
                       onPress={() => handleFeeChange(fee.id)}
                     >
-                      <Text style={[styles.feeOptionText, formData.fee_id === fee.id && styles.feeOptionTextSelected]}>
+                      <AppText style={[styles.feeOptionText, formData.fee_id === fee.id && styles.feeOptionTextSelected]}>
                         {fee.student_name} - {formatAmount(fee.due_amount)} due
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -268,35 +286,36 @@ const PaymentEntry = () => {
             {selectedFee && (
               <View style={styles.feeDetails}>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Student:</Text>
-                  <Text style={styles.detailValue}>{selectedFee.student_name}</Text>
+                  <AppText style={styles.detailLabel}>Student:</AppText>
+                  <AppText style={styles.detailValue}>{selectedFee.student_name}</AppText>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Total Fee:</Text>
-                  <Text style={styles.detailValue}>{formatAmount(selectedFee.total_fee)}</Text>
+                  <AppText style={styles.detailLabel}>Total Fee:</AppText>
+                  <AppText style={styles.detailValue}>{formatAmount(selectedFee.total_fee)}</AppText>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Paid:</Text>
-                  <Text style={[styles.detailValue, styles.paidValue]}>{formatAmount(selectedFee.paid_amount)}</Text>
+                  <AppText style={styles.detailLabel}>Paid:</AppText>
+                  <AppText style={[styles.detailValue, styles.paidValue]}>{formatAmount(selectedFee.paid_amount)}</AppText>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Due:</Text>
-                  <Text style={[styles.detailValue, { color: getDueStatusColor(selectedFee.due_amount) }]}>
+                  <AppText style={styles.detailLabel}>Due:</AppText>
+                  <AppText style={[styles.detailValue, { color: getDueStatusColor(selectedFee.due_amount) }]}>
                     {formatAmount(selectedFee.due_amount)}
-                  </Text>
+                  </AppText>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Due Date:</Text>
-                  <Text style={styles.detailValue}>{selectedFee.due_date}</Text>
+                  <AppText style={styles.detailLabel}>Due Date:</AppText>
+                  <AppText style={styles.detailValue}>{selectedFee.due_date}</AppText>
                 </View>
               </View>
             )}
 
             <View>
-              <Text style={styles.label}>Amount (₹)</Text>
+              <AppText style={styles.label}>Amount (₹)</AppText>
               <TextInput
                 style={styles.input}
                 placeholder="Enter amount"
+                placeholderTextColor={C.textMuted}
                 keyboardType="numeric"
                 value={formData.amount}
                 onChangeText={(text) => handleInputChange('amount', text)}
@@ -304,25 +323,25 @@ const PaymentEntry = () => {
             </View>
 
             <View>
-              <Text style={styles.label}>Payment Method</Text>
+              <AppText style={styles.label}>Payment Method</AppText>
               <View style={styles.methodContainer}>
                 <TouchableOpacity
                   style={[styles.methodOption, formData.method === 'cash' && styles.methodOptionSelected]}
                   onPress={() => handleInputChange('method', 'cash')}
                 >
-                  <Icon name="dollar-sign" size={16} color={formData.method === 'cash' ? '#fff' : '#4a5568'} />
-                  <Text style={[styles.methodOptionText, formData.method === 'cash' && styles.methodOptionTextSelected]}>
+                  <Icon name="dollar-sign" size={16} color={formData.method === 'cash' ? '#fff' : C.text} />
+                  <AppText style={[styles.methodOptionText, formData.method === 'cash' && styles.methodOptionTextSelected]}>
                     Cash
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.methodOption, formData.method === 'online' && styles.methodOptionSelected]}
                   onPress={() => handleInputChange('method', 'online')}
                 >
-                  <Icon name="credit-card" size={16} color={formData.method === 'online' ? '#fff' : '#4a5568'} />
-                  <Text style={[styles.methodOptionText, formData.method === 'online' && styles.methodOptionTextSelected]}>
+                  <Icon name="credit-card" size={16} color={formData.method === 'online' ? '#fff' : C.text} />
+                  <AppText style={[styles.methodOptionText, formData.method === 'online' && styles.methodOptionTextSelected]}>
                     Online
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               </View>
             </View>
@@ -337,7 +356,7 @@ const PaymentEntry = () => {
               ) : (
                 <>
                   <Icon name="credit-card" size={16} color="#fff" />
-                  <Text style={styles.submitButtonText}>Add Payment</Text>
+                  <AppText style={styles.submitButtonText}>Add Payment</AppText>
                 </>
               )}
             </TouchableOpacity>
@@ -347,26 +366,26 @@ const PaymentEntry = () => {
         {/* Payment History Section */}
         <View style={styles.historySection}>
           <View style={styles.historyHeader}>
-            <Text style={styles.historyTitle}>📜 Payment History</Text>
+            <AppText style={styles.historyTitle}>📜 Payment History</AppText>
             {selectedFee && (
-              <Text style={styles.historySubtitle}>
+              <AppText style={styles.historySubtitle}>
                 {selectedFee.student_name}
-              </Text>
+              </AppText>
             )}
           </View>
 
           {!formData.fee_id ? (
             <View style={styles.emptyContainer}>
-              <Icon name="credit-card" size={48} color="#cbd5e1" />
-              <Text style={styles.emptyText}>Select a fee to view payment history</Text>
+              <Icon name="credit-card" size={48} color={C.border} />
+              <AppText style={styles.emptyText}>Select a fee to view payment history</AppText>
             </View>
           ) : payments.length > 0 ? (
             <View style={styles.paymentsList}>
               <View style={styles.paymentsHeader}>
-                <Text style={styles.paymentsHeaderText}>Payment History</Text>
-                <Text style={styles.totalPaymentsText}>
+                <AppText style={styles.paymentsHeaderText}>Payment History</AppText>
+                <AppText style={styles.totalPaymentsText}>
                   Total: {formatAmount(payments.reduce((sum, p) => sum + p.amount, 0))}
-                </Text>
+                </AppText>
               </View>
               {payments.map((payment) => (
                 <React.Fragment key={payment.id}>
@@ -376,9 +395,9 @@ const PaymentEntry = () => {
             </View>
           ) : (
             <View style={styles.emptyContainer}>
-              <Icon name="clock" size={48} color="#cbd5e1" />
-              <Text style={styles.emptyText}>No payments recorded yet</Text>
-              <Text style={styles.emptySubtext}>Add a payment to see history</Text>
+              <Icon name="clock" size={48} color={C.border} />
+              <AppText style={styles.emptyText}>No payments recorded yet</AppText>
+              <AppText style={styles.emptySubtext}>Add a payment to see history</AppText>
             </View>
           )}
         </View>
@@ -394,65 +413,65 @@ const PaymentEntry = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>🧾 Payment Receipt</Text>
+              <AppText style={styles.modalTitle}>🧾 Payment Receipt</AppText>
               <TouchableOpacity onPress={() => setShowReceiptModal(false)}>
-                <Icon name="x" size={24} color="#4a5568" />
+                <Icon name="x" size={24} color={C.text} />
               </TouchableOpacity>
             </View>
 
             {lastPayment && selectedFee && (
               <View style={styles.receiptContent}>
                 <View style={styles.receiptHeader}>
-                  <Text style={styles.receiptSchoolName}>School Fee Receipt</Text>
-                  <Text style={styles.receiptDate}>{formatDate(lastPayment.date)}</Text>
+                  <AppText style={styles.receiptSchoolName}>School Fee Receipt</AppText>
+                  <AppText style={styles.receiptDate}>{formatDate(lastPayment.date)}</AppText>
                 </View>
 
                 <View style={styles.receiptDivider} />
 
                 <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Student Name:</Text>
-                  <Text style={styles.receiptValue}>{selectedFee.student_name}</Text>
+                  <AppText style={styles.receiptLabel}>Student Name:</AppText>
+                  <AppText style={styles.receiptValue}>{selectedFee.student_name}</AppText>
                 </View>
 
                 <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Amount Paid:</Text>
-                  <Text style={[styles.receiptValue, styles.receiptAmount]}>
+                  <AppText style={styles.receiptLabel}>Amount Paid:</AppText>
+                  <AppText style={[styles.receiptValue, styles.receiptAmount]}>
                     {formatAmount(lastPayment.amount)}
-                  </Text>
+                  </AppText>
                 </View>
 
                 <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Payment Method:</Text>
-                  <Text style={styles.receiptValue}>{lastPayment.method.toUpperCase()}</Text>
+                  <AppText style={styles.receiptLabel}>Payment Method:</AppText>
+                  <AppText style={styles.receiptValue}>{lastPayment.method.toUpperCase()}</AppText>
                 </View>
 
                 <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Total Fee:</Text>
-                  <Text style={styles.receiptValue}>{formatAmount(selectedFee.total_fee)}</Text>
+                  <AppText style={styles.receiptLabel}>Total Fee:</AppText>
+                  <AppText style={styles.receiptValue}>{formatAmount(selectedFee.total_fee)}</AppText>
                 </View>
 
                 <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Total Paid:</Text>
-                  <Text style={styles.receiptValue}>{formatAmount(selectedFee.paid_amount + lastPayment.amount)}</Text>
+                  <AppText style={styles.receiptLabel}>Total Paid:</AppText>
+                  <AppText style={styles.receiptValue}>{formatAmount(selectedFee.paid_amount + lastPayment.amount)}</AppText>
                 </View>
 
                 <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Remaining Due:</Text>
-                  <Text style={[styles.receiptValue, { color: selectedFee.due_amount - lastPayment.amount > 0 ? '#d97706' : '#059669' }]}>
+                  <AppText style={styles.receiptLabel}>Remaining Due:</AppText>
+                  <AppText style={[styles.receiptValue, { color: selectedFee.due_amount - lastPayment.amount > 0 ? C.warning : C.success }]}>
                     {formatAmount(selectedFee.due_amount - lastPayment.amount)}
-                  </Text>
+                  </AppText>
                 </View>
 
                 {lastPayment.receipt_number && (
                   <View style={styles.receiptRow}>
-                    <Text style={styles.receiptLabel}>Receipt No:</Text>
-                    <Text style={styles.receiptValue}>{lastPayment.receipt_number}</Text>
+                    <AppText style={styles.receiptLabel}>Receipt No:</AppText>
+                    <AppText style={styles.receiptValue}>{lastPayment.receipt_number}</AppText>
                   </View>
                 )}
 
                 <View style={styles.receiptDivider} />
 
-                <Text style={styles.receiptFooter}>Thank you for your payment!</Text>
+                <AppText style={styles.receiptFooter}>Thank you for your payment!</AppText>
               </View>
             )}
 
@@ -464,13 +483,13 @@ const PaymentEntry = () => {
                 }}
               >
                 <Icon name="printer" size={16} color="#fff" />
-                <Text style={styles.printButtonText}>Print Receipt</Text>
+                <AppText style={styles.printButtonText}>Print Receipt</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.closeButton]}
                 onPress={() => setShowReceiptModal(false)}
               >
-                <Text style={styles.closeButtonText}>Close</Text>
+                <AppText style={styles.closeButtonText}>Close</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -483,24 +502,24 @@ const PaymentEntry = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: C.bg,
   },
   scrollView: {
     flex: 1,
   },
   formSection: {
-    backgroundColor: '#f7f9fc',
+    backgroundColor: C.card,
     padding: 20,
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#059669',
+    borderLeftColor: C.success,
     margin: 16,
     marginBottom: 8,
   },
   formTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
     marginBottom: 16,
   },
   formGroup: {
@@ -508,7 +527,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontWeight: '600',
-    color: '#4a5568',
+    color: C.textMuted,
     fontSize: 14,
     marginBottom: 6,
   },
@@ -524,29 +543,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.bg,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     marginRight: 8,
     marginBottom: 8,
   },
   feeOptionSelected: {
-    backgroundColor: '#059669',
-    borderColor: '#059669',
+    backgroundColor: C.success,
+    borderColor: C.success,
   },
   feeOptionText: {
     fontSize: 14,
-    color: '#0d1b2a',
+    color: C.text,
   },
   feeOptionTextSelected: {
     color: '#ffffff',
   },
   feeDetails: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.bg,
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
   },
   detailRow: {
     flexDirection: 'row',
@@ -556,23 +575,24 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#4a5568',
+    color: C.textMuted,
   },
   detailValue: {
     fontSize: 13,
-    color: '#0d1b2a',
+    color: C.text,
     fontWeight: '500',
   },
   paidValue: {
-    color: '#059669',
+    color: C.success,
   },
   input: {
     padding: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     borderRadius: 8,
     fontSize: 14,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.bg,
+    color: C.text,
   },
   methodContainer: {
     flexDirection: 'row',
@@ -587,23 +607,23 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
-    backgroundColor: '#ffffff',
+    borderColor: C.border,
+    backgroundColor: C.bg,
   },
   methodOptionSelected: {
-    backgroundColor: '#059669',
-    borderColor: '#059669',
+    backgroundColor: C.success,
+    borderColor: C.success,
   },
   methodOptionText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#4a5568',
+    color: C.textMuted,
   },
   methodOptionTextSelected: {
     color: '#ffffff',
   },
   submitButton: {
-    backgroundColor: '#059669',
+    backgroundColor: C.success,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
@@ -626,43 +646,43 @@ const styles = StyleSheet.create({
   historyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   historySubtitle: {
     fontSize: 14,
-    color: '#4a5568',
+    color: C.textMuted,
     marginTop: 4,
   },
   paymentsList: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     overflow: 'hidden',
   },
   paymentsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#f7f9fc',
+    backgroundColor: C.bg,
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   paymentsHeaderText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0d1b2a',
+    color: C.text,
   },
   totalPaymentsText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#059669',
+    color: C.success,
   },
   paymentRow: {
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   paymentInfo: {
     flexDirection: 'row',
@@ -673,7 +693,7 @@ const styles = StyleSheet.create({
   paymentAmount: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   methodBadge: {
     paddingHorizontal: 8,
@@ -681,54 +701,57 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   cashBadge: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: colors.primary + '30',
   },
   onlineBadge: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: C.successSoft,
   },
   methodText: {
     fontSize: 11,
     fontWeight: '600',
+    color: C.text,
   },
   paymentDate: {
     fontSize: 12,
-    color: '#8898aa',
+    color: C.textMuted,
     marginBottom: 4,
   },
   receiptNumber: {
     fontSize: 11,
-    color: '#4a5568',
+    color: C.textMuted,
   },
   emptyContainer: {
     padding: 48,
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
   },
   emptyText: {
     fontSize: 14,
-    color: '#8898aa',
+    color: C.textMuted,
     marginTop: 12,
   },
   emptySubtext: {
     fontSize: 12,
-    color: '#cbd5e1',
+    color: C.border,
     marginTop: 4,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderRadius: 12,
     width: '90%',
     maxWidth: 400,
     maxHeight: '80%',
+    borderWidth: 1,
+    borderColor: C.border,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -736,12 +759,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   receiptContent: {
     padding: 16,
@@ -753,16 +776,16 @@ const styles = StyleSheet.create({
   receiptSchoolName: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0d1b2a',
+    color: C.text,
   },
   receiptDate: {
     fontSize: 12,
-    color: '#8898aa',
+    color: C.textMuted,
     marginTop: 4,
   },
   receiptDivider: {
     height: 1,
-    backgroundColor: '#e4e9f2',
+    backgroundColor: C.border,
     marginVertical: 12,
   },
   receiptRow: {
@@ -773,22 +796,22 @@ const styles = StyleSheet.create({
   receiptLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#4a5568',
+    color: C.textMuted,
   },
   receiptValue: {
     fontSize: 14,
-    color: '#0d1b2a',
+    color: C.text,
     fontWeight: '500',
   },
   receiptAmount: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#059669',
+    color: C.success,
   },
   receiptFooter: {
     textAlign: 'center',
     fontSize: 12,
-    color: '#8898aa',
+    color: C.textMuted,
     marginTop: 8,
   },
   modalButtons: {
@@ -796,7 +819,7 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e4e9f2',
+    borderTopColor: C.border,
   },
   modalButton: {
     flex: 1,
@@ -805,19 +828,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   printButton: {
-    backgroundColor: '#059669',
+    backgroundColor: C.success,
     flexDirection: 'row',
     gap: 8,
+    justifyContent: 'center',
   },
   printButtonText: {
     color: '#ffffff',
     fontWeight: '600',
   },
   closeButton: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: C.bg,
   },
   closeButtonText: {
-    color: '#4a5568',
+    color: C.text,
     fontWeight: '600',
   },
 });

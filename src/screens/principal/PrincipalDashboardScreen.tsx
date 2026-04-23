@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -16,10 +15,14 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import AvatarBubble from '../../components/common/AvatarBubble';
+import { useAuth } from '../../context/AuthContext';
+import Icon from 'react-native-vector-icons/Feather';
+import AppText from '../../components/common/AppText';
 
 // Types
 interface Branch {
@@ -74,13 +77,13 @@ const formatDate = (dateString: string): string => {
 
 const getHealthMeta = (status: string) => {
   const key = String(status || '').toUpperCase();
-  if (key === 'HEALTHY') return { label: 'Healthy', bg: '#ecfdf5', color: '#059669', border: '#a7f3d0' };
-  if (key === 'INACTIVE') return { label: 'Inactive', bg: '#fef2f2', color: '#dc2626', border: '#fecaca' };
-  if (key === 'HM_MISSING') return { label: 'HM Missing', bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' };
-  if (key === 'NO_CLASSES') return { label: 'No Classes', bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' };
-  if (key === 'NO_TEACHERS') return { label: 'No Teachers', bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' };
-  if (key === 'NO_STUDENTS') return { label: 'No Students', bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' };
-  return { label: 'Needs Review', bg: '#f8fafc', color: '#64748b', border: '#cbd5e1' };
+  if (key === 'HEALTHY') return { label: 'Healthy', bg: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: 'rgba(16, 185, 129, 0.2)' };
+  if (key === 'INACTIVE') return { label: 'Inactive', bg: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'rgba(239, 68, 68, 0.2)' };
+  if (key === 'HM_MISSING') return { label: 'HM Missing', bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.2)' };
+  if (key === 'NO_CLASSES') return { label: 'No Classes', bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.2)' };
+  if (key === 'NO_TEACHERS') return { label: 'No Teachers', bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.2)' };
+  if (key === 'NO_STUDENTS') return { label: 'No Students', bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.2)' };
+  return { label: 'Needs Review', bg: 'rgba(148, 163, 184, 0.1)', color: '#94a3b8', border: 'rgba(148, 163, 184, 0.2)' };
 };
 
 // Status Badge Component
@@ -88,9 +91,9 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const isActive = status?.toUpperCase() === 'ACTIVE';
   return (
     <View style={[styles.statusBadge, isActive ? styles.statusActive : styles.statusInactive]}>
-      <Text style={[styles.statusText, isActive ? styles.statusTextActive : styles.statusTextInactive]}>
+      <AppText style={[styles.statusText, isActive ? styles.statusTextActive : styles.statusTextInactive]}>
         {status || 'INACTIVE'}
-      </Text>
+      </AppText>
     </View>
   );
 };
@@ -100,7 +103,7 @@ const HealthBadge: React.FC<{ status: string }> = ({ status }) => {
   const meta = getHealthMeta(status);
   return (
     <View style={[styles.healthBadge, { backgroundColor: meta.bg, borderColor: meta.border }]}>
-      <Text style={[styles.healthText, { color: meta.color }]}>{meta.label}</Text>
+      <AppText style={[styles.healthText, { color: meta.color }]}>{meta.label}</AppText>
     </View>
   );
 };
@@ -120,15 +123,15 @@ const KpiCard: React.FC<{
   <TouchableOpacity style={styles.kpiCard} onPress={onPress} activeOpacity={0.8}>
     <View style={styles.kpiHeader}>
       <View style={[styles.kpiIcon, { backgroundColor: iconBg }]}>
-        <Text style={[styles.kpiIconText, { color: iconColor }]}>{icon}</Text>
+        <AppText style={[styles.kpiIconText, { color: iconColor }]}>{icon}</AppText>
       </View>
       <View style={[styles.kpiBadge, badgeUp ? styles.kpiBadgeUp : styles.kpiBadgeDown]}>
-        <Text style={styles.kpiBadgeText}>{badgeUp ? '▲' : '▼'} {badge}</Text>
+        <AppText style={styles.kpiBadgeText}>{badgeUp ? '▲' : '▼'} {badge}</AppText>
       </View>
     </View>
-    <Text style={styles.kpiTitle}>{title}</Text>
-    <Text style={styles.kpiValue}>{value}</Text>
-    <Text style={styles.kpiSub}>{sub}</Text>
+    <AppText style={styles.kpiTitle}>{title}</AppText>
+    <AppText style={styles.kpiValue}>{value}</AppText>
+    <AppText style={styles.kpiSub}>{sub}</AppText>
   </TouchableOpacity>
 );
 
@@ -139,8 +142,8 @@ const BranchCard: React.FC<{ branch: Branch; onPress: () => void }> = ({ branch,
     <TouchableOpacity style={styles.branchCard} onPress={onPress}>
       <View style={styles.branchCardHeader}>
         <View>
-          <Text style={styles.branchName}>{branch.branch_name}</Text>
-          <Text style={styles.branchId}>ID: {branch.branch_id}</Text>
+          <AppText style={styles.branchName}>{branch.branch_name}</AppText>
+          <AppText style={styles.branchId}>ID: {branch.branch_id}</AppText>
         </View>
         <View>
           <StatusBadge status={branch.branch_status} />
@@ -148,31 +151,31 @@ const BranchCard: React.FC<{ branch: Branch; onPress: () => void }> = ({ branch,
         </View>
       </View>
 
-      <Text style={styles.branchHm}>👨‍🏫 HM: {branch.hm_name || 'No HM'}</Text>
-      <Text style={styles.branchEmail}>✉️ {branch.hm_email || 'No email'}</Text>
+      <AppText style={styles.branchHm}>👨‍🏫 HM: {branch.hm_name || 'No HM'}</AppText>
+      <AppText style={styles.branchEmail}>✉️ {branch.hm_email || 'No email'}</AppText>
 
       <View style={styles.branchStats}>
         <View style={styles.branchStat}>
-          <Text style={styles.branchStatValue}>{branch.teachers_count || 0}</Text>
-          <Text style={styles.branchStatLabel}>Teachers</Text>
+          <AppText style={styles.branchStatValue}>{branch.teachers_count || 0}</AppText>
+          <AppText style={styles.branchStatLabel}>Teachers</AppText>
         </View>
         <View style={styles.branchStat}>
-          <Text style={styles.branchStatValue}>{branch.students_count || 0}</Text>
-          <Text style={styles.branchStatLabel}>Students</Text>
+          <AppText style={styles.branchStatValue}>{branch.students_count || 0}</AppText>
+          <AppText style={styles.branchStatLabel}>Students</AppText>
         </View>
         <View style={styles.branchStat}>
-          <Text style={styles.branchStatValue}>{branch.classes_count || 0}</Text>
-          <Text style={styles.branchStatLabel}>Classes</Text>
+          <AppText style={styles.branchStatValue}>{branch.classes_count || 0}</AppText>
+          <AppText style={styles.branchStatLabel}>Classes</AppText>
         </View>
         <View style={styles.branchStat}>
-          <Text style={styles.branchStatValue}>{branch.sections_count || 0}</Text>
-          <Text style={styles.branchStatLabel}>Sections</Text>
+          <AppText style={styles.branchStatValue}>{branch.sections_count || 0}</AppText>
+          <AppText style={styles.branchStatLabel}>Sections</AppText>
         </View>
       </View>
 
       <View style={styles.branchFooter}>
-        <Text style={styles.branchPendingLeaves}>📋 Pending Leaves: {branch.pending_leave_requests || 0}</Text>
-        <Text style={styles.branchViewBtn}>View Details →</Text>
+        <AppText style={styles.branchPendingLeaves}>📋 Pending Leaves: {branch.pending_leave_requests || 0}</AppText>
+        <AppText style={styles.branchViewBtn}>View Details →</AppText>
       </View>
     </TouchableOpacity>
   );
@@ -193,7 +196,7 @@ const BranchRow: React.FC<{
   if (isEditing) {
     return (
       <View style={styles.branchRow}>
-        <Text style={styles.branchRowId}>{branch.branch_id}</Text>
+        <AppText style={styles.branchRowId}>{branch.branch_id}</AppText>
         <TextInput
           style={styles.editInput}
           value={editData.branch_name}
@@ -221,18 +224,18 @@ const BranchRow: React.FC<{
               style={[styles.editStatusBtn, editData.branch_status === opt && styles.editStatusBtnActive]}
               onPress={() => onEditChange('branch_status', opt)}
             >
-              <Text style={[styles.editStatusText, editData.branch_status === opt && styles.editStatusTextActive]}>
+              <AppText style={[styles.editStatusText, editData.branch_status === opt && styles.editStatusTextActive]}>
                 {opt}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           ))}
         </View>
         <View style={styles.branchRowActions}>
           <TouchableOpacity style={styles.saveBtn} onPress={onSave}>
-            <Text style={styles.saveBtnText}>💾</Text>
+            <AppText style={styles.saveBtnText}>💾</AppText>
           </TouchableOpacity>
           <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-            <Text style={styles.cancelBtnText}>✕</Text>
+            <AppText style={styles.cancelBtnText}>✕</AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -241,22 +244,22 @@ const BranchRow: React.FC<{
 
   return (
     <View style={styles.branchRow}>
-      <Text style={styles.branchRowId}>{branch.branch_id}</Text>
-      <Text style={styles.branchRowCell}>{branch.branch_name}</Text>
-      <Text style={styles.branchRowCell}>{branch.hm_employee_id || '-'}</Text>
-      <Text style={styles.branchRowCell}>{branch.hm_name || '-'}</Text>
-      <Text style={styles.branchRowCell}>{branch.hm_email || '-'}</Text>
+      <AppText style={styles.branchRowId}>{branch.branch_id}</AppText>
+      <AppText style={styles.branchRowCell}>{branch.branch_name}</AppText>
+      <AppText style={styles.branchRowCell}>{branch.hm_employee_id || '-'}</AppText>
+      <AppText style={styles.branchRowCell}>{branch.hm_name || '-'}</AppText>
+      <AppText style={styles.branchRowCell}>{branch.hm_email || '-'}</AppText>
       <StatusBadge status={branch.branch_status} />
-      <Text style={styles.branchRowDate}>{formatDate(branch.creation_date)}</Text>
+      <AppText style={styles.branchRowDate}>{formatDate(branch.creation_date)}</AppText>
       <View style={styles.branchRowActions}>
         <TouchableOpacity style={styles.editRowBtn} onPress={onEdit}>
-          <Text style={styles.editRowBtnText}>✏️ Edit</Text>
+          <AppText style={styles.editRowBtnText}>✏️ Edit</AppText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.deleteRowBtn} onPress={onDelete}>
-          <Text style={styles.deleteRowBtnText}>🗑️ Del</Text>
+          <AppText style={styles.deleteRowBtnText}>🗑️ Del</AppText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.viewRowBtn} onPress={onView}>
-          <Text style={styles.viewRowBtnText}>👁️ View</Text>
+          <AppText style={styles.viewRowBtnText}>👁️ View</AppText>
         </TouchableOpacity>
       </View>
     </View>
@@ -268,7 +271,7 @@ const PassFailChart: React.FC<{ data: MarksSummary[]; isAllBranches: boolean }> 
   if (!data || data.length === 0) {
     return (
       <View style={styles.chartEmpty}>
-        <Text style={styles.chartEmptyText}>No marks data available. Exam results will appear here once marks are entered.</Text>
+        <AppText style={styles.chartEmptyText}>No marks data available. Exam results will appear here once marks are entered.</AppText>
       </View>
     );
   }
@@ -281,11 +284,11 @@ const PassFailChart: React.FC<{ data: MarksSummary[]; isAllBranches: boolean }> 
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
-          <Text style={styles.legendText}>Passed</Text>
+          <AppText style={styles.legendText}>Passed</AppText>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
-          <Text style={styles.legendText}>Failed</Text>
+          <AppText style={styles.legendText}>Failed</AppText>
         </View>
       </View>
 
@@ -303,12 +306,12 @@ const PassFailChart: React.FC<{ data: MarksSummary[]; isAllBranches: boolean }> 
                   <View style={[styles.chartBarPassed, { height: Math.max(passedHeight, 2) }]} />
                   <View style={[styles.chartBarFailed, { height: Math.max(failedHeight, 2) }]} />
                 </View>
-                <Text style={styles.chartLabel}>
+                <AppText style={styles.chartLabel}>
                   {isAllBranches 
                     ? (item.label.length > 10 ? item.label.slice(0, 8) + '…' : item.label)
                     : item.label}
-                </Text>
-                <Text style={styles.chartPassRate}>{passRate}% pass</Text>
+                </AppText>
+                <AppText style={styles.chartPassRate}>{passRate}% pass</AppText>
               </View>
             );
           })}
@@ -321,8 +324,8 @@ const PassFailChart: React.FC<{ data: MarksSummary[]; isAllBranches: boolean }> 
           const passRate = total > 0 ? Math.round((item.passed / total) * 100) : 0;
           return (
             <View key={idx} style={styles.chartStatItem}>
-              <Text style={styles.chartStatLabel}>{item.label}:</Text>
-              <Text style={styles.chartStatValue}>{item.passed} ✓ / {item.failed} ✗ ({passRate}%)</Text>
+              <AppText style={styles.chartStatLabel}>{item.label}:</AppText>
+              <AppText style={styles.chartStatValue}>{item.passed} ✓ / {item.failed} ✗ ({passRate}%)</AppText>
             </View>
           );
         })}
@@ -344,14 +347,14 @@ const HMRegistrationModal: React.FC<{
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Register New HM</Text>
+            <AppText style={styles.modalTitle}>Register New HM</AppText>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <Text style={styles.modalCloseText}>✕</Text>
+              <AppText style={styles.modalCloseText}>✕</AppText>
             </TouchableOpacity>
           </View>
           <View style={styles.modalBody}>
-            <Text style={styles.modalPlaceholder}>HM Registration Form would go here</Text>
-            <Text style={styles.modalNote}>This is a placeholder. The full HM registration form would be implemented here.</Text>
+            <AppText style={styles.modalPlaceholder}>HM Registration Form would go here</AppText>
+            <AppText style={styles.modalNote}>This is a placeholder. The full HM registration form would be implemented here.</AppText>
           </View>
           <View style={styles.modalFooter}>
             <AppButton title="Close" onPress={onClose} type="secondary" />
@@ -364,6 +367,7 @@ const HMRegistrationModal: React.FC<{
 
 export default function PrincipalDashboardScreen() {
   const navigation = useNavigation();
+  const { userName } = useAuth();
   const route = useRoute();
   const overviewRef = useRef<ScrollView>(null);
 
@@ -666,51 +670,66 @@ export default function PrincipalDashboardScreen() {
   if (!schoolCode) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>School Code missing</Text>
-        <Text style={styles.errorText}>Please login again.</Text>
+        <AppText style={styles.errorTitle}>School Code missing</AppText>
+        <AppText style={styles.errorText}>Please login again.</AppText>
       </View>
     );
   }
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Morning';
+    if (hour < 17) return 'Afternoon';
+    return 'Evening';
+  };
 
   return (
     <View style={styles.container}>
       <ScrollView
         ref={overviewRef}
         contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
       >
+        {/* Welcome Section */}
+        <View style={styles.welcomeSection}>
+          <View>
+            <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Principal'}!</AppText>
+            <AppText style={styles.welcomeSub}>Complete school-wide branch health and operational status.</AppText>
+          </View>
+        </View>
+
         {/* Top Bar */}
         <View style={styles.topBar}>
           <View style={styles.topBarLeft}>
             <View style={styles.topBarIcon}>
-              <Text style={styles.topBarIconText}>
+              <AppText style={styles.topBarIconText}>
                 {view === 'dashboard' ? '⊞' : view === 'branches' ? '⊟' : '+'}
-              </Text>
+              </AppText>
             </View>
             <View>
-              <Text style={styles.title}>
+              <AppText style={styles.title}>
                 {view === 'dashboard'
                   ? 'Main Principal Dashboard'
                   : view === 'branches'
                     ? 'Branches & HMs'
                     : 'Register New HM'}
-              </Text>
-              <Text style={styles.subtitle}>Manage all data and complete sub-branch status</Text>
+              </AppText>
+              <AppText style={styles.subtitle}>Manage all data and complete sub-branch status</AppText>
             </View>
           </View>
 
           <View style={styles.topBarRight}>
             <View style={styles.branchSelector}>
-              <Text style={styles.branchSelectorLabel}>Branch:</Text>
+              <AppText style={styles.branchSelectorLabel}>Branch:</AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.branchChips}>
                   <TouchableOpacity
                     style={[styles.branchChip, selectedBranchId === 'ALL' && styles.branchChipActive]}
                     onPress={() => setSelectedBranchId('ALL')}
                   >
-                    <Text style={[styles.branchChipText, selectedBranchId === 'ALL' && styles.branchChipTextActive]}>
+                    <AppText style={[styles.branchChipText, selectedBranchId === 'ALL' && styles.branchChipTextActive]}>
                       All Branches
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                   {branches.map(b => (
                     <TouchableOpacity
@@ -718,9 +737,9 @@ export default function PrincipalDashboardScreen() {
                       style={[styles.branchChip, selectedBranchId === b.branch_id && styles.branchChipActive]}
                       onPress={() => setSelectedBranchId(b.branch_id)}
                     >
-                      <Text style={[styles.branchChipText, selectedBranchId === b.branch_id && styles.branchChipTextActive]}>
+                      <AppText style={[styles.branchChipText, selectedBranchId === b.branch_id && styles.branchChipTextActive]}>
                         {b.branch_id}
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -734,19 +753,19 @@ export default function PrincipalDashboardScreen() {
                   style={[styles.viewBtn, view === key && styles.viewBtnActive]}
                   onPress={() => setView(key)}
                 >
-                  <Text style={[styles.viewBtnText, view === key && styles.viewBtnTextActive]}>
+                  <AppText style={[styles.viewBtnText, view === key && styles.viewBtnTextActive]}>
                     {key === 'dashboard' ? '⊞ Dashboard' : key === 'branches' ? '⊟ Branches' : '+ Add Branch'}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               ))}
               <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
-                <Text style={styles.refreshBtnText}>↻ Refresh</Text>
+                <AppText style={styles.refreshBtnText}>↻ Refresh</AppText>
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
-        {loading && <ActivityIndicator size="large" color="#3b82f6" style={styles.loader} />}
+        {loading && <ActivityIndicator size="large" color={colors.accent} style={styles.loader} />}
 
         {/* Dashboard View */}
         {view === 'dashboard' && (
@@ -758,7 +777,7 @@ export default function PrincipalDashboardScreen() {
                 value={displayedStats.branches}
                 sub={selectedBranchId === 'ALL' ? 'All sub-branches' : `${selectedBranch?.branch_name || 'Branch'} snapshot`}
                 icon="🏫"
-                iconBg="#eff6ff"
+                iconBg="rgba(59, 130, 246, 0.1)"
                 iconColor="#3b82f6"
                 badge="Live"
                 badgeUp={true}
@@ -769,7 +788,7 @@ export default function PrincipalDashboardScreen() {
                 value={displayedStats.teachers}
                 sub={selectedBranchId === 'ALL' ? 'Across all branches' : `Teachers in ${selectedBranchId}`}
                 icon="👨‍🏫"
-                iconBg="#f0fdf4"
+                iconBg="rgba(16, 185, 129, 0.1)"
                 iconColor="#10b981"
                 badge="Live"
                 badgeUp={true}
@@ -780,7 +799,7 @@ export default function PrincipalDashboardScreen() {
                 value={displayedStats.students}
                 sub={selectedBranchId === 'ALL' ? 'Across all branches' : `Students in ${selectedBranchId}`}
                 icon="👨‍🎓"
-                iconBg="#fff7ed"
+                iconBg="rgba(249, 115, 22, 0.1)"
                 iconColor="#f97316"
                 badge="Live"
                 badgeUp={true}
@@ -791,8 +810,8 @@ export default function PrincipalDashboardScreen() {
                 value={selectedBranchId === 'ALL' ? stats.activeBranches : (selectedBranch?.branch_status === 'ACTIVE' ? 1 : 0)}
                 sub={selectedBranchId === 'ALL' ? 'Operational branches' : 'Branch active status'}
                 icon="🏫"
-                iconBg="#ecfdf5"
-                iconColor="#059669"
+                iconBg="rgba(16, 185, 129, 0.1)"
+                iconColor="#10b981"
                 badge="Status"
                 badgeUp={true}
                 onPress={handleKpiClick}
@@ -802,7 +821,7 @@ export default function PrincipalDashboardScreen() {
                 value={selectedBranchId === 'ALL' ? stats.inactiveBranches : (selectedBranch?.branch_status === 'ACTIVE' ? 0 : 1)}
                 sub={selectedBranchId === 'ALL' ? 'Need attention' : 'Branch inactive status'}
                 icon="🏫"
-                iconBg="#fef2f2"
+                iconBg="rgba(239, 68, 68, 0.1)"
                 iconColor="#dc2626"
                 badge="Watch"
                 badgeUp={false}
@@ -813,7 +832,7 @@ export default function PrincipalDashboardScreen() {
                 value={displayedStats.pendingLeaves}
                 sub={selectedBranchId === 'ALL' ? 'Across all branches' : `Pending in ${selectedBranchId}`}
                 icon="👨‍🏫"
-                iconBg="#fff7ed"
+                iconBg="rgba(234, 88, 12, 0.1)"
                 iconColor="#ea580c"
                 badge="Pending"
                 badgeUp={false}
@@ -824,12 +843,12 @@ export default function PrincipalDashboardScreen() {
             {/* Distribution & Snapshot */}
             <View style={styles.twoColumnGrid}>
               <AppCard style={styles.distributionCard}>
-                <Text style={styles.cardTitle}>Distribution</Text>
+                <AppText style={styles.cardTitle}>Distribution</AppText>
                 {bars.map(bar => (
                   <View key={bar.label} style={styles.barItem}>
                     <View style={styles.barHeader}>
-                      <Text style={styles.barLabel}>{bar.label}</Text>
-                      <Text style={[styles.barValue, { color: bar.color }]}>{bar.value}</Text>
+                      <AppText style={styles.barLabel}>{bar.label}</AppText>
+                      <AppText style={[styles.barValue, { color: bar.color }]}>{bar.value}</AppText>
                     </View>
                     <View style={styles.barTrack}>
                       <View style={[styles.barFill, { width: `${Math.round((bar.value / maxVal) * 100)}%`, backgroundColor: bar.color }]} />
@@ -839,53 +858,53 @@ export default function PrincipalDashboardScreen() {
               </AppCard>
 
               <AppCard style={styles.snapshotCard}>
-                <Text style={styles.cardTitle}>
+                <AppText style={styles.cardTitle}>
                   {selectedBranchId === 'ALL' ? 'School Snapshot' : 'Branch Snapshot'}
-                </Text>
+                </AppText>
                 {selectedBranchId === 'ALL' ? (
                   <>
                     <View style={styles.donutContainer}>
                       <View style={styles.donut}>
-                        <Text style={styles.donutTotal}>{stats.branches + stats.teachers + stats.students}</Text>
-                        <Text style={styles.donutLabel}>Total</Text>
+                        <AppText style={styles.donutTotal}>{stats.branches + stats.teachers + stats.students}</AppText>
+                        <AppText style={styles.donutLabel}>Total</AppText>
                       </View>
                     </View>
                     <View style={styles.legend}>
                       <View style={styles.legendItem}>
                         <View style={[styles.legendDot, { backgroundColor: '#3b82f6' }]} />
-                        <Text style={styles.legendText}>Branches</Text>
+                        <AppText style={styles.legendText}>Branches</AppText>
                       </View>
                       <View style={styles.legendItem}>
                         <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
-                        <Text style={styles.legendText}>Teachers</Text>
+                        <AppText style={styles.legendText}>Teachers</AppText>
                       </View>
                       <View style={styles.legendItem}>
                         <View style={[styles.legendDot, { backgroundColor: '#f97316' }]} />
-                        <Text style={styles.legendText}>Students</Text>
+                        <AppText style={styles.legendText}>Students</AppText>
                       </View>
                     </View>
                   </>
                 ) : (
                   <View style={styles.branchSnapshot}>
                     <View style={styles.snapshotItem}>
-                      <Text style={styles.snapshotLabel}>Branch ID</Text>
-                      <Text style={styles.snapshotValue}>{selectedBranch?.branch_id || '-'}</Text>
+                      <AppText style={styles.snapshotLabel}>Branch ID</AppText>
+                      <AppText style={styles.snapshotValue}>{selectedBranch?.branch_id || '-'}</AppText>
                     </View>
                     <View style={styles.snapshotItem}>
-                      <Text style={styles.snapshotLabel}>Branch Name</Text>
-                      <Text style={styles.snapshotValue}>{selectedBranch?.branch_name || '-'}</Text>
+                      <AppText style={styles.snapshotLabel}>Branch Name</AppText>
+                      <AppText style={styles.snapshotValue}>{selectedBranch?.branch_name || '-'}</AppText>
                     </View>
                     <View style={styles.snapshotItem}>
-                      <Text style={styles.snapshotLabel}>HM Name</Text>
-                      <Text style={styles.snapshotValue}>{selectedBranch?.hm_name || '-'}</Text>
+                      <AppText style={styles.snapshotLabel}>HM Name</AppText>
+                      <AppText style={styles.snapshotValue}>{selectedBranch?.hm_name || '-'}</AppText>
                     </View>
                     <View style={styles.snapshotItem}>
-                      <Text style={styles.snapshotLabel}>HM Email</Text>
-                      <Text style={styles.snapshotValue}>{selectedBranch?.hm_email || '-'}</Text>
+                      <AppText style={styles.snapshotLabel}>HM Email</AppText>
+                      <AppText style={styles.snapshotValue}>{selectedBranch?.hm_email || '-'}</AppText>
                     </View>
                     <View style={styles.snapshotItemRow}>
                       <StatusBadge status={selectedBranch?.branch_status || '-'} />
-                      <Text style={styles.snapshotDate}>Created: {formatDate(selectedBranch?.creation_date || '')}</Text>
+                      <AppText style={styles.snapshotDate}>Created: {formatDate(selectedBranch?.creation_date || '')}</AppText>
                     </View>
                   </View>
                 )}
@@ -895,12 +914,12 @@ export default function PrincipalDashboardScreen() {
             {/* Pass/Fail Chart */}
             <AppCard style={styles.chartCard}>
               <View style={styles.chartHeader}>
-                <Text style={styles.cardTitle}>
+                <AppText style={styles.cardTitle}>
                   {selectedBranchId === 'ALL'
                     ? 'Student Pass / Fail Overview — All Branches'
                     : `Student Pass / Fail — ${selectedBranch?.branch_name || selectedBranchId} (by Class)`}
-                </Text>
-                {marksSummaryLoading && <ActivityIndicator size="small" color="#3b82f6" />}
+                </AppText>
+                {marksSummaryLoading && <ActivityIndicator size="small" color={colors.accent} />}
               </View>
               <PassFailChart data={marksSummary} isAllBranches={selectedBranchId === 'ALL'} />
             </AppCard>
@@ -909,72 +928,72 @@ export default function PrincipalDashboardScreen() {
             <AppCard style={styles.overviewCard}>
               <View style={styles.overviewHeader}>
                 <View>
-                  <Text style={styles.cardTitle}>Main Principal Overview</Text>
-                  <Text style={styles.overviewSubtitle}>Complete school-wide branch health and operational status</Text>
+                  <AppText style={styles.cardTitle}>Main Principal Overview</AppText>
+                  <AppText style={styles.overviewSubtitle}>Complete school-wide branch health and operational status</AppText>
                 </View>
                 <View style={styles.statusChips}>
                   <View style={[styles.statusChip, styles.statusChipHealthy]}>
-                    <Text style={styles.statusChipText}>Healthy: {statusSummary.healthy}</Text>
+                    <AppText style={styles.statusChipText}>Healthy: {statusSummary.healthy}</AppText>
                   </View>
                   <View style={[styles.statusChip, styles.statusChipAttention]}>
-                    <Text style={styles.statusChipText}>Needs Attention: {statusSummary.needsAttention}</Text>
+                    <AppText style={styles.statusChipText}>Needs Attention: {statusSummary.needsAttention}</AppText>
                   </View>
                   <View style={[styles.statusChip, styles.statusChipInactive]}>
-                    <Text style={styles.statusChipText}>Inactive: {statusSummary.inactive}</Text>
+                    <AppText style={styles.statusChipText}>Inactive: {statusSummary.inactive}</AppText>
                   </View>
                 </View>
               </View>
 
               {/* Branch Table Header */}
               <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderText, styles.colBranch]}>Branch</Text>
-                <Text style={[styles.tableHeaderText, styles.colHm]}>HM</Text>
-                <Text style={[styles.tableHeaderText, styles.colStatus]}>Status</Text>
-                <Text style={[styles.tableHeaderText, styles.colTeachers]}>Teachers</Text>
-                <Text style={[styles.tableHeaderText, styles.colStudents]}>Students</Text>
-                <Text style={[styles.tableHeaderText, styles.colClasses]}>Classes</Text>
-                <Text style={[styles.tableHeaderText, styles.colSections]}>Sections</Text>
-                <Text style={[styles.tableHeaderText, styles.colAction]}>Action</Text>
+                <AppText style={[styles.tableHeaderText, styles.colBranch]}>Branch</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colHm]}>HM</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colStatus]}>Status</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colTeachers]}>Teachers</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colStudents]}>Students</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colClasses]}>Classes</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colSections]}>Sections</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colAction]}>Action</AppText>
               </View>
 
               {paginatedBranches.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No branches found</Text>
+                  <AppText style={styles.emptyText}>No branches found</AppText>
                 </View>
               ) : (
                 paginatedBranches.map(branch => (
                   <View key={branch.branch_id} style={styles.tableRow}>
                     <View style={[styles.tableCell, styles.colBranch]}>
-                      <Text style={styles.branchNameCell}>{branch.branch_name || '—'}</Text>
-                      <Text style={styles.branchIdCell}>ID: {branch.branch_id}</Text>
+                      <AppText style={styles.branchNameCell}>{branch.branch_name || '—'}</AppText>
+                      <AppText style={styles.branchIdCell}>ID: {branch.branch_id}</AppText>
                     </View>
                     <View style={[styles.tableCell, styles.colHm]}>
-                      <Text style={styles.hmNameCell}>{branch.hm_name || '—'}</Text>
-                      <Text style={styles.hmIdCell}>{branch.hm_employee_id || '—'}</Text>
-                      <Text style={styles.hmEmailCell}>{branch.hm_email || '—'}</Text>
+                      <AppText style={styles.hmNameCell}>{branch.hm_name || '—'}</AppText>
+                      <AppText style={styles.hmIdCell}>{branch.hm_employee_id || '—'}</AppText>
+                      <AppText style={styles.hmEmailCell}>{branch.hm_email || '—'}</AppText>
                     </View>
                     <View style={[styles.tableCell, styles.colStatus]}>
                       <StatusBadge status={branch.branch_status} />
                       <HealthBadge status={branch.health_status} />
                     </View>
                     <View style={[styles.tableCell, styles.colTeachers]}>
-                      <Text style={styles.numberCell}>{branch.teachers_count || 0}</Text>
+                      <AppText style={styles.numberCell}>{branch.teachers_count || 0}</AppText>
                     </View>
                     <View style={[styles.tableCell, styles.colStudents]}>
-                      <Text style={styles.numberCell}>{branch.students_count || 0}</Text>
+                      <AppText style={styles.numberCell}>{branch.students_count || 0}</AppText>
                     </View>
                     <View style={[styles.tableCell, styles.colClasses]}>
-                      <Text style={styles.numberCell}>{branch.classes_count || 0}</Text>
+                      <AppText style={styles.numberCell}>{branch.classes_count || 0}</AppText>
                     </View>
                     <View style={[styles.tableCell, styles.colSections]}>
-                      <Text style={styles.numberCell}>{branch.sections_count || 0}</Text>
+                      <AppText style={styles.numberCell}>{branch.sections_count || 0}</AppText>
                     </View>
                     <View style={[styles.tableCell, styles.colAction]}>
                       <TouchableOpacity
                         style={styles.viewBranchBtn}
                         onPress={() => handleViewBranch(branch)}
                       >
-                        <Text style={styles.viewBranchBtnText}>View</Text>
+                        <AppText style={styles.viewBranchBtnText}>View</AppText>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -989,29 +1008,29 @@ export default function PrincipalDashboardScreen() {
                     onPress={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
                   >
-                    <Text style={styles.pageBtnText}>«</Text>
+                    <AppText style={styles.pageBtnText}>«</AppText>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
                     onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
                   >
-                    <Text style={styles.pageBtnText}>‹</Text>
+                    <AppText style={styles.pageBtnText}>‹</AppText>
                   </TouchableOpacity>
-                  <Text style={styles.pageInfo}>Page {currentPage} of {totalPages}</Text>
+                  <AppText style={styles.pageInfo}>Page {currentPage} of {totalPages}</AppText>
                   <TouchableOpacity
                     style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
                     onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
                   >
-                    <Text style={styles.pageBtnText}>›</Text>
+                    <AppText style={styles.pageBtnText}>›</AppText>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
                     onPress={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
                   >
-                    <Text style={styles.pageBtnText}>»</Text>
+                    <AppText style={styles.pageBtnText}>»</AppText>
                   </TouchableOpacity>
                 </View>
               )}
@@ -1021,21 +1040,21 @@ export default function PrincipalDashboardScreen() {
             <AppCard style={styles.branchContainersCard}>
               <View style={styles.branchContainersHeader}>
                 <View>
-                  <Text style={styles.cardTitle}>
+                  <AppText style={styles.cardTitle}>
                     {showAllBranches ? 'All Branch Containers' : 'Branch Containers'}
-                  </Text>
-                  <Text style={styles.overviewSubtitle}>
+                  </AppText>
+                  <AppText style={styles.overviewSubtitle}>
                     {showAllBranches 
                       ? `Showing all ${filteredBranches.length} branches` 
                       : `Showing ${Math.min(BRANCH_CARDS_PER_PAGE, filteredBranches.length)} of ${filteredBranches.length} branches`}
-                  </Text>
+                  </AppText>
                 </View>
                 <View style={styles.branchContainersActions}>
                   {showAllBranches && (
                     <TextInput
                       style={styles.searchInput}
                       placeholder="Search branches..."
-                      placeholderTextColor="#94a3b8"
+                      placeholderTextColor={colors.textMuted}
                       value={branchSearchTerm}
                       onChangeText={setBranchSearchTerm}
                     />
@@ -1048,7 +1067,7 @@ export default function PrincipalDashboardScreen() {
                         setBranchCardsPage(1);
                       }}
                     >
-                      <Text style={styles.viewAllBtnText}>View All ({filteredBranches.length})</Text>
+                      <AppText style={styles.viewAllBtnText}>View All ({filteredBranches.length})</AppText>
                     </TouchableOpacity>
                   )}
                   {showAllBranches && (
@@ -1060,7 +1079,7 @@ export default function PrincipalDashboardScreen() {
                         setBranchCardsPage(1);
                       }}
                     >
-                      <Text style={styles.showLessBtnText}>Show Less</Text>
+                      <AppText style={styles.showLessBtnText}>Show Less</AppText>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -1068,7 +1087,7 @@ export default function PrincipalDashboardScreen() {
 
               {branchCards.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No branches found</Text>
+                  <AppText style={styles.emptyText}>No branches found</AppText>
                 </View>
               ) : (
                 <>
@@ -1080,39 +1099,39 @@ export default function PrincipalDashboardScreen() {
 
                   {showAllBranches && filteredBranches.length > BRANCH_CARDS_PER_PAGE && (
                     <View style={styles.branchCardPagination}>
-                      <Text style={styles.paginationInfo}>
+                      <AppText style={styles.paginationInfo}>
                         Showing {(branchCardsPage - 1) * BRANCH_CARDS_PER_PAGE + 1}–
                         {Math.min(branchCardsPage * BRANCH_CARDS_PER_PAGE, filteredBranches.length)} of {filteredBranches.length}
-                      </Text>
+                      </AppText>
                       <View style={styles.paginationButtons}>
                         <TouchableOpacity
                           style={[styles.pageBtn, branchCardsPage === 1 && styles.pageBtnDisabled]}
                           onPress={() => setBranchCardsPage(1)}
                           disabled={branchCardsPage === 1}
                         >
-                          <Text style={styles.pageBtnText}>«</Text>
+                          <AppText style={styles.pageBtnText}>«</AppText>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[styles.pageBtn, branchCardsPage === 1 && styles.pageBtnDisabled]}
                           onPress={() => setBranchCardsPage(p => Math.max(1, p - 1))}
                           disabled={branchCardsPage === 1}
                         >
-                          <Text style={styles.pageBtnText}>‹</Text>
+                          <AppText style={styles.pageBtnText}>‹</AppText>
                         </TouchableOpacity>
-                        <Text style={styles.pageInfo}>Page {branchCardsPage} of {branchCardsTotalPages}</Text>
+                        <AppText style={styles.pageInfo}>Page {branchCardsPage} of {branchCardsTotalPages}</AppText>
                         <TouchableOpacity
                           style={[styles.pageBtn, branchCardsPage === branchCardsTotalPages && styles.pageBtnDisabled]}
                           onPress={() => setBranchCardsPage(p => Math.min(branchCardsTotalPages, p + 1))}
                           disabled={branchCardsPage === branchCardsTotalPages}
                         >
-                          <Text style={styles.pageBtnText}>›</Text>
+                          <AppText style={styles.pageBtnText}>›</AppText>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[styles.pageBtn, branchCardsPage === branchCardsTotalPages && styles.pageBtnDisabled]}
                           onPress={() => setBranchCardsPage(branchCardsTotalPages)}
                           disabled={branchCardsPage === branchCardsTotalPages}
                         >
-                          <Text style={styles.pageBtnText}>»</Text>
+                          <AppText style={styles.pageBtnText}>»</AppText>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1128,15 +1147,15 @@ export default function PrincipalDashboardScreen() {
           <AppCard style={styles.branchesViewCard}>
             <View style={styles.branchesViewHeader}>
               <View>
-                <Text style={styles.cardTitle}>
+                <AppText style={styles.cardTitle}>
                   {selectedBranchId === 'ALL' ? 'Branch List' : `Branch: ${selectedBranchId}`}
-                </Text>
-                <Text style={styles.overviewSubtitle}>
+                </AppText>
+                <AppText style={styles.overviewSubtitle}>
                   {filteredBranches.length} branch{filteredBranches.length !== 1 ? 'es' : ''} registered
-                </Text>
+                </AppText>
               </View>
               <TouchableOpacity style={styles.addBranchBtn} onPress={() => setView('addhm')}>
-                <Text style={styles.addBranchBtnText}>+ Add Branch</Text>
+                <AppText style={styles.addBranchBtnText}>+ Add Branch</AppText>
               </TouchableOpacity>
             </View>
 
@@ -1144,7 +1163,7 @@ export default function PrincipalDashboardScreen() {
             <TextInput
               style={styles.branchSearchInput}
               placeholder="Search by branch name, ID, or HM name..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.textMuted}
               value={branchViewSearchTerm}
               onChangeText={(text) => {
                 setBranchViewSearchTerm(text);
@@ -1154,19 +1173,19 @@ export default function PrincipalDashboardScreen() {
 
             {/* Branch List Header */}
             <View style={styles.branchesListHeader}>
-              <Text style={[styles.branchesHeaderText, styles.colBranchId]}>Branch ID</Text>
-              <Text style={[styles.branchesHeaderText, styles.colBranchName]}>Branch Name</Text>
-              <Text style={[styles.branchesHeaderText, styles.colEmpId]}>HM Emp ID</Text>
-              <Text style={[styles.branchesHeaderText, styles.colHmName]}>HM Name</Text>
-              <Text style={[styles.branchesHeaderText, styles.colHmEmail]}>HM Email</Text>
-              <Text style={[styles.branchesHeaderText, styles.colBranchStatus]}>Status</Text>
-              <Text style={[styles.branchesHeaderText, styles.colCreated]}>Created</Text>
-              <Text style={[styles.branchesHeaderText, styles.colActions]}>Actions</Text>
+              <AppText style={[styles.branchesHeaderText, styles.colBranchId]}>Branch ID</AppText>
+              <AppText style={[styles.branchesHeaderText, styles.colBranchName]}>Branch Name</AppText>
+              <AppText style={[styles.branchesHeaderText, styles.colEmpId]}>HM Emp ID</AppText>
+              <AppText style={[styles.branchesHeaderText, styles.colHmName]}>HM Name</AppText>
+              <AppText style={[styles.branchesHeaderText, styles.colHmEmail]}>HM Email</AppText>
+              <AppText style={[styles.branchesHeaderText, styles.colBranchStatus]}>Status</AppText>
+              <AppText style={[styles.branchesHeaderText, styles.colCreated]}>Created</AppText>
+              <AppText style={[styles.branchesHeaderText, styles.colActions]}>Actions</AppText>
             </View>
 
             {paginatedBranches.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No branches found</Text>
+                <AppText style={styles.emptyText}>No branches found</AppText>
               </View>
             ) : (
               paginatedBranches.map(branch => (
@@ -1193,29 +1212,29 @@ export default function PrincipalDashboardScreen() {
                   onPress={() => setCurrentPage(1)}
                   disabled={currentPage === 1}
                 >
-                  <Text style={styles.pageBtnText}>«</Text>
+                  <AppText style={styles.pageBtnText}>«</AppText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
                   onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                 >
-                  <Text style={styles.pageBtnText}>‹</Text>
+                  <AppText style={styles.pageBtnText}>‹</AppText>
                 </TouchableOpacity>
-                <Text style={styles.pageInfo}>Page {currentPage} of {totalPages}</Text>
+                <AppText style={styles.pageInfo}>Page {currentPage} of {totalPages}</AppText>
                 <TouchableOpacity
                   style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
                   onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                 >
-                  <Text style={styles.pageBtnText}>›</Text>
+                  <AppText style={styles.pageBtnText}>›</AppText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
                   onPress={() => setCurrentPage(totalPages)}
                   disabled={currentPage === totalPages}
                 >
-                  <Text style={styles.pageBtnText}>»</Text>
+                  <AppText style={styles.pageBtnText}>»</AppText>
                 </TouchableOpacity>
               </View>
             )}
@@ -1240,7 +1259,7 @@ export default function PrincipalDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bg,
   },
   contentContainer: {
     padding: 20,
@@ -1251,23 +1270,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 30,
+    backgroundColor: colors.bg,
   },
   errorTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   errorText: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   topBar: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 18,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     marginBottom: 20,
   },
   topBarLeft: {
@@ -1280,22 +1300,22 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#eff6ff',
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   topBarIconText: {
     fontSize: 20,
-    color: '#3b82f6',
+    color: colors.accent,
   },
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#1e293b',
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: colors.textMuted,
     marginTop: 2,
   },
   topBarRight: {
@@ -1309,7 +1329,7 @@ const styles = StyleSheet.create({
   branchSelectorLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textMuted,
   },
   branchChips: {
     flexDirection: 'row',
@@ -1320,17 +1340,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   branchChipActive: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   branchChipText: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   branchChipTextActive: {
     color: '#fff',
@@ -1346,17 +1366,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#fff',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   viewBtnActive: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   viewBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#64748b',
+    color: colors.textMuted,
   },
   viewBtnTextActive: {
     color: '#fff',
@@ -1366,13 +1386,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#fff',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   refreshBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textMuted,
   },
   loader: {
     marginVertical: 20,
@@ -1386,11 +1406,11 @@ const styles = StyleSheet.create({
   kpiCard: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#e8edf3',
+    borderColor: colors.border,
   },
   kpiHeader: {
     flexDirection: 'row',
@@ -1414,36 +1434,36 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   kpiBadgeUp: {
-    backgroundColor: '#f0fdf4',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
     borderWidth: 1,
-    borderColor: '#bbf7d0',
+    borderColor: 'rgba(16, 185, 129, 0.2)',
   },
   kpiBadgeDown: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     borderWidth: 1,
-    borderColor: '#fecaca',
+    borderColor: 'rgba(239, 68, 68, 0.2)',
   },
   kpiBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#10b981',
+    color: colors.success,
   },
   kpiTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#94a3b8',
+    color: colors.textMuted,
     textTransform: 'uppercase',
     marginBottom: 6,
   },
   kpiValue: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#0f172a',
+    color: colors.textPrimary,
     marginBottom: 6,
   },
   kpiSub: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   twoColumnGrid: {
     flexDirection: 'row',
@@ -1462,7 +1482,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#1e293b',
+    color: colors.textPrimary,
     marginBottom: 16,
   },
   barItem: {
@@ -1476,7 +1496,7 @@ const styles = StyleSheet.create({
   barLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textMuted,
   },
   barValue: {
     fontSize: 13,
@@ -1484,7 +1504,7 @@ const styles = StyleSheet.create({
   },
   barTrack: {
     height: 8,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bg,
     borderRadius: 100,
     overflow: 'hidden',
   },
@@ -1500,18 +1520,18 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   donutTotal: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#1e293b',
+    color: colors.textPrimary,
   },
   donutLabel: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: colors.textMuted,
     marginTop: 4,
   },
   legend: {
@@ -1532,41 +1552,41 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   branchSnapshot: {
     gap: 12,
   },
   snapshotItem: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bg,
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   snapshotLabel: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: colors.textMuted,
     marginBottom: 4,
   },
   snapshotValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1e293b',
+    color: colors.textPrimary,
   },
   snapshotItemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bg,
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   snapshotDate: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   chartCard: {
     padding: 20,
@@ -1584,7 +1604,7 @@ const styles = StyleSheet.create({
   },
   chartEmptyText: {
     textAlign: 'center',
-    color: '#94a3b8',
+    color: colors.textMuted,
     fontSize: 13,
   },
   chartContainer: {
@@ -1605,26 +1625,26 @@ const styles = StyleSheet.create({
   },
   chartBarPassed: {
     width: 20,
-    backgroundColor: '#10b981',
+    backgroundColor: colors.success,
     borderRadius: 4,
     minHeight: 2,
   },
   chartBarFailed: {
     width: 20,
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.error,
     borderRadius: 4,
     minHeight: 2,
   },
   chartLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textPrimary,
     marginTop: 8,
     textAlign: 'center',
   },
   chartPassRate: {
     fontSize: 9,
-    color: '#64748b',
+    color: colors.textMuted,
     marginTop: 2,
   },
   chartStatsList: {
@@ -1634,21 +1654,21 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   chartStatItem: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bg,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   chartStatLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textMuted,
   },
   chartStatValue: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   overviewCard: {
     padding: 20,
@@ -1664,7 +1684,7 @@ const styles = StyleSheet.create({
   },
   overviewSubtitle: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: colors.textMuted,
     marginTop: 4,
   },
   statusChips: {
@@ -1677,37 +1697,37 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   statusChipHealthy: {
-    backgroundColor: '#ecfdf5',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
     borderWidth: 1,
-    borderColor: '#a7f3d0',
+    borderColor: 'rgba(16, 185, 129, 0.2)',
   },
   statusChipAttention: {
-    backgroundColor: '#fff7ed',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
     borderWidth: 1,
-    borderColor: '#fed7aa',
+    borderColor: 'rgba(245, 158, 11, 0.2)',
   },
   statusChipInactive: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     borderWidth: 1,
-    borderColor: '#fecaca',
+    borderColor: 'rgba(239, 68, 68, 0.2)',
   },
   statusChipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textMuted,
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#f0f3f6',
+    backgroundColor: colors.bg,
     paddingVertical: 12,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.border,
   },
   tableHeaderText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#475569',
+    color: colors.textMuted,
     textTransform: 'uppercase',
   },
   colBranch: { width: '15%' },
@@ -1723,7 +1743,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.border,
   },
   tableCell: {
     justifyContent: 'center',
@@ -1731,32 +1751,32 @@ const styles = StyleSheet.create({
   branchNameCell: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   branchIdCell: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   hmNameCell: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   hmIdCell: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   hmEmailCell: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   numberCell: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1e293b',
+    color: colors.textPrimary,
   },
   viewBranchBtn: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.accent,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -1783,15 +1803,17 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
     minWidth: 180,
+    color: colors.textPrimary,
+    backgroundColor: colors.bg,
   },
   viewAllBtn: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.accent,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -1802,15 +1824,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   showLessBtn: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bg,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   showLessBtnText: {
-    color: '#64748b',
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1818,11 +1840,11 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   branchCard: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bg,
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   branchCardHeader: {
     flexDirection: 'row',
@@ -1833,21 +1855,21 @@ const styles = StyleSheet.create({
   branchName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1e293b',
+    color: colors.textPrimary,
   },
   branchId: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textMuted,
     marginTop: 2,
   },
   branchHm: {
     fontSize: 13,
-    color: '#475569',
+    color: colors.textMuted,
     marginBottom: 4,
   },
   branchEmail: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: colors.textMuted,
     marginBottom: 12,
   },
   branchStats: {
@@ -1861,11 +1883,11 @@ const styles = StyleSheet.create({
   branchStatValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   branchStatLabel: {
     fontSize: 10,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   branchFooter: {
     flexDirection: 'row',
@@ -1874,16 +1896,16 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: colors.border,
   },
   branchPendingLeaves: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   branchViewBtn: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#3b82f6',
+    color: colors.accent,
   },
   branchCardPagination: {
     flexDirection: 'row',
@@ -1895,7 +1917,7 @@ const styles = StyleSheet.create({
   },
   paginationInfo: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   paginationButtons: {
     flexDirection: 'row',
@@ -1914,8 +1936,8 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 9,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#fff',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 8,
@@ -1926,11 +1948,11 @@ const styles = StyleSheet.create({
   pageBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textMuted,
   },
   pageInfo: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   branchesViewCard: {
     padding: 20,
@@ -1944,7 +1966,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   addBranchBtn: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.accent,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 10,
@@ -1956,16 +1978,18 @@ const styles = StyleSheet.create({
   },
   branchSearchInput: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 13,
     marginBottom: 16,
+    color: colors.textPrimary,
+    backgroundColor: colors.bg,
   },
   branchesListHeader: {
     flexDirection: 'row',
-    backgroundColor: '#f0f3f6',
+    backgroundColor: colors.bg,
     paddingVertical: 12,
     paddingHorizontal: 10,
     borderRadius: 12,
@@ -1974,7 +1998,7 @@ const styles = StyleSheet.create({
   branchesHeaderText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#475569',
+    color: colors.textMuted,
     textTransform: 'uppercase',
   },
   colBranchId: { width: '10%' },
@@ -1991,24 +2015,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.border,
   },
   branchRowId: {
     width: '10%',
     fontSize: 11,
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
     fontWeight: '700',
-    color: '#3b82f6',
+    color: colors.accent,
   },
   branchRowCell: {
     width: '15%',
     fontSize: 13,
-    color: '#1e293b',
+    color: colors.textPrimary,
   },
   branchRowDate: {
     width: '12%',
     fontSize: 11,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   branchRowActions: {
     width: '11%',
@@ -2016,43 +2040,45 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   editRowBtn: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: 'rgba(37, 99, 235, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   editRowBtnText: {
     fontSize: 11,
-    color: '#2563eb',
+    color: colors.accent,
   },
   deleteRowBtn: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: 'rgba(220, 38, 38, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   deleteRowBtnText: {
     fontSize: 11,
-    color: '#dc2626',
+    color: colors.error,
   },
   viewRowBtn: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   viewRowBtnText: {
     fontSize: 11,
-    color: '#10b981',
+    color: colors.success,
   },
   editInput: {
     width: '15%',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 6,
     fontSize: 12,
+    color: colors.textPrimary,
+    backgroundColor: colors.bg,
   },
   editStatusContainer: {
     width: '10%',
@@ -2063,24 +2089,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   editStatusBtnActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   editStatusText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textMuted,
   },
   editStatusTextActive: {
     color: '#fff',
   },
   saveBtn: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -2089,7 +2115,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   cancelBtn: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: 'rgba(220, 38, 38, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -2104,20 +2130,20 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   statusActive: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
   },
   statusInactive: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
   statusText: {
     fontSize: 11,
     fontWeight: '600',
   },
   statusTextActive: {
-    color: '#15803d',
+    color: colors.success,
   },
   statusTextInactive: {
-    color: '#b91c1c',
+    color: colors.error,
   },
   healthBadge: {
     paddingHorizontal: 8,
@@ -2135,21 +2161,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    color: '#94a3b8',
+    color: colors.textMuted,
     fontSize: 14,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     width: '100%',
     maxHeight: '85%',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -2157,24 +2185,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   modalClose: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalCloseText: {
     fontSize: 16,
-    color: '#4a5568',
+    color: colors.textMuted,
   },
   modalBody: {
     padding: 20,
@@ -2182,16 +2210,16 @@ const styles = StyleSheet.create({
   modalPlaceholder: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   modalNote: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   modalFooter: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: colors.border,
   },
 });

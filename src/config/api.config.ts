@@ -9,7 +9,7 @@ export const API_CONFIG = {
   },
   
   // Production URL
-  production: 'https://api.attendx.com',
+  production: 'https://attendex-api.vshiftx.com/',
   
   // Timeout in milliseconds
   timeout: 30000,

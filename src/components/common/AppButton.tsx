@@ -1,16 +1,22 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, TouchableOpacityProps } from 'react-native';
 
+import { colors } from '../../constants/theme';
+
 type Props = TouchableOpacityProps & {
 	title: string;
-	type?: 'primary' | 'secondary';
+	type?: 'primary' | 'secondary' | 'danger';
 };
 
 export default function AppButton({ title, type = 'primary', style, ...rest }: Props) {
 	return (
 		<TouchableOpacity
 			{...rest}
-			style={[styles.base, type === 'secondary' ? styles.secondary : styles.primary, style]}
+			style={[
+				styles.base,
+				type === 'secondary' ? styles.secondary : type === 'danger' ? styles.danger : styles.primary,
+				style
+			]}
 			activeOpacity={0.85}>
 			<Text style={[styles.text, type === 'secondary' ? styles.secondaryText : styles.primaryText]}>{title}</Text>
 		</TouchableOpacity>
@@ -26,10 +32,15 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 14,
 	},
 	primary: {
-		backgroundColor: '#2563eb',
+		backgroundColor: colors.accent,
 	},
 	secondary: {
-		backgroundColor: '#e2e8f0',
+		backgroundColor: colors.surface,
+		borderWidth: 1,
+		borderColor: colors.border,
+	},
+	danger: {
+		backgroundColor: colors.error,
 	},
 	text: {
 		fontWeight: '700',
@@ -39,6 +50,6 @@ const styles = StyleSheet.create({
 		color: '#ffffff',
 	},
 	secondaryText: {
-		color: '#334155',
+		color: colors.textPrimary,
 	},
 });

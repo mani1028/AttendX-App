@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -12,15 +11,33 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import AppText from '../../components/common/AppText';
+
+// Local theme bridge
+const C = {
+  bg: colors.bg,
+  card: colors.surface,
+  border: colors.border,
+  text: colors.textPrimary,
+  muted: colors.textMuted,
+  primary: colors.primary,
+  success: colors.success,
+  successSoft: colors.successSoft,
+  error: colors.error,
+  errorSoft: colors.errorSoft,
+  warning: colors.warning,
+  warningSoft: colors.warningSoft,
+};
 
 // Types
 interface Teacher {
@@ -104,6 +121,11 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
     if (status === 'HALF_DAY' || status === 'LATE') return styles.badgeHalfDay;
     return styles.badgeAbsent;
   };
+  const getTextStyle = () => {
+    if (status === 'PRESENT') return styles.badgePresentText;
+    if (status === 'HALF_DAY' || status === 'LATE') return styles.badgeHalfDayText;
+    return styles.badgeAbsentText;
+  };
   const getText = () => {
     if (status === 'PRESENT') return 'PRESENT';
     if (status === 'HALF_DAY' || status === 'LATE') return 'HALF DAY';
@@ -111,7 +133,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   };
   return (
     <View style={[styles.badge, getStyle()]}>
-      <Text style={[styles.badgeText, getStyle()]}>{getText()}</Text>
+      <AppText style={[styles.badgeText, getTextStyle()]}>{getText()}</AppText>
     </View>
   );
 };
@@ -125,36 +147,36 @@ const TeacherCard: React.FC<{ teacher: Teacher }> = ({ teacher }) => {
   return (
     <AppCard style={styles.teacherCard}>
       <View style={styles.teacherHeader}>
-        <View style={[styles.teacherAvatar, { backgroundColor: colors.primary }]}>
-          <Text style={styles.teacherAvatarText}>
+        <View style={[styles.teacherAvatar, { backgroundColor: C.primary }]}>
+          <AppText style={styles.teacherAvatarText} weight="bold">
             {(teacher.teacher_full_name || '?').charAt(0).toUpperCase()}
-          </Text>
+          </AppText>
         </View>
         <View style={styles.teacherInfo}>
-          <Text style={styles.teacherName}>{teacher.teacher_full_name || '—'}</Text>
-          <Text style={styles.teacherEmail}>{teacher.email_id || '—'}</Text>
+          <AppText style={styles.teacherName} weight="bold">{teacher.teacher_full_name || '—'}</AppText>
+          <AppText style={styles.teacherEmail}>{teacher.email_id || '—'}</AppText>
         </View>
         <StatusBadge status={teacher.status || 'ABSENT'} />
       </View>
       <View style={styles.teacherDetails}>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>EMP ID:</Text>
-          <Text style={styles.detailValue}>{teacher.employee_id || '—'}</Text>
+          <AppText style={styles.detailLabel}>EMP ID:</AppText>
+          <AppText style={styles.detailValue}>{teacher.employee_id || '—'}</AppText>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Designation:</Text>
-          <Text style={styles.detailValue}>{teacher.designation || '—'}</Text>
+          <AppText style={styles.detailLabel}>Designation:</AppText>
+          <AppText style={styles.detailValue}>{teacher.designation || '—'}</AppText>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Department:</Text>
-          <Text style={styles.detailValue}>{teacher.department_subject || '—'}</Text>
+          <AppText style={styles.detailLabel}>Department:</AppText>
+          <AppText style={styles.detailValue}>{teacher.department_subject || '—'}</AppText>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Status:</Text>
+          <AppText style={styles.detailLabel}>Status:</AppText>
           <View style={[styles.profileBadge, isActive ? styles.profileActive : styles.profileInactive]}>
-            <Text style={[styles.profileBadgeText, isActive ? styles.profileActiveText : styles.profileInactiveText]}>
+            <AppText style={[styles.profileBadgeText, isActive ? styles.profileActiveText : styles.profileInactiveText]} weight="bold">
               {isActive ? 'ACTIVE' : 'INACTIVE'}
-            </Text>
+            </AppText>
           </View>
         </View>
       </View>
@@ -243,23 +265,18 @@ const ExportModal: React.FC<{
     try {
       const from = iso(startDate);
       const to = iso(endDate);
+      const fileName = type === 'teachers'
+        ? `teachers_attendance_${from}_to_${to}.csv`
+        : `students_attendance_${from}_to_${to}.csv`;
 
+      const filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
+
+      let response;
       if (type === 'teachers') {
-        const response = await API.get('/hm/teachers/export', {
+        response = await API.get('/hm/teachers/export', {
           headers,
           params: { start_date: from, end_date: to, file_format: 'csv' },
-          responseType: 'blob',
         });
-        // For mobile, save and share
-        const fileUri = FileSystem.documentDirectory + `teachers_attendance_${from}_to_${to}.csv`;
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(response.data);
-        });
-        await FileSystem.writeAsStringAsync(fileUri, base64.split(',')[1], { encoding: FileSystem.EncodingType.Base64 });
-        if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(fileUri);
-        showToast('Teachers export completed');
       } else {
         const tasks: { class_grade: string; section: string }[] = [];
         groups.forEach(([grade, sections]) => {
@@ -269,7 +286,7 @@ const ExportModal: React.FC<{
             }
           });
         });
-        const response = await API.get('/hm/students/export', {
+        response = await API.get('/hm/students/export', {
           headers,
           params: {
             start_date: from,
@@ -277,21 +294,26 @@ const ExportModal: React.FC<{
             class_sections: JSON.stringify(tasks),
             file_format: 'csv',
           },
-          responseType: 'blob',
         });
-        const fileUri = FileSystem.documentDirectory + `students_attendance_${from}_to_${to}.csv`;
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(response.data);
-        });
-        await FileSystem.writeAsStringAsync(fileUri, base64.split(',')[1], { encoding: FileSystem.EncodingType.Base64 });
-        if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(fileUri);
-        showToast(`Students export completed - ${selectedCount} sections`);
       }
+
+      const content = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+      await RNFS.writeFile(filePath, content, 'utf8');
+
+      await Share.open({
+        url: `file://${filePath}`,
+        type: 'text/csv',
+        filename: fileName,
+        title: 'Export Attendance',
+      });
+
+      showToast(`${type === 'teachers' ? 'Teachers' : 'Students'} export completed`);
       onClose();
-    } catch (error) {
-      showToast('Export failed', 'error');
+    } catch (error: any) {
+      console.error('Export Error:', error);
+      if (error.message !== 'User did not share') {
+        showToast('Export failed', 'error');
+      }
     } finally {
       setExporting(false);
       setProgress('');
@@ -310,24 +332,23 @@ const ExportModal: React.FC<{
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
+            <AppText style={styles.modalTitle} weight="bold">
               Export {type === 'teachers' ? 'Teacher' : 'Student'} Attendance
-            </Text>
+            </AppText>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <Text style={styles.modalCloseText}>✕</Text>
+              <AppText style={styles.modalCloseText}>✕</AppText>
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.modalBody}>
-            {/* Date Range */}
-            <Text style={styles.modalLabel}>Date Range</Text>
+            <AppText style={styles.modalLabel} weight="semiBold">Date Range</AppText>
             <View style={styles.dateRangeRow}>
               <TouchableOpacity style={styles.dateBtn} onPress={() => setShowStartPicker(true)}>
-                <Text style={styles.dateText}>{iso(startDate)}</Text>
+                <AppText style={styles.dateText}>{iso(startDate)}</AppText>
               </TouchableOpacity>
-              <Text style={styles.dateArrow}>→</Text>
+              <AppText style={styles.dateArrow}>→</AppText>
               <TouchableOpacity style={styles.dateBtn} onPress={() => setShowEndPicker(true)}>
-                <Text style={styles.dateText}>{iso(endDate)}</Text>
+                <AppText style={styles.dateText}>{iso(endDate)}</AppText>
               </TouchableOpacity>
             </View>
             {showStartPicker && (
@@ -355,19 +376,18 @@ const ExportModal: React.FC<{
                 }}
               />
             )}
-            <Text style={styles.modalHint}>{dateRangeLength} day{dateRangeLength !== 1 ? 's' : ''} selected</Text>
+            <AppText style={styles.modalHint}>{dateRangeLength} day{dateRangeLength !== 1 ? 's' : ''} selected</AppText>
 
-            {/* Student Section Selection */}
             {type === 'students' && groups.length > 0 && (
               <>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.modalLabel}>Classes & Sections</Text>
+                  <AppText style={styles.modalLabel} weight="semiBold">Classes & Sections</AppText>
                   <View style={styles.sectionActions}>
                     <TouchableOpacity style={styles.selectAllBtn} onPress={selectAll}>
-                      <Text style={styles.selectAllText}>Select All</Text>
+                      <AppText style={styles.selectAllText} weight="semiBold">Select All</AppText>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.clearAllBtn} onPress={clearAll}>
-                      <Text style={styles.clearAllText}>Clear All</Text>
+                      <AppText style={styles.clearAllText} weight="semiBold">Clear All</AppText>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -383,9 +403,9 @@ const ExportModal: React.FC<{
                         onPress={() => toggleClass(grade, sections)}
                       >
                         <View style={[styles.classDot, { backgroundColor: color }]}>
-                          <Text style={styles.classDotText}>{grade}</Text>
+                          <AppText style={styles.classDotText} weight="bold">{grade}</AppText>
                         </View>
-                        <Text style={styles.classTitle}>Class {grade}</Text>
+                        <AppText style={styles.classTitle} weight="bold">Class {grade}</AppText>
                         <View style={[styles.checkbox, allSelected && styles.checkboxChecked, someSelected && !allSelected && styles.checkboxIndeterminate]} />
                       </TouchableOpacity>
 
@@ -399,24 +419,24 @@ const ExportModal: React.FC<{
                             onPress={() => toggleSection(grade, sec.section)}
                           >
                             <View style={[styles.checkboxSmall, isSelected && styles.checkboxSmallChecked]} />
-                            <Text style={styles.sectionText}>Section {sec.section}</Text>
-                            <Text style={styles.sectionCount}>{sec.students_total || 0} students</Text>
+                            <AppText style={styles.sectionText}>Section {sec.section}</AppText>
+                            <AppText style={styles.sectionCount}>{sec.students_total || 0} students</AppText>
                           </TouchableOpacity>
                         );
                       })}
                     </View>
                   );
                 })}
-                <Text style={styles.selectedCount}>
+                <AppText style={styles.selectedCount} weight="semiBold">
                   {selectedCount === 0 ? 'No sections selected' : `${selectedCount} section${selectedCount !== 1 ? 's' : ''} selected`}
-                </Text>
+                </AppText>
               </>
             )}
 
             {exporting && (
               <View style={styles.progressWrap}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={styles.progressText}>{progress || 'Preparing export...'}</Text>
+                <ActivityIndicator size="small" color={C.primary} />
+                <AppText style={styles.progressText} weight="semiBold">{progress || 'Preparing export...'}</AppText>
               </View>
             )}
           </ScrollView>
@@ -498,7 +518,7 @@ const StudentsView: React.FC<{
   }, [preselectedSection, groups]);
 
   useEffect(() => {
-    if (!groups.length && !selectedSection) {
+    if (groups.length && !selectedSection) {
       const [grade, secs] = groups[0];
       if (secs.length) setSelectedSection(secs[0]);
     }
@@ -527,9 +547,9 @@ const StudentsView: React.FC<{
   if (!selectedSection) {
     return (
       <View style={styles.emptyPanel}>
-        <Text style={styles.emptyIcon}>📚</Text>
-        <Text style={styles.emptyTitle}>Select a class section</Text>
-        <Text style={styles.emptyText}>Choose from the left panel</Text>
+        <AppText style={styles.emptyIcon}>📚</AppText>
+        <AppText style={styles.emptyTitle} weight="bold">Select a class section</AppText>
+        <AppText style={styles.emptyText}>Choose from the left panel</AppText>
       </View>
     );
   }
@@ -538,22 +558,22 @@ const StudentsView: React.FC<{
     <View style={styles.splitLayout}>
       {/* Sidebar */}
       <View style={styles.sidebar}>
-        <Text style={styles.sidebarTitle}>Classes & Sections</Text>
+        <AppText style={styles.sidebarTitle} weight="bold">Classes & Sections</AppText>
         <ScrollView>
           {groups.map(([grade, sections]) => {
             const color = classColor(grade);
             const total = sections.reduce((sum, s) => sum + (s.students_total || 0), 0);
             return (
               <View key={grade} style={styles.classGroup}>
-                <View style={[styles.classHeader, { backgroundColor: color + '10' }]}>
+                <View style={[styles.classHeader, { backgroundColor: color + '15' }]}>
                   <View style={[styles.classDot, { backgroundColor: color }]}>
-                    <Text style={styles.classDotText}>{grade}</Text>
+                    <AppText style={styles.classDotText} weight="bold">{grade}</AppText>
                   </View>
                   <View>
-                    <Text style={styles.classTitle}>Class {grade}</Text>
-                    <Text style={styles.classSubtitle}>
+                    <AppText style={styles.classTitle} weight="bold">Class {grade}</AppText>
+                    <AppText style={styles.classSubtitle}>
                       {total} students · {sections.length} section{sections.length !== 1 ? 's' : ''}
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
                 {sections.map(sec => {
@@ -567,13 +587,13 @@ const StudentsView: React.FC<{
                     >
                       <View style={[styles.radio, isSelected && styles.radioSelected]} />
                       <View style={styles.sectionInfo}>
-                        <Text style={[styles.sectionName, isSelected && styles.sectionNameSelected]}>
+                        <AppText style={[styles.sectionName, isSelected && styles.sectionNameSelected]} weight={isSelected ? "bold" : "regular"}>
                           Section {sec.section}
-                        </Text>
-                        <Text style={styles.sectionSubtitle}>{sec.students_total || 0} students</Text>
+                        </AppText>
+                        <AppText style={styles.sectionSubtitle}>{sec.students_total || 0} students</AppText>
                       </View>
                       <View style={[styles.sectionPct, presentPct > 75 ? styles.sectionPctHigh : styles.sectionPctLow]}>
-                        <Text style={styles.sectionPctText}>{presentPct}%</Text>
+                        <AppText style={styles.sectionPctText} weight="bold">{presentPct}%</AppText>
                       </View>
                     </TouchableOpacity>
                   );
@@ -588,31 +608,31 @@ const StudentsView: React.FC<{
       <View style={styles.mainPanel}>
         <View style={styles.panelHeader}>
           <View>
-            <Text style={styles.panelTitle}>
+            <AppText style={styles.panelTitle} weight="bold">
               Class {selectedSection.class_grade} — Section {selectedSection.section}
-            </Text>
-            <Text style={styles.panelSubtitle}>{iso(date)}</Text>
+            </AppText>
+            <AppText style={styles.panelSubtitle}>{iso(date)}</AppText>
           </View>
           <View style={styles.statsRow}>
             <View style={[styles.statChip, styles.statTotal]}>
-              <Text style={styles.statValue}>{students.length}</Text>
-              <Text style={styles.statLabel}>Total</Text>
+              <AppText style={styles.statValue} weight="bold">{students.length}</AppText>
+              <AppText style={styles.statLabel}>Total</AppText>
             </View>
             <View style={[styles.statChip, styles.statPresent]}>
-              <Text style={styles.statValue}>{presentCount}</Text>
-              <Text style={styles.statLabel}>Present</Text>
+              <AppText style={styles.statValue} weight="bold">{presentCount}</AppText>
+              <AppText style={styles.statLabel}>Present</AppText>
             </View>
             <View style={[styles.statChip, styles.statHalf]}>
-              <Text style={styles.statValue}>{halfDayCount}</Text>
-              <Text style={styles.statLabel}>Half Day</Text>
+              <AppText style={styles.statValue} weight="bold">{halfDayCount}</AppText>
+              <AppText style={styles.statLabel}>Half Day</AppText>
             </View>
             <View style={[styles.statChip, styles.statAbsent]}>
-              <Text style={styles.statValue}>{absentCount}</Text>
-              <Text style={styles.statLabel}>Absent</Text>
+              <AppText style={styles.statValue} weight="bold">{absentCount}</AppText>
+              <AppText style={styles.statLabel}>Absent</AppText>
             </View>
             <View style={[styles.statChip, attendancePct > 75 ? styles.statSuccess : styles.statDanger]}>
-              <Text style={styles.statValue}>{attendancePct}%</Text>
-              <Text style={styles.statLabel}>Rate</Text>
+              <AppText style={styles.statValue} weight="bold">{attendancePct}%</AppText>
+              <AppText style={styles.statLabel}>Rate</AppText>
             </View>
           </View>
         </View>
@@ -623,13 +643,13 @@ const StudentsView: React.FC<{
             <TextInput
               style={styles.searchInput}
               placeholder="Search by name, roll no, admission no..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={C.muted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
-                <Text style={styles.clearBtnText}>✕</Text>
+                <AppText style={styles.clearBtnText}>✕</AppText>
               </TouchableOpacity>
             )}
           </View>
@@ -641,9 +661,9 @@ const StudentsView: React.FC<{
                   style={[styles.filterChip, statusFilter === status && styles.filterChipActive]}
                   onPress={() => setStatusFilter(status)}
                 >
-                  <Text style={[styles.filterChipText, statusFilter === status && styles.filterChipTextActive]}>
+                  <AppText style={[styles.filterChipText, statusFilter === status && styles.filterChipTextActive]} weight="semiBold">
                     {status || 'All'}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               ))}
             </View>
@@ -655,36 +675,34 @@ const StudentsView: React.FC<{
           <Loader />
         ) : filteredStudents.length === 0 ? (
           <View style={styles.emptyPanel}>
-            <Text style={styles.emptyIcon}>👥</Text>
-            <Text style={styles.emptyTitle}>No students found</Text>
-            <Text style={styles.emptyText}>Try adjusting your search</Text>
+            <AppText style={styles.emptyIcon}>👥</AppText>
+            <AppText style={styles.emptyTitle} weight="bold">No students found</AppText>
+            <AppText style={styles.emptyText}>Try adjusting your search</AppText>
           </View>
         ) : (
           <ScrollView horizontal>
             <View>
               <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderText, styles.colNumber]}>#</Text>
-                <Text style={[styles.tableHeaderText, styles.colName]}>Student</Text>
-                <Text style={[styles.tableHeaderText, styles.colRoll]}>Roll No</Text>
-                <Text style={[styles.tableHeaderText, styles.colAdmission]}>Admission No</Text>
-                <Text style={[styles.tableHeaderText, styles.colStatus]}>Status</Text>
+                <AppText style={[styles.tableHeaderText, styles.colNumber]} weight="bold">#</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colName]} weight="bold">Student</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colRoll]} weight="bold">Roll No</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colAdmission]} weight="bold">Admission No</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colStatus]} weight="bold">Status</AppText>
               </View>
               {filteredStudents.map((student, idx) => {
-                const isPresent = student.status === 'PRESENT';
-                const isHalfDay = student.status === 'HALF_DAY' || student.status === 'LATE';
                 return (
                   <View key={student.student_id} style={styles.tableRow}>
-                    <Text style={[styles.tableCell, styles.colNumber, styles.cellNumber]}>{idx + 1}</Text>
+                    <AppText style={[styles.tableCell, styles.colNumber, styles.cellNumber]}>{idx + 1}</AppText>
                     <View style={[styles.tableCell, styles.colName, styles.cellName]}>
                       <View style={[styles.studentAvatar, { backgroundColor: classColor(selectedSection.class_grade) }]}>
-                        <Text style={styles.studentAvatarText}>
+                        <AppText style={styles.studentAvatarText} weight="bold">
                           {(student.student_full_name || '?').charAt(0).toUpperCase()}
-                        </Text>
+                        </AppText>
                       </View>
-                      <Text style={styles.studentNameText}>{student.student_full_name || '—'}</Text>
+                      <AppText style={styles.studentNameText} weight="semiBold">{student.student_full_name || '—'}</AppText>
                     </View>
-                    <Text style={[styles.tableCell, styles.colRoll, styles.cellMono]}>{student.roll_number || '—'}</Text>
-                    <Text style={[styles.tableCell, styles.colAdmission, styles.cellMono]}>{student.admission_number || '—'}</Text>
+                    <AppText style={[styles.tableCell, styles.colRoll, styles.cellMono]}>{student.roll_number || '—'}</AppText>
+                    <AppText style={[styles.tableCell, styles.colAdmission, styles.cellMono]}>{student.admission_number || '—'}</AppText>
                     <View style={[styles.tableCell, styles.colStatus]}>
                       <StatusBadge status={student.status || 'ABSENT'} />
                     </View>
@@ -697,13 +715,13 @@ const StudentsView: React.FC<{
 
         {/* Attendance Bar */}
         <View style={styles.attendanceBar}>
-          <Text style={styles.attendanceLabel}>Attendance</Text>
+          <AppText style={styles.attendanceLabel} weight="bold">Attendance</AppText>
           <View style={styles.attendanceTrack}>
             <View style={[styles.attendanceFill, { width: `${attendancePct}%` }]} />
           </View>
-          <Text style={[styles.attendancePct, attendancePct > 75 ? styles.attendancePctHigh : styles.attendancePctLow]}>
+          <AppText style={[styles.attendancePct, attendancePct > 75 ? styles.attendancePctHigh : styles.attendancePctLow]} weight="bold">
             {attendancePct}%
-          </Text>
+          </AppText>
         </View>
       </View>
     </View>
@@ -711,6 +729,7 @@ const StudentsView: React.FC<{
 };
 
 export default function HMAttendanceScreen() {
+  const route = useRoute<any>();
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
   const [view, setView] = useState<'teachers' | 'students'>('teachers');
@@ -720,27 +739,22 @@ export default function HMAttendanceScreen() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [page, setPage] = useState<number>(1);
   
-  // Teacher data
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState<boolean>(false);
   
-  // Student data
   const [classItems, setClassItems] = useState<ClassItem[]>([]);
   const [loadingClasses, setLoadingClasses] = useState<boolean>(false);
   const [preselectedSection, setPreselectedSection] = useState<{ class_grade: string; section: string } | null>(null);
-  
-  // Statement data
+
   const [stmtScope, setStmtScope] = useState<'weekly' | 'monthly'>('weekly');
   const [statement, setStatement] = useState<AttendanceStatement | null>(null);
   const [loadingStatement, setLoadingStatement] = useState<boolean>(false);
-  
-  // Export modals
+
   const [showExport, setShowExport] = useState<boolean>(false);
   const [showTeacherExport, setShowTeacherExport] = useState<boolean>(false);
-  
-  // Toast
+
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: string }>({ visible: false, message: '', type: 'success' });
-  
+
   const ITEMS_PER_PAGE = 12;
 
   const showToast = useCallback((msg: string, type: string = 'success') => {
@@ -748,7 +762,6 @@ export default function HMAttendanceScreen() {
     setTimeout(() => setToast({ visible: false, message: '', type: 'success' }), 3000);
   }, []);
 
-  // Load credentials
   useEffect(() => {
     const load = async () => {
       const code = await getSchoolCode();
@@ -759,7 +772,6 @@ export default function HMAttendanceScreen() {
     load();
   }, []);
 
-  // Load teachers
   const loadTeachers = useCallback(async () => {
     if (!schoolCode || !branchId) return;
     setLoadingTeachers(true);
@@ -776,7 +788,6 @@ export default function HMAttendanceScreen() {
     }
   }, [schoolCode, branchId, date]);
 
-  // Load classes for student view
   const loadClasses = useCallback(async () => {
     if (!schoolCode || !branchId) return;
     setLoadingClasses(true);
@@ -793,7 +804,6 @@ export default function HMAttendanceScreen() {
     }
   }, [schoolCode, branchId, date]);
 
-  // Load attendance statement
   const loadStatement = useCallback(async () => {
     if (!schoolCode || !branchId) return;
     setLoadingStatement(true);
@@ -810,22 +820,26 @@ export default function HMAttendanceScreen() {
     }
   }, [schoolCode, branchId, date, stmtScope]);
 
-  // Initial loads
   useEffect(() => {
     if (schoolCode && branchId) {
       loadTeachers();
       loadClasses();
       loadStatement();
     }
-  }, [schoolCode, branchId]);
+  }, [schoolCode, branchId, loadTeachers, loadClasses, loadStatement]);
 
-  // Handle URL params for preselected section
   useEffect(() => {
-    // For mobile, we can get params from navigation if needed
-    // This is kept for compatibility with web version
-  }, []);
+    if (route.params?.class_grade && route.params?.section) {
+      setView('students');
+      setPreselectedSection({
+        class_grade: route.params.class_grade,
+        section: route.params.section
+      });
+    } else if (route.params?.view) {
+      setView(route.params.view);
+    }
+  }, [route.params]);
 
-  // Filter teachers
   const filteredTeachers = useMemo(() => {
     return teachers.filter(teacher => {
       const nameMatch = search === '' || (teacher.teacher_full_name || '').toLowerCase().includes(search.toLowerCase());
@@ -835,7 +849,6 @@ export default function HMAttendanceScreen() {
     });
   }, [teachers, search, statusFilter]);
 
-  // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredTeachers.length / ITEMS_PER_PAGE));
   const paginatedTeachers = filteredTeachers.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
@@ -859,44 +872,41 @@ export default function HMAttendanceScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Toast */}
       {toast.visible && (
         <View style={[styles.toast, toast.type === 'error' ? styles.toastError : styles.toastSuccess]}>
-          <Text style={styles.toastText}>{toast.message}</Text>
+          <AppText style={styles.toastText} weight="bold">{toast.message}</AppText>
         </View>
       )}
 
       <ScrollView
         contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={C.primary} />}
       >
-        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>📊 Attendance Management</Text>
-          <Text style={styles.subtitle}>
+          <AppText style={styles.title} weight="bold">📊 Attendance Management</AppText>
+          <AppText style={styles.subtitle}>
             {view === 'teachers' ? `${filteredTeachers.length} teachers` : `${classItems.length} classes`}
-          </Text>
+          </AppText>
         </View>
 
-        {/* Toolbar */}
         <View style={styles.toolbar}>
           <View style={styles.toggleGroup}>
             <TouchableOpacity
               style={[styles.toggleBtn, view === 'teachers' && styles.toggleBtnActive]}
               onPress={() => setView('teachers')}
             >
-              <Text style={[styles.toggleText, view === 'teachers' && styles.toggleTextActive]}>👨‍🏫 Teachers</Text>
+              <AppText style={[styles.toggleText, view === 'teachers' && styles.toggleTextActive]} weight="semiBold">👨‍🏫 Teachers</AppText>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.toggleBtn, view === 'students' && styles.toggleBtnActive]}
               onPress={() => setView('students')}
             >
-              <Text style={[styles.toggleText, view === 'students' && styles.toggleTextActive]}>👨‍🎓 Students</Text>
+              <AppText style={[styles.toggleText, view === 'students' && styles.toggleTextActive]} weight="semiBold">👨‍🎓 Students</AppText>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
-            <Text style={styles.dateText}>📅 {iso(date)}</Text>
+            <AppText style={styles.dateText}>📅 {iso(date)}</AppText>
           </TouchableOpacity>
           {showDatePicker && (
             <DateTimePicker
@@ -915,52 +925,58 @@ export default function HMAttendanceScreen() {
               style={[styles.scopeBtn, stmtScope === 'weekly' && styles.scopeBtnActive]}
               onPress={() => setStmtScope('weekly')}
             >
-              <Text style={[styles.scopeText, stmtScope === 'weekly' && styles.scopeTextActive]}>Weekly</Text>
+              <AppText style={[styles.scopeText, stmtScope === 'weekly' && styles.scopeTextActive]} weight="semiBold">Weekly</AppText>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.scopeBtn, stmtScope === 'monthly' && styles.scopeBtnActive]}
               onPress={() => setStmtScope('monthly')}
             >
-              <Text style={[styles.scopeText, stmtScope === 'monthly' && styles.scopeTextActive]}>Monthly</Text>
+              <AppText style={[styles.scopeText, stmtScope === 'monthly' && styles.scopeTextActive]} weight="semiBold">Monthly</AppText>
             </TouchableOpacity>
           </View>
 
-          <AppButton title="🔄 Refresh" onPress={onRefresh} type="secondary" />
+          <View style={styles.sectionActions}>
+            <TouchableOpacity style={styles.exportBtn} onPress={() => setShowTeacherExport(true)}>
+              <AppText style={styles.exportBtnText} weight="semiBold">📤 Export Teachers</AppText>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.exportBtn} onPress={() => setShowExport(true)}>
+              <AppText style={styles.exportBtnText} weight="semiBold">📤 Export Students</AppText>
+            </TouchableOpacity>
+            <AppButton title="🔄 Refresh" onPress={onRefresh} type="secondary" />
+          </View>
         </View>
 
-        {/* Attendance Statement Card */}
         <AppCard style={styles.statementCard}>
           <View style={styles.statementHeader}>
-            <Text style={styles.statementTitle}>
+            <AppText style={styles.statementTitle} weight="bold">
               {stmtScope === 'monthly' ? 'Monthly' : 'Weekly'} Attendance Statement
-            </Text>
+            </AppText>
             {loadingStatement ? (
-              <ActivityIndicator size="small" color={colors.primary} />
+              <ActivityIndicator size="small" color={C.primary} />
             ) : (
-              <Text style={styles.statementRange}>
+              <AppText style={styles.statementRange}>
                 {statement?.period?.start_date} to {statement?.period?.end_date}
-              </Text>
+              </AppText>
             )}
           </View>
           <View style={styles.statementGrid}>
             <View style={styles.statementItem}>
-              <Text style={styles.statementItemLabel}>Teachers</Text>
-              <Text style={styles.statementItemValue}>{statement?.teachers?.attendance_pct ?? 0}%</Text>
-              <Text style={styles.statementItemSub}>
+              <AppText style={styles.statementItemLabel} weight="semiBold">Teachers</AppText>
+              <AppText style={styles.statementItemValue} weight="bold">{statement?.teachers?.attendance_pct ?? 0}%</AppText>
+              <AppText style={styles.statementItemSub}>
                 Present eq: {statement?.teachers?.present_equivalent ?? 0} | Half: {statement?.teachers?.half_day_equivalent ?? 0}
-              </Text>
+              </AppText>
             </View>
             <View style={styles.statementItem}>
-              <Text style={styles.statementItemLabel}>Students</Text>
-              <Text style={styles.statementItemValue}>{statement?.students?.attendance_pct ?? 0}%</Text>
-              <Text style={styles.statementItemSub}>
+              <AppText style={styles.statementItemLabel} weight="semiBold">Students</AppText>
+              <AppText style={styles.statementItemValue} weight="bold">{statement?.students?.attendance_pct ?? 0}%</AppText>
+              <AppText style={styles.statementItemSub}>
                 Present eq: {statement?.students?.present_equivalent ?? 0} | Half: {statement?.students?.half_day_equivalent ?? 0}
-              </Text>
+              </AppText>
             </View>
           </View>
         </AppCard>
 
-        {/* Teachers View */}
         {view === 'teachers' && (
           <>
             <View style={styles.filterBar}>
@@ -968,13 +984,13 @@ export default function HMAttendanceScreen() {
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Search by name or employee ID..."
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={C.muted}
                   value={search}
                   onChangeText={setSearch}
                 />
                 {search.length > 0 && (
                   <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
-                    <Text style={styles.clearBtnText}>✕</Text>
+                    <AppText style={styles.clearBtnText}>✕</AppText>
                   </TouchableOpacity>
                 )}
               </View>
@@ -986,9 +1002,9 @@ export default function HMAttendanceScreen() {
                       style={[styles.filterChip, statusFilter === status && styles.filterChipActive]}
                       onPress={() => setStatusFilter(status)}
                     >
-                      <Text style={[styles.filterChipText, statusFilter === status && styles.filterChipTextActive]}>
+                      <AppText style={[styles.filterChipText, statusFilter === status && styles.filterChipTextActive]} weight="semiBold">
                         {status || 'All'}
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -999,9 +1015,9 @@ export default function HMAttendanceScreen() {
               <Loader />
             ) : paginatedTeachers.length === 0 ? (
               <AppCard style={styles.emptyCard}>
-                <Text style={styles.emptyIcon}>👨‍🏫</Text>
-                <Text style={styles.emptyTitle}>No teachers found</Text>
-                <Text style={styles.emptyText}>Try adjusting your search or filters</Text>
+                <AppText style={styles.emptyIcon}>👨‍🏫</AppText>
+                <AppText style={styles.emptyTitle} weight="bold">No teachers found</AppText>
+                <AppText style={styles.emptyText}>Try adjusting your search or filters</AppText>
               </AppCard>
             ) : (
               <>
@@ -1015,15 +1031,15 @@ export default function HMAttendanceScreen() {
                       onPress={() => setPage(p => Math.max(1, p - 1))}
                       disabled={page === 1}
                     >
-                      <Text style={styles.pageBtnText}>◀</Text>
+                      <AppText style={styles.pageBtnText}>◀</AppText>
                     </TouchableOpacity>
-                    <Text style={styles.pageInfo}>Page {page} of {totalPages}</Text>
+                    <AppText style={styles.pageInfo}>Page {page} of {totalPages}</AppText>
                     <TouchableOpacity
                       style={[styles.pageBtn, page === totalPages && styles.pageBtnDisabled]}
                       onPress={() => setPage(p => Math.min(totalPages, p + 1))}
                       disabled={page === totalPages}
                     >
-                      <Text style={styles.pageBtnText}>▶</Text>
+                      <AppText style={styles.pageBtnText}>▶</AppText>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -1032,15 +1048,14 @@ export default function HMAttendanceScreen() {
           </>
         )}
 
-        {/* Students View */}
         {view === 'students' && (
           loadingClasses ? (
             <Loader />
           ) : classItems.length === 0 ? (
             <AppCard style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>👨‍🎓</Text>
-              <Text style={styles.emptyTitle}>No classes available</Text>
-              <Text style={styles.emptyText}>No class data found for this date</Text>
+              <AppText style={styles.emptyIcon}>👨‍🎓</AppText>
+              <AppText style={styles.emptyTitle} weight="bold">No classes available</AppText>
+              <AppText style={styles.emptyText}>No class data found for this date</AppText>
             </AppCard>
           ) : (
             <StudentsView
@@ -1053,15 +1068,13 @@ export default function HMAttendanceScreen() {
           )
         )}
 
-        {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>🏫 School: {schoolCode || '—'}</Text>
-          <Text style={styles.footerText}>🏢 Branch: {branchId || '—'}</Text>
-          <Text style={styles.footerText}>📅 Data as of {iso(date)}</Text>
+          <AppText style={styles.footerText}>🏫 School: {schoolCode || '—'}</AppText>
+          <AppText style={styles.footerText}>🏢 Branch: {branchId || '—'}</AppText>
+          <AppText style={styles.footerText}>📅 Data as of {iso(date)}</AppText>
         </View>
       </ScrollView>
 
-      {/* Export Modals */}
       <ExportModal
         visible={showExport}
         type="students"
@@ -1084,7 +1097,7 @@ export default function HMAttendanceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: C.bg,
   },
   contentContainer: {
     padding: 16,
@@ -1100,14 +1113,13 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   toastSuccess: {
-    backgroundColor: '#059669',
+    backgroundColor: C.success,
   },
   toastError: {
-    backgroundColor: '#dc2626',
+    backgroundColor: C.error,
   },
   toastText: {
     color: '#fff',
-    fontWeight: '600',
     textAlign: 'center',
   },
   header: {
@@ -1115,12 +1127,11 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 22,
-    fontWeight: '800',
-    color: '#0d1b2a',
+    color: C.text,
   },
   subtitle: {
     fontSize: 13,
-    color: '#4a5568',
+    color: C.muted,
     marginTop: 2,
   },
   toolbar: {
@@ -1132,10 +1143,10 @@ const styles = StyleSheet.create({
   },
   toggleGroup: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: C.card,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     overflow: 'hidden',
   },
   toggleBtn: {
@@ -1143,34 +1154,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   toggleBtnActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: C.primary,
   },
   toggleText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#4a5568',
+    color: C.muted,
   },
   toggleTextActive: {
     color: '#fff',
   },
   dateBtn: {
-    backgroundColor: '#fff',
+    backgroundColor: C.card,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
   },
   dateText: {
     fontSize: 13,
-    color: '#0d1b2a',
+    color: C.text,
   },
   scopeSelector: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: C.card,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     overflow: 'hidden',
   },
   scopeBtn: {
@@ -1178,12 +1188,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   scopeBtnActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: C.primary,
   },
   scopeText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#4a5568',
+    color: C.muted,
   },
   scopeTextActive: {
     color: '#fff',
@@ -1200,12 +1209,11 @@ const styles = StyleSheet.create({
   },
   statementTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   statementRange: {
     fontSize: 11,
-    color: '#64748b',
+    color: C.muted,
   },
   statementGrid: {
     flexDirection: 'row',
@@ -1213,23 +1221,22 @@ const styles = StyleSheet.create({
   },
   statementItem: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: C.bg,
     padding: 12,
     borderRadius: 10,
   },
   statementItemLabel: {
     fontSize: 11,
-    color: '#64748b',
+    color: C.muted,
     marginBottom: 4,
   },
   statementItemValue: {
     fontSize: 24,
-    fontWeight: '800',
-    color: '#0d1b2a',
+    color: C.text,
   },
   statementItemSub: {
     fontSize: 10,
-    color: '#94a3b8',
+    color: C.muted,
     marginTop: 4,
   },
   filterBar: {
@@ -1239,24 +1246,41 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     borderRadius: 10,
     paddingHorizontal: 12,
+  },
+  sectionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  exportBtn: {
+    backgroundColor: C.card,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  exportBtnText: {
+    fontSize: 13,
+    color: C.primary,
   },
   searchInput: {
     flex: 1,
     height: 44,
     fontSize: 14,
-    color: '#0d1b2a',
+    color: C.text,
   },
   clearBtn: {
     padding: 8,
   },
   clearBtnText: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: C.muted,
   },
   filterChips: {
     flexDirection: 'row',
@@ -1266,18 +1290,17 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
   },
   filterChipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: C.primary,
+    borderColor: C.primary,
   },
   filterChipText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#4a5568',
+    color: C.muted,
   },
   filterChipTextActive: {
     color: '#fff',
@@ -1301,7 +1324,6 @@ const styles = StyleSheet.create({
   },
   teacherAvatarText: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#fff',
   },
   teacherInfo: {
@@ -1309,19 +1331,18 @@ const styles = StyleSheet.create({
   },
   teacherName: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   teacherEmail: {
     fontSize: 11,
-    color: '#64748b',
+    color: C.muted,
     marginTop: 2,
   },
   teacherDetails: {
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#e4e9f2',
+    borderTopColor: C.border,
   },
   detailRow: {
     flexDirection: 'row',
@@ -1330,13 +1351,12 @@ const styles = StyleSheet.create({
   detailLabel: {
     width: 100,
     fontSize: 12,
-    color: '#64748b',
+    color: C.muted,
   },
   detailValue: {
     flex: 1,
     fontSize: 12,
-    color: '#0d1b2a',
-    fontWeight: '500',
+    color: C.text,
   },
   profileBadge: {
     paddingHorizontal: 8,
@@ -1344,20 +1364,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   profileActive: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: C.successSoft,
   },
   profileInactive: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: C.errorSoft,
   },
   profileBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
   },
   profileActiveText: {
-    color: '#15803d',
+    color: C.success,
   },
   profileInactiveText: {
-    color: '#b91c1c',
+    color: C.error,
   },
   badge: {
     paddingHorizontal: 10,
@@ -1365,17 +1384,25 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   badgePresent: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: C.successSoft,
   },
   badgeHalfDay: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: C.warningSoft,
   },
   badgeAbsent: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: C.errorSoft,
   },
   badgeText: {
     fontSize: 11,
-    fontWeight: '700',
+  },
+  badgePresentText: {
+    color: C.success,
+  },
+  badgeHalfDayText: {
+    color: C.warning,
+  },
+  badgeAbsentText: {
+    color: C.error,
   },
   emptyCard: {
     padding: 40,
@@ -1387,13 +1414,12 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#0d1b2a',
+    color: C.text,
     marginBottom: 4,
   },
   emptyText: {
     fontSize: 13,
-    color: '#64748b',
+    color: C.muted,
     textAlign: 'center',
   },
   pagination: {
@@ -1407,9 +1433,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#fff',
+    backgroundColor: C.card,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1418,40 +1444,39 @@ const styles = StyleSheet.create({
   },
   pageBtnText: {
     fontSize: 14,
-    color: '#4a5568',
+    color: C.text,
   },
   pageInfo: {
     fontSize: 13,
-    color: '#64748b',
+    color: C.muted,
   },
   splitLayout: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: C.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
     overflow: 'hidden',
     minHeight: 500,
   },
   sidebar: {
     width: 260,
     borderRightWidth: 1,
-    borderRightColor: '#e4e9f2',
-    backgroundColor: '#f8fafc',
+    borderRightColor: C.border,
+    backgroundColor: C.bg,
   },
   sidebarTitle: {
     padding: 12,
     fontSize: 11,
-    fontWeight: '700',
     textTransform: 'uppercase',
-    color: '#94a3b8',
+    color: C.muted,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
-    backgroundColor: '#fff',
+    borderBottomColor: C.border,
+    backgroundColor: C.card,
   },
   classGroup: {
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   classHeader: {
     flexDirection: 'row',
@@ -1459,7 +1484,7 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   classDot: {
     width: 32,
@@ -1470,17 +1495,15 @@ const styles = StyleSheet.create({
   },
   classDotText: {
     fontSize: 12,
-    fontWeight: '800',
     color: '#fff',
   },
   classTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   classSubtitle: {
     fontSize: 10,
-    color: '#64748b',
+    color: C.muted,
     marginTop: 1,
   },
   sectionItem: {
@@ -1489,41 +1512,39 @@ const styles = StyleSheet.create({
     padding: 10,
     paddingLeft: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
     borderLeftWidth: 3,
     borderLeftColor: 'transparent',
   },
   sectionItemSelected: {
-    backgroundColor: '#dbeafe',
-    borderLeftColor: '#2563eb',
+    backgroundColor: C.primary + '20',
+    borderLeftColor: C.primary,
   },
   radio: {
     width: 16,
     height: 16,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#94a3b8',
+    borderColor: C.muted,
     marginRight: 10,
   },
   radioSelected: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: C.primary,
+    borderColor: C.primary,
   },
   sectionInfo: {
     flex: 1,
   },
   sectionName: {
     fontSize: 13,
-    fontWeight: '500',
-    color: '#0d1b2a',
+    color: C.text,
   },
   sectionNameSelected: {
-    fontWeight: '700',
-    color: '#2563eb',
+    color: C.primary,
   },
   sectionSubtitle: {
     fontSize: 10,
-    color: '#64748b',
+    color: C.muted,
     marginTop: 1,
   },
   sectionPct: {
@@ -1532,15 +1553,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   sectionPctHigh: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: C.successSoft,
   },
   sectionPctLow: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: C.errorSoft,
   },
   sectionPctText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   mainPanel: {
     flex: 1,
@@ -1548,7 +1568,7 @@ const styles = StyleSheet.create({
   panelHeader: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1557,12 +1577,11 @@ const styles = StyleSheet.create({
   },
   panelTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   panelSubtitle: {
     fontSize: 11,
-    color: '#64748b',
+    color: C.muted,
     marginTop: 2,
   },
   statsRow: {
@@ -1576,37 +1595,36 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   statTotal: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: C.bg,
   },
   statPresent: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: C.successSoft,
   },
   statHalf: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: C.warningSoft,
   },
   statAbsent: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: C.errorSoft,
   },
   statSuccess: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: C.successSoft,
   },
   statDanger: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: C.errorSoft,
   },
   statValue: {
     fontSize: 16,
-    fontWeight: '800',
-    color: '#0d1b2a',
+    color: C.text,
   },
   statLabel: {
     fontSize: 9,
-    color: '#64748b',
+    color: C.muted,
     marginTop: 2,
   },
   searchFilterBar: {
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
     gap: 10,
   },
   emptyPanel: {
@@ -1617,16 +1635,15 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#f8fafc',
+    backgroundColor: C.bg,
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   tableHeaderText: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#94a3b8',
+    color: C.muted,
     textTransform: 'uppercase',
   },
   colNumber: { width: 50 },
@@ -1640,15 +1657,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   tableCell: {
     fontSize: 13,
-    color: '#0d1b2a',
+    color: C.text,
   },
   cellNumber: {
     textAlign: 'center',
-    color: '#94a3b8',
+    color: C.muted,
   },
   cellName: {
     flexDirection: 'row',
@@ -1657,7 +1674,7 @@ const styles = StyleSheet.create({
   },
   cellMono: {
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
-    color: '#64748b',
+    color: C.muted,
   },
   studentAvatar: {
     width: 32,
@@ -1668,12 +1685,10 @@ const styles = StyleSheet.create({
   },
   studentAvatarText: {
     fontSize: 12,
-    fontWeight: '700',
     color: '#fff',
   },
   studentNameText: {
-    fontWeight: '600',
-    color: '#0d1b2a',
+    color: C.text,
   },
   attendanceBar: {
     flexDirection: 'row',
@@ -1681,40 +1696,38 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e4e9f2',
-    backgroundColor: '#f8fafc',
+    borderTopColor: C.border,
+    backgroundColor: C.bg,
   },
   attendanceLabel: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#64748b',
+    color: C.muted,
   },
   attendanceTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: '#e4e9f2',
+    backgroundColor: C.border,
     borderRadius: 3,
     overflow: 'hidden',
   },
   attendanceFill: {
     height: '100%',
-    backgroundColor: '#059669',
+    backgroundColor: C.success,
     borderRadius: 3,
   },
   attendancePct: {
     fontSize: 13,
-    fontWeight: '700',
   },
   attendancePctHigh: {
-    color: '#059669',
+    color: C.success,
   },
   attendancePctLow: {
-    color: '#dc2626',
+    color: C.error,
   },
   footer: {
     marginTop: 20,
     padding: 12,
-    backgroundColor: '#fff',
+    backgroundColor: C.card,
     borderRadius: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1722,20 +1735,22 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 11,
-    color: '#64748b',
+    color: C.muted,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: C.card,
     borderRadius: 20,
     width: '100%',
     maxHeight: '80%',
+    borderWidth: 1,
+    borderColor: C.border,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1743,32 +1758,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   modalClose: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: C.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalCloseText: {
     fontSize: 16,
-    color: '#4a5568',
+    color: C.muted,
   },
   modalBody: {
     padding: 16,
   },
   modalLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#4a5568',
+    color: C.text,
     marginBottom: 12,
   },
   dateRangeRow: {
@@ -1779,11 +1792,11 @@ const styles = StyleSheet.create({
   },
   dateArrow: {
     fontSize: 14,
-    color: '#64748b',
+    color: C.muted,
   },
   modalHint: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: C.muted,
     marginBottom: 16,
   },
   sectionHeader: {
@@ -1792,61 +1805,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  sectionActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
   selectAllBtn: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#2563eb',
+    borderColor: C.primary,
   },
   selectAllText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#2563eb',
+    color: C.primary,
   },
   clearAllBtn: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#dc2626',
+    borderColor: C.error,
   },
   clearAllText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#dc2626',
+    color: C.error,
   },
   checkbox: {
     width: 18,
     height: 18,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#94a3b8',
+    borderColor: C.border,
     marginLeft: 'auto',
   },
   checkboxChecked: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: C.primary,
+    borderColor: C.primary,
   },
   checkboxIndeterminate: {
-    backgroundColor: '#94a3b8',
-    borderColor: '#94a3b8',
+    backgroundColor: C.muted,
+    borderColor: C.muted,
   },
   checkboxSmall: {
     width: 16,
     height: 16,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#94a3b8',
+    borderColor: C.border,
     marginRight: 10,
   },
   checkboxSmallChecked: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: C.primary,
+    borderColor: C.primary,
   },
   sectionRow: {
     flexDirection: 'row',
@@ -1855,45 +1862,43 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     paddingRight: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   sectionRowSelected: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: C.primary + '20',
   },
   sectionText: {
     flex: 1,
     fontSize: 13,
-    color: '#0d1b2a',
+    color: C.text,
   },
   sectionCount: {
     fontSize: 11,
-    color: '#64748b',
+    color: C.muted,
   },
   selectedCount: {
     marginTop: 12,
     fontSize: 12,
-    fontWeight: '600',
-    color: '#2563eb',
+    color: C.primary,
   },
   progressWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#dbeafe',
+    backgroundColor: C.primary + '20',
     padding: 12,
     borderRadius: 10,
     marginTop: 16,
   },
   progressText: {
     fontSize: 13,
-    color: '#2563eb',
-    fontWeight: '600',
+    color: C.primary,
   },
   modalFooter: {
     flexDirection: 'row',
     gap: 12,
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e4e9f2',
+    borderTopColor: C.border,
   },
 });

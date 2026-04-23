@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -17,6 +16,32 @@ import Icon from 'react-native-vector-icons/Feather';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import API, { buildApiUrl } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { colors } from '../../constants/theme';
+import AppText from '../../components/common/AppText';
+import AvatarBubble from '../../components/common/AvatarBubble';
+
+const C = {
+  primary: colors.primary,
+  primarySoft: colors.primary + '15',
+  primaryBorder: colors.primary + '30',
+  success: colors.success,
+  successSoft: colors.successSoft,
+  successBorder: colors.success + '30',
+  danger: colors.error,
+  dangerSoft: colors.errorSoft,
+  dangerBorder: colors.error + '30',
+  warning: colors.warning,
+  warningSoft: colors.warningSoft,
+  white: colors.surface,
+  bg: colors.bg,
+  border: colors.border,
+  borderLight: colors.border + '60',
+  t1: colors.textPrimary,
+  t2: colors.textPrimary + 'CC',
+  t3: colors.textMuted,
+  t4: colors.textMuted + '80',
+};
 
 interface ClassItem {
   class_grade: string;
@@ -40,36 +65,13 @@ interface SelectedClass {
   label: string;
 }
 
-const C = {
-  primary: '#2563eb',
-  primaryLight: '#3b82f6',
-  primarySoft: '#eff6ff',
-  primaryBorder: '#bfdbfe',
-  success: '#059669',
-  successSoft: '#ecfdf5',
-  successBorder: '#a7f3d0',
-  danger: '#dc2626',
-  dangerSoft: '#fef2f2',
-  dangerBorder: '#fecaca',
-  warning: '#d97706',
-  warningSoft: '#fffbeb',
-  bg: '#ffffff',
-  white: '#ffffff',
-  border: '#e2e8f0',
-  borderLight: '#f1f5f9',
-  t1: '#0f172a',
-  t2: '#334155',
-  t3: '#64748b',
-  t4: '#94a3b8',
-};
-
 const PALETTE = [
-  { bg: '#eff6ff', color: '#2563eb' },
-  { bg: '#f0fdf4', color: '#16a34a' },
-  { bg: '#fffbeb', color: '#d97706' },
-  { bg: '#fdf4ff', color: '#9333ea' },
-  { bg: '#fff1f2', color: '#e11d48' },
-  { bg: '#f0fdfa', color: '#0d9488' },
+  { bg: 'rgba(37, 99, 235, 0.1)', color: '#2563eb' },
+  { bg: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' },
+  { bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' },
+  { bg: 'rgba(124, 58, 237, 0.1)', color: '#7c3aed' },
+  { bg: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' },
+  { bg: 'rgba(8, 145, 178, 0.1)', color: '#0891b2' },
 ];
 
 const readLS = async (...keys: string[]): Promise<string> => {
@@ -167,25 +169,25 @@ function AddClassModal({ visible, onClose, onSave, existingClasses }: AddClassMo
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <View>
-              <Text style={styles.modalTitle}>Add New Class</Text>
-              <Text style={styles.modalSubtitle}>Enter class details and configure sections</Text>
+              <AppText style={styles.modalTitle}>Add New Class</AppText>
+              <AppText style={styles.modalSubtitle}>Enter class details and configure sections</AppText>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Icon name="x" size={16} color={C.t3} />
+              <Icon name="x" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.modalBody}>
             {errors.api && (
               <View style={styles.errorBanner}>
-                <Text style={styles.errorBannerText}>⚠ {errors.api}</Text>
+                <AppText style={styles.errorBannerText}>⚠ {errors.api}</AppText>
               </View>
             )}
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>
-                Class Name <Text style={styles.requiredStar}>*</Text>
-              </Text>
+              <AppText style={styles.label}>
+                Class Name <AppText style={styles.requiredStar}>*</AppText>
+              </AppText>
               <TextInput
                 style={styles.input}
                 value={className}
@@ -194,14 +196,15 @@ function AddClassModal({ visible, onClose, onSave, existingClasses }: AddClassMo
                   setErrors((p) => ({ ...p, className: undefined }));
                 }}
                 placeholder="e.g. Grade 10, Class VI, Standard 2"
+                placeholderTextColor={colors.textMuted}
               />
-              {errors.className && <Text style={styles.errorText}>{errors.className}</Text>}
+              {errors.className && <AppText style={styles.errorText}>{errors.className}</AppText>}
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>
-                Sections <Text style={styles.requiredStar}>*</Text>
-              </Text>
+              <AppText style={styles.label}>
+                Sections <AppText style={styles.requiredStar}>*</AppText>
+              </AppText>
 
               <View style={styles.sectionsRow}>
                 <TextInput
@@ -212,43 +215,44 @@ function AddClassModal({ visible, onClose, onSave, existingClasses }: AddClassMo
                     setErrors((p) => ({ ...p, sectionInput: undefined }));
                   }}
                   placeholder="e.g. A, B, C"
+                  placeholderTextColor={colors.textMuted}
                   onSubmitEditing={addSection}
                 />
                 <TouchableOpacity style={styles.addSectionBtn} onPress={addSection}>
-                  <Icon name="plus" size={12} color={C.t3} />
-                  <Text style={styles.addSectionBtnText}>Add</Text>
+                  <Icon name="plus" size={12} color={colors.textMuted} />
+                  <AppText style={styles.addSectionBtnText}>Add</AppText>
                 </TouchableOpacity>
               </View>
 
-              {errors.sectionInput && <Text style={styles.errorText}>{errors.sectionInput}</Text>}
+              {errors.sectionInput && <AppText style={styles.errorText}>{errors.sectionInput}</AppText>}
 
               {sections.length > 0 && (
                 <View style={styles.sectionsWrap}>
                   {sections.map((s) => (
                     <View key={s} style={styles.sectionPill}>
-                      <Text style={styles.sectionPillText}>Section {s}</Text>
+                      <AppText style={styles.sectionPillText}>Section {s}</AppText>
                       <TouchableOpacity onPress={() => removeSection(s)}>
-                        <Icon name="x" size={10} color={C.primary} />
+                        <Icon name="x" size={10} color={colors.accent} />
                       </TouchableOpacity>
                     </View>
                   ))}
                 </View>
               )}
 
-              {errors.sections && <Text style={styles.errorText}>{errors.sections}</Text>}
+              {errors.sections && <AppText style={styles.errorText}>{errors.sections}</AppText>}
 
-              <Text style={styles.hintText}>
+              <AppText style={styles.hintText}>
                 Type a letter and click "Add" or press Enter. You can add multiple sections.
-              </Text>
+              </AppText>
             </View>
           </View>
 
           <View style={styles.modalFooter}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-              <Text style={styles.cancelBtnText}>Cancel</Text>
+              <AppText style={styles.cancelBtnText}>Cancel</AppText>
             </TouchableOpacity>
             <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-              <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Add Class'}</Text>
+              <AppText style={styles.saveBtnText}>{saving ? 'Saving…' : 'Add Class'}</AppText>
             </TouchableOpacity>
           </View>
         </View>
@@ -258,6 +262,7 @@ function AddClassModal({ visible, onClose, onSave, existingClasses }: AddClassMo
 }
 
 export default function StudentPage() {
+  const { userName } = useAuth();
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -270,6 +275,13 @@ export default function StudentPage() {
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Morning';
+    if (hour < 17) return 'Afternoon';
+    return 'Evening';
+  };
 
   // Load credentials
   useEffect(() => {
@@ -395,14 +407,20 @@ export default function StudentPage() {
         const base64Data = reader.result as string;
         const filename = `students_${String(selected.label).replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
         const filePath = `${RNFS.DocumentDirectoryPath}/${filename}`;
-        
-        await RNFS.writeFile(filePath, base64Data.split(',')[1], 'base64');
-        
-        await Share.open({
-          url: `file://${filePath}`,
-          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          title: 'Export Students',
-        });
+
+        try {
+          await RNFS.writeFile(filePath, base64Data.split(',')[1], 'base64');
+
+          await Share.open({
+            url: `file://${filePath}`,
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            title: 'Export Students',
+          });
+        } catch (err: any) {
+          if (err.message !== 'User did not share') {
+            Alert.alert('Error', err.message || 'Failed to share file');
+          }
+        }
       };
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Download failed');
@@ -423,11 +441,11 @@ export default function StudentPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'PRESENT':
-        return { bg: C.successSoft, color: C.success, icon: 'check-circle' };
+        return { bg: colors.successSoft, color: colors.success, icon: 'check-circle' };
       case 'ABSENT':
-        return { bg: C.dangerSoft, color: C.danger, icon: 'x-circle' };
+        return { bg: colors.errorSoft, color: colors.error, icon: 'x-circle' };
       default:
-        return { bg: C.warningSoft, color: C.warning, icon: 'clock' };
+        return { bg: colors.warningSoft, color: colors.warning, icon: 'clock' };
     }
   };
 
@@ -435,23 +453,36 @@ export default function StudentPage() {
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} />}
       >
         <View style={styles.content}>
+          {/* Welcome Section */}
+          <View style={styles.welcomeSection}>
+            <View>
+              <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'HM'}!</AppText>
+              <AppText style={styles.welcomeSub}>Manage and view student records across all classes.</AppText>
+            </View>
+            <View style={styles.dateBadge}>
+              <Icon name="calendar" size={12} color={colors.textMuted} />
+              <AppText style={styles.dateText}>
+                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </AppText>
+            </View>
+          </View>
+
           {/* Header */}
           <View style={styles.pageHead}>
             <View>
-              <Text style={styles.pageTitle}>Student Directory</Text>
-              <Text style={styles.pageSubtitle}>Manage and view student records across all classes</Text>
+              <AppText style={styles.pageTitle}>Student Directory</AppText>
+              <AppText style={styles.pageSubtitle}>{classes.length} classes · {students.length} students</AppText>
             </View>
             <View style={styles.headerButtons}>
-              <TouchableOpacity style={styles.addClassBtn} onPress={handleRefresh}>
-                <Icon name="refresh-cw" size={14} color="#fff" />
-                <Text style={styles.addClassBtnText}>Refresh</Text>
+              <TouchableOpacity style={styles.refreshBtn} onPress={handleRefresh}>
+                <Icon name="refresh-cw" size={16} color={colors.textPrimary} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.addClassBtn} onPress={() => setShowAddModal(true)}>
                 <Icon name="plus" size={14} color="#fff" />
-                <Text style={styles.addClassBtnText}>Add Class</Text>
+                <AppText style={styles.addClassBtnText}>Add Class</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -459,7 +490,7 @@ export default function StudentPage() {
           {/* Error Banner */}
           {cErr ? (
             <View style={styles.errorBanner}>
-              <Text style={styles.errorBannerText}>⚠ {cErr}</Text>
+              <AppText style={styles.errorBannerText}>⚠ {cErr}</AppText>
             </View>
           ) : null}
 
@@ -468,15 +499,15 @@ export default function StudentPage() {
             {/* Classes Panel */}
             <View style={styles.panel}>
               <View style={styles.panelHead}>
-                <Text style={styles.panelTitle}>Classes & Sections</Text>
-                <Text style={styles.panelSubtitle}>Select a class to view students</Text>
+                <AppText style={styles.panelTitle}>Classes & Sections</AppText>
+                <AppText style={styles.panelSubtitle}>Select a class to view students</AppText>
               </View>
 
               <ScrollView style={styles.panelBody}>
                 {cLoading ? (
                   [1, 2, 3, 4].map((i) => (
                     <View key={`class-skeleton-${i}`} style={styles.skeletonClassItem}>
-                      <ActivityIndicator size="small" color={C.primary} />
+                      <ActivityIndicator size="small" color={colors.accent} />
                     </View>
                   ))
                 ) : classes.length > 0 ? (
@@ -497,21 +528,21 @@ export default function StudentPage() {
                           });
                         }}
                       >
-                        <Text style={[styles.classLabel, isActive && styles.classLabelActive]}>
+                        <AppText style={[styles.classLabel, isActive && styles.classLabelActive]}>
                           Class {c.label}
-                        </Text>
+                        </AppText>
                         <View style={styles.classMeta}>
                           <View style={[styles.metaPill, styles.metaPillDefault]}>
-                            <Icon name="users" size={9} color={C.t3} />
-                            <Text style={styles.metaPillText}>{c.students_total}</Text>
+                            <Icon name="users" size={9} color={colors.textMuted} />
+                            <AppText style={styles.metaPillText}>{c.students_total}</AppText>
                           </View>
                           <View style={[styles.metaPill, styles.metaPillSuccess]}>
-                            <Icon name="check" size={9} color={C.success} />
-                            <Text style={[styles.metaPillText, { color: C.success }]}>{c.present}</Text>
+                            <Icon name="check" size={9} color={colors.success} />
+                            <AppText style={[styles.metaPillText, { color: colors.success }]}>{c.present}</AppText>
                           </View>
                           <View style={[styles.metaPill, styles.metaPillDanger]}>
-                            <Icon name="x" size={9} color={C.danger} />
-                            <Text style={[styles.metaPillText, { color: C.danger }]}>{absent}</Text>
+                            <Icon name="x" size={9} color={colors.error} />
+                            <AppText style={[styles.metaPillText, { color: colors.error }]}>{absent}</AppText>
                           </View>
                         </View>
                       </TouchableOpacity>
@@ -519,9 +550,9 @@ export default function StudentPage() {
                   })
                 ) : (
                   <View style={styles.emptyState}>
-                    <Icon name="users" size={36} color={C.t4} />
-                    <Text style={styles.emptyTitle}>No classes found</Text>
-                    <Text style={styles.emptyText}>No classes available for this branch</Text>
+                    <Icon name="users" size={36} color={colors.textMuted} />
+                    <AppText style={styles.emptyTitle}>No classes found</AppText>
+                    <AppText style={styles.emptyText}>No classes available for this branch</AppText>
                   </View>
                 )}
               </ScrollView>
@@ -530,12 +561,12 @@ export default function StudentPage() {
             {/* Students Panel */}
             <View style={styles.studentsPanel}>
               <View style={styles.stuHead}>
-                <Text style={styles.stuTitle}>
+                <AppText style={styles.stuTitle}>
                   {selected ? `Students — Class ${selected.label}` : 'Select a Class'}
-                </Text>
+                </AppText>
                 {selected && (
                   <TouchableOpacity style={styles.iconBtn} onPress={handleExport}>
-                    <Icon name="download" size={14} color={C.t3} />
+                    <Icon name="download" size={14} color={colors.textMuted} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -544,24 +575,24 @@ export default function StudentPage() {
                 <>
                   {/* Search Bar */}
                   <View style={styles.searchWrap}>
-                    <Icon name="search" size={14} color={C.t4} />
+                    <Icon name="search" size={14} color={colors.textMuted} />
                     <TextInput
                       style={styles.searchInput}
                       value={query}
                       onChangeText={setQuery}
                       placeholder="Search by name, roll no., or admission no."
-                      placeholderTextColor={C.t4}
+                      placeholderTextColor={colors.textMuted}
                     />
                     {query ? (
                       <TouchableOpacity onPress={() => setQuery('')} style={styles.clearBtn}>
-                        <Icon name="x" size={12} color={C.t3} />
+                        <Icon name="x" size={12} color={colors.textMuted} />
                       </TouchableOpacity>
                     ) : null}
                   </View>
 
                   {sErr ? (
                     <View style={styles.errorBanner}>
-                      <Text style={styles.errorBannerText}>⚠ {sErr}</Text>
+                      <AppText style={styles.errorBannerText}>⚠ {sErr}</AppText>
                     </View>
                   ) : null}
 
@@ -569,10 +600,10 @@ export default function StudentPage() {
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View style={styles.table}>
                       <View style={styles.tableHeader}>
-                        <Text style={[styles.headerCell, styles.cellStudent]}>Student</Text>
-                        <Text style={[styles.headerCell, styles.cellRoll]}>Roll No.</Text>
-                        <Text style={[styles.headerCell, styles.cellAdmission]}>Admission No.</Text>
-                        <Text style={[styles.headerCell, styles.cellStatus]}>Status</Text>
+                        <AppText style={[styles.headerCell, styles.cellStudent]}>Student</AppText>
+                        <AppText style={[styles.headerCell, styles.cellRoll]}>Roll No.</AppText>
+                        <AppText style={[styles.headerCell, styles.cellAdmission]}>Admission No.</AppText>
+                        <AppText style={[styles.headerCell, styles.cellStatus]}>Status</AppText>
                       </View>
 
                       {sLoading ? (
@@ -586,31 +617,32 @@ export default function StudentPage() {
                         ))
                       ) : filtered.length > 0 ? (
                         filtered.map((s, idx) => {
-                          const { bg, color } = avColor(idx);
+                          const { bg, color } = PALETTE[idx % PALETTE.length];
                           const statusStyle = getStatusBadge(s.status);
 
                           return (
                             <View key={s.student_id || idx} style={styles.tableRow}>
                               <View style={[styles.tableCell, styles.cellStudent]}>
-                                <View style={[styles.studentAvatar, { backgroundColor: bg }]}>
-                                  <Text style={[styles.avatarText, { color }]}>
-                                    {initials(s.student_full_name)}
-                                  </Text>
-                                </View>
-                                <Text style={styles.studentName}>{s.student_full_name || '—'}</Text>
+                                <AvatarBubble
+                                  displayName={s.student_full_name}
+                                  size={30}
+                                  textSize={11}
+                                  primaryColor={color}
+                                />
+                                <AppText style={styles.studentName}>{s.student_full_name || '—'}</AppText>
                               </View>
                               <View style={[styles.tableCell, styles.cellRoll]}>
-                                <Text style={styles.monoText}>{s.roll_number || '—'}</Text>
+                                <AppText style={styles.monoText}>{s.roll_number || '—'}</AppText>
                               </View>
                               <View style={[styles.tableCell, styles.cellAdmission]}>
-                                <Text style={styles.monoText}>{s.admission_number || '—'}</Text>
+                                <AppText style={styles.monoText}>{s.admission_number || '—'}</AppText>
                               </View>
                               <View style={[styles.tableCell, styles.cellStatus]}>
                                 <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
                                   <Icon name={statusStyle.icon as any} size={10} color={statusStyle.color} />
-                                  <Text style={[styles.statusText, { color: statusStyle.color }]}>
+                                  <AppText style={[styles.statusText, { color: statusStyle.color }]}>
                                     {s.status}
-                                  </Text>
+                                  </AppText>
                                 </View>
                               </View>
                             </View>
@@ -618,15 +650,15 @@ export default function StudentPage() {
                         })
                       ) : (
                         <View style={styles.emptyState}>
-                          <Icon name="user" size={36} color={C.t4} />
-                          <Text style={styles.emptyTitle}>
+                          <Icon name="user" size={36} color={colors.textMuted} />
+                          <AppText style={styles.emptyTitle}>
                             {query ? 'No results found' : 'No students found'}
-                          </Text>
-                          <Text style={styles.emptyText}>
+                          </AppText>
+                          <AppText style={styles.emptyText}>
                             {query
                               ? 'Try a different search term.'
                               : 'No students enrolled in this class.'}
-                          </Text>
+                          </AppText>
                         </View>
                       )}
                     </View>
@@ -634,9 +666,9 @@ export default function StudentPage() {
                 </>
               ) : (
                 <View style={styles.emptyState}>
-                  <Icon name="user" size={36} color={C.t4} />
-                  <Text style={styles.emptyTitle}>No class selected</Text>
-                  <Text style={styles.emptyText}>Choose a class from the left panel to view students</Text>
+                  <Icon name="user" size={36} color={colors.textMuted} />
+                  <AppText style={styles.emptyTitle}>No class selected</AppText>
+                  <AppText style={styles.emptyText}>Choose a class from the left panel to view students</AppText>
                 </View>
               )}
             </View>
@@ -645,23 +677,23 @@ export default function StudentPage() {
           {/* Info Bar */}
           <View style={styles.infoBar}>
             <View style={styles.infoChip}>
-              <Icon name="home" size={12} color={C.primary} />
-              <Text style={styles.infoText}>
-                School <Text style={styles.infoStrong}>{schoolCode || '—'}</Text>
-              </Text>
+              <Icon name="home" size={12} color={colors.accent} />
+              <AppText style={styles.infoText}>
+                School <AppText style={styles.infoStrong}>{schoolCode || '—'}</AppText>
+              </AppText>
             </View>
             <View style={styles.infoChip}>
-              <Icon name="git-branch" size={12} color={C.primary} />
-              <Text style={styles.infoText}>
-                Branch <Text style={styles.infoStrong}>{branchId || '—'}</Text>
-              </Text>
+              <Icon name="git-branch" size={12} color={colors.accent} />
+              <AppText style={styles.infoText}>
+                Branch <AppText style={styles.infoStrong}>{branchId || '—'}</AppText>
+              </AppText>
             </View>
             {selected && (
               <View style={styles.infoChip}>
-                <Icon name="users" size={12} color={C.primary} />
-                <Text style={styles.infoText}>
-                  Viewing <Text style={styles.infoStrong}>Class {selected.label}</Text>
-                </Text>
+                <Icon name="users" size={12} color={colors.accent} />
+                <AppText style={styles.infoText}>
+                  Viewing <AppText style={styles.infoStrong}>Class {selected.label}</AppText>
+                </AppText>
               </View>
             )}
           </View>
@@ -682,7 +714,7 @@ export default function StudentPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.bg,
   },
   scrollView: {
     flex: 1,
@@ -812,7 +844,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   metaPillDefault: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: C.bg,
     borderColor: C.border,
   },
   metaPillSuccess: {
@@ -852,7 +884,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 7,
-    backgroundColor: '#f8fafc',
+    backgroundColor: C.bg,
     borderWidth: 1,
     borderColor: C.border,
     alignItems: 'center',
@@ -862,7 +894,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#fff',
+    backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.borderLight,
     borderRadius: 8,
@@ -889,7 +921,7 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#f8fafc',
+    backgroundColor: C.bg,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
@@ -1005,7 +1037,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: C.white,
     borderRadius: 16,
     width: '100%',
     maxWidth: 480,
@@ -1033,7 +1065,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 7,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: C.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1067,7 +1099,7 @@ const styles = StyleSheet.create({
     padding: 10,
     fontSize: 14,
     color: C.t1,
-    backgroundColor: '#fafafa',
+    backgroundColor: C.bg,
   },
   flexOne: {
     flex: 1,
@@ -1081,7 +1113,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#f8fafc',
+    backgroundColor: C.bg,
     borderWidth: 1,
     borderColor: C.border,
     borderStyle: 'dashed',
@@ -1132,7 +1164,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: C.border,
-    backgroundColor: '#f8fafc',
+    backgroundColor: C.bg,
   },
   cancelBtnText: {
     fontSize: 13,

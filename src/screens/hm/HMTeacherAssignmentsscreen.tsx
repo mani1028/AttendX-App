@@ -1,87 +1,69 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  RefreshControl,
-  Modal,
-  TextInput,
-  Platform,
+  View, Text, ScrollView, TouchableOpacity, TextInput,
+  Modal, ActivityIndicator, StyleSheet, Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from 'react-native-vector-icons/Ionicons';
 import API from '../../services/api';
+import { colors } from '../../constants/theme';
 
-interface Teacher {
-  teacher_id: string;
-  employee_id?: string;
-  teacher_full_name: string;
-  designation?: string;
-}
-
-interface ClassTeacher {
-  teacher_id: string;
-  teacher_full_name: string;
-  employee_id?: string;
-}
-
-interface SubjectItem {
-  subject_name: string;
-  teacher_id: string | null;
-}
-
-interface ClassSection {
-  class_grade: string;
-  section: string;
-}
-
-interface OverrideConflict {
-  teacher_name: string;
-  current_class_grade: string;
-  current_section: string;
-}
-
+// ─── Colors ──────────────────────────────────────────────────────────────────
 const C = {
-  primary: '#2563eb',
-  primaryHover: '#1d4ed8',
-  primarySoft: '#dbeafe',
-  success: '#059669',
-  successSoft: '#d1fae5',
-  danger: '#dc2626',
-  dangerSoft: '#fee2e2',
-  warning: '#d97706',
-  warningSoft: '#fef3c7',
-  bg: '#f0f2f7',
-  white: '#ffffff',
-  text: '#0f172a',
-  text2: '#475569',
-  text3: '#94a3b8',
-  border: '#e2e8f0',
-  borderSoft: '#f1f5f9',
-  sidebar: '#f8fafc',
+  primary: colors.primary,
+  primarySoft: colors.primary + '15',
+  success: colors.success,
+  successSoft: colors.successSoft,
+  danger: colors.error,
+  dangerSoft: colors.errorSoft,
+  warning: colors.warning,
+  warningSoft: colors.warningSoft,
+  bg: colors.bg,
+  white: colors.surface,
+  text: colors.textPrimary,
+  text2: colors.textPrimary + 'CC',
+  text3: colors.textMuted,
+  border: colors.border,
+  borderSoft: colors.border + '60',
+  sidebar: colors.surface,
 };
 
-export default function HMTeacherAssignments() {
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+async function getSchoolCode() {
+  return (await AsyncStorage.getItem('school_code')) ||
+    (await AsyncStorage.getItem('schoolCode')) || '';
+}
+
+async function getBranchId() {
+  return (await AsyncStorage.getItem('branch_id')) ||
+    (await AsyncStorage.getItem('branchId')) || '';
+}
+
+function teacherLabel(t: any) {
+  if (!t) return '';
+  return `${t.employee_id || t.teacher_id} - ${t.teacher_full_name}`;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+export default function HMTeacherAssignmentsScreen() {
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
+
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [classTeacherSaving, setClassTeacherSaving] = useState(false);
   const [subjectTeacherSaving, setSubjectTeacherSaving] = useState(false);
+
   const [classesMap, setClassesMap] = useState<Record<string, string[]>>({});
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
+
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [subjects, setSubjects] = useState<string[]>([]);
   const [classTeacherId, setClassTeacherId] = useState('');
   const [subjectTeacherMap, setSubjectTeacherMap] = useState<Record<string, string>>({});
-  const [currentClassTeacher, setCurrentClassTeacher] = useState<ClassTeacher | null>(null);
-  const [message, setMessage] = useState<{ type: string; text: string }>({ type: '', text: '' });
+  const [currentClassTeacher, setCurrentClassTeacher] = useState<any>(null);
+
   const [subjectModalOpen, setSubjectModalOpen] = useState(false);
   const [subjectModalMode, setSubjectModalMode] = useState<'create' | 'assign'>('create');
   const [subjectModalSelectedSubject, setSubjectModalSelectedSubject] = useState('');
@@ -89,99 +71,75 @@ export default function HMTeacherAssignments() {
   const [subjectModalNewTeacher, setSubjectModalNewTeacher] = useState('');
   const [subjectModalTeacherId, setSubjectModalTeacherId] = useState('');
   const [subjectModalError, setSubjectModalError] = useState('');
-  const [overrideOpen, setOverrideOpen] = useState(false);
-  const [overrideConflict, setOverrideConflict] = useState<OverrideConflict | null>(null);
 
-  // Load credentials
+  const [message, setMessage] = useState({ type: '', text: '' });
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideConflict, setOverrideConflict] = useState<any>(null);
+
+  // Teacher picker modal (replaces <select>)
+  const [teacherPickerVisible, setTeacherPickerVisible] = useState(false);
+  const [teacherPickerTarget, setTeacherPickerTarget] = useState<'class' | string>('class');
+
+  const isBusy = loading || detailsLoading || classTeacherSaving || subjectTeacherSaving;
+  const clearMessage = () => setMessage({ type: '', text: '' });
+
+  const headers = useMemo(() => ({
+    'X-School-Code': schoolCode,
+    'X-Branch-Id': branchId,
+  }), [schoolCode, branchId]);
+
+  const classNames = useMemo(() =>
+    Object.keys(classesMap).sort((a, b) => {
+      const an = Number(a), bn = Number(b);
+      return (!isNaN(an) && !isNaN(bn)) ? an - bn : a.localeCompare(b);
+    }), [classesMap]);
+
+  const subjectOptions = useMemo(() =>
+    [...new Set(subjects.map(s => String(s).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [subjects]);
+
+  // ── Init ────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    loadCredentials();
+    (async () => {
+      const sc = await getSchoolCode();
+      const bid = await getBranchId();
+      setSchoolCode(sc);
+      setBranchId(bid);
+    })();
   }, []);
 
   useEffect(() => {
-    if (schoolCode && branchId) {
-      loadMeta();
-    }
+    if (schoolCode && branchId) loadMeta();
   }, [schoolCode, branchId]);
 
   useEffect(() => {
-    if (selectedClass && selectedSection) {
-      loadDetails(selectedClass, selectedSection);
-    }
+    if (selectedClass && selectedSection) loadDetails(selectedClass, selectedSection);
   }, [selectedClass, selectedSection]);
 
-  const loadCredentials = async () => {
-    try {
-      const code = await AsyncStorage.getItem('school_code') ||
-        await AsyncStorage.getItem('schoolCode') ||
-        await AsyncStorage.getItem('school_id') ||
-        await AsyncStorage.getItem('schoolId') || '';
-      
-      const branch = await AsyncStorage.getItem('branch_id') ||
-        await AsyncStorage.getItem('branchId') ||
-        await AsyncStorage.getItem('branch_code') ||
-        await AsyncStorage.getItem('branchCode') || '';
-      
-      setSchoolCode(code);
-      setBranchId(branch);
-    } catch (error) {
-      console.error('Error loading credentials:', error);
-      showMessage('error', 'Failed to load credentials');
-    }
-  };
-
-  const getHeaders = () => ({
-    'X-School-Code': schoolCode,
-    'X-Branch-Id': branchId,
-  });
-
-  const showMessage = (type: string, text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => {
-      setMessage({ type: '', text: '' });
-    }, 5000);
-  };
-
-  const fetchNextEmployeeId = async () => {
-    try {
-      const res = await API.get('/hm/next-employee-id', { headers: getHeaders() });
-      return res.data?.employee_id;
-    } catch (err) {
-      throw new Error('Failed to generate employee ID');
-    }
-  };
-
+  // ── API calls ───────────────────────────────────────────────────────────────
   const loadMeta = async () => {
-    if (!schoolCode || !branchId) {
-      showMessage('error', 'School code or branch id missing');
-      return;
-    }
-
     setLoading(true);
-    setRefreshing(true);
-
+    clearMessage();
     try {
       const [classesRes, teachersRes] = await Promise.all([
-        API.get('/hm/classes', { headers: getHeaders() }),
-        API.get('/hm/teachers', { headers: getHeaders() }),
+        API.get('/hm/classes', { headers }),
+        API.get('/hm/teachers', { headers }),
       ]);
 
       const classItems = classesRes.data?.items || [];
       const teacherItems = teachersRes.data?.items || [];
-
       const grouped: Record<string, string[]> = {};
 
       classItems.forEach((item: any) => {
         const cg = String(item.class_grade || '').trim();
         const sec = String(item.section || '').trim().toUpperCase();
-
         if (!cg || !sec) return;
-
         if (!grouped[cg]) grouped[cg] = [];
         if (!grouped[cg].includes(sec)) grouped[cg].push(sec);
       });
 
-      Object.keys(grouped).forEach((cg) => {
-        grouped[cg] = grouped[cg].sort();
+      Object.keys(grouped).forEach(cg => {
+        grouped[cg] = grouped[cg].sort((a, b) => a.localeCompare(b));
       });
 
       setClassesMap(grouped);
@@ -192,80 +150,60 @@ export default function HMTeacherAssignments() {
         const nextClass = selectedClass && grouped[selectedClass] ? selectedClass : cls[0];
         const nextSections = grouped[nextClass] || [];
         const nextSection = selectedSection && nextSections.includes(selectedSection)
-          ? selectedSection
-          : nextSections[0] || '';
-
+          ? selectedSection : nextSections[0] || '';
         setSelectedClass(nextClass);
         setSelectedSection(nextSection);
-      } else {
-        setSelectedClass('');
-        setSelectedSection('');
       }
     } catch (err: any) {
-      const serverMsg = err?.response?.data?.detail;
-      const networkMsg = err?.message || '';
-      showMessage('error', serverMsg || networkMsg || 'Failed to load classes and teachers');
+      setMessage({ type: 'error', text: err?.response?.data?.detail || err?.message || 'Failed to load data' });
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
   const loadDetails = async (cg: string, sec: string) => {
     if (!cg || !sec) return;
-
     setDetailsLoading(true);
-
+    clearMessage();
     try {
       const res = await API.get('/hm/teacher-assignments/details', {
-        headers: getHeaders(),
-        params: { class_grade: cg, section: sec },
+        headers, params: { class_grade: cg, section: sec },
       });
-
       const data = res.data || {};
       const subjectItems = data.subjects || [];
       const subjectMap: Record<string, string> = {};
-
       subjectItems.forEach((item: any) => {
         subjectMap[item.subject_name] = item.teacher_id ? String(item.teacher_id) : '';
       });
-
       setSubjects(subjectItems.map((item: any) => item.subject_name));
       setSubjectTeacherMap(subjectMap);
       setClassTeacherId(data.class_teacher?.teacher_id ? String(data.class_teacher.teacher_id) : '');
       setCurrentClassTeacher(data.class_teacher || null);
-    } catch (err: any) {
+    } catch {
       setSubjects([]);
       setSubjectTeacherMap({});
       setClassTeacherId('');
       setCurrentClassTeacher(null);
-      showMessage('error', err?.response?.data?.detail || err?.message || 'Failed to load assignment details');
     } finally {
       setDetailsLoading(false);
     }
   };
 
-  const saveClassTeacher = async (action: string = 'normal') => {
+  const saveClassTeacher = async (action = 'normal') => {
     if (!selectedClass || !selectedSection) {
-      showMessage('error', 'Please select class and section');
+      setMessage({ type: 'error', text: 'Please select class and section' });
       return;
     }
-
     setClassTeacherSaving(true);
-
+    clearMessage();
     try {
-      const res = await API.post(
-        '/hm/teacher-assignments/save-class-teacher',
-        {
-          class_grade: selectedClass,
-          section: selectedSection,
-          class_teacher_id: classTeacherId || null,
-          class_teacher_action: action,
-        },
-        { headers: getHeaders() }
-      );
-
-      showMessage('success', res.data?.message || 'Class teacher saved successfully');
+      const res = await API.post('/hm/teacher-assignments/save-class-teacher', {
+        class_grade: selectedClass,
+        section: selectedSection,
+        class_teacher_id: classTeacherId || null,
+        class_teacher_action: action,
+      }, { headers });
+      setMessage({ type: 'success', text: res.data?.message || 'Class teacher saved' });
       setOverrideOpen(false);
       setOverrideConflict(null);
       await loadDetails(selectedClass, selectedSection);
@@ -274,8 +212,7 @@ export default function HMTeacherAssignments() {
         setOverrideConflict(err.response.data);
         setOverrideOpen(true);
       } else {
-        const detail = err?.response?.data?.detail;
-        showMessage('error', typeof detail === 'string' ? detail : err?.message || 'Failed to save class teacher');
+        setMessage({ type: 'error', text: err?.response?.data?.detail || err?.message || 'Failed to save' });
       }
     } finally {
       setClassTeacherSaving(false);
@@ -284,68 +221,41 @@ export default function HMTeacherAssignments() {
 
   const saveSubjectTeachers = async () => {
     if (!selectedClass || !selectedSection) {
-      showMessage('error', 'Please select class and section');
+      setMessage({ type: 'error', text: 'Please select class and section' });
       return;
     }
-
     setSubjectTeacherSaving(true);
-
+    clearMessage();
     try {
-      const res = await API.post(
-        '/hm/teacher-assignments/save-subject-teachers',
-        {
-          class_grade: selectedClass,
-          section: selectedSection,
-          subject_teachers: subjects.map((subject) => ({
-            subject_name: subject,
-            teacher_id: subjectTeacherMap[subject] || null,
-          })),
-        },
-        { headers: getHeaders() }
-      );
-
-      showMessage('success', res.data?.message || 'Subject teachers saved successfully');
+      const res = await API.post('/hm/teacher-assignments/save-subject-teachers', {
+        class_grade: selectedClass,
+        section: selectedSection,
+        subject_teachers: subjects.map(subject => ({
+          subject_name: subject,
+          teacher_id: subjectTeacherMap[subject] || null,
+        })),
+      }, { headers });
+      setMessage({ type: 'success', text: res.data?.message || 'Subject teachers saved' });
       await loadDetails(selectedClass, selectedSection);
     } catch (err: any) {
-      const detail = err?.response?.data?.detail;
-      showMessage('error', typeof detail === 'string' ? detail : err?.message || 'Failed to save subject teachers');
+      setMessage({ type: 'error', text: err?.response?.data?.detail || err?.message || 'Failed to save' });
     } finally {
       setSubjectTeacherSaving(false);
     }
   };
 
   const handleCreateSubject = async () => {
-    const subjectName = String(subjectModalNewSubject || '').trim();
-    if (!subjectName) {
-      setSubjectModalError('Please enter a subject name.');
-      return;
+    const subjectName = subjectModalNewSubject.trim();
+    if (!subjectName) { setSubjectModalError('Please enter a subject name.'); return; }
+    if (subjects.some(s => s.toLowerCase() === subjectName.toLowerCase())) {
+      setSubjectModalError('Subject already exists.'); return;
     }
-
-    const exists = subjects.some(s => String(s).toLowerCase() === subjectName.toLowerCase());
-    if (exists) {
-      setSubjectModalError('This subject already exists for this class.');
-      return;
-    }
-
-    if (!selectedClass || !selectedSection) {
-      setSubjectModalError('Please select class and section first.');
-      return;
-    }
-
     setSubjectTeacherSaving(true);
-
     try {
-      const res = await API.post(
-        '/hm/teacher-assignments/add-subject',
-        {
-          class_grade: selectedClass,
-          section: selectedSection,
-          subject_name: subjectName,
-        },
-        { headers: getHeaders() }
-      );
-
-      showMessage('success', res.data?.message || 'Subject added successfully');
+      const res = await API.post('/hm/teacher-assignments/add-subject', {
+        class_grade: selectedClass, section: selectedSection, subject_name: subjectName,
+      }, { headers });
+      setMessage({ type: 'success', text: res.data?.message || 'Subject added' });
       setSubjectModalOpen(false);
       await loadDetails(selectedClass, selectedSection);
     } catch (err: any) {
@@ -355,254 +265,123 @@ export default function HMTeacherAssignments() {
     }
   };
 
-  const handleAssignTeacherModal = async () => {
-    let chosenSubject = String(subjectModalSelectedSubject || '').trim();
-    let teacherId = String(subjectModalTeacherId || '').trim();
-    let createdTeacherPassword = '';
-
-    if (!chosenSubject && subjectModalNewSubject) {
-      const subjectName = String(subjectModalNewSubject).trim();
-      if (!subjectName) {
-        setSubjectModalError('Please select a subject or enter a new subject name.');
-        return;
-      }
-
-      const exists = subjects.some(s => String(s).toLowerCase() === subjectName.toLowerCase());
-      if (exists) {
-        setSubjectModalError('This subject already exists for this class.');
-        return;
-      }
-
-      try {
-        await API.post(
-          '/hm/teacher-assignments/add-subject',
-          {
-            class_grade: selectedClass,
-            section: selectedSection,
-            subject_name: subjectName,
-          },
-          { headers: getHeaders() }
-        );
-        chosenSubject = subjectName;
-        setSubjects(prev => [...prev, subjectName].sort());
-      } catch (err: any) {
-        setSubjectModalError('Failed to add subject: ' + (err?.response?.data?.detail || err?.message));
-        return;
-      }
-    }
-
-    if (!chosenSubject) {
-      setSubjectModalError('Please select or add a subject.');
-      return;
-    }
-
-    if (!teacherId && subjectModalNewTeacher) {
-      const teacherName = String(subjectModalNewTeacher).trim();
-      if (!teacherName) {
-        setSubjectModalError('Please select a teacher or enter a new teacher name.');
-        return;
-      }
-
-      try {
-        const employeeId = await fetchNextEmployeeId();
-        const res = await API.post(
-          '/hm/teachers/register',
-          {
-            branch_id: branchId,
-            employee_id: employeeId,
-            teacher_full_name: teacherName,
-            designation: 'Teacher',
-            department_subject: '',
-            date_of_joining: new Date().toISOString().split('T')[0],
-            teacher_status: 'ACTIVE',
-          },
-          { headers: getHeaders() }
-        );
-        teacherId = res.data?.teacher_id;
-        createdTeacherPassword = String(res.data?.temporary_password || '').trim();
-        const newTeacher: Teacher = {
-          teacher_id: teacherId,
-          teacher_full_name: teacherName,
-          employee_id: employeeId,
-        };
-        setTeachers(prev => [...prev, newTeacher]);
-      } catch (err: any) {
-        setSubjectModalError('Failed to add teacher: ' + (err?.response?.data?.detail || err?.message));
-        return;
-      }
-    }
-
-    if (!teacherId) {
-      setSubjectModalError('Please select or add a teacher.');
-      return;
-    }
-
-    const nextMap = { ...subjectTeacherMap, [chosenSubject]: teacherId };
-    setSubjectTeacherMap(nextMap);
-    setSubjectModalError('');
-    setSubjectModalOpen(false);
-
-    setSubjectTeacherSaving(true);
-
-    try {
-      const payload = {
-        class_grade: selectedClass,
-        section: selectedSection,
-        subject_teachers: subjects.map((subject) => ({
-          subject_name: subject,
-          teacher_id: nextMap[subject] || null,
-        })),
-      };
-
-      const res = await API.post('/hm/teacher-assignments/save-subject-teachers', payload, { headers: getHeaders() });
-
-      const successMsg = createdTeacherPassword
-        ? `${res.data?.message || 'Subject teacher assigned successfully'}. Temporary password for new teacher: ${createdTeacherPassword}`
-        : (res.data?.message || 'Subject teacher assigned successfully');
-
-      showMessage('success', successMsg);
-      await loadDetails(selectedClass, selectedSection);
-    } catch (err: any) {
-      showMessage('error', err?.response?.data?.detail || err?.message || 'Failed to assign teacher');
-    } finally {
-      setSubjectTeacherSaving(false);
-    }
+  // ── Teacher picker ──────────────────────────────────────────────────────────
+  const openTeacherPicker = (target: 'class' | string) => {
+    setTeacherPickerTarget(target);
+    setTeacherPickerVisible(true);
   };
 
-  const classNames = useMemo(() => {
-    return Object.keys(classesMap).sort((a, b) => {
-      const an = Number(a);
-      const bn = Number(b);
-      if (!Number.isNaN(an) && !Number.isNaN(bn)) return an - bn;
-      return String(a).localeCompare(String(b));
-    });
-  }, [classesMap]);
-
-  const subjectOptions = useMemo(() => {
-    return [...new Set(subjects.map(s => String(s).trim()).filter(Boolean))].sort((a, b) =>
-      String(a).localeCompare(String(b))
-    );
-  }, [subjects]);
-
-  const teacherLabel = (teacher: Teacher) => {
-    if (!teacher) return '';
-    return `${teacher.employee_id || teacher.teacher_id} - ${teacher.teacher_full_name}`;
+  const onPickTeacher = (teacher: any) => {
+    const id = String(teacher.teacher_id);
+    if (teacherPickerTarget === 'class') {
+      setClassTeacherId(id);
+    } else if (teacherPickerTarget === 'modal') {
+      setSubjectModalTeacherId(id);
+    } else {
+      setSubjectTeacherMap(prev => ({ ...prev, [teacherPickerTarget]: id }));
+    }
+    setTeacherPickerVisible(false);
   };
 
-  const availableSections = classesMap[selectedClass] || [];
+  const getTeacherName = (id: string) => {
+    const t = teachers.find(t => String(t.teacher_id) === id);
+    return t ? teacherLabel(t) : 'Select Teacher';
+  };
 
-  const isBusy = loading || detailsLoading || classTeacherSaving || subjectTeacherSaving;
-
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={loadMeta} />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Teacher Assignment Management</Text>
-            <Text style={styles.subtitle}>
-              Assign class teacher and subject teachers for each class-section
-            </Text>
-          </View>
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.btn, styles.btnSecondary]}
-              onPress={() => {
-                setSubjectModalMode('create');
-                setSubjectModalNewSubject('');
-                setSubjectModalError('');
-                setSubjectModalOpen(true);
-              }}
-              disabled={isBusy || !selectedClass || !selectedSection}
-            >
-              <Icon name="book" size={14} color={C.text2} />
-              <Text style={styles.btnText}>Add Subject</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.btn, styles.btnSecondary]}
-              onPress={loadMeta}
-              disabled={isBusy}
-            >
-              <Icon name="refresh-cw" size={14} color={C.text2} />
-              <Text style={styles.btnText}>Refresh</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+    <ScrollView style={styles.page} contentContainerStyle={{ paddingBottom: 40 }}>
 
-        {/* Info Bar */}
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Teacher Assignments</Text>
+          <Text style={styles.subtitle}>Assign class teachers and subject teachers</Text>
+        </View>
+        <TouchableOpacity style={styles.btnOutline} onPress={loadMeta} disabled={isBusy}>
+          <Icon name="refresh-outline" size={16} color={C.text2} />
+          <Text style={styles.btnOutlineText}>Refresh</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Info Bar */}
+      {schoolCode || branchId ? (
         <View style={styles.infoBar}>
-          <View style={styles.infoItem}>
-            <Icon name="home" size={14} color={C.primary} />
-            <Text style={styles.infoText}>School: <Text style={styles.infoStrong}>{schoolCode || '-'}</Text></Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Icon name="git-branch" size={14} color={C.primary} />
-            <Text style={styles.infoText}>Branch: <Text style={styles.infoStrong}>{branchId || '-'}</Text></Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Icon name="users" size={14} color={C.primary} />
-            <Text style={styles.infoText}>Teachers: <Text style={styles.infoStrong}>{teachers.length}</Text></Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Icon name="grid" size={14} color={C.primary} />
-            <Text style={styles.infoText}>Classes: <Text style={styles.infoStrong}>{classNames.length}</Text></Text>
-          </View>
-        </View>
-
-        {/* Message */}
-        {message.text ? (
-          <View style={[styles.message, message.type === 'success' ? styles.successMessage : styles.errorMessage]}>
-            <Icon name={message.type === 'success' ? 'check-circle' : 'alert-triangle'} size={16} color={message.type === 'success' ? C.success : C.danger} />
-            <Text style={[styles.messageText, message.type === 'success' ? styles.successText : styles.errorText]}>
-              {message.text}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* Main Content */}
-        <View style={styles.main}>
-          {/* Left Panel - Classes */}
-          <View style={styles.leftPanel}>
-            <View style={styles.panelHead}>
-              <Text style={styles.panelTitle}>Classes & Sections</Text>
-              <Text style={styles.panelSub}>Select class first, then choose section</Text>
+          {schoolCode ? (
+            <View style={styles.infoItem}>
+              <Icon name="school-outline" size={14} color={C.primary} />
+              <Text style={styles.infoText}>School: <Text style={styles.infoBold}>{schoolCode}</Text></Text>
             </View>
-            <View style={styles.leftBody}>
-              <View style={styles.classGrid}>
-                {classNames.map((cls) => (
-                  <TouchableOpacity
-                    key={`class-${cls}`}
-                    style={[styles.classCard, selectedClass === cls && styles.classCardActive]}
-                    onPress={() => {
-                      setSelectedClass(cls);
-                      const secs = classesMap[cls] || [];
-                      setSelectedSection(secs[0] || '');
-                    }}
-                  >
-                    <Text style={[styles.className, selectedClass === cls && styles.classNameActive]}>
-                      Class {cls}
-                    </Text>
-                    <Text style={styles.classMeta}>{(classesMap[cls] || []).length} section(s)</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+          ) : null}
+          {branchId ? (
+            <View style={styles.infoItem}>
+              <Icon name="git-branch-outline" size={14} color={C.primary} />
+              <Text style={styles.infoText}>Branch: <Text style={styles.infoBold}>{branchId}</Text></Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
 
-              {selectedClass ? (
+      {/* Message */}
+      {message.text ? (
+        <View style={[styles.messageBanner, {
+          backgroundColor: message.type === 'success' ? C.successSoft : message.type === 'error' ? C.dangerSoft : C.warningSoft,
+          borderColor: message.type === 'success' ? C.success + '40' : message.type === 'error' ? C.danger + '40' : C.warning + '40',
+        }]}>
+          <Text style={{ color: message.type === 'success' ? C.success : message.type === 'error' ? C.danger : C.warning, fontWeight: '700' }}>
+            {message.text}
+          </Text>
+        </View>
+      ) : null}
+
+      {loading ? (
+        <ActivityIndicator size="large" color={C.primary} style={{ marginTop: 40 }} />
+      ) : (
+        <>
+          {/* Class Selection */}
+          <View style={styles.panel}>
+            <View style={styles.panelHead}>
+              <Text style={styles.panelTitle}>Select Class</Text>
+              <Text style={styles.panelSub}>Tap a class then choose a section</Text>
+            </View>
+            <View style={styles.panelBody}>
+              {classNames.length === 0 ? (
+                <Text style={{ color: C.text3, textAlign: 'center', padding: 20 }}>No classes found</Text>
+              ) : (
+                <View style={styles.classGrid}>
+                  {classNames.map(cls => (
+                    <TouchableOpacity
+                      key={cls}
+                      style={[styles.classCard, selectedClass === cls && styles.classCardActive]}
+                      onPress={() => {
+                        setSelectedClass(cls);
+                        const secs = classesMap[cls] || [];
+                        setSelectedSection(secs[0] || '');
+                      }}
+                    >
+                      <Text style={[styles.className, selectedClass === cls && { color: C.primary }]}>
+                        Class {cls}
+                      </Text>
+                      <Text style={styles.classMeta}>
+                        {(classesMap[cls] || []).length} section(s)
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Section Selection */}
+              {selectedClass && classesMap[selectedClass]?.length > 0 ? (
                 <View style={styles.sectionWrap}>
-                  <Text style={styles.sectionTitle}>Sections for Class {selectedClass}</Text>
+                  <Text style={styles.sectionTitle}>SECTIONS</Text>
                   <View style={styles.sectionList}>
-                    {availableSections.map((sec) => (
+                    {(classesMap[selectedClass] || []).map(sec => (
                       <TouchableOpacity
-                        key={`section-${selectedClass}-${sec}`}
+                        key={sec}
                         style={[styles.sectionBtn, selectedSection === sec && styles.sectionBtnActive]}
                         onPress={() => setSelectedSection(sec)}
                       >
-                        <Text style={[styles.sectionBtnText, selectedSection === sec && styles.sectionBtnTextActive]}>
+                        <Text style={[styles.sectionBtnText, selectedSection === sec && { color: C.white }]}>
                           {sec}
                         </Text>
                       </TouchableOpacity>
@@ -613,369 +392,324 @@ export default function HMTeacherAssignments() {
             </View>
           </View>
 
-          {/* Right Panel - Assignment Workspace */}
-          <View style={styles.rightPanel}>
-            <View style={styles.panelHead}>
-              <Text style={styles.panelTitle}>Assignment Workspace</Text>
-              <Text style={styles.panelSub}>Manage class teacher and subject-wise teacher mapping</Text>
-            </View>
+          {/* Right Panel — Assignments */}
+          {selectedClass && selectedSection ? (
+            <View style={styles.panel}>
+              <View style={styles.panelHead}>
+                <Text style={styles.panelTitle}>Class {selectedClass} — Section {selectedSection}</Text>
+              </View>
+              <View style={styles.panelBody}>
 
-            <View style={styles.rightBody}>
-              {!selectedClass || !selectedSection ? (
-                <View style={styles.emptyState}>
-                  <Icon name="book-open" size={28} color={C.text3} />
-                  <Text style={styles.emptyTitle}>Select a class and section</Text>
-                  <Text style={styles.emptyText}>After selection, assignment controls will appear here.</Text>
-                </View>
-              ) : (
-                <>
-                  <View style={styles.selectedBanner}>
-                    <Text style={styles.selectedBannerText}>
-                      Selected: Class {selectedClass} - Section {selectedSection}
-                    </Text>
-                  </View>
-
-                  <View style={styles.grid}>
+                {detailsLoading ? (
+                  <ActivityIndicator color={C.primary} style={{ margin: 20 }} />
+                ) : (
+                  <>
                     {/* Class Teacher Card */}
                     <View style={styles.card}>
                       <View style={styles.cardHead}>
                         <View>
                           <Text style={styles.cardTitle}>
-                            <Icon name="user" size={14} /> Class Teacher
+                            <Icon name="person-outline" size={14} /> Class Teacher
                           </Text>
-                          <Text style={styles.cardSub}>Save only class teacher from this container</Text>
+                          <Text style={styles.cardSub}>Assign the class teacher for this section</Text>
                         </View>
                       </View>
-
                       <View style={styles.cardBody}>
-                        <Text style={styles.label}>Select class teacher</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teacherScroll}>
-                          <View style={styles.teacherContainer}>
-                            <TouchableOpacity
-                              style={[styles.teacherOption, !classTeacherId && styles.teacherOptionSelected]}
-                              onPress={() => setClassTeacherId('')}
-                            >
-                              <Text style={[styles.teacherOptionText, !classTeacherId && styles.teacherOptionTextSelected]}>
-                                -- Select Teacher --
-                              </Text>
-                            </TouchableOpacity>
-                            {teachers.map((teacher, idx) => (
-                              <TouchableOpacity
-                                key={`class-teacher-option-${teacher.teacher_id || teacher.employee_id || 'na'}-${idx}`}
-                                style={[styles.teacherOption, classTeacherId === teacher.teacher_id && styles.teacherOptionSelected]}
-                                onPress={() => setClassTeacherId(teacher.teacher_id)}
-                              >
-                                <Text style={[styles.teacherOptionText, classTeacherId === teacher.teacher_id && styles.teacherOptionTextSelected]}>
-                                  {teacherLabel(teacher)}
-                                </Text>
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                        </ScrollView>
+                        <Text style={styles.label}>Select Teacher</Text>
+                        <TouchableOpacity
+                          style={styles.picker}
+                          onPress={() => openTeacherPicker('class')}
+                          disabled={isBusy}
+                        >
+                          <Text style={{ color: classTeacherId ? C.text : C.text3, fontSize: 14 }}>
+                            {classTeacherId ? getTeacherName(classTeacherId) : 'Select Teacher'}
+                          </Text>
+                          <Icon name="chevron-down-outline" size={16} color={C.text3} />
+                        </TouchableOpacity>
 
                         {currentClassTeacher ? (
                           <View style={styles.currentBadge}>
-                            <Icon name="user-check" size={12} color={C.success} />
+                            <Icon name="checkmark-circle-outline" size={14} color={C.success} />
                             <Text style={styles.currentBadgeText}>
-                              Current: {teacherLabel(currentClassTeacher as Teacher)}
+                              Current: {teacherLabel(currentClassTeacher)}
                             </Text>
                           </View>
                         ) : null}
 
-                        <View style={styles.note}>
-                          <Icon name="info" size={12} color={C.warning} />
+                        <View style={styles.noteBox}>
                           <Text style={styles.noteText}>
-                            The same teacher can be assigned as class teacher for multiple class-sections.
+                            If the selected teacher is already a class teacher for another section, you will get a warning.
                           </Text>
                         </View>
 
-                        <View style={styles.inlineActions}>
-                          <TouchableOpacity
-                            style={[styles.btn, styles.btnPrimary]}
-                            onPress={() => saveClassTeacher('normal')}
-                            disabled={detailsLoading || classTeacherSaving}
-                          >
-                            <Icon name="check-circle" size={14} color="#fff" />
-                            <Text style={[styles.btnText, styles.btnPrimaryText]}>
-                              {classTeacherSaving ? 'Saving...' : 'Save Class Teacher'}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity
+                          style={[styles.btnPrimary, isBusy && styles.btnDisabled]}
+                          onPress={() => saveClassTeacher('normal')}
+                          disabled={isBusy}
+                        >
+                          {classTeacherSaving
+                            ? <ActivityIndicator color="#fff" size="small" />
+                            : <Text style={styles.btnPrimaryText}>Save Class Teacher</Text>}
+                        </TouchableOpacity>
                       </View>
                     </View>
 
                     {/* Subject Teachers Card */}
-                    <View style={styles.card}>
+                    <View style={[styles.card, { marginTop: 12 }]}>
                       <View style={styles.cardHead}>
-                        <View>
+                        <View style={{ flex: 1 }}>
                           <Text style={styles.cardTitle}>
-                            <Icon name="book" size={14} /> Subject Teachers
+                            <Icon name="book-outline" size={14} /> Subject Teachers
                           </Text>
-                          <Text style={styles.cardSub}>Save only subject-teacher mappings from this container</Text>
+                          <Text style={styles.cardSub}>Assign teachers to each subject</Text>
                         </View>
                         <TouchableOpacity
-                          style={[styles.btn, styles.btnPrimary, styles.smallBtn]}
+                          style={styles.btnOutline}
                           onPress={() => {
-                            setSubjectModalMode('assign');
-                            setSubjectModalSelectedSubject(subjectOptions[0] || '');
+                            setSubjectModalMode('create');
                             setSubjectModalNewSubject('');
-                            setSubjectModalTeacherId('');
-                            setSubjectModalNewTeacher('');
                             setSubjectModalError('');
                             setSubjectModalOpen(true);
                           }}
-                          disabled={detailsLoading || subjectTeacherSaving || subjects.length === 0}
                         >
-                          <Icon name="user-plus" size={14} color="#fff" />
-                          <Text style={[styles.btnText, styles.btnPrimaryText]}>Assign Teacher</Text>
+                          <Icon name="add-outline" size={16} color={C.text2} />
+                          <Text style={styles.btnOutlineText}>Add Subject</Text>
                         </TouchableOpacity>
                       </View>
-
                       <View style={styles.cardBody}>
-                        {detailsLoading ? (
-                          <ActivityIndicator size="large" color={C.primary} />
-                        ) : subjects.length === 0 ? (
-                          <Text style={styles.emptySubjectsText}>
-                            No subjects found for this class. Use the Add Subject button above to add subjects first.
+                        {subjects.length === 0 ? (
+                          <Text style={{ color: C.text2, fontSize: 14 }}>
+                            No subjects found. Use "Add Subject" to add subjects first.
                           </Text>
                         ) : (
                           <>
-                            <View style={styles.subjectTable}>
-                              {subjects.map((subject) => (
-                                <View key={`subject-${selectedClass}-${selectedSection}-${subject}`} style={styles.subjectRow}>
-                                  <Text style={styles.subjectName}>{subject}</Text>
-                                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teacherScrollSmall}>
-                                    <View style={styles.teacherContainerSmall}>
-                                      <TouchableOpacity
-                                        style={[styles.teacherOptionSmall, !subjectTeacherMap[subject] && styles.teacherOptionSelected]}
-                                        onPress={() => setSubjectTeacherMap(prev => ({ ...prev, [subject]: '' }))}
-                                      >
-                                        <Text style={[styles.teacherOptionTextSmall, !subjectTeacherMap[subject] && styles.teacherOptionTextSelected]}>
-                                          -- Select Teacher --
-                                        </Text>
-                                      </TouchableOpacity>
-                                      {teachers.map((teacher, idx) => (
-                                        <TouchableOpacity
-                                          key={`subject-teacher-option-${subject}-${teacher.teacher_id || teacher.employee_id || 'na'}-${idx}`}
-                                          style={[styles.teacherOptionSmall, subjectTeacherMap[subject] === teacher.teacher_id && styles.teacherOptionSelected]}
-                                          onPress={() => setSubjectTeacherMap(prev => ({ ...prev, [subject]: teacher.teacher_id }))}
-                                        >
-                                          <Text style={[styles.teacherOptionTextSmall, subjectTeacherMap[subject] === teacher.teacher_id && styles.teacherOptionTextSelected]}>
-                                            {teacherLabel(teacher)}
-                                          </Text>
-                                        </TouchableOpacity>
-                                      ))}
-                                    </View>
-                                  </ScrollView>
-                                </View>
-                              ))}
-                            </View>
-
-                            <View style={styles.inlineActions}>
-                              <TouchableOpacity
-                                style={[styles.btn, styles.btnPrimary]}
-                                onPress={saveSubjectTeachers}
-                                disabled={detailsLoading || subjectTeacherSaving}
-                              >
-                                <Icon name="check-circle" size={14} color="#fff" />
-                                <Text style={[styles.btnText, styles.btnPrimaryText]}>
-                                  {subjectTeacherSaving ? 'Saving...' : 'Save Subject Teachers'}
-                                </Text>
-                              </TouchableOpacity>
-                            </View>
+                            {subjects.map(subject => (
+                              <View key={subject} style={styles.subjectRow}>
+                                <Text style={styles.subjectName}>{subject}</Text>
+                                <TouchableOpacity
+                                  style={styles.picker}
+                                  onPress={() => openTeacherPicker(subject)}
+                                  disabled={isBusy}
+                                >
+                                  <Text style={{ color: subjectTeacherMap[subject] ? C.text : C.text3, fontSize: 13, flex: 1 }}>
+                                    {subjectTeacherMap[subject] ? getTeacherName(subjectTeacherMap[subject]) : 'Select Teacher'}
+                                  </Text>
+                                  <Icon name="chevron-down-outline" size={16} color={C.text3} />
+                                </TouchableOpacity>
+                              </View>
+                            ))}
+                            <TouchableOpacity
+                              style={[styles.btnPrimary, { marginTop: 16 }, isBusy && styles.btnDisabled]}
+                              onPress={saveSubjectTeachers}
+                              disabled={isBusy}
+                            >
+                              {subjectTeacherSaving
+                                ? <ActivityIndicator color="#fff" size="small" />
+                                : <Text style={styles.btnPrimaryText}>Save Subject Teachers</Text>}
+                            </TouchableOpacity>
                           </>
                         )}
                       </View>
                     </View>
-                  </View>
-                </>
-              )}
-            </View>
-
-            {selectedClass && selectedSection ? (
-              <View style={styles.footer}>
-                <TouchableOpacity
-                  style={[styles.btn, styles.btnSecondary]}
-                  onPress={() => loadDetails(selectedClass, selectedSection)}
-                  disabled={isBusy}
-                >
-                  <Icon name="refresh-cw" size={14} color={C.text2} />
-                  <Text style={styles.btnText}>Reset</Text>
-                </TouchableOpacity>
+                  </>
+                )}
               </View>
-            ) : null}
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Icon name="school-outline" size={40} color={C.text3} />
+              <Text style={styles.emptyTitle}>Select a class and section</Text>
+              <Text style={{ color: C.text3, fontSize: 13 }}>to manage teacher assignments</Text>
+            </View>
+          )}
+        </>
+      )}
+
+      {/* ── Teacher Picker Modal ──────────────────────────────────────────── */}
+      <Modal visible={teacherPickerVisible} transparent animationType="slide">
+        <View style={styles.overlay}>
+          <View style={[styles.modal, { maxHeight: '80%' }]}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>Select Teacher</Text>
+              <TouchableOpacity onPress={() => setTeacherPickerVisible(false)}>
+                <Icon name="close-outline" size={22} color={C.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {teachers.map(teacher => (
+                <TouchableOpacity
+                  key={String(teacher.teacher_id)}
+                  style={styles.pickerOption}
+                  onPress={() => onPickTeacher(teacher)}
+                >
+                  <Text style={styles.pickerOptionText}>{teacherLabel(teacher)}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         </View>
-      </ScrollView>
+      </Modal>
 
-      {/* Subject Modal */}
-      <Modal
-        visible={subjectModalOpen}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setSubjectModalOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+      {/* ── Add Subject Modal ─────────────────────────────────────────────── */}
+      <Modal visible={subjectModalOpen} transparent animationType="slide">
+        <View style={styles.overlay}>
+          <View style={styles.modal}>
             <View style={styles.modalHead}>
               <Text style={styles.modalTitle}>
-                <Icon name="book" size={16} /> {subjectModalMode === 'assign' ? 'Assign Teacher to Subject' : 'Add Subject'}
+                <Icon name="book-outline" size={16} /> Add Subject
               </Text>
+              <TouchableOpacity onPress={() => setSubjectModalOpen(false)}>
+                <Icon name="close-outline" size={22} color={C.text} />
+              </TouchableOpacity>
             </View>
-
             <View style={styles.modalBody}>
-              {subjectModalMode === 'assign' ? (
-                <>
-                  <View>
-                    <Text style={styles.label}>Select subject</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subjectScroll}>
-                      <View style={styles.subjectContainer}>
-                        <TouchableOpacity
-                          style={[styles.subjectOption, !subjectModalSelectedSubject && styles.subjectOptionSelected]}
-                          onPress={() => setSubjectModalSelectedSubject('')}
-                        >
-                          <Text style={[styles.subjectOptionText, !subjectModalSelectedSubject && styles.subjectOptionTextSelected]}>
-                            -- Select Subject --
-                          </Text>
-                        </TouchableOpacity>
-                        {subjectOptions.map((subject) => (
-                          <TouchableOpacity
-                            key={`modal-subject-${subject}`}
-                            style={[styles.subjectOption, subjectModalSelectedSubject === subject && styles.subjectOptionSelected]}
-                            onPress={() => setSubjectModalSelectedSubject(subject)}
-                          >
-                            <Text style={[styles.subjectOptionText, subjectModalSelectedSubject === subject && styles.subjectOptionTextSelected]}>
-                              {subject}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </ScrollView>
-                    <Text style={[styles.label, { marginTop: 12 }]}>Or add new subject</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={subjectModalNewSubject}
-                      onChangeText={setSubjectModalNewSubject}
-                      placeholder="Type new subject name"
-                    />
-                  </View>
-                  <View style={{ marginTop: 16 }}>
-                    <Text style={styles.label}>Select teacher</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teacherScroll}>
-                      <View style={styles.teacherContainer}>
-                        <TouchableOpacity
-                          style={[styles.teacherOption, !subjectModalTeacherId && styles.teacherOptionSelected]}
-                          onPress={() => setSubjectModalTeacherId('')}
-                        >
-                          <Text style={[styles.teacherOptionText, !subjectModalTeacherId && styles.teacherOptionTextSelected]}>
-                            -- Select Teacher --
-                          </Text>
-                        </TouchableOpacity>
-                        {teachers.map((teacher, idx) => (
-                          <TouchableOpacity
-                            key={`modal-teacher-option-${teacher.teacher_id || teacher.employee_id || 'na'}-${idx}`}
-                            style={[styles.teacherOption, subjectModalTeacherId === teacher.teacher_id && styles.teacherOptionSelected]}
-                            onPress={() => setSubjectModalTeacherId(teacher.teacher_id)}
-                          >
-                            <Text style={[styles.teacherOptionText, subjectModalTeacherId === teacher.teacher_id && styles.teacherOptionTextSelected]}>
-                              {teacherLabel(teacher)}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </ScrollView>
-                    <Text style={[styles.label, { marginTop: 12 }]}>Or add new teacher</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={subjectModalNewTeacher}
-                      onChangeText={setSubjectModalNewTeacher}
-                      placeholder="Type new teacher name"
-                    />
-                  </View>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.modalInfoText}>Existing subjects: {subjects.length}</Text>
-                  <Text style={styles.label}>Subject name</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={subjectModalNewSubject}
-                    onChangeText={setSubjectModalNewSubject}
-                    placeholder="Type subject name"
-                  />
-                </>
-              )}
-
+              <Text style={styles.label}>Subject Name</Text>
+              <TextInput
+                style={styles.input}
+                value={subjectModalNewSubject}
+                onChangeText={setSubjectModalNewSubject}
+                placeholder="Enter subject name"
+                placeholderTextColor={C.text3}
+              />
               {subjectModalError ? (
-                <View style={[styles.message, styles.errorMessage, { marginTop: 16 }]}>
-                  <Icon name="alert-triangle" size={14} color={C.danger} />
-                  <Text style={[styles.messageText, styles.errorText]}>{subjectModalError}</Text>
-                </View>
+                <Text style={{ color: C.danger, fontSize: 13, marginTop: 8 }}>{subjectModalError}</Text>
               ) : null}
             </View>
-
             <View style={styles.modalFoot}>
-              <TouchableOpacity style={[styles.btn, styles.btnSecondary]} onPress={() => setSubjectModalOpen(false)}>
-                <Text style={styles.btnText}>Cancel</Text>
+              <TouchableOpacity style={styles.btnOutline} onPress={() => setSubjectModalOpen(false)}>
+                <Text style={styles.btnOutlineText}>Cancel</Text>
               </TouchableOpacity>
-              {subjectModalMode === 'assign' ? (
-                <TouchableOpacity
-                  style={[styles.btn, styles.btnPrimary]}
-                  onPress={handleAssignTeacherModal}
-                  disabled={(!subjectModalSelectedSubject && !subjectModalNewSubject.trim()) || (!subjectModalTeacherId && !subjectModalNewTeacher.trim())}
-                >
-                  <Text style={[styles.btnText, styles.btnPrimaryText]}>Assign Teacher</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.btn, styles.btnPrimary]}
-                  onPress={handleCreateSubject}
-                  disabled={!subjectModalNewSubject.trim()}
-                >
-                  <Text style={[styles.btnText, styles.btnPrimaryText]}>Add Subject</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={[styles.btnPrimary, !subjectModalNewSubject.trim() && styles.btnDisabled]}
+                onPress={handleCreateSubject}
+                disabled={!subjectModalNewSubject.trim() || subjectTeacherSaving}
+              >
+                <Text style={styles.btnPrimaryText}>Add Subject</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Override Modal */}
-      <Modal
-        visible={overrideOpen}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {
-          setOverrideOpen(false);
-          setOverrideConflict(null);
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+      {/* ── Override Conflict Modal ───────────────────────────────────────── */}
+      <Modal visible={overrideOpen} transparent animationType="fade">
+        <View style={styles.overlay}>
+          <View style={styles.modal}>
             <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>
-                <Icon name="alert-triangle" size={16} color={C.warning} />
-                Class Teacher Already Assigned
-              </Text>
+              <Icon name="warning-outline" size={20} color={C.warning} />
+              <Text style={[styles.modalTitle, { marginLeft: 6 }]}>Class Teacher Already Assigned</Text>
             </View>
-
             <View style={styles.modalBody}>
-              <Text style={styles.modalBodyText}>
-                <Text style={styles.modalBodyStrong}>{overrideConflict?.teacher_name}</Text> is already assigned as class teacher for
-                <Text style={styles.modalBodyStrong}> Class {overrideConflict?.current_class_grade} - Section {overrideConflict?.current_section}</Text>.
-              </Text>
-              <Text style={[styles.modalBodyText, { marginTop: 12 }]}>
-                Choose how you want to continue for
-                <Text style={styles.modalBodyStrong}> Class {selectedClass} - Section {selectedSection}</Text>.
+              <Text style={{ color: C.text2, lineHeight: 22 }}>
+                <Text style={{ fontWeight: '700', color: C.text }}>{overrideConflict?.teacher_name}</Text> is already
+                assigned as class teacher for{' '}
+                <Text style={{ fontWeight: '700', color: C.text }}>
+                  Class {overrideConflict?.current_class_grade} — Section {overrideConflict?.current_section}
+                </Text>.{'\n\n'}
+                Choose how to continue for{' '}
+                <Text style={{ fontWeight: '700', color: C.text }}>
+                  Class {selectedClass} — Section {selectedSection}
+                </Text>.
               </Text>
             </View>
-
             <View style={styles.modalFoot}>
               <TouchableOpacity
-                style={[styles.btn, styles.btnSecondary]}
-                onPress={() => {
-                  setOverrideOpen(false);
-                  setOverrideConflict(null);
-                }}
+                style={styles.btnOutline}
+                onPress={() => { setOverrideOpen(false); setOverrideConflict(null); }}
               >
-                <Text style={styles.btn
+                <Text style={styles.btnOutlineText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.btnOutline}
+                onPress={() => saveClassTeacher('keep_both')}
+                disabled={classTeacherSaving}
+              >
+                <Text style={styles.btnOutlineText}>Assign Both</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.btnPrimary}
+                onPress={() => saveClassTeacher('move')}
+                disabled={classTeacherSaving}
+              >
+                <Text style={styles.btnPrimaryText}>Move</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+    </ScrollView>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  page: { flex: 1, backgroundColor: C.bg, padding: 16 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  title: { fontSize: 20, fontWeight: '800', color: C.text },
+  subtitle: { fontSize: 13, color: C.text2, marginTop: 4 },
+
+  infoBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 12, marginBottom: 12 },
+  infoItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  infoText: { fontSize: 12, color: C.text2 },
+  infoBold: { fontWeight: '700', color: C.text },
+
+  messageBanner: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12 },
+
+  panel: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, overflow: 'hidden', marginBottom: 12 },
+  panelHead: { padding: 12, borderBottomWidth: 1, borderBottomColor: C.borderSoft, backgroundColor: C.sidebar },
+  panelTitle: { fontSize: 15, fontWeight: '800', color: C.text },
+  panelSub: { fontSize: 12, color: C.text2, marginTop: 2 },
+  panelBody: { padding: 12 },
+
+  classGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  classCard: { width: '47%', borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 12, backgroundColor: C.white },
+  classCardActive: { borderColor: C.primary, backgroundColor: C.primarySoft },
+  className: { fontSize: 15, fontWeight: '800', color: C.text },
+  classMeta: { fontSize: 11, color: C.text2, marginTop: 4 },
+
+  sectionWrap: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.borderSoft },
+  sectionTitle: { fontSize: 11, fontWeight: '800', color: C.text2, marginBottom: 8, letterSpacing: 0.5 },
+  sectionList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  sectionBtn: { minWidth: 46, height: 38, borderRadius: 10, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.white, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12 },
+  sectionBtnActive: { borderColor: C.primary, backgroundColor: C.primary },
+  sectionBtnText: { fontWeight: '800', color: C.text2 },
+
+  card: { borderWidth: 1, borderColor: C.border, borderRadius: 14, overflow: 'hidden' },
+  cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: C.borderSoft, backgroundColor: C.sidebar },
+  cardTitle: { fontSize: 14, fontWeight: '800', color: C.text },
+  cardSub: { fontSize: 11, color: C.text2, marginTop: 2 },
+  cardBody: { padding: 12 },
+
+  label: { fontSize: 12, fontWeight: '800', color: C.text2, marginBottom: 6 },
+  picker: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44, borderWidth: 1.5, borderColor: C.border, borderRadius: 10, paddingHorizontal: 12, backgroundColor: C.white, marginBottom: 8 },
+  input: { height: 44, borderWidth: 1.5, borderColor: C.border, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: C.text, backgroundColor: C.white },
+
+  currentBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: C.successSoft, alignSelf: 'flex-start', marginBottom: 8 },
+  currentBadgeText: { fontSize: 12, fontWeight: '700', color: C.success },
+
+  noteBox: { backgroundColor: C.warningSoft, borderRadius: 12, padding: 10, marginBottom: 12 },
+  noteText: { fontSize: 12, fontWeight: '700', color: C.warning },
+
+  subjectRow: { marginBottom: 12 },
+  subjectName: { fontSize: 13, fontWeight: '800', color: C.text, marginBottom: 6 },
+
+  emptyState: { alignItems: 'center', justifyContent: 'center', padding: 40, gap: 8 },
+  emptyTitle: { fontWeight: '800', color: C.text, fontSize: 15 },
+
+  btnPrimary: { backgroundColor: C.primary, borderRadius: 10, height: 42, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, flexDirection: 'row', gap: 6 },
+  btnPrimaryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  btnOutline: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 42, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.white },
+  btnOutlineText: { color: C.text2, fontWeight: '700', fontSize: 13 },
+  btnDisabled: { opacity: 0.5 },
+
+  overlay: { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)', justifyContent: 'center', alignItems: 'center', padding: 16 },
+  modal: { width: '100%', backgroundColor: C.white, borderRadius: 18, overflow: 'hidden' },
+  modalHead: { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: C.borderSoft, backgroundColor: C.sidebar },
+  modalTitle: { fontSize: 15, fontWeight: '800', color: C.text, flex: 1 },
+  modalBody: { padding: 16 },
+  modalFoot: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, padding: 14, borderTopWidth: 1, borderTopColor: C.borderSoft, flexWrap: 'wrap' },
+
+  pickerOption: { padding: 14, borderBottomWidth: 1, borderBottomColor: C.borderSoft },
+  pickerOptionText: { fontSize: 14, color: C.text },
+});

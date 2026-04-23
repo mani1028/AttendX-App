@@ -1,16 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
   RefreshControl,
-  Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Feather';
 import API from '../../services/api';
+import { colors } from '../../constants/theme';
+import AppText from '../../components/common/AppText';
+
+// Local theme bridge
+const C = {
+  bg: colors.bg,
+  card: colors.surface,
+  border: colors.border,
+  text: colors.textPrimary,
+  textMuted: colors.textMuted,
+  primary: colors.primary,
+  success: colors.success,
+  warning: colors.warning,
+};
 
 interface MonthlyCollection {
   month: string;
@@ -124,36 +136,36 @@ const Reports = () => {
       <ScrollView
         style={styles.scrollView}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Financial Reports</Text>
-          <Text style={styles.subtitle}>Monthly fee collection analysis</Text>
+          <AppText style={styles.title}>Financial Reports</AppText>
+          <AppText style={styles.subtitle}>Monthly fee collection analysis</AppText>
         </View>
 
         {/* Monthly Collections Section */}
         <View style={styles.reportSection}>
           <View style={styles.sectionHeader}>
-            <Icon name="bar-chart-2" size={20} color="#2563eb" />
-            <Text style={styles.sectionTitle}>📊 Monthly Collections</Text>
+            <Icon name="bar-chart-2" size={20} color={C.primary} />
+            <AppText style={styles.sectionTitle}>📊 Monthly Collections</AppText>
           </View>
           
           {loading && collections.length === 0 ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#2563eb" />
-              <Text style={styles.loadingText}>Loading collections...</Text>
+              <ActivityIndicator size="large" color={C.primary} />
+              <AppText style={styles.loadingText}>Loading collections...</AppText>
             </View>
           ) : collections.length > 0 ? (
             <View style={styles.chartContainer}>
               {collections.map((collection, index) => (
                 <View key={collection.month} style={styles.barChart}>
-                  <Text style={styles.label}>{formatMonth(collection.month)}</Text>
+                  <AppText style={styles.label}>{formatMonth(collection.month)}</AppText>
                   <View style={styles.barWrapper}>
                     <View style={[styles.bar, { width: getBarWidth(collection.total) }]}>
-                      <Text style={styles.barValue}>
+                      <AppText style={styles.barValue}>
                         {formatAmountCompact(collection.total)}
-                      </Text>
+                      </AppText>
                     </View>
                   </View>
                 </View>
@@ -161,8 +173,8 @@ const Reports = () => {
             </View>
           ) : (
             <View style={styles.emptyContainer}>
-              <Icon name="folder" size={48} color="#cbd5e1" />
-              <Text style={styles.emptyText}>No collection data available.</Text>
+              <Icon name="folder" size={48} color={C.border} />
+              <AppText style={styles.emptyText}>No collection data available.</AppText>
             </View>
           )}
         </View>
@@ -170,35 +182,35 @@ const Reports = () => {
         {/* Summary Section */}
         <View style={styles.reportSection}>
           <View style={styles.sectionHeader}>
-            <Icon name="pie-chart" size={20} color="#2563eb" />
-            <Text style={styles.sectionTitle}>📈 Summary</Text>
+            <Icon name="pie-chart" size={20} color={C.primary} />
+            <AppText style={styles.sectionTitle}>📈 Summary</AppText>
           </View>
 
           <View style={styles.summaryTable}>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total Months</Text>
-              <Text style={styles.summaryValue}>{collections.length}</Text>
+              <AppText style={styles.summaryLabel}>Total Months</AppText>
+              <AppText style={styles.summaryValue}>{collections.length}</AppText>
             </View>
             
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Highest Collection</Text>
-              <Text style={[styles.summaryValue, styles.highlightValue]}>
+              <AppText style={styles.summaryLabel}>Highest Collection</AppText>
+              <AppText style={[styles.summaryValue, styles.highlightValue]}>
                 {formatAmount(maxCollection)}
-              </Text>
+              </AppText>
             </View>
             
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Average Collection</Text>
-              <Text style={styles.summaryValue}>
+              <AppText style={styles.summaryLabel}>Average Collection</AppText>
+              <AppText style={styles.summaryValue}>
                 {formatAmount(averageCollection)}
-              </Text>
+              </AppText>
             </View>
             
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total Collection</Text>
-              <Text style={[styles.summaryValue, styles.totalValue]}>
+              <AppText style={styles.summaryLabel}>Total Collection</AppText>
+              <AppText style={[styles.summaryValue, styles.totalValue]}>
                 {formatAmount(totalCollections)}
-              </Text>
+              </AppText>
             </View>
           </View>
         </View>
@@ -207,19 +219,19 @@ const Reports = () => {
         {collections.length > 0 && (
           <View style={styles.statsContainer}>
             <View style={styles.statCard}>
-              <Icon name="calendar" size={24} color="#2563eb" />
-              <Text style={styles.statNumber}>{collections.length}</Text>
-              <Text style={styles.statLabel}>Months</Text>
+              <Icon name="calendar" size={24} color={C.primary} />
+              <AppText style={styles.statNumber}>{collections.length}</AppText>
+              <AppText style={styles.statLabel}>Months</AppText>
             </View>
             <View style={styles.statCard}>
-              <Icon name="trending-up" size={24} color="#059669" />
-              <Text style={styles.statNumber}>{formatAmountCompact(maxCollection)}</Text>
-              <Text style={styles.statLabel}>Highest</Text>
+              <Icon name="trending-up" size={24} color={C.success} />
+              <AppText style={styles.statNumber}>{formatAmountCompact(maxCollection)}</AppText>
+              <AppText style={styles.statLabel}>Highest</AppText>
             </View>
             <View style={styles.statCard}>
-              <Icon name="activity" size={24} color="#d97706" />
-              <Text style={styles.statNumber}>{formatAmountCompact(averageCollection)}</Text>
-              <Text style={styles.statLabel}>Average</Text>
+              <Icon name="activity" size={24} color={C.warning} />
+              <AppText style={styles.statNumber}>{formatAmountCompact(averageCollection)}</AppText>
+              <AppText style={styles.statLabel}>Average</AppText>
             </View>
           </View>
         )}
@@ -227,37 +239,37 @@ const Reports = () => {
         {/* Trend Analysis */}
         {collections.length > 1 && (
           <View style={styles.trendSection}>
-            <Text style={styles.trendTitle}>Trend Analysis</Text>
+            <AppText style={styles.trendTitle}>Trend Analysis</AppText>
             <View style={styles.trendGrid}>
               <View style={styles.trendItem}>
-                <Text style={styles.trendLabel}>Best Month</Text>
+                <AppText style={styles.trendLabel}>Best Month</AppText>
                 {collections.reduce((best, current) => 
                   current.total > best.total ? current : best, collections[0]
                 ).month && (
                   <>
-                    <Text style={styles.trendValue}>
+                    <AppText style={styles.trendValue}>
                       {formatMonth(collections.reduce((best, current) => 
                         current.total > best.total ? current : best, collections[0]
                       ).month)}
-                    </Text>
-                    <Text style={styles.trendAmount}>
+                    </AppText>
+                    <AppText style={styles.trendAmount}>
                       {formatAmount(collections.reduce((best, current) => 
                         current.total > best.total ? current : best, collections[0]
                       ).total)}
-                    </Text>
+                    </AppText>
                   </>
                 )}
               </View>
               <View style={styles.trendItem}>
-                <Text style={styles.trendLabel}>Growth Trend</Text>
+                <AppText style={styles.trendLabel}>Growth Trend</AppText>
                 {collections.length >= 2 && (
                   <>
-                    <Text style={styles.trendValue}>
+                    <AppText style={styles.trendValue}>
                       {collections[collections.length - 1].total > collections[0].total ? '↑ Positive' : '↓ Negative'}
-                    </Text>
-                    <Text style={styles.trendAmount}>
+                    </AppText>
+                    <AppText style={styles.trendAmount}>
                       {((collections[collections.length - 1].total - collections[0].total) / collections[0].total * 100).toFixed(1)}%
-                    </Text>
+                    </AppText>
                   </>
                 )}
               </View>
@@ -272,35 +284,35 @@ const Reports = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: C.bg,
   },
   scrollView: {
     flex: 1,
   },
   header: {
     padding: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   subtitle: {
     fontSize: 14,
-    color: '#4a5568',
+    color: C.textMuted,
     marginTop: 4,
   },
   reportSection: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     margin: 16,
     marginBottom: 8,
     padding: 16,
     borderRadius: 8,
     borderTopWidth: 4,
-    borderTopColor: '#2563eb',
+    borderTopColor: C.primary,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -311,7 +323,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
   },
   loadingContainer: {
     padding: 32,
@@ -319,7 +331,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: '#8898aa',
+    color: C.textMuted,
   },
   emptyContainer: {
     padding: 32,
@@ -327,7 +339,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     marginTop: 12,
-    color: '#8898aa',
+    color: C.textMuted,
     fontSize: 14,
   },
   chartContainer: {
@@ -341,18 +353,18 @@ const styles = StyleSheet.create({
   label: {
     minWidth: 80,
     fontWeight: '600',
-    color: '#4a5568',
+    color: C.text,
     fontSize: 13,
   },
   barWrapper: {
     flex: 1,
-    backgroundColor: '#e4e9f2',
+    backgroundColor: C.bg,
     borderRadius: 4,
     overflow: 'hidden',
     height: 30,
   },
   bar: {
-    backgroundColor: '#2563eb',
+    backgroundColor: C.primary,
     height: '100%',
     flexDirection: 'row',
     alignItems: 'center',
@@ -374,24 +386,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   summaryLabel: {
     fontWeight: '600',
-    color: '#4a5568',
+    color: C.textMuted,
     fontSize: 14,
   },
   summaryValue: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#0d1b2a',
+    color: C.text,
   },
   highlightValue: {
-    color: '#2563eb',
+    color: C.primary,
     fontWeight: '700',
   },
   totalValue: {
-    color: '#059669',
+    color: C.success,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -403,37 +415,37 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
   },
   statNumber: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0d1b2a',
+    color: C.text,
     marginTop: 8,
   },
   statLabel: {
     fontSize: 12,
-    color: '#4a5568',
+    color: C.textMuted,
     marginTop: 4,
   },
   trendSection: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     margin: 16,
     marginTop: 0,
     padding: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: C.border,
   },
   trendTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: C.text,
     marginBottom: 16,
   },
   trendGrid: {
@@ -442,23 +454,23 @@ const styles = StyleSheet.create({
   },
   trendItem: {
     flex: 1,
-    backgroundColor: '#f7f9fc',
+    backgroundColor: C.bg,
     padding: 12,
     borderRadius: 8,
   },
   trendLabel: {
     fontSize: 12,
-    color: '#8898aa',
+    color: C.textMuted,
     marginBottom: 8,
   },
   trendValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0d1b2a',
+    color: C.text,
   },
   trendAmount: {
     fontSize: 12,
-    color: '#4a5568',
+    color: C.textMuted,
     marginTop: 4,
   },
 });

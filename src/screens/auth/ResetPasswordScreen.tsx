@@ -26,8 +26,10 @@ export default function ResetPasswordScreen({ route, navigation }: any) {
       await authService.resetPassword(schoolId, identifier, resetToken, password);
       Alert.alert('Success', 'Password reset successfully');
       navigation.replace('Login');
-    } catch {
-      Alert.alert('Error', 'Reset failed');
+    } catch (error: any) {
+      const errorMsg = error?.response?.data?.message || error?.message || 'Reset failed';
+      Alert.alert('Error', errorMsg);
+      console.log('Reset Password Error:', error?.response?.data || error.message);
     } finally {
       setLoading(false);
     }

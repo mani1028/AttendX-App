@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { Camera, useCameraDevices } from 'react-native-vision-camera';
+import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import API from '../../services/api';
@@ -72,6 +72,7 @@ const Toast: React.FC<{
 export default function VitalScanScreen() {
   const navigation = useNavigation();
   const cameraRef = useRef<Camera>(null);
+  const device = useCameraDevice('back');
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [cameraActive, setCameraActive] = useState<boolean>(false);
 
@@ -266,8 +267,9 @@ export default function VitalScanScreen() {
       });
       
       showToast('Analysis complete', `Report ready for ${studentName}`, '✅', '#22C55E');
-    } catch (err) {
-      showToast('Analysis failed', 'Check backend connection', '❌', '#EF4444');
+    } catch (err: any) {
+      const message = err?.response?.data?.detail || err?.response?.data?.message || 'Check backend connection';
+      showToast('Analysis failed', message, '❌', '#EF4444');
     } finally {
       setLoading(false);
     }
@@ -350,7 +352,7 @@ export default function VitalScanScreen() {
           <Camera
             ref={cameraRef}
             style={styles.camera}
-            device={useCameraDevices().back}
+            device={device!}
             isActive={cameraActive}
             photo={true}
           />

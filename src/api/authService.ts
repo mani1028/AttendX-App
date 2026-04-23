@@ -1,4 +1,5 @@
-import API from './client';
+import axios from 'axios';
+import API, { buildApiUrl } from './client';
 import { AppRole } from '../constants/roles';
 import { normalizeBackendRole } from '../utils/roleMapper';
 
@@ -36,13 +37,33 @@ export type NormalizedLoginResponse = {
   };
 };
 
-async function postWithFallback<TPayload>(endpoints: string[], payload: TPayload) {
+async function postWithFallback<TPayload>(endpoints: string[], payload: TPayload, useCleanInstance = false) {
   let lastError: unknown;
 
   for (const endpoint of endpoints) {
     try {
+      if (useCleanInstance) {
+        const url = buildApiUrl(endpoint);
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        };
+
+        // Extract school code from payload to ensure multi-tenancy routing works
+        const p = payload as any;
+        const schoolCode = p.school_code || p.schoolCode || p.school_id;
+        if (schoolCode) {
+          headers['X-School-Code'] = schoolCode;
+        }
+
+        console.log(`[authService] Attempting clean post to: ${url}`, { headers });
+        const res = await axios.post(url, payload, { headers, timeout: 30000 });
+        console.log(`[authService] Clean post success: ${endpoint}`);
+        return res;
+      }
       return await API.post(endpoint, payload);
-    } catch (error) {
+    } catch (error: any) {
+      console.log(`[authService] Error posting to ${endpoint}:`, error?.response?.data || error.message);
       lastError = error;
     }
   }
@@ -72,38 +93,45 @@ function normalizeLoginResponse(data: LoginResponse, fallbackRole: AppRole): Nor
 
 export const authService = {
   async login(schoolId: string, username: string, password: string, fallbackRole: AppRole = 'student') {
+    // We use a clean instance for login to prevent stale AsyncStorage tokens from causing 403s
+    // We also include both snake_case and camelCase for school code to match web logic
     const response = await postWithFallback(['/auth/login', '/login'], {
       school_id: schoolId,
       school_code: schoolId,
+      schoolCode: schoolId,
       username,
       password,
       role: fallbackRole,
-    });
+    }, true);
     return normalizeLoginResponse(response.data as LoginResponse, fallbackRole);
   },
   requestOtp(schoolId: string, identifier: string) {
     return postWithFallback(['/auth/forgot-password', '/auth/request-otp'], {
       school_id: schoolId,
+      school_code: schoolId,
       identifier,
-    });
+    }, true);
   },
   verifyOtp(schoolId: string, identifier: string, otp: string) {
     return postWithFallback(
       ['/auth/verify-otp', '/auth/forgot-password/verify-otp', '/auth/forgot-password'],
       {
       school_id: schoolId,
+      school_code: schoolId,
       identifier,
       otp,
       },
+      true,
     );
   },
   resetPassword(schoolId: string, identifier: string, resetToken: string, password: string) {
     return postWithFallback(['/auth/reset-password', '/auth/forgot-password/reset-password'], {
       school_id: schoolId,
+      school_code: schoolId,
       identifier,
       reset_token: resetToken,
       new_password: password,
       confirm_password: password,
-    });
+    }, true);
   },
 };

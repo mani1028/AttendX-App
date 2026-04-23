@@ -5,7 +5,6 @@
 import React, { useEffect, useState } from "react";
 import {
   View,
-  Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,8 @@ import {
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
+import { colors } from "../../constants/theme";
+import AppText from "../../components/common/AppText";
 
 import SummaryCards from "./SummaryCards";
 import FeeManagement from "./FeeManagement";
@@ -21,6 +22,17 @@ import PaymentEntry from "./PaymentEntry";
 import ExpenseManagement from "./ExpenseManagement";
 import Reports from "./Reports";
 import PendingStudents from "./PendingStudents";
+
+// Local theme bridge
+const C = {
+  bg: colors.bg,
+  card: colors.surface,
+  border: colors.border,
+  text: colors.textPrimary,
+  textMuted: colors.textMuted,
+  primary: colors.primary,
+  primarySoft: colors.primary + '20',
+};
 
 const AccountantDashboardScreen = () => {
   const navigation = useNavigation();
@@ -62,10 +74,10 @@ const AccountantDashboardScreen = () => {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" />
-        <Text style={styles.header}>
+        <ActivityIndicator size="large" color={C.primary} />
+        <AppText style={styles.header}>
           Loading...
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -73,9 +85,9 @@ const AccountantDashboardScreen = () => {
   if (!schoolCode) {
     return (
       <View style={styles.container}>
-        <Text style={styles.header}>
+        <AppText style={styles.header}>
           Error: School code not found
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -85,9 +97,9 @@ const AccountantDashboardScreen = () => {
       style={styles.container}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.header}>
+      <AppText style={styles.header}>
         💰 Accountant Dashboard
-      </Text>
+      </AppText>
 
       <ScrollView
         horizontal
@@ -198,7 +210,7 @@ const TabButton = ({
       ]}
       onPress={onPress}
     >
-      <Text
+      <AppText
         style={[
           styles.tabText,
           active &&
@@ -206,7 +218,7 @@ const TabButton = ({
         ]}
       >
         {title}
-      </Text>
+      </AppText>
     </TouchableOpacity>
   );
 };
@@ -216,14 +228,14 @@ export default AccountantDashboardScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f0f2f7",
+    backgroundColor: C.bg,
     padding: 20,
   },
 
   header: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#0d1b2a",
+    color: C.text,
     marginBottom: 24,
   },
 
@@ -237,20 +249,23 @@ const styles = StyleSheet.create({
   tabButton: {
     paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: "#ffffff",
+    backgroundColor: C.card,
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: C.border,
   },
 
   activeTabButton: {
-    backgroundColor: "#2563eb",
+    backgroundColor: C.primary,
+    borderColor: C.primary,
   },
 
   tabText: {
     fontSize: 15,
     fontWeight: "500",
-    color: "#0d1b2a",
+    color: C.text,
   },
 
   activeTabText: {
@@ -258,13 +273,11 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    backgroundColor: "#ffffff",
+    backgroundColor: C.card,
     borderRadius: 16,
     padding: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: C.border,
     marginBottom: 30,
   },
 });

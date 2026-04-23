@@ -11,8 +11,9 @@ import {
   Modal,
   Alert,
 } from 'react-native';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+// ADD these instead
+import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppCard from './AppCard';

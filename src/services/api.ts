@@ -5,15 +5,16 @@ import { Platform } from 'react-native';
 /* ================= BASE URL ================= */
 
 const getBaseUrl = (): string => {
-  if (__DEV__) {
+  // Toggle this flag to route development builds to the deployed API.
+  const useLiveServer = true;
+
+  if (__DEV__ && !useLiveServer) {
     if (Platform.OS === 'android') {
       return 'http://10.0.2.2:5000'; // Android emulator
-    } else if (Platform.OS === 'ios') {
-      return 'http://localhost:5000'; // iOS simulator
     }
-    return 'http://localhost:5000'; // default
+    return 'http://localhost:5000'; // iOS simulator / default local
   }
-  return 'https://attendex-api.vshiftx.com/api'; // Production URL
+  return 'https://attendex-api.vshiftx.com/api'; // Live server URL
 };
 
 const API_BASE = getBaseUrl();
@@ -36,25 +37,22 @@ const API = axios.create({
 API.interceptors.request.use(async config => {
   config.headers = config.headers || {};
 
-  const token = authToken ?? (await AsyncStorage.getItem('token'));
-  if (token) {
+  const token = authToken || (await AsyncStorage.getItem('token'));
+  if (token && token !== 'null') {
     config.headers.Authorization = `Bearer ${token}`;
+    if (!authToken) {
+      authToken = token; // Cache in memory for performance
+    }
   }
 
-  const schoolCode =
-    (await AsyncStorage.getItem('school_code')) ||
-    (await AsyncStorage.getItem('schoolCode'));
-
-  if (schoolCode) {
-    config.headers['X-School-Code'] = schoolCode;
+  const rawSchoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode'));
+  if (rawSchoolCode && rawSchoolCode !== 'null') {
+    config.headers['X-School-Code'] = rawSchoolCode;
   }
 
-  const branchId =
-    (await AsyncStorage.getItem('branch_id')) ||
-    (await AsyncStorage.getItem('branchId'));
-
-  if (branchId) {
-    config.headers['X-Branch-Id'] = branchId;
+  const rawBranchId = (await AsyncStorage.getItem('branch_id')) || (await AsyncStorage.getItem('branchId'));
+  if (rawBranchId && rawBranchId !== 'null') {
+    config.headers['X-Branch-Id'] = rawBranchId;
   }
 
   return config;
@@ -69,5 +67,11 @@ API.interceptors.response.use(
     return Promise.reject(err);
   },
 );
+
+export const buildApiUrl = (path: string) => {
+  const base = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${cleanPath}`;
+};
 
 export default API;

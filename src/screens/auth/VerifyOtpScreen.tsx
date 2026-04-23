@@ -23,8 +23,12 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
       const resetToken =
         res?.data?.reset_token ||
         res?.data?.resetToken ||
+        res?.data?.token ||
+        res?.data?.access_token ||
         res?.data?.data?.reset_token ||
         res?.data?.data?.resetToken ||
+        res?.data?.data?.token ||
+        res?.data?.data?.access_token ||
         '';
 
       if (!resetToken) {

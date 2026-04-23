@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -9,7 +8,13 @@ import {
   RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Icon from 'react-native-vector-icons/Feather';
 import API from '../../services/api';
+import { colors } from '../../constants/theme';
+import AppText from '../../components/common/AppText';
+import AppCard from '../../components/common/AppCard';
+import AvatarBubble from '../../components/common/AvatarBubble';
+import { useAuth } from '../../context/AuthContext';
 
 // Types
 interface Exam {
@@ -50,22 +55,23 @@ const ResultBadge: React.FC<{ status: string }> = ({ status }) => {
   const isPass = status?.toUpperCase() === 'PASS';
   return (
     <View style={[styles.badge, isPass ? styles.badgePass : styles.badgeFail]}>
-      <Text style={[styles.badgeText, isPass ? styles.badgeTextPass : styles.badgeTextFail]}>
+      <AppText style={[styles.badgeText, isPass ? styles.badgeTextPass : styles.badgeTextFail]}>
         {status || '-'}
-      </Text>
+      </AppText>
     </View>
   );
 };
 
 // Summary Card Component
 const SummaryCard: React.FC<{ label: string; value: string | number }> = ({ label, value }) => (
-  <View style={styles.summaryCard}>
-    <Text style={styles.summaryLabel}>{label}</Text>
-    <Text style={styles.summaryValue}>{value}</Text>
-  </View>
+  <AppCard style={styles.summaryCard}>
+    <AppText style={styles.summaryLabel}>{label}</AppText>
+    <AppText style={styles.summaryValue}>{value}</AppText>
+  </AppCard>
 );
 
-export default function StudentMarksScreen() {
+export default function StudentMarksScreen({ navigation }: any) {
+  const { userName } = useAuth();
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [studentId, setStudentId] = useState<string>('');
   const [exams, setExams] = useState<Exam[]>([]);
@@ -161,35 +167,56 @@ export default function StudentMarksScreen() {
     setExamId(selectedExamId);
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Morning';
+    if (hour < 17) return 'Afternoon';
+    return 'Evening';
+  };
+
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
       }
     >
+      {/* Welcome Section */}
+      <View style={styles.welcomeSection}>
+        <View>
+          <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Student'}!</AppText>
+          <AppText style={styles.welcomeSub}>Review your examination results and performance.</AppText>
+        </View>
+        <View style={styles.dateBadge}>
+          <Icon name="calendar" size={12} color={colors.textMuted} />
+          <AppText style={styles.dateText}>
+            {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </AppText>
+        </View>
+      </View>
+
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.titleWrap}>
-          <Text style={styles.title}>🎓 Marks</Text>
+          <AppText style={styles.title}>🎓 Marks</AppText>
         </View>
         <TouchableOpacity style={styles.refreshBtn} onPress={loadMarks}>
-          <Text style={styles.refreshBtnText}>🔄 Refresh</Text>
+          <Icon name="refresh-cw" size={16} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
 
       {/* Exam Selection Card */}
-      <View style={styles.card}>
+      <AppCard style={styles.card}>
         <View style={styles.filterRow}>
           <View style={styles.examSelectorWrapper}>
-            <Text style={styles.label}>Select Exam</Text>
+            <AppText style={styles.label}>Select Exam</AppText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.examScroll}>
               <View style={styles.examChipContainer}>
                 {loadingExams ? (
-                  <ActivityIndicator size="small" color="#2563eb" />
+                  <ActivityIndicator size="small" color={colors.accent} />
                 ) : exams.length === 0 ? (
-                  <Text style={styles.noExamsText}>No exams available</Text>
+                  <AppText style={styles.noExamsText}>No exams available</AppText>
                 ) : (
                   exams.map((exam) => (
                     <TouchableOpacity
@@ -200,14 +227,14 @@ export default function StudentMarksScreen() {
                       ]}
                       onPress={() => handleExamSelect(String(exam.exam_id))}
                     >
-                      <Text
+                      <AppText
                         style={[
                           styles.examChipText,
                           examId === String(exam.exam_id) && styles.examChipTextActive,
                         ]}
                       >
                         {exam.exam_name}
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))
                 )}
@@ -216,54 +243,54 @@ export default function StudentMarksScreen() {
           </View>
 
           <TouchableOpacity style={styles.viewBtn} onPress={loadMarks}>
-            <Text style={styles.viewBtnText}>🔄 View Marks</Text>
+            <AppText style={styles.viewBtnText}>🔄 View Marks</AppText>
           </TouchableOpacity>
         </View>
-      </View>
+      </AppCard>
 
       {/* Summary Cards */}
       {summary && (
         <View style={styles.summaryGrid}>
-          <SummaryCard label="Total Obtained" value={summary.total_obtained} />
-          <SummaryCard label="Total Max Marks" value={summary.total_max_marks} />
-          <SummaryCard label="Percentage" value={`${summary.percentage}%`} />
-          <SummaryCard label="Overall Result" value={summary.overall_result} />
+          <SummaryCard label="Obtained" value={summary.total_obtained} />
+          <SummaryCard label="Max" value={summary.total_max_marks} />
+          <SummaryCard label="Percent" value={`${summary.percentage}%`} />
+          <SummaryCard label="Result" value={summary.overall_result} />
         </View>
       )}
 
       {/* Marks Table Card */}
-      <View style={styles.card}>
+      <AppCard style={styles.tableCard}>
         {loadingMarks ? (
           <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color="#2563eb" />
-            <Text style={styles.loaderText}>Loading marks...</Text>
+            <ActivityIndicator size="large" color={colors.accent} />
+            <AppText style={styles.loaderText}>Loading marks...</AppText>
           </View>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View>
               {/* Table Header */}
               <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderText, styles.colSubject]}>Subject</Text>
-                <Text style={[styles.tableHeaderText, styles.colMaxMarks]}>Max</Text>
-                <Text style={[styles.tableHeaderText, styles.colPassMarks]}>Pass</Text>
-                <Text style={[styles.tableHeaderText, styles.colObtained]}>Obtained</Text>
-                <Text style={[styles.tableHeaderText, styles.colGrade]}>Grade</Text>
-                <Text style={[styles.tableHeaderText, styles.colResult]}>Result</Text>
+                <AppText style={[styles.tableHeaderText, styles.colSubject]}>Subject</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colMaxMarks]}>Max</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colPassMarks]}>Pass</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colObtained]}>Obtained</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colGrade]}>Grade</AppText>
+                <AppText style={[styles.tableHeaderText, styles.colResult]}>Result</AppText>
               </View>
 
               {/* Table Body */}
               {items.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No marks found</Text>
+                  <AppText style={styles.emptyText}>No marks found</AppText>
                 </View>
               ) : (
                 items.map((row) => (
                   <View key={row.mark_id} style={styles.tableRow}>
-                    <Text style={[styles.tableCell, styles.colSubject]}>{row.subject_name}</Text>
-                    <Text style={[styles.tableCell, styles.colMaxMarks]}>{row.max_marks}</Text>
-                    <Text style={[styles.tableCell, styles.colPassMarks]}>{row.pass_marks}</Text>
-                    <Text style={[styles.tableCell, styles.colObtained]}>{row.marks_obtained}</Text>
-                    <Text style={[styles.tableCell, styles.colGrade]}>{row.grade || '-'}</Text>
+                    <AppText style={[styles.tableCell, styles.colSubject]}>{row.subject_name}</AppText>
+                    <AppText style={[styles.tableCell, styles.colMaxMarks]}>{row.max_marks}</AppText>
+                    <AppText style={[styles.tableCell, styles.colPassMarks]}>{row.pass_marks}</AppText>
+                    <AppText style={[styles.tableCell, styles.colObtained]}>{row.marks_obtained}</AppText>
+                    <AppText style={[styles.tableCell, styles.colGrade]}>{row.grade || '-'}</AppText>
                     <View style={styles.colResult}>
                       <ResultBadge status={row.result_status} />
                     </View>
@@ -273,7 +300,7 @@ export default function StudentMarksScreen() {
             </View>
           </ScrollView>
         )}
-      </View>
+      </AppCard>
     </ScrollView>
   );
 }
@@ -281,60 +308,79 @@ export default function StudentMarksScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fbff',
+    backgroundColor: colors.bg,
   },
   contentContainer: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 40,
+  },
+  welcomeSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  welcomeTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  welcomeSub: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  dateText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 22,
+    marginBottom: 20,
   },
   titleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   refreshBtn: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#ffffff',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    backgroundColor: colors.surface,
+    padding: 10,
     borderRadius: 12,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   refreshBtnText: {
-    color: '#475569',
-    fontWeight: '700',
-    fontSize: 14,
+    display: 'none',
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e7edf5',
-    borderRadius: 18,
+    marginBottom: 20,
+  },
+  tableCard: {
+    marginBottom: 20,
+    padding: 0,
     overflow: 'hidden',
-    marginBottom: 22,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.06,
-    shadowRadius: 28,
-    elevation: 3,
   },
   filterRow: {
-    padding: 18,
+    padding: 16,
   },
   examSelectorWrapper: {
     marginBottom: 16,
@@ -342,7 +388,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#64748b',
+    color: colors.textMuted,
     marginBottom: 10,
   },
   examScroll: {
@@ -357,40 +403,40 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#dbe3ee',
+    borderColor: colors.border,
     marginRight: 8,
     marginBottom: 8,
   },
   examChipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   examChipText: {
     fontSize: 14,
-    color: '#475569',
+    color: colors.textMuted,
     fontWeight: '500',
   },
   examChipTextActive: {
     color: '#ffffff',
   },
   noExamsText: {
-    color: '#94a3b8',
+    color: colors.textMuted,
     fontSize: 14,
     paddingVertical: 8,
   },
   viewBtn: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#dbe3ee',
+    borderColor: colors.border,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
   viewBtnText: {
-    color: '#475569',
+    color: colors.textPrimary,
     fontWeight: '800',
     fontSize: 14,
   },
@@ -398,59 +444,52 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 22,
+    marginBottom: 20,
+    gap: 8,
   },
   summaryCard: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e7edf5',
-    borderRadius: 18,
-    padding: 20,
-    width: '23%',
-    minWidth: 100,
-    marginBottom: 12,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.05,
-    shadowRadius: 24,
-    elevation: 2,
+    flex: 1,
+    minWidth: '22%',
+    padding: 12,
+    alignItems: 'center',
   },
   summaryLabel: {
-    color: '#64748b',
-    fontSize: 13,
+    color: colors.textMuted,
+    fontSize: 11,
     fontWeight: '700',
+    textTransform: 'uppercase',
   },
   summaryValue: {
-    marginTop: 10,
-    color: '#0f172a',
-    fontSize: 24,
+    marginTop: 6,
+    color: colors.textPrimary,
+    fontSize: 18,
     fontWeight: '800',
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#edf2f7',
+    borderBottomColor: colors.border,
   },
   tableHeaderText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#94a3b8',
+    color: colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#edf2f7',
+    borderBottomColor: colors.border,
   },
   tableCell: {
     fontSize: 14,
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   colSubject: {
     width: 120,
@@ -474,36 +513,36 @@ const styles = StyleSheet.create({
   colResult: {
     width: 80,
     textAlign: 'center',
+    alignItems: 'center',
   },
   badge: {
     paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 999,
-    alignSelf: 'flex-start',
+    borderRadius: 12,
   },
   badgePass: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: 'rgba(21, 128, 61, 0.2)',
   },
   badgeFail: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: 'rgba(185, 28, 28, 0.2)',
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
   },
   badgeTextPass: {
-    color: '#15803d',
+    color: colors.success,
   },
   badgeTextFail: {
-    color: '#b91c1c',
+    color: colors.error,
   },
   loaderContainer: {
-    padding: 60,
+    padding: 40,
     alignItems: 'center',
   },
   loaderText: {
     marginTop: 12,
-    color: '#64748b',
+    color: colors.textMuted,
     fontSize: 14,
   },
   emptyContainer: {
@@ -511,7 +550,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    color: '#64748b',
+    color: colors.textMuted,
     fontWeight: '600',
   },
 });

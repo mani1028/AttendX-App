@@ -232,24 +232,24 @@ const StatCard: React.FC<{
 
 // Class Card Component
 const ClassCard: React.FC<{
-  className: string;
+  branchClassName: string;
   sections: string[];
   studentCounts: Record<string, number>;
   onSelectSection: (className: string, section: string) => void;
-}> = ({ className, sections, studentCounts, onSelectSection }) => (
+}> = ({ branchClassName, sections, studentCounts, onSelectSection }) => (
   <AppCard style={styles.classCard}>
     <View style={styles.classHeader}>
-      <Text style={styles.classTitle}>Class {className}</Text>
+      <Text style={styles.classTitle}>Class {branchClassName}</Text>
     </View>
     <View style={styles.sectionList}>
       {sections.map(section => (
         <TouchableOpacity
           key={section}
           style={styles.sectionBtn}
-          onPress={() => onSelectSection(className, section)}
+          onPress={() => onSelectSection(branchClassName, section)}
         >
           <Text style={styles.sectionName}>Section {section}</Text>
-          <Text style={styles.sectionCount}>{studentCounts[`${className}-${section}`] || 0} students →</Text>
+          <Text style={styles.sectionCount}>{studentCounts[`${branchClassName}-${section}`] || 0} students →</Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -974,7 +974,7 @@ export default function BranchDetailsScreen() {
                 {classSections.map(cls => (
                   <ClassCard
                     key={cls.class_name}
-                    className={cls.class_name}
+                    branchClassName={cls.class_name}
                     sections={cls.sections}
                     studentCounts={studentCounts}
                     onSelectSection={handleViewStudentAttendance}

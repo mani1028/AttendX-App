@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -11,15 +10,19 @@ import {
   TextInput,
   Alert,
   Switch,
-  FlatList,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/Feather';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import AppText from '../../components/common/AppText';
+import AvatarBubble from '../../components/common/AvatarBubble';
+import { useAuth } from '../../context/AuthContext';
 
 // Types
 interface School {
@@ -67,10 +70,6 @@ interface Payment {
 }
 
 // Helper functions
-const getAuthToken = async (): Promise<string> => {
-  return (await AsyncStorage.getItem('token')) || '';
-};
-
 const getUserRole = async (): Promise<string> => {
   return (await AsyncStorage.getItem('userRole')) || '';
 };
@@ -95,10 +94,10 @@ const getDaysLeft = (endDate: string | null): number | null => {
 };
 
 const getDaysLeftColor = (days: number | null): string => {
-  if (days === null) return '#64748b';
-  if (days < 0) return '#ef4444';
-  if (days <= 3) return '#f59e0b';
-  return '#10b981';
+  if (days === null) return colors.textMuted;
+  if (days < 0) return colors.error;
+  if (days <= 3) return colors.warning;
+  return colors.success;
 };
 
 // Status Badge Component
@@ -109,11 +108,11 @@ const StatusBadge: React.FC<{ status: string; type?: 'school' | 'subscription' }
   if (type === 'school') {
     const isActive = status?.toLowerCase() === 'active';
     return (
-      <View style={[styles.statusBadge, isActive ? styles.statusActive : styles.statusInactive]}>
-        <View style={[styles.statusDot, isActive ? styles.dotActive : styles.dotInactive]} />
-        <Text style={[styles.statusText, isActive ? styles.statusTextActive : styles.statusTextInactive]}>
+      <View style={[styles.statusBadge, isActive ? { backgroundColor: colors.successSoft } : { backgroundColor: colors.errorSoft }]}>
+        <View style={[styles.statusDot, { backgroundColor: isActive ? colors.success : colors.error }]} />
+        <AppText style={[styles.statusText, { color: isActive ? colors.success : colors.error }]}>
           {isActive ? 'Active' : 'Inactive'}
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -121,15 +120,15 @@ const StatusBadge: React.FC<{ status: string; type?: 'school' | 'subscription' }
   // Subscription status
   const getStatusConfig = () => {
     const s = status?.toLowerCase() || '';
-    if (s === 'active_paid') return { color: '#10b981', bg: '#d1fae5', label: 'Active Paid' };
-    if (s === 'trial_active') return { color: '#3b82f6', bg: '#dbeafe', label: 'Trial Active' };
-    if (s === 'payment_due') return { color: '#f59e0b', bg: '#fef3c7', label: 'Payment Due' };
-    return { color: '#ef4444', bg: '#fee2e2', label: status || 'Unknown' };
+    if (s === 'active_paid') return { color: colors.success, bg: colors.successSoft, label: 'Active Paid' };
+    if (s === 'trial_active') return { color: colors.primary, bg: 'rgba(99, 102, 241, 0.1)', label: 'Trial Active' };
+    if (s === 'payment_due') return { color: colors.warning, bg: colors.warningSoft, label: 'Payment Due' };
+    return { color: colors.error, bg: colors.errorSoft, label: status || 'Unknown' };
   };
   const config = getStatusConfig();
   return (
     <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
-      <Text style={[styles.statusText, { color: config.color }]}>{config.label}</Text>
+      <AppText style={[styles.statusText, { color: config.color }]}>{config.label}</AppText>
     </View>
   );
 };
@@ -142,7 +141,7 @@ const SchoolCard: React.FC<{
   onResendCredentials: (school: School) => void;
   onSendReminder: (school: School) => void;
   onDelete: (school: School) => void;
-}> = ({ school, onEdit, onSubscription, onResendCredentials, onSendReminder, onDelete }) => {
+}> = ({ school, onEdit, onSubscription, onResendCredentials, onDelete }) => {
   const daysLeft = getDaysLeft(school.trial_end_at || school.subscription_end_at || null);
   const daysLeftColor = getDaysLeftColor(daysLeft);
   const isExpiringSoon = daysLeft !== null && daysLeft <= 3 && daysLeft > 0;
@@ -150,67 +149,71 @@ const SchoolCard: React.FC<{
   return (
     <AppCard style={styles.schoolCard}>
       <View style={styles.cardHeader}>
-        <View>
-          <Text style={styles.schoolId}>{school.school_id}</Text>
-          <Text style={styles.schoolName}>{school.name}</Text>
+        <View style={{ flex: 1 }}>
+          <AppText style={styles.schoolId}>{school.school_id}</AppText>
+          <AppText style={styles.schoolName}>{school.name}</AppText>
         </View>
         <StatusBadge status={school.status} type="school" />
       </View>
 
       <View style={styles.cardDetails}>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Email:</Text>
-          <Text style={styles.detailValue}>{school.email}</Text>
+          <AppText style={styles.detailLabel}>Email:</AppText>
+          <AppText style={styles.detailValue}>{school.email}</AppText>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Plan:</Text>
-          <Text style={styles.detailValue}>{school.current_plan_name || 'Basic Attendance'}</Text>
+          <AppText style={styles.detailLabel}>Plan:</AppText>
+          <AppText style={styles.detailValue}>{school.current_plan_name || 'Basic Attendance'}</AppText>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Status:</Text>
+          <AppText style={styles.detailLabel}>Status:</AppText>
           <StatusBadge status={school.subscription_status || ''} type="subscription" />
         </View>
         {school.trial_end_at && (
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Trial End:</Text>
-            <Text style={[styles.detailValue, { color: daysLeftColor }]}>
+            <AppText style={styles.detailLabel}>Trial End:</AppText>
+            <AppText style={[styles.detailValue, { color: daysLeftColor }]}>
               {formatDate(school.trial_end_at)}
               {daysLeft !== null && (
-                <Text style={{ fontSize: 11 }}> ({daysLeft < 0 ? 'Expired' : `${daysLeft} days left`})</Text>
+                <AppText style={{ fontSize: 11 }}> ({daysLeft < 0 ? 'Expired' : `${daysLeft} days left`})</AppText>
               )}
-            </Text>
+            </AppText>
           </View>
         )}
         {school.last_payment_amount && (
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Last Payment:</Text>
-            <Text style={styles.detailValue}>₹{school.last_payment_amount}</Text>
+            <AppText style={styles.detailLabel}>Last Payment:</AppText>
+            <AppText style={styles.detailValue}>₹{school.last_payment_amount}</AppText>
           </View>
         )}
       </View>
 
       {isExpiringSoon && (
         <View style={styles.warningBanner}>
-          <Text style={styles.warningIcon}>⚠️</Text>
-          <Text style={styles.warningText}>Trial ending in {daysLeft} days!</Text>
+          <Icon name="alert-triangle" size={14} color={colors.warning} />
+          <AppText style={styles.warningText}>Trial ending in {daysLeft} days!</AppText>
         </View>
       )}
 
       <View style={styles.cardActions}>
         <TouchableOpacity style={styles.actionBtn} onPress={() => onEdit(school)}>
-          <Text style={styles.actionBtnText}>✏️ Edit</Text>
+          <Icon name="edit-2" size={12} color={colors.textMuted} />
+          <AppText style={styles.actionBtnText}>Edit</AppText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionBtn} onPress={() => onSubscription(school)}>
-          <Text style={styles.actionBtnText}>💳 Sub</Text>
+          <Icon name="credit-card" size={12} color={colors.textMuted} />
+          <AppText style={styles.actionBtnText}>Sub</AppText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionBtn} onPress={() => onResendCredentials(school)}>
-          <Text style={styles.actionBtnText}>📧 Resend</Text>
+          <Icon name="mail" size={12} color={colors.textMuted} />
+          <AppText style={styles.actionBtnText}>Resend</AppText>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.actionBtn, styles.deleteBtn]} 
           onPress={() => onDelete(school)}
         >
-          <Text style={[styles.actionBtnText, styles.deleteBtnText]}>🗑️ Del</Text>
+          <Icon name="trash-2" size={12} color={colors.error} />
+          <AppText style={[styles.actionBtnText, styles.deleteBtnText]}>Del</AppText>
         </TouchableOpacity>
       </View>
     </AppCard>
@@ -220,14 +223,19 @@ const SchoolCard: React.FC<{
 // Stat Card Component
 const StatCard: React.FC<{
   title: string;
-  value: number;
+  value: string | number;
   icon: string;
   color: string;
-}> = ({ title, value, icon, color }) => (
+  loading?: boolean;
+}> = ({ title, value, icon, color, loading }) => (
   <View style={[styles.statCard, { borderLeftColor: color }]}>
-    <Text style={styles.statIcon}>{icon}</Text>
-    <Text style={styles.statValue}>{value}</Text>
-    <Text style={styles.statTitle}>{title}</Text>
+    <Icon name={icon} size={20} color={color} style={{ marginBottom: 4 }} />
+    {loading ? (
+      <View style={styles.skeletonValue} />
+    ) : (
+      <AppText style={styles.statValue}>{value}</AppText>
+    )}
+    <AppText style={styles.statTitle}>{title}</AppText>
   </View>
 );
 
@@ -313,80 +321,89 @@ const SchoolFormModal: React.FC<{
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
-              {mode === 'create' ? '➕ Register New School' : '✏️ Edit School Details'}
-            </Text>
+            <AppText style={styles.modalTitle}>
+              {mode === 'create' ? 'Register New School' : 'Edit School Details'}
+            </AppText>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <Text style={styles.modalCloseText}>✕</Text>
+              <Icon name="x" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.modalBody}>
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>School ID</Text>
+              <AppText style={styles.formLabel}>School ID</AppText>
               <TextInput
                 style={[styles.formInput, errors.school_id && styles.formInputError]}
                 placeholder="e.g. SCH00123"
+                placeholderTextColor={colors.textMuted}
                 value={formData.school_id}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, school_id: text.toUpperCase() }))}
                 editable={mode !== 'edit'}
               />
-              {errors.school_id && <Text style={styles.formError}>{errors.school_id}</Text>}
+              {errors.school_id && <AppText style={styles.formError}>{errors.school_id}</AppText>}
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>School Name</Text>
+              <AppText style={styles.formLabel}>School Name</AppText>
               <TextInput
                 style={[styles.formInput, errors.name && styles.formInputError]}
                 placeholder="e.g. Greenwood International School"
+                placeholderTextColor={colors.textMuted}
                 value={formData.name}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
               />
-              {errors.name && <Text style={styles.formError}>{errors.name}</Text>}
+              {errors.name && <AppText style={styles.formError}>{errors.name}</AppText>}
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Official Email</Text>
+              <AppText style={styles.formLabel}>Official Email</AppText>
               <TextInput
                 style={[styles.formInput, errors.email && styles.formInputError]}
                 placeholder="admin@school.com"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={formData.email}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, email: text }))}
               />
-              {errors.email && <Text style={styles.formError}>{errors.email}</Text>}
+              {errors.email && <AppText style={styles.formError}>{errors.email}</AppText>}
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Address</Text>
+              <AppText style={styles.formLabel}>Address</AppText>
               <TextInput
                 style={[styles.formInput, styles.textArea, errors.address && styles.formInputError]}
                 placeholder="Full address..."
+                placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={3}
                 value={formData.address}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, address: text }))}
               />
-              {errors.address && <Text style={styles.formError}>{errors.address}</Text>}
+              {errors.address && <AppText style={styles.formError}>{errors.address}</AppText>}
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Status</Text>
+              <AppText style={styles.formLabel}>Status</AppText>
               <View style={styles.switchRow}>
-                <Text style={styles.switchLabel}>Active</Text>
+                <AppText style={styles.switchLabel}>Active</AppText>
                 <Switch
                   value={formData.status === 'active'}
                   onValueChange={(val) => setFormData(prev => ({ ...prev, status: val ? 'active' : 'inactive' }))}
-                  trackColor={{ false: '#e4e9f2', true: '#2563eb' }}
+                  trackColor={{ false: colors.border, true: colors.accent }}
+                  thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
                 />
               </View>
             </View>
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <AppButton title="Cancel" onPress={onClose} type="secondary" />
-            <AppButton title={saving ? 'Saving...' : (mode === 'create' ? 'Create School' : 'Save Changes')} onPress={handleSave} disabled={saving} />
+            <View style={{ flex: 1 }}>
+              <AppButton title="Cancel" onPress={onClose} type="secondary" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <AppButton title={saving ? 'Saving...' : (mode === 'create' ? 'Create' : 'Save')} onPress={handleSave} disabled={saving} />
+            </View>
           </View>
         </View>
       </View>
@@ -477,7 +494,7 @@ const SubscriptionModal: React.FC<{
     return (
       <Modal visible={visible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { padding: 40 }]}>
             <Loader />
           </View>
         </View>
@@ -490,11 +507,12 @@ const SubscriptionModal: React.FC<{
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, styles.subscriptionModal]}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
-              Manage Subscription - {school?.name || 'School'}
-            </Text>
+            <View style={{ flex: 1 }}>
+              <AppText style={styles.modalTitle}>Manage Subscription</AppText>
+              <AppText style={{ fontSize: 12, color: colors.textMuted }}>{school?.name}</AppText>
+            </View>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <Text style={styles.modalCloseText}>✕</Text>
+              <Icon name="x" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -504,17 +522,17 @@ const SubscriptionModal: React.FC<{
               style={[styles.tabBtn, activeTab === 'manage' && styles.tabBtnActive]}
               onPress={() => setActiveTab('manage')}
             >
-              <Text style={[styles.tabText, activeTab === 'manage' && styles.tabTextActive]}>
-                💳 Manage
-              </Text>
+              <AppText style={[styles.tabText, activeTab === 'manage' && styles.tabTextActive]}>
+                Manage
+              </AppText>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tabBtn, activeTab === 'history' && styles.tabBtnActive]}
               onPress={() => setActiveTab('history')}
             >
-              <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
-                📜 History
-              </Text>
+              <AppText style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
+                History
+              </AppText>
             </TouchableOpacity>
           </View>
 
@@ -523,46 +541,47 @@ const SubscriptionModal: React.FC<{
               <>
                 {isExpiringSoon && (
                   <View style={styles.warningBanner}>
-                    <Text style={styles.warningIcon}>⚠️</Text>
-                    <Text style={styles.warningText}>Trial ending in {daysLeft} days!</Text>
+                    <Icon name="alert-triangle" size={14} color={colors.warning} />
+                    <AppText style={styles.warningText}>Trial ending in {daysLeft} days!</AppText>
                   </View>
                 )}
                 {isExpired && (
-                  <View style={[styles.warningBanner, styles.warningBannerUrgent]}>
-                    <Text style={styles.warningIcon}>🔴</Text>
-                    <Text style={styles.warningText}>Subscription expired! Access blocked.</Text>
+                  <View style={[styles.warningBanner, { backgroundColor: colors.errorSoft }]}>
+                    <Icon name="alert-circle" size={14} color={colors.error} />
+                    <AppText style={[styles.warningText, { color: colors.error }]}>Subscription expired! Access blocked.</AppText>
                   </View>
                 )}
 
                 <View style={styles.infoGrid}>
                   <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>Current Plan</Text>
-                    <Text style={styles.infoValue}>{subscription.current_plan_name || 'Basic Attendance'}</Text>
+                    <AppText style={styles.infoLabel}>Current Plan</AppText>
+                    <AppText style={styles.infoValue}>{subscription.current_plan_name || 'Basic Attendance'}</AppText>
                   </View>
                   <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>Status</Text>
+                    <AppText style={styles.infoLabel}>Status</AppText>
                     <StatusBadge status={subscription.subscription_status || ''} type="subscription" />
                   </View>
                   {subscription.trial_end_at && (
                     <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Trial End Date</Text>
-                      <Text style={styles.infoValue}>{formatDate(subscription.trial_end_at)}</Text>
+                      <AppText style={styles.infoLabel}>Trial End Date</AppText>
+                      <AppText style={styles.infoValue}>{formatDate(subscription.trial_end_at)}</AppText>
                     </View>
                   )}
                   <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>Access Enabled</Text>
-                    <Text style={[styles.infoValue, subscription.access_enabled ? styles.textSuccess : styles.textError]}>
+                    <AppText style={styles.infoLabel}>Access Enabled</AppText>
+                    <AppText style={[styles.infoValue, { color: subscription.access_enabled ? colors.success : colors.error }]}>
                       {subscription.access_enabled ? 'Yes' : 'No'}
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
 
                 <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Extend trial (days)</Text>
+                  <AppText style={styles.formLabel}>Extend trial (days)</AppText>
                   <TextInput
                     style={styles.formInput}
                     keyboardType="numeric"
                     placeholder="0"
+                    placeholderTextColor={colors.textMuted}
                     value={extendDays}
                     onChangeText={setExtendDays}
                   />
@@ -570,11 +589,12 @@ const SubscriptionModal: React.FC<{
 
                 <View style={styles.formGroup}>
                   <View style={styles.switchRow}>
-                    <Text style={styles.switchLabel}>Mark as paid</Text>
+                    <AppText style={styles.switchLabel}>Mark as paid</AppText>
                     <Switch
                       value={markPaid}
                       onValueChange={setMarkPaid}
-                      trackColor={{ false: '#e4e9f2', true: '#2563eb' }}
+                      trackColor={{ false: colors.border, true: colors.accent }}
+                      thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
                     />
                   </View>
                 </View>
@@ -582,17 +602,18 @@ const SubscriptionModal: React.FC<{
                 {markPaid && (
                   <>
                     <View style={styles.formGroup}>
-                      <Text style={styles.formLabel}>Amount paid (₹)</Text>
+                      <AppText style={styles.formLabel}>Amount paid (₹)</AppText>
                       <TextInput
                         style={styles.formInput}
                         keyboardType="numeric"
                         placeholder="Enter amount"
+                        placeholderTextColor={colors.textMuted}
                         value={amountPaid}
                         onChangeText={setAmountPaid}
                       />
                     </View>
                     <View style={styles.formGroup}>
-                      <Text style={styles.formLabel}>Payment method</Text>
+                      <AppText style={styles.formLabel}>Payment method</AppText>
                       <View style={styles.pickerContainer}>
                         {['card', 'upi', 'netbanking', 'wallet'].map(method => (
                           <TouchableOpacity
@@ -600,9 +621,9 @@ const SubscriptionModal: React.FC<{
                             style={[styles.pickerOption, paymentMethod === method && styles.pickerOptionActive]}
                             onPress={() => setPaymentMethod(method)}
                           >
-                            <Text style={[styles.pickerText, paymentMethod === method && styles.pickerTextActive]}>
+                            <AppText style={[styles.pickerText, paymentMethod === method && styles.pickerTextActive]}>
                               {method.charAt(0).toUpperCase() + method.slice(1)}
-                            </Text>
+                            </AppText>
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -615,23 +636,25 @@ const SubscriptionModal: React.FC<{
             {activeTab === 'history' && (
               payments.length === 0 ? (
                 <View style={styles.emptyPayments}>
-                  <Text style={styles.emptyIcon}>💰</Text>
-                  <Text style={styles.emptyText}>No payment records found</Text>
+                  <Icon name="dollar-sign" size={40} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 12 }} />
+                  <AppText style={styles.emptyText}>No payment records found</AppText>
                 </View>
               ) : (
                 payments.map((payment, index) => (
                   <View key={payment.id || index} style={styles.paymentItem}>
                     <View style={styles.paymentHeader}>
-                      <Text style={styles.paymentDate}>{formatDate(payment.paid_at)}</Text>
-                      <Text style={[styles.paymentStatus, payment.status === 'paid' ? styles.statusPaid : styles.statusPending]}>
-                        {payment.status}
-                      </Text>
+                      <AppText style={styles.paymentDate}>{formatDate(payment.paid_at)}</AppText>
+                      <View style={[styles.statusBadge, payment.status === 'paid' ? { backgroundColor: colors.successSoft } : { backgroundColor: colors.warningSoft }]}>
+                        <AppText style={[styles.statusText, { color: payment.status === 'paid' ? colors.success : colors.warning }]}>
+                          {payment.status}
+                        </AppText>
+                      </View>
                     </View>
-                    <Text style={styles.paymentAmount}>₹{payment.amount}</Text>
-                    <Text style={styles.paymentPlan}>Plan: {payment.plan_name}</Text>
-                    <Text style={styles.paymentMethod}>Method: {payment.payment_method}</Text>
+                    <AppText style={styles.paymentAmount}>₹{payment.amount}</AppText>
+                    <AppText style={styles.paymentPlan}>Plan: {payment.plan_name}</AppText>
+                    <AppText style={styles.paymentMethod}>Method: {payment.payment_method}</AppText>
                     {payment.razorpay_payment_id && (
-                      <Text style={styles.paymentTxId}>TX: {payment.razorpay_payment_id}</Text>
+                      <AppText style={styles.paymentTxId}>TX: {payment.razorpay_payment_id}</AppText>
                     )}
                   </View>
                 ))
@@ -640,8 +663,12 @@ const SubscriptionModal: React.FC<{
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <AppButton title="Cancel" onPress={onClose} type="secondary" />
-            <AppButton title={saving ? 'Saving...' : 'Save Changes'} onPress={handleSave} disabled={saving} />
+            <View style={{ flex: 1 }}>
+              <AppButton title="Cancel" onPress={onClose} type="secondary" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <AppButton title={saving ? 'Saving...' : 'Save'} onPress={handleSave} disabled={saving} />
+            </View>
           </View>
         </View>
       </View>
@@ -661,20 +688,24 @@ const DeleteConfirmModal: React.FC<{
     <View style={styles.modalOverlay}>
       <View style={styles.deleteModal}>
         <View style={styles.deleteIconWrap}>
-          <Text style={styles.deleteIcon}>⚠️</Text>
+          <Icon name="alert-triangle" size={28} color={colors.error} />
         </View>
-        <Text style={styles.deleteTitle}>Delete School?</Text>
-        <Text style={styles.deleteMessage}>
+        <AppText style={styles.deleteTitle}>Delete School?</AppText>
+        <AppText style={styles.deleteMessage}>
           This action is permanent. The following school will be removed:
-        </Text>
+        </AppText>
         <View style={styles.deleteSchoolName}>
-          <Text style={styles.deleteSchoolNameText}>
+          <AppText style={styles.deleteSchoolNameText}>
             {school?.school_id} — {school?.name}
-          </Text>
+          </AppText>
         </View>
         <View style={styles.deleteActions}>
-          <AppButton title="Cancel" onPress={onCancel} type="secondary" />
-          <AppButton title={deleting ? 'Deleting...' : 'Yes, Delete'} onPress={onConfirm} disabled={deleting} />
+          <View style={{ flex: 1 }}>
+            <AppButton title="Cancel" onPress={onCancel} type="secondary" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppButton title={deleting ? '...' : 'Delete'} onPress={onConfirm} disabled={deleting} />
+          </View>
         </View>
       </View>
     </View>
@@ -682,7 +713,8 @@ const DeleteConfirmModal: React.FC<{
 );
 
 export default function AdminDashboardScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  const { userName } = useAuth();
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -700,17 +732,6 @@ export default function AdminDashboardScreen() {
 
   const ITEMS_PER_PAGE = 8;
 
-  // Check admin role
-  useEffect(() => {
-    const checkRole = async () => {
-      const role = await getUserRole();
-      if (role !== 'admin') {
-        navigation.replace('Login' as never);
-      }
-    };
-    checkRole();
-  }, [navigation]);
-
   // Fetch schools
   const fetchSchools = async () => {
     setLoading(true);
@@ -721,7 +742,7 @@ export default function AdminDashboardScreen() {
       console.error('Error fetching schools:', err);
       if (err.response?.status === 401) {
         Alert.alert('Session Expired', 'Please login again');
-        navigation.replace('Login' as never);
+        navigation.replace('Login');
       } else {
         Alert.alert('Error', 'Failed to load schools');
       }
@@ -785,6 +806,13 @@ export default function AdminDashboardScreen() {
     }
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Morning';
+    if (hour < 17) return 'Afternoon';
+    return 'Evening';
+  };
+
   // Filter schools
   const filteredSchools = useMemo(() => {
     let filtered = [...schools];
@@ -826,7 +854,7 @@ export default function AdminDashboardScreen() {
     { value: 'inactive', label: 'Inactive' },
     { value: 'trial_active', label: 'Trial' },
     { value: 'active_paid', label: 'Paid' },
-    { value: 'payment_due', label: 'Payment Due' },
+    { value: 'payment_due', label: 'Due' },
   ];
 
   const expiringSchools = schools.filter(s => {
@@ -838,62 +866,66 @@ export default function AdminDashboardScreen() {
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>🏫 School Dashboard</Text>
+        {/* Welcome Section */}
+        <View style={styles.welcomeSection}>
+          <View>
+            <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Admin'}!</AppText>
+            <AppText style={styles.welcomeSub}>Here is what is happening across your schools today.</AppText>
+          </View>
+          <View style={styles.dateBadge}>
+            <Icon name="calendar" size={12} color={colors.textMuted} />
+            <AppText style={styles.dateText}>
+              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </AppText>
+          </View>
         </View>
 
         {/* Expiring Alert */}
         {expiringSchools.length > 0 && (
           <View style={styles.alertBanner}>
-            <Text style={styles.alertIcon}>⚠️</Text>
-            <Text style={styles.alertText}>
+            <Icon name="alert-triangle" size={16} color={colors.warning} />
+            <AppText style={styles.alertText}>
               {expiringSchools.length} school(s) have trials ending in 3 days or less!
-            </Text>
+            </AppText>
           </View>
         )}
 
         {/* Stats Grid */}
-        {stats && (
-          <View style={styles.statsGrid}>
-            <StatCard title="Total Schools" value={stats.total_schools} icon="🏫" color="#3b82f6" />
-            <StatCard title="Active Paid" value={stats.active_paid} icon="✅" color="#10b981" />
-            <StatCard title="Trial Active" value={stats.trial_active} icon="⏳" color="#3b82f6" />
-            <StatCard title="Payment Due" value={stats.payment_due} icon="⚠️" color="#f59e0b" />
-            <StatCard title="Inactive" value={stats.inactive} icon="❌" color="#ef4444" />
-            <StatCard title="Revenue (Month)" value={stats.revenue_this_month} icon="💰" color="#8b5cf6" />
-          </View>
-        )}
+        <View style={styles.statsGrid}>
+          <StatCard title="Schools" value={stats?.total_schools || 0} icon="home" color={colors.primary} loading={!stats} />
+          <StatCard title="Paid" value={stats?.active_paid || 0} icon="check-circle" color={colors.success} loading={!stats} />
+          <StatCard title="Trial" value={stats?.trial_active || 0} icon="clock" color={colors.secondary} loading={!stats} />
+          <StatCard title="Due" value={stats?.payment_due || 0} icon="alert-circle" color={colors.warning} loading={!stats} />
+        </View>
 
         {/* Filter Bar */}
         <View style={styles.filterBar}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.filterChips}>
-              {filterOptions.map(opt => (
-                <TouchableOpacity
-                  key={opt.value}
-                  style={[styles.filterChip, statusFilter === opt.value && styles.filterChipActive]}
-                  onPress={() => {
-                    setStatusFilter(opt.value);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <Text style={[styles.filterChipText, statusFilter === opt.value && styles.filterChipTextActive]}>
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
+            {filterOptions.map(opt => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[styles.filterChip, statusFilter === opt.value && styles.filterChipActive]}
+                onPress={() => {
+                  setStatusFilter(opt.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <AppText style={[styles.filterChipText, statusFilter === opt.value && styles.filterChipTextActive]}>
+                  {opt.label}
+                </AppText>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
 
           {/* Search */}
           <View style={styles.searchContainer}>
+            <Icon name="search" size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search by name, ID, email..."
-              placeholderTextColor="#94a3b8"
+              placeholder="Search schools..."
+              placeholderTextColor={colors.textMuted}
               value={searchTerm}
               onChangeText={(text) => {
                 setSearchTerm(text);
@@ -902,23 +934,23 @@ export default function AdminDashboardScreen() {
             />
             {searchTerm.length > 0 && (
               <TouchableOpacity onPress={() => setSearchTerm('')} style={styles.clearBtn}>
-                <Text style={styles.clearBtnText}>✕</Text>
+                <Icon name="x" size={14} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
         </View>
 
         {/* Create School Button */}
-        <AppButton title="➕ Register New School" onPress={() => setCreateModalOpen(true)} />
+        <AppButton title="Register New School" icon="plus" onPress={() => setCreateModalOpen(true)} />
 
         {/* School List */}
-        {loading ? (
-          <Loader />
+        {loading && !refreshing ? (
+          <View style={{ marginTop: 40 }}><Loader /></View>
         ) : paginatedSchools.length === 0 ? (
           <AppCard style={styles.emptyCard}>
-            <Text style={styles.emptyIcon}>🏫</Text>
-            <Text style={styles.emptyTitle}>No schools found</Text>
-            <Text style={styles.emptyText}>Try adjusting your search or filters</Text>
+            <Icon name="frown" size={48} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 12 }} />
+            <AppText style={styles.emptyTitle}>No schools found</AppText>
+            <AppText style={styles.emptyText}>Try adjusting your search or filters</AppText>
           </AppCard>
         ) : (
           <>
@@ -942,17 +974,17 @@ export default function AdminDashboardScreen() {
                   onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                 >
-                  <Text style={styles.pageBtnText}>◀</Text>
+                  <Icon name="chevron-left" size={18} color={currentPage === 1 ? colors.border : colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.pageInfo}>
+                <AppText style={styles.pageInfo}>
                   Page {currentPage} of {totalPages}
-                </Text>
+                </AppText>
                 <TouchableOpacity
                   style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
                   onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                 >
-                  <Text style={styles.pageBtnText}>▶</Text>
+                  <Icon name="chevron-right" size={18} color={currentPage === totalPages ? colors.border : colors.textPrimary} />
                 </TouchableOpacity>
               </View>
             )}
@@ -1003,70 +1035,93 @@ export default function AdminDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: colors.bg,
   },
   contentContainer: {
     padding: 16,
     paddingBottom: 40,
   },
-  header: {
-    marginBottom: 20,
+  welcomeSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 24,
   },
-  title: {
-    fontSize: 24,
+  welcomeTitle: {
+    fontSize: 20,
     fontWeight: '800',
-    color: '#0d1b2a',
+    color: colors.textPrimary,
+  },
+  welcomeSub: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  dateText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
   alertBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warningSoft,
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 16,
     gap: 10,
-  },
-  alertIcon: {
-    fontSize: 16,
+    borderWidth: 1,
+    borderColor: colors.warningSoft,
   },
   alertText: {
     flex: 1,
     fontSize: 13,
-    color: '#92400e',
-    fontWeight: '500',
+    color: colors.warning,
+    fontWeight: '600',
   },
   statsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 12,
     marginBottom: 20,
   },
   statCard: {
     flex: 1,
-    minWidth: '30%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
     padding: 12,
     borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  statIcon: {
-    fontSize: 20,
-    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   statValue: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#0d1b2a',
+    color: colors.textPrimary,
+  },
+  skeletonValue: {
+    height: 24,
+    width: '60%',
+    backgroundColor: colors.border,
+    borderRadius: 4,
+    marginBottom: 4,
   },
   statTitle: {
-    fontSize: 11,
-    color: '#64748b',
+    fontSize: 10,
+    color: colors.textMuted,
     marginTop: 2,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   filterBar: {
     marginBottom: 16,
@@ -1078,19 +1133,20 @@ const styles = StyleSheet.create({
   },
   filterChip: {
     paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: colors.border,
   },
   filterChipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   filterChipText: {
-    fontSize: 13,
-    color: '#4a5568',
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
   },
   filterChipTextActive: {
     color: '#fff',
@@ -1098,50 +1154,50 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: 12,
     paddingHorizontal: 12,
   },
   searchInput: {
     flex: 1,
-    height: 44,
+    height: 48,
     fontSize: 14,
-    color: '#0d1b2a',
+    color: colors.textPrimary,
   },
   clearBtn: {
     padding: 8,
   },
-  clearBtnText: {
-    fontSize: 14,
-    color: '#94a3b8',
-  },
   schoolCard: {
     padding: 16,
     marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
+    gap: 12,
   },
   schoolId: {
-    fontSize: 12,
-    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
-    backgroundColor: '#dbeafe',
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    backgroundColor: colors.bg,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
-    color: '#2563eb',
+    color: colors.accent,
     alignSelf: 'flex-start',
     marginBottom: 4,
+    fontWeight: '700',
   },
   schoolName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: colors.textPrimary,
   },
   cardDetails: {
     marginBottom: 12,
@@ -1149,115 +1205,100 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: 'row',
     marginBottom: 6,
+    alignItems: 'center',
   },
   detailLabel: {
-    width: 100,
+    width: 90,
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   detailValue: {
     flex: 1,
     fontSize: 13,
-    color: '#0d1b2a',
+    color: colors.textPrimary,
+    fontWeight: '500',
   },
   cardActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 12,
   },
   actionBtn: {
-    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: colors.border,
   },
   deleteBtn: {
-    backgroundColor: '#fee2e2',
-    borderColor: '#fecaca',
+    backgroundColor: colors.errorSoft,
+    borderColor: colors.errorSoft,
   },
   actionBtnText: {
     fontSize: 12,
-    color: '#4a5568',
+    color: colors.textPrimary,
+    fontWeight: '600',
   },
   deleteBtnText: {
-    color: '#dc2626',
+    color: colors.error,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 20,
+    borderRadius: 8,
     gap: 6,
-  },
-  statusActive: {
-    backgroundColor: '#dcfce7',
-  },
-  statusInactive: {
-    backgroundColor: '#fee2e2',
   },
   statusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
   },
-  dotActive: {
-    backgroundColor: '#10b981',
-  },
-  dotInactive: {
-    backgroundColor: '#ef4444',
-  },
   statusText: {
     fontSize: 11,
-    fontWeight: '600',
-  },
-  statusTextActive: {
-    color: '#15803d',
-  },
-  statusTextInactive: {
-    color: '#b91c1c',
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   warningBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warningSoft,
     padding: 10,
     borderRadius: 8,
     marginBottom: 12,
     gap: 8,
-  },
-  warningBannerUrgent: {
-    backgroundColor: '#fee2e2',
-  },
-  warningIcon: {
-    fontSize: 14,
+    borderWidth: 1,
+    borderColor: colors.warningSoft,
   },
   warningText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#92400e',
+    color: colors.warning,
   },
   emptyCard: {
     padding: 40,
     alignItems: 'center',
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-    opacity: 0.5,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
   },
   emptyTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#0d1b2a',
+    fontWeight: '700',
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   emptyText: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textMuted,
     textAlign: 'center',
   },
   pagination: {
@@ -1270,36 +1311,36 @@ const styles = StyleSheet.create({
   pageBtn: {
     width: 40,
     height: 40,
-    borderRadius: 10,
-    backgroundColor: '#fff',
+    borderRadius: 12,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pageBtnDisabled: {
-    opacity: 0.4,
-  },
-  pageBtnText: {
-    fontSize: 14,
-    color: '#4a5568',
+    opacity: 0.5,
   },
   pageInfo: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textMuted,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 24,
     width: '100%',
     maxHeight: '90%',
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
   },
   subscriptionModal: {
     maxHeight: '95%',
@@ -1308,62 +1349,63 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: colors.border,
   },
   modalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0d1b2a',
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.textPrimary,
   },
   modalClose: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  modalCloseText: {
-    fontSize: 16,
-    color: '#4a5568',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   modalBody: {
-    padding: 16,
+    padding: 20,
   },
   modalFooter: {
     flexDirection: 'row',
     gap: 12,
-    padding: 16,
+    padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#e4e9f2',
+    borderTopColor: colors.border,
   },
   formGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   formLabel: {
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
-    color: '#64748b',
-    marginBottom: 6,
+    color: colors.textMuted,
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
   formInput: {
     borderWidth: 1,
-    borderColor: '#e4e9f2',
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: 12,
     padding: 12,
-    fontSize: 14,
-    backgroundColor: '#f8fafc',
+    fontSize: 15,
+    backgroundColor: colors.bg,
+    color: colors.textPrimary,
   },
   formInputError: {
-    borderColor: '#dc2626',
+    borderColor: colors.error,
   },
   formError: {
-    fontSize: 11,
-    color: '#dc2626',
-    marginTop: 4,
+    fontSize: 12,
+    color: colors.error,
+    marginTop: 6,
+    fontWeight: '500',
   },
   textArea: {
     minHeight: 80,
@@ -1373,36 +1415,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: colors.bg,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   switchLabel: {
     fontSize: 14,
-    color: '#0d1b2a',
+    color: colors.textPrimary,
+    fontWeight: '600',
   },
   tabBar: {
     flexDirection: 'row',
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: colors.border,
   },
   tabBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
+    paddingVertical: 14,
+    marginRight: 24,
   },
   tabBtnActive: {
     borderBottomWidth: 2,
-    borderBottomColor: '#2563eb',
+    borderBottomColor: colors.accent,
   },
   tabText: {
-    fontSize: 13,
-    color: '#64748b',
-  },
-  tabTextActive: {
-    color: '#2563eb',
+    fontSize: 14,
+    color: colors.textMuted,
     fontWeight: '600',
   },
+  tabTextActive: {
+    color: colors.accent,
+  },
   infoGrid: {
-    marginBottom: 20,
+    marginBottom: 24,
     gap: 12,
+    backgroundColor: colors.bg,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   infoItem: {
     flexDirection: 'row',
@@ -1411,18 +1464,12 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   infoValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0d1b2a',
-  },
-  textSuccess: {
-    color: '#10b981',
-  },
-  textError: {
-    color: '#dc2626',
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
   pickerContainer: {
     flexDirection: 'row',
@@ -1432,18 +1479,19 @@ const styles = StyleSheet.create({
   pickerOption: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: colors.border,
   },
   pickerOptionActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   pickerText: {
     fontSize: 13,
-    color: '#4a5568',
+    color: colors.textMuted,
+    fontWeight: '600',
   },
   pickerTextActive: {
     color: '#fff',
@@ -1452,109 +1500,93 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 40,
   },
-  emptyIcon: {
-    fontSize: 40,
-    marginBottom: 12,
-    opacity: 0.5,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: '#64748b',
-  },
   paymentItem: {
-    backgroundColor: '#f8fafc',
-    padding: 12,
-    borderRadius: 10,
+    backgroundColor: colors.bg,
+    padding: 16,
+    borderRadius: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   paymentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    alignItems: 'center',
+    marginBottom: 12,
   },
   paymentDate: {
     fontSize: 12,
-    color: '#64748b',
-  },
-  paymentStatus: {
-    fontSize: 11,
+    color: colors.textMuted,
     fontWeight: '600',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  statusPaid: {
-    backgroundColor: '#dcfce7',
-    color: '#15803d',
-  },
-  statusPending: {
-    backgroundColor: '#fef3c7',
-    color: '#92400e',
   },
   paymentAmount: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0d1b2a',
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    marginBottom: 8,
   },
   paymentPlan: {
-    fontSize: 12,
-    color: '#4a5568',
-    marginBottom: 2,
+    fontSize: 13,
+    color: colors.textPrimary,
+    marginBottom: 4,
+    fontWeight: '600',
   },
   paymentMethod: {
     fontSize: 12,
-    color: '#4a5568',
-    marginBottom: 2,
+    color: colors.textMuted,
+    marginBottom: 4,
   },
   paymentTxId: {
     fontSize: 11,
-    color: '#94a3b8',
-    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    color: colors.textMuted,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginTop: 4,
   },
   deleteModal: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 24,
     padding: 24,
     width: '100%',
     maxWidth: 340,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   deleteIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#fee2e2',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
-  deleteIcon: {
-    fontSize: 28,
-  },
   deleteTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0d1b2a',
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   deleteMessage: {
-    fontSize: 13,
-    color: '#64748b',
+    fontSize: 14,
+    color: colors.textMuted,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
+    lineHeight: 20,
   },
   deleteSchoolName: {
-    backgroundColor: '#fef2f2',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 20,
+    backgroundColor: colors.bg,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   deleteSchoolNameText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#b91c1c',
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.error,
   },
   deleteActions: {
     flexDirection: 'row',
