@@ -54,6 +54,9 @@ interface UserProfile {
   father_guardian_mobile: string;
   mother_guardian_name: string;
   mother_guardian_mobile: string;
+  roll_number?: string;
+  class_grade?: string;
+  section?: string;
 }
 
 // Settings Interface
@@ -68,7 +71,7 @@ interface AppSettings {
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
-  const { userRole, logout, refreshAuth } = useAuth();
+  const { userRole, logout, refreshAuth, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [userInfo, setUserInfo] = useState<UserProfile>({
     name: '',
@@ -121,16 +124,14 @@ export default function ProfileScreen() {
     try {
       setLoading(true);
       
-      // Try to fetch from API first
-      let apiData = null;
+      // Get stored user data from multiple sources
+      const storedUser = await AsyncStorage.getItem('user');
+      let parsedUser: any = {};
       try {
-        const response = await API.get('/profile');
-        apiData = response.data;
-      } catch (apiError) {
-        console.log('API profile fetch failed, using storage data');
-      }
+        if (storedUser) parsedUser = JSON.parse(storedUser);
+      } catch (e) {}
       
-      // Load from AsyncStorage as fallback
+      // Get all stored values
       const [
         name, email, phone, employeeId, teacherId, studentId,
         schoolName, schoolCode, branchId, branchName, role,
@@ -139,6 +140,7 @@ export default function ProfileScreen() {
         nationality, motherTongue, religion, aadhaarNumber,
         emergencyContactName, emergencyContactNumber,
         fatherName, fatherMobile, motherName, motherMobile,
+        rollNumber, classGrade, section,
       ] = await Promise.all([
         AsyncStorage.getItem('user_name'),
         AsyncStorage.getItem('user_email'),
@@ -170,6 +172,9 @@ export default function ProfileScreen() {
         AsyncStorage.getItem('father_guardian_mobile'),
         AsyncStorage.getItem('mother_guardian_name'),
         AsyncStorage.getItem('mother_guardian_mobile'),
+        AsyncStorage.getItem('roll_number'),
+        AsyncStorage.getItem('class_grade'),
+        AsyncStorage.getItem('section'),
       ]);
       
       // Load settings
@@ -178,38 +183,44 @@ export default function ProfileScreen() {
         setSettings(JSON.parse(savedSettings));
       }
       
-      // Combine API data with storage data
+      // Determine role from multiple sources
+      const finalRole = role || userRole || parsedUser?.role || 'user';
+      
+      // Build user info from all available sources
       setUserInfo({
-        name: apiData?.full_name || apiData?.name || name || 'User',
-        email: apiData?.email || email || '',
-        phone: apiData?.phone || phone || '',
-        employee_id: apiData?.employee_id || employeeId || '',
-        teacher_id: apiData?.teacher_id || teacherId || '',
-        student_id: apiData?.student_id || studentId || '',
-        school_name: apiData?.school_name || schoolName || '',
-        school_code: apiData?.school_code || schoolCode || '',
-        branch_id: apiData?.branch_id || branchId || '',
-        branch_name: apiData?.branch_name || branchName || '',
-        role: apiData?.role || role || userRole || '',
-        designation: apiData?.designation || designation || '',
-        department_subject: apiData?.department_subject || departmentSubject || '',
-        date_of_joining: apiData?.date_of_joining || dateOfJoining || '',
-        qualification: apiData?.qualification || qualification || '',
-        experience_years: apiData?.experience_years || experienceYears || '',
-        address: apiData?.address || address || '',
-        blood_group: apiData?.blood_group || bloodGroup || '',
-        date_of_birth: apiData?.date_of_birth || dateOfBirth || '',
-        gender: apiData?.gender || gender || '',
-        nationality: apiData?.nationality || nationality || 'Indian',
-        mother_tongue: apiData?.mother_tongue || motherTongue || '',
-        religion: apiData?.religion || religion || '',
-        aadhaar_number: apiData?.aadhaar_number || aadhaarNumber || '',
-        emergency_contact_name: apiData?.emergency_contact_name || emergencyContactName || '',
-        emergency_contact_number: apiData?.emergency_contact_number || emergencyContactNumber || '',
-        father_guardian_name: apiData?.father_guardian_name || fatherName || '',
-        father_guardian_mobile: apiData?.father_guardian_mobile || fatherMobile || '',
-        mother_guardian_name: apiData?.mother_guardian_name || motherName || '',
-        mother_guardian_mobile: apiData?.mother_guardian_mobile || motherMobile || '',
+        name: name || parsedUser?.name || parsedUser?.full_name || 'User',
+        email: email || parsedUser?.email || '',
+        phone: phone || parsedUser?.phone || '',
+        employee_id: employeeId || parsedUser?.employee_id || '',
+        teacher_id: teacherId || parsedUser?.teacher_id || '',
+        student_id: studentId || parsedUser?.student_id || '',
+        school_name: schoolName || parsedUser?.school_name || '',
+        school_code: schoolCode || parsedUser?.school_code || '',
+        branch_id: branchId || parsedUser?.branch_id || '',
+        branch_name: branchName || parsedUser?.branch_name || '',
+        role: finalRole,
+        designation: designation || parsedUser?.designation || '',
+        department_subject: departmentSubject || parsedUser?.department_subject || '',
+        date_of_joining: dateOfJoining || parsedUser?.date_of_joining || '',
+        qualification: qualification || parsedUser?.qualification || '',
+        experience_years: experienceYears || parsedUser?.experience_years || '',
+        address: address || parsedUser?.address || '',
+        blood_group: bloodGroup || parsedUser?.blood_group || '',
+        date_of_birth: dateOfBirth || parsedUser?.date_of_birth || '',
+        gender: gender || parsedUser?.gender || '',
+        nationality: nationality || parsedUser?.nationality || 'Indian',
+        mother_tongue: motherTongue || parsedUser?.mother_tongue || '',
+        religion: religion || parsedUser?.religion || '',
+        aadhaar_number: aadhaarNumber || parsedUser?.aadhaar_number || '',
+        emergency_contact_name: emergencyContactName || parsedUser?.emergency_contact_name || '',
+        emergency_contact_number: emergencyContactNumber || parsedUser?.emergency_contact_number || '',
+        father_guardian_name: fatherName || parsedUser?.father_guardian_name || '',
+        father_guardian_mobile: fatherMobile || parsedUser?.father_guardian_mobile || '',
+        mother_guardian_name: motherName || parsedUser?.mother_guardian_name || '',
+        mother_guardian_mobile: motherMobile || parsedUser?.mother_guardian_mobile || '',
+        roll_number: rollNumber || parsedUser?.roll_number || '',
+        class_grade: classGrade || parsedUser?.class_grade || '',
+        section: section || parsedUser?.section || '',
       });
     } catch (error) {
       console.error('Profile fetch error:', error);
@@ -237,15 +248,30 @@ export default function ProfileScreen() {
     if (!editField.key || !editField.value) return;
     
     try {
-      await API.put('/profile/update', {
-        [editField.key]: editField.value,
-      });
+      // Try to update via API if available
+      try {
+        await API.put('/profile/update', {
+          [editField.key]: editField.value,
+        });
+      } catch (apiError) {
+        console.log('API update failed, saving locally only');
+      }
       
       // Update local state
       setUserInfo(prev => ({ ...prev, [editField.key]: editField.value }));
       
       // Update AsyncStorage
       await AsyncStorage.setItem(editField.key, editField.value);
+      
+      // Also update user object if needed
+      const storedUser = await AsyncStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const userObj = JSON.parse(storedUser);
+          userObj[editField.key] = editField.value;
+          await AsyncStorage.setItem('user', JSON.stringify(userObj));
+        } catch (e) {}
+      }
       
       Alert.alert('Success', `${editField.label} updated successfully`);
       setShowEditModal(false);
@@ -610,13 +636,13 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background || '#f8fafc',
+    backgroundColor: '#f8fafc',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background || '#f8fafc',
+    backgroundColor: '#f8fafc',
   },
   header: {
     alignItems: 'center',
