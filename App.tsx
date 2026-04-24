@@ -7,12 +7,13 @@ import { AuthProvider } from './src/context/AuthContext';
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
 
-  const handleIntroComplete = () => {
-    setShowIntro(false);
-  };
-
   if (showIntro) {
-    return <AttendXIntro onComplete={handleIntroComplete} duration={2800} />;
+    return (
+      <AttendXIntro
+        onComplete={() => setShowIntro(false)}
+        duration={2800}
+      />
+    );
   }
 
   return (

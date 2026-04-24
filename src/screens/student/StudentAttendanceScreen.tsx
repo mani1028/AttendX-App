@@ -695,6 +695,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 8,
   },
+<<<<<<< HEAD
   applyButtonText: {
     color: '#ffffff',
     fontSize: 15,
@@ -743,6 +744,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: '#0f172a',
+=======
+  tableCell: {
+    // Shared with a View status cell; keep this style View-safe.
+>>>>>>> 9f84fae43e32426c8b53c098c6b6213c47bfc935
   },
   dateMonth: {
     fontSize: 10,

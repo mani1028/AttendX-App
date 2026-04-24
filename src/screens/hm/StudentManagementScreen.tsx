@@ -12,7 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '@react-native-vector-icons/feather';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import API, { buildApiUrl } from '../../services/api';

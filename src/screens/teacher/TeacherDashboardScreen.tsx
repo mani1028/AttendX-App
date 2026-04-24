@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View, ScrollView } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '@react-native-vector-icons/feather';
 import { useAuth } from '../../context/AuthContext';
 import AvatarBubble from '../../components/common/AvatarBubble';
 import AppText from '../../components/common/AppText';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '@react-native-vector-icons/feather';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../constants/theme';
 import { useNavigation } from '@react-navigation/native';

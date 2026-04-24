@@ -21,7 +21,7 @@ import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AvatarBubble from '../../components/common/AvatarBubble';
 import { useAuth } from '../../context/AuthContext';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '@react-native-vector-icons/feather';
 import AppText from '../../components/common/AppText';
 
 // Types

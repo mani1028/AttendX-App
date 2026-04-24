@@ -1660,8 +1660,7 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   tableCell: {
-    fontSize: 13,
-    color: C.text,
+    // Shared with View rows; avoid text-only props here.
   },
   cellNumber: {
     textAlign: 'center',

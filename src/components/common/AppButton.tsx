@@ -9,9 +9,11 @@ type Props = TouchableOpacityProps & {
 };
 
 export default function AppButton({ title, type = 'primary', style, ...rest }: Props) {
+	const { color: _ignoredColor, ...touchableProps } = rest as TouchableOpacityProps & { color?: string };
+
 	return (
 		<TouchableOpacity
-			{...rest}
+			{...touchableProps}
 			style={[
 				styles.base,
 				type === 'secondary' ? styles.secondary : type === 'danger' ? styles.danger : styles.primary,

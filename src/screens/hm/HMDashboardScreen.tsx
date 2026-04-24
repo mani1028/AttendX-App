@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '@react-native-vector-icons/feather';
 import { Svg, Circle } from 'react-native-svg';
 import API from '../../services/api';
 import AvatarBubble from '../../components/common/AvatarBubble';
