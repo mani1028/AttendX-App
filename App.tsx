@@ -11,7 +11,7 @@ export default function App() {
     return (
       <AttendXIntro
         onComplete={() => setShowIntro(false)}
-        duration={2800}
+        duration={2800} // optional, defaults to 3200
       />
     );
   }

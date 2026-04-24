@@ -1,252 +1,261 @@
+// src/components/common/AttendXIntro.tsx
 import React, { useEffect, useRef } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   Animated,
-  Easing,
   Dimensions,
+  Image,
   StatusBar,
-  Text,
+  Platform,
 } from 'react-native';
+import Svg, { Text as SvgText, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 
 interface AttendXIntroProps {
   onComplete: () => void;
-  duration?: number;
+  duration?: number; // total duration in ms before fade out starts
 }
 
-const AttendXIntro: React.FC<AttendXIntroProps> = ({
-  onComplete,
-  duration = 2800,
-}) => {
-  // --- Animation values ---
-  const scaleAnim   = useRef(new Animated.Value(0.4)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-  const textOpacity = useRef(new Animated.Value(0)).current;
-  const textSlide   = useRef(new Animated.Value(18)).current;
-  const ringScale   = useRef(new Animated.Value(0.6)).current;
-  const ringOpacity = useRef(new Animated.Value(0)).current;
-  const exitOpacity = useRef(new Animated.Value(1)).current;
+const AttendXIntro: React.FC<AttendXIntroProps> = ({ onComplete, duration = 3200 }) => {
+  // Cloud animations
+  const cloudTranslateX = useRef(new Animated.Value(-150)).current;
+  const cloudOpacity = useRef(new Animated.Value(0)).current;
+
+  // Individual letter animations (6 letters: A t t e n d)
+  const lettersState = useRef(
+    Array(6).fill(null).map(() => ({
+      translateX: new Animated.Value(-80),
+      opacity: new Animated.Value(0),
+    }))
+  ).current;
+
+  // Gradient "X" animation
+  const xTranslateX = useRef(new Animated.Value(-80)).current;
+  const xOpacity = useRef(new Animated.Value(0)).current;
+
+  // Tagline animation
+  const taglineTranslateX = useRef(new Animated.Value(-80)).current;
+  const taglineOpacity = useRef(new Animated.Value(0)).current;
+
+  // Container fade-out
+  const containerOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const sequence = Animated.sequence([
-      // 1. Fade in + scale up the logo circle
-      Animated.parallel([
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: duration * 0.18,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1.08,
-          duration: duration * 0.32,
-          easing: Easing.out(Easing.back(1.4)),
-          useNativeDriver: true,
-        }),
-      ]),
-
-      // 2. Settle logo to 1.0 + reveal text + expand ring
-      Animated.parallel([
-        Animated.timing(scaleAnim, {
-          toValue: 1.0,
-          duration: duration * 0.12,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(textOpacity, {
-          toValue: 1,
-          duration: duration * 0.2,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(textSlide, {
-          toValue: 0,
-          duration: duration * 0.2,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(ringScale, {
-          toValue: 1.45,
-          duration: duration * 0.3,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(ringOpacity, {
-          toValue: 0.25,
-          duration: duration * 0.15,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]),
-
-      // 3. Hold
-      Animated.delay(duration * 0.1),
-
-      // 4. Fade ring out
-      Animated.timing(ringOpacity, {
+    // 1. Cloud slides in (delay 100ms)
+    Animated.parallel([
+      Animated.timing(cloudTranslateX, {
         toValue: 0,
-        duration: duration * 0.08,
-        easing: Easing.in(Easing.quad),
+        duration: 800,
+        delay: 100,
         useNativeDriver: true,
       }),
+      Animated.timing(cloudOpacity, {
+        toValue: 1,
+        duration: 600,
+        delay: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-      // 5. Exit — scale punch + fade out everything
+    // 2. Letters staggered slide (delay 700ms, each 70ms increment)
+    lettersState.forEach((letter, i) => {
+      const delay = 700 + i * 70;
       Animated.parallel([
-        Animated.timing(scaleAnim, {
-          toValue: 1.15,
-          duration: duration * 0.06,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(exitOpacity, {
+        Animated.timing(letter.translateX, {
           toValue: 0,
-          duration: duration * 0.18,
-          easing: Easing.in(Easing.cubic),
+          duration: 600,
+          delay,
           useNativeDriver: true,
         }),
-      ]),
-    ]);
+        Animated.timing(letter.opacity, {
+          toValue: 1,
+          duration: 400,
+          delay,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
 
-    sequence.start(() => onComplete());
-    return () => sequence.stop();
+    // 3. Gradient X slides in (delay 700 + 6*70 = 1120ms)
+    Animated.parallel([
+      Animated.timing(xTranslateX, {
+        toValue: 0,
+        duration: 600,
+        delay: 1120,
+        useNativeDriver: true,
+      }),
+      Animated.timing(xOpacity, {
+        toValue: 1,
+        duration: 400,
+        delay: 1120,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // 4. Tagline slides in (delay 1100ms)
+    Animated.parallel([
+      Animated.timing(taglineTranslateX, {
+        toValue: 0,
+        duration: 600,
+        delay: 1100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(taglineOpacity, {
+        toValue: 1,
+        duration: 400,
+        delay: 1100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // 5. Fade out container after total duration, then call onComplete
+    setTimeout(() => {
+      Animated.timing(containerOpacity, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }).start(() => {
+        onComplete?.();
+      });
+    }, duration);
   }, []);
 
-  const CIRCLE = width * 0.38;
+  const letterColors = ['#0652a8', '#05388b', '#032d76', '#032867', '#021a48', '#021a46'];
 
   return (
-    <View style={styles.container}>
-      <StatusBar hidden />
+    <Animated.View style={[styles.container, { opacity: containerOpacity }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
-      <Animated.View style={[styles.everything, { opacity: exitOpacity }]}>
-
-        {/* Pulse ring behind the circle */}
-        <Animated.View
+      <View style={styles.content}>
+        {/* Cloud Logo */}
+        <Animated.Image
+          source={require('../../assets/logo2.png')} // adjust path to your actual logo
           style={[
-            styles.ring,
+            styles.cloudLogo,
             {
-              width: CIRCLE,
-              height: CIRCLE,
-              borderRadius: CIRCLE / 2,
-              transform: [{ scale: ringScale }],
-              opacity: ringOpacity,
+              transform: [{ translateX: cloudTranslateX }],
+              opacity: cloudOpacity,
             },
           ]}
+          resizeMode="contain"
         />
 
-        {/* Logo circle + play icon */}
-        <Animated.View
-          style={[
-            styles.logoWrap,
-            {
-              width: CIRCLE,
-              height: CIRCLE,
-              borderRadius: CIRCLE / 2,
-              transform: [{ scale: scaleAnim }],
-              opacity: opacityAnim,
-            },
-          ]}
-        >
-          {/* Play triangle — pure View trick */}
-          <View style={styles.playOuter}>
-            <View style={styles.playTriangle} />
+        {/* Text side */}
+        <View style={styles.textSide}>
+          {/* Letters row */}
+          <View style={styles.lettersRow}>
+            {['A', 't', 't', 'e', 'n', 'd'].map((ch, i) => (
+              <Animated.Text
+                key={i}
+                style={[
+                  styles.letter,
+                  { color: letterColors[i] },
+                  {
+                    transform: [{ translateX: lettersState[i].translateX }],
+                    opacity: lettersState[i].opacity,
+                  },
+                ]}
+              >
+                {ch}
+              </Animated.Text>
+            ))}
+
+            {/* Gradient X as SVG */}
+            <Animated.View
+              style={{
+                transform: [{ translateX: xTranslateX }],
+                opacity: xOpacity,
+              }}
+            >
+              <Svg width={48} height={60} viewBox="0 0 60 68">
+                <Defs>
+                  <SvgGradient id="xGrad" x1="0" y1="0" x2="1" y2="0">
+                    <Stop offset="0%" stopColor="#1565c0" />
+                    <Stop offset="50%" stopColor="#06265c" />
+                    <Stop offset="50%" stopColor="#0b203f" />
+                    <Stop offset="100%" stopColor="#031024" />
+                  </SvgGradient>
+                </Defs>
+                <SvgText
+                  x="0"
+                  y="60"
+                  fontFamily={Platform.OS === 'ios' ? 'Montserrat' : 'sans-serif'}
+                  fontWeight="800"
+                  fontSize={72}
+                  fill="url(#xGrad)"
+                >
+                  X
+                </SvgText>
+              </Svg>
+            </Animated.View>
           </View>
-        </Animated.View>
 
-        {/* App name */}
-        <Animated.View
-          style={[
-            styles.textWrap,
-            {
-              opacity: textOpacity,
-              transform: [{ translateY: textSlide }],
-            },
-          ]}
-        >
-          <Text style={styles.appName}>
-            Attend<Text style={styles.appNameAccent}>X</Text>
-          </Text>
-          <Text style={styles.tagline}>Smart Attendance</Text>
-        </Animated.View>
-
-      </Animated.View>
-    </View>
+          {/* Tagline */}
+          <Animated.Text
+            style={[
+              styles.tagline,
+              {
+                transform: [{ translateX: taglineTranslateX }],
+                opacity: taglineOpacity,
+              },
+            ]}
+          >
+            Attendance in One Click
+          </Animated.Text>
+        </View>
+      </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  everything: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // Pulse ring
-  ring: {
     position: 'absolute',
-    borderWidth: 3,
-    borderColor: '#2563EB',
-    backgroundColor: 'transparent',
-  },
-
-  // Circle logo
-  logoWrap: {
-    backgroundColor: '#2563EB',
-    alignItems: 'center',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
-    // Subtle shadow for depth
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 12,
-  },
-
-  // Play button triangle using border trick
-  playOuter: {
-    marginLeft: 6, // optical centering of triangle
-    width: 0,
-    height: 0,
-    backgroundColor: 'transparent',
-    borderStyle: 'solid',
-    borderLeftWidth: 26,
-    borderRightWidth: 0,
-    borderTopWidth: 18,
-    borderBottomWidth: 18,
-    borderLeftColor: '#FFFFFF',
-    borderRightColor: 'transparent',
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-  },
-  playTriangle: {}, // kept for future override
-
-  // Text
-  textWrap: {
-    marginTop: 28,
     alignItems: 'center',
+    zIndex: 9999,
   },
-  appName: {
-    fontSize: 34,
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    maxWidth: width * 0.9,
+    paddingHorizontal: 20,
+  },
+  cloudLogo: {
+    width: 80,
+    height: 80,
+    flexShrink: 0,
+  },
+  textSide: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  lettersRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  letter: {
+    fontFamily: Platform.OS === 'ios' ? 'Montserrat-Bold' : 'sans-serif',
     fontWeight: '800',
-    color: '#111827',
-    letterSpacing: -0.5,
-  },
-  appNameAccent: {
-    color: '#2563EB',
+    fontSize: 48,
+    lineHeight: 52,
   },
   tagline: {
-    marginTop: 4,
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#9CA3AF',
-    letterSpacing: 1.8,
-    textTransform: 'uppercase',
+    fontFamily: Platform.OS === 'ios' ? 'Montserrat-SemiBold' : 'sans-serif',
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#3a9fd6',
+    marginTop: 6,
   },
 });
 
