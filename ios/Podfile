@@ -1,9 +1,7 @@
 require Pod::Executable.execute_command('node', ['-p',
   'require.resolve("react-native/scripts/react_native_pods.rb", {paths: [process.argv[1]]})', __dir__]).strip
 
-ENV['RCT_NEW_ARCH_ENABLED'] = '0'
-
-platform :ios, min_ios_version_supported
+platform :ios, '16.0'
 prepare_react_native_project!
 
 target 'AttendX' do
@@ -11,7 +9,10 @@ target 'AttendX' do
 
   use_react_native!(
     :path => config[:reactNativePath],
-    :app_path => "#{Pod::Config.instance.installation_root}/.."
+    :app_path => "#{Pod::Config.instance.installation_root}/..",
+    :hermes_enabled => true,
+    :fabric_enabled => true,
+    :new_arch_enabled => true
   )
 
   post_install do |installer|
@@ -23,11 +24,17 @@ target 'AttendX' do
 
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |config|
-        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
         config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
         config.build_settings['SWIFT_VERSION'] = '5.0'
+        config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
         config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
         config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+
+        # Specifically fix UTType for NitroModules
+        if target.name == 'NitroModules'
+          config.build_settings['OTHER_SWIFT_FLAGS'] = '$(inherited) -D IOS_14_OR_LATER'
+        end
       end
     end
   end

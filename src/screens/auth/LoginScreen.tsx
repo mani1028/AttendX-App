@@ -45,15 +45,21 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         ['token', normalized.token || ''],
         ['role', normalized.role],
         ['school_code', schoolCode],
+        ['user_name', normalized.user?.name || username],
       ];
 
-      if (normalized.user?.branch_id) {
-        toStore.push(['branch_id', String(normalized.user.branch_id)]);
-      }
+      if (normalized.user?.userId) toStore.push(['user_id', String(normalized.user.userId)]);
+      if (normalized.user?.branchId) toStore.push(['branch_id', String(normalized.user.branchId)]);
+      if (normalized.user?.employeeId) toStore.push(['employee_id', String(normalized.user.employeeId)]);
+      if (normalized.user?.studentId) toStore.push(['student_id', String(normalized.user.studentId)]);
 
       await AsyncStorage.multiSet(toStore);
-      setAuthToken(normalized.token);
-      signIn(normalized);
+      setAuthToken(normalized.token || '');
+      signIn(
+        normalized.role,
+        normalized.user?.name || username,
+        normalized.token || ''
+      );
     } catch (err: any) {
       Alert.alert("Login Failed", err.message || "Invalid credentials");
     } finally {
@@ -149,11 +155,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
     marginTop: 20,
+    width: '100%',
   },
   logo: {
-    width: 220,
-    height: 100,
+    width: 80,
+    height: 80,
     marginBottom: 16,
+    alignSelf: 'center',
   },
   brandTitle: {
     fontSize: 22,

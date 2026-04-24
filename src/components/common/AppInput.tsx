@@ -10,7 +10,7 @@ import {
 	TouchableOpacity,
 } from 'react-native';
 import { colors } from '../../constants/colors';
-import Icon from 'react-native-vector-icons/Feather';
+import { Eye, EyeOff } from 'lucide-react-native';
 
 interface AppInputProps extends TextInputProps {
 	label?: string;
@@ -55,11 +55,11 @@ export const AppInput: React.FC<AppInputProps> = ({
 						style={styles.iconContainer}
 						onPress={togglePasswordVisibility}
 					>
-						<Icon
-							name={isPasswordVisible ? 'eye' : 'eye-off'}
-							size={20}
-							color={colors.mutedText}
-						/>
+						{isPasswordVisible ? (
+							<Eye size={20} color={colors.mutedText} />
+						) : (
+							<EyeOff size={20} color={colors.mutedText} />
+						)}
 					</TouchableOpacity>
 				)}
 			</View>

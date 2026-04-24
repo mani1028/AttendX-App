@@ -1,4 +1,5 @@
 import UIKit
+import React
 
 @main
 class AppDelegate: RCTAppDelegate {
@@ -8,7 +9,9 @@ class AppDelegate: RCTAppDelegate {
   ) -> Bool {
     self.moduleName = "AttendX"
     
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    let success = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+
+    return success
   }
 
   override func sourceURL(for bridge: RCTBridge) -> URL? {

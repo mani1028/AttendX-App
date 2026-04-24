@@ -1,11 +1,23 @@
-const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
+const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
 
-/**
- * Metro configuration
- * https://reactnative.dev/docs/metro
- *
- * @type {import('@react-native/metro-config').MetroConfig}
- */
+const defaultConfig = getDefaultConfig(__dirname);
+
+// Disable new architecture features
+defaultConfig.transformer = {
+  ...defaultConfig.transformer,
+  unstable_allowRequireContext: false,
+  minifierConfig: {
+    compress: {
+      drop_console: false,
+    },
+  },
+};
+
+defaultConfig.resolver = {
+  ...defaultConfig.resolver,
+  assetExts: [...defaultConfig.resolver.assetExts, 'db', 'ttf', 'png', 'jpg'],
+};
+
 const config = {};
 
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+module.exports = mergeConfig(defaultConfig, config);

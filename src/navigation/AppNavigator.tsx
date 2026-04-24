@@ -1,10 +1,9 @@
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
-import MarkAttendanceScreen from '../screens/teacher/MarkAttendanceScreen';
+import MarkAttendanceScreen from '../components/teacher/MarkAttendanceScreen';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import Header from '../components/common/Header';
@@ -206,9 +205,8 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {userToken === null ? (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {userToken === null ? (
           // ─── Auth Stack ─────────────────────────────────────────────────────
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
@@ -256,6 +254,5 @@ export default function AppNavigator() {
           </>
         )}
       </Stack.Navigator>
-    </NavigationContainer>
   );
 }
