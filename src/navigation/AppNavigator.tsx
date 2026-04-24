@@ -178,7 +178,7 @@ const Tab = createBottomTabNavigator();
 const AdminTabNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
-      header: () => <Header />,
+      headerShown: false,
       tabBarIcon: ({ focused, color, size }) => {
         const icons: Record<string, [string, string]> = {
           Dashboard: ['grid', 'grid-outline'],
@@ -203,7 +203,7 @@ const AdminTabNavigator = () => (
 const PrincipalTabNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
-      header: () => <Header />,
+      headerShown: false,
       tabBarIcon: ({ focused, color, size }) => {
         const icons: Record<string, [string, string]> = {
           Dashboard: ['grid', 'grid-outline'],
@@ -226,7 +226,7 @@ const PrincipalTabNavigator = () => (
 const HMTabNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
-      header: () => <Header />,
+      headerShown: false,
       tabBarIcon: ({ focused, color, size }) => {
         const icons: Record<string, [string, string]> = {
           Home: ['home', 'home-outline'],
@@ -255,7 +255,7 @@ const HMTabNavigator = () => (
 const TeacherTabNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
-      header: () => <Header />,
+      headerShown: false,
       tabBarIcon: ({ focused, color, size }) => {
         const icons: Record<string, [string, string]> = {
           Home: ['home', 'home-outline'],
@@ -286,7 +286,7 @@ const TeacherTabNavigator = () => (
 const StudentTabNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
-      header: () => <Header />,
+      headerShown: false,
       tabBarIcon: ({ focused, color, size }) => {
         const icons: Record<string, [string, string]> = {
           Home: ['home', 'home-outline'],
@@ -317,7 +317,7 @@ const StudentTabNavigator = () => (
 const AccountantTabNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
-      header: () => <Header />,
+      headerShown: false,
       tabBarIcon: ({ focused, color, size }) => {
         const icons: Record<string, [string, string]> = {
           Dashboard: ['grid', 'grid-outline'],
@@ -398,27 +398,27 @@ export default function AppNavigator() {
           <Stack.Screen name="MainTabs" component={MainTabs} />
           
           {/* Common Screens */}
-          <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: true, title: 'Profile' }} />
+          <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
           
           {/* Admin Screens */}
-          <Stack.Screen name="NotificationManager" component={NotificationManagerScreen} options={{ headerShown: true, title: 'Notifications' }} />
-          <Stack.Screen name="SchoolDetails" component={SchoolDetailsScreen} options={{ headerShown: true, title: 'School Details' }} />
-          <Stack.Screen name="AdminSettings" component={SettingsScreen} options={{ headerShown: true, title: 'Settings' }} />
+          <Stack.Screen name="NotificationManager" component={NotificationManagerScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="SchoolDetails" component={SchoolDetailsScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="AdminSettings" component={SettingsScreen} options={{ headerShown: false }} />
           
           {/* Teacher Screens */}
           <Stack.Screen name="TeacherDashboard" component={TeacherDashboardScreen} />
           <Stack.Screen name="TeacherAttendance" component={TeacherAttendanceScreen} />
           <Stack.Screen name="TeacherMarksEntry" component={TeacherMarksEntryScreen} />
           <Stack.Screen name="TeacherHomeworkManagement" component={TeacherHomeworkManagementScreen} />
-          <Stack.Screen name="TeacherLeaveRequest" component={TeacherLeaveRequestScreen} options={{ headerShown: true, title: 'Leave Request' }} />
-          <Stack.Screen name="TeacherLeaveApproval" component={TeacherLeaveApprovalScreen} options={{ headerShown: true, title: 'Leave Approval' }} />
-          <Stack.Screen name="TeacherStudentList" component={TeacherStudentListScreen} options={{ headerShown: true, title: 'My Students' }} />
-          <Stack.Screen name="TeacherSkinDisease" component={TeacherSkinDiseaseScreen} options={{ headerShown: true, title: 'Skin Disease Analysis' }} />
-          <Stack.Screen name="TeacherVitalScan" component={TeacherVitalScanScreen} options={{ headerShown: true, title: 'Vital Scan' }} />
-          <Stack.Screen name="TeacherViewAttendance" component={TeacherViewAttendanceScreen} options={{ headerShown: true, title: 'View Attendance' }} />
-          <Stack.Screen name="TeacherAttendanceGallery" component={TeacherAttendanceGalleryScreen} options={{ headerShown: true, title: 'Attendance Gallery' }} />
-          <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} options={{ headerShown: true, title: 'Mark Attendance' }} />
+          <Stack.Screen name="TeacherLeaveRequest" component={TeacherLeaveRequestScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="TeacherLeaveApproval" component={TeacherLeaveApprovalScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="TeacherStudentList" component={TeacherStudentListScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="TeacherSkinDisease" component={TeacherSkinDiseaseScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="TeacherVitalScan" component={TeacherVitalScanScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="TeacherViewAttendance" component={TeacherViewAttendanceScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="TeacherAttendanceGallery" component={TeacherAttendanceGalleryScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} options={{ headerShown: false }} />
           
           {/* Student Screens */}
           <Stack.Screen name="StudentDashboard" component={StudentDashboardScreen} />
@@ -427,37 +427,37 @@ export default function AppNavigator() {
           <Stack.Screen name="StudentHomework" component={StudentHomeworkScreen} />
           <Stack.Screen name="StudentFee" component={StudentFeeScreen} />
           <Stack.Screen name="StudentLeave" component={StudentLeaveScreen} />
-          <Stack.Screen name="StudentQuestionPapers" component={StudentQuestionPapersScreen} options={{ headerShown: true, title: 'Question Papers' }} />
+          <Stack.Screen name="StudentQuestionPapers" component={StudentQuestionPapersScreen} options={{ headerShown: false }} />
           
           {/* HM Screens */}
           <Stack.Screen name="HMDashboard" component={HMDashboardScreen} />
           <Stack.Screen name="HMAttendance" component={HMAttendanceScreen} />
-          <Stack.Screen name="HMStudentManagement" component={HMStudentManagementScreen} options={{ headerShown: true, title: 'Student Management' }} />
-          <Stack.Screen name="HMTeacherManagement" component={HMTeacherManagementScreen} options={{ headerShown: true, title: 'Teacher Management' }} />
-          <Stack.Screen name="HMExams" component={HMExamsScreen} options={{ headerShown: true, title: 'Exam Management' }} />
-          <Stack.Screen name="HMAnnouncements" component={HMAnnouncementsScreen} options={{ headerShown: true, title: 'Announcements' }} />
-          <Stack.Screen name="HMReports" component={HMReportsScreen} options={{ headerShown: true, title: 'Reports' }} />
-          <Stack.Screen name="HMFeeManagement" component={HMFeeManagementScreen} options={{ headerShown: true, title: 'Fee Management' }} />
-          <Stack.Screen name="HMExpense" component={HMExpenseScreen} options={{ headerShown: true, title: 'Expenses' }} />
-          <Stack.Screen name="HMSettings" component={HMSettingsScreen} options={{ headerShown: true, title: 'Settings' }} />
-          <Stack.Screen name="HMStudentRegistration" component={HMStudentRegistrationScreen} options={{ headerShown: true, title: 'Register Student' }} />
+          <Stack.Screen name="HMStudentManagement" component={HMStudentManagementScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="HMTeacherManagement" component={HMTeacherManagementScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="HMExams" component={HMExamsScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="HMAnnouncements" component={HMAnnouncementsScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="HMReports" component={HMReportsScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="HMFeeManagement" component={HMFeeManagementScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="HMExpense" component={HMExpenseScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="HMSettings" component={HMSettingsScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="HMStudentRegistration" component={HMStudentRegistrationScreen} options={{ headerShown: false }} />
           
           {/* Principal Screens */}
           <Stack.Screen name="PrincipalDashboard" component={PrincipalDashboardScreen} />
-          <Stack.Screen name="PrincipalBranchDetails" component={PrincipalBranchDetailsScreen} options={{ headerShown: true, title: 'Branch Details' }} />
-          <Stack.Screen name="PrincipalHMRegistration" component={PrincipalHMRegistrationScreen} options={{ headerShown: true, title: 'Register HM' }} />
+          <Stack.Screen name="PrincipalBranchDetails" component={PrincipalBranchDetailsScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="PrincipalHMRegistration" component={PrincipalHMRegistrationScreen} options={{ headerShown: false }} />
           
           {/* Accountant Screens */}
           <Stack.Screen name="AccountantDashboard" component={AccountantDashboardScreen} />
-          <Stack.Screen name="AccountantPaymentEntry" component={AccountantPaymentEntryScreen} options={{ headerShown: true, title: 'Payment Entry' }} />
-          <Stack.Screen name="AccountantPayroll" component={AccountantPayrollScreen} options={{ headerShown: true, title: 'Payroll Management' }} />
-          <Stack.Screen name="AccountantFeeManagement" component={AccountantFeeManagementScreen} options={{ headerShown: true, title: 'Fee Management' }} />
-          <Stack.Screen name="AccountantExpense" component={AccountantExpenseScreen} options={{ headerShown: true, title: 'Expenses' }} />
-          <Stack.Screen name="AccountantReports" component={AccountantReportsScreen} options={{ headerShown: true, title: 'Reports' }} />
-          <Stack.Screen name="AccountantSettings" component={AccountantSettingsScreen} options={{ headerShown: true, title: 'Settings' }} />
+          <Stack.Screen name="AccountantPaymentEntry" component={AccountantPaymentEntryScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="AccountantPayroll" component={AccountantPayrollScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="AccountantFeeManagement" component={AccountantFeeManagementScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="AccountantExpense" component={AccountantExpenseScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="AccountantReports" component={AccountantReportsScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="AccountantSettings" component={AccountantSettingsScreen} options={{ headerShown: false }} />
           
           {/* Visitor Screens (Logged In) */}
-          <Stack.Screen name="VisitorDashboard" component={VisitorDashboardScreen} options={{ headerShown: true, title: 'Visitor Management' }} />
+          <Stack.Screen name="VisitorDashboard" component={VisitorDashboardScreen} options={{ headerShown: false }} />
         </>
       )}
     </Stack.Navigator>

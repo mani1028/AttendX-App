@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
   gradientHeader: {
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingTop: Platform.OS === 'ios' ? 20 : 20,
     paddingBottom: 30,
     paddingHorizontal: 20,
   },
