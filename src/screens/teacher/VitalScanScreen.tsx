@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
@@ -83,6 +84,7 @@ export default function VitalScanScreen() {
   const [images, setImages] = useState<ImageItem[]>([]);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [userId, setUserId] = useState<string>('');
 
   // Fever modal
   const [showFeverModal, setShowFeverModal] = useState<boolean>(false);
@@ -102,6 +104,54 @@ export default function VitalScanScreen() {
     setToast({ visible: true, title, message, icon, color });
   };
 
+  // Load cached state on mount
+  useEffect(() => {
+    const loadCache = async () => {
+      try {
+        const schoolCode = await AsyncStorage.getItem('school_code') || '';
+        const employeeId = await AsyncStorage.getItem('employee_id') || '';
+        const id = `${schoolCode}_${employeeId}`;
+        setUserId(id);
+
+        const cachedState = await AsyncStorage.getItem(`last_vital_scan_state_${id}`);
+        if (cachedState) {
+          const state = JSON.parse(cachedState);
+          setStudentName(state.studentName || '');
+          setCheckupNote(state.checkupNote || '');
+          setScanType(state.scanType || 'teeth');
+          setImages(state.images || []);
+          setResult(state.result || null);
+        }
+      } catch (e) {
+        console.warn('Failed to load vital scan cache', e);
+      }
+    };
+    loadCache();
+  }, []);
+
+  // Persist state when it changes
+  useEffect(() => {
+    const persistState = async () => {
+      if (!userId) return;
+      try {
+        const state = {
+          studentName,
+          checkupNote,
+          scanType,
+          images,
+          result,
+        };
+        await AsyncStorage.setItem(`last_vital_scan_state_${userId}`, JSON.stringify(state));
+      } catch (e) {
+        console.warn('Failed to persist vital scan state', e);
+      }
+    };
+
+    // Use a small delay to avoid excessive writes while typing
+    const timer = setTimeout(persistState, 1000);
+    return () => clearTimeout(timer);
+  }, [studentName, checkupNote, scanType, images, result, userId]);
+
   const teethSteps = ['Center View', 'Left View', 'Right View'];
   const maxImages = scanType === 'eye' ? 1 : 3;
   const canAddMore = !cameraActive && images.length < maxImages;
@@ -113,7 +163,7 @@ export default function VitalScanScreen() {
     });
   }, []);
 
-  const startNewStudent = () => {
+  const startNewStudent = async () => {
     setStudentName('');
     setCheckupNote('');
     setImages([]);
@@ -121,6 +171,13 @@ export default function VitalScanScreen() {
     setFeverResult(null);
     setTempInput('');
     setCameraActive(false);
+    try {
+      if (userId) {
+        await AsyncStorage.removeItem(`last_vital_scan_state_${userId}`);
+      }
+    } catch (e) {
+      console.warn('Failed to clear vital scan cache', e);
+    }
     showToast('Ready for new scan', 'All fields cleared', '✨', '#2563eb');
   };
 

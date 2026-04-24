@@ -437,7 +437,37 @@ export default function MarksEntryScreen() {
   useEffect(() => {
     const fetchTeacherAssignments = async () => {
       if (!schoolCode || !teacherId) return;
-      
+
+      const cacheKey = `teacher_marks_context_${teacherId}_${schoolCode}`;
+
+      // Try loading from cache first
+      try {
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          const data = JSON.parse(cached);
+          const assignments = data.assignments || [];
+          const teacherData = data.teacher_data || null;
+          const canonicalId = String(teacherData?.teacher_id || teacherId).trim();
+          const deptRaw = String(teacherData?.department_subject || '').trim();
+          const deptSubjects = Array.from(new Set(deptRaw.split(/[,/|]+/).map(s => s.trim()).filter(Boolean)));
+
+          setTeacherAssignments(assignments);
+          setTeacherSubjects(deptSubjects);
+          setResolvedTeacherId(canonicalId);
+
+          const uniqueClasses = Array.from(
+            new Map(
+              assignments
+                .filter((a: any) => a.class_id && a.class_name)
+                .map((a: any) => [String(a.class_name).trim().toLowerCase(), { class_id: String(a.class_id), class_name: a.class_name }])
+            ).values()
+          ) as ClassItem[];
+          setClasses(uniqueClasses);
+        }
+      } catch (e) {
+        console.warn('Failed to load teacher context cache', e);
+      }
+
       setLoadingClasses(true);
       try {
         const res = await API.get('/teacher/marks/teacher-context', {
@@ -463,6 +493,9 @@ export default function MarksEntryScreen() {
           ).values()
         );
         setClasses(uniqueClasses);
+
+        // Save to cache
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(res.data));
       } catch (err: any) {
         setError(err?.response?.data?.detail || 'Failed to load class assignments');
       } finally {
@@ -471,6 +504,17 @@ export default function MarksEntryScreen() {
     };
 
     const fetchAllExams = async () => {
+      const cacheKey = `teacher_exams_${schoolCode}`;
+
+      try {
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          setExams(JSON.parse(cached));
+        }
+      } catch (e) {
+        console.warn('Failed to load exams cache', e);
+      }
+
       setLoadingExams(true);
       try {
         const res = await API.get('/teacher/marks/exams', { headers: { 'x-school-code': schoolCode } });
@@ -478,8 +522,9 @@ export default function MarksEntryScreen() {
           new Map((res.data?.exams || []).map((e: any) => [String(e.exam_id), e])).values()
         );
         setExams(uniqueExams);
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(uniqueExams));
       } catch {
-        setExams([]);
+        // Keep cached exams if API fails
       } finally {
         setLoadingExams(false);
       }
@@ -540,6 +585,20 @@ export default function MarksEntryScreen() {
         setIsEditMode(false);
         return;
       }
+
+      const cacheKey = `exam_config_${examId}_${subjectId}_${schoolCode}`;
+      try {
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          const found = JSON.parse(cached);
+          setInputMaxMarks(found.max_marks?.toString() || '');
+          setInputPassMarks(found.pass_marks?.toString() || '');
+          setExamSubjectId(found.id || true);
+        }
+      } catch (e) {
+        console.warn('Failed to load exam config cache', e);
+      }
+
       try {
         const res = await API.get(`/teacher/marks/exam-subjects/${examId}`, { headers: { 'x-school-code': schoolCode } });
         const found = (res.data?.exam_subjects || []).find((s: any) => s.subject_id === parseInt(subjectId));
@@ -548,6 +607,7 @@ export default function MarksEntryScreen() {
           setInputPassMarks(found.pass_marks?.toString() || '');
           setExamSubjectId(found.id || true);
           setIsEditMode(false);
+          await AsyncStorage.setItem(cacheKey, JSON.stringify(found));
         } else {
           setInputMaxMarks('');
           setInputPassMarks('');
@@ -555,10 +615,7 @@ export default function MarksEntryScreen() {
           setIsEditMode(false);
         }
       } catch {
-        setInputMaxMarks('');
-        setInputPassMarks('');
-        setExamSubjectId(null);
-        setIsEditMode(false);
+        // If API fails, we keep cached data if available
       }
     };
     fetchExamConfig();
@@ -577,6 +634,19 @@ export default function MarksEntryScreen() {
       Alert.alert('Error', 'Please save the exam configuration first');
       setShowConfigModal(true);
       return;
+    }
+
+    const cacheKey = `marks_students_${examId}_${subjectId}_${classId}_${sectionId}_${schoolCode}`;
+
+    if (!isRefresh) {
+      try {
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          setStudents(JSON.parse(cached));
+        }
+      } catch (e) {
+        console.warn('Failed to load students cache', e);
+      }
     }
 
     setLoadingStudents(true);
@@ -620,6 +690,8 @@ export default function MarksEntryScreen() {
       }
 
       setStudents(rows);
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(rows));
+
       if (rows.length === 0) setMsg('No students found for this selection');
       if (isRefresh) {
         Alert.alert('Refreshed', `Student data refreshed. ${rows.length} students loaded.`);

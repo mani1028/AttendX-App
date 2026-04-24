@@ -430,7 +430,7 @@ export default function PrincipalDashboardScreen() {
       const data = res.data || {};
       if (data.ok) {
         const summary = data.summary || {};
-        setStats({
+        const statsData = {
           branches: Number(summary.total_branches || 0),
           teachers: Number(summary.total_teachers || 0),
           students: Number(summary.total_students || 0),
@@ -442,16 +442,28 @@ export default function PrincipalDashboardScreen() {
           pendingLeaves: Number(summary.pending_leave_requests || 0),
           teacherAttendanceToday: Number(summary.teacher_attendance_marked_today || 0),
           studentAttendanceToday: Number(summary.student_attendance_marked_today || 0),
-        });
-        setBranches(data.items || []);
+        };
+        const branchData = data.items || [];
+
+        setStats(statsData);
+        setBranches(branchData);
+
+        // Cache data
+        await Promise.all([
+          AsyncStorage.setItem(`principal_stats_${schoolCode}`, JSON.stringify(statsData)),
+          AsyncStorage.setItem(`principal_branches_${schoolCode}`, JSON.stringify(branchData))
+        ]);
       }
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
-      Alert.alert('Error', 'Failed to load dashboard data');
+      // Only alert if we don't have cached data
+      if (branches.length === 0) {
+        Alert.alert('Error', 'Failed to load dashboard data');
+      }
     } finally {
       setLoading(false);
     }
-  }, [schoolCode]);
+  }, [schoolCode, branches.length]);
 
   // Fetch marks summary
   const fetchMarksSummary = useCallback(async () => {
@@ -462,28 +474,77 @@ export default function PrincipalDashboardScreen() {
       const res = await API.get(`/principal/dashboard/marks-summary${params}`, {
         headers: { 'x-school-code': schoolCode },
       });
-      setMarksSummary(Array.isArray(res.data?.items) ? res.data.items : []);
+      const marksData = Array.isArray(res.data?.items) ? res.data.items : [];
+      setMarksSummary(marksData);
+
+      // Cache marks summary
+      await AsyncStorage.setItem(`principal_marks_summary_${schoolCode}_${selectedBranchId}`, JSON.stringify(marksData));
     } catch (err) {
       console.error('Failed to fetch marks summary:', err);
-      setMarksSummary([]);
+      // No clear state here, keep cached if it failed
     } finally {
       setMarksSummaryLoading(false);
     }
   }, [schoolCode, selectedBranchId]);
 
-  // Initial fetch
+  // Initial fetch and cache loading
   useEffect(() => {
     if (schoolCode) {
+      loadCachedData();
       fetchStatsAndBranches();
     }
   }, [schoolCode]);
 
+  const loadCachedData = async () => {
+    try {
+      const statsKey = `principal_stats_${schoolCode}`;
+      const branchesKey = `principal_branches_${schoolCode}`;
+      const marksKey = `principal_marks_summary_${schoolCode}_ALL`;
+
+      const [cachedStats, cachedBranches, cachedMarks] = await Promise.all([
+        AsyncStorage.getItem(statsKey),
+        AsyncStorage.getItem(branchesKey),
+        AsyncStorage.getItem(marksKey)
+      ]);
+
+      if (cachedStats) {
+        setStats(JSON.parse(cachedStats));
+      }
+      if (cachedBranches) {
+        setBranches(JSON.parse(cachedBranches));
+      }
+      if (cachedMarks) {
+        setMarksSummary(JSON.parse(cachedMarks));
+      }
+
+      if (cachedStats || cachedBranches) {
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('Error loading cached data:', err);
+    }
+  };
+
   // Fetch marks summary when view changes
   useEffect(() => {
     if (view === 'dashboard') {
+      loadCachedMarks();
       fetchMarksSummary();
     }
   }, [selectedBranchId, view, fetchMarksSummary]);
+
+  const loadCachedMarks = async () => {
+    if (selectedBranchId === 'ALL') return; // Handled by initial loadCachedData
+    try {
+      const marksKey = `principal_marks_summary_${schoolCode}_${selectedBranchId}`;
+      const cachedMarks = await AsyncStorage.getItem(marksKey);
+      if (cachedMarks) {
+        setMarksSummary(JSON.parse(cachedMarks));
+      }
+    } catch (err) {
+      console.error('Error loading cached marks:', err);
+    }
+  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

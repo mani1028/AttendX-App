@@ -733,17 +733,34 @@ export default function AdminDashboardScreen() {
   const ITEMS_PER_PAGE = 8;
 
   // Fetch schools
-  const fetchSchools = async () => {
+  const fetchSchools = async (isRefresh = false) => {
+    const role = await AsyncStorage.getItem('userRole') || 'admin';
+    const cacheKey = `admin_schools_cache_${role}`;
+
+    if (!isRefresh) {
+      try {
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          setSchools(JSON.parse(cached));
+        }
+      } catch (e) {
+        console.warn('Failed to load schools cache', e);
+      }
+    }
+
     setLoading(true);
     try {
       const res = await API.get('/schools/all');
-      setSchools(Array.isArray(res.data) ? res.data : []);
+      const data = Array.isArray(res.data) ? res.data : [];
+      setSchools(data);
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
     } catch (err: any) {
       console.error('Error fetching schools:', err);
       if (err.response?.status === 401) {
         Alert.alert('Session Expired', 'Please login again');
         navigation.replace('Login');
-      } else {
+      } else if (!isRefresh) {
+        // Only alert if we don't have cached data and it's not a background refresh
         Alert.alert('Error', 'Failed to load schools');
       }
     } finally {
@@ -753,9 +770,20 @@ export default function AdminDashboardScreen() {
 
   // Fetch stats
   const fetchStats = async () => {
+    const role = await AsyncStorage.getItem('userRole') || 'admin';
+    const cacheKey = `admin_stats_cache_${role}`;
+
+    try {
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        setStats(JSON.parse(cached));
+      }
+    } catch (e) {}
+
     try {
       const res = await API.get('/schools/subscription/stats');
       setStats(res.data.stats);
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(res.data.stats));
     } catch (err) {
       console.error('Stats not available', err);
     }
@@ -768,7 +796,7 @@ export default function AdminDashboardScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchSchools(), fetchStats()]);
+    await Promise.all([fetchSchools(true), fetchStats()]);
     setRefreshing(false);
   }, []);
 

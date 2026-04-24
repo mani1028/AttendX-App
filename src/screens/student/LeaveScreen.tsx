@@ -225,20 +225,37 @@ export default function LeaveScreen() {
     const [showFromDatePicker, setShowFromDatePicker] = useState<boolean>(false);
     const [showToDatePicker, setShowToDatePicker] = useState<boolean>(false);
 
-    // Load stored credentials
+    // Load stored credentials and cached data
     useEffect(() => {
-        const loadCredentials = async () => {
+        const loadInitialData = async () => {
             const code = await getSchoolCode();
             const sid = await getStudentId();
             const pid = await getParentId();
             setSchoolCode(code);
             setStudentId(sid);
             setParentId(pid);
+
+            // Load cache
+            if (sid) {
+               try {
+                   const cachedTeachers = await AsyncStorage.getItem(`teachers_cache_${sid}`);
+                   if (cachedTeachers) {
+                       const teachersData = JSON.parse(cachedTeachers);
+                       setTeachers(teachersData);
+                       if (teachersData.length > 0) setTeacherId(teachersData[0].teacher_id);
+                   }
+
+                   const cachedHistory = await AsyncStorage.getItem(`leave_history_cache_${sid}`);
+                   if (cachedHistory) setHistory(JSON.parse(cachedHistory));
+               } catch (e) {
+                   console.log('Failed to load leave cache');
+               }
+            }
         };
-        loadCredentials();
+        loadInitialData();
     }, []);
 
-    // Load data when credentials are ready
+    // Load data from API when credentials are ready
     useEffect(() => {
         if (schoolCode && studentId) {
             loadTeachers();
@@ -262,9 +279,9 @@ export default function LeaveScreen() {
             if (teachersData.length > 0 && !teacherId) {
                 setTeacherId(teachersData[0].teacher_id);
             }
+            await AsyncStorage.setItem(`teachers_cache_${studentId}`, JSON.stringify(teachersData));
         } catch (error) {
             console.error('Failed to load teachers', error);
-            setTeachers([]);
         } finally {
             setLoadingTeachers(false);
         }
@@ -280,10 +297,11 @@ export default function LeaveScreen() {
                     student_id: studentId,
                 },
             });
-            setHistory(res.data?.items || []);
+            const historyData = res.data?.items || [];
+            setHistory(historyData);
+            await AsyncStorage.setItem(`leave_history_cache_${studentId}`, JSON.stringify(historyData));
         } catch (error) {
             console.error('Failed to load leave history', error);
-            setHistory([]);
         }
     };
 

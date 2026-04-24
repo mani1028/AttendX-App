@@ -218,6 +218,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (schoolCode && branchId) {
+      loadCachedData();
       loadDashboardData();
     }
   }, [schoolCode, branchId]);
@@ -242,6 +243,31 @@ export default function DashboardPage() {
     }
   };
 
+  const loadCachedData = async () => {
+    try {
+      const statsKey = `hm_stats_${schoolCode}_${branchId}`;
+      const classesKey = `hm_classes_${schoolCode}_${branchId}`;
+
+      const [cachedStats, cachedClasses] = await Promise.all([
+        AsyncStorage.getItem(statsKey),
+        AsyncStorage.getItem(classesKey)
+      ]);
+
+      if (cachedStats) {
+        setStats(JSON.parse(cachedStats));
+      }
+      if (cachedClasses) {
+        setClasses(JSON.parse(cachedClasses));
+      }
+
+      if (cachedStats || cachedClasses) {
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('Error loading cached data:', err);
+    }
+  };
+
   const getHeaders = () => ({
     'X-School-Code': schoolCode,
     'x-school-code': schoolCode,
@@ -263,16 +289,24 @@ export default function DashboardPage() {
 
     try {
       const statsRes = await API.get('/hm/dashboard/stats', { headers: getHeaders() });
-      setStats(statsRes.data);
+      const statsData = statsRes.data;
+      setStats(statsData);
       statsOk = true;
+
+      // Cache stats
+      await AsyncStorage.setItem(`hm_stats_${schoolCode}_${branchId}`, JSON.stringify(statsData));
     } catch (err: any) {
       console.log('Stats error:', err?.response?.data || err);
     }
 
     try {
       const classesRes = await API.get('/hm/classes', { headers: getHeaders() });
-      setClasses(classesRes.data?.items || []);
+      const classesData = classesRes.data?.items || [];
+      setClasses(classesData);
       classesOk = true;
+
+      // Cache classes
+      await AsyncStorage.setItem(`hm_classes_${schoolCode}_${branchId}`, JSON.stringify(classesData));
     } catch (err: any) {
       console.log('Classes error:', err?.response?.data || err);
     }

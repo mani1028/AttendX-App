@@ -122,8 +122,13 @@ export default function ProfileScreen() {
 
   const fetchProfileData = useCallback(async () => {
     try {
+      const role = await AsyncStorage.getItem('userRole') || '';
+      const schoolCode = await AsyncStorage.getItem('school_code') || '';
+      const uid = (role === 'student' ? await AsyncStorage.getItem('student_id') : await AsyncStorage.getItem('employee_id')) || 'default';
+      const profileCacheKey = `profile_cache_${schoolCode}_${role}_${uid}`;
+
       // 1. Try to load from Cache first for instant display
-      const cachedProfile = await AsyncStorage.getItem('profile_cache');
+      const cachedProfile = await AsyncStorage.getItem(profileCacheKey);
       if (cachedProfile) {
         setUserInfo(JSON.parse(cachedProfile));
         setLoading(false); // We have something to show, stop main loading
@@ -138,7 +143,7 @@ export default function ProfileScreen() {
           const freshData = response.data;
           setUserInfo(freshData);
           // Save to cache
-          await AsyncStorage.setItem('profile_cache', JSON.stringify(freshData));
+          await AsyncStorage.setItem(profileCacheKey, JSON.stringify(freshData));
         }
       } catch (apiError) {
         console.log('API fetch failed, using fallback/cache');

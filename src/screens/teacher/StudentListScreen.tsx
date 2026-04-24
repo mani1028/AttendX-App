@@ -155,7 +155,7 @@ export default function StudentListScreen() {
 
   const ITEMS_PER_PAGE = 10;
 
-  // Load credentials
+  // Load credentials and cached data
   useEffect(() => {
     const load = async () => {
       const code = await getSchoolCode();
@@ -164,6 +164,21 @@ export default function StudentListScreen() {
       setSchoolCode(code);
       setBranchId(bid);
       setEmployeeId(eid);
+
+      // Load cache
+      try {
+        const cacheKey = `teacher_students_cache_${code}_${bid}_${eid}`;
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          const { classes, students, lastClass, lastSection } = JSON.parse(cached);
+          if (classes) setAssignedClasses(classes);
+          if (students) setRecords(students);
+          if (lastClass) setSelectedClass(lastClass);
+          if (lastSection) setSelectedSection(lastSection);
+        }
+      } catch (e) {
+        console.log('Failed to load teacher students cache');
+      }
     };
     load();
   }, []);
@@ -176,23 +191,29 @@ export default function StudentListScreen() {
       const assigned = await teacherService.getAssignedClasses(schoolCode, branchId, employeeId);
       setAssignedClasses(assigned);
       
-      // Auto-select first class if available
+      // Auto-select first class if available and none selected
       if (assigned.length > 0 && !selectedClass) {
         setSelectedClass(assigned[0].class_grade);
         setSelectedSection(assigned[0].section);
       }
+
+      // Update cache with assigned classes
+      const cacheKey = `teacher_students_cache_${schoolCode}_${branchId}_${employeeId}`;
+      const existing = await AsyncStorage.getItem(cacheKey);
+      const data = existing ? JSON.parse(existing) : {};
+      await AsyncStorage.setItem(cacheKey, JSON.stringify({ ...data, classes: assigned }));
+
     } catch (error) {
       console.error('Failed to load assigned classes:', error);
-      setAssignedClasses([]);
     }
   };
 
   // Load students for selected class/section
-  const fetchStudents = async () => {
+  const fetchStudents = async (showLoading = true) => {
     if (!schoolCode || !branchId) return;
     if (!selectedClass || !selectedSection) return;
     
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const students = await teacherService.getStudentsByClass(
         schoolCode,
@@ -202,24 +223,35 @@ export default function StudentListScreen() {
       );
       setRecords(students);
       setCurrentPage(1);
+
+      // Update cache
+      const cacheKey = `teacher_students_cache_${schoolCode}_${branchId}_${employeeId}`;
+      const existing = await AsyncStorage.getItem(cacheKey);
+      const data = existing ? JSON.parse(existing) : {};
+      await AsyncStorage.setItem(cacheKey, JSON.stringify({
+        ...data,
+        students,
+        lastClass: selectedClass,
+        lastSection: selectedSection
+      }));
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch students');
-      setRecords([]);
+      console.error('Failed to fetch students:', error);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
-  // Load data when dependencies change
+  // Load data when credentials are ready
   useEffect(() => {
     if (schoolCode && branchId && employeeId) {
       loadAssignedClasses();
     }
   }, [schoolCode, branchId, employeeId]);
 
+  // Fetch students when selection changes
   useEffect(() => {
-    if (selectedClass && selectedSection) {
-      fetchStudents();
+    if (selectedClass && selectedSection && schoolCode && branchId) {
+      fetchStudents(!records.length);
     }
   }, [selectedClass, selectedSection, schoolCode, branchId]);
 

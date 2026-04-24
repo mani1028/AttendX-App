@@ -15,6 +15,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
 import API from '../../services/api';
+import Header from '../../components/common/Header';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
@@ -348,7 +349,7 @@ export default function StudentAttendanceScreen() {
   return (
     <View style={styles.mainContainer}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
-      
+      <Header />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}

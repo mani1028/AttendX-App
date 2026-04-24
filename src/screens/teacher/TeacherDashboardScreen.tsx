@@ -3,6 +3,7 @@ import { StyleSheet, View, ScrollView } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Icon from '@react-native-vector-icons/feather';
 import { useAuth } from '../../context/AuthContext';
+import Header from '../../components/common/Header';
 import AppText from '../../components/common/AppText';
 import { colors } from '../../constants/theme';
 import AppCard from '../../components/common/AppCard';
@@ -20,9 +21,11 @@ export default function TeacherDashboardScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        {/* Welcome Section */}
+    <View style={styles.container}>
+      <Header />
+      <ScrollView style={styles.container}>
+        <View style={styles.content}>
+          {/* Welcome Section */}
         <View style={styles.welcomeSection}>
           <View>
             <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Teacher'}!</AppText>
@@ -49,6 +52,7 @@ export default function TeacherDashboardScreen() {
         </AppCard>
       </View>
     </ScrollView>
+   </View>
   );
 }
 

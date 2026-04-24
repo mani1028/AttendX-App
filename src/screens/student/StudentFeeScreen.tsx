@@ -254,8 +254,17 @@ export default function StudentFeeScreen({ navigation }: any) {
         if (code) setSchoolCode(code);
         if (sid) setStudentId(sid);
 
+        // Load cached data
+        if (sid) {
+           const cachedFees = await AsyncStorage.getItem(`fees_cache_${sid}`);
+           if (cachedFees) setFees(JSON.parse(cachedFees));
+
+           const cachedPayments = await AsyncStorage.getItem(`payments_cache_${sid}`);
+           if (cachedPayments) setPayments(JSON.parse(cachedPayments));
+        }
+
         if (sid && code) {
-          await fetchFeeInfo(sid, code);
+          await fetchFeeInfo(sid, code, !fees.length);
         }
       } catch (error) {
         console.error('Error loading user data:', error);
@@ -267,15 +276,16 @@ export default function StudentFeeScreen({ navigation }: any) {
     loadUserData();
   }, []);
 
-  const fetchFeeInfo = async (sid: string, code: string) => {
+  const fetchFeeInfo = async (sid: string, code: string, showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       
       const feesResponse = await API.get(`/accountant/fees/${sid}`, {
         params: { school_code: code },
       });
       const feesData = feesResponse.data || [];
       setFees(feesData);
+      await AsyncStorage.setItem(`fees_cache_${sid}`, JSON.stringify(feesData));
 
       if (feesData.length > 0) {
         const allPayments: Payment[] = [];
@@ -287,15 +297,14 @@ export default function StudentFeeScreen({ navigation }: any) {
           allPayments.push(...paymentData);
         }
         setPayments(allPayments);
+        await AsyncStorage.setItem(`payments_cache_${sid}`, JSON.stringify(allPayments));
       } else {
         setPayments([]);
       }
     } catch (error) {
       console.error('Error fetching fee info:', error);
-      setFees([]);
-      setPayments([]);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 

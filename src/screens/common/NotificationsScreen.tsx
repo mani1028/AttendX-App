@@ -151,7 +151,8 @@ export default function NotificationsScreen() {
 
       // Load cached notifications
       try {
-        const cached = await AsyncStorage.getItem('notifications_cache');
+        const cacheKey = `notifications_cache_${code}_${bid}_${role}`;
+        const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           setNotifications(JSON.parse(cached));
         }
@@ -191,7 +192,8 @@ export default function NotificationsScreen() {
       setNotifications(items);
 
       // Cache the notifications
-      await AsyncStorage.setItem('notifications_cache', JSON.stringify(items));
+      const cacheKey = `notifications_cache_${schoolCode}_${branchId}_${userRole}`;
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(items));
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
       // Keep showing cached notifications on error

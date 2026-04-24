@@ -205,35 +205,58 @@ export default function StudentMarksScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [selectedExamName, setSelectedExamName] = useState<string>('');
 
-  // Load stored credentials
+  // Load stored credentials and cached data
   useEffect(() => {
-    const loadCredentials = async () => {
+    const loadInitialData = async () => {
       const code = await getSchoolCode();
       const id = await getStudentId();
       setSchoolCode(code);
       setStudentId(id);
+
+      // Load cached exams and marks
+      try {
+        const cachedExams = await AsyncStorage.getItem(`marks_exams_cache_${id}`);
+        if (cachedExams) {
+          const parsedExams = JSON.parse(cachedExams);
+          setExams(parsedExams);
+          if (parsedExams.length > 0) {
+            setExamId(String(parsedExams[0].exam_id));
+            setSelectedExamName(parsedExams[0].exam_name);
+
+            // Load cached marks for first exam
+            const cachedMarks = await AsyncStorage.getItem(`marks_data_cache_${id}_${parsedExams[0].exam_id}`);
+            if (cachedMarks) {
+              const { items: mItems, summary: mSummary } = JSON.parse(cachedMarks);
+              setItems(mItems);
+              setSummary(mSummary);
+            }
+          }
+        }
+      } catch (e) {
+        console.log('Failed to load cached marks');
+      }
     };
-    loadCredentials();
+    loadInitialData();
   }, []);
 
   // Load exams when credentials are ready
   useEffect(() => {
     if (schoolCode && studentId) {
-      loadExams();
+      loadExams(exams.length === 0);
     }
   }, [schoolCode, studentId]);
 
   // Load marks when exam is selected
   useEffect(() => {
     if (schoolCode && studentId && examId) {
-      loadMarks();
+      loadMarks(items.length === 0);
     }
   }, [schoolCode, studentId, examId]);
 
-  const loadExams = async () => {
+  const loadExams = async (showLoading = true) => {
     if (!schoolCode || !studentId) return;
     
-    setLoadingExams(true);
+    if (showLoading) setLoadingExams(true);
     try {
       const res = await API.get('/manage/student-dashboard/marks/exams', {
         params: {
@@ -243,23 +266,25 @@ export default function StudentMarksScreen({ navigation }: any) {
       });
       const nextExams = res.data?.items || res.data?.exams || [];
       setExams(nextExams);
-      
+
+      // Cache exams
+      await AsyncStorage.setItem(`marks_exams_cache_${studentId}`, JSON.stringify(nextExams));
+
       if (!examId && nextExams.length > 0) {
         setExamId(String(nextExams[0].exam_id));
         setSelectedExamName(nextExams[0].exam_name);
       }
     } catch (error) {
       console.error('Failed to load exams:', error);
-      setExams([]);
     } finally {
-      setLoadingExams(false);
+      if (showLoading) setLoadingExams(false);
     }
   };
 
-  const loadMarks = async () => {
+  const loadMarks = async (showLoading = true) => {
     if (!examId) return;
     
-    setLoadingMarks(true);
+    if (showLoading) setLoadingMarks(true);
     try {
       const res = await API.get('/manage/student-dashboard/marks', {
         params: {
@@ -268,14 +293,21 @@ export default function StudentMarksScreen({ navigation }: any) {
           exam_id: examId,
         },
       });
-      setItems(res.data?.items || []);
-      setSummary(res.data?.summary || null);
+      const mItems = res.data?.items || [];
+      const mSummary = res.data?.summary || null;
+
+      setItems(mItems);
+      setSummary(mSummary);
+
+      // Cache marks for this specific exam
+      await AsyncStorage.setItem(
+        `marks_data_cache_${studentId}_${examId}`,
+        JSON.stringify({ items: mItems, summary: mSummary })
+      );
     } catch (error) {
       console.error('Failed to load marks:', error);
-      setItems([]);
-      setSummary(null);
     } finally {
-      setLoadingMarks(false);
+      if (showLoading) setLoadingMarks(false);
     }
   };
 

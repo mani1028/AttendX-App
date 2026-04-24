@@ -272,24 +272,47 @@ export const updateUserData = async (updates: Record<string, any>): Promise<void
 
 export const performLogout = async (navigation?: any) => {
   try {
-    // Clear all session keys
+    // 1. Clear explicit session keys
     await Promise.all(
       SESSION_KEYS.map((key) => AsyncStorage.removeItem(key))
     );
 
-    // Also clear any additional items that might have been added
+    // 2. Clear all cache keys related to user data across all roles
     const allKeys = await AsyncStorage.getAllKeys();
-    const sessionKeysToClear = allKeys.filter(key => 
+    const keysToClear = allKeys.filter(key =>
+      // Auth/Session keys
       key.includes("token") || 
       key.includes("session") || 
       key.includes("user") ||
       key === "is_class_teacher" ||
       key === "schoolCode" ||
-      key === "branchId"
+      key === "branchId" ||
+      key === "school_code" ||
+      key === "branch_id" ||
+      key === "employee_id" ||
+      key === "student_id" ||
+      key === "teacher_id" ||
+      // Feature-specific caches (all versions to be safe)
+      key.includes("_cache") ||
+      key.includes("_state") ||
+      key.includes("_prediction") ||
+      key.includes("_image") ||
+      key.includes("hm_") ||
+      key.includes("principal_") ||
+      key.includes("teacher_") ||
+      key.includes("student_") ||
+      key.includes("admin_")
     );
     
-    if (sessionKeysToClear.length > 0) {
-      await AsyncStorage.multiRemove(sessionKeysToClear);
+    // Explicitly KEEP app settings and login preferences (like school code if we want it to persist for next login)
+    // But for a "clean" logout, we remove most everything except fundamental app settings
+    const filteredKeys = keysToClear.filter(key =>
+      key !== 'app_settings' &&
+      key !== 'selected_country'
+    );
+
+    if (filteredKeys.length > 0) {
+      await AsyncStorage.multiRemove(filteredKeys);
     }
 
     // Reset API state

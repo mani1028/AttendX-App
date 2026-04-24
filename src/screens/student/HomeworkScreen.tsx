@@ -220,22 +220,37 @@ export default function HomeworkScreen() {
     ];
   }, [subjects, allItems]);
 
-  // Load stored credentials
+  // Load stored credentials and cached data
   useEffect(() => {
-    const loadCredentials = async () => {
+    const loadInitialData = async () => {
       const code = await getSchoolCode();
       const id = await getStudentId();
       setSchoolCode(code);
       setStudentId(id);
+
+      // Load cached subjects and homework
+      try {
+        const cachedSubjects = await AsyncStorage.getItem(`homework_subjects_cache_${id}`);
+        if (cachedSubjects) setSubjects(JSON.parse(cachedSubjects));
+
+        const cachedHomework = await AsyncStorage.getItem(`homework_data_cache_${id}`);
+        if (cachedHomework) {
+          const items = JSON.parse(cachedHomework);
+          setAllItems(items);
+          applyFrontendFilters(items, subjectFilter, assignedDate);
+        }
+      } catch (e) {
+        console.log('Failed to load cached homework');
+      }
     };
-    loadCredentials();
+    loadInitialData();
   }, []);
 
-  // Initial load
+  // Initial fetch from API
   useEffect(() => {
     if (schoolCode && studentId) {
       loadSubjects();
-      loadHomework(assignedDate, subjectFilter);
+      loadHomework(assignedDate, subjectFilter, allItems.length === 0);
     }
   }, [schoolCode, studentId]);
 
@@ -272,17 +287,18 @@ export default function HomeworkScreen() {
           student_id: studentId,
         },
       });
-      setSubjects(res.data?.items || []);
+      const items = res.data?.items || [];
+      setSubjects(items);
+      await AsyncStorage.setItem(`homework_subjects_cache_${studentId}`, JSON.stringify(items));
     } catch (err) {
       console.error('Failed to fetch subjects:', err);
-      setSubjects([]);
     }
   };
 
-  const loadHomework = async (dateToFetch: string, subjectToFetch: string) => {
+  const loadHomework = async (dateToFetch: string, subjectToFetch: string, showLoading = true) => {
     if (!schoolCode || !studentId) return;
 
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const params: any = {
         school_code: schoolCode,
@@ -293,28 +309,19 @@ export default function HomeworkScreen() {
         params.assigned_date = dateToFetch;
       }
 
-      if (subjectToFetch && subjectToFetch !== 'ALL') {
-        const selectedSubject = subjects.find(
-          (s) =>
-            String(s.subject_name || '')
-              .trim()
-              .toLowerCase() === subjectToFetch.toLowerCase()
-        );
-        if (selectedSubject?.subject_id) {
-          params.subject_id = selectedSubject.subject_id;
-        }
-      }
-
       const res = await API.get('/manage/student-dashboard/homework', { params });
       const items = res.data?.items || [];
       setAllItems(items);
       applyFrontendFilters(items, subjectToFetch || subjectFilter, dateToFetch);
+
+      // Cache the result (using student ID as key)
+      if (dateToFetch === getTodayDate()) {
+         await AsyncStorage.setItem(`homework_data_cache_${studentId}`, JSON.stringify(items));
+      }
     } catch (err) {
       console.error('Fetch homework failed:', err);
-      setAllItems([]);
-      setFilteredItems([]);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 

@@ -243,6 +243,29 @@ export default function TeacherAttendanceScreen() {
     setToast({ visible: false, title: '' });
   }, []);
 
+  // Persist attendance state
+  useEffect(() => {
+    const persist = async () => {
+      if (!schoolCode || !employeeId) return;
+      const cacheKey = `teacher_attendance_cache_${schoolCode}_${branchId}_${employeeId}`;
+      try {
+        const state = {
+          form,
+          studentImages,
+          studentImagesCaptured,
+          result,
+          step,
+          timestamp: new Date().getTime()
+        };
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(state));
+      } catch (e) {
+        console.warn('Failed to persist attendance state', e);
+      }
+    };
+    const timer = setTimeout(persist, 1000);
+    return () => clearTimeout(timer);
+  }, [form, studentImages, studentImagesCaptured, result, step, schoolCode, branchId, employeeId]);
+
   // Load credentials and permissions
   useEffect(() => {
     const load = async () => {
@@ -254,15 +277,56 @@ export default function TeacherAttendanceScreen() {
       setEmployeeId(eid);
       setForm(prev => ({ ...prev, employee_id: eid, branch_id: bid }));
       
+      // Try to restore teacher session/verification data
+      const sessionKey = `teacher_session_${eid}_${code}`;
+      const attendanceCacheKey = `teacher_attendance_cache_${code}_${bid}_${eid}`;
+      try {
+        const [cachedSession, cachedAttendance] = await Promise.all([
+          AsyncStorage.getItem(sessionKey),
+          AsyncStorage.getItem(attendanceCacheKey)
+        ]);
+
+        if (cachedSession) {
+          const sessionData = JSON.parse(cachedSession);
+          setTeacherData(sessionData.teacher_data);
+          setAssignedClasses(sessionData.assigned_classes);
+          // If we have cached teacher data, we can potentially skip step 1
+          // but for security we'll stay on step 1 unless user is verified
+          // setStep(2);
+        }
+
+        if (cachedAttendance) {
+          const state = JSON.parse(cachedAttendance);
+          if (state.form) setForm(prev => ({ ...prev, ...state.form }));
+          if (state.studentImages) setStudentImages(state.studentImages);
+          if (state.studentImagesCaptured) setStudentImagesCaptured(state.studentImagesCaptured);
+          if (state.result) setResult(state.result);
+          if (state.step) setStep(state.step);
+        }
+      } catch (e) {
+        console.warn('Failed to load teacher attendance cache', e);
+      }
+
       // Load attendance settings
       if (code && bid) {
+        const settingsCacheKey = `attendance_settings_${code}_${bid}`;
+        try {
+          const cachedSettings = await AsyncStorage.getItem(settingsCacheKey);
+          if (cachedSettings) {
+            setDailySessions(JSON.parse(cachedSettings).daily_sessions === 2 ? 2 : 1);
+          }
+        } catch (e) {}
+
         try {
           const res = await API.get('/hm/attendance/settings', {
             headers: { 'X-School-Code': code, 'X-Branch-Id': bid },
           });
           const sessions = res.data?.daily_sessions === 2 ? 2 : 1;
           setDailySessions(sessions);
-        } catch { setDailySessions(1); }
+          await AsyncStorage.setItem(settingsCacheKey, JSON.stringify(res.data));
+        } catch {
+          // Keep cached or default
+        }
       }
     };
     load();
@@ -276,7 +340,24 @@ export default function TeacherAttendanceScreen() {
   // Load classes
   const loadClasses = useCallback(async () => {
     if (!branchId || !schoolCode) return;
-    
+
+    const cacheKey = `classes_sections_${branchId}_${schoolCode}`;
+
+    // Try loading from cache
+    try {
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        const items = JSON.parse(cached);
+        setClassOptions(items);
+        const currentCls = items.find(
+          (c: any) => String(c.class_name).trim() === String(form.class_grade).trim()
+        );
+        setSectionOptions(currentCls?.sections || []);
+      }
+    } catch (e) {
+      console.warn('Failed to load classes cache', e);
+    }
+
     try {
       const res = await API.get('/manage/classes-sections', {
         params: { branch_id: branchId },
@@ -289,10 +370,11 @@ export default function TeacherAttendanceScreen() {
         (c: any) => String(c.class_name).trim() === String(form.class_grade).trim()
       );
       setSectionOptions(currentCls?.sections || []);
+
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(items));
     } catch (err) {
       console.error('Failed to load classes:', err);
-      setClassOptions([]);
-      setSectionOptions([]);
+      // Keep cached options if API fails
     }
   }, [branchId, schoolCode, form.class_grade]);
 
@@ -423,6 +505,14 @@ export default function TeacherAttendanceScreen() {
       setTeacherData(data);
       setAssignedClasses(assigned);
       
+      // Cache session data
+      const sessionKey = `teacher_session_${employeeId}_${schoolCode}`;
+      await AsyncStorage.setItem(sessionKey, JSON.stringify({
+        teacher_data: data,
+        assigned_classes: assigned,
+        timestamp: new Date().getTime()
+      }));
+
       // Save branch ID
       if (data.branch_id) {
         await AsyncStorage.setItem('branch_id', String(data.branch_id));
@@ -566,7 +656,7 @@ export default function TeacherAttendanceScreen() {
     }
   };
 
-  const resetFlow = () => {
+  const resetFlow = async () => {
     stopCamera();
     setStep(1);
     setTeacherImage(null);
@@ -590,6 +680,11 @@ export default function TeacherAttendanceScreen() {
     setShowPreview(false);
     setViewingGallery(false);
     setSavedAttendanceData(null);
+
+    const cacheKey = `teacher_attendance_cache_${schoolCode}_${branchId}_${employeeId}`;
+    try {
+      await AsyncStorage.removeItem(cacheKey);
+    } catch (e) {}
   };
 
   // Assigned class options

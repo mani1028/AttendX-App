@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
@@ -28,6 +29,31 @@ export default function SkinDiseaseScreen() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [userId, setUserId] = useState<string>('');
+
+  // Load user context and cached result on mount
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const schoolCode = await AsyncStorage.getItem('school_code') || '';
+        const employeeId = await AsyncStorage.getItem('employee_id') || '';
+        const id = `${schoolCode}_${employeeId}`;
+        setUserId(id);
+
+        const cachedResult = await AsyncStorage.getItem(`last_skin_prediction_${id}`);
+        const cachedImage = await AsyncStorage.getItem(`last_skin_image_${id}`);
+        if (cachedResult) {
+          setPrediction(JSON.parse(cachedResult));
+        }
+        if (cachedImage) {
+          setSelectedImage(cachedImage);
+        }
+      } catch (e) {
+        console.warn('Failed to load skin disease cache', e);
+      }
+    };
+    init();
+  }, []);
 
   const showImageOptions = useCallback(() => {
     Alert.alert(
@@ -112,12 +138,21 @@ export default function SkinDiseaseScreen() {
 
       if (response.data && response.data.predictions) {
         const result = response.data.predictions[0];
-        setPrediction({
+        const predictionData = {
           disease: result.disease || result.class_name || 'Unknown',
           confidence: result.confidence || 0,
           description: result.description,
           precautions: result.precautions,
-        });
+        };
+        setPrediction(predictionData);
+
+        // Cache result and image
+        if (userId) {
+          await AsyncStorage.setItem(`last_skin_prediction_${userId}`, JSON.stringify(predictionData));
+          if (selectedImage) {
+            await AsyncStorage.setItem(`last_skin_image_${userId}`, selectedImage);
+          }
+        }
       } else {
         Alert.alert('No Result', 'No prediction returned from the server');
       }
@@ -132,10 +167,18 @@ export default function SkinDiseaseScreen() {
     }
   }, [selectedImage]);
 
-  const resetAnalysis = useCallback(() => {
+  const resetAnalysis = useCallback(async () => {
     setSelectedImage(null);
     setPrediction(null);
-  }, []);
+    try {
+      if (userId) {
+        await AsyncStorage.removeItem(`last_skin_prediction_${userId}`);
+        await AsyncStorage.removeItem(`last_skin_image_${userId}`);
+      }
+    } catch (e) {
+      console.warn('Failed to clear skin disease cache', e);
+    }
+  }, [userId]);
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.8) return '#10b981';

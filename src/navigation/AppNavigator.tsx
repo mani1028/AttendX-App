@@ -3,7 +3,6 @@ import { ActivityIndicator, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from '@react-native-vector-icons/ionicons';
-
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/common/Header';
 
