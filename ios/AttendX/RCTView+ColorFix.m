@@ -10,4 +10,11 @@
   (void)color;
 }
 
+// Some wrappers still map `title` to the backing native view on iOS.
+// Ignore it on RCTView to avoid unrecognized selector crashes.
+- (void)setTitle:(id)title
+{
+  (void)title;
+}
+
 @end
