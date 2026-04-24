@@ -17,4 +17,11 @@
   (void)title;
 }
 
+// Navigation appearance props can be forwarded to regular views by mistake.
+// Ignore this unsupported setter on RCTView.
+- (void)setLargeTitleFontWeight:(id)fontWeight
+{
+  (void)fontWeight;
+}
+
 @end
