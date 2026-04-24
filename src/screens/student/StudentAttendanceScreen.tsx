@@ -254,21 +254,33 @@ export default function StudentAttendanceScreen() {
     attendance_percentage: 0,
   });
 
-  // Load stored credentials
+  // Load stored credentials and cached data
   useEffect(() => {
-    const loadCredentials = async () => {
+    const loadInitialData = async () => {
       const code = await getSchoolCode();
       const id = await getStudentId();
       setSchoolCode(code);
       setStudentId(id);
+
+      // Load cached attendance data if it exists
+      try {
+        const cachedData = await AsyncStorage.getItem(`attendance_cache_${id}`);
+        if (cachedData) {
+          const { items: cachedItems, summary: cachedSummary } = JSON.parse(cachedData);
+          setItems(cachedItems);
+          setSummary(cachedSummary);
+        }
+      } catch (e) {
+        console.log('Failed to load cached attendance');
+      }
     };
-    loadCredentials();
+    loadInitialData();
   }, []);
 
   // Fetch attendance when credentials are ready
   useEffect(() => {
     if (schoolCode && studentId) {
-      fetchAttendance();
+      fetchAttendance(items.length === 0); // Only show full loader if no cached data
     }
   }, [schoolCode, studentId, month, year]);
 
@@ -285,20 +297,29 @@ export default function StudentAttendanceScreen() {
       if (year) params.year = year;
 
       const res = await API.get('/manage/student-dashboard/attendance', { params });
-      setItems(res.data?.items || []);
-      setSummary(
-        res.data?.summary || {
-          total_days: 0,
-          present_days: 0,
-          half_day_count: 0,
-          absent_days: 0,
-          late_days: 0,
-          attendance_percentage: 0,
-        }
-      );
+      const newItems = res.data?.items || [];
+      const newSummary = res.data?.summary || {
+        total_days: 0,
+        present_days: 0,
+        half_day_count: 0,
+        absent_days: 0,
+        late_days: 0,
+        attendance_percentage: 0,
+      };
+
+      setItems(newItems);
+      setSummary(newSummary);
+
+      // Cache the result locally for future use
+      if (!month && year === new Date().getFullYear().toString()) {
+        await AsyncStorage.setItem(
+          `attendance_cache_${studentId}`,
+          JSON.stringify({ items: newItems, summary: newSummary })
+        );
+      }
     } catch (error) {
       console.error('Failed to fetch attendance:', error);
-      setItems([]);
+      // Don't clear items if we have cached ones, unless it's a specific error
     } finally {
       if (showLoading) setLoading(false);
     }
