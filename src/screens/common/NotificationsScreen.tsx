@@ -139,30 +139,40 @@ export default function NotificationsScreen() {
   const [branchId, setBranchId] = useState<string>('');
   const [userRole, setUserRole] = useState<string>('');
 
-  // Load credentials
+  // Load credentials and cached notifications
   useEffect(() => {
-    const loadCredentials = async () => {
+    const loadInitialData = async () => {
       const code = await getSchoolCode();
       const bid = await getBranchId();
       const role = await getUserRole();
       setSchoolCode(code);
       setBranchId(bid);
       setUserRole(role);
+
+      // Load cached notifications
+      try {
+        const cached = await AsyncStorage.getItem('notifications_cache');
+        if (cached) {
+          setNotifications(JSON.parse(cached));
+        }
+      } catch (e) {
+        console.log('Failed to load cached notifications');
+      }
     };
-    loadCredentials();
+    loadInitialData();
   }, []);
 
   // Fetch notifications when credentials are ready
   useEffect(() => {
     if (schoolCode && branchId && userRole) {
-      fetchNotifications();
+      fetchNotifications(notifications.length === 0);
     }
   }, [schoolCode, branchId, userRole]);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (showLoading = true) => {
     if (!schoolCode || !branchId) return;
     
-    setLoading(true);
+    if (showLoading) setLoading(true);
     setError(null);
     
     try {
@@ -177,12 +187,19 @@ export default function NotificationsScreen() {
         },
       });
       
-      setNotifications(response.data?.items || []);
+      const items = response.data?.items || [];
+      setNotifications(items);
+
+      // Cache the notifications
+      await AsyncStorage.setItem('notifications_cache', JSON.stringify(items));
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
-      setError('Failed to load notifications');
+      // Keep showing cached notifications on error
+      if (notifications.length === 0) {
+        setError('Failed to load notifications');
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 

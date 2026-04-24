@@ -122,106 +122,34 @@ export default function ProfileScreen() {
 
   const fetchProfileData = useCallback(async () => {
     try {
-      setLoading(true);
+      // 1. Try to load from Cache first for instant display
+      const cachedProfile = await AsyncStorage.getItem('profile_cache');
+      if (cachedProfile) {
+        setUserInfo(JSON.parse(cachedProfile));
+        setLoading(false); // We have something to show, stop main loading
+      } else {
+        setLoading(true);
+      }
       
-      // Get stored user data from multiple sources
-      const storedUser = await AsyncStorage.getItem('user');
-      let parsedUser: any = {};
+      // 2. Fetch fresh data from API
       try {
-        if (storedUser) parsedUser = JSON.parse(storedUser);
-      } catch (e) {}
-      
-      // Get all stored values
-      const [
-        name, email, phone, employeeId, teacherId, studentId,
-        schoolName, schoolCode, branchId, branchName, role,
-        designation, departmentSubject, dateOfJoining, qualification,
-        experienceYears, address, bloodGroup, dateOfBirth, gender,
-        nationality, motherTongue, religion, aadhaarNumber,
-        emergencyContactName, emergencyContactNumber,
-        fatherName, fatherMobile, motherName, motherMobile,
-        rollNumber, classGrade, section,
-      ] = await Promise.all([
-        AsyncStorage.getItem('user_name'),
-        AsyncStorage.getItem('user_email'),
-        AsyncStorage.getItem('user_phone'),
-        AsyncStorage.getItem('employee_id'),
-        AsyncStorage.getItem('teacher_id'),
-        AsyncStorage.getItem('student_id'),
-        AsyncStorage.getItem('school_name'),
-        AsyncStorage.getItem('school_code'),
-        AsyncStorage.getItem('branch_id'),
-        AsyncStorage.getItem('branch_name'),
-        AsyncStorage.getItem('user_role'),
-        AsyncStorage.getItem('designation'),
-        AsyncStorage.getItem('department_subject'),
-        AsyncStorage.getItem('date_of_joining'),
-        AsyncStorage.getItem('qualification'),
-        AsyncStorage.getItem('experience_years'),
-        AsyncStorage.getItem('address'),
-        AsyncStorage.getItem('blood_group'),
-        AsyncStorage.getItem('date_of_birth'),
-        AsyncStorage.getItem('gender'),
-        AsyncStorage.getItem('nationality'),
-        AsyncStorage.getItem('mother_tongue'),
-        AsyncStorage.getItem('religion'),
-        AsyncStorage.getItem('aadhaar_number'),
-        AsyncStorage.getItem('emergency_contact_name'),
-        AsyncStorage.getItem('emergency_contact_number'),
-        AsyncStorage.getItem('father_guardian_name'),
-        AsyncStorage.getItem('father_guardian_mobile'),
-        AsyncStorage.getItem('mother_guardian_name'),
-        AsyncStorage.getItem('mother_guardian_mobile'),
-        AsyncStorage.getItem('roll_number'),
-        AsyncStorage.getItem('class_grade'),
-        AsyncStorage.getItem('section'),
-      ]);
-      
+        const response = await API.get('/profile/details'); // Adjusted to assumed endpoint
+        if (response.data) {
+          const freshData = response.data;
+          setUserInfo(freshData);
+          // Save to cache
+          await AsyncStorage.setItem('profile_cache', JSON.stringify(freshData));
+        }
+      } catch (apiError) {
+        console.log('API fetch failed, using fallback/cache');
+      }
+
       // Load settings
       const savedSettings = await AsyncStorage.getItem('app_settings');
       if (savedSettings) {
         setSettings(JSON.parse(savedSettings));
       }
-      
-      // Determine role from multiple sources
-      const finalRole = role || userRole || parsedUser?.role || 'user';
-      
-      // Build user info from all available sources
-      setUserInfo({
-        name: name || parsedUser?.name || parsedUser?.full_name || 'User',
-        email: email || parsedUser?.email || '',
-        phone: phone || parsedUser?.phone || '',
-        employee_id: employeeId || parsedUser?.employee_id || '',
-        teacher_id: teacherId || parsedUser?.teacher_id || '',
-        student_id: studentId || parsedUser?.student_id || '',
-        school_name: schoolName || parsedUser?.school_name || '',
-        school_code: schoolCode || parsedUser?.school_code || '',
-        branch_id: branchId || parsedUser?.branch_id || '',
-        branch_name: branchName || parsedUser?.branch_name || '',
-        role: finalRole,
-        designation: designation || parsedUser?.designation || '',
-        department_subject: departmentSubject || parsedUser?.department_subject || '',
-        date_of_joining: dateOfJoining || parsedUser?.date_of_joining || '',
-        qualification: qualification || parsedUser?.qualification || '',
-        experience_years: experienceYears || parsedUser?.experience_years || '',
-        address: address || parsedUser?.address || '',
-        blood_group: bloodGroup || parsedUser?.blood_group || '',
-        date_of_birth: dateOfBirth || parsedUser?.date_of_birth || '',
-        gender: gender || parsedUser?.gender || '',
-        nationality: nationality || parsedUser?.nationality || 'Indian',
-        mother_tongue: motherTongue || parsedUser?.mother_tongue || '',
-        religion: religion || parsedUser?.religion || '',
-        aadhaar_number: aadhaarNumber || parsedUser?.aadhaar_number || '',
-        emergency_contact_name: emergencyContactName || parsedUser?.emergency_contact_name || '',
-        emergency_contact_number: emergencyContactNumber || parsedUser?.emergency_contact_number || '',
-        father_guardian_name: fatherName || parsedUser?.father_guardian_name || '',
-        father_guardian_mobile: fatherMobile || parsedUser?.father_guardian_mobile || '',
-        mother_guardian_name: motherName || parsedUser?.mother_guardian_name || '',
-        mother_guardian_mobile: motherMobile || parsedUser?.mother_guardian_mobile || '',
-        roll_number: rollNumber || parsedUser?.roll_number || '',
-        class_grade: classGrade || parsedUser?.class_grade || '',
-        section: section || parsedUser?.section || '',
-      });
+
     } catch (error) {
       console.error('Profile fetch error:', error);
     } finally {
