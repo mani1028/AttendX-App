@@ -10,9 +10,12 @@ import {
   Modal,
   TextInput,
   Platform,
+  Dimensions,
+  StatusBar,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Feather';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
@@ -22,10 +25,13 @@ import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 
+const { width } = Dimensions.get('window');
+
 // Types
 interface Subject {
   subject_id: string;
   subject_name: string;
+  teacher_name?: string;
 }
 
 interface Homework {
@@ -37,6 +43,8 @@ interface Homework {
   assigned_date: string;
   due_date: string;
   teacher_full_name: string;
+  attachment_url?: string;
+  status?: 'PENDING' | 'SUBMITTED' | 'LATE';
 }
 
 // Helper functions
@@ -60,31 +68,122 @@ const getTodayDate = (): string => {
   return now.toISOString().split('T')[0];
 };
 
-// Homework Card Component
+const formatDisplayDate = (dateString: string): string => {
+  if (!dateString) return 'Not specified';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
+// Enhanced Homework Card Component
 const HomeworkCard: React.FC<{
   item: Homework;
   onView: (item: Homework) => void;
-}> = ({ item, onView }) => (
-  <AppCard style={styles.homeworkCard}>
-    <View style={styles.subjectTag}>
-      <Text style={styles.subjectTagText}>
-        {item.subject_name || `Subject ${item.subject_id || '-'}`}
+}> = ({ item, onView }) => {
+  const isOverdue = new Date(item.due_date) < new Date() && item.status !== 'SUBMITTED';
+  
+  return (
+    <TouchableOpacity 
+      style={styles.homeworkCard} 
+      onPress={() => onView(item)}
+      activeOpacity={0.9}
+    >
+      <View style={styles.cardHeader}>
+        <View style={[styles.subjectBadge, { backgroundColor: getSubjectColor(item.subject_name) }]}>
+          <Text style={styles.subjectBadgeText}>
+            {item.subject_name?.charAt(0) || 'S'}
+          </Text>
+        </View>
+        <View style={styles.cardHeaderRight}>
+          {isOverdue && (
+            <View style={styles.overdueBadge}>
+              <Icon name="alert-circle" size={12} color="#ef4444" />
+              <Text style={styles.overdueText}>Overdue</Text>
+            </View>
+          )}
+          <Icon name="more-horizontal" size={18} color="#94a3b8" />
+        </View>
+      </View>
+
+      <Text style={styles.homeworkTitle} numberOfLines={1}>
+        {item.title || 'Untitled Assignment'}
       </Text>
-    </View>
-    <Text style={styles.homeworkTitle}>{item.title || '-'}</Text>
-    <Text style={styles.homeworkDesc} numberOfLines={2}>
-      {item.description || '-'}
-    </Text>
-    <View style={styles.metaContainer}>
-      <Text style={styles.metaText}>Assigned: {normalizeDate(item.assigned_date) || '-'}</Text>
-      <Text style={styles.metaText}>Due: {normalizeDate(item.due_date) || '-'}</Text>
-      <Text style={styles.metaText}>Teacher: {item.teacher_full_name || '-'}</Text>
-    </View>
-    <TouchableOpacity style={styles.viewBtn} onPress={() => onView(item)}>
-      <Text style={styles.viewBtnText}>👁️ View</Text>
+      
+      <Text style={styles.homeworkDesc} numberOfLines={2}>
+        {item.description || 'No description provided'}
+      </Text>
+
+      <View style={styles.metaContainer}>
+        <View style={styles.metaItem}>
+          <Icon name="calendar" size={12} color="#64748b" />
+          <Text style={styles.metaText}>Due: {formatDisplayDate(item.due_date)}</Text>
+        </View>
+        <View style={styles.metaItem}>
+          <Icon name="user" size={12} color="#64748b" />
+          <Text style={styles.metaText}>{item.teacher_full_name?.split(' ')[0] || 'Teacher'}</Text>
+        </View>
+      </View>
+
+      <View style={styles.cardFooter}>
+        <View style={styles.statusContainer}>
+          <View style={[styles.statusDot, { 
+            backgroundColor: item.status === 'SUBMITTED' ? '#22c55e' : 
+                           item.status === 'LATE' ? '#ef4444' : '#f59e0b' 
+          }]} />
+          <Text style={styles.statusText}>
+            {item.status || 'PENDING'}
+          </Text>
+        </View>
+        <TouchableOpacity style={styles.viewButton}>
+          <Text style={styles.viewButtonText}>View Details</Text>
+          <Icon name="arrow-right" size={14} color="#3b82f6" />
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
-  </AppCard>
+  );
+};
+
+// Subject Filter Chip Component
+const SubjectFilterChip: React.FC<{
+  label: string;
+  isSelected: boolean;
+  onPress: () => void;
+  count?: number;
+}> = ({ label, isSelected, onPress, count }) => (
+  <TouchableOpacity
+    style={[styles.filterChip, isSelected && styles.filterChipActive]}
+    onPress={onPress}
+  >
+    <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
+      {label}
+    </Text>
+    {count !== undefined && count > 0 && (
+      <View style={[styles.filterChipCount, isSelected && styles.filterChipCountActive]}>
+        <Text style={[styles.filterChipCountText, isSelected && styles.filterChipCountTextActive]}>
+          {count}
+        </Text>
+      </View>
+    )}
+  </TouchableOpacity>
 );
+
+// Helper function for subject colors
+const getSubjectColor = (subject: string): string => {
+  const colors = {
+    'Math': '#3b82f6',
+    'Science': '#10b981',
+    'English': '#f59e0b',
+    'History': '#8b5cf6',
+    'Geography': '#06b6d4',
+    'Physics': '#ef4444',
+    'Chemistry': '#84cc16',
+    'Biology': '#14b8a6',
+  };
+  return colors[subject as keyof typeof colors] || '#64748b';
+};
 
 export default function HomeworkScreen() {
   const { userName } = useAuth();
@@ -100,18 +199,26 @@ export default function HomeworkScreen() {
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [showHomeworkModal, setShowHomeworkModal] = useState<boolean>(false);
   const [selectedHomework, setSelectedHomework] = useState<Homework | null>(null);
+  const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
 
-  // Subject options for filter
+  // Subject options for filter with counts
   const subjectOptions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allItems.forEach(item => {
+      const subject = item.subject_name || 'Unknown';
+      counts[subject] = (counts[subject] || 0) + 1;
+    });
+    
     return [
-      { value: 'ALL', label: 'All Subjects' },
+      { value: 'ALL', label: 'All Subjects', count: allItems.length },
       ...subjects.map((s) => ({
         value: String(s.subject_name || '').trim(),
         label: String(s.subject_name || '').trim(),
         subject_id: s.subject_id,
+        count: counts[s.subject_name] || 0,
       })),
     ];
-  }, [subjects]);
+  }, [subjects, allItems]);
 
   // Load stored credentials
   useEffect(() => {
@@ -175,6 +282,7 @@ export default function HomeworkScreen() {
   const loadHomework = async (dateToFetch: string, subjectToFetch: string) => {
     if (!schoolCode || !studentId) return;
 
+    setLoading(true);
     try {
       const params: any = {
         school_code: schoolCode,
@@ -205,6 +313,8 @@ export default function HomeworkScreen() {
       console.error('Fetch homework failed:', err);
       setAllItems([]);
       setFilteredItems([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -215,9 +325,8 @@ export default function HomeworkScreen() {
   };
 
   const handleApplyFilters = async () => {
-    setLoading(true);
     await loadHomework(assignedDate, subjectFilter);
-    setLoading(false);
+    setShowFilterSheet(false);
   };
 
   const handleViewHomework = (homework: Homework) => {
@@ -240,99 +349,133 @@ export default function HomeworkScreen() {
     return 'Evening';
   };
 
+  const pendingCount = filteredItems.filter(i => i.status !== 'SUBMITTED').length;
+
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
+      
       <ScrollView
         contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor={colors.accent} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor="#3b82f6" />
+        }
       >
-        {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <View>
-            <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Student'}!</AppText>
-            <AppText style={styles.welcomeSub}>Stay updated with your daily assignments.</AppText>
+        {/* Gradient Header */}
+        <LinearGradient
+          colors={['#3b82f6', '#2563eb', '#1d4ed8']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradientHeader}
+        >
+          <View style={styles.headerContent}>
+            <View style={styles.welcomeSection}>
+              <View>
+                <Text style={styles.welcomeGreeting}>Good {getGreeting()}! 👋</Text>
+                <Text style={styles.welcomeTitle}>Homework</Text>
+                <Text style={styles.welcomeSub}>Track your daily assignments</Text>
+              </View>
+              <TouchableOpacity style={styles.notificationIcon}>
+                {pendingCount > 0 && (
+                  <View style={styles.pendingBadge}>
+                    <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
+                  </View>
+                )}
+                <Icon name="bell" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={styles.dateBadge}>
-            <Icon name="calendar" size={12} color={colors.textMuted} />
-            <AppText style={styles.dateText}>
-              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </AppText>
-          </View>
+        </LinearGradient>
+
+        {/* Stats Summary */}
+        <View style={styles.statsSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll}>
+            <View style={[styles.statCard, styles.statCardTotal]}>
+              <Icon name="book-open" size={22} color="#3b82f6" />
+              <Text style={styles.statNumber}>{filteredItems.length}</Text>
+              <Text style={styles.statLabel}>Total Tasks</Text>
+            </View>
+            <View style={[styles.statCard, styles.statCardPending]}>
+              <Icon name="clock" size={22} color="#f59e0b" />
+              <Text style={styles.statNumber}>{pendingCount}</Text>
+              <Text style={styles.statLabel}>Pending</Text>
+            </View>
+            <View style={[styles.statCard, styles.statCardSubmitted]}>
+              <Icon name="check-circle" size={22} color="#22c55e" />
+              <Text style={styles.statNumber}>{filteredItems.length - pendingCount}</Text>
+              <Text style={styles.statLabel}>Submitted</Text>
+            </View>
+          </ScrollView>
         </View>
 
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.titleWrap}>
-            <AppText style={styles.title}>📚 Homework</AppText>
-            <AppText style={styles.subText}>{filteredItems.length} records</AppText>
-          </View>
-          <TouchableOpacity style={styles.refreshBtn} onPress={refreshAll}>
-            <Icon name="refresh-cw" size={16} color={colors.textPrimary} />
+        {/* Filter Bar */}
+        <View style={styles.filterBar}>
+          <TouchableOpacity 
+            style={styles.filterButton}
+            onPress={() => setShowFilterSheet(true)}
+          >
+            <Icon name="filter" size={18} color="#3b82f6" />
+            <Text style={styles.filterButtonText}>Filters</Text>
+            {(subjectFilter !== 'ALL' || assignedDate !== getTodayDate()) && (
+              <View style={styles.activeFilterDot} />
+            )}
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.dateFilterButton}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Icon name="calendar" size={16} color="#64748b" />
+            <Text style={styles.dateFilterText}>
+              {formatDisplayDate(assignedDate)}
+            </Text>
+            <Icon name="chevron-down" size={16} color="#64748b" />
           </TouchableOpacity>
         </View>
 
-        {/* Filters Card */}
-        <AppCard style={styles.filterCard}>
-          {/* Subject Filter */}
-          <View style={styles.filterRow}>
-            <Text style={styles.filterLabel}>Subject</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.chipContainer}>
-                {subjectOptions.map((subject) => (
-                  <TouchableOpacity
-                    key={subject.value}
-                    style={[
-                      styles.filterChip,
-                      subjectFilter === subject.value && styles.filterChipActive,
-                    ]}
-                    onPress={() => setSubjectFilter(subject.value)}
-                  >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        subjectFilter === subject.value && styles.filterChipTextActive,
-                      ]}
-                    >
-                      {subject.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-          </View>
-
-          {/* Date Picker */}
-          <View style={styles.filterRow}>
-            <Text style={styles.filterLabel}>Assigned Date</Text>
-            <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowDatePicker(true)}>
-              <Text style={styles.datePickerText}>{assignedDate || 'Select date'}</Text>
-              <Text style={styles.calendarIcon}>📅</Text>
-            </TouchableOpacity>
-            {showDatePicker && (
-              <DateTimePicker
-                value={new Date(assignedDate || getTodayDate())}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleDateChange}
-              />
-            )}
-          </View>
-
-          {/* Apply Button */}
-          <AppButton
-            title={loading ? 'Searching...' : 'Apply Filters'}
-            onPress={handleApplyFilters}
-            disabled={loading}
-            style={styles.applyBtn}
-          />
-        </AppCard>
+        {/* Subject Chips Quick Filter */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          style={styles.subjectChipsScroll}
+          contentContainerStyle={styles.subjectChipsContainer}
+        >
+          {subjectOptions.slice(0, 6).map((subject) => (
+            <SubjectFilterChip
+              key={subject.value}
+              label={subject.label}
+              isSelected={subjectFilter === subject.value}
+              onPress={() => setSubjectFilter(subject.value)}
+              count={subject.count}
+            />
+          ))}
+        </ScrollView>
 
         {/* Homework Grid */}
         {loading ? (
-          <Loader />
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color="#3b82f6" />
+            <Text style={styles.loaderText}>Loading assignments...</Text>
+          </View>
         ) : filteredItems.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No homework found</Text>
+            <View style={styles.emptyIconContainer}>
+              <Icon name="book" size={48} color="#cbd5e1" />
+            </View>
+            <Text style={styles.emptyTitle}>No Homework Found</Text>
+            <Text style={styles.emptyText}>
+              No assignments available for the selected filters
+            </Text>
+            <TouchableOpacity 
+              style={styles.resetButton}
+              onPress={() => {
+                setSubjectFilter('ALL');
+                setAssignedDate(getTodayDate());
+                loadHomework(getTodayDate(), 'ALL');
+              }}
+            >
+              <Text style={styles.resetButtonText}>Reset Filters</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.grid}>
@@ -343,6 +486,95 @@ export default function HomeworkScreen() {
         )}
       </ScrollView>
 
+      {/* Filter Modal Sheet */}
+      <Modal
+        visible={showFilterSheet}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFilterSheet(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.filterSheet}>
+            <View style={styles.filterSheetHeader}>
+              <Text style={styles.filterSheetTitle}>Filter Assignments</Text>
+              <TouchableOpacity onPress={() => setShowFilterSheet(false)}>
+                <Icon name="x" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.filterSheetBody}>
+              <Text style={styles.filterSheetLabel}>Subject</Text>
+              <View style={styles.filterSheetSubjects}>
+                {subjectOptions.map((subject) => (
+                  <TouchableOpacity
+                    key={subject.value}
+                    style={[
+                      styles.filterSheetChip,
+                      subjectFilter === subject.value && styles.filterSheetChipActive,
+                    ]}
+                    onPress={() => setSubjectFilter(subject.value)}
+                  >
+                    <Text style={[
+                      styles.filterSheetChipText,
+                      subjectFilter === subject.value && styles.filterSheetChipTextActive,
+                    ]}>
+                      {subject.label}
+                    </Text>
+                    <Text style={[
+                      styles.filterSheetChipCount,
+                      subjectFilter === subject.value && styles.filterSheetChipCountActive,
+                    ]}>
+                      {subject.count}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.filterSheetLabel}>Due Date Status</Text>
+              <View style={styles.statusFilterContainer}>
+                <TouchableOpacity style={styles.statusFilterButton}>
+                  <Text style={styles.statusFilterText}>All</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.statusFilterButton}>
+                  <Text style={styles.statusFilterText}>Pending</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.statusFilterButton}>
+                  <Text style={styles.statusFilterText}>Overdue</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.statusFilterButton}>
+                  <Text style={styles.statusFilterText}>Completed</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+
+            <View style={styles.filterSheetFooter}>
+              <TouchableOpacity 
+                style={styles.resetFiltersButton}
+                onPress={() => {
+                  setSubjectFilter('ALL');
+                  setAssignedDate(getTodayDate());
+                }}
+              >
+                <Text style={styles.resetFiltersText}>Reset</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.applyFiltersButton}
+                onPress={handleApplyFilters}
+              >
+                <LinearGradient
+                  colors={['#3b82f6', '#2563eb']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.applyFiltersGradient}
+                >
+                  <Text style={styles.applyFiltersText}>Apply Filters</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Homework Detail Modal */}
       <Modal
         visible={showHomeworkModal}
@@ -352,25 +584,28 @@ export default function HomeworkScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Homework Details</Text>
+            <LinearGradient
+              colors={['#3b82f6', '#2563eb']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalHeader}
+            >
+              <Text style={styles.modalTitle}>Assignment Details</Text>
               <TouchableOpacity onPress={() => setShowHomeworkModal(false)}>
-                <Text style={styles.closeBtn}>✕</Text>
+                <Icon name="x" size={24} color="#fff" />
               </TouchableOpacity>
-            </View>
+            </LinearGradient>
+            
             <ScrollView style={styles.modalBody}>
               {selectedHomework && (
                 <>
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Title</Text>
-                    <Text style={styles.detailValue}>{selectedHomework.title || '-'}</Text>
-                  </View>
-
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Subject</Text>
-                    <Text style={styles.detailValue}>
-                      {selectedHomework.subject_name || `Subject ${selectedHomework.subject_id || '-'}`}
-                    </Text>
+                    <View style={styles.detailSubjectBadge}>
+                      <Text style={styles.detailSubjectText}>
+                        {selectedHomework.subject_name}
+                      </Text>
+                    </View>
+                    <Text style={styles.detailTitle}>{selectedHomework.title}</Text>
                   </View>
 
                   <View style={styles.detailSection}>
@@ -382,21 +617,64 @@ export default function HomeworkScreen() {
                     </View>
                   </View>
 
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Teacher</Text>
-                    <Text style={styles.detailValue}>{selectedHomework.teacher_full_name || '-'}</Text>
+                  <View style={styles.detailInfoGrid}>
+                    <View style={styles.detailInfoItem}>
+                      <Icon name="calendar" size={16} color="#64748b" />
+                      <Text style={styles.detailInfoLabel}>Due Date</Text>
+                      <Text style={styles.detailInfoValue}>
+                        {formatDisplayDate(selectedHomework.due_date)}
+                      </Text>
+                    </View>
+                    <View style={styles.detailInfoItem}>
+                      <Icon name="user" size={16} color="#64748b" />
+                      <Text style={styles.detailInfoLabel}>Teacher</Text>
+                      <Text style={styles.detailInfoValue}>
+                        {selectedHomework.teacher_full_name}
+                      </Text>
+                    </View>
+                    <View style={styles.detailInfoItem}>
+                      <Icon name="calendar" size={16} color="#64748b" />
+                      <Text style={styles.detailInfoLabel}>Assigned</Text>
+                      <Text style={styles.detailInfoValue}>
+                        {formatDisplayDate(selectedHomework.assigned_date)}
+                      </Text>
+                    </View>
                   </View>
 
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Due Date</Text>
-                    <Text style={styles.detailValue}>{normalizeDate(selectedHomework.due_date) || '-'}</Text>
-                  </View>
+                  {selectedHomework.attachment_url && (
+                    <TouchableOpacity style={styles.attachmentButton}>
+                      <Icon name="paperclip" size={16} color="#3b82f6" />
+                      <Text style={styles.attachmentText}>View Attachment</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity style={styles.submitButton}>
+                    <LinearGradient
+                      colors={['#22c55e', '#16a34a']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.submitGradient}
+                    >
+                      <Icon name="upload" size={18} color="#fff" />
+                      <Text style={styles.submitButtonText}>Submit Assignment</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </>
               )}
             </ScrollView>
           </View>
         </View>
       </Modal>
+
+      {/* Date Picker */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={new Date(assignedDate || getTodayDate())}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleDateChange}
+        />
+      )}
     </View>
   );
 }
@@ -404,157 +682,266 @@ export default function HomeworkScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: '#f8fafc',
   },
   contentContainer: {
-    padding: 16,
     paddingBottom: 40,
+  },
+  gradientHeader: {
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+  },
+  headerContent: {
+    marginTop: 10,
   },
   welcomeSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
+  },
+  welcomeGreeting: {
+    fontSize: 14,
+    color: '#bfdbfe',
+    marginBottom: 4,
   },
   welcomeTitle: {
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: '#ffffff',
+    marginBottom: 6,
   },
   welcomeSub: {
     fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 2,
+    color: '#bfdbfe',
   },
-  dateBadge: {
-    flexDirection: 'row',
+  notificationIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
+    position: 'relative',
   },
-  dateText: {
-    fontSize: 12,
+  pendingBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#ef4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    zIndex: 1,
+  },
+  pendingBadgeText: {
+    fontSize: 10,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#ffffff',
   },
-  header: {
+  statsSection: {
+    marginTop: -20,
+    paddingHorizontal: 16,
+  },
+  statsScroll: {
+    flexDirection: 'row',
+  },
+  statCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    marginRight: 12,
+    minWidth: width * 0.28,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  statCardTotal: {
+    borderTopWidth: 3,
+    borderTopColor: '#3b82f6',
+  },
+  statCardPending: {
+    borderTopWidth: 3,
+    borderTopColor: '#f59e0b',
+  },
+  statCardSubmitted: {
+    borderTopWidth: 3,
+    borderTopColor: '#22c55e',
+  },
+  statNumber: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginTop: 8,
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+    marginTop: 4,
+  },
+  filterBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    marginTop: 20,
+    gap: 12,
   },
-  titleWrap: {
+  filterButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  subText: {
-    color: colors.textMuted,
-    fontSize: 13,
-    marginLeft: 8,
-  },
-  refreshBtn: {
-    backgroundColor: colors.surface,
-    padding: 10,
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#ffffff',
+    paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#e2e8f0',
+    position: 'relative',
   },
-  refreshBtnText: {
-    display: 'none',
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3b82f6',
   },
-  filterCard: {
-    padding: 18,
-    marginBottom: 20,
+  activeFilterDot: {
+    position: 'absolute',
+    top: 8,
+    right: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ef4444',
   },
-  filterRow: {
-    marginBottom: 16,
-  },
-  filterLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#64748b',
-    marginBottom: 8,
-  },
-  chipContainer: {
+  dateFilterButton: {
+    flex: 1,
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
+    backgroundColor: '#ffffff',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  dateFilterText: {
+    fontSize: 13,
+    color: '#0f172a',
+    fontWeight: '500',
+  },
+  subjectChipsScroll: {
+    marginTop: 16,
+    paddingHorizontal: 16,
+  },
+  subjectChipsContainer: {
+    paddingRight: 16,
   },
   filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#dbe3ee',
+    borderColor: '#e2e8f0',
     marginRight: 8,
-    marginBottom: 8,
+    gap: 8,
   },
   filterChipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
   },
   filterChipText: {
     fontSize: 13,
+    fontWeight: '500',
     color: '#475569',
   },
   filterChipTextActive: {
     color: '#ffffff',
   },
-  datePickerBtn: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 46,
-    borderWidth: 1,
-    borderColor: '#dbe3ee',
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    paddingHorizontal: 14,
+  filterChipCount: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
   },
-  datePickerText: {
-    fontSize: 14,
-    color: '#0f172a',
+  filterChipCountActive: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
-  calendarIcon: {
-    fontSize: 16,
+  filterChipCountText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748b',
   },
-  applyBtn: {
-    marginTop: 8,
+  filterChipCountTextActive: {
+    color: '#ffffff',
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginTop: 16,
   },
   homeworkCard: {
     width: '48%',
-    marginBottom: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
     padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  subjectTag: {
-    backgroundColor: '#eff6ff',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    alignSelf: 'flex-start',
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  subjectTagText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#2563eb',
+  subjectBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  subjectBadgeText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  cardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  overdueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#fef2f2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  overdueText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#ef4444',
   },
   homeworkTitle: {
     fontSize: 16,
@@ -563,99 +950,341 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   homeworkDesc: {
-    fontSize: 14,
-    color: '#475569',
-    marginBottom: 10,
-    minHeight: 40,
+    fontSize: 13,
+    color: '#64748b',
+    marginBottom: 12,
+    lineHeight: 18,
   },
   metaContainer: {
-    marginTop: 8,
+    gap: 6,
+    marginBottom: 12,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   metaText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
-    marginBottom: 4,
   },
-  viewBtn: {
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#dbe3ee',
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
   },
-  viewBtnText: {
-    fontSize: 13,
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
+    color: '#64748b',
   },
-  emptyContainer: {
+  viewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+  loaderContainer: {
     padding: 40,
     alignItems: 'center',
   },
-  emptyText: {
+  loaderText: {
+    marginTop: 12,
+    fontSize: 13,
     color: '#64748b',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    padding: 48,
+    marginTop: 20,
+    marginHorizontal: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  resetButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+  },
+  resetButtonText: {
+    fontSize: 14,
     fontWeight: '600',
+    color: '#3b82f6',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+  },
+  filterSheet: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+  },
+  filterSheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  filterSheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  filterSheetBody: {
+    padding: 20,
+  },
+  filterSheetLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 12,
+  },
+  filterSheetSubjects: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 24,
+  },
+  filterSheetChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    gap: 8,
+  },
+  filterSheetChipActive: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  filterSheetChipText: {
+    fontSize: 14,
+    color: '#475569',
+  },
+  filterSheetChipTextActive: {
+    color: '#ffffff',
+  },
+  filterSheetChipCount: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  filterSheetChipCountActive: {
+    color: '#ffffff',
+  },
+  statusFilterContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  statusFilterButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  statusFilterText: {
+    fontSize: 14,
+    color: '#475569',
+  },
+  filterSheetFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  resetFiltersButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+  },
+  resetFiltersText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  applyFiltersButton: {
+    flex: 2,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  applyFiltersGradient: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  applyFiltersText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   modalContent: {
     backgroundColor: '#ffffff',
-    borderRadius: 18,
-    width: '90%',
-    maxHeight: '80%',
-    shadowColor: '#020617',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.25,
-    shadowRadius: 40,
-    elevation: 5,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e7edf5',
+    padding: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  detailSection: {
+    marginBottom: 24,
+  },
+  detailSubjectBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  detailSubjectText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+  detailTitle: {
     fontSize: 20,
     fontWeight: '800',
     color: '#0f172a',
-  },
-  closeBtn: {
-    fontSize: 24,
-    color: '#64748b',
-    padding: 4,
-  },
-  modalBody: {
-    padding: 24,
-  },
-  detailSection: {
-    marginBottom: 20,
+    lineHeight: 28,
   },
   detailLabel: {
-    fontWeight: '700',
-    color: '#374151',
     fontSize: 14,
-    marginBottom: 4,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 8,
   },
   detailValue: {
-    color: '#6b7280',
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 14,
+    color: '#64748b',
+    lineHeight: 20,
   },
   descriptionBox: {
     backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e7edf5',
     borderRadius: 12,
     padding: 16,
-    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  detailInfoGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 24,
+  },
+  detailInfoItem: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    gap: 8,
+  },
+  detailInfoLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  detailInfoValue: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#0f172a',
+    textAlign: 'center',
+  },
+  attachmentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#eff6ff',
+    marginBottom: 16,
+  },
+  attachmentText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+  submitButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  submitGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+  },
+  submitButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
   },
 });

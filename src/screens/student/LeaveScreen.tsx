@@ -10,9 +10,13 @@ import {
     TextInput,
     Alert,
     Platform,
+    Dimensions,
+    StatusBar,
+    Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import LinearGradient from 'react-native-linear-gradient';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
@@ -20,12 +24,15 @@ import Icon from 'react-native-vector-icons/Feather';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
-import Loader from '../../components/common/Loader';
+
+const { width, height } = Dimensions.get('window');
 
 // Types
 interface Teacher {
     teacher_id: string;
     teacher_full_name: string;
+    subject?: string;
+    avatar?: string;
 }
 
 interface LeaveRequest {
@@ -36,6 +43,7 @@ interface LeaveRequest {
     to_date: string;
     reason: string;
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    created_at?: string;
 }
 
 // Helper functions
@@ -54,27 +62,141 @@ const getParentId = async (): Promise<string> => {
     return id || (await AsyncStorage.getItem('parentId')) || '';
 };
 
-// Status Badge Component
+// Enhanced Status Badge Component
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-    const getStatusStyle = () => {
+    const getStatusConfig = () => {
         const upperStatus = status?.toUpperCase() || '';
-        if (upperStatus === 'APPROVED') return styles.badgeApproved;
-        if (upperStatus === 'REJECTED') return styles.badgeRejected;
-        return styles.badgePending;
+        if (upperStatus === 'APPROVED') {
+            return {
+                container: styles.badgeApproved,
+                text: styles.badgeTextApproved,
+                label: 'APPROVED',
+                icon: 'check-circle',
+                iconColor: '#22c55e',
+            };
+        }
+        if (upperStatus === 'REJECTED') {
+            return {
+                container: styles.badgeRejected,
+                text: styles.badgeTextRejected,
+                label: 'REJECTED',
+                icon: 'x-circle',
+                iconColor: '#ef4444',
+            };
+        }
+        return {
+            container: styles.badgePending,
+            text: styles.badgeTextPending,
+            label: 'PENDING',
+            icon: 'clock',
+            iconColor: '#f59e0b',
+        };
     };
 
-    const getTextStyle = () => {
-        const upperStatus = status?.toUpperCase() || '';
-        if (upperStatus === 'APPROVED') return styles.badgeTextApproved;
-        if (upperStatus === 'REJECTED') return styles.badgeTextRejected;
-        return styles.badgeTextPending;
+    const config = getStatusConfig();
+
+    return (
+        <View style={[styles.badge, config.container]}>
+            <Icon name={config.icon} size={12} color={config.iconColor} />
+            <Text style={[styles.badgeText, config.text]}>{config.label}</Text>
+        </View>
+    );
+};
+
+// Teacher Card Component
+const TeacherCard: React.FC<{
+    teacher: Teacher;
+    isSelected: boolean;
+    onSelect: () => void;
+}> = ({ teacher, isSelected, onSelect }) => (
+    <TouchableOpacity
+        style={[styles.teacherCard, isSelected && styles.teacherCardSelected]}
+        onPress={onSelect}
+    >
+        <View style={styles.teacherAvatar}>
+            <Text style={styles.teacherAvatarText}>
+                {teacher.teacher_full_name.charAt(0)}
+            </Text>
+        </View>
+        <View style={styles.teacherInfo}>
+            <Text style={styles.teacherName}>{teacher.teacher_full_name}</Text>
+            {teacher.subject && (
+                <Text style={styles.teacherSubject}>{teacher.subject}</Text>
+            )}
+        </View>
+        {isSelected && (
+            <View style={styles.selectedIndicator}>
+                <Icon name="check" size={16} color="#ffffff" />
+            </View>
+        )}
+    </TouchableOpacity>
+);
+
+// Leave History Card Component
+const LeaveHistoryCard: React.FC<{ request: LeaveRequest }> = ({ request }) => {
+    const formatDateRange = (from: string, to: string) => {
+        const fromDate = new Date(from);
+        const toDate = new Date(to);
+        if (from === to) {
+            return fromDate.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+            });
+        }
+        return `${fromDate.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+        })} - ${toDate.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+        })}`;
+    };
+
+    const getDuration = (from: string, to: string) => {
+        const fromDate = new Date(from);
+        const toDate = new Date(to);
+        const diffTime = Math.abs(toDate.getTime() - fromDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
     };
 
     return (
-        <View style={[styles.badge, getStatusStyle()]}>
-            <Text style={[styles.badgeText, getTextStyle()]}>
-                {status?.toUpperCase() || 'PENDING'}
-            </Text>
+        <View style={styles.historyCard}>
+            <View style={styles.historyCardHeader}>
+                <View style={styles.historyTeacherInfo}>
+                    <View style={styles.historyTeacherAvatar}>
+                        <Text style={styles.historyTeacherAvatarText}>
+                            {request.teacher_full_name?.charAt(0) || 'T'}
+                        </Text>
+                    </View>
+                    <View>
+                        <Text style={styles.historyTeacherName}>
+                            {request.teacher_full_name || 'Unknown Teacher'}
+                        </Text>
+                        <Text style={styles.historyDuration}>
+                            {getDuration(request.from_date, request.to_date)}
+                        </Text>
+                    </View>
+                </View>
+                <StatusBadge status={request.status} />
+            </View>
+            
+            <View style={styles.historyCardBody}>
+                <View style={styles.historyDateRange}>
+                    <Icon name="calendar" size={14} color="#64748b" />
+                    <Text style={styles.historyDateText}>
+                        {formatDateRange(request.from_date, request.to_date)}
+                    </Text>
+                </View>
+                <View style={styles.historyReason}>
+                    <Icon name="file-text" size={14} color="#64748b" />
+                    <Text style={styles.historyReasonText} numberOfLines={2}>
+                        {request.reason}
+                    </Text>
+                </View>
+            </View>
         </View>
     );
 };
@@ -97,6 +219,7 @@ export default function LeaveScreen() {
     const [submitting, setSubmitting] = useState<boolean>(false);
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [history, setHistory] = useState<LeaveRequest[]>([]);
+    const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
 
     // Date picker states
     const [showFromDatePicker, setShowFromDatePicker] = useState<boolean>(false);
@@ -136,7 +259,7 @@ export default function LeaveScreen() {
             });
             const teachersData = res.data?.items || [];
             setTeachers(teachersData);
-            if (teachersData.length > 0) {
+            if (teachersData.length > 0 && !teacherId) {
                 setTeacherId(teachersData[0].teacher_id);
             }
         } catch (error) {
@@ -208,13 +331,17 @@ export default function LeaveScreen() {
                 reason: reason.trim(),
             });
 
-            Alert.alert('Success', 'Leave request submitted successfully');
-
+            setShowSuccessModal(true);
+            
             // Reset form
             setFromDate(null);
             setToDate(null);
             setReason('');
             await loadHistory();
+            
+            setTimeout(() => {
+                setShowSuccessModal(false);
+            }, 2000);
         } catch (error: any) {
             const errorMsg = error?.response?.data?.detail || 'Failed to submit leave request';
             Alert.alert('Error', errorMsg);
@@ -227,16 +354,13 @@ export default function LeaveScreen() {
         return date.toISOString().split('T')[0];
     };
 
-    const formatDisplayDate = (dateString: string): string => {
-        if (!dateString) return '-';
-        const date = new Date(dateString);
-        return date.toLocaleDateString();
-    };
-
     const onFromDateChange = (event: any, selectedDate?: Date) => {
         setShowFromDatePicker(false);
         if (selectedDate) {
             setFromDate(selectedDate);
+            if (!toDate || selectedDate > toDate) {
+                setToDate(null);
+            }
         }
     };
 
@@ -254,187 +378,242 @@ export default function LeaveScreen() {
         return 'Evening';
     };
 
+    const pendingRequests = history.filter(h => h.status === 'PENDING');
+    const approvedRequests = history.filter(h => h.status === 'APPROVED');
+    const rejectedRequests = history.filter(h => h.status === 'REJECTED');
+
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
+            
             <ScrollView
                 contentContainerStyle={styles.contentContainer}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor={colors.accent} />}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor="#3b82f6" />
+                }
             >
-                {/* Welcome Section */}
-                <View style={styles.welcomeSection}>
-                    <View>
-                        <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Student'}!</AppText>
-                        <AppText style={styles.welcomeSub}>Manage your leave requests and track approvals.</AppText>
+                {/* Gradient Header */}
+                <LinearGradient
+                    colors={['#3b82f6', '#2563eb', '#1d4ed8']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.gradientHeader}
+                >
+                    <View style={styles.headerContent}>
+                        <View style={styles.welcomeSection}>
+                            <View>
+                                <Text style={styles.welcomeGreeting}>Good {getGreeting()}! 👋</Text>
+                                <Text style={styles.welcomeTitle}>Leave Management</Text>
+                                <Text style={styles.welcomeSub}>Request time off and track approvals</Text>
+                            </View>
+                            <TouchableOpacity style={styles.notificationIcon}>
+                                <Icon name="bell" size={20} color="#fff" />
+                                {pendingRequests.length > 0 && (
+                                    <View style={styles.notificationBadge}>
+                                        <Text style={styles.notificationBadgeText}>
+                                            {pendingRequests.length}
+                                        </Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                    <View style={styles.dateBadge}>
-                        <Icon name="calendar" size={12} color={colors.textMuted} />
-                        <AppText style={styles.dateText}>
-                            {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </AppText>
-                    </View>
+                </LinearGradient>
+
+                {/* Stats Summary */}
+                <View style={styles.statsSection}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll}>
+                        <View style={[styles.statCard, styles.statCardTotal]}>
+                            <Icon name="file-text" size={24} color="#3b82f6" />
+                            <Text style={styles.statNumber}>{history.length}</Text>
+                            <Text style={styles.statLabel}>Total Requests</Text>
+                        </View>
+                        <View style={[styles.statCard, styles.statCardPending]}>
+                            <Icon name="clock" size={24} color="#f59e0b" />
+                            <Text style={styles.statNumber}>{pendingRequests.length}</Text>
+                            <Text style={styles.statLabel}>Pending</Text>
+                        </View>
+                        <View style={[styles.statCard, styles.statCardApproved]}>
+                            <Icon name="check-circle" size={24} color="#22c55e" />
+                            <Text style={styles.statNumber}>{approvedRequests.length}</Text>
+                            <Text style={styles.statLabel}>Approved</Text>
+                        </View>
+                        <View style={[styles.statCard, styles.statCardRejected]}>
+                            <Icon name="x-circle" size={24} color="#ef4444" />
+                            <Text style={styles.statNumber}>{rejectedRequests.length}</Text>
+                            <Text style={styles.statLabel}>Rejected</Text>
+                        </View>
+                    </ScrollView>
                 </View>
 
-                {/* Header */}
-                <View style={styles.header}>
-                    <View>
-                        <AppText style={styles.title}>Leave Request</AppText>
-                        <AppText style={styles.subText}>{history.length} records found</AppText>
+                {/* Apply Leave Form Section */}
+                <View style={styles.formSection}>
+                    <Text style={styles.sectionTitle}>Request Leave</Text>
+                    
+                    {/* Teacher Selection */}
+                    <View style={styles.formGroup}>
+                        <Text style={styles.formLabel}>Select Teacher</Text>
+                        {loadingTeachers ? (
+                            <ActivityIndicator size="large" color="#3b82f6" />
+                        ) : teachers.length === 0 ? (
+                            <View style={styles.noTeachersContainer}>
+                                <Icon name="users" size={32} color="#cbd5e1" />
+                                <Text style={styles.noTeachersText}>No teachers available</Text>
+                            </View>
+                        ) : (
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teachersScroll}>
+                                {teachers.map((teacher) => (
+                                    <TeacherCard
+                                        key={teacher.teacher_id}
+                                        teacher={teacher}
+                                        isSelected={teacherId === teacher.teacher_id}
+                                        onSelect={() => setTeacherId(teacher.teacher_id)}
+                                    />
+                                ))}
+                            </ScrollView>
+                        )}
                     </View>
-                    <TouchableOpacity style={styles.refreshBtn} onPress={loadHistory}>
-                        <Icon name="refresh-cw" size={16} color={colors.textPrimary} />
+
+                    {/* Date Selection */}
+                    <View style={styles.dateRow}>
+                        <View style={[styles.formGroup, styles.halfWidth]}>
+                            <Text style={styles.formLabel}>From Date</Text>
+                            <TouchableOpacity 
+                                style={styles.datePickerBtn} 
+                                onPress={() => setShowFromDatePicker(true)}
+                            >
+                                <Icon name="calendar" size={18} color="#64748b" />
+                                <Text style={styles.datePickerText}>
+                                    {fromDate ? formatDate(fromDate) : 'Select date'}
+                                </Text>
+                                <Icon name="chevron-down" size={18} color="#64748b" />
+                            </TouchableOpacity>
+                            {showFromDatePicker && (
+                                <DateTimePicker
+                                    value={fromDate || new Date()}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={onFromDateChange}
+                                    minimumDate={new Date()}
+                                />
+                            )}
+                        </View>
+
+                        <View style={[styles.formGroup, styles.halfWidth]}>
+                            <Text style={styles.formLabel}>To Date</Text>
+                            <TouchableOpacity 
+                                style={styles.datePickerBtn} 
+                                onPress={() => setShowToDatePicker(true)}
+                                disabled={!fromDate}
+                            >
+                                <Icon name="calendar" size={18} color="#64748b" />
+                                <Text style={[
+                                    styles.datePickerText,
+                                    !fromDate && styles.datePickerTextDisabled
+                                ]}>
+                                    {toDate ? formatDate(toDate) : 'Select date'}
+                                </Text>
+                                <Icon name="chevron-down" size={18} color="#64748b" />
+                            </TouchableOpacity>
+                            {showToDatePicker && (
+                                <DateTimePicker
+                                    value={toDate || fromDate || new Date()}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={onToDateChange}
+                                    minimumDate={fromDate || new Date()}
+                                />
+                            )}
+                        </View>
+                    </View>
+
+                    {/* Reason */}
+                    <View style={styles.formGroup}>
+                        <Text style={styles.formLabel}>Reason for Leave</Text>
+                        <View style={styles.textAreaContainer}>
+                            <TextInput
+                                style={styles.textArea}
+                                multiline
+                                numberOfLines={4}
+                                value={reason}
+                                onChangeText={setReason}
+                                placeholder="Please provide a detailed reason for your leave request..."
+                                placeholderTextColor="#94a3b8"
+                                textAlignVertical="top"
+                            />
+                            <Text style={styles.charCount}>
+                                {reason.length}/500 characters
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* Submit Button */}
+                    <TouchableOpacity
+                        style={styles.submitButton}
+                        onPress={handleSubmit}
+                        disabled={submitting}
+                    >
+                        <LinearGradient
+                            colors={['#3b82f6', '#2563eb']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.submitGradient}
+                        >
+                            {submitting ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <>
+                                    <Icon name="send" size={18} color="#fff" />
+                                    <Text style={styles.submitButtonText}>Submit Leave Request</Text>
+                                </>
+                            )}
+                        </LinearGradient>
                     </TouchableOpacity>
                 </View>
 
-                {/* Two Column Layout */}
-                <View style={styles.grid}>
-                    {/* Apply Leave Form */}
-                    <AppCard style={styles.formCard}>
-                        <Text style={styles.cardTitle}>Apply Leave</Text>
-                        <View style={styles.formBody}>
-                            {/* Teacher Selection */}
-                            <View style={styles.field}>
-                                <Text style={styles.label}>Select Teacher</Text>
-                                {loadingTeachers ? (
-                                    <ActivityIndicator size="small" color="#2563eb" />
-                                ) : teachers.length === 0 ? (
-                                    <Text style={styles.noDataText}>No teachers available</Text>
-                                ) : (
-                                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                        <View style={styles.teacherChipContainer}>
-                                            {teachers.map((teacher) => (
-                                                <TouchableOpacity
-                                                    key={teacher.teacher_id}
-                                                    style={[
-                                                        styles.teacherChip,
-                                                        teacherId === teacher.teacher_id && styles.teacherChipActive,
-                                                    ]}
-                                                    onPress={() => setTeacherId(teacher.teacher_id)}
-                                                >
-                                                    <Text
-                                                        style={[
-                                                            styles.teacherChipText,
-                                                            teacherId === teacher.teacher_id && styles.teacherChipTextActive,
-                                                        ]}
-                                                    >
-                                                        {teacher.teacher_full_name}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                    </ScrollView>
-                                )}
-                            </View>
+                {/* Leave History Section */}
+                <View style={styles.historySection}>
+                    <View style={styles.historyHeader}>
+                        <Text style={styles.sectionTitle}>Leave History</Text>
+                        <Text style={styles.historyCount}>{history.length} requests</Text>
+                    </View>
 
-                            {/* From Date */}
-                            <View style={styles.field}>
-                                <Text style={styles.label}>From Date</Text>
-                                <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowFromDatePicker(true)}>
-                                    <Text style={styles.datePickerText}>
-                                        {fromDate ? formatDate(fromDate) : 'Select from date'}
-                                    </Text>
-                                    <Text style={styles.calendarIcon}>📅</Text>
-                                </TouchableOpacity>
-                                {showFromDatePicker && (
-                                    <DateTimePicker
-                                        value={fromDate || new Date()}
-                                        mode="date"
-                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                        onChange={onFromDateChange}
-                                        minimumDate={new Date()}
-                                    />
-                                )}
+                    {history.length === 0 ? (
+                        <View style={styles.emptyHistory}>
+                            <View style={styles.emptyIconContainer}>
+                                <Icon name="calendar" size={48} color="#cbd5e1" />
                             </View>
-
-                            {/* To Date */}
-                            <View style={styles.field}>
-                                <Text style={styles.label}>To Date</Text>
-                                <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowToDatePicker(true)}>
-                                    <Text style={styles.datePickerText}>
-                                        {toDate ? formatDate(toDate) : 'Select to date'}
-                                    </Text>
-                                    <Text style={styles.calendarIcon}>📅</Text>
-                                </TouchableOpacity>
-                                {showToDatePicker && (
-                                    <DateTimePicker
-                                        value={toDate || new Date()}
-                                        mode="date"
-                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                        onChange={onToDateChange}
-                                        minimumDate={fromDate || new Date()}
-                                    />
-                                )}
-                            </View>
-
-                            {/* Reason */}
-                            <View style={styles.field}>
-                                <Text style={styles.label}>Reason</Text>
-                                <TextInput
-                                    style={styles.textArea}
-                                    multiline
-                                    numberOfLines={4}
-                                    value={reason}
-                                    onChangeText={setReason}
-                                    placeholder="Enter reason for leave..."
-                                    placeholderTextColor="#94a3b8"
-                                    textAlignVertical="top"
-                                />
-                            </View>
-
-                            {/* Submit Button */}
-                            <AppButton
-                                title={submitting ? 'Submitting...' : 'Submit Leave Request'}
-                                onPress={handleSubmit}
-                                disabled={submitting || teachers.length === 0}
-                                style={styles.submitBtn}
-                            />
+                            <Text style={styles.emptyTitle}>No Leave Requests</Text>
+                            <Text style={styles.emptyText}>
+                                You haven't submitted any leave requests yet
+                            </Text>
                         </View>
-                    </AppCard>
-
-                    {/* Leave History */}
-                    <AppCard style={styles.historyCard}>
-                        <Text style={styles.cardTitle}>Leave History</Text>
-                        {history.length === 0 ? (
-                            <View style={styles.emptyContainer}>
-                                <Text style={styles.emptyText}>No leave requests found</Text>
-                            </View>
-                        ) : (
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                <View>
-                                    {/* Table Header */}
-                                    <View style={styles.tableHeader}>
-                                        <Text style={[styles.tableHeaderText, styles.colTeacher]}>Teacher</Text>
-                                        <Text style={[styles.tableHeaderText, styles.colFrom]}>From</Text>
-                                        <Text style={[styles.tableHeaderText, styles.colTo]}>To</Text>
-                                        <Text style={[styles.tableHeaderText, styles.colReason]}>Reason</Text>
-                                        <Text style={[styles.tableHeaderText, styles.colStatus]}>Status</Text>
-                                    </View>
-
-                                    {/* Table Rows */}
-                                    {history.map((row) => (
-                                        <View key={row.leave_id} style={styles.tableRow}>
-                                            <Text style={[styles.tableCell, styles.colTeacher]}>
-                                                {row.teacher_full_name || row.teacher_id || '-'}
-                                            </Text>
-                                            <Text style={[styles.tableCell, styles.colFrom]}>
-                                                {formatDisplayDate(row.from_date)}
-                                            </Text>
-                                            <Text style={[styles.tableCell, styles.colTo]}>
-                                                {formatDisplayDate(row.to_date)}
-                                            </Text>
-                                            <Text style={[styles.tableCell, styles.colReason]} numberOfLines={2}>
-                                                {row.reason}
-                                            </Text>
-                                            <View style={[styles.tableCell, styles.colStatus]}>
-                                                <StatusBadge status={row.status} />
-                                            </View>
-                                        </View>
-                                    ))}
-                                </View>
-                            </ScrollView>
-                        )}
-                    </AppCard>
+                    ) : (
+                        history.map((request) => (
+                            <LeaveHistoryCard key={request.leave_id} request={request} />
+                        ))
+                    )}
                 </View>
             </ScrollView>
+
+            {/* Success Modal */}
+            <Modal
+                visible={showSuccessModal}
+                transparent
+                animationType="fade"
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.successModal}>
+                        <View style={styles.successIconContainer}>
+                            <Icon name="check-circle" size={48} color="#22c55e" />
+                        </View>
+                        <Text style={styles.successTitle}>Request Submitted!</Text>
+                        <Text style={styles.successMessage}>
+                            Your leave request has been submitted successfully and is pending approval.
+                        </Text>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -442,221 +621,359 @@ export default function LeaveScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.bg,
+        backgroundColor: '#f8fafc',
     },
     contentContainer: {
-        padding: 16,
         paddingBottom: 40,
+    },
+    gradientHeader: {
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
+        paddingTop: Platform.OS === 'ios' ? 60 : 40,
+        paddingBottom: 30,
+        paddingHorizontal: 20,
+    },
+    headerContent: {
+        marginTop: 10,
     },
     welcomeSection: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 24,
+    },
+    welcomeGreeting: {
+        fontSize: 14,
+        color: '#bfdbfe',
+        marginBottom: 4,
     },
     welcomeTitle: {
-        fontSize: 20,
+        fontSize: 28,
         fontWeight: '800',
-        color: colors.textPrimary,
+        color: '#ffffff',
+        marginBottom: 6,
     },
     welcomeSub: {
         fontSize: 13,
-        color: colors.textMuted,
-        marginTop: 2,
+        color: '#bfdbfe',
     },
-    dateBadge: {
-        flexDirection: 'row',
+    notificationIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
         alignItems: 'center',
-        gap: 6,
-        backgroundColor: colors.surface,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: colors.border,
+        position: 'relative',
     },
-    dateText: {
-        fontSize: 12,
+    notificationBadge: {
+        position: 'absolute',
+        top: -4,
+        right: -4,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: '#ef4444',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+    },
+    notificationBadgeText: {
+        fontSize: 10,
         fontWeight: '700',
-        color: colors.textPrimary,
+        color: '#ffffff',
     },
-    header: {
+    statsSection: {
+        marginTop: -20,
+        paddingHorizontal: 16,
+    },
+    statsScroll: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+    },
+    statCard: {
+        backgroundColor: '#ffffff',
+        borderRadius: 16,
+        padding: 16,
+        marginRight: 12,
+        minWidth: width * 0.28,
         alignItems: 'center',
-        marginBottom: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 3,
     },
-    title: {
-        fontSize: 20,
+    statCardTotal: {
+        borderTopWidth: 3,
+        borderTopColor: '#3b82f6',
+    },
+    statCardPending: {
+        borderTopWidth: 3,
+        borderTopColor: '#f59e0b',
+    },
+    statCardApproved: {
+        borderTopWidth: 3,
+        borderTopColor: '#22c55e',
+    },
+    statCardRejected: {
+        borderTopWidth: 3,
+        borderTopColor: '#ef4444',
+    },
+    statNumber: {
+        fontSize: 28,
         fontWeight: '800',
-        color: colors.textPrimary,
+        color: '#0f172a',
+        marginTop: 8,
     },
-    subText: {
-        color: colors.textMuted,
-        fontSize: 13,
+    statLabel: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#64748b',
+        marginTop: 4,
     },
-    refreshBtn: {
-        backgroundColor: colors.surface,
-        padding: 10,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: colors.border,
+    formSection: {
+        backgroundColor: '#ffffff',
+        marginHorizontal: 16,
+        marginTop: 20,
+        borderRadius: 20,
+        padding: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 3,
     },
-    grid: {
-        flexDirection: 'column',
-        gap: 20,
-    },
-    formCard: {
-        padding: 0,
-        overflow: 'hidden',
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: 16,
-    },
-    historyCard: {
-        padding: 0,
-        overflow: 'hidden',
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: 16,
-    },
-    cardTitle: {
-        fontSize: 16,
+    sectionTitle: {
+        fontSize: 18,
         fontWeight: '800',
-        color: colors.textPrimary,
-        padding: 18,
-        paddingBottom: 0,
-    },
-    formBody: {
-        padding: 18,
-    },
-    field: {
+        color: '#0f172a',
         marginBottom: 16,
     },
-    label: {
-        fontSize: 12,
-        fontWeight: '800',
-        color: colors.textMuted,
-        textTransform: 'uppercase',
-        marginBottom: 8,
+    formGroup: {
+        marginBottom: 20,
     },
-    teacherChipContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-    teacherChip: {
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        borderRadius: 20,
-        backgroundColor: colors.bg,
-        borderWidth: 1,
-        borderColor: colors.border,
-        marginRight: 8,
-        marginBottom: 8,
-    },
-    teacherChipActive: {
-        backgroundColor: colors.accent,
-        borderColor: colors.accent,
-    },
-    teacherChipText: {
-        fontSize: 14,
-        color: colors.textMuted,
-    },
-    teacherChipTextActive: {
-        color: '#ffffff',
+    formLabel: {
+        fontSize: 13,
         fontWeight: '600',
+        color: '#475569',
+        marginBottom: 8,
+    },
+    teachersScroll: {
+        flexDirection: 'row',
+    },
+    teacherCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f8fafc',
+        borderRadius: 12,
+        padding: 12,
+        marginRight: 12,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        minWidth: width * 0.4,
+    },
+    teacherCardSelected: {
+        backgroundColor: '#eff6ff',
+        borderColor: '#3b82f6',
+    },
+    teacherAvatar: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#3b82f6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    teacherAvatarText: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#ffffff',
+    },
+    teacherInfo: {
+        flex: 1,
+    },
+    teacherName: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#0f172a',
+        marginBottom: 2,
+    },
+    teacherSubject: {
+        fontSize: 11,
+        color: '#64748b',
+    },
+    selectedIndicator: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: '#3b82f6',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    dateRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: 12,
+    },
+    halfWidth: {
+        flex: 1,
     },
     datePickerBtn: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        height: 46,
+        justifyContent: 'space-between',
+        height: 48,
         borderWidth: 1,
-        borderColor: colors.border,
-        backgroundColor: colors.bg,
+        borderColor: '#e2e8f0',
+        backgroundColor: '#f8fafc',
         borderRadius: 12,
         paddingHorizontal: 14,
     },
     datePickerText: {
+        flex: 1,
         fontSize: 14,
-        color: colors.textPrimary,
+        color: '#0f172a',
+        marginLeft: 8,
     },
-    calendarIcon: {
-        fontSize: 16,
+    datePickerTextDisabled: {
+        color: '#94a3b8',
+    },
+    textAreaContainer: {
+        position: 'relative',
     },
     textArea: {
         minHeight: 100,
         borderWidth: 1,
-        borderColor: colors.border,
-        backgroundColor: colors.bg,
+        borderColor: '#e2e8f0',
+        backgroundColor: '#f8fafc',
         borderRadius: 12,
         padding: 12,
         fontSize: 14,
-        color: colors.textPrimary,
+        color: '#0f172a',
         textAlignVertical: 'top',
     },
-    submitBtn: {
-        marginTop: 8,
-        backgroundColor: colors.accent,
-    },
-    tableHeader: {
-        flexDirection: 'row',
-        backgroundColor: colors.bg,
-        paddingVertical: 14,
-        paddingHorizontal: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-    },
-    tableHeaderText: {
+    charCount: {
         fontSize: 11,
-        fontWeight: '800',
-        color: colors.textMuted,
-        textTransform: 'uppercase',
-        letterSpacing: 0.4,
+        color: '#94a3b8',
+        textAlign: 'right',
+        marginTop: 6,
     },
-    tableRow: {
+    submitButton: {
+        marginTop: 8,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    submitGradient: {
         flexDirection: 'row',
-        paddingVertical: 16,
-        paddingHorizontal: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 14,
     },
-    tableCell: {
+    submitButtonText: {
+        color: '#ffffff',
+        fontSize: 15,
+        fontWeight: '700',
+    },
+    historySection: {
+        paddingHorizontal: 16,
+        marginTop: 20,
+    },
+    historyHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    historyCount: {
         fontSize: 13,
-        color: colors.textPrimary,
+        color: '#64748b',
+        fontWeight: '500',
     },
-    colTeacher: {
-        width: 120,
+    historyCard: {
+        backgroundColor: '#ffffff',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+        elevation: 2,
     },
-    colFrom: {
-        width: 90,
+    historyCardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 12,
     },
-    colTo: {
-        width: 90,
+    historyTeacherInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
-    colReason: {
-        width: 150,
+    historyTeacherAvatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#eff6ff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
     },
-    colStatus: {
-        width: 90,
+    historyTeacherAvatarText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#3b82f6',
+    },
+    historyTeacherName: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#0f172a',
+        marginBottom: 2,
+    },
+    historyDuration: {
+        fontSize: 11,
+        color: '#64748b',
+    },
+    historyCardBody: {
+        gap: 8,
+    },
+    historyDateRange: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    historyDateText: {
+        fontSize: 12,
+        color: '#475569',
+    },
+    historyReason: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 8,
+    },
+    historyReasonText: {
+        flex: 1,
+        fontSize: 13,
+        color: '#64748b',
+        lineHeight: 18,
     },
     badge: {
-        paddingVertical: 6,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 4,
         paddingHorizontal: 10,
-        borderRadius: 999,
-        alignSelf: 'flex-start',
+        borderRadius: 12,
+        gap: 6,
     },
     badgeApproved: {
-        backgroundColor: 'rgba(21, 128, 61, 0.15)',
+        backgroundColor: 'rgba(34, 197, 94, 0.1)',
     },
     badgeRejected: {
-        backgroundColor: 'rgba(185, 28, 28, 0.15)',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
     },
     badgePending: {
-        backgroundColor: 'rgba(180, 83, 9, 0.15)',
+        backgroundColor: 'rgba(245, 158, 11, 0.1)',
     },
     badgeText: {
         fontSize: 11,
@@ -671,17 +988,67 @@ const styles = StyleSheet.create({
     badgeTextPending: {
         color: '#f59e0b',
     },
-    emptyContainer: {
-        padding: 40,
+    noTeachersContainer: {
         alignItems: 'center',
+        paddingVertical: 30,
+    },
+    noTeachersText: {
+        fontSize: 14,
+        color: '#94a3b8',
+        marginTop: 8,
+    },
+    emptyHistory: {
+        alignItems: 'center',
+        paddingVertical: 48,
+        backgroundColor: '#ffffff',
+        borderRadius: 16,
+    },
+    emptyIconContainer: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: '#f1f5f9',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    emptyTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#0f172a',
+        marginBottom: 8,
     },
     emptyText: {
-        color: colors.textMuted,
-        fontWeight: '600',
+        fontSize: 13,
+        color: '#64748b',
+        textAlign: 'center',
     },
-    noDataText: {
-        color: colors.textMuted,
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    successModal: {
+        backgroundColor: '#ffffff',
+        borderRadius: 24,
+        padding: 24,
+        alignItems: 'center',
+        width: width * 0.8,
+    },
+    successIconContainer: {
+        marginBottom: 16,
+    },
+    successTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#0f172a',
+        marginBottom: 8,
+    },
+    successMessage: {
         fontSize: 14,
-        paddingVertical: 8,
+        color: '#64748b',
+        textAlign: 'center',
+        lineHeight: 20,
     },
 });

@@ -71,7 +71,7 @@ interface AppSettings {
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
-  const { userRole, logout, refreshAuth, user } = useAuth();
+  const { userRole, logout, refreshAuth } = useAuth();
   const [loading, setLoading] = useState(true);
   const [userInfo, setUserInfo] = useState<UserProfile>({
     name: '',
@@ -248,16 +248,7 @@ export default function ProfileScreen() {
     if (!editField.key || !editField.value) return;
     
     try {
-      // Try to update via API if available
-      try {
-        await API.put('/profile/update', {
-          [editField.key]: editField.value,
-        });
-      } catch (apiError) {
-        console.log('API update failed, saving locally only');
-      }
-      
-      // Update local state
+      // Update local state immediately for UI feedback
       setUserInfo(prev => ({ ...prev, [editField.key]: editField.value }));
       
       // Update AsyncStorage
@@ -273,9 +264,21 @@ export default function ProfileScreen() {
         } catch (e) {}
       }
       
+      // Try to update via API if available (don't block on error)
+      try {
+        await API.put('/profile/update', {
+          [editField.key]: editField.value,
+        });
+      } catch (apiError) {
+        console.log('API update failed, but local save succeeded');
+      }
+      
       Alert.alert('Success', `${editField.label} updated successfully`);
       setShowEditModal(false);
       setEditField({ key: '', label: '', value: '' });
+      
+      // Refresh auth context to update header
+      refreshAuth();
     } catch (error) {
       Alert.alert('Error', 'Failed to update field');
     }
@@ -359,7 +362,7 @@ export default function ProfileScreen() {
   const renderInfoRow = (label: string, value: string, icon: string, onEdit?: () => void) => (
     <View style={styles.infoRow}>
       <View style={styles.iconCircle}>
-        <Icon name={icon} size={18} color={colors.accent} />
+        <Icon name={icon} size={18} color={colors.accent || '#2563eb'} />
       </View>
       <View style={styles.infoContent}>
         <Text style={styles.infoLabel}>{label}</Text>
@@ -367,7 +370,7 @@ export default function ProfileScreen() {
       </View>
       {onEdit && (
         <TouchableOpacity onPress={onEdit} style={styles.editIcon}>
-          <Icon name="edit-2" size={16} color={colors.textMuted} />
+          <Icon name="edit-2" size={16} color={colors.textMuted || '#64748b'} />
         </TouchableOpacity>
       )}
     </View>
@@ -376,7 +379,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary || '#2563eb'} />
       </View>
     );
   }
@@ -389,7 +392,7 @@ export default function ProfileScreen() {
           displayName={userInfo.name}
           size={80}
           textSize={28}
-          primaryColor={colors.primary}
+          primaryColor={colors.primary || '#2563eb'}
         />
         <Text style={styles.name}>{userInfo.name}</Text>
         <Text style={styles.role}>{getRoleDisplayName()}</Text>
@@ -468,27 +471,27 @@ export default function ProfileScreen() {
         <AppCard style={styles.infoCard}>
           <TouchableOpacity style={styles.menuItem} onPress={() => setShowSettingsModal(true)}>
             <View style={styles.menuIconContainer}>
-              <Icon name="sliders" size={18} color={colors.textPrimary} />
+              <Icon name="sliders" size={18} color={colors.textPrimary || '#0f172a'} />
             </View>
             <Text style={styles.menuText}>App Settings</Text>
-            <Icon name="chevron-right" size={20} color={colors.textMuted} />
+            <Icon name="chevron-right" size={20} color={colors.textMuted || '#64748b'} />
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('Coming Soon', 'Security settings will be available soon')}>
             <View style={styles.menuIconContainer}>
-              <Icon name="lock" size={18} color={colors.textPrimary} />
+              <Icon name="lock" size={18} color={colors.textPrimary || '#0f172a'} />
             </View>
             <Text style={styles.menuText}>Security Settings</Text>
-            <Icon name="chevron-right" size={20} color={colors.textMuted} />
+            <Icon name="chevron-right" size={20} color={colors.textMuted || '#64748b'} />
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('Coming Soon', 'Language settings will be available soon')}>
             <View style={styles.menuIconContainer}>
-              <Icon name="globe" size={18} color={colors.textPrimary} />
+              <Icon name="globe" size={18} color={colors.textPrimary || '#0f172a'} />
             </View>
             <Text style={styles.menuText}>Language</Text>
             <Text style={styles.menuValue}>{settings.language}</Text>
-            <Icon name="chevron-right" size={20} color={colors.textMuted} />
+            <Icon name="chevron-right" size={20} color={colors.textMuted || '#64748b'} />
           </TouchableOpacity>
         </AppCard>
       </View>
@@ -499,17 +502,17 @@ export default function ProfileScreen() {
         <AppCard style={styles.infoCard}>
           <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('Coming Soon', 'Change password will be available soon')}>
             <View style={styles.menuIconContainer}>
-              <Icon name="key" size={18} color={colors.textPrimary} />
+              <Icon name="key" size={18} color={colors.textPrimary || '#0f172a'} />
             </View>
             <Text style={styles.menuText}>Change Password</Text>
-            <Icon name="chevron-right" size={20} color={colors.textMuted} />
+            <Icon name="chevron-right" size={20} color={colors.textMuted || '#64748b'} />
           </TouchableOpacity>
           
           <TouchableOpacity style={[styles.menuItem, styles.logoutBtn]} onPress={handleLogout}>
             <View style={[styles.menuIconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-              <Icon name="log-out" size={18} color={colors.error} />
+              <Icon name="log-out" size={18} color={colors.error || '#ef4444'} />
             </View>
-            <Text style={[styles.menuText, { color: colors.error }]}>Sign Out</Text>
+            <Text style={[styles.menuText, { color: colors.error || '#ef4444' }]}>Sign Out</Text>
           </TouchableOpacity>
         </AppCard>
       </View>
@@ -523,7 +526,7 @@ export default function ProfileScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>App Settings</Text>
               <TouchableOpacity onPress={() => setShowSettingsModal(false)} style={styles.modalClose}>
-                <Icon name="x" size={24} color={colors.textMuted} />
+                <Icon name="x" size={24} color={colors.textMuted || '#64748b'} />
               </TouchableOpacity>
             </View>
             
@@ -536,7 +539,7 @@ export default function ProfileScreen() {
                 <Switch
                   value={settings.notifications}
                   onValueChange={(val) => handleSettingChange('notifications', val)}
-                  trackColor={{ false: colors.border, true: colors.primary }}
+                  trackColor={{ false: colors.border || '#e2e8f0', true: colors.primary || '#2563eb' }}
                   thumbColor={Platform.OS === 'ios' ? '#fff' : settings.notifications ? '#fff' : '#f4f3f4'}
                 />
               </View>
@@ -549,7 +552,7 @@ export default function ProfileScreen() {
                 <Switch
                   value={settings.emailAlerts}
                   onValueChange={(val) => handleSettingChange('emailAlerts', val)}
-                  trackColor={{ false: colors.border, true: colors.primary }}
+                  trackColor={{ false: colors.border || '#e2e8f0', true: colors.primary || '#2563eb' }}
                   thumbColor={Platform.OS === 'ios' ? '#fff' : settings.emailAlerts ? '#fff' : '#f4f3f4'}
                 />
               </View>
@@ -562,7 +565,7 @@ export default function ProfileScreen() {
                 <Switch
                   value={settings.pushNotifications}
                   onValueChange={(val) => handleSettingChange('pushNotifications', val)}
-                  trackColor={{ false: colors.border, true: colors.primary }}
+                  trackColor={{ false: colors.border || '#e2e8f0', true: colors.primary || '#2563eb' }}
                   thumbColor={Platform.OS === 'ios' ? '#fff' : settings.pushNotifications ? '#fff' : '#f4f3f4'}
                 />
               </View>
@@ -575,7 +578,7 @@ export default function ProfileScreen() {
                 <Switch
                   value={settings.darkMode}
                   onValueChange={(val) => handleSettingChange('darkMode', val)}
-                  trackColor={{ false: colors.border, true: colors.primary }}
+                  trackColor={{ false: colors.border || '#e2e8f0', true: colors.primary || '#2563eb' }}
                   thumbColor={Platform.OS === 'ios' ? '#fff' : settings.darkMode ? '#fff' : '#f4f3f4'}
                 />
               </View>
@@ -588,7 +591,7 @@ export default function ProfileScreen() {
                 <Switch
                   value={settings.autoSave}
                   onValueChange={(val) => handleSettingChange('autoSave', val)}
-                  trackColor={{ false: colors.border, true: colors.primary }}
+                  trackColor={{ false: colors.border || '#e2e8f0', true: colors.primary || '#2563eb' }}
                   thumbColor={Platform.OS === 'ios' ? '#fff' : settings.autoSave ? '#fff' : '#f4f3f4'}
                 />
               </View>
@@ -608,7 +611,7 @@ export default function ProfileScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit {editField.label}</Text>
               <TouchableOpacity onPress={() => setShowEditModal(false)} style={styles.modalClose}>
-                <Icon name="x" size={24} color={colors.textMuted} />
+                <Icon name="x" size={24} color={colors.textMuted || '#64748b'} />
               </TouchableOpacity>
             </View>
             
@@ -618,7 +621,7 @@ export default function ProfileScreen() {
                 value={editField.value}
                 onChangeText={(text) => setEditField(prev => ({ ...prev, value: text }))}
                 placeholder={`Enter ${editField.label}`}
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textMuted || '#64748b'}
               />
             </View>
             
@@ -660,7 +663,7 @@ const styles = StyleSheet.create({
   },
   role: {
     fontSize: 13,
-    color: colors.primary,
+    color: '#2563eb',
     marginTop: 4,
     fontWeight: '700',
     letterSpacing: 0.5,
