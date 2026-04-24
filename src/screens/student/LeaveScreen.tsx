@@ -16,7 +16,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '@react-native-vector-icons/feather';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
@@ -625,8 +625,7 @@ const styles = StyleSheet.create({
         borderBottomColor: colors.border,
     },
     tableCell: {
-        fontSize: 13,
-        color: colors.textPrimary,
+        // Shared with a View status cell; avoid text-only props.
     },
     colTeacher: {
         width: 120,

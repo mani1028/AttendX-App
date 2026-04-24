@@ -10,7 +10,7 @@ import {
   RefreshControl,
   Platform,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '@react-native-vector-icons/feather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';

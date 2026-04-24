@@ -17,7 +17,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';

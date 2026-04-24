@@ -1793,8 +1793,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tableCell: {
-    fontSize: 14,
-    color: '#0f172a',
+    // Keep shared cell style View-safe; text-specific styles belong on Text nodes.
   },
   colRoll: { width: 60 },
   colName: { width: 120 },

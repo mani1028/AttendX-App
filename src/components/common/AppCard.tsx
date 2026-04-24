@@ -1,12 +1,20 @@
 import React from 'react';
-import { StyleSheet, View, ViewProps } from 'react-native';
+import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
 import { colors } from '../../constants/theme';
 
-type Props = ViewProps;
+type Props = {
+  children?: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+  testID?: string;
+};
 
-export default function AppCard({ style, ...rest }: Props) {
-	return <View {...rest} style={[styles.card, style]} />;
+export default function AppCard({ children, style, testID }: Props) {
+	return (
+		<View testID={testID} style={[styles.card, style]}>
+			{children}
+		</View>
+	);
 }
 
 const styles = StyleSheet.create({

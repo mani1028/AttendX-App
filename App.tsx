@@ -7,13 +7,6 @@ import { AuthProvider } from './src/context/AuthContext';
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
 
-<<<<<<< HEAD
-=======
-  const handleIntroComplete = () => {
-    setShowIntro(false);
-  };
-
->>>>>>> 9e4494193dddbf451bbfc9bbe59d1bb5ba1a23b5
   if (showIntro) {
     return (
       <AttendXIntro

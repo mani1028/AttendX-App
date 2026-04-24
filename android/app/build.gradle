@@ -53,18 +53,13 @@ android {
     }
 }
 
+// The configurations.all block is already present to handle duplicate classes.
 configurations.all {
     resolutionStrategy {
         force 'androidx.core:core:1.12.0'
     }
     exclude group: 'com.android.support', module: 'support-compat'
 }
-
-// Force disable new architecture
-project.ext.react = [
-    enableHermes: true,  // Keep Hermes if it was enabled
-    newArchEnabled: false
-]
 
 dependencies {
     implementation("com.facebook.react:react-android")
@@ -75,5 +70,3 @@ dependencies {
         implementation jscFlavor
     }
 }
-// Add this at the end of the file
-apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")

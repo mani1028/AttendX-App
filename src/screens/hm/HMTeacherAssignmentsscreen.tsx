@@ -4,7 +4,7 @@ import {
   Modal, ActivityIndicator, StyleSheet, Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from 'react-native-vector-icons/Ionicons';
+import Icon from '@react-native-vector-icons/ionicons';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 

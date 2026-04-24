@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';

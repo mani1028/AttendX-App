@@ -518,8 +518,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tableCell: {
-    fontSize: 13,
-    color: '#0f172a',
+    // Shared with a View status cell; keep this style View-safe.
   },
   colDate: { width: 90 },
   colStatus: { width: 90 },

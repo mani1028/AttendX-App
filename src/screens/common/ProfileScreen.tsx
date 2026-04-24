@@ -12,7 +12,7 @@ import {
   TextInput,
   Platform,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '@react-native-vector-icons/feather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
