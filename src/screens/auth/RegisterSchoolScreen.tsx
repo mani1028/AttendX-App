@@ -13,7 +13,8 @@ import {
   Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
@@ -182,7 +183,7 @@ const PaymentModal: React.FC<{
 };
 
 export default function RegisterSchoolScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   
   const [loading, setLoading] = useState<boolean>(false);
   const [otpSending, setOtpSending] = useState<boolean>(false);

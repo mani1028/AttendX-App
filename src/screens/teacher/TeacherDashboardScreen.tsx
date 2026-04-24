@@ -1,18 +1,16 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View, ScrollView } from 'react-native';
+import { StyleSheet, View, ScrollView } from 'react-native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Icon from '@react-native-vector-icons/feather';
 import { useAuth } from '../../context/AuthContext';
-import AvatarBubble from '../../components/common/AvatarBubble';
 import AppText from '../../components/common/AppText';
 import { colors } from '../../constants/theme';
 import AppCard from '../../components/common/AppCard';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 
-type Props = {
-  navigation: any;
-};
-
-export default function TeacherDashboardScreen({ navigation }: Props) {
-  const { userName, userRole } = useAuth();
+export default function TeacherDashboardScreen() {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const { userName } = useAuth();
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -38,15 +36,15 @@ export default function TeacherDashboardScreen({ navigation }: Props) {
           </View>
         </View>
 
-        <AppCard style={styles.card} onPress={() => navigation.navigate('Attendance')}>
+        <AppCard style={styles.card} onPress={() => navigation.navigate('TeacherAttendance')}>
           <AppText style={styles.cardTitle}>Take Attendance</AppText>
         </AppCard>
 
-        <AppCard style={styles.card} onPress={() => navigation.navigate('StudentList')}>
+        <AppCard style={styles.card} onPress={() => navigation.navigate('TeacherStudentList')}>
           <AppText style={styles.cardTitle}>View Students</AppText>
         </AppCard>
 
-        <AppCard style={styles.card} onPress={() => navigation.navigate('TeacherRegistration')}>
+        <AppCard style={styles.card} onPress={() => navigation.navigate('TeacherRegisterPublic', { school_code: '', branch_id: '' })}>
           <AppText style={styles.cardTitle}>Teacher Registration</AppText>
         </AppCard>
       </View>

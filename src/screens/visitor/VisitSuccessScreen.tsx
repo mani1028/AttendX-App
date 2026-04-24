@@ -8,6 +8,8 @@ import {
   Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
@@ -23,7 +25,7 @@ const formatVisitorNo = (visitorNo: string): string => {
 };
 
 export default function VisitSuccessScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute();
   
   // Get visitor number from route params
@@ -33,7 +35,7 @@ export default function VisitSuccessScreen() {
   // Auto redirect after 5 seconds
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigation.replace('Home' as never);
+      navigation.replace('Login' as any);
     }, 5000);
 
     return () => clearTimeout(timer);
@@ -87,7 +89,7 @@ export default function VisitSuccessScreen() {
         {/* Buttons */}
         <AppButton
           title="Go to Home"
-          onPress={() => navigation.replace('Home' as never)}
+          onPress={() => navigation.replace('Login' as any)}
           style={styles.homeBtn}
         />
 

@@ -12,11 +12,16 @@ import {
   Platform,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { visitorApi } from '../../services/visitorApi';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import { RootStackParamList } from '../../navigation/AppNavigator';
+
+// Types
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'VisitForm'>;
 
 // Types
 interface School {
@@ -90,7 +95,7 @@ const getSectionId = (section: Section): string => String(section?.id ?? section
 
 export default function VisitFormScreen() {
   const route = useRoute();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
   const { token } = route.params as { token: string };
 
   const [loading, setLoading] = useState(true);
@@ -245,7 +250,7 @@ export default function VisitFormScreen() {
           <Text style={styles.errorIcon}>❌</Text>
           <Text style={styles.errorTitle}>Invalid QR Code</Text>
           <Text style={styles.errorMessage}>{error}</Text>
-          <AppButton title="Go Home" onPress={() => navigation.replace('Home' as never)} />
+          <AppButton title="Go Home" onPress={() => navigation.replace('Login' as any)} />
         </View>
       </View>
     );

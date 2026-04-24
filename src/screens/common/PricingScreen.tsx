@@ -10,7 +10,8 @@ import {
   Platform,
   Linking,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
@@ -147,7 +148,7 @@ const PlanCard: React.FC<{
 };
 
 export default function PricingScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [registrationData, setRegistrationData] = useState<any>(null);
 

@@ -11,7 +11,8 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '@react-native-vector-icons/feather';
+import LinearGradient from 'react-native-linear-gradient';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
@@ -469,7 +470,7 @@ export default function StudentFeeScreen({ navigation }: any) {
           payments.length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconContainer}>
-                <Icon name="history" size={48} color="#cbd5e1" />
+                <Icon name="clock" size={48} color="#cbd5e1" />
               </View>
               <AppText style={styles.emptyTitle}>No Payment History</AppText>
               <AppText style={styles.emptyText}>

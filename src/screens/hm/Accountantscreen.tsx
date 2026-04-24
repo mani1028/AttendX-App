@@ -16,12 +16,12 @@ import { useNavigation } from "@react-navigation/native";
 import { colors } from "../../constants/theme";
 import AppText from "../../components/common/AppText";
 
-import SummaryCards from "./SummaryCards";
-import FeeManagement from "./FeeManagement";
-import PaymentEntry from "./PaymentEntry";
-import ExpenseManagement from "./ExpenseManagement";
-import Reports from "./Reports";
-import PendingStudents from "./PendingStudents";
+import SummaryCards from "./SummaryCardsscreen";
+import FeeManagement from "./FeeManagementScreen";
+import PaymentEntry from "./PaymentEntryscreen";
+import ExpenseManagement from "./ExpenseScreen";
+import Reports from "./ReportsScreen";
+import PendingStudents from "./PendingStudentsscreen";
 
 // Local theme bridge
 const C = {

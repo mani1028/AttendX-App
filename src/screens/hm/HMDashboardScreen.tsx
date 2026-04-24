@@ -8,16 +8,17 @@ import {
   ActivityIndicator,
   Dimensions,
   Platform,
+  DimensionValue,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from '@react-native-vector-icons/feather';
 import { Svg, Circle } from 'react-native-svg';
 import API from '../../services/api';
-import AvatarBubble from '../../components/common/AvatarBubble';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 
 // Local theme bridge for consistency
 const C = {
@@ -164,7 +165,7 @@ const BarRow = ({ label, percentage, present, total, onPress }: any) => (
         style={[
           styles.barFill, 
           { 
-            width: `${percentage}%`,
+            width: (percentage + '%') as DimensionValue,
             backgroundColor: percentage >= 75 ? C.success : percentage >= 50 ? C.warning : C.error
           }
         ]} 
@@ -187,7 +188,7 @@ const ClassChip = ({ label, percentage, present, total, onPress }: any) => {
   const isGood = percentage >= 75;
   return (
     <TouchableOpacity 
-      style={[styles.classChip, { backgroundColor: isGood ? C.successSoft : C.errorSoft, borderColor: isGood ? C.successSoft : C.errorSoft }]}
+      style={[styles.classChip, { backgroundColor: isGood ? C.successSoft : C.errorSoft, borderColor: isGood ? C.successSoft : C.errorSoft } as any]}
       onPress={onPress}
       activeOpacity={0.7}
     >
@@ -201,7 +202,7 @@ const ClassChip = ({ label, percentage, present, total, onPress }: any) => {
 };
 
 export default function DashboardPage() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName } = useAuth();
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
@@ -290,7 +291,7 @@ export default function DashboardPage() {
   };
 
   const goToAttendanceView = (view: string) => {
-    navigation.navigate('Attendance', { view });
+    navigation.navigate('HMAttendance' as any);
   };
 
   const goToClassAttendance = (classData: ClassData) => {
@@ -298,11 +299,7 @@ export default function DashboardPage() {
     const section = String(classData?.section || '').trim();
     if (!classGrade || !section) return;
     
-    navigation.navigate('Attendance', { 
-      view: 'students',
-      class_grade: classGrade,
-      section: section
-    });
+    navigation.navigate('HMAttendance' as any);
   };
 
   const getGreeting = () => {

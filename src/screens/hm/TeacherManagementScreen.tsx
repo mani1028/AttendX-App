@@ -940,7 +940,7 @@ export default function TeacherPage() {
                       styles.stepLabel,
                       step === i && styles.stepLabelActive,
                       step > i && styles.stepLabelCompleted,
-                    ]} weight={step === i ? "bold" : "regular"}>{label}</AppText>
+                    ]} weight={step === i ? "bold" : "normal"}>{label}</AppText>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -1296,7 +1296,7 @@ export default function TeacherPage() {
                       style={[styles.pageBtn, currentPage === p && styles.pageBtnActive]}
                       onPress={() => setCurrentPage(p)}
                     >
-                      <AppText style={[styles.pageBtnText, currentPage === p && styles.pageBtnTextActive]} weight={currentPage === p ? "bold" : "regular"}>{p}</AppText>
+                      <AppText style={[styles.pageBtnText, currentPage === p && styles.pageBtnTextActive]} weight={currentPage === p ? "bold" : "normal"}>{p}</AppText>
                     </TouchableOpacity>
                   );
                 })}

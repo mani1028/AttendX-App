@@ -856,6 +856,3 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
-
-// Import Platform for font family support
-import { Platform } from 'react-native';

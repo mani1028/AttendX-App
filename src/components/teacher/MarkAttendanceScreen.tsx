@@ -117,7 +117,7 @@ export default function MarkAttendanceScreen() {
     setLoading(true);
     try {
       // In a real app, save to API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise<void>(resolve => setTimeout(resolve, 1000));
       Alert.alert('Success', 'Attendance saved successfully');
       await fetchStudents();
     } catch (error) {

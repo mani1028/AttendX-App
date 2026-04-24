@@ -495,18 +495,24 @@ export default function ViewAttendanceScreen() {
       });
 
       // Save and share file
-      const fileUri = FileSystem.documentDirectory + `attendance_${selClass}_${selSection}_${viewDate}.${format === 'excel' ? 'xlsx' : 'csv'}`;
+      const fileUri = `${RNFS.DocumentDirectoryPath}/attendance_${selClass}_${selSection}_${viewDate}.${format === 'excel' ? 'xlsx' : 'csv'}`;
+
       const base64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
         reader.readAsDataURL(response.data);
       });
       
-      await FileSystem.writeAsStringAsync(fileUri, base64.split(',')[1], { encoding: FileSystem.EncodingType.Base64 });
+      await RNFS.writeFile(fileUri, base64, 'base64');
       
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri);
-      }
+      await RNShare.open({
+        url: `file://${fileUri}`,
+        type: format === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv',
+        title: 'Share Attendance Report',
+      });
       
       Alert.alert('Success', `Attendance exported as ${format.toUpperCase()}`);
       setShowExportModal(false);

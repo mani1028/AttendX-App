@@ -117,15 +117,22 @@ export default function AttendanceGallery({
 
   const downloadImage = async (url: string, filename: string) => {
     try {
-      const fileUri = FileSystem.documentDirectory + filename;
-      const downloadRes = await FileSystem.downloadAsync(url, fileUri);
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(downloadRes.uri);
+      const fileUri = RNFS.DocumentDirectoryPath + '/' + filename;
+      const downloadRes = await RNFS.downloadFile({
+        fromUrl: url,
+        toFile: fileUri,
+      }).promise;
+
+      if (downloadRes.statusCode === 200) {
+        await Share.open({
+          url: 'file://' + fileUri,
+          type: 'image/jpeg',
+        });
       } else {
-        Alert.alert('Saved', `Image saved to ${downloadRes.uri}`);
+        Alert.alert('Error', 'Failed to download image');
       }
     } catch (err) {
-      Alert.alert('Error', 'Failed to download image');
+      Alert.alert('Error', 'Failed to share image');
     }
   };
 

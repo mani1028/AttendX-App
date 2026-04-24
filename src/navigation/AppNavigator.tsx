@@ -2,7 +2,7 @@ import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Icon from 'react-native-vector-icons/Ionicons';
+import Icon from '@react-native-vector-icons/ionicons';
 
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/common/Header';
@@ -36,14 +36,14 @@ import TeacherSkinDiseaseScreen from '../screens/teacher/SkinDiseaseScreen';
 import TeacherVitalScanScreen from '../screens/teacher/VitalScanScreen';
 import TeacherViewAttendanceScreen from '../screens/teacher/ViewAttendanceScreen';
 import TeacherAttendanceGalleryScreen from '../screens/teacher/AttendanceGalleryScreen';
-import MarkAttendanceScreen from '../screens/teacher/MarkAttendanceScreen';
+import MarkAttendanceScreen from '../components/teacher/MarkAttendanceScreen';
 
 // ─── Student Screens ────────────────────────────────────────────────────────
 import StudentDashboardScreen from '../screens/student/StudentDashboardScreen';
-import StudentAttendanceScreen from '../screens/student/AttendanceScreen';
-import StudentMarksScreen from '../screens/student/MarksScreen';
+import StudentAttendanceScreen from '../screens/student/StudentAttendanceScreen';
+import StudentMarksScreen from '../screens/student/StudentMarksScreen';
 import StudentHomeworkScreen from '../screens/student/HomeworkScreen';
-import StudentFeeScreen from '../screens/student/FeeScreen';
+import StudentFeeScreen from '../screens/student/StudentFeeScreen';
 import StudentLeaveScreen from '../screens/student/LeaveScreen';
 import StudentQuestionPapersScreen from '../screens/student/QuestionPapersScreen';
 
@@ -58,7 +58,7 @@ import HMReportsScreen from '../screens/hm/ReportsScreen';
 import HMFeeManagementScreen from '../screens/hm/FeeManagementScreen';
 import HMExpenseScreen from '../screens/hm/ExpenseScreen';
 import HMSettingsScreen from '../screens/hm/SettingsScreen';
-import HMStudentRegistrationScreen from '../screens/hm/StudentRegistrationScreen';
+import HMStudentRegistrationScreen from '../screens/teacher/StudentRegistrationScreen';
 
 // ─── Principal Screens ──────────────────────────────────────────────────────
 import PrincipalDashboardScreen from '../screens/principal/PrincipalDashboardScreen';
@@ -187,7 +187,7 @@ const AdminTabNavigator = () => (
           Settings: ['settings', 'settings-outline'],
         };
         const [active, inactive] = icons[route.name] ?? ['ellipse', 'ellipse-outline'];
-        return <Icon name={focused ? active : inactive} size={size} color={color} />;
+        return <Icon name={(focused ? active : inactive) as any} size={size} color={color} />;
       },
       tabBarActiveTintColor: '#007AFF',
       tabBarInactiveTintColor: 'gray',
@@ -211,7 +211,7 @@ const PrincipalTabNavigator = () => (
           'HM Registration': ['person-add', 'person-add-outline'],
         };
         const [active, inactive] = icons[route.name] ?? ['ellipse', 'ellipse-outline'];
-        return <Icon name={focused ? active : inactive} size={size} color={color} />;
+        return <Icon name={(focused ? active : inactive) as any} size={size} color={color} />;
       },
       tabBarActiveTintColor: '#007AFF',
       tabBarInactiveTintColor: 'gray',
@@ -237,7 +237,7 @@ const HMTabNavigator = () => (
           Visitors: ['log-in', 'log-in-outline'],
         };
         const [active, inactive] = icons[route.name] ?? ['ellipse', 'ellipse-outline'];
-        return <Icon name={focused ? active : inactive} size={size} color={color} />;
+        return <Icon name={(focused ? active : inactive) as any} size={size} color={color} />;
       },
       tabBarActiveTintColor: '#007AFF',
       tabBarInactiveTintColor: 'gray',
@@ -267,7 +267,7 @@ const TeacherTabNavigator = () => (
           Scan: ['camera', 'camera-outline'],
         };
         const [active, inactive] = icons[route.name] ?? ['ellipse', 'ellipse-outline'];
-        return <Icon name={focused ? active : inactive} size={size} color={color} />;
+        return <Icon name={(focused ? active : inactive) as any} size={size} color={color} />;
       },
       tabBarActiveTintColor: '#007AFF',
       tabBarInactiveTintColor: 'gray',
@@ -298,7 +298,7 @@ const StudentTabNavigator = () => (
           Papers: ['document-text', 'document-text-outline'],
         };
         const [active, inactive] = icons[route.name] ?? ['ellipse', 'ellipse-outline'];
-        return <Icon name={focused ? active : inactive} size={size} color={color} />;
+        return <Icon name={(focused ? active : inactive) as any} size={size} color={color} />;
       },
       tabBarActiveTintColor: '#007AFF',
       tabBarInactiveTintColor: 'gray',
@@ -328,7 +328,7 @@ const AccountantTabNavigator = () => (
           Reports: ['bar-chart', 'bar-chart-outline'],
         };
         const [active, inactive] = icons[route.name] ?? ['ellipse', 'ellipse-outline'];
-        return <Icon name={focused ? active : inactive} size={size} color={color} />;
+        return <Icon name={(focused ? active : inactive) as any} size={size} color={color} />;
       },
       tabBarActiveTintColor: '#007AFF',
       tabBarInactiveTintColor: 'gray',
@@ -348,7 +348,7 @@ const AccountantTabNavigator = () => (
 const MainTabs = () => {
   const { userRole } = useAuth();
 
-  switch (userRole) {
+  switch (userRole?.toLowerCase()) {
     case 'admin':      return <AdminTabNavigator />;
     case 'principal':  return <PrincipalTabNavigator />;
     case 'hm':         return <HMTabNavigator />;

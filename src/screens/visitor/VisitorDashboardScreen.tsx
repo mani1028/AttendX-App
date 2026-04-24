@@ -13,6 +13,7 @@ import {
   Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Icon from '@react-native-vector-icons/feather';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { visitorApi, qrApi } from '../../services/visitorApi';
@@ -21,9 +22,9 @@ import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
-import AvatarBubble from '../../components/common/AvatarBubble';
 import { useAuth } from '../../context/AuthContext';
 import QRCode from 'react-native-qrcode-svg';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 
 // Types
 interface Visitor {
@@ -303,7 +304,8 @@ const FilterModal: React.FC<{
   );
 };
 
-export default function VisitorDashboardScreen({ navigation }: any) {
+export default function VisitorDashboardScreen() {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName } = useAuth();
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -682,7 +684,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  refreshBtnText: {
+  refreshBtnLabel: {
     fontSize: 16,
   },
   errorContainer: {

@@ -587,7 +587,7 @@ const StudentsView: React.FC<{
                     >
                       <View style={[styles.radio, isSelected && styles.radioSelected]} />
                       <View style={styles.sectionInfo}>
-                        <AppText style={[styles.sectionName, isSelected && styles.sectionNameSelected]} weight={isSelected ? "bold" : "regular"}>
+                        <AppText style={[styles.sectionName, isSelected && styles.sectionNameSelected]} weight={isSelected ? "bold" : "normal"}>
                           Section {sec.section}
                         </AppText>
                         <AppText style={styles.sectionSubtitle}>{sec.students_total || 0} students</AppText>

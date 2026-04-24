@@ -609,7 +609,7 @@ export default function BranchDetailsScreen() {
 
     const processed = Array.from(studentMap.values()).map(student => {
       const percentage = student.max_possible > 0 ? (student.total_marks / student.max_possible) * 100 : 0;
-      const result = student.failed_subjects === 0 ? 'PASS' : 'FAIL';
+      const result: 'PASS' | 'FAIL' = student.failed_subjects === 0 ? 'PASS' : 'FAIL';
       return { ...student, percentage, result };
     });
     setProcessedStudentData(processed);
@@ -1310,6 +1310,8 @@ export default function BranchDetailsScreen() {
                               }}
                               width={screenWidth - 80}
                               height={250}
+                              yAxisLabel=""
+                              yAxisSuffix="%"
                               chartConfig={{
                                 backgroundColor: '#ffffff',
                                 backgroundGradientFrom: '#ffffff',

@@ -446,7 +446,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
       {/* Main Layout */}
       <View style={styles.layoutContainer}>
         {/* Desktop Sidebar */}
-        {Platform.OS !== 'ios' && (
+        {Platform.OS === 'web' && (
           <View
             style={[
               styles.desktopSidebar,
@@ -456,8 +456,6 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
                 borderRightColor: theme.sidebarBorder,
               },
             ]}
-            onMouseEnter={() => !isTablet && setSidebarExpanded(true)}
-            onMouseLeave={() => !isTablet && setSidebarExpanded(false)}
           >
             {/* Brand */}
             <View style={[styles.sidebarBrand, { borderBottomColor: theme.sidebarBorder }]}>
@@ -671,7 +669,6 @@ const styles = StyleSheet.create({
   },
   desktopSidebar: {
     borderRightWidth: 1,
-    transition: 'width 0.3s ease',
   },
   sidebarBrand: {
     height: 80,

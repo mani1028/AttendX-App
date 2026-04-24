@@ -8,8 +8,8 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Linking,
 } from 'react-native';
-import * as Linking from 'expo-linking';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from './AppButton';

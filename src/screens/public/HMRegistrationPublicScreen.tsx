@@ -668,7 +668,7 @@ export default function HMRegistrationPublicScreen() {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorTitle}>Invalid Invite Link</Text>
-        <Text style={styles.errorText}>School code or branch ID missing.</Text>
+        <Text style={styles.errorDescription}>School code or branch ID missing.</Text>
         <AppButton title="Go Back" onPress={() => navigation.goBack()} />
       </View>
     );
@@ -826,7 +826,7 @@ const styles = StyleSheet.create({
     color: '#dc2626',
     marginBottom: 8,
   },
-  errorText: {
+  errorDescription: {
     fontSize: 14,
     color: '#64748b',
     marginBottom: 20,

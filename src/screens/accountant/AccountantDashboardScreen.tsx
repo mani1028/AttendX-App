@@ -1,16 +1,14 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View, ScrollView } from 'react-native';
+import { StyleSheet, View, ScrollView } from 'react-native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Icon from '@react-native-vector-icons/feather';
 import { useAuth } from '../../context/AuthContext';
-import AvatarBubble from '../../components/common/AvatarBubble';
 import AppText from '../../components/common/AppText';
 import { colors } from '../../constants/theme';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 
-type Props = {
-  navigation: any;
-};
-
-export default function AccountantDashboardScreen({ navigation }: Props) {
+export default function AccountantDashboardScreen() {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName } = useAuth();
 
   const getGreeting = () => {

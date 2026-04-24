@@ -24,4 +24,11 @@
   (void)fontWeight;
 }
 
+// Some legacy components pass `hide` as a view prop through interop.
+// Ignore it on RCTView to avoid startup crashes.
+- (void)setHide:(id)hide
+{
+  (void)hide;
+}
+
 @end

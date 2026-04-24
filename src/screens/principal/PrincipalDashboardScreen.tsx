@@ -13,7 +13,7 @@ import {
   FlatList,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, NavigationProp } from '@react-navigation/native';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
@@ -23,6 +23,7 @@ import AvatarBubble from '../../components/common/AvatarBubble';
 import { useAuth } from '../../context/AuthContext';
 import Icon from '@react-native-vector-icons/feather';
 import AppText from '../../components/common/AppText';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 
 // Types
 interface Branch {
@@ -366,7 +367,7 @@ const HMRegistrationModal: React.FC<{
 };
 
 export default function PrincipalDashboardScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName } = useAuth();
   const route = useRoute();
   const overviewRef = useRef<ScrollView>(null);
@@ -583,24 +584,24 @@ export default function PrincipalDashboardScreen() {
     if (selectedBranchId === 'ALL') {
       overviewRef.current?.scrollToEnd();
     } else {
-      navigation.navigate('BranchDetails' as never, {
-        branchId: selectedBranch?.branch_id,
-        branchName: selectedBranch?.branch_name,
-        hmName: selectedBranch?.hm_name,
-        hmEmail: selectedBranch?.hm_email,
-        branchStatus: selectedBranch?.branch_status,
-      } as never);
+      navigation.navigate('PrincipalBranchDetails', {
+        branchId: selectedBranch?.branch_id || '',
+        branchName: selectedBranch?.branch_name || '',
+        hmName: selectedBranch?.hm_name || '',
+        hmEmail: selectedBranch?.hm_email || '',
+        branchStatus: selectedBranch?.branch_status || '',
+      });
     }
   };
 
   const handleViewBranch = (branch: Branch) => {
-    navigation.navigate('BranchDetails' as never, {
+    navigation.navigate('PrincipalBranchDetails', {
       branchId: branch.branch_id,
       branchName: branch.branch_name,
       hmName: branch.hm_name,
       hmEmail: branch.hm_email,
       branchStatus: branch.branch_status,
-    } as never);
+    });
   };
 
   const startEdit = (branch: Branch) => {

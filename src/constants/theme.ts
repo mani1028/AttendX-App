@@ -17,4 +17,5 @@ export const colors = {
   error: Theme.colors.error,
   errorSoft: Theme.colors.errorBg,
   danger: Theme.colors.error,
+  background: Theme.colors.background,
 };

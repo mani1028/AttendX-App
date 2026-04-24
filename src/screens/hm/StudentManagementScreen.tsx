@@ -13,8 +13,8 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from '@react-native-vector-icons/feather';
-import RNFS from 'react-native-fs';
-import Share from 'react-native-share';
+import * as RNFS from 'react-native-fs';
+import RNShare from 'react-native-share';
 import API, { buildApiUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../constants/theme';
@@ -411,7 +411,7 @@ export default function StudentPage() {
         try {
           await RNFS.writeFile(filePath, base64Data.split(',')[1], 'base64');
 
-          await Share.open({
+          await RNShare.open({
             url: `file://${filePath}`,
             type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             title: 'Export Students',
@@ -712,6 +712,53 @@ export default function StudentPage() {
 }
 
 const styles = StyleSheet.create({
+  welcomeSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+    backgroundColor: C.white,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  welcomeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: C.t1,
+  },
+  welcomeSub: {
+    fontSize: 12,
+    color: C.t3,
+    marginTop: 2,
+  },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: C.bg,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  dateText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: C.t2,
+  },
+  refreshBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 9,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
     backgroundColor: C.bg,

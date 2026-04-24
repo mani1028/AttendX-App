@@ -12,14 +12,14 @@ import {
   Dimensions,
   StatusBar,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-import * as DocumentPicker from 'expo-document-picker';
+import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
 import LinearGradient from 'react-native-linear-gradient';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
@@ -455,22 +455,20 @@ export default function QuestionPapersScreen() {
       });
       
       const blob = new Blob([response.data], { type: response.headers['content-type'] });
-      const fileUri = FileSystem.documentDirectory + `question_paper_${paperId}.pdf`;
+      const fileUri = `${RNFS.DocumentDirectoryPath}/question_paper_${paperId}.pdf`;
       const base64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
         reader.readAsDataURL(blob);
       });
       
-      await FileSystem.writeAsStringAsync(fileUri, base64.split(',')[1], {
-        encoding: FileSystem.EncodingType.Base64,
-      });
+      await RNFS.writeFile(fileUri, base64.split(',')[1], 'base64');
       
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri);
-      } else {
-        Alert.alert('Success', 'File saved to device');
-      }
+      await Share.open({
+        url: `file://${fileUri}`,
+        type: 'application/pdf',
+        failOnCancel: false,
+      });
     } catch (err) {
       console.error('Failed to view paper:', err);
       Alert.alert('Error', 'Could not open the file');
@@ -494,22 +492,20 @@ export default function QuestionPapersScreen() {
       
       const blob = new Blob([response.data], { type: response.headers['content-type'] });
       const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-      const fileUri = FileSystem.documentDirectory + `${sanitizedTitle}.pdf`;
+      const fileUri = `${RNFS.DocumentDirectoryPath}/${sanitizedTitle}.pdf`;
       const base64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
         reader.readAsDataURL(blob);
       });
       
-      await FileSystem.writeAsStringAsync(fileUri, base64.split(',')[1], {
-        encoding: FileSystem.EncodingType.Base64,
-      });
+      await RNFS.writeFile(fileUri, base64.split(',')[1], 'base64');
       
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri);
-      } else {
-        Alert.alert('Success', 'File downloaded successfully');
-      }
+      await Share.open({
+        url: `file://${fileUri}`,
+        type: 'application/pdf',
+        failOnCancel: false,
+      });
     } catch (err) {
       console.error('Failed to download paper:', err);
       Alert.alert('Error', 'Could not download the file');

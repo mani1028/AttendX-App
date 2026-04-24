@@ -11,12 +11,8 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-<<<<<<< HEAD
 import LinearGradient from 'react-native-linear-gradient';
-import Icon from 'react-native-vector-icons/Feather';
-=======
 import Icon from '@react-native-vector-icons/feather';
->>>>>>> 9f84fae43e32426c8b53c098c6b6213c47bfc935
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';

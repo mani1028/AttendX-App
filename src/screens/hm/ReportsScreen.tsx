@@ -5,6 +5,7 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  DimensionValue,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from '@react-native-vector-icons/feather';
@@ -123,7 +124,7 @@ const Reports = () => {
   const getBarWidth = (total: number) => {
     if (maxCollection === 0) return '0%';
     const percentage = (total / maxCollection) * 100;
-    return `${percentage}%`;
+    return (percentage + '%') as DimensionValue;
   };
 
   const totalCollections = collections.reduce((sum, c) => sum + c.total, 0);

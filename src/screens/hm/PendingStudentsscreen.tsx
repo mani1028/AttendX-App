@@ -204,7 +204,7 @@ const PendingStudents = () => {
               <Text style={styles.summaryLabel}>Partial Payments</Text>
             </View>
             <View style={[styles.summaryCard, styles.pendingCard]}>
-              <Icon name="rupee" size={24} color="#059669" />
+              <Icon name="dollar-sign" size={24} color="#059669" />
               <Text style={styles.summaryNumber}>{formatAmount(totalPending)}</Text>
               <Text style={styles.summaryLabel}>Total Pending</Text>
             </View>
@@ -374,7 +374,6 @@ const PendingStudents = () => {
   );
 };
 
-// Add missing imports
 import { TouchableOpacity, Modal } from 'react-native';
 
 const styles = StyleSheet.create({
