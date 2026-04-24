@@ -39,7 +39,6 @@ import TeacherAttendanceGalleryScreen from '../screens/teacher/AttendanceGallery
 import MarkAttendanceScreen from '../components/teacher/MarkAttendanceScreen';
 
 // ─── Student Screens ────────────────────────────────────────────────────────
-import StudentDashboardScreen from '../screens/student/StudentDashboardScreen';
 import StudentAttendanceScreen from '../screens/student/StudentAttendanceScreen';
 import StudentMarksScreen from '../screens/student/StudentMarksScreen';
 import StudentHomeworkScreen from '../screens/student/HomeworkScreen';
@@ -124,7 +123,6 @@ export type RootStackParamList = {
   MarkAttendance: undefined;
   
   // Student
-  StudentDashboard: undefined;
   StudentAttendance: undefined;
   StudentMarks: undefined;
   StudentHomework: undefined;
@@ -289,8 +287,7 @@ const StudentTabNavigator = () => (
       headerShown: false,
       tabBarIcon: ({ focused, color, size }) => {
         const icons: Record<string, [string, string]> = {
-          Home: ['home', 'home-outline'],
-          Attendance: ['checkmark-circle', 'checkmark-circle-outline'],
+          Attendance: ['home', 'home-outline'],
           Marks: ['stats-chart', 'stats-chart-outline'],
           Homework: ['book', 'book-outline'],
           Fees: ['cash', 'cash-outline'],
@@ -304,7 +301,6 @@ const StudentTabNavigator = () => (
       tabBarInactiveTintColor: 'gray',
     })}
   >
-    <Tab.Screen name="Home" component={StudentDashboardScreen} />
     <Tab.Screen name="Attendance" component={StudentAttendanceScreen} />
     <Tab.Screen name="Marks" component={StudentMarksScreen} />
     <Tab.Screen name="Homework" component={StudentHomeworkScreen} />
@@ -421,7 +417,6 @@ export default function AppNavigator() {
           <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} options={{ headerShown: false }} />
           
           {/* Student Screens */}
-          <Stack.Screen name="StudentDashboard" component={StudentDashboardScreen} />
           <Stack.Screen name="StudentAttendance" component={StudentAttendanceScreen} />
           <Stack.Screen name="StudentMarks" component={StudentMarksScreen} />
           <Stack.Screen name="StudentHomework" component={StudentHomeworkScreen} />
