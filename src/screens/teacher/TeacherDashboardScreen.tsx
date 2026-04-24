@@ -59,6 +59,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+    paddingTop: 20,
   },
   welcomeSection: {
     flexDirection: 'row',
