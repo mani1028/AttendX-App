@@ -1,0 +1,11 @@
+export { default as HMDashboardScreen } from './HMDashboardScreen';
+export { default as TeacherManagementScreen } from './TeacherManagementScreen';
+export { default as StudentManagementScreen } from './StudentManagementScreen';
+export { default as AttendanceScreen } from './AttendanceScreen';
+export { default as FeeManagementScreen } from './FeeManagementScreen';
+export { default as ReportsScreen } from './ReportsScreen';
+export { default as ExamsScreen } from './ExamsScreen';
+export { default as ExpenseScreen } from './ExpenseScreen';
+export { default as SettingsScreen } from './SettingsScreen';
+export { default as AnnouncementsScreen } from './AnnouncementsScreen';
+export { default as DataExportScreen } from './DataExportscreen';

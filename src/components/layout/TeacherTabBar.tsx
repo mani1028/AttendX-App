@@ -1,0 +1,164 @@
+import React from 'react';
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  Text,
+  Dimensions,
+  Platform,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  Home,
+  FileText,
+  Scan,
+  CircleAlert,
+  GraduationCap,
+  LayoutGrid,
+  BookOpen,
+  UserCheck,
+  ClipboardList
+} from 'lucide-react-native';
+
+const { width } = Dimensions.get('window');
+
+const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
+  const insets = useSafeAreaInsets();
+
+  const tabs = [
+    { name: 'Home', label: 'Home', icon: Home },
+    { name: 'Homework', label: 'Home Work', icon: BookOpen },
+    { name: 'Scan', label: 'Verification', icon: Scan, isCenter: true },
+    { name: 'Leaves', label: 'Leave', icon: ClipboardList },
+    { name: 'Marks', label: 'Marks', icon: GraduationCap },
+  ];
+
+  return (
+    <View style={[styles.container, { paddingBottom: insets.bottom || 10 }]}>
+      <View style={styles.content}>
+        {tabs.map((tab, index) => {
+          const isFocused = state.index === index;
+          const IconComponent = tab.icon;
+
+          const onPress = () => {
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: state.routes[index].key,
+              canPreventDefault: true,
+            });
+
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate(state.routes[index].name);
+            }
+          };
+
+          if (tab.isCenter) {
+            return (
+              <View key={tab.name} style={styles.centerTabContainer}>
+                <TouchableOpacity
+                  onPress={onPress}
+                  style={styles.centerButton}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.centerIconWrapper}>
+                    <IconComponent size={28} color="#fff" strokeWidth={2} />
+                  </View>
+                </TouchableOpacity>
+                <Text style={styles.centerLabel}>{tab.label}</Text>
+              </View>
+            );
+          }
+
+          return (
+            <TouchableOpacity
+              key={tab.name}
+              onPress={onPress}
+              style={styles.tabItem}
+              activeOpacity={0.7}
+            >
+              <IconComponent
+                size={24}
+                color={isFocused ? '#3b82f6' : '#94a3b8'}
+                strokeWidth={isFocused ? 2.5 : 2}
+              />
+              <Text style={[styles.tabLabel, { color: isFocused ? '#3b82f6' : '#94a3b8' }]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: '#001A3D',
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 4,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 8,
+  },
+  tabLabel: {
+    fontSize: 10,
+    marginTop: 6,
+    fontWeight: '600',
+  },
+  centerTabContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -30,
+  },
+  centerButton: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#001A3D',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: '#fff',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  centerIconWrapper: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerLabel: {
+    color: '#94a3b8',
+    fontSize: 10,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+});
+
+export default TeacherTabBar;
