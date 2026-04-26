@@ -1,6 +1,6 @@
 // AnnouncementsScreen.tsx
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   TextInput,
@@ -9,12 +9,18 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from "@react-navigation/native";
 import API from "../../services/api";
 import { colors } from "../../constants/theme";
 import AppText from "../../components/common/AppText";
 import Icon from "@react-native-vector-icons/feather";
+import { useAuth } from "../../context/AuthContext";
 
 // Local theme bridge
 const C = {
@@ -67,6 +73,9 @@ const getTypeColor = (type: string) => {
 };
 
 const AnnouncementsScreen = () => {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -83,7 +92,22 @@ const AnnouncementsScreen = () => {
 
   useEffect(() => {
     loadStorageData();
+
+    setTabBarVisible(true);
+    return () => setTabBarVisible(true);
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   const loadStorageData = async () => {
     try {
@@ -278,12 +302,27 @@ const AnnouncementsScreen = () => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <AppText style={styles.header}>
-        📢 School Announcements Manager
-      </AppText>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-      {/* Form Section */}
+      {/* Standardized Header */}
+      <View style={styles.headerStandard}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <AppText style={styles.headerTitle}>Announcements</AppText>
+        <TouchableOpacity style={styles.refreshIconBtn} onPress={() => fetchAnnouncements()}>
+          <Icon name="refresh-cw" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
+        <View style={styles.contentPadding}>
+          {/* Form Section */}
 
       <View style={styles.card}>
         <AppText style={styles.sectionTitle}>
@@ -465,7 +504,9 @@ const AnnouncementsScreen = () => {
           })
         )}
       </View>
+    </View>
     </ScrollView>
+  </View>
   );
 };
 
@@ -475,14 +516,40 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
-    padding: 16,
   },
-
-  header: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 20,
-    color: C.text,
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
+    flex: 1,
+  },
+  refreshIconBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  contentPadding: {
+    padding: 16,
   },
 
   card: {

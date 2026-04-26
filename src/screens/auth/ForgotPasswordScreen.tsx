@@ -1,9 +1,19 @@
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Building2, User } from 'lucide-react-native';
-
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+} from "react-native";
 import { authService } from '../../api/authService';
-import { Theme } from '../../theme/theme';
+import AppInput from '../../components/common/AppInput';
+import AppButton from '../../components/common/AppButton';
+import ScreenContainer from '../../components/ScreenContainer';
 
 export default function ForgotPasswordScreen({ navigation }: any) {
   const [schoolId, setSchoolId] = useState('');
@@ -28,120 +38,133 @@ export default function ForgotPasswordScreen({ navigation }: any) {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
-          <Text style={styles.title}>Forgot Password</Text>
-          <Text style={styles.subtitle}>
-            Recover password by school code and registered email/ID
-          </Text>
+    <ScreenContainer contentStyle={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Logo Section */}
+          <View style={styles.headerSection}>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.brandSubtitle}>
+              The next generation of educational management, built with security and scalability
+            </Text>
+          </View>
 
-          <Text style={styles.label}>SCHOOL CODE</Text>
-          <View style={styles.inputContainer}>
-            <Building2 size={18} color={Theme.colors.textMuted} />
-            <TextInput
-              style={styles.input}
-              placeholder="XXXXXXXX"
-              placeholderTextColor={Theme.colors.textMuted}
+          {/* Card */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Forgot Password</Text>
+            <Text style={styles.cardSubtitle}>Recover password by school code and registered email/ID</Text>
+
+            <AppInput
+              label="SCHOOL ID"
+              placeholder="XXXXXXXXX"
               value={schoolId}
               onChangeText={setSchoolId}
+              autoCapitalize="characters"
             />
-          </View>
 
-          <Text style={styles.label}>EMAIL / EMPLOYEE ID / STUDENT ID / ROLL NO.</Text>
-          <View style={styles.inputContainer}>
-            <User size={18} color={Theme.colors.textMuted} />
-            <TextInput
-              style={styles.input}
-              placeholder="XXXXXXXX"
-              placeholderTextColor={Theme.colors.textMuted}
+            <AppInput
+              label="EMAIL / EMPLOYEE ID"
+              placeholder="XXXXXXXXX"
               value={identifier}
               onChangeText={setIdentifier}
+              autoCapitalize="none"
             />
+
+            <AppButton
+              title={loading ? "SENDING OTP..." : "SEND OTP"}
+              onPress={next}
+              disabled={loading}
+              style={styles.actionButton}
+            />
+
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={styles.linkContainer}
+            >
+              <Text style={styles.linkText}>Back to Login</Text>
+            </TouchableOpacity>
           </View>
-
-          <TouchableOpacity style={styles.button} onPress={next} disabled={loading}>
-            <Text style={styles.buttonText}>{loading ? 'Sending OTP...' : 'SEND OTP'}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.link}>Back to Login</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: '#F8FAFC',
   },
-  scroll: {
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
     flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
     justifyContent: 'center',
-    padding: 24,
+  },
+  headerSection: {
+    alignItems: 'center',
+    marginBottom: 30,
+    marginTop: 20,
+    width: '100%',
+  },
+  logo: {
+    width: 300,
+    height: 100,
+    marginBottom: 16,
+    alignSelf: 'center',
+  },
+  brandSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 20,
   },
   card: {
-    backgroundColor: Theme.colors.card,
+    backgroundColor: '#FFFFFF',
+    padding: 20,
     borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  title: {
-    color: Theme.colors.text,
-    fontSize: 24,
+  cardTitle: {
+    fontSize: 20,
     fontWeight: '700',
+    color: '#1E293B',
     textAlign: 'center',
   },
-  subtitle: {
-    color: Theme.colors.textMuted,
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#94A3B8',
     textAlign: 'center',
-    marginBottom: 20,
-    marginTop: 5,
-    lineHeight: 20,
+    marginBottom: 32,
+    marginTop: 4,
   },
-  label: {
-    color: Theme.colors.text,
-    fontSize: 11,
-    marginBottom: 5,
-    marginTop: 10,
-    fontWeight: '700',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.inputBg,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  input: {
-    flex: 1,
-    color: Theme.colors.text,
-    height: 48,
-    marginLeft: 10,
-  },
-  button: {
-    backgroundColor: Theme.colors.primary,
-    padding: 15,
+  actionButton: {
+    height: 56,
     borderRadius: 16,
-    alignItems: 'center',
+    backgroundColor: '#2563EB',
     marginTop: 24,
   },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  link: {
-    color: Theme.colors.textMuted,
-    textAlign: 'center',
+  linkContainer: {
     marginTop: 16,
+    alignItems: 'center',
+  },
+  linkText: {
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

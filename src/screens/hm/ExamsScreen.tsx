@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,12 +9,17 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import Icon from '@react-native-vector-icons/feather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
 
 // Local theme bridge
 const C = {
@@ -71,6 +76,9 @@ interface MarksReport {
 }
 
 export default function ExamsPage() {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
   const [activeTab, setActiveTab] = useState<'list' | 'add' | 'classwise'>('list');
@@ -86,7 +94,21 @@ export default function ExamsPage() {
   // Load credentials from storage
   useEffect(() => {
     loadCredentials();
+    setTabBarVisible(true);
+    return () => setTabBarVisible(true);
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   const loadCredentials = async () => {
     try {
@@ -287,6 +309,8 @@ export default function ExamsPage() {
   const renderListTab = () => (
     <ScrollView 
       style={styles.tabContent}
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
       }
@@ -309,7 +333,11 @@ export default function ExamsPage() {
   );
 
   const renderAddTab = () => (
-    <ScrollView style={styles.tabContent}>
+    <ScrollView
+      style={styles.tabContent}
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
+    >
       <View style={styles.formPanel}>
         <AppText style={styles.formTitle}>Create New Exam</AppText>
         
@@ -372,7 +400,11 @@ export default function ExamsPage() {
     });
 
     return (
-      <ScrollView style={styles.tabContent}>
+      <ScrollView
+        style={styles.tabContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
         <View style={styles.infoPanel}>
           <AppText style={styles.infoTitle}>{marksReport.exam_name}</AppText>
           <AppText style={styles.infoSubtitle}>Academic Year: {marksReport.academic_year}</AppText>
@@ -410,22 +442,17 @@ export default function ExamsPage() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <AppText style={styles.title}>Exam Management 📚</AppText>
-          <AppText style={styles.subtitle}>Create exams and view performance analytics</AppText>
-        </View>
-        <View style={styles.toolbar}>
-          <TouchableOpacity style={styles.refreshBtn} onPress={() => loadExams()}>
-            <Icon name="refresh-cw" size={14} color={C.text} />
-            <AppText style={styles.refreshBtnText}>Refresh</AppText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.addBtn} onPress={() => setActiveTab('add')}>
-            <Icon name="plus" size={14} color="#fff" />
-            <AppText style={styles.addBtnText}>New Exam</AppText>
-          </TouchableOpacity>
-        </View>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Header */}
+      <View style={styles.headerStandard}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <AppText style={styles.headerTitle}>Exam Management</AppText>
+        <TouchableOpacity style={styles.refreshIconBtn} onPress={() => loadExams()}>
+          <Icon name="refresh-cw" size={20} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       {/* Error Message */}
@@ -478,24 +505,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  header: {
-    padding: 20,
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 12,
+    justifyContent: 'space-between',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: C.text,
-    letterSpacing: -0.4,
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  subtitle: {
-    fontSize: 14,
-    color: C.textMuted,
-    marginTop: 4,
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
+    flex: 1,
+  },
+  refreshIconBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   toolbar: {
     flexDirection: 'row',

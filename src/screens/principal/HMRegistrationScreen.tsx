@@ -10,14 +10,17 @@ import {
   ActivityIndicator,
   Modal,
   Platform,
+  StatusBar,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { ChevronLeft } from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import { useAuth } from '../../context/AuthContext';
 
 // Types
 interface ClassSection {
@@ -354,6 +357,7 @@ const Toast: React.FC<{
 
 export default function HMRegistrationScreen() {
   const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [activeStep, setActiveStep] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -403,6 +407,9 @@ export default function HMRegistrationScreen() {
       }
     };
     load();
+
+    setTabBarVisible(true);
+    return () => setTabBarVisible(true);
   }, []);
 
   // Load existing branch IDs
@@ -761,6 +768,19 @@ export default function HMRegistrationScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Navy Header */}
+      <View style={styles.headerStandard}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <ChevronLeft size={24} color="#fff" />
+        </TouchableOpacity>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>HM Registration</Text>
+        </View>
+        <View style={{ width: 40 }} />
+      </View>
+
       <Toast
         visible={toast.visible}
         message={toast.message}
@@ -769,9 +789,8 @@ export default function HMRegistrationScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.contentContainer}>
-        {/* Header */}
+        {/* Step Indicator Sub-header */}
         <View style={styles.header}>
-          <Text style={styles.title}>📋 HM Registration</Text>
           <Text style={styles.subtitle}>
             Step {activeStep + 1} of {totalSteps} — {STEPS[activeStep].label}
           </Text>

@@ -1,5 +1,6 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, ViewStyle } from 'react-native';
+import { ScrollView, StyleSheet, ViewStyle, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '../constants/theme';
 
@@ -10,16 +11,24 @@ type Props = {
 
 export default function ScreenContainer({ children, contentStyle }: Props) {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={[styles.content, contentStyle]}>{children}</ScrollView>
-    </SafeAreaView>
+    <View style={styles.outerContainer}>
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView contentContainerStyle={[styles.content, contentStyle]} showsVerticalScrollIndicator={false}>
+          {children}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF', // Ensures the very bottom (navigation bar area) is white
+  },
   safeArea: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: '#FFFFFF',
   },
   content: {
     padding: 16,

@@ -1,32 +1,21 @@
 import React from 'react';
-import { Text, TextProps, TextStyle } from 'react-native';
+import { Text, TextProps, StyleSheet } from 'react-native';
+import { colors } from '../../constants/theme';
 
-type Props = TextProps & {
-	children: React.ReactNode;
-	weight?: 'normal' | 'bold' | 'semiBold' | 'medium' | 'light' | 'thin' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900';
-};
+export default function AppText({ children, style, ...props }: TextProps) {
+  // If children is undefined or null, don't render anything to avoid Text component errors
+  if (children === undefined || children === null) return null;
 
-export default function AppText({ children, style, weight, ...rest }: Props) {
-	const getFontWeight = (): TextStyle['fontWeight'] => {
-		switch (weight) {
-			case 'bold': return '700';
-			case 'semiBold': return '600';
-			case 'medium': return '500';
-			case 'light': return '300';
-			case 'normal': return '400';
-			default: return weight as TextStyle['fontWeight'];
-		}
-	};
-
-	return (
-		<Text
-			{...rest}
-			style={[
-				style,
-				weight ? { fontWeight: getFontWeight() } : undefined
-			]}
-		>
-			{children}
-		</Text>
-	);
+  return (
+    <Text style={[styles.text, style]} {...props}>
+      {children}
+    </Text>
+  );
 }
+
+const styles = StyleSheet.create({
+  text: {
+    color: colors.textPrimary,
+    fontSize: 16,
+  },
+});

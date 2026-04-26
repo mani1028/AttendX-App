@@ -1,9 +1,19 @@
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { LockKeyhole } from 'lucide-react-native';
-
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+} from "react-native";
 import { authService } from '../../api/authService';
-import { Theme } from '../../theme/theme';
+import AppInput from '../../components/common/AppInput';
+import AppButton from '../../components/common/AppButton';
+import ScreenContainer from '../../components/ScreenContainer';
 
 export default function ResetPasswordScreen({ route, navigation }: any) {
   const { schoolId, identifier, resetToken } = route.params;
@@ -29,117 +39,139 @@ export default function ResetPasswordScreen({ route, navigation }: any) {
     } catch (error: any) {
       const errorMsg = error?.response?.data?.message || error?.message || 'Reset failed';
       Alert.alert('Error', errorMsg);
-      console.log('Reset Password Error:', error?.response?.data || error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
-          <View style={styles.iconWrap}>
-            <LockKeyhole size={28} color={Theme.colors.text} />
+    <ScreenContainer contentStyle={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Logo Section */}
+          <View style={styles.headerSection}>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.brandSubtitle}>
+              The next generation of educational management, built with security and scalability
+            </Text>
           </View>
-          <Text style={styles.title}>Change Password</Text>
-          <Text style={styles.subtitle}>Choose a strong new password for your account</Text>
 
-          <Text style={styles.label}>NEW PASSWORD</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="XXXXXXXX"
-            placeholderTextColor={Theme.colors.textMuted}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          {/* Card */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Change Password</Text>
+            <Text style={styles.cardSubtitle}>Choose a strong new password for your account</Text>
 
-          <Text style={styles.label}>CONFIRM PASSWORD</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="XXXXXXXX"
-            placeholderTextColor={Theme.colors.textMuted}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
+            <AppInput
+              label="NEW PASSWORD"
+              placeholder="XXXXXXXXX"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
 
-          <TouchableOpacity style={styles.button} onPress={reset} disabled={loading}>
-            <Text style={styles.buttonText}>{loading ? 'Saving...' : 'RESET PASSWORD'}</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            <AppInput
+              label="CONFIRM PASSWORD"
+              placeholder="XXXXXXXXX"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+            />
+
+            <AppButton
+              title={loading ? "SAVING..." : "RESET PASSWORD"}
+              onPress={reset}
+              disabled={loading}
+              style={styles.actionButton}
+            />
+
+            <TouchableOpacity
+              onPress={() => navigation.replace('Login')}
+              style={styles.linkContainer}
+            >
+              <Text style={styles.linkText}>Back to Login</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: '#F8FAFC',
   },
-  scroll: {
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
     flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
     justifyContent: 'center',
-    padding: 24,
+  },
+  headerSection: {
+    alignItems: 'center',
+    marginBottom: 40,
+    marginTop: 20,
+    width: '100%',
+  },
+  logo: {
+    width: 300,
+    height: 100,
+    marginBottom: 16,
+    alignSelf: 'center',
+  },
+  brandSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 20,
   },
   card: {
-    backgroundColor: Theme.colors.card,
-    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
     padding: 24,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  iconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    backgroundColor: Theme.colors.primary,
-    marginBottom: 16,
-  },
-  title: {
-    color: Theme.colors.text,
-    fontSize: 24,
+  cardTitle: {
+    fontSize: 20,
     fontWeight: '700',
+    color: '#1E293B',
     textAlign: 'center',
   },
-  subtitle: {
-    color: Theme.colors.textMuted,
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#94A3B8',
     textAlign: 'center',
-    marginBottom: 20,
-    marginTop: 5,
-    lineHeight: 20,
+    marginBottom: 32,
+    marginTop: 4,
   },
-  label: {
-    color: Theme.colors.text,
-    fontSize: 11,
-    marginBottom: 5,
-    marginTop: 10,
-    fontWeight: '700',
-  },
-  input: {
-    backgroundColor: Theme.colors.inputBg,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    color: Theme.colors.text,
-    height: 48,
-  },
-  button: {
-    backgroundColor: Theme.colors.primary,
-    padding: 15,
+  actionButton: {
+    height: 56,
     borderRadius: 16,
-    alignItems: 'center',
+    backgroundColor: '#2563EB',
     marginTop: 24,
   },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '700',
-    letterSpacing: 1,
+  linkContainer: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  linkText: {
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

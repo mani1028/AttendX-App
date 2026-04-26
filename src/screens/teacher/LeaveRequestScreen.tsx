@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,18 +6,25 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
   TextInput,
   Alert,
   Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+  Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import { ChevronLeft, Calendar, FileText, Clock, CheckCircle2, XCircle } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import { useAuth } from '../../context/AuthContext';
+
+const { width } = Dimensions.get('window');
 
 // Types
 interface LeaveRequest {
@@ -55,36 +62,35 @@ const isValidYear = (dateString: string): boolean => {
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return false;
   const year = date.getFullYear();
-  return year >= 1000 && year <= new Date().getFullYear();
+  return year >= 1000 && year <= new Date().getFullYear() + 1;
 };
 
 // Status Badge Component
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const getStatusStyle = () => {
-    const upperStatus = status?.toUpperCase() || '';
-    if (upperStatus === 'APPROVED') return styles.badgeApproved;
-    if (upperStatus === 'REJECTED') return styles.badgeRejected;
-    return styles.badgePending;
-  };
+  const upperStatus = status?.toUpperCase() || '';
 
-  const getTextStyle = () => {
-    const upperStatus = status?.toUpperCase() || '';
-    if (upperStatus === 'APPROVED') return styles.badgeTextApproved;
-    if (upperStatus === 'REJECTED') return styles.badgeTextRejected;
-    return styles.badgeTextPending;
-  };
+  let bgColor = '#FEF3C7';
+  let textColor = '#B45309';
+  let icon = <Clock size={12} color="#B45309" />;
+  let label = 'Pending';
 
-  const getDisplayText = () => {
-    const upperStatus = status?.toUpperCase() || '';
-    if (upperStatus === 'APPROVED') return 'Approved';
-    if (upperStatus === 'REJECTED') return 'Rejected';
-    return 'Pending';
-  };
+  if (upperStatus === 'APPROVED') {
+    bgColor = '#DCFCE7';
+    textColor = '#15803D';
+    icon = <CheckCircle2 size={12} color="#15803D" />;
+    label = 'Approved';
+  } else if (upperStatus === 'REJECTED') {
+    bgColor = '#FEE2E2';
+    textColor = '#B91C1C';
+    icon = <XCircle size={12} color="#B91C1C" />;
+    label = 'Rejected';
+  }
 
   return (
-    <View style={[styles.badge, getStatusStyle()]}>
-      <Text style={[styles.badgeText, getTextStyle()]}>
-        {getDisplayText()}
+    <View style={[styles.badge, { backgroundColor: bgColor }]}>
+      {icon}
+      <Text style={[styles.badgeText, { color: textColor }]}>
+        {label}
       </Text>
     </View>
   );
@@ -95,31 +101,43 @@ const LeaveHistoryCard: React.FC<{ request: LeaveRequest }> = ({ request }) => {
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
-    return date.toLocaleDateString();
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
   return (
     <AppCard style={styles.historyCard}>
       <View style={styles.historyHeader}>
-        <View style={styles.dateRange}>
-          <Text style={styles.dateLabel}>📅 {formatDate(request.from_date)}</Text>
-          <Text style={styles.dateArrow}>→</Text>
-          <Text style={styles.dateLabel}>{formatDate(request.to_date)}</Text>
+        <View style={styles.dateRangeContainer}>
+          <Calendar size={16} color="#64748b" />
+          <Text style={styles.dateText}>{formatDate(request.from_date)}</Text>
+          {request.from_date !== request.to_date && (
+            <>
+              <Text style={styles.dateArrow}>→</Text>
+              <Text style={styles.dateText}>{formatDate(request.to_date)}</Text>
+            </>
+          )}
         </View>
         <StatusBadge status={request.status} />
       </View>
       
-      <Text style={styles.reasonLabel}>Reason:</Text>
-      <Text style={styles.reasonText}>{request.reason}</Text>
+      <View style={styles.reasonContainer}>
+        <FileText size={14} color="#94a3b8" style={{ marginTop: 2 }} />
+        <Text style={styles.reasonText} numberOfLines={2}>{request.reason}</Text>
+      </View>
       
-      <Text style={styles.appliedDate}>
-        Applied: {formatDate(request.created_at)}
-      </Text>
+      <View style={styles.cardFooter}>
+        <Text style={styles.appliedDate}>
+          Applied on {formatDate(request.created_at)}
+        </Text>
+      </View>
     </AppCard>
   );
 };
 
 export default function LeaveRequestScreen() {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [teacherId, setTeacherId] = useState<string>('');
   
@@ -130,6 +148,7 @@ export default function LeaveRequestScreen() {
   const [reason, setReason] = useState<string>('');
   
   // UI states
+  const isMounted = useRef(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [history, setHistory] = useState<LeaveRequest[]>([]);
@@ -141,42 +160,53 @@ export default function LeaveRequestScreen() {
 
   const minDate = getTodayDate();
 
-  // Load credentials
   useEffect(() => {
+    isMounted.current = true;
     const loadCredentials = async () => {
       const code = await getSchoolCode();
       const tid = await getTeacherId();
-      setSchoolCode(code);
-      setTeacherId(tid);
+      if (isMounted.current) {
+        setSchoolCode(code);
+        setTeacherId(tid);
+      }
     };
     loadCredentials();
+    setTabBarVisible(true);
+    return () => {
+      isMounted.current = false;
+      setTabBarVisible(true);
+    };
   }, []);
 
-  // Load history when credentials are ready
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
+
   useEffect(() => {
     if (schoolCode && teacherId) {
       loadHistory();
     }
   }, [schoolCode, teacherId]);
 
-  // Check for duplicate leave requests (exact same date range)
   const hasDuplicateLeave = (newFromDate: string, newToDate: string): boolean => {
     return history.some((leave) => {
-      // Only check against PENDING and APPROVED requests
       const status = (leave.status || '').toUpperCase();
       if (status === 'REJECTED') return false;
-      
-      // Only reject if exact same from_date AND to_date
       return leave.from_date === newFromDate && leave.to_date === newToDate;
     });
   };
 
   const loadHistory = async () => {
     if (!schoolCode || !teacherId) return;
-
     setLoadingHistory(true);
     try {
-      // Try POST endpoint first
       let res;
       try {
         res = await API.post('/manage/teacher/leave-requests/list', {
@@ -184,20 +214,22 @@ export default function LeaveRequestScreen() {
           teacher_id: teacherId,
         });
       } catch {
-        // Fallback to GET endpoint
         res = await API.get('/manage/teacher/leave-requests', {
-          params: {
-            school_code: schoolCode,
-            teacher_id: teacherId,
-          },
+          params: { school_code: schoolCode, teacher_id: teacherId },
         });
       }
-      setHistory(res.data?.items || []);
-    } catch (error) {
+      if (isMounted.current) {
+        setHistory(res.data?.items || []);
+      }
+    } catch (error: any) {
       console.error('Failed to load history:', error);
-      setHistory([]);
+      if (isMounted.current) {
+        setHistory([]);
+      }
     } finally {
-      setLoadingHistory(false);
+      if (isMounted.current) {
+        setLoadingHistory(false);
+      }
     }
   };
 
@@ -207,235 +239,208 @@ export default function LeaveRequestScreen() {
     setRefreshing(false);
   };
 
+  const formatDateToYMD = (date: Date): string => {
+    return date.toISOString().split('T')[0];
+  };
+
   const handleSubmit = async () => {
     if (!fromDate) {
       Alert.alert('Error', 'Please select a leave date');
       return;
     }
-
-    // For one-day leave, toDate is same as fromDate
     const finalToDate = leaveType === 'one-day' ? fromDate : toDate;
-
     if (!finalToDate) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      Alert.alert('Error', 'Please select a "To Date"');
       return;
     }
-
     if (leaveType === 'multiple' && toDate && toDate < fromDate) {
       Alert.alert('Error', 'To date must be after from date');
       return;
     }
-
-    // Validate year for both dates
-    if (!isValidYear(formatDate(fromDate))) {
-      Alert.alert('Error', 'Invalid year in From Date. Please use a valid year (e.g., 1991, 1823, 2026)');
+    if (!isValidYear(formatDateToYMD(fromDate)) || !isValidYear(formatDateToYMD(finalToDate))) {
+      Alert.alert('Error', 'Please select a valid date');
       return;
     }
-
-    if (!isValidYear(formatDate(finalToDate))) {
-      Alert.alert('Error', 'Invalid year in To Date. Please use a valid year (e.g., 1991, 1823, 2026)');
+    if (hasDuplicateLeave(formatDateToYMD(fromDate), formatDateToYMD(finalToDate))) {
+      Alert.alert('Duplicate Request', 'A leave request already exists for these dates.');
       return;
     }
-
-    // Check for duplicate leave requests (exact same dates)
-    if (hasDuplicateLeave(formatDate(fromDate), formatDate(finalToDate))) {
-      Alert.alert(
-        'Duplicate Request',
-        'You already have a leave request for the exact same dates. Please choose different dates.'
-      );
-      return;
-    }
-
     if (!reason.trim()) {
-      Alert.alert('Error', 'Please provide a reason for your leave');
+      Alert.alert('Error', 'Please provide a reason for leave');
       return;
     }
 
     setSubmitting(true);
-
     try {
       await API.post('/manage/teacher/leave-requests/submit', {
         school_code: schoolCode,
         teacher_id: teacherId,
-        from_date: formatDate(fromDate),
-        to_date: formatDate(finalToDate),
+        from_date: formatDateToYMD(fromDate),
+        to_date: formatDateToYMD(finalToDate),
         reason: reason.trim(),
       });
 
       Alert.alert('Success', 'Leave request submitted successfully');
-      
-      // Reset form
-      setFromDate(null);
-      setToDate(null);
-      setReason('');
-      setLeaveType('one-day');
-      await loadHistory();
-    } catch (error: any) {
-      const errorMsg = error?.response?.data?.detail || 'Failed to submit leave request';
-      Alert.alert('Error', errorMsg);
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
-  const formatDate = (date: Date): string => {
-    return date.toISOString().split('T')[0];
-  };
-
-  const onFromDateChange = (event: any, selectedDate?: Date) => {
-    setShowFromDatePicker(false);
-    if (selectedDate) {
-      setFromDate(selectedDate);
-      // If toDate is before fromDate, reset toDate
-      if (toDate && toDate < selectedDate) {
+      if (isMounted.current) {
+        setFromDate(null);
         setToDate(null);
+        setReason('');
+        setLeaveType('one-day');
+        loadHistory();
       }
-    }
-  };
-
-  const onToDateChange = (event: any, selectedDate?: Date) => {
-    setShowToDatePicker(false);
-    if (selectedDate) {
-      setToDate(selectedDate);
+    } catch (error: any) {
+      if (error?.response?.status === 401) {
+        // Handled by global interceptor, but we should stop local processing
+        return;
+      }
+      Alert.alert('Error', error?.response?.data?.detail || 'Failed to submit leave request');
+    } finally {
+      if (isMounted.current) {
+        setSubmitting(false);
+      }
     }
   };
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Navy Hero Header */}
+      <View style={styles.heroHeader}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.goBack()}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.heroTitle}>Leave Request</Text>
+          <View style={{ width: 40 }} />
+        </View>
+
+        <View style={styles.heroContent}>
+          <Text style={styles.heroGreeting}>Request Time Off</Text>
+          <Text style={styles.heroSubtext}>Submit and track your leave applications</Text>
+        </View>
+      </View>
+
       <ScrollView
-        contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAll} />}
+        contentContainerStyle={styles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor="#001F3F" />}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.titleWrap}>
-            <Text style={styles.title}>📅 Leave Request</Text>
+        {/* Form Card */}
+        <AppCard style={styles.mainCard}>
+          <View style={styles.cardHeader}>
+            <Calendar size={20} color="#001F3F" />
+            <Text style={styles.cardTitle}>New Application</Text>
           </View>
-        </View>
 
-        {/* Two Column Layout */}
-        <View style={styles.grid}>
-          {/* Apply Leave Form */}
-          <AppCard style={styles.formCard}>
-            <Text style={styles.cardTitle}>Apply for Leave</Text>
-            <View style={styles.formBody}>
-              {/* Leave Type Selection */}
-              <View style={styles.field}>
-                <Text style={styles.label}>Leave Type</Text>
-                <View style={styles.radioGroup}>
-                  <TouchableOpacity
-                    style={[styles.radioOption, leaveType === 'one-day' && styles.radioOptionActive]}
-                    onPress={() => setLeaveType('one-day')}
-                  >
-                    <View style={[styles.radioCircle, leaveType === 'one-day' && styles.radioCircleActive]} />
-                    <Text style={[styles.radioText, leaveType === 'one-day' && styles.radioTextActive]}>
-                      One Day
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.radioOption, leaveType === 'multiple' && styles.radioOptionActive]}
-                    onPress={() => setLeaveType('multiple')}
-                  >
-                    <View style={[styles.radioCircle, leaveType === 'multiple' && styles.radioCircleActive]} />
-                    <Text style={[styles.radioText, leaveType === 'multiple' && styles.radioTextActive]}>
-                      Multiple Days
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+          <View style={styles.typeSelector}>
+            <TouchableOpacity
+              style={[styles.typeBtn, leaveType === 'one-day' && styles.typeBtnActive]}
+              onPress={() => setLeaveType('one-day')}
+            >
+              <Text style={[styles.typeBtnText, leaveType === 'one-day' && styles.typeBtnTextActive]}>Single Day</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.typeBtn, leaveType === 'multiple' && styles.typeBtnActive]}
+              onPress={() => setLeaveType('multiple')}
+            >
+              <Text style={[styles.typeBtnText, leaveType === 'multiple' && styles.typeBtnTextActive]}>Multiple Days</Text>
+            </TouchableOpacity>
+          </View>
 
-              {/* From Date */}
-              <View style={styles.field}>
-                <Text style={styles.label}>
-                  {leaveType === 'one-day' ? 'Leave Date' : 'From Date'}
+          <View style={styles.formRow}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{leaveType === 'one-day' ? 'Date' : 'From Date'}</Text>
+              <TouchableOpacity style={styles.dateSelector} onPress={() => setShowFromDatePicker(true)}>
+                <Text style={fromDate ? styles.dateValue : styles.datePlaceholder}>
+                  {fromDate ? formatDateToYMD(fromDate) : 'YYYY-MM-DD'}
                 </Text>
-                <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowFromDatePicker(true)}>
-                  <Text style={styles.datePickerText}>
-                    {fromDate ? formatDate(fromDate) : 'Select date'}
-                  </Text>
-                  <Text style={styles.calendarIcon}>📅</Text>
-                </TouchableOpacity>
-                {showFromDatePicker && (
-                  <DateTimePicker
-                    value={fromDate || new Date()}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={onFromDateChange}
-                    minimumDate={new Date(minDate)}
-                  />
-                )}
-              </View>
-
-              {/* To Date (only for multiple days) */}
-              {leaveType === 'multiple' && (
-                <View style={styles.field}>
-                  <Text style={styles.label}>To Date</Text>
-                  <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowToDatePicker(true)}>
-                    <Text style={styles.datePickerText}>
-                      {toDate ? formatDate(toDate) : 'Select date'}
-                    </Text>
-                    <Text style={styles.calendarIcon}>📅</Text>
-                  </TouchableOpacity>
-                  {showToDatePicker && (
-                    <DateTimePicker
-                      value={toDate || new Date()}
-                      mode="date"
-                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      onChange={onToDateChange}
-                      minimumDate={fromDate || new Date(minDate)}
-                    />
-                  )}
-                </View>
-              )}
-
-              {/* Reason */}
-              <View style={styles.field}>
-                <Text style={styles.label}>Reason</Text>
-                <TextInput
-                  style={styles.textArea}
-                  multiline
-                  numberOfLines={4}
-                  value={reason}
-                  onChangeText={setReason}
-                  placeholder="Enter the reason for your leave request..."
-                  placeholderTextColor="#94a3b8"
-                  textAlignVertical="top"
-                />
-              </View>
-
-              {/* Submit Button */}
-              <AppButton
-                title={submitting ? 'Submitting...' : 'Submit Leave Request'}
-                onPress={handleSubmit}
-                disabled={submitting}
-                style={styles.submitBtn}
-              />
+                <Calendar size={16} color="#94a3b8" />
+              </TouchableOpacity>
             </View>
-          </AppCard>
 
-          {/* Leave History */}
-          <AppCard style={styles.historyCardContainer}>
-            <Text style={styles.cardTitle}>Leave History</Text>
-            {loadingHistory ? (
-              <Loader />
-            ) : history.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyIcon}>📋</Text>
-                <Text style={styles.emptyTitle}>No leave requests found</Text>
-                <Text style={styles.emptyText}>Your leave history will appear here</Text>
+            {leaveType === 'multiple' && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>To Date</Text>
+                <TouchableOpacity style={styles.dateSelector} onPress={() => setShowToDatePicker(true)}>
+                  <Text style={toDate ? styles.dateValue : styles.datePlaceholder}>
+                    {toDate ? formatDateToYMD(toDate) : 'YYYY-MM-DD'}
+                  </Text>
+                  <Calendar size={16} color="#94a3b8" />
+                </TouchableOpacity>
               </View>
-            ) : (
-              history.map((request) => (
-                <LeaveHistoryCard key={request.leave_id} request={request} />
-              ))
             )}
-          </AppCard>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Reason for Leave</Text>
+            <TextInput
+              style={styles.reasonInput}
+              multiline
+              numberOfLines={3}
+              placeholder="e.g. Family emergency, Medical checkup..."
+              placeholderTextColor="#94a3b8"
+              value={reason}
+              onChangeText={setReason}
+            />
+          </View>
+
+          <AppButton
+            title={submitting ? 'Submitting...' : 'Submit Application'}
+            onPress={handleSubmit}
+            disabled={submitting}
+            style={styles.submitButton}
+            textStyle={styles.submitButtonText}
+          />
+        </AppCard>
+
+        {/* History Section */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Application History</Text>
+          <TouchableOpacity onPress={refreshAll}>
+            <Text style={styles.refreshText}>Refresh</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Footer Info */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>👑 Role: Teacher • Leave Management</Text>
-        </View>
+        {loadingHistory ? (
+          <View style={styles.loaderContainer}><Loader /></View>
+        ) : history.length === 0 ? (
+          <View style={styles.emptyState}>
+            <FileText size={48} color="#cbd5e1" />
+            <Text style={styles.emptyStateText}>No history found</Text>
+          </View>
+        ) : (
+          <View style={styles.historyList}>
+            {history.map((request) => (
+              <LeaveHistoryCard key={request.leave_id} request={request} />
+            ))}
+          </View>
+        )}
+
+        {showFromDatePicker && (
+          <DateTimePicker
+            value={fromDate || new Date()}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(e, d) => { setShowFromDatePicker(false); if(d) setFromDate(d); }}
+            minimumDate={new Date()}
+          />
+        )}
+        {showToDatePicker && (
+          <DateTimePicker
+            value={toDate || new Date()}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(e, d) => { setShowToDatePicker(false); if(d) setToDate(d); }}
+            minimumDate={fromDate || new Date()}
+          />
+        )}
       </ScrollView>
     </View>
   );
@@ -444,219 +449,251 @@ export default function LeaveRequestScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f6fb',
+    backgroundColor: '#F8FAFC',
   },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 40,
+  heroHeader: {
+    backgroundColor: '#001F3F',
+    height: 200,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
-  header: {
-    marginBottom: 22,
-  },
-  titleWrap: {
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  title: {
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  heroContent: {
+    marginTop: 25,
+  },
+  heroGreeting: {
+    color: '#FFFFFF',
     fontSize: 24,
     fontWeight: '800',
-    color: '#0f172a',
   },
-  grid: {
-    gap: 22,
+  heroSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 4,
   },
-  formCard: {
-    padding: 0,
-    overflow: 'hidden',
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
   },
-  historyCardContainer: {
-    padding: 0,
-    overflow: 'hidden',
+  mainCard: {
+    marginTop: -40,
+    borderRadius: 20,
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 20,
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#0f172a',
-    padding: 18,
-    paddingBottom: 8,
+    fontWeight: '700',
+    color: '#0F172A',
   },
-  formBody: {
-    padding: 20,
-  },
-  field: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#64748b',
-    textTransform: 'uppercase',
-    marginBottom: 8,
-  },
-  radioGroup: {
+  typeSelector: {
     flexDirection: 'row',
-    gap: 20,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
   },
-  radioOption: {
-    flexDirection: 'row',
+  typeBtn: {
+    flex: 1,
+    paddingVertical: 10,
     alignItems: 'center',
-    gap: 8,
+    borderRadius: 8,
   },
-  radioCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: '#94a3b8',
+  typeBtnActive: {
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
-  radioCircleActive: {
-    borderColor: '#2563eb',
-    backgroundColor: '#2563eb',
-  },
-  radioText: {
+  typeBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0f172a',
+    color: '#64748B',
   },
-  radioTextActive: {
-    color: '#2563eb',
+  typeBtnTextActive: {
+    color: '#001F3F',
   },
-  datePickerBtn: {
+  formRow: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  inputGroup: {
+    flex: 1,
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 8,
+  },
+  dateSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 48,
+  },
+  dateValue: {
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+  datePlaceholder: {
+    fontSize: 14,
+    color: '#94A3B8',
+  },
+  reasonInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 12,
+    height: 80,
+    textAlignVertical: 'top',
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  submitButton: {
+    backgroundColor: '#001F3F',
+    borderRadius: 12,
+    height: 52,
+    marginTop: 10,
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    height: 46,
-    borderWidth: 1,
-    borderColor: '#dbe3ee',
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    paddingHorizontal: 14,
+    marginTop: 30,
+    marginBottom: 15,
   },
-  datePickerText: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  refreshText: {
     fontSize: 14,
-    color: '#0f172a',
+    color: '#2563EB',
+    fontWeight: '600',
   },
-  calendarIcon: {
-    fontSize: 16,
-  },
-  textArea: {
-    minHeight: 100,
-    borderWidth: 1,
-    borderColor: '#dbe3ee',
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    color: '#0f172a',
-    textAlignVertical: 'top',
-  },
-  submitBtn: {
-    marginTop: 8,
+  historyList: {
+    gap: 12,
   },
   historyCard: {
-    margin: 12,
-    padding: 14,
+    borderRadius: 16,
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   historyHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#edf2f7',
   },
-  dateRange: {
+  dateRangeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
-  dateLabel: {
-    fontSize: 13,
+  dateText: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#0f172a',
+    color: '#334155',
   },
   dateArrow: {
     fontSize: 12,
-    color: '#64748b',
+    color: '#94A3B8',
   },
-  reasonLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748b',
-    textTransform: 'uppercase',
-    marginBottom: 4,
+  reasonContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
   },
   reasonText: {
+    flex: 1,
     fontSize: 14,
-    color: '#334155',
+    color: '#64748B',
     lineHeight: 20,
-    marginBottom: 8,
+  },
+  cardFooter: {
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 10,
   },
   appliedDate: {
-    fontSize: 11,
-    color: '#94a3b8',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#edf2f7',
+    fontSize: 12,
+    color: '#94A3B8',
+    fontStyle: 'italic',
   },
   badge: {
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-  },
-  badgePending: {
-    backgroundColor: '#fef3c7',
-  },
-  badgeApproved: {
-    backgroundColor: '#dcfce7',
-  },
-  badgeRejected: {
-    backgroundColor: '#fee2e2',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
   },
   badgeText: {
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
-  badgeTextPending: {
-    color: '#b45309',
-  },
-  badgeTextApproved: {
-    color: '#15803d',
-  },
-  badgeTextRejected: {
-    color: '#b91c1c',
-  },
-  emptyContainer: {
-    alignItems: 'center',
+  loaderContainer: {
     padding: 40,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 4,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: '#64748b',
-    textAlign: 'center',
-  },
-  footer: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#edf2f7',
     alignItems: 'center',
   },
-  footerText: {
-    fontSize: 12,
-    color: '#94a3b8',
+  emptyState: {
+    padding: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateText: {
+    marginTop: 10,
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

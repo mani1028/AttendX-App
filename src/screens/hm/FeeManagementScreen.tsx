@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,13 +10,23 @@ import {
   RefreshControl,
   Modal,
   Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from '@react-native-vector-icons/feather';
-import API from '../../services/api';
+import {
+  addPayment,
+  createFee,
+  getAllFees,
+  getSchoolStudents,
+} from '../../services/accountantService';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
 
 // Local theme bridge
 const C = {
@@ -62,6 +72,10 @@ interface FormData {
 }
 
 const FeeManagement = () => {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const isMounted = useRef(true);
+  const lastScrollY = useRef(0);
   const [students, setStudents] = useState<Student[]>([]);
   const [fees, setFees] = useState<Fee[]>([]);
   const [loading, setLoading] = useState(false);
@@ -80,8 +94,26 @@ const FeeManagement = () => {
 
   // Load school code from storage
   useEffect(() => {
+    isMounted.current = true;
     loadSchoolCode();
+    setTabBarVisible(true);
+    return () => {
+      isMounted.current = false;
+      setTabBarVisible(true);
+    };
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   useEffect(() => {
     if (schoolCode) {
@@ -95,7 +127,9 @@ const FeeManagement = () => {
         await AsyncStorage.getItem('schoolCode') ||
         await AsyncStorage.getItem('school_id') ||
         await AsyncStorage.getItem('schoolId') || '';
-      setSchoolCode(code);
+      if (isMounted.current) {
+        setSchoolCode(code);
+      }
     } catch (error) {
       console.error('Error loading school code:', error);
       Alert.alert('Error', 'Failed to load school code');
@@ -104,30 +138,31 @@ const FeeManagement = () => {
 
   const fetchStudentsAndFees = async () => {
     if (!schoolCode) {
-      Alert.alert('Error', 'School code not found. Please login again.');
       return;
     }
 
     try {
       setLoading(true);
-      
-      // Fetch students
-      const studentResponse = await API.get("/manage/students", {
-        params: { school_code: schoolCode },
-      });
-      setStudents(studentResponse.data || []);
 
-      // Fetch fees
-      const feesResponse = await API.get("/accountant/fees", {
-        params: { school_code: schoolCode },
-      });
-      setFees(feesResponse.data || []);
+      const [studentRows, feeRows] = await Promise.all([
+        getSchoolStudents(),
+        getAllFees(),
+      ]);
+
+      if (isMounted.current) {
+        setStudents(studentRows as Student[]);
+        setFees(feeRows as Fee[]);
+      }
     } catch (error: any) {
-      console.error("Error fetching data:", error);
-      const errorMsg = error?.response?.data?.message || error?.message || "Failed to fetch data";
-      Alert.alert('Error', errorMsg);
+      if (error?.response?.status !== 401) {
+        console.error("Error fetching data:", error);
+        const errorMsg = error?.response?.data?.message || error?.message || "Failed to fetch data";
+        Alert.alert('Error', errorMsg);
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -172,19 +207,27 @@ const FeeManagement = () => {
 
     try {
       setLoading(true);
-      await API.post("/accountant/fees/create", formData, {
-        params: { school_code: schoolCode },
+      await createFee({
+        student_id: formData.student_id,
+        total_fee: Number(formData.total_fee),
+        due_date: formData.due_date,
       });
       
-      Alert.alert('Success', 'Fee created successfully');
-      setFormData({ student_id: "", total_fee: "", due_date: "" });
-      await fetchStudentsAndFees();
+      if (isMounted.current) {
+        Alert.alert('Success', 'Fee created successfully');
+        setFormData({ student_id: "", total_fee: "", due_date: "" });
+        await fetchStudentsAndFees();
+      }
     } catch (error: any) {
-      console.error("Error creating fee:", error);
-      const errorMsg = error?.response?.data?.message || error?.message || "Error creating fee";
-      Alert.alert('Error', errorMsg);
+      if (error?.response?.status !== 401) {
+        console.error("Error creating fee:", error);
+        const errorMsg = error?.response?.data?.message || error?.message || "Error creating fee";
+        Alert.alert('Error', errorMsg);
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -203,22 +246,29 @@ const FeeManagement = () => {
 
     try {
       setProcessingPayment(true);
-      await API.post(`/accountant/fees/${selectedFee.id}/pay`, 
-        { amount: parseFloat(paymentAmount) },
-        { params: { school_code: schoolCode } }
-      );
+      await addPayment({
+        fee_id: selectedFee.id,
+        amount: parseFloat(paymentAmount),
+        method: 'cash',
+      });
       
-      Alert.alert('Success', 'Payment recorded successfully');
-      setShowPaymentModal(false);
-      setPaymentAmount('');
-      setSelectedFee(null);
-      await fetchStudentsAndFees();
+      if (isMounted.current) {
+        Alert.alert('Success', 'Payment recorded successfully');
+        setShowPaymentModal(false);
+        setPaymentAmount('');
+        setSelectedFee(null);
+        await fetchStudentsAndFees();
+      }
     } catch (error: any) {
-      console.error("Error processing payment:", error);
-      const errorMsg = error?.response?.data?.message || error?.message || "Error processing payment";
-      Alert.alert('Error', errorMsg);
+      if (error?.response?.status !== 401) {
+        console.error("Error processing payment:", error);
+        const errorMsg = error?.response?.data?.message || error?.message || "Error processing payment";
+        Alert.alert('Error', errorMsg);
+      }
     } finally {
-      setProcessingPayment(false);
+      if (isMounted.current) {
+        setProcessingPayment(false);
+      }
     }
   };
 
@@ -334,8 +384,21 @@ const FeeManagement = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView 
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Header */}
+      <View style={styles.headerStandard}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <AppText style={styles.headerTitle}>Fee Management</AppText>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView
         style={styles.scrollView}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -543,6 +606,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
+  },
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
+    flex: 1,
   },
   scrollView: {
     flex: 1,

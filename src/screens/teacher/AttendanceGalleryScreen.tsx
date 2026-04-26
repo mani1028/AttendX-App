@@ -14,7 +14,7 @@ import {
   Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import API from '../../services/api';
+import * as teacherService from '../../services/teacherService';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
@@ -269,14 +269,8 @@ export default function AttendanceGalleryScreen() {
     
     setLoadingTeacher(true);
     try {
-      const res = await API.get('/manage/attendance/teacher/gallery', {
-        params: {
-          school_code: schoolCode,
-          branch_id: branchId,
-          teacher_id: teacherId,
-        },
-      });
-      setTeacherImages(res.data?.images || []);
+      const images = await teacherService.getTeacherGallery(schoolCode, branchId, teacherId);
+      setTeacherImages(images);
     } catch (error) {
       console.error('Failed to fetch teacher images:', error);
       setTeacherImages([]);
@@ -291,15 +285,8 @@ export default function AttendanceGalleryScreen() {
     
     setLoadingStudent(true);
     try {
-      const res = await API.get('/manage/attendance/student/gallery', {
-        params: {
-          school_code: schoolCode,
-          branch_id: branchId,
-          class_grade: classGrade,
-          section: section,
-        },
-      });
-      setStudentImages(res.data?.images || []);
+      const images = await teacherService.getStudentGallery(schoolCode, branchId, classGrade, section);
+      setStudentImages(images);
     } catch (error) {
       console.error('Failed to fetch student images:', error);
       setStudentImages([]);

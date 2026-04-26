@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,17 +13,19 @@ import {
   StatusBar,
   Modal,
   RefreshControl,
+  PermissionsAndroid,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
-import LinearGradient from 'react-native-linear-gradient';
 import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
+import { getQuestionPapers, getExamTypes } from '../../services/studentService';
 import { colors } from '../../constants/colors';
-import AppButton from '../../components/common/AppButton';
-import AppCard from '../../components/common/AppCard';
+import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -47,6 +49,11 @@ interface Subject {
   papers: Paper[];
 }
 
+interface FilterOptions {
+  subject: string;
+  examType: string;
+}
+
 // Helper functions
 const getSchoolCode = async (): Promise<string> => {
   const code = await AsyncStorage.getItem('school_code');
@@ -66,10 +73,10 @@ const getAuthToken = async (): Promise<string> => {
 const formatDate = (dateString?: string): string => {
   if (!dateString) return '—';
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: 'numeric', 
-    year: 'numeric' 
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   });
 };
 
@@ -78,6 +85,50 @@ const formatFileSize = (bytes?: number): string => {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+};
+
+const arrayBufferToBase64 = (data: ArrayBuffer): string => {
+  const runtimeBuffer = (globalThis as any).Buffer;
+  if (runtimeBuffer?.from) {
+    return runtimeBuffer.from(data).toString('base64');
+  }
+
+  const bytes = new Uint8Array(data);
+  let binary = '';
+  const chunkSize = 0x8000;
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+
+  const btoaFn = (globalThis as any).btoa;
+  if (typeof btoaFn === 'function') {
+    return btoaFn(binary);
+  }
+
+  throw new Error('Base64 encoder is unavailable');
+};
+
+const requestStoragePermission = async (): Promise<boolean> => {
+  if (Platform.OS === 'android') {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+        {
+          title: 'Storage Permission Required',
+          message: 'App needs access to your storage to download files',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        }
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.error('Storage permission error:', err);
+      return false;
+    }
+  }
+  return true;
 };
 
 // Paper Card Component
@@ -89,7 +140,7 @@ const PaperCard: React.FC<{
   const [showActions, setShowActions] = useState(false);
 
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.paperCard}
       activeOpacity={0.9}
       onLongPress={() => setShowActions(!showActions)}
@@ -109,7 +160,7 @@ const PaperCard: React.FC<{
       </View>
 
       <Text style={styles.paperTitle}>{paper.title}</Text>
-      
+
       <View style={styles.paperMeta}>
         <View style={styles.metaItem}>
           <Icon name="user" size={12} color="#64748b" />
@@ -121,24 +172,27 @@ const PaperCard: React.FC<{
         </View>
         <View style={styles.metaItem}>
           <Icon name="bookmark" size={12} color="#64748b" />
-          <Text style={styles.metaText}>{paper.class_name} {paper.section_name}</Text>
+          <Text style={styles.metaText}>
+            {paper.class_name} {paper.section_name}
+          </Text>
         </View>
       </View>
 
       {showActions && (
         <View style={styles.paperActions}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => onView(paper.paper_id)}>
-            <LinearGradient
-              colors={['#3b82f6', '#2563eb']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.actionGradient}
-            >
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => onView(paper.paper_id)}
+          >
+            <View style={styles.actionGradient}>
               <Icon name="eye" size={14} color="#fff" />
               <Text style={styles.actionBtnText}>View</Text>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtnOutline} onPress={() => onDownload(paper.paper_id, paper.title)}>
+          <TouchableOpacity
+            style={styles.actionBtnOutline}
+            onPress={() => onDownload(paper.paper_id, paper.title)}
+          >
             <Icon name="download" size={14} color="#3b82f6" />
             <Text style={styles.actionBtnOutlineText}>Download</Text>
           </TouchableOpacity>
@@ -158,18 +212,17 @@ const SubjectSection: React.FC<{
 }> = ({ subject, isExpanded, onToggle, onView, onDownload }) => {
   return (
     <View style={styles.subjectSection}>
-      <TouchableOpacity style={styles.subjectHeader} onPress={onToggle} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.subjectHeader}
+        onPress={onToggle}
+        activeOpacity={0.7}
+      >
         <View style={styles.subjectIconContainer}>
-          <LinearGradient
-            colors={['#3b82f6', '#2563eb']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.subjectIcon}
-          >
+          <View style={styles.subjectIcon}>
             <Text style={styles.subjectIconText}>
               {subject.subject_name.charAt(0)}
             </Text>
-          </LinearGradient>
+          </View>
         </View>
         <View style={styles.subjectInfo}>
           <Text style={styles.subjectTitle}>{subject.subject_name}</Text>
@@ -180,10 +233,10 @@ const SubjectSection: React.FC<{
         <View style={styles.paperCount}>
           <Text style={styles.paperCountText}>{subject.papers.length}</Text>
         </View>
-        <Icon 
-          name={isExpanded ? 'chevron-up' : 'chevron-down'} 
-          size={20} 
-          color="#64748b" 
+        <Icon
+          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+          size={20}
+          color="#64748b"
         />
       </TouchableOpacity>
 
@@ -214,22 +267,32 @@ const SubjectSection: React.FC<{
 const FilterModal: React.FC<{
   visible: boolean;
   onClose: () => void;
-  onApply: (filters: any) => void;
+  onApply: (filters: FilterOptions) => void;
   subjects: Array<{ id: string; name: string }>;
   examTypes: string[];
   currentFilterSubject: string;
   currentFilterExamType: string;
-}> = ({ 
-  visible, 
-  onClose, 
-  onApply, 
-  subjects, 
+}> = ({
+  visible,
+  onClose,
+  onApply,
+  subjects,
   examTypes,
   currentFilterSubject,
-  currentFilterExamType 
+  currentFilterExamType,
 }) => {
   const [selectedSubject, setSelectedSubject] = useState(currentFilterSubject);
   const [selectedExamType, setSelectedExamType] = useState(currentFilterExamType);
+
+  const handleReset = () => {
+    setSelectedSubject('all');
+    setSelectedExamType('all');
+  };
+
+  const handleApply = () => {
+    onApply({ subject: selectedSubject, examType: selectedExamType });
+    onClose();
+  };
 
   return (
     <Modal
@@ -247,24 +310,40 @@ const FilterModal: React.FC<{
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalBody}>
+          <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
             <Text style={styles.filterSectionTitle}>Subject</Text>
             <View style={styles.filterOptions}>
               <TouchableOpacity
-                style={[styles.filterOption, selectedSubject === 'all' && styles.filterOptionActive]}
+                style={[
+                  styles.filterOption,
+                  selectedSubject === 'all' && styles.filterOptionActive,
+                ]}
                 onPress={() => setSelectedSubject('all')}
               >
-                <Text style={[styles.filterOptionText, selectedSubject === 'all' && styles.filterOptionTextActive]}>
+                <Text
+                  style={[
+                    styles.filterOptionText,
+                    selectedSubject === 'all' && styles.filterOptionTextActive,
+                  ]}
+                >
                   All Subjects
                 </Text>
               </TouchableOpacity>
               {subjects.map((subject) => (
                 <TouchableOpacity
                   key={subject.id}
-                  style={[styles.filterOption, selectedSubject === subject.id && styles.filterOptionActive]}
+                  style={[
+                    styles.filterOption,
+                    selectedSubject === subject.id && styles.filterOptionActive,
+                  ]}
                   onPress={() => setSelectedSubject(subject.id)}
                 >
-                  <Text style={[styles.filterOptionText, selectedSubject === subject.id && styles.filterOptionTextActive]}>
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      selectedSubject === subject.id && styles.filterOptionTextActive,
+                    ]}
+                  >
                     {subject.name}
                   </Text>
                 </TouchableOpacity>
@@ -274,20 +353,36 @@ const FilterModal: React.FC<{
             <Text style={styles.filterSectionTitle}>Exam Type</Text>
             <View style={styles.filterOptions}>
               <TouchableOpacity
-                style={[styles.filterOption, selectedExamType === 'all' && styles.filterOptionActive]}
+                style={[
+                  styles.filterOption,
+                  selectedExamType === 'all' && styles.filterOptionActive,
+                ]}
                 onPress={() => setSelectedExamType('all')}
               >
-                <Text style={[styles.filterOptionText, selectedExamType === 'all' && styles.filterOptionTextActive]}>
+                <Text
+                  style={[
+                    styles.filterOptionText,
+                    selectedExamType === 'all' && styles.filterOptionTextActive,
+                  ]}
+                >
                   All Types
                 </Text>
               </TouchableOpacity>
               {examTypes.map((type) => (
                 <TouchableOpacity
                   key={type}
-                  style={[styles.filterOption, selectedExamType === type && styles.filterOptionActive]}
+                  style={[
+                    styles.filterOption,
+                    selectedExamType === type && styles.filterOptionActive,
+                  ]}
                   onPress={() => setSelectedExamType(type)}
                 >
-                  <Text style={[styles.filterOptionText, selectedExamType === type && styles.filterOptionTextActive]}>
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      selectedExamType === type && styles.filterOptionTextActive,
+                    ]}
+                  >
                     {type}
                   </Text>
                 </TouchableOpacity>
@@ -296,30 +391,13 @@ const FilterModal: React.FC<{
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <TouchableOpacity 
-              style={styles.resetModalBtn}
-              onPress={() => {
-                setSelectedSubject('all');
-                setSelectedExamType('all');
-              }}
-            >
+            <TouchableOpacity style={styles.resetModalBtn} onPress={handleReset}>
               <Text style={styles.resetModalBtnText}>Reset</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.applyModalBtn}
-              onPress={() => {
-                onApply({ subject: selectedSubject, examType: selectedExamType });
-                onClose();
-              }}
-            >
-              <LinearGradient
-                colors={['#3b82f6', '#2563eb']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.applyModalGradient}
-              >
+            <TouchableOpacity style={styles.applyModalBtn} onPress={handleApply}>
+              <View style={styles.applyModalGradient}>
                 <Text style={styles.applyModalBtnText}>Apply Filters</Text>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -330,6 +408,8 @@ const FilterModal: React.FC<{
 
 export default function QuestionPapersScreen() {
   const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -345,18 +425,8 @@ export default function QuestionPapersScreen() {
   // Fetch exam types
   const fetchExamTypes = useCallback(async () => {
     try {
-      const code = await getSchoolCode();
-      const bid = await getBranchId();
-      const authToken = await getAuthToken();
-      
-      const res = await API.get('/student/question-papers/exam-types', {
-        headers: {
-          'X-School-Code': code,
-          'X-Branch-Id': bid,
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      setExamTypes(res.data.exam_types || []);
+      const res = await getExamTypes();
+      setExamTypes(res.exam_types || []);
     } catch (err) {
       console.error('Failed to fetch exam types:', err);
     }
@@ -366,25 +436,14 @@ export default function QuestionPapersScreen() {
   const fetchPapers = useCallback(async () => {
     setLoading(true);
     try {
-      const code = await getSchoolCode();
-      const bid = await getBranchId();
-      const authToken = await getAuthToken();
-      
       const params: any = {};
       if (filterSubject !== 'all') params.subject_id = filterSubject;
       if (filterExamType !== 'all') params.exam_type = filterExamType;
-      
-      const res = await API.get('/student/question-papers', {
-        headers: {
-          'X-School-Code': code,
-          'X-Branch-Id': bid,
-          Authorization: `Bearer ${authToken}`,
-        },
-        params,
-      });
-      
-      let data = res.data.subjects || [];
-      
+
+      const res = await getQuestionPapers(params);
+
+      let data = res.subjects || res.data?.subjects || [];
+
       // Apply client-side search
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
@@ -399,19 +458,19 @@ export default function QuestionPapersScreen() {
           }))
           .filter((sub: Subject) => sub.papers.length > 0);
       }
-      
+
       setSubjects(data);
-      
+
       const total = data.reduce((sum: number, sub: Subject) => sum + sub.papers.length, 0);
       setTotalPapers(total);
-      
+
       // Auto-expand first subject if any
       if (data.length > 0 && !expandedSubjects[data[0].subject_id]) {
-        setExpandedSubjects(prev => ({ ...prev, [data[0].subject_id]: true }));
+        setExpandedSubjects((prev) => ({ ...prev, [data[0].subject_id]: true }));
       }
-      
+
       // Build subject options for filter
-      const options = [...new Map(data.map((s: Subject) => [s.subject_id, s.subject_name])).entries()];
+      const options = [...new Map<string, string>(data.map((s: Subject) => [String(s.subject_id), String(s.subject_name)])).entries()];
       setSubjectOptions(options.map(([id, name]) => ({ id, name })));
     } catch (err) {
       console.error('Failed to fetch question papers:', err);
@@ -420,11 +479,11 @@ export default function QuestionPapersScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filterSubject, filterExamType, searchTerm]);
+  }, [filterSubject, filterExamType, searchTerm, expandedSubjects]);
 
   useEffect(() => {
     fetchExamTypes();
-  }, []);
+  }, [fetchExamTypes]);
 
   useEffect(() => {
     fetchPapers();
@@ -436,36 +495,37 @@ export default function QuestionPapersScreen() {
   };
 
   const toggleSubject = (subjectId: string) => {
-    setExpandedSubjects(prev => ({ ...prev, [subjectId]: !prev[subjectId] }));
+    setExpandedSubjects((prev) => ({ ...prev, [subjectId]: !prev[subjectId] }));
   };
 
   const handleView = async (paperId: string) => {
     try {
+      const hasPermission = await requestStoragePermission();
+      if (!hasPermission) {
+        Alert.alert('Permission Denied', 'Cannot view file without storage permission');
+        return;
+      }
+
       const code = await getSchoolCode();
       const bid = await getBranchId();
       const authToken = await getAuthToken();
-      
+
       const response = await API.get(`/student/question-papers/${paperId}/download`, {
-        responseType: 'blob',
+        responseType: 'arraybuffer',
         headers: {
           'X-School-Code': code,
           'X-Branch-Id': bid,
           Authorization: `Bearer ${authToken}`,
         },
       });
-      
-      const blob = new Blob([response.data], { type: response.headers['content-type'] });
+
       const fileUri = `${RNFS.DocumentDirectoryPath}/question_paper_${paperId}.pdf`;
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
-      
-      await RNFS.writeFile(fileUri, base64.split(',')[1], 'base64');
-      
+      const base64Data = arrayBufferToBase64(response.data);
+
+      await RNFS.writeFile(fileUri, base64Data, 'base64');
+
       await Share.open({
-        url: `file://${fileUri}`,
+        url: Platform.OS === 'android' ? `file://${fileUri}` : fileUri,
         type: 'application/pdf',
         failOnCancel: false,
       });
@@ -477,32 +537,33 @@ export default function QuestionPapersScreen() {
 
   const handleDownload = async (paperId: string, title: string) => {
     try {
+      const hasPermission = await requestStoragePermission();
+      if (!hasPermission) {
+        Alert.alert('Permission Denied', 'Cannot download file without storage permission');
+        return;
+      }
+
       const code = await getSchoolCode();
       const bid = await getBranchId();
       const authToken = await getAuthToken();
-      
+
       const response = await API.get(`/student/question-papers/${paperId}/download`, {
-        responseType: 'blob',
+        responseType: 'arraybuffer',
         headers: {
           'X-School-Code': code,
           'X-Branch-Id': bid,
           Authorization: `Bearer ${authToken}`,
         },
       });
-      
-      const blob = new Blob([response.data], { type: response.headers['content-type'] });
+
       const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const fileUri = `${RNFS.DocumentDirectoryPath}/${sanitizedTitle}.pdf`;
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
-      
-      await RNFS.writeFile(fileUri, base64.split(',')[1], 'base64');
-      
+      const base64Data = arrayBufferToBase64(response.data);
+
+      await RNFS.writeFile(fileUri, base64Data, 'base64');
+
       await Share.open({
-        url: `file://${fileUri}`,
+        url: Platform.OS === 'android' ? `file://${fileUri}` : fileUri,
         type: 'application/pdf',
         failOnCancel: false,
       });
@@ -518,33 +579,46 @@ export default function QuestionPapersScreen() {
     setFilterExamType('all');
   };
 
-  const applyFilters = (filters: any) => {
+  const applyFilters = (filters: FilterOptions) => {
     setFilterSubject(filters.subject);
     setFilterExamType(filters.examType);
   };
 
-  const hasActiveFilters = searchTerm || filterSubject !== 'all' || filterExamType !== 'all';
+  const hasActiveFilters =
+    searchTerm !== '' || filterSubject !== 'all' || filterExamType !== 'all';
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
+
+  const handleBackPress = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate('StudentDashboard' as never);
+  };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
-      
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
       {/* Header */}
-      <LinearGradient
-        colors={['#3b82f6', '#2563eb', '#1d4ed8']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradientHeader}
-      >
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Icon name="arrow-left" size={20} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Question Papers</Text>
-          <View style={styles.headerRight} />
-        </View>
-        <Text style={styles.headerSubtitle}>Access previous year papers and practice materials</Text>
-      </LinearGradient>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Question Papers</Text>
+        <View style={styles.backBtn} />
+      </View>
 
       {/* Search and Filter Bar */}
       <View style={styles.searchSection}>
@@ -559,19 +633,21 @@ export default function QuestionPapersScreen() {
             returnKeyType="search"
             onSubmitEditing={fetchPapers}
           />
-          {searchTerm ? (
+          {searchTerm !== '' ? (
             <TouchableOpacity onPress={() => setSearchTerm('')}>
               <Icon name="x" size={16} color="#94a3b8" />
             </TouchableOpacity>
           ) : null}
         </View>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[styles.filterButton, hasActiveFilters && styles.filterButtonActive]}
           onPress={() => setShowFilterModal(true)}
         >
-          <Icon name="sliders" size={18} color={hasActiveFilters ? "#fff" : "#64748b"} />
-          <Text style={[styles.filterButtonText, hasActiveFilters && styles.filterButtonTextActive]}>
+          <Icon name="sliders" size={18} color={hasActiveFilters ? '#fff' : '#64748b'} />
+          <Text
+            style={[styles.filterButtonText, hasActiveFilters && styles.filterButtonTextActive]}
+          >
             Filter
           </Text>
           {hasActiveFilters && <View style={styles.filterDot} />}
@@ -580,9 +656,13 @@ export default function QuestionPapersScreen() {
 
       {/* Active Filters */}
       {hasActiveFilters && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.activeFilters}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.activeFilters}
+        >
           <View style={styles.activeFiltersContainer}>
-            {searchTerm && (
+            {searchTerm !== '' && (
               <View style={styles.activeFilterChip}>
                 <Text style={styles.activeFilterText}>Search: {searchTerm}</Text>
                 <TouchableOpacity onPress={() => setSearchTerm('')}>
@@ -593,7 +673,7 @@ export default function QuestionPapersScreen() {
             {filterSubject !== 'all' && (
               <View style={styles.activeFilterChip}>
                 <Text style={styles.activeFilterText}>
-                  Subject: {subjectOptions.find(s => s.id === filterSubject)?.name}
+                  Subject: {subjectOptions.find((s) => s.id === filterSubject)?.name}
                 </Text>
                 <TouchableOpacity onPress={() => setFilterSubject('all')}>
                   <Icon name="x" size={12} color="#64748b" />
@@ -636,6 +716,8 @@ export default function QuestionPapersScreen() {
       <ScrollView
         style={styles.listContainer}
         contentContainerStyle={styles.listContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
         }
@@ -653,7 +735,7 @@ export default function QuestionPapersScreen() {
             </View>
             <Text style={styles.emptyTitle}>No question papers available</Text>
             <Text style={styles.emptyText}>
-              {hasActiveFilters 
+              {hasActiveFilters
                 ? 'Try adjusting your search or filters'
                 : 'Check back later for new study materials'}
             </Text>
@@ -664,7 +746,7 @@ export default function QuestionPapersScreen() {
             )}
           </View>
         ) : (
-          subjects.map(subject => (
+          subjects.map((subject) => (
             <SubjectSection
               key={subject.subject_id}
               subject={subject}
@@ -696,44 +778,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
-  gradientHeader: {
-    paddingTop: 20,
+  header: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: '#ffffff',
-  },
-  headerRight: {
-    width: 40,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: '#bfdbfe',
-    marginTop: 4,
+    textAlign: 'center',
+    flex: 1,
   },
   searchSection: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    marginTop: -20,
+    marginTop: 16,
     gap: 12,
   },
   searchContainer: {
@@ -743,7 +813,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
     gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -755,6 +825,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: '#0f172a',
+    paddingVertical: Platform.OS === 'ios' ? 0 : 8,
   },
   filterButton: {
     flexDirection: 'row',

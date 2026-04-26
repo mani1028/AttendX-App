@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,14 +9,16 @@ import {
   Dimensions,
   StatusBar,
   Platform,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from '@react-native-vector-icons/feather';
-import LinearGradient from 'react-native-linear-gradient';
 import API from '../../services/api';
-import { colors } from '../../constants/theme';
+import { getStudentFee, getPaymentHistory } from '../../services/studentService';
+import colors from '../../constants/colors';
+import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
-import AppCard from '../../components/common/AppCard';
 
 const { width } = Dimensions.get('window');
 
@@ -41,218 +43,54 @@ interface Payment {
   transaction_id?: string;
 }
 
-// Enhanced Status Badge Component
-const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const getStatusConfig = () => {
-    const lowerStatus = status?.toLowerCase() || '';
-    if (lowerStatus === 'paid') {
-      return {
-        container: styles.badgePaid,
-        text: styles.badgeTextPaid,
-        label: 'PAID',
-        icon: 'check-circle',
-        iconColor: '#22c55e',
-      };
-    }
-    if (lowerStatus === 'partial') {
-      return {
-        container: styles.badgePartial,
-        text: styles.badgeTextPartial,
-        label: 'PARTIAL',
-        icon: 'alert-triangle',
-        iconColor: '#f59e0b',
-      };
-    }
-    return {
-      container: styles.badgeUnpaid,
-      text: styles.badgeTextUnpaid,
-      label: 'UNPAID',
-      icon: 'x-circle',
-      iconColor: '#ef4444',
-    };
-  };
-
-  const config = getStatusConfig();
-
-  return (
-    <View style={[styles.badge, config.container]}>
-      <Icon name={config.icon} size={12} color={config.iconColor} />
-      <AppText style={[styles.badgeText, config.text]}>{config.label}</AppText>
-    </View>
-  );
-};
-
-// Enhanced Fee Summary Card
-const FeeSummaryCard: React.FC<{
+// Summary Card Component
+const SummaryCard: React.FC<{
   icon: string;
   label: string;
   value: string;
-  trend?: number;
-  gradientColors: string[];
-}> = ({ icon, label, value, trend, gradientColors }) => (
-  <LinearGradient
-    colors={gradientColors}
-    start={{ x: 0, y: 0 }}
-    end={{ x: 1, y: 1 }}
-    style={styles.summaryCard}
-  >
+  backgroundColor: string;
+}> = ({ icon, label, value, backgroundColor }) => (
+  <View style={[styles.summaryCard, { backgroundColor }]}>
     <View style={styles.summaryIconContainer}>
-      <AppText style={styles.summaryIcon}>{icon}</AppText>
+      <Icon name={icon as any} size={24} color="#fff" />
     </View>
     <View style={styles.summaryContent}>
       <AppText style={styles.summaryLabel}>{label}</AppText>
       <AppText style={styles.summaryValue}>{value}</AppText>
-      {trend !== undefined && (
-        <View style={styles.trendContainer}>
-          <Icon 
-            name={trend >= 0 ? "trending-up" : "trending-down"} 
-            size={12} 
-            color={trend >= 0 ? "#10b981" : "#ef4444"} 
-          />
-          <AppText style={[styles.trendText, { color: trend >= 0 ? "#10b981" : "#ef4444" }]}>
-            {Math.abs(trend)}% from last month
-          </AppText>
-        </View>
-      )}
     </View>
-  </LinearGradient>
+  </View>
 );
 
-// Payment History Card Component
-const PaymentCard: React.FC<{ payment: Payment }> = ({ payment }) => {
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric' 
-    });
-  };
-
-  const getMethodIcon = (method: string) => {
-    switch(method?.toLowerCase()) {
-      case 'cash': return 'dollar-sign';
-      case 'card': return 'credit-card';
-      case 'online': return 'wifi';
-      default: return 'smartphone';
-    }
-  };
-
-  return (
-    <View style={styles.paymentCard}>
-      <View style={styles.paymentCardLeft}>
-        <View style={styles.paymentIconContainer}>
-          <Icon name={getMethodIcon(payment.method)} size={20} color="#3b82f6" />
-        </View>
-      </View>
-      <View style={styles.paymentCardMiddle}>
-        <AppText style={styles.paymentAmount}>₹{payment.amount.toFixed(2)}</AppText>
-        <View style={styles.paymentMethodContainer}>
-          <Icon name="credit-card" size={12} color="#64748b" />
-          <AppText style={styles.paymentMethod}>{payment.method?.toUpperCase() || 'CASH'}</AppText>
-        </View>
-      </View>
-      <View style={styles.paymentCardRight}>
-        <AppText style={styles.paymentDate}>{formatDate(payment.date)}</AppText>
-        {payment.receipt_no && (
-          <TouchableOpacity style={styles.receiptButton}>
-            <Icon name="file-text" size={12} color="#3b82f6" />
-            <AppText style={styles.receiptText}>Receipt</AppText>
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
-};
-
-// Fee Item Component
-const FeeItem: React.FC<{ fee: Fee }> = ({ fee }) => {
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 2,
-    }).format(amount);
-  };
-
-  return (
-    <View style={styles.feeItem}>
-      <View style={styles.feeItemHeader}>
-        <View style={styles.feeTypeContainer}>
-          <Icon name="file-text" size={16} color="#3b82f6" />
-          <AppText style={styles.feeType}>{fee.fee_type || 'Tuition Fee'}</AppText>
-        </View>
-        <StatusBadge status={fee.status} />
-      </View>
-      
-      <View style={styles.feeDetails}>
-        <View style={styles.feeDetailItem}>
-          <AppText style={styles.feeDetailLabel}>Total Amount</AppText>
-          <AppText style={styles.feeDetailValue}>{formatCurrency(fee.total_fee)}</AppText>
-        </View>
-        <View style={styles.feeDetailItem}>
-          <AppText style={styles.feeDetailLabel}>Paid Amount</AppText>
-          <AppText style={[styles.feeDetailValue, styles.paidAmount]}>
-            {formatCurrency(fee.paid_amount)}
-          </AppText>
-        </View>
-        <View style={styles.feeDetailItem}>
-          <AppText style={styles.feeDetailLabel}>Due Amount</AppText>
-          <AppText style={[styles.feeDetailValue, styles.dueAmount]}>
-            {formatCurrency(fee.due_amount)}
-          </AppText>
-        </View>
-        <View style={styles.feeDetailItem}>
-          <AppText style={styles.feeDetailLabel}>Due Date</AppText>
-          <View style={styles.dueDateContainer}>
-            <Icon name="calendar" size={12} color="#64748b" />
-            <AppText style={styles.feeDetailValue}>{fee.due_date || 'Not specified'}</AppText>
-          </View>
-        </View>
-      </View>
-
-      {fee.due_amount > 0 && (
-        <TouchableOpacity style={styles.payNowButton}>
-          <LinearGradient
-            colors={['#3b82f6', '#2563eb']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.payNowGradient}
-          >
-            <Icon name="credit-card" size={16} color="#fff" />
-            <AppText style={styles.payNowText}>Pay Now</AppText>
-          </LinearGradient>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-};
-
 export default function StudentFeeScreen({ navigation }: any) {
+  const { setTabBarVisible } = useAuth();
   const [fees, setFees] = useState<Fee[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [studentId, setStudentId] = useState<string>('');
   const [schoolCode, setSchoolCode] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'fees' | 'history'>('fees');
+  const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
+
+  const lastScrollY = useRef(0);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
+      setTabBarVisible(false);
+    } else if (currentScrollY < lastScrollY.current - 10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const token = await AsyncStorage.getItem('token');
-        const role = await AsyncStorage.getItem('role');
-        const code = await AsyncStorage.getItem('school_code') || 
-                     await AsyncStorage.getItem('schoolCode');
-        const sid = await AsyncStorage.getItem('student_id');
+        const sid = await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('studentId');
+        const code = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
 
-        if (!token || role !== 'student') {
-          console.log('Unauthorized: Redirect to login');
-          return;
-        }
-
-        if (code) setSchoolCode(code);
         if (sid) setStudentId(sid);
+        if (code) setSchoolCode(code);
 
         // Load cached data
         if (sid) {
@@ -263,8 +101,8 @@ export default function StudentFeeScreen({ navigation }: any) {
            if (cachedPayments) setPayments(JSON.parse(cachedPayments));
         }
 
-        if (sid && code) {
-          await fetchFeeInfo(sid, code, !fees.length);
+        if (sid) {
+          await fetchFeeInfo(sid, !fees.length);
         }
       } catch (error) {
         console.error('Error loading user data:', error);
@@ -276,33 +114,34 @@ export default function StudentFeeScreen({ navigation }: any) {
     loadUserData();
   }, []);
 
-  const fetchFeeInfo = async (sid: string, code: string, showLoading = true) => {
+  const fetchFeeInfo = async (sid: string, showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
       
-      const feesResponse = await API.get(`/accountant/fees/${sid}`, {
-        params: { school_code: code },
-      });
-      const feesData = feesResponse.data || [];
-      setFees(feesData);
-      await AsyncStorage.setItem(`fees_cache_${sid}`, JSON.stringify(feesData));
+      const feeData = await getStudentFee();
+      // Format the data to match the expected local 'fees' array structure
+      const formattedFees: Fee[] = [{
+        id: 'summary',
+        total_fee: feeData.totalFee,
+        paid_amount: feeData.paidFee,
+        due_amount: feeData.pendingFee,
+        status: feeData.pendingFee <= 0 ? 'paid' : 'partial',
+        due_date: 'N/A'
+      }];
 
-      if (feesData.length > 0) {
-        const allPayments: Payment[] = [];
-        for (const fee of feesData) {
-          const paymentsResponse = await API.get(`/accountant/payments/${fee.id}`, {
-            params: { school_code: code },
-          });
-          const paymentData = paymentsResponse.data || [];
-          allPayments.push(...paymentData);
-        }
-        setPayments(allPayments);
-        await AsyncStorage.setItem(`payments_cache_${sid}`, JSON.stringify(allPayments));
-      } else {
-        setPayments([]);
-      }
+      setFees(formattedFees);
+      await AsyncStorage.setItem(`fees_cache_${sid}`, JSON.stringify(formattedFees));
+
+      // Fetch payment history
+      const historyData = await getPaymentHistory();
+      setPayments(Array.isArray(historyData) ? historyData : []);
+      await AsyncStorage.setItem(`payments_cache_${sid}`, JSON.stringify(historyData));
+
     } catch (error) {
       console.error('Error fetching fee info:', error);
+      // Fallback to empty states on 404/Error
+      setFees([]);
+      setPayments([]);
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -310,208 +149,198 @@ export default function StudentFeeScreen({ navigation }: any) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    if (studentId && schoolCode) {
-      await fetchFeeInfo(studentId, schoolCode);
+    if (studentId) {
+      await fetchFeeInfo(studentId, false);
     }
     setRefreshing(false);
-  }, [studentId, schoolCode]);
+  }, [studentId]);
 
   const totalFee = fees.reduce((sum, f) => sum + f.total_fee, 0);
   const totalPaid = fees.reduce((sum, f) => sum + f.paid_amount, 0);
   const totalDue = fees.reduce((sum, f) => sum + f.due_amount, 0);
-  const paymentPercentage = totalFee > 0 ? (totalPaid / totalFee) * 100 : 0;
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Morning';
-    if (hour < 17) return 'Afternoon';
-    return 'Evening';
+  const formatCurrency = (amount: number) => {
+    return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  if (loading) {
+  const renderOverview = () => {
+    const mainFee = fees[0] || { status: 'PARTIAL', due_date: '23-04-2026' };
     return (
-      <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
-          <AppText style={styles.loaderText}>Loading fee information...</AppText>
+      <View style={styles.detailsCard}>
+        <View style={styles.detailsHeader}>
+          <Icon name="file-text" size={18} color="#1E293B" />
+          <AppText style={styles.detailsTitle}>FEE DETAILS</AppText>
         </View>
+
+        <View style={styles.detailRow}>
+          <AppText style={styles.detailLabel}>Total Fee</AppText>
+          <AppText style={styles.detailValue}>{formatCurrency(totalFee)}</AppText>
+        </View>
+        <View style={styles.divider} />
+
+        <View style={styles.detailRow}>
+          <AppText style={styles.detailLabel}>Paid Amount</AppText>
+          <AppText style={[styles.detailValue, { color: '#22c55e' }]}>{formatCurrency(totalPaid)}</AppText>
+        </View>
+        <View style={styles.divider} />
+
+        <View style={styles.detailRow}>
+          <AppText style={styles.detailLabel}>Due Amount</AppText>
+          <AppText style={[styles.detailValue, { color: '#ef4444' }]}>{formatCurrency(totalDue)}</AppText>
+        </View>
+        <View style={styles.divider} />
+
+        <View style={styles.detailRow}>
+          <AppText style={styles.detailLabel}>Status</AppText>
+          <View style={styles.statusBadge}>
+            <AppText style={styles.statusText}>{mainFee.status?.toUpperCase() || 'PARTIAL'}</AppText>
+          </View>
+        </View>
+        <View style={styles.divider} />
+
+        <View style={styles.detailRow}>
+          <AppText style={styles.detailLabel}>Due Date</AppText>
+          <View style={styles.dueDateContainer}>
+            <Icon name="calendar" size={16} color="#94A3B8" />
+            <AppText style={styles.dueDateValue}>{mainFee.due_date || '23-04-2026'}</AppText>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const renderHistory = () => (
+    <View style={styles.historySection}>
+      <View style={styles.historyHeader}>
+        <View style={styles.historyHeaderLeft}>
+          <Icon name="rotate-ccw" size={18} color="#1E293B" />
+          <AppText style={styles.detailsTitle}>Payment History</AppText>
+        </View>
+        <TouchableOpacity>
+          <AppText style={styles.viewAllText}>View All</AppText>
+        </TouchableOpacity>
+      </View>
+
+      {payments.length === 0 ? (
+        <View style={styles.emptyHistory}>
+          <AppText style={styles.emptyHistoryText}>No payment history found</AppText>
+        </View>
+      ) : (
+        payments.map((item, index) => (
+          <View key={item.id || index} style={styles.historyItem}>
+            <View style={styles.historyIconContainer}>
+              <Icon name="database" size={20} color="#22c55e" />
+            </View>
+            <View style={styles.historyInfo}>
+              <AppText style={styles.historyAmount}>{formatCurrency(item.amount)}</AppText>
+              <AppText style={styles.historyMethod}>{item.method || 'CASH'}</AppText>
+            </View>
+            <View style={styles.historyRight}>
+              <AppText style={styles.historyDate}>
+                {new Date(item.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
+              </AppText>
+              <Icon name="chevron-right" size={18} color="#94A3B8" />
+            </View>
+          </View>
+        ))
+      )}
+
+      <TouchableOpacity style={styles.downloadButton}>
+        <Icon name="download" size={18} color="#3b82f6" />
+        <AppText style={styles.downloadButtonText}>Download Receipt</AppText>
+      </TouchableOpacity>
+    </View>
+  );
+
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#3b82f6" />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
       
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <AppText style={styles.headerTitle}>Fee & Payments</AppText>
+        <TouchableOpacity
+          style={styles.notificationIcon}
+          onPress={() => navigation.navigate('Notifications')}
+        >
+          <Icon name="bell" size={22} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
-        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
         }
       >
-        {/* Gradient Header */}
-        <LinearGradient
-          colors={['#3b82f6', '#2563eb', '#1d4ed8']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gradientHeader}
-        >
-          <View style={styles.headerContent}>
-            <View style={styles.welcomeSection}>
-              <View>
-                <AppText style={styles.welcomeGreeting}>Good {getGreeting()}! 👋</AppText>
-                <AppText style={styles.welcomeTitle}>Fee Dashboard</AppText>
-                <AppText style={styles.welcomeSub}>Track your payments and dues</AppText>
-              </View>
-              <TouchableOpacity style={styles.notificationIcon}>
-                <Icon name="bell" size={20} color="#fff" />
-                <View style={styles.notificationBadge} />
-              </TouchableOpacity>
-            </View>
+        {/* Ledger Info Card */}
+        <View style={styles.ledgerCard}>
+          <AppText style={styles.ledgerTitle}>MY FEE LEDGER</AppText>
+          <View style={styles.ledgerRow}>
+            <AppText style={styles.ledgerLabel}>Total Records</AppText>
+            <AppText style={styles.ledgerValue}>: {fees.length.toString().padStart(2, '0')}</AppText>
           </View>
-        </LinearGradient>
+          <View style={styles.ledgerRow}>
+            <AppText style={styles.ledgerLabel}>School</AppText>
+            <AppText style={styles.ledgerValue}>: {schoolCode || 'SCH41452'}</AppText>
+          </View>
+          <View style={styles.ledgerRow}>
+            <AppText style={styles.ledgerLabel}>Student ID</AppText>
+            <AppText style={styles.ledgerValue}>: {studentId || 'STUDENT_ID_100'}</AppText>
+          </View>
+        </View>
 
         {/* Summary Cards */}
-        <View style={styles.summarySection}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.summaryScroll}>
-            <FeeSummaryCard
-              icon="💰"
-              label="Total Fee"
-              value={`₹${totalFee.toLocaleString('en-IN')}`}
-              gradientColors={['#3b82f6', '#2563eb']}
-            />
-            <FeeSummaryCard
-              icon="✅"
-              label="Total Paid"
-              value={`₹${totalPaid.toLocaleString('en-IN')}`}
-              trend={5}
-              gradientColors={['#10b981', '#059669']}
-            />
-            <FeeSummaryCard
-              icon="⏰"
-              label="Total Due"
-              value={`₹${totalDue.toLocaleString('en-IN')}`}
-              trend={-3}
-              gradientColors={['#ef4444', '#dc2626']}
-            />
-          </ScrollView>
-        </View>
+        <SummaryCard
+          icon="credit-card"
+          label="Total Fee"
+          value={formatCurrency(totalFee)}
+          backgroundColor="#3b82f6"
+        />
+        <SummaryCard
+          icon="check-circle"
+          label="Amount Paid"
+          value={formatCurrency(totalPaid)}
+          backgroundColor="#10b981"
+        />
+        <SummaryCard
+          icon="clock"
+          label="Amount Due"
+          value={formatCurrency(totalDue)}
+          backgroundColor="#ef4444"
+        />
 
-        {/* Progress Section */}
-        <View style={styles.progressSection}>
-          <View style={styles.progressCard}>
-            <View style={styles.progressHeader}>
-              <AppText style={styles.progressTitle}>Payment Progress</AppText>
-              <AppText style={styles.progressPercentage}>{paymentPercentage.toFixed(1)}%</AppText>
-            </View>
-            <View style={styles.progressBarContainer}>
-              <View style={[styles.progressBar, { width: `${paymentPercentage}%` }]} />
-            </View>
-            <View style={styles.progressStats}>
-              <View>
-                <AppText style={styles.progressStatLabel}>Paid</AppText>
-                <AppText style={styles.progressStatValue}>₹{totalPaid.toLocaleString('en-IN')}</AppText>
-              </View>
-              <View>
-                <AppText style={styles.progressStatLabel}>Due</AppText>
-                <AppText style={styles.progressStatValue}>₹{totalDue.toLocaleString('en-IN')}</AppText>
-              </View>
-              <View>
-                <AppText style={styles.progressStatLabel}>Total</AppText>
-                <AppText style={styles.progressStatValue}>₹{totalFee.toLocaleString('en-IN')}</AppText>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Tab Navigation */}
+        {/* Tabs */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'fees' && styles.tabActive]}
-            onPress={() => setActiveTab('fees')}
+            style={[styles.tab, activeTab === 'overview' && styles.activeTab]}
+            onPress={() => setActiveTab('overview')}
           >
-            <Icon 
-              name="file-text" 
-              size={18} 
-              color={activeTab === 'fees' ? '#3b82f6' : '#64748b'} 
-            />
-            <AppText style={[styles.tabText, activeTab === 'fees' && styles.tabTextActive]}>
-              Fee Details
-            </AppText>
+            <AppText style={[styles.tabText, activeTab === 'overview' && styles.activeTabText]}>Overview</AppText>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'history' && styles.tabActive]}
+            style={[styles.tab, activeTab === 'history' && styles.activeTab]}
             onPress={() => setActiveTab('history')}
           >
-            <Icon 
-              name="clock" 
-              size={18} 
-              color={activeTab === 'history' ? '#3b82f6' : '#64748b'} 
-            />
-            <AppText style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
-              Payment History
-            </AppText>
+            <AppText style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>History</AppText>
           </TouchableOpacity>
         </View>
 
-        {/* Content based on active tab */}
-        {activeTab === 'fees' ? (
-          fees.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconContainer}>
-                <Icon name="credit-card" size={48} color="#cbd5e1" />
-              </View>
-              <AppText style={styles.emptyTitle}>No Fee Records</AppText>
-              <AppText style={styles.emptyText}>
-                No fee information found for your account
-              </AppText>
-            </View>
-          ) : (
-            <View style={styles.feesContainer}>
-              {fees.map((fee) => (
-                <FeeItem key={fee.id} fee={fee} />
-              ))}
-            </View>
-          )
-        ) : (
-          payments.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconContainer}>
-                <Icon name="clock" size={48} color="#cbd5e1" />
-              </View>
-              <AppText style={styles.emptyTitle}>No Payment History</AppText>
-              <AppText style={styles.emptyText}>
-                No payment transactions found
-              </AppText>
-            </View>
-          ) : (
-            <View style={styles.paymentsContainer}>
-              <AppText style={styles.paymentsCount}>
-                {payments.length} transaction{payments.length !== 1 ? 's' : ''}
-              </AppText>
-              {payments.map((payment) => (
-                <PaymentCard key={payment.id} payment={payment} />
-              ))}
-            </View>
-          )
-        )}
-
-        {/* Footer Info */}
-        <View style={styles.footer}>
-          <View style={styles.footerCard}>
-            <View style={styles.footerItem}>
-              <Icon name="user" size={14} color="#94a3b8" />
-              <AppText style={styles.footerText}>Student ID: {studentId || '—'}</AppText>
-            </View>
-            <View style={styles.footerDivider} />
-            <View style={styles.footerItem}>
-              <Icon name="home" size={14} color="#94a3b8" />
-              <AppText style={styles.footerText}>School: {schoolCode || '—'}</AppText>
-            </View>
-          </View>
-        </View>
+        {/* Dynamic Content */}
+        {activeTab === 'overview' ? renderOverview() : renderHistory()}
       </ScrollView>
     </View>
   );
@@ -520,439 +349,287 @@ export default function StudentFeeScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F8FAFC',
   },
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 40,
-  },
-  gradientHeader: {
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingTop: 20,
-    paddingBottom: 30,
+  header: {
+    backgroundColor: '#001F3F',
+    height: 100,
+    paddingTop: Platform.OS === 'ios' ? 40 : 10,
     paddingHorizontal: 20,
-  },
-  headerContent: {
-    marginTop: 10,
-  },
-  welcomeSection: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
   },
-  welcomeGreeting: {
-    fontSize: 14,
-    color: '#bfdbfe',
-    marginBottom: 4,
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  welcomeTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#ffffff',
-    marginBottom: 6,
-  },
-  welcomeSub: {
-    fontSize: 13,
-    color: '#bfdbfe',
+  headerTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   notificationIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
   },
-  notificationBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ef4444',
-    borderWidth: 1,
-    borderColor: '#ffffff',
+  contentContainer: {
+    padding: 20,
+    paddingBottom: 100,
   },
-  summarySection: {
-    marginTop: -20,
-    paddingHorizontal: 16,
+  ledgerCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  summaryScroll: {
+  ledgerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginBottom: 12,
+  },
+  ledgerRow: {
     flexDirection: 'row',
+    marginBottom: 6,
+  },
+  ledgerLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    width: 100,
+  },
+  ledgerValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
   },
   summaryCard: {
-    width: width * 0.4,
-    padding: 16,
-    borderRadius: 20,
-    marginRight: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowRadius: 8,
+    elevation: 4,
   },
   summaryIconContainer: {
-    marginBottom: 12,
-  },
-  summaryIcon: {
-    fontSize: 28,
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 20,
   },
   summaryContent: {
     flex: 1,
   },
   summaryLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.9)',
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
     marginBottom: 4,
-  },
-  summaryValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  trendContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  trendText: {
-    fontSize: 10,
     fontWeight: '500',
   },
-  progressSection: {
-    paddingHorizontal: 16,
-    marginTop: 20,
-  },
-  progressCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  progressTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  progressPercentage: {
-    fontSize: 18,
+  summaryValue: {
+    fontSize: 24,
     fontWeight: '800',
-    color: '#3b82f6',
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 16,
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#3b82f6',
-    borderRadius: 4,
-  },
-  progressStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  progressStatLabel: {
-    fontSize: 11,
-    color: '#94a3b8',
-    marginBottom: 4,
-  },
-  progressStatValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0f172a',
+    color: '#fff',
   },
   tabContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginTop: 20,
-    gap: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 6,
+    marginBottom: 20,
+    marginTop: 10,
   },
   tab: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
     paddingVertical: 12,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    borderRadius: 8,
   },
-  tabActive: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#3b82f6',
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#3b82f6',
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
+    color: '#64748B',
   },
-  tabTextActive: {
+  activeTabText: {
     color: '#3b82f6',
   },
-  feesContainer: {
-    paddingHorizontal: 16,
-    marginTop: 16,
-  },
-  feeItem: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 16,
+  detailsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  feeItemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  feeTypeContainer: {
+  detailsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    marginBottom: 20,
   },
-  feeType: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  feeDetails: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 12,
-    marginBottom: 16,
-  },
-  feeDetailItem: {
-    width: '48%',
-  },
-  feeDetailLabel: {
-    fontSize: 11,
-    color: '#94a3b8',
-    marginBottom: 4,
-  },
-  feeDetailValue: {
+  detailsTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#0f172a',
+    fontWeight: '800',
+    color: '#1E293B',
   },
-  paidAmount: {
-    color: '#10b981',
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
   },
-  dueAmount: {
-    color: '#ef4444',
+  detailLabel: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  detailValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+  },
+  statusBadge: {
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#15803d',
   },
   dueDateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-  },
-  payNowButton: {
-    marginTop: 8,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  payNowGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: 8,
-    paddingVertical: 12,
   },
-  payNowText: {
-    color: '#ffffff',
+  dueDateValue: {
     fontSize: 14,
-    fontWeight: '700',
+    color: '#64748B',
+    fontWeight: '500',
   },
-  paymentsContainer: {
-    paddingHorizontal: 16,
-    marginTop: 16,
-  },
-  paymentsCount: {
-    fontSize: 13,
-    color: '#64748b',
-    marginBottom: 12,
-  },
-  paymentCard: {
-    backgroundColor: '#ffffff',
+  historySection: {
+    backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  paymentCardLeft: {
-    marginRight: 16,
-  },
-  paymentIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#eff6ff',
-    justifyContent: 'center',
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 20,
   },
-  paymentCardMiddle: {
-    flex: 1,
-  },
-  paymentAmount: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0f172a',
-    marginBottom: 4,
-  },
-  paymentMethodContainer: {
+  historyHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 10,
   },
-  paymentMethod: {
-    fontSize: 12,
-    color: '#64748b',
-  },
-  paymentCardRight: {
-    alignItems: 'flex-end',
-  },
-  paymentDate: {
-    fontSize: 12,
-    color: '#94a3b8',
-    marginBottom: 4,
-  },
-  receiptButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  receiptText: {
-    fontSize: 11,
+  viewAllText: {
+    fontSize: 13,
     color: '#3b82f6',
     fontWeight: '600',
   },
-  badge: {
+  historyItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  historyIconContainer: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
-    gap: 6,
+    backgroundColor: '#F0FDF4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
-  badgePaid: {
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+  historyInfo: {
+    flex: 1,
   },
-  badgePartial: {
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+  historyAmount: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E293B',
   },
-  badgeUnpaid: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  historyMethod: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
   },
-  badgeText: {
-    fontSize: 11,
+  historyRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  historyDate: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  downloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  downloadButtonText: {
+    fontSize: 14,
+    color: '#3b82f6',
     fontWeight: '700',
-  },
-  badgeTextPaid: {
-    color: '#22c55e',
-  },
-  badgeTextPartial: {
-    color: '#f59e0b',
-  },
-  badgeTextUnpaid: {
-    color: '#ef4444',
   },
   loaderContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F8FAFC',
   },
-  loaderText: {
-    marginTop: 12,
+  emptyHistory: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  emptyHistoryText: {
+    color: '#94A3B8',
     fontSize: 14,
-    color: '#64748b',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    padding: 48,
-    marginHorizontal: 16,
-    marginTop: 40,
-    backgroundColor: '#ffffff',
-    borderRadius: 24,
-  },
-  emptyIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#f1f5f9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#64748b',
-    textAlign: 'center',
-  },
-  footer: {
-    paddingHorizontal: 16,
-    marginTop: 20,
-  },
-  footerCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  footerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  footerDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: '#e2e8f0',
-  },
-  footerText: {
-    fontSize: 11,
-    color: '#64748b',
-    fontWeight: '500',
   },
 });

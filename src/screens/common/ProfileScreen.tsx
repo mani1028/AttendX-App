@@ -1,7 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -11,18 +10,49 @@ import {
   Modal,
   TextInput,
   Platform,
+  StatusBar,
 } from 'react-native';
-import Icon from '@react-native-vector-icons/feather';
+import {
+  ChevronLeft,
+  Edit2,
+  LogOut,
+  Key,
+  Globe,
+  Sliders,
+  ChevronRight,
+  User,
+  Mail,
+  Phone,
+  Users,
+  Calendar,
+  Droplet,
+  Flag,
+  MessageCircle,
+  Heart,
+  CreditCard,
+  Hash,
+  Briefcase,
+  BookOpen,
+  Award,
+  Clock,
+  Grid,
+  Home,
+  GitBranch,
+  MapPin,
+  X
+} from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
-import { colors } from '../../constants/colors';
-import API from '../../services/api';
+import { colors } from '../../constants/theme';
+import { getStudentProfile, getStudentProfilePhotoUrl } from '../../services/studentService';
+
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
+import AppText from '../../components/common/AppText';
 import AvatarBubble from '../../components/common/AvatarBubble';
+import API from '../../services/api';
 
-// Types
 interface UserProfile {
   name: string;
   email: string;
@@ -59,7 +89,6 @@ interface UserProfile {
   section?: string;
 }
 
-// Settings Interface
 interface AppSettings {
   notifications: boolean;
   emailAlerts: boolean;
@@ -71,49 +100,30 @@ interface AppSettings {
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
-  const { userRole, logout, refreshAuth } = useAuth();
+  const { logout, refreshAuth } = useAuth();
   const [loading, setLoading] = useState(true);
+
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
   const [userInfo, setUserInfo] = useState<UserProfile>({
-    name: '',
-    email: '',
-    phone: '',
-    employee_id: '',
-    teacher_id: '',
-    student_id: '',
-    school_name: '',
-    school_code: '',
-    branch_id: '',
-    branch_name: '',
-    role: '',
-    designation: '',
-    department_subject: '',
-    date_of_joining: '',
-    qualification: '',
-    experience_years: '',
-    address: '',
-    blood_group: '',
-    date_of_birth: '',
-    gender: '',
-    nationality: '',
-    mother_tongue: '',
-    religion: '',
-    aadhaar_number: '',
-    emergency_contact_name: '',
-    emergency_contact_number: '',
-    father_guardian_name: '',
-    father_guardian_mobile: '',
-    mother_guardian_name: '',
-    mother_guardian_mobile: '',
+    name: '', email: '', phone: '', employee_id: '', teacher_id: '', student_id: '',
+    school_name: '', school_code: '', branch_id: '', branch_name: '', role: '',
+    designation: '', department_subject: '', date_of_joining: '', qualification: '',
+    experience_years: '', address: '', blood_group: '', date_of_birth: '',
+    gender: '', nationality: '', mother_tongue: '', religion: '', aadhaar_number: '',
+    emergency_contact_name: '', emergency_contact_number: '', father_guardian_name: '',
+    father_guardian_mobile: '', mother_guardian_name: '', mother_guardian_mobile: '',
   });
   
-  // Settings state
   const [settings, setSettings] = useState<AppSettings>({
-    notifications: true,
-    emailAlerts: true,
-    pushNotifications: true,
-    darkMode: false,
-    autoSave: true,
-    language: 'English',
+    notifications: true, emailAlerts: true, pushNotifications: true,
+    darkMode: false, autoSave: true, language: 'English',
   });
   
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -122,188 +132,86 @@ export default function ProfileScreen() {
 
   const fetchProfileData = useCallback(async () => {
     try {
-      const role = await AsyncStorage.getItem('userRole') || '';
-      const schoolCode = await AsyncStorage.getItem('school_code') || '';
-      const uid = (role === 'student' ? await AsyncStorage.getItem('student_id') : await AsyncStorage.getItem('employee_id')) || 'default';
-      const profileCacheKey = `profile_cache_${schoolCode}_${role}_${uid}`;
-
-      // 1. Try to load from Cache first for instant display
-      const cachedProfile = await AsyncStorage.getItem(profileCacheKey);
-      if (cachedProfile) {
-        setUserInfo(JSON.parse(cachedProfile));
-        setLoading(false); // We have something to show, stop main loading
+      const storedRole = (await AsyncStorage.getItem('userRole')) || (await AsyncStorage.getItem('role')) || 'student';
+      const normalizedRole = String(storedRole).trim().toLowerCase();
+      let freshData;
+      if (normalizedRole === 'student' || normalizedRole === 'students') {
+        freshData = await getStudentProfile();
       } else {
-        setLoading(true);
+        const response = await API.get('profile/details');
+        freshData = response.data;
       }
-      
-      // 2. Fetch fresh data from API
-      try {
-        const response = await API.get('/profile/details'); // Adjusted to assumed endpoint
-        if (response.data) {
-          const freshData = response.data;
-          setUserInfo(freshData);
-          // Save to cache
-          await AsyncStorage.setItem(profileCacheKey, JSON.stringify(freshData));
+
+      if (!isMounted.current) return;
+
+      if (freshData) {
+        setUserInfo(prev => ({
+          ...prev,
+          ...freshData,
+          role: String((freshData as any)?.role || normalizedRole || prev.role || 'student'),
+        }));
+
+        if (normalizedRole === 'student' || normalizedRole === 'students') {
+          const studentId =
+            String((freshData as any)?.student_id || '').trim() ||
+            (await AsyncStorage.getItem('student_id')) ||
+            '';
+          const schoolCode =
+            String((freshData as any)?.school_code || '').trim() ||
+            (await AsyncStorage.getItem('school_code')) ||
+            '';
+
+          if (studentId) {
+            const profilePhotoUrl = await getStudentProfilePhotoUrl(studentId, schoolCode);
+            if (profilePhotoUrl && isMounted.current) {
+              await AsyncStorage.setItem('profile_photo_url', profilePhotoUrl);
+            }
+          }
         }
-      } catch (apiError) {
-        console.log('API fetch failed, using fallback/cache');
       }
 
-      // Load settings
       const savedSettings = await AsyncStorage.getItem('app_settings');
-      if (savedSettings) {
-        setSettings(JSON.parse(savedSettings));
-      }
+      if (savedSettings && isMounted.current) setSettings(JSON.parse(savedSettings));
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Profile fetch error:', error);
+      if (isMounted.current && error?.response?.status !== 401) {
+        Alert.alert(
+          'Profile Error',
+          'Could not load profile information. Please try again later.',
+          [{ text: 'OK' }]
+        );
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
-  }, [userRole]);
+  }, []);
 
   useEffect(() => {
     fetchProfileData();
   }, [fetchProfileData]);
 
-  const saveSettings = async (newSettings: AppSettings) => {
-    setSettings(newSettings);
-    await AsyncStorage.setItem('app_settings', JSON.stringify(newSettings));
-    Alert.alert('Success', 'Settings saved successfully');
-  };
-
-  const handleSettingChange = (key: keyof AppSettings, value: any) => {
-    const newSettings = { ...settings, [key]: value };
-    saveSettings(newSettings);
-  };
-
-  const handleEditField = async () => {
-    if (!editField.key || !editField.value) return;
-    
-    try {
-      // Update local state immediately for UI feedback
-      setUserInfo(prev => ({ ...prev, [editField.key]: editField.value }));
-      
-      // Update AsyncStorage
-      await AsyncStorage.setItem(editField.key, editField.value);
-      
-      // Also update user object if needed
-      const storedUser = await AsyncStorage.getItem('user');
-      if (storedUser) {
-        try {
-          const userObj = JSON.parse(storedUser);
-          userObj[editField.key] = editField.value;
-          await AsyncStorage.setItem('user', JSON.stringify(userObj));
-        } catch (e) {}
-      }
-      
-      // Try to update via API if available (don't block on error)
-      try {
-        await API.put('/profile/update', {
-          [editField.key]: editField.value,
-        });
-      } catch (apiError) {
-        console.log('API update failed, but local save succeeded');
-      }
-      
-      Alert.alert('Success', `${editField.label} updated successfully`);
-      setShowEditModal(false);
-      setEditField({ key: '', label: '', value: '' });
-      
-      // Refresh auth context to update header
-      refreshAuth();
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update field');
-    }
-  };
-
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: logout },
-      ]
-    );
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Logout', style: 'destructive', onPress: logout },
+    ]);
   };
 
-  const getRoleDisplayName = () => {
-    const role = userInfo.role?.toLowerCase() || '';
-    switch (role) {
-      case 'admin': return 'Administrator';
-      case 'teacher': return 'Teacher';
-      case 'student': return 'Student';
-      case 'hm': return 'Head Master';
-      case 'principal': return 'Principal';
-      case 'accountant': return 'Accountant';
-      default: return userInfo.role || 'User';
-    }
-  };
-
-  const getBasicInfoFields = () => [
-    { label: 'Full Name', key: 'name', value: userInfo.name, icon: 'user' },
-    { label: 'Email Address', key: 'email', value: userInfo.email, icon: 'mail' },
-    { label: 'Phone Number', key: 'phone', value: userInfo.phone, icon: 'phone' },
-    { label: 'Gender', key: 'gender', value: userInfo.gender, icon: 'users' },
-    { label: 'Date of Birth', key: 'date_of_birth', value: userInfo.date_of_birth, icon: 'calendar' },
-    { label: 'Blood Group', key: 'blood_group', value: userInfo.blood_group, icon: 'droplet' },
-    { label: 'Nationality', key: 'nationality', value: userInfo.nationality, icon: 'flag' },
-    { label: 'Mother Tongue', key: 'mother_tongue', value: userInfo.mother_tongue, icon: 'message-circle' },
-    { label: 'Religion', key: 'religion', value: userInfo.religion, icon: 'heart' },
-    { label: 'Aadhaar Number', key: 'aadhaar_number', value: userInfo.aadhaar_number, icon: 'credit-card' },
-  ];
-
-  const getAcademicInfoFields = () => {
-    const fields = [];
-    if (userInfo.role === 'teacher' || userInfo.role === 'hm') {
-      fields.push(
-        { label: 'Employee ID', key: 'employee_id', value: userInfo.employee_id, icon: 'hash' },
-        { label: 'Designation', key: 'designation', value: userInfo.designation, icon: 'briefcase' },
-        { label: 'Department/Subject', key: 'department_subject', value: userInfo.department_subject, icon: 'book-open' },
-        { label: 'Qualification', key: 'qualification', value: userInfo.qualification, icon: 'award' },
-        { label: 'Experience (Years)', key: 'experience_years', value: userInfo.experience_years, icon: 'clock' },
-        { label: 'Date of Joining', key: 'date_of_joining', value: userInfo.date_of_joining, icon: 'calendar' },
-      );
-    } else if (userInfo.role === 'student') {
-      fields.push(
-        { label: 'Student ID', key: 'student_id', value: userInfo.student_id, icon: 'hash' },
-        { label: 'Roll Number', key: 'roll_number', value: userInfo.roll_number, icon: 'hash' },
-        { label: 'Class', key: 'class_grade', value: userInfo.class_grade, icon: 'book-open' },
-        { label: 'Section', key: 'section', value: userInfo.section, icon: 'grid' },
-      );
-    }
-    return fields;
-  };
-
-  const getSchoolInfoFields = () => [
-    { label: 'School Name', key: 'school_name', value: userInfo.school_name, icon: 'home' },
-    { label: 'School Code', key: 'school_code', value: userInfo.school_code, icon: 'hash' },
-    { label: 'Branch ID', key: 'branch_id', value: userInfo.branch_id, icon: 'git-branch' },
-    { label: 'Branch Name', key: 'branch_name', value: userInfo.branch_name, icon: 'map-pin' },
-  ];
-
-  const getEmergencyContactFields = () => [
-    { label: 'Emergency Contact', key: 'emergency_contact_name', value: userInfo.emergency_contact_name, icon: 'user' },
-    { label: 'Emergency Number', key: 'emergency_contact_number', value: userInfo.emergency_contact_number, icon: 'phone' },
-    { label: 'Father Name', key: 'father_guardian_name', value: userInfo.father_guardian_name, icon: 'user' },
-    { label: 'Father Mobile', key: 'father_guardian_mobile', value: userInfo.father_guardian_mobile, icon: 'phone' },
-    { label: 'Mother Name', key: 'mother_guardian_name', value: userInfo.mother_guardian_name, icon: 'user' },
-    { label: 'Mother Mobile', key: 'mother_guardian_mobile', value: userInfo.mother_guardian_mobile, icon: 'phone' },
-  ];
-
-  const renderInfoRow = (label: string, value: string, icon: string, onEdit?: () => void) => (
+  const renderInfoRow = (label: string, value: string, IconComponent: any, onEdit?: () => void) => (
     <View style={styles.infoRow}>
       <View style={styles.iconCircle}>
-        <Icon name={icon} size={18} color={colors.accent || '#2563eb'} />
+        <IconComponent size={18} color="#2563eb" />
       </View>
       <View style={styles.infoContent}>
-        <Text style={styles.infoLabel}>{label}</Text>
-        <Text style={styles.infoValue}>{value || '—'}</Text>
+        <AppText style={styles.infoLabel}>{label}</AppText>
+        <AppText style={styles.infoValue}>{value || '—'}</AppText>
       </View>
       {onEdit && (
         <TouchableOpacity onPress={onEdit} style={styles.editIcon}>
-          <Icon name="edit-2" size={16} color={colors.textMuted || '#64748b'} />
+          <Edit2 size={16} color="#94a3b8" />
         </TouchableOpacity>
       )}
     </View>
@@ -312,260 +220,139 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary || '#2563eb'} />
+        <ActivityIndicator size="large" color="#2563eb" />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header Section */}
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001a3d" />
+
       <View style={styles.header}>
-        <AvatarBubble
-          displayName={userInfo.name}
-          size={80}
-          textSize={28}
-          primaryColor={colors.primary || '#2563eb'}
-        />
-        <Text style={styles.name}>{userInfo.name}</Text>
-        <Text style={styles.role}>{getRoleDisplayName()}</Text>
-        {userInfo.email ? <Text style={styles.email}>{userInfo.email}</Text> : null}
-        {userInfo.phone ? <Text style={styles.phone}>{userInfo.phone}</Text> : null}
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <ChevronLeft size={24} color="#fff" />
+          </TouchableOpacity>
+          <AppText style={styles.headerTitle}>My Profile</AppText>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+            <LogOut size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.profileSummary}>
+          <AvatarBubble
+            displayName={userInfo.name || 'User'}
+            size={80}
+            textSize={28}
+            primaryColor="#2563eb"
+          />
+          <View style={styles.profileTextInfo}>
+            <AppText style={styles.userName}>{userInfo.name}</AppText>
+            <AppText style={styles.userRole}>
+              {userInfo.role?.toUpperCase() || 'STUDENT'} • ID: {userInfo.student_id || userInfo.employee_id}
+            </AppText>
+          </View>
+        </View>
       </View>
 
-      {/* Basic Information Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Basic Information</Text>
-        <AppCard style={styles.infoCard}>
-          {getBasicInfoFields().map((field, index) => (
-            <View key={field.key}>
-              {renderInfoRow(field.label, field.value, field.icon, () => {
-                setEditField({ key: field.key, label: field.label, value: field.value });
-                setShowEditModal(true);
-              })}
-              {index < getBasicInfoFields().length - 1 && <View style={styles.divider} />}
-            </View>
-          ))}
-        </AppCard>
-      </View>
-
-      {/* Academic/Professional Information */}
-      {getAcademicInfoFields().length > 0 && (
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.content}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {userInfo.role === 'student' ? 'Academic Information' : 'Professional Information'}
-          </Text>
+          <AppText style={styles.sectionTitle}>Basic Information</AppText>
           <AppCard style={styles.infoCard}>
-            {getAcademicInfoFields().map((field, index) => (
-              <View key={field.key}>
-                {renderInfoRow(field.label, field.value, field.icon, () => {
-                  setEditField({ key: field.key, label: field.label, value: field.value });
-                  setShowEditModal(true);
-                })}
-                {index < getAcademicInfoFields().length - 1 && <View style={styles.divider} />}
-              </View>
-            ))}
+            {renderInfoRow('Full Name', userInfo.name, User)}
+            <View style={styles.divider} />
+            {renderInfoRow('Email Address', userInfo.email, Mail)}
+            <View style={styles.divider} />
+            {renderInfoRow('Phone Number', userInfo.phone, Phone)}
+            <View style={styles.divider} />
+            {renderInfoRow('Blood Group', userInfo.blood_group, Droplet)}
           </AppCard>
         </View>
-      )}
 
-      {/* School Information */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Organization Details</Text>
-        <AppCard style={styles.infoCard}>
-          {getSchoolInfoFields().map((field, index) => (
-            <View key={field.key}>
-              {renderInfoRow(field.label, field.value, field.icon)}
-              {index < getSchoolInfoFields().length - 1 && <View style={styles.divider} />}
-            </View>
-          ))}
-        </AppCard>
-      </View>
+        <View style={styles.section}>
+          <AppText style={styles.sectionTitle}>
+            {userInfo.role === 'student' ? 'Academic Details' : 'Professional Details'}
+          </AppText>
+          <AppCard style={styles.infoCard}>
+            {userInfo.role === 'student' ? (
+              <>
+                {renderInfoRow('Class', userInfo.class_grade, BookOpen)}
+                <View style={styles.divider} />
+                {renderInfoRow('Section', userInfo.section, Grid)}
+                <View style={styles.divider} />
+                {renderInfoRow('Roll Number', userInfo.roll_number, Hash)}
+              </>
+            ) : (
+              <>
+                {renderInfoRow('Designation', userInfo.designation, Briefcase)}
+                <View style={styles.divider} />
+                {renderInfoRow('Department', userInfo.department_subject, BookOpen)}
+              </>
+            )}
+          </AppCard>
+        </View>
 
-      {/* Emergency Contact Information */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Emergency Contact</Text>
-        <AppCard style={styles.infoCard}>
-          {getEmergencyContactFields().map((field, index) => (
-            <View key={field.key}>
-              {renderInfoRow(field.label, field.value, field.icon, () => {
-                setEditField({ key: field.key, label: field.label, value: field.value });
-                setShowEditModal(true);
-              })}
-              {index < getEmergencyContactFields().length - 1 && <View style={styles.divider} />}
-            </View>
-          ))}
-        </AppCard>
-      </View>
+        <View style={styles.section}>
+          <AppText style={styles.sectionTitle}>Organization</AppText>
+          <AppCard style={styles.infoCard}>
+            {renderInfoRow('School', userInfo.school_name, Home)}
+            <View style={styles.divider} />
+            {renderInfoRow('Branch', userInfo.branch_name, MapPin)}
+          </AppCard>
+        </View>
 
-      {/* Settings Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Settings</Text>
-        <AppCard style={styles.infoCard}>
-          <TouchableOpacity style={styles.menuItem} onPress={() => setShowSettingsModal(true)}>
-            <View style={styles.menuIconContainer}>
-              <Icon name="sliders" size={18} color={colors.textPrimary || '#0f172a'} />
-            </View>
-            <Text style={styles.menuText}>App Settings</Text>
-            <Icon name="chevron-right" size={20} color={colors.textMuted || '#64748b'} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('Coming Soon', 'Security settings will be available soon')}>
-            <View style={styles.menuIconContainer}>
-              <Icon name="lock" size={18} color={colors.textPrimary || '#0f172a'} />
-            </View>
-            <Text style={styles.menuText}>Security Settings</Text>
-            <Icon name="chevron-right" size={20} color={colors.textMuted || '#64748b'} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('Coming Soon', 'Language settings will be available soon')}>
-            <View style={styles.menuIconContainer}>
-              <Icon name="globe" size={18} color={colors.textPrimary || '#0f172a'} />
-            </View>
-            <Text style={styles.menuText}>Language</Text>
-            <Text style={styles.menuValue}>{settings.language}</Text>
-            <Icon name="chevron-right" size={20} color={colors.textMuted || '#64748b'} />
-          </TouchableOpacity>
-        </AppCard>
-      </View>
+        <View style={styles.section}>
+          <AppText style={styles.sectionTitle}>Account Settings</AppText>
+          <AppCard style={styles.infoCard}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => setShowSettingsModal(true)}>
+              <View style={styles.menuIconContainer}>
+                <Sliders size={18} color="#0f172a" />
+              </View>
+              <AppText style={styles.menuText}>App Settings</AppText>
+              <ChevronRight size={20} color="#94a3b8" />
+            </TouchableOpacity>
+            <View style={styles.divider} />
+            <TouchableOpacity style={styles.menuItem} onPress={() => {}}>
+              <View style={styles.menuIconContainer}>
+                <Key size={18} color="#0f172a" />
+              </View>
+              <AppText style={styles.menuText}>Change Password</AppText>
+              <ChevronRight size={20} color="#94a3b8" />
+            </TouchableOpacity>
+          </AppCard>
+        </View>
 
-      {/* Account Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        <AppCard style={styles.infoCard}>
-          <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('Coming Soon', 'Change password will be available soon')}>
-            <View style={styles.menuIconContainer}>
-              <Icon name="key" size={18} color={colors.textPrimary || '#0f172a'} />
-            </View>
-            <Text style={styles.menuText}>Change Password</Text>
-            <Icon name="chevron-right" size={20} color={colors.textMuted || '#64748b'} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={[styles.menuItem, styles.logoutBtn]} onPress={handleLogout}>
-            <View style={[styles.menuIconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-              <Icon name="log-out" size={18} color={colors.error || '#ef4444'} />
-            </View>
-            <Text style={[styles.menuText, { color: colors.error || '#ef4444' }]}>Sign Out</Text>
-          </TouchableOpacity>
-        </AppCard>
-      </View>
+        <View style={{ height: 40 }} />
+      </ScrollView>
 
-      <Text style={styles.version}>AttendX Mobile v1.0.0</Text>
-
-      {/* Settings Modal */}
+      {/* Settings Modal - Simplified for consistent UI */}
       <Modal visible={showSettingsModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>App Settings</Text>
-              <TouchableOpacity onPress={() => setShowSettingsModal(false)} style={styles.modalClose}>
-                <Icon name="x" size={24} color={colors.textMuted || '#64748b'} />
+              <AppText style={styles.modalTitle}>App Settings</AppText>
+              <TouchableOpacity onPress={() => setShowSettingsModal(false)}>
+                <X size={24} color="#94a3b8" />
               </TouchableOpacity>
             </View>
-            
-            <ScrollView style={styles.modalBody}>
-              <View style={styles.settingItem}>
-                <View>
-                  <Text style={styles.settingLabel}>Notifications</Text>
-                  <Text style={styles.settingDescription}>Receive push notifications</Text>
-                </View>
-                <Switch
-                  value={settings.notifications}
-                  onValueChange={(val) => handleSettingChange('notifications', val)}
-                  trackColor={{ false: colors.border || '#e2e8f0', true: colors.primary || '#2563eb' }}
-                  thumbColor={Platform.OS === 'ios' ? '#fff' : settings.notifications ? '#fff' : '#f4f3f4'}
-                />
-              </View>
-              
-              <View style={styles.settingItem}>
-                <View>
-                  <Text style={styles.settingLabel}>Email Alerts</Text>
-                  <Text style={styles.settingDescription}>Receive email notifications</Text>
-                </View>
-                <Switch
-                  value={settings.emailAlerts}
-                  onValueChange={(val) => handleSettingChange('emailAlerts', val)}
-                  trackColor={{ false: colors.border || '#e2e8f0', true: colors.primary || '#2563eb' }}
-                  thumbColor={Platform.OS === 'ios' ? '#fff' : settings.emailAlerts ? '#fff' : '#f4f3f4'}
-                />
-              </View>
-              
-              <View style={styles.settingItem}>
-                <View>
-                  <Text style={styles.settingLabel}>Push Notifications</Text>
-                  <Text style={styles.settingDescription}>Instant mobile alerts</Text>
-                </View>
-                <Switch
-                  value={settings.pushNotifications}
-                  onValueChange={(val) => handleSettingChange('pushNotifications', val)}
-                  trackColor={{ false: colors.border || '#e2e8f0', true: colors.primary || '#2563eb' }}
-                  thumbColor={Platform.OS === 'ios' ? '#fff' : settings.pushNotifications ? '#fff' : '#f4f3f4'}
-                />
-              </View>
-              
-              <View style={styles.settingItem}>
-                <View>
-                  <Text style={styles.settingLabel}>Dark Mode</Text>
-                  <Text style={styles.settingDescription}>Switch to dark theme</Text>
-                </View>
-                <Switch
-                  value={settings.darkMode}
-                  onValueChange={(val) => handleSettingChange('darkMode', val)}
-                  trackColor={{ false: colors.border || '#e2e8f0', true: colors.primary || '#2563eb' }}
-                  thumbColor={Platform.OS === 'ios' ? '#fff' : settings.darkMode ? '#fff' : '#f4f3f4'}
-                />
-              </View>
-              
-              <View style={styles.settingItem}>
-                <View>
-                  <Text style={styles.settingLabel}>Auto Save</Text>
-                  <Text style={styles.settingDescription}>Automatically save changes</Text>
-                </View>
-                <Switch
-                  value={settings.autoSave}
-                  onValueChange={(val) => handleSettingChange('autoSave', val)}
-                  trackColor={{ false: colors.border || '#e2e8f0', true: colors.primary || '#2563eb' }}
-                  thumbColor={Platform.OS === 'ios' ? '#fff' : settings.autoSave ? '#fff' : '#f4f3f4'}
-                />
-              </View>
-            </ScrollView>
-            
-            <View style={styles.modalFooter}>
-              <AppButton title="Close" onPress={() => setShowSettingsModal(false)} type="secondary" />
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Edit Field Modal */}
-      <Modal visible={showEditModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.editModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit {editField.label}</Text>
-              <TouchableOpacity onPress={() => setShowEditModal(false)} style={styles.modalClose}>
-                <Icon name="x" size={24} color={colors.textMuted || '#64748b'} />
-              </TouchableOpacity>
-            </View>
-            
             <View style={styles.modalBody}>
-              <TextInput
-                style={styles.editInput}
-                value={editField.value}
-                onChangeText={(text) => setEditField(prev => ({ ...prev, value: text }))}
-                placeholder={`Enter ${editField.label}`}
-                placeholderTextColor={colors.textMuted || '#64748b'}
-              />
+              <View style={styles.settingRow}>
+                <AppText style={styles.settingLabel}>Push Notifications</AppText>
+                <Switch value={settings.notifications} onValueChange={(v) => setSettings({...settings, notifications: v})} />
+              </View>
+              <View style={styles.settingRow}>
+                <AppText style={styles.settingLabel}>Dark Mode (Beta)</AppText>
+                <Switch value={settings.darkMode} onValueChange={(v) => setSettings({...settings, darkMode: v})} />
+              </View>
             </View>
-            
             <View style={styles.modalFooter}>
-              <AppButton title="Cancel" onPress={() => setShowEditModal(false)} type="secondary" />
-              <AppButton title="Save" onPress={handleEditField} />
+              <AppButton title="Close" onPress={() => setShowSettingsModal(false)} style={{ flex: 1 }} />
             </View>
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -574,105 +361,116 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
-  loadingContainer: {
-    flex: 1,
+  header: {
+    backgroundColor: '#001a3d',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 25,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
   },
-  header: {
+  logoutBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 30,
-    paddingHorizontal: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
   },
-  name: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0f172a',
-    marginTop: 12,
-  },
-  role: {
-    fontSize: 13,
-    color: '#2563eb',
-    marginTop: 4,
+  headerTitle: {
+    color: '#fff',
+    fontSize: 18,
     fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
   },
-  email: {
-    fontSize: 14,
-    color: '#64748b',
+  profileSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileTextInfo: {
+    marginLeft: 20,
+  },
+  userName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  userRole: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontWeight: '600',
     marginTop: 4,
   },
-  phone: {
-    fontSize: 14,
-    color: '#64748b',
-    marginTop: 2,
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
   },
   section: {
-    paddingHorizontal: 16,
-    marginTop: 20,
+    marginTop: 25,
   },
   sectionTitle: {
     fontSize: 12,
     fontWeight: '700',
     color: '#64748b',
-    marginBottom: 12,
+    marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   infoCard: {
     padding: 0,
     overflow: 'hidden',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: 15,
   },
   iconCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f1f5f9',
+    borderRadius: 10,
+    backgroundColor: 'rgba(37, 99, 235, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   infoContent: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 15,
   },
   infoLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#94a3b8',
-    marginBottom: 2,
+    fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.3,
   },
   infoValue: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: '#0f172a',
-  },
-  editIcon: {
-    padding: 8,
+    marginTop: 2,
   },
   divider: {
     height: 1,
     backgroundColor: '#f1f5f9',
-    marginHorizontal: 14,
+    marginHorizontal: 15,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: 15,
   },
   menuIconContainer: {
     width: 36,
@@ -684,99 +482,53 @@ const styles = StyleSheet.create({
   },
   menuText: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
+    marginLeft: 15,
+    fontSize: 15,
     fontWeight: '600',
     color: '#0f172a',
   },
-  menuValue: {
-    fontSize: 13,
-    color: '#64748b',
-    marginRight: 8,
-  },
-  logoutBtn: {
-    marginTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-  },
-  version: {
-    textAlign: 'center',
-    color: '#94a3b8',
-    fontSize: 11,
-    marginBottom: 30,
-    marginTop: 20,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: '80%',
-  },
-  editModalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '100%',
-    maxWidth: 400,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 20,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    marginBottom: 20,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  modalClose: {
-    padding: 4,
+    fontWeight: '800',
   },
   modalBody: {
-    padding: 20,
+    marginBottom: 20,
   },
-  modalFooter: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-  },
-  settingItem: {
+  settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#f1f5f9',
   },
   settingLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#0f172a',
   },
-  settingDescription: {
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 2,
-  },
-  editInput: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 15,
-    color: '#0f172a',
-    backgroundColor: '#f8fafc',
+  modalFooter: {
+    flexDirection: 'row',
   },
 });

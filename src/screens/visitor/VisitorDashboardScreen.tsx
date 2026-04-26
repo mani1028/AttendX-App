@@ -15,6 +15,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Icon from '@react-native-vector-icons/feather';
+import { Bell } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { visitorApi, qrApi } from '../../services/visitorApi';
 import { colors } from '../../constants/theme';
@@ -25,6 +26,7 @@ import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 import QRCode from 'react-native-qrcode-svg';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
 // Types
 interface Visitor {
@@ -322,6 +324,7 @@ export default function VisitorDashboardScreen() {
   
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
+  const { unreadCount } = useUnreadNotifications();
 
   // Load credentials
   useEffect(() => {
@@ -475,6 +478,25 @@ export default function VisitorDashboardScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Navy Header */}
+      <View style={styles.headerStandard}>
+        <View style={styles.headerTitleContainer}>
+          <AppText style={styles.headerTitle}>Visitor Dashboard</AppText>
+        </View>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
+            <Bell size={20} color="#fff" />
+            {unreadCount > 0 && (
+              <View style={styles.badgeNotification}>
+                <AppText style={styles.badgeTextNotification}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
@@ -967,6 +989,57 @@ const styles = StyleSheet.create({
   modalCloseText: {
     fontSize: 16,
     color: colors.textPrimary,
+  },
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  refreshIconBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 18,
+  },
+  badgeNotification: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.error,
+    borderWidth: 1.5,
+    borderColor: '#001F3F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  badgeTextNotification: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   modalMessage: {
     fontSize: 13,

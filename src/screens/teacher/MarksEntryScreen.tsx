@@ -12,13 +12,35 @@ import {
   Modal,
   Switch,
   Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import {
+  ChevronLeft,
+  Filter,
+  Settings,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+  RefreshCw,
+  Download,
+  Search,
+  Save,
+  BookOpen,
+  User,
+  LayoutGrid,
+  ClipboardList
+} from 'lucide-react-native';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
+import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
+import { useAuth } from '../../context/AuthContext';
 
 // Types
 interface ClassItem {
@@ -82,10 +104,11 @@ const getTeacherId = async (): Promise<string> => {
 // Grade Badge Component
 const GradeBadge: React.FC<{ grade: string }> = ({ grade }) => {
   const isFail = grade === 'F';
+  if (!grade) return null;
   return (
     <View style={[styles.gradeBadge, isFail ? styles.gradeBadgeFail : styles.gradeBadgePass]}>
       <Text style={[styles.gradeText, isFail ? styles.gradeTextFail : styles.gradeTextPass]}>
-        {grade || '-'}
+        {grade}
       </Text>
     </View>
   );
@@ -94,7 +117,7 @@ const GradeBadge: React.FC<{ grade: string }> = ({ grade }) => {
 // Roll Tag Component
 const RollTag: React.FC<{ roll: string }> = ({ roll }) => (
   <View style={styles.rollTag}>
-    <Text style={styles.rollTagText}>{roll}</Text>
+    <Text style={styles.rollTagText}>#{roll}</Text>
   </View>
 );
 
@@ -109,56 +132,53 @@ const StudentRow: React.FC<{
   
   return (
     <View style={[styles.studentRow, student.isAbsent && styles.studentRowAbsent, isSaved && styles.studentRowSaved]}>
-      <View style={styles.studentCol}>
-        <RollTag roll={student.roll_number} />
-      </View>
-      <View style={styles.studentCol}>
-        <Text style={styles.studentId}>{student.student_id}</Text>
-      </View>
-      <View style={styles.studentColName}>
-        <Text style={styles.studentName}>{student.student_full_name}</Text>
-      </View>
-      <View style={styles.studentCol}>
-        <View style={[styles.statusBadge, isSaved ? styles.statusBadgeSaved : styles.statusBadgeDraft]}>
-          <Text style={[styles.statusText, isSaved ? styles.statusTextSaved : styles.statusTextDraft]}>
-            {isSaved ? '✓ Saved' : '⚠ Draft'}
-          </Text>
+      <View style={styles.studentInfoCol}>
+        <View style={styles.studentMainInfo}>
+          <RollTag roll={student.roll_number} />
+          <Text style={styles.studentName} numberOfLines={1}>{student.student_full_name}</Text>
         </View>
+        <Text style={styles.studentId}>ID: {student.student_id}</Text>
       </View>
-      <View style={styles.studentCol}>
+
+      <View style={styles.actionCol}>
         <View style={styles.attendanceToggle}>
           <TouchableOpacity
             style={[styles.toggleBtn, !student.isAbsent && styles.toggleBtnActive]}
             onPress={() => onAbsentToggle(student.student_id, false)}
           >
-            <Text style={[styles.toggleText, !student.isAbsent && styles.toggleTextActive]}>✓ Present</Text>
+            <Text style={[styles.toggleText, !student.isAbsent && styles.toggleTextActive]}>P</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.toggleBtn, student.isAbsent && styles.toggleBtnAbsentActive]}
             onPress={() => onAbsentToggle(student.student_id, true)}
           >
-            <Text style={[styles.toggleText, student.isAbsent && styles.toggleTextAbsentActive]}>✗ Absent</Text>
+            <Text style={[styles.toggleText, student.isAbsent && styles.toggleTextAbsentActive]}>A</Text>
           </TouchableOpacity>
         </View>
+
+        <View style={styles.marksContainer}>
+          <TextInput
+            style={[
+              styles.marksInput,
+              student.isAbsent && styles.marksInputDisabled,
+              isSaved && styles.marksInputSaved,
+            ]}
+            placeholder="0"
+            placeholderTextColor="#94a3b8"
+            keyboardType="numeric"
+            value={student.isAbsent ? '0' : student.marks_obtained}
+            onChangeText={(value) => onMarksChange(student.student_id, value)}
+            editable={!student.isAbsent}
+          />
+          <GradeBadge grade={student.grade || ''} />
+        </View>
       </View>
-      <View style={styles.studentCol}>
-        <TextInput
-          style={[
-            styles.marksInput,
-            student.isAbsent && styles.marksInputDisabled,
-            isSaved && styles.marksInputSaved,
-          ]}
-          placeholder={maxMarks ? `0-${maxMarks}` : 'Enter marks'}
-          placeholderTextColor="#94a3b8"
-          keyboardType="numeric"
-          value={student.isAbsent ? '0' : student.marks_obtained}
-          onChangeText={(value) => onMarksChange(student.student_id, value)}
-          editable={!student.isAbsent}
-        />
-      </View>
-      <View style={styles.studentCol}>
-        <GradeBadge grade={student.grade || ''} />
-      </View>
+
+      {isSaved && (
+        <View style={styles.savedIndicator}>
+          <CheckCircle2 size={12} color="#15803d" />
+        </View>
+      )}
     </View>
   );
 };
@@ -372,6 +392,10 @@ const ExamConfigModal: React.FC<{
 );
 
 export default function MarksEntryScreen() {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const isMounted = useRef(true);
+  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [teacherId, setTeacherId] = useState<string>('');
   const [resolvedTeacherId, setResolvedTeacherId] = useState<string>('');
@@ -425,13 +449,38 @@ export default function MarksEntryScreen() {
   // Load credentials
   useEffect(() => {
     const load = async () => {
-      const code = await getSchoolCode();
-      const tid = await getTeacherId();
-      setSchoolCode(code);
-      setTeacherId(tid);
+      try {
+        const code = await getSchoolCode();
+        const tid = await getTeacherId();
+        if (isMounted.current) {
+          setSchoolCode(code);
+          setTeacherId(tid);
+        }
+      } catch (e) {
+        console.warn('Failed to load credentials', e);
+      }
     };
     load();
+
+    // Ensure tab bar is visible when entering/leaving
+    setTabBarVisible(true);
+    return () => {
+      isMounted.current = false;
+      setTabBarVisible(true);
+    };
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   // Load teacher assignments and exams
   useEffect(() => {
@@ -451,30 +500,34 @@ export default function MarksEntryScreen() {
           const deptRaw = String(teacherData?.department_subject || '').trim();
           const deptSubjects = Array.from(new Set(deptRaw.split(/[,/|]+/).map(s => s.trim()).filter(Boolean)));
 
-          setTeacherAssignments(assignments);
-          setTeacherSubjects(deptSubjects);
-          setResolvedTeacherId(canonicalId);
+          if (isMounted.current) {
+            setTeacherAssignments(assignments);
+            setTeacherSubjects(deptSubjects);
+            setResolvedTeacherId(canonicalId);
 
-          const uniqueClasses = Array.from(
-            new Map(
-              assignments
-                .filter((a: any) => a.class_id && a.class_name)
-                .map((a: any) => [String(a.class_name).trim().toLowerCase(), { class_id: String(a.class_id), class_name: a.class_name }])
-            ).values()
-          ) as ClassItem[];
-          setClasses(uniqueClasses);
+            const uniqueClasses = Array.from(
+              new Map(
+                assignments
+                  .filter((a: any) => a.class_id && a.class_name)
+                  .map((a: any) => [String(a.class_name).trim().toLowerCase(), { class_id: String(a.class_id), class_name: a.class_name }])
+              ).values()
+            ) as ClassItem[];
+            setClasses(uniqueClasses);
+          }
         }
       } catch (e) {
         console.warn('Failed to load teacher context cache', e);
       }
 
-      setLoadingClasses(true);
+      if (isMounted.current) setLoadingClasses(true);
       try {
         const res = await API.get('/teacher/marks/teacher-context', {
           params: { teacher_id: teacherId },
           headers: { 'x-school-code': schoolCode },
         });
         
+        if (!isMounted.current) return;
+
         const assignments = res.data?.assignments || [];
         const teacherData = res.data?.teacher_data || null;
         const canonicalId = String(teacherData?.teacher_id || teacherId).trim();
@@ -497,9 +550,12 @@ export default function MarksEntryScreen() {
         // Save to cache
         await AsyncStorage.setItem(cacheKey, JSON.stringify(res.data));
       } catch (err: any) {
-        setError(err?.response?.data?.detail || 'Failed to load class assignments');
+        if (err?.response?.status === 401) return;
+        if (isMounted.current) {
+          setError(err?.response?.data?.detail || 'Failed to load class assignments');
+        }
       } finally {
-        setLoadingClasses(false);
+        if (isMounted.current) setLoadingClasses(false);
       }
     };
 
@@ -508,16 +564,17 @@ export default function MarksEntryScreen() {
 
       try {
         const cached = await AsyncStorage.getItem(cacheKey);
-        if (cached) {
+        if (cached && isMounted.current) {
           setExams(JSON.parse(cached));
         }
       } catch (e) {
         console.warn('Failed to load exams cache', e);
       }
 
-      setLoadingExams(true);
+      if (isMounted.current) setLoadingExams(true);
       try {
         const res = await API.get('/teacher/marks/exams', { headers: { 'x-school-code': schoolCode } });
+        if (!isMounted.current) return;
         const uniqueExams = Array.from(
           new Map((res.data?.exams || []).map((e: any) => [String(e.exam_id), e])).values()
         );
@@ -526,7 +583,7 @@ export default function MarksEntryScreen() {
       } catch {
         // Keep cached exams if API fails
       } finally {
-        setLoadingExams(false);
+        if (isMounted.current) setLoadingExams(false);
       }
     };
 
@@ -551,7 +608,7 @@ export default function MarksEntryScreen() {
     const uniqueSections = Array.from(new Map(sectionsData.map(x => [String(x.section_id), x])).values());
     setSections(uniqueSections);
     setSectionId('');
-    setLoadingSections(false);
+    if (isMounted.current) setLoadingSections(false);
   }, [classId, teacherAssignments]);
 
   // Update subjects when class/section changes
@@ -572,7 +629,7 @@ export default function MarksEntryScreen() {
     const allowedSet = new Set(teacherSubjects.map(s => s.toLowerCase()));
     setSubjects(allowedSet.size ? unique.filter(s => allowedSet.has(s.subject_name.toLowerCase())) : unique);
     setSubjectId('');
-    setLoadingSubjects(false);
+    if (isMounted.current) setLoadingSubjects(false);
   }, [classId, sectionId, teacherAssignments, teacherSubjects]);
 
   // Fetch exam subject config
@@ -589,7 +646,7 @@ export default function MarksEntryScreen() {
       const cacheKey = `exam_config_${examId}_${subjectId}_${schoolCode}`;
       try {
         const cached = await AsyncStorage.getItem(cacheKey);
-        if (cached) {
+        if (cached && isMounted.current) {
           const found = JSON.parse(cached);
           setInputMaxMarks(found.max_marks?.toString() || '');
           setInputPassMarks(found.pass_marks?.toString() || '');
@@ -601,6 +658,7 @@ export default function MarksEntryScreen() {
 
       try {
         const res = await API.get(`/teacher/marks/exam-subjects/${examId}`, { headers: { 'x-school-code': schoolCode } });
+        if (!isMounted.current) return;
         const found = (res.data?.exam_subjects || []).find((s: any) => s.subject_id === parseInt(subjectId));
         if (found) {
           setInputMaxMarks(found.max_marks?.toString() || '');
@@ -614,7 +672,8 @@ export default function MarksEntryScreen() {
           setExamSubjectId(null);
           setIsEditMode(false);
         }
-      } catch {
+      } catch (err: any) {
+        if (err?.response?.status === 401) return;
         // If API fails, we keep cached data if available
       }
     };
@@ -641,7 +700,7 @@ export default function MarksEntryScreen() {
     if (!isRefresh) {
       try {
         const cached = await AsyncStorage.getItem(cacheKey);
-        if (cached) {
+        if (cached && isMounted.current) {
           setStudents(JSON.parse(cached));
         }
       } catch (e) {
@@ -649,12 +708,14 @@ export default function MarksEntryScreen() {
       }
     }
 
-    setLoadingStudents(true);
+    if (isMounted.current) setLoadingStudents(true);
     try {
       const res = await API.get(
         `/teacher/marks/students/${classId}/${sectionId}/${subjectId}`,
         { params: { teacher_id: resolvedTeacherId }, headers: { 'x-school-code': schoolCode } }
       );
+
+      if (!isMounted.current) return;
 
       let rows: StudentMark[] = (res.data?.students || []).map((s: any) => ({
         ...s,
@@ -671,35 +732,42 @@ export default function MarksEntryScreen() {
           `/teacher/marks/existing/${examId}/${subjectId}/${classId}/${sectionId}`,
           { headers: { 'x-school-code': schoolCode } }
         );
-        const marksMap: Record<string, any> = {};
-        (marksRes.data?.marks || []).forEach((m: any) => { marksMap[m.student_id] = m; });
+        if (isMounted.current) {
+          const marksMap: Record<string, any> = {};
+          (marksRes.data?.marks || []).forEach((m: any) => { marksMap[m.student_id] = m; });
 
-        rows = rows.map((s) => ({
-          ...s,
-          isAbsent: marksMap[s.student_id] ? Boolean(marksMap[s.student_id]?.is_absent) : false,
-          marks_obtained: marksMap[s.student_id]?.marks_obtained !== undefined && marksMap[s.student_id]?.marks_obtained !== null
-            ? String(marksMap[s.student_id]?.marks_obtained)
-            : '',
-          mark_id: marksMap[s.student_id]?.mark_id || null,
-          grade: marksMap[s.student_id]?.grade || '',
-          status: marksMap[s.student_id]?.status || '',
-          hasExistingMarks: !!marksMap[s.student_id],
-        }));
+          rows = rows.map((s) => ({
+            ...s,
+            isAbsent: marksMap[s.student_id] ? Boolean(marksMap[s.student_id]?.is_absent) : false,
+            marks_obtained: marksMap[s.student_id]?.marks_obtained !== undefined && marksMap[s.student_id]?.marks_obtained !== null
+              ? String(marksMap[s.student_id]?.marks_obtained)
+              : '',
+            mark_id: marksMap[s.student_id]?.mark_id || null,
+            grade: marksMap[s.student_id]?.grade || '',
+            status: marksMap[s.student_id]?.status || '',
+            hasExistingMarks: !!marksMap[s.student_id],
+          }));
+        }
       } catch (e) {
         console.warn('Failed to fetch existing marks');
       }
 
-      setStudents(rows);
-      await AsyncStorage.setItem(cacheKey, JSON.stringify(rows));
+      if (isMounted.current) {
+        setStudents(rows);
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(rows));
 
-      if (rows.length === 0) setMsg('No students found for this selection');
-      if (isRefresh) {
-        Alert.alert('Refreshed', `Student data refreshed. ${rows.length} students loaded.`);
+        if (rows.length === 0) setMsg('No students found for this selection');
+        if (isRefresh) {
+          Alert.alert('Refreshed', `Student data refreshed. ${rows.length} students loaded.`);
+        }
       }
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.detail || 'Failed to load students');
+      if (err?.response?.status === 401) return;
+      if (isMounted.current) {
+        Alert.alert('Error', err?.response?.data?.detail || 'Failed to load students');
+      }
     } finally {
-      setLoadingStudents(false);
+      if (isMounted.current) setLoadingStudents(false);
     }
   };
 
@@ -749,11 +817,11 @@ export default function MarksEntryScreen() {
 
     const entries = students.filter(s => s.marks_obtained !== '' && s.marks_obtained !== null);
     if (entries.length === 0) {
-      if (!silent) Alert.alert('Error', 'No marks entered to save');
+      if (!silent && isMounted.current) Alert.alert('Error', 'No marks entered to save');
       return false;
     }
 
-    setSavingMarks(true);
+    if (isMounted.current) setSavingMarks(true);
     try {
       const promises = entries.map(student => {
         const formData = new FormData();
@@ -768,24 +836,27 @@ export default function MarksEntryScreen() {
 
       await Promise.all(promises);
 
-      setStudents(prev =>
-        prev.map(s =>
-          entries.find(e => e.student_id === s.student_id)
-            ? { ...s, hasExistingMarks: true }
-            : s
-        )
-      );
+      if (isMounted.current) {
+        setStudents(prev =>
+          prev.map(s =>
+            entries.find(e => e.student_id === s.student_id)
+              ? { ...s, hasExistingMarks: true }
+              : s
+          )
+        );
 
-      if (!silent) {
-        Alert.alert('Success', `${entries.length} student marks saved successfully.`);
+        if (!silent) {
+          Alert.alert('Success', `${entries.length} student marks saved successfully.`);
+        }
       }
       return true;
     } catch (err: any) {
+      if (err?.response?.status === 401) return false;
       const errorMsg = err?.response?.data?.detail || 'Failed to save marks';
-      if (!silent) Alert.alert('Error', errorMsg);
+      if (!silent && isMounted.current) Alert.alert('Error', errorMsg);
       return false;
     } finally {
-      setSavingMarks(false);
+      if (isMounted.current) setSavingMarks(false);
     }
   };
 
@@ -803,7 +874,7 @@ export default function MarksEntryScreen() {
       return;
     }
 
-    setSavingExamConfig(true);
+    if (isMounted.current) setSavingExamConfig(true);
     try {
       const formData = new FormData();
       formData.append('exam_id', Number(examId));
@@ -811,14 +882,19 @@ export default function MarksEntryScreen() {
       formData.append('max_marks', Number(inputMaxMarks));
       formData.append('pass_marks', Number(inputPassMarks));
       const res = await API.post('/teacher/marks/exam-subject-config', formData, { headers: { 'x-school-code': schoolCode } });
-      setExamSubjectId(res.data?.exam_subject_id);
-      setIsEditMode(false);
-      setShowConfigModal(false);
-      Alert.alert('Success', 'Exam configuration saved successfully');
+      if (isMounted.current) {
+        setExamSubjectId(res.data?.exam_subject_id);
+        setIsEditMode(false);
+        setShowConfigModal(false);
+        Alert.alert('Success', 'Exam configuration saved successfully');
+      }
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.detail || 'Failed to save exam config');
+      if (err?.response?.status === 401) return;
+      if (isMounted.current) {
+        Alert.alert('Error', err?.response?.data?.detail || 'Failed to save exam config');
+      }
     } finally {
-      setSavingExamConfig(false);
+      if (isMounted.current) setSavingExamConfig(false);
     }
   };
 
@@ -868,158 +944,224 @@ export default function MarksEntryScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.titleWrap}>
-            <Text style={styles.title}>🎓 Marks Entry</Text>
-            <Text style={styles.subText}>{students.length} students loaded</Text>
-          </View>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Navy Hero Header */}
+      <View style={styles.heroHeader}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.goBack()}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.heroTitle}>Marks Entry</Text>
+          <View style={{ width: 40 }} />
         </View>
 
+        <View style={styles.heroContent}>
+          <Text style={styles.heroGreeting}>Academic Grading</Text>
+          <Text style={styles.heroSubtext}>Enter and manage student marks for examinations</Text>
+        </View>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#001F3F" />}
+      >
+
         {/* Filter Card */}
-        <AppCard style={styles.filterCard}>
+        <AppCard style={styles.mainCard}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Marks Filters</Text>
+            <Filter size={20} color="#001F3F" />
+            <Text style={styles.cardTitle}>Selection Filters</Text>
           </View>
 
-          {/* Selected Filters Display */}
-          <View style={styles.selectedFilters}>
-            {classId && <View style={styles.filterTag}><Text style={styles.filterTagText}>Class: {classes.find(c => c.class_id === classId)?.class_name}</Text></View>}
-            {sectionId && <View style={styles.filterTag}><Text style={styles.filterTagText}>Section: {sections.find(s => s.section_id === sectionId)?.section_name}</Text></View>}
-            {examId && <View style={styles.filterTag}><Text style={styles.filterTagText}>Exam: {exams.find(e => e.exam_id === examId)?.exam_name}</Text></View>}
-            {subjectId && <View style={styles.filterTag}><Text style={styles.filterTagText}>Subject: {subjects.find(s => s.subject_id === subjectId)?.subject_name}</Text></View>}
-          </View>
+          <View style={styles.cardBody}>
+            {/* Selected Filters Display */}
+            <View style={styles.selectedFilters}>
+              {classId ? (
+                <View style={styles.filterTag}>
+                  <LayoutGrid size={12} color="#001F3F" />
+                  <Text style={styles.filterTagText}>Class {classes.find(c => c.class_id === classId)?.class_name}</Text>
+                </View>
+              ) : null}
+              {sectionId ? (
+                <View style={styles.filterTag}>
+                  <BookOpen size={12} color="#001F3F" />
+                  <Text style={styles.filterTagText}>Sec {sections.find(s => s.section_id === sectionId)?.section_name}</Text>
+                </View>
+              ) : null}
+              {examId ? (
+                <View style={styles.filterTag}>
+                  <ClipboardList size={12} color="#001F3F" />
+                  <Text style={styles.filterTagText}>{exams.find(e => e.exam_id === examId)?.exam_name}</Text>
+                </View>
+              ) : null}
+              {subjectId ? (
+                <View style={styles.filterTag}>
+                  <BookOpen size={12} color="#001F3F" />
+                  <Text style={styles.filterTagText}>{subjects.find(s => s.subject_id === subjectId)?.subject_name}</Text>
+                </View>
+              ) : null}
+            </View>
 
-          <AppButton title="🔽 Select Filters" onPress={() => setShowFilterModal(true)} />
+            <AppButton
+              title="Configure Selection"
+              onPress={() => setShowFilterModal(true)}
+              icon={<Settings size={18} color="#fff" />}
+              style={styles.primaryButton}
+            />
+          </View>
         </AppCard>
 
         {/* Exam Config Card */}
         {examId && subjectId && (
           <AppCard style={styles.configCard}>
             <View style={styles.configHeader}>
-              <Text style={styles.configTitle}>Exam Subject Configuration</Text>
+              <View style={styles.configTitleRow}>
+                <Settings size={18} color="#001F3F" />
+                <Text style={styles.configTitle}>Exam Rules</Text>
+              </View>
               {examSubjectId && !isEditMode && (
                 <View style={styles.savedBadge}>
-                  <Text style={styles.savedBadgeText}>✓ Saved</Text>
+                  <CheckCircle2 size={12} color="#15803d" />
+                  <Text style={styles.savedBadgeText}>Set</Text>
                 </View>
               )}
             </View>
 
             {(!examSubjectId || isEditMode) ? (
-              <View style={styles.configRow}>
-                <TextInput
-                  style={styles.configInput}
-                  placeholder="Total Marks"
-                  keyboardType="numeric"
-                  value={inputMaxMarks}
-                  onChangeText={setInputMaxMarks}
-                />
-                <TextInput
-                  style={styles.configInput}
-                  placeholder="Pass Marks"
-                  keyboardType="numeric"
-                  value={inputPassMarks}
-                  onChangeText={setInputPassMarks}
-                />
+              <View style={styles.configForm}>
+                <View style={styles.configRow}>
+                  <View style={styles.configInputGroup}>
+                    <Text style={styles.configLabel}>Total Marks</Text>
+                    <TextInput
+                      style={styles.configInput}
+                      placeholder="e.g. 100"
+                      keyboardType="numeric"
+                      value={inputMaxMarks}
+                      onChangeText={setInputMaxMarks}
+                    />
+                  </View>
+                  <View style={styles.configInputGroup}>
+                    <Text style={styles.configLabel}>Pass Marks</Text>
+                    <TextInput
+                      style={styles.configInput}
+                      placeholder="e.g. 33"
+                      keyboardType="numeric"
+                      value={inputPassMarks}
+                      onChangeText={setInputPassMarks}
+                    />
+                  </View>
+                </View>
                 <AppButton
-                  title={savingExamConfig ? 'Saving...' : 'Save Config'}
+                  title={savingExamConfig ? 'Saving...' : 'Confirm Rules'}
                   onPress={saveExamConfig}
                   disabled={savingExamConfig}
+                  style={styles.primaryButton}
                 />
               </View>
             ) : (
               <View style={styles.configDisplay}>
                 <View style={styles.configItem}>
-                  <Text style={styles.configItemLabel}>Total Marks</Text>
+                  <Text style={styles.configItemLabel}>Total</Text>
                   <Text style={styles.configItemValue}>{inputMaxMarks}</Text>
                 </View>
                 <View style={styles.configItem}>
-                  <Text style={styles.configItemLabel}>Pass Marks</Text>
+                  <Text style={styles.configItemLabel}>Pass</Text>
                   <Text style={styles.configItemValue}>{inputPassMarks}</Text>
                 </View>
-                <AppButton title="Edit Config" onPress={() => setIsEditMode(true)} type="secondary" />
+                <TouchableOpacity style={styles.editConfigBtn} onPress={() => setIsEditMode(true)}>
+                  <RefreshCw size={16} color="#64748b" />
+                </TouchableOpacity>
               </View>
             )}
           </AppCard>
         )}
 
-        {/* Action Buttons */}
+        {/* Action Buttons & Stats */}
         {students.length > 0 && (
           <View style={styles.actionBar}>
             <View style={styles.statsRow}>
               <View style={[styles.statChip, styles.statSaved]}>
-                <Text style={styles.statText}>✓ {totalSaved} Saved</Text>
+                <CheckCircle2 size={12} color="#15803d" />
+                <Text style={styles.statText}>{totalSaved} Saved</Text>
               </View>
               <View style={[styles.statChip, styles.statPending]}>
-                <Text style={styles.statText}>⚠ {totalPending} Pending</Text>
+                <AlertCircle size={12} color="#b45309" />
+                <Text style={styles.statText}>{totalPending} Pending</Text>
               </View>
               <View style={[styles.statChip, styles.statAbsent]}>
-                <Text style={styles.statText}>✗ {totalAbsent} Absent</Text>
+                <XCircle size={12} color="#b91c1c" />
+                <Text style={styles.statText}>{totalAbsent} Absent</Text>
               </View>
             </View>
 
             <View style={styles.buttonRow}>
-              <AppButton title="Save Marks" onPress={() => saveMarks(false)} disabled={savingMarks} />
+              <AppButton
+                title={savingMarks ? 'Saving...' : 'Save Marks'}
+                onPress={() => saveMarks(false)}
+                disabled={savingMarks}
+                icon={<Save size={18} color="#fff" />}
+                style={[styles.primaryButton, { flex: 2 }]}
+              />
               <TouchableOpacity
                 style={[styles.autoSaveBtn, autoSave && styles.autoSaveBtnActive]}
                 onPress={() => setAutoSave(!autoSave)}
               >
+                <Clock size={16} color={autoSave ? '#fff' : '#64748b'} />
                 <Text style={[styles.autoSaveText, autoSave && styles.autoSaveTextActive]}>
-                  ⏱ Auto Save: {autoSave ? 'ON' : 'OFF'}
+                  {autoSave ? 'Auto ON' : 'Auto OFF'}
                 </Text>
               </TouchableOpacity>
-              <AppButton title="Refresh" onPress={() => loadStudents(true)} type="secondary" />
-              {students.length > 0 && (
-                <AppButton title="Export CSV" onPress={exportToCSV} type="secondary" />
-              )}
             </View>
 
-            {autoSave && (
-              <Text style={styles.autoSaveHint}>⚡ Saves automatically 2s after each change</Text>
-            )}
+            <View style={styles.secondaryActions}>
+              <TouchableOpacity style={styles.secondaryBtn} onPress={() => loadStudents(true)}>
+                <RefreshCw size={16} color="#001F3F" />
+                <Text style={styles.secondaryBtnText}>Refresh</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.secondaryBtn} onPress={exportToCSV}>
+                <Download size={16} color="#001F3F" />
+                <Text style={styles.secondaryBtnText}>Export</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
         {/* Student List */}
         {loadingStudents ? (
-          <Loader />
+          <View style={{ marginTop: 40 }}><Loader /></View>
         ) : students.length === 0 ? (
           <AppCard style={styles.emptyCard}>
-            <Text style={styles.emptyIcon}>📋</Text>
-            <Text style={styles.emptyTitle}>No Students</Text>
+            <Search size={48} color="#cbd5e1" />
+            <Text style={styles.emptyTitle}>Ready to grade?</Text>
             <Text style={styles.emptyText}>
-              Select filters, save exam config, and click Load Students
+              Configure filters and exam rules above to load the student list.
             </Text>
+            <AppButton
+              title="Select Filters"
+              type="secondary"
+              onPress={() => setShowFilterModal(true)}
+              style={{ marginTop: 16 }}
+            />
           </AppCard>
         ) : (
-          <AppCard style={styles.tableCard}>
-            {/* Table Header */}
-            <View style={styles.tableHeader}>
-              <Text style={[styles.headerText, styles.colRoll]}>Roll</Text>
-              <Text style={[styles.headerText, styles.colId]}>ID</Text>
-              <Text style={[styles.headerText, styles.colName]}>Name</Text>
-              <Text style={[styles.headerText, styles.colStatus]}>Status</Text>
-              <Text style={[styles.headerText, styles.colAttendance]}>Attendance</Text>
-              <Text style={[styles.headerText, styles.colMarks]}>Marks</Text>
-              <Text style={[styles.headerText, styles.colGrade]}>Grade</Text>
-            </View>
-
-            <ScrollView>
-              {students.map(student => (
-                <StudentRow
-                  key={student.student_id}
-                  student={student}
-                  maxMarks={parseFloat(inputMaxMarks) || 0}
-                  onAbsentToggle={handleAbsentToggle}
-                  onMarksChange={handleMarksChange}
-                />
-              ))}
-            </ScrollView>
-          </AppCard>
+          <View style={styles.listWrapper}>
+            <Text style={styles.listTitle}>Student List ({students.length})</Text>
+            {students.map(student => (
+              <StudentRow
+                key={student.student_id}
+                student={student}
+                maxMarks={parseFloat(inputMaxMarks) || 0}
+                onAbsentToggle={handleAbsentToggle}
+                onMarksChange={handleMarksChange}
+              />
+            ))}
+          </View>
         )}
       </ScrollView>
 
@@ -1052,119 +1194,210 @@ export default function MarksEntryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f6fb',
+    backgroundColor: '#F8FAFC',
   },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 40,
+  heroHeader: {
+    backgroundColor: '#001F3F',
+    height: 180,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
-  header: {
-    marginBottom: 20,
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  titleWrap: {
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  heroContent: {
+    marginTop: 20,
+  },
+  heroGreeting: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  heroSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    marginTop: 4,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 100,
+  },
+  mainCard: {
+    marginTop: -30,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 0,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  subText: {
-    color: '#64748b',
-    fontSize: 14,
-  },
-  filterCard: {
     padding: 16,
-    marginBottom: 16,
-  },
-  cardHeader: {
-    marginBottom: 12,
+    backgroundColor: '#F8FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: '#0F172A',
+  },
+  cardBody: {
+    padding: 16,
   },
   selectedFilters: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   filterTag: {
-    backgroundColor: '#e2e8f0',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   filterTagText: {
     fontSize: 12,
-    color: '#334155',
+    fontWeight: '600',
+    color: '#001F3F',
+  },
+  primaryButton: {
+    backgroundColor: '#001F3F',
+    borderRadius: 12,
+    height: 48,
   },
   configCard: {
+    borderRadius: 20,
+    backgroundColor: '#fff',
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    elevation: 2,
+    shadowOpacity: 0.05,
   },
   configHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
+  },
+  configTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   configTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: '#0F172A',
   },
   savedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: '#dcfce7',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 8,
   },
   savedBadgeText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#15803d',
+    textTransform: 'uppercase',
+  },
+  configForm: {
+    gap: 16,
   },
   configRow: {
+    flexDirection: 'row',
     gap: 12,
   },
+  configInputGroup: {
+    flex: 1,
+    gap: 6,
+  },
+  configLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+  },
   configInput: {
-    height: 46,
+    height: 44,
     borderWidth: 1,
-    borderColor: '#dbe3ee',
-    borderRadius: 12,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
     backgroundColor: '#f8fafc',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     fontSize: 14,
+    color: '#0f172a',
   },
   configDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   configItem: {
     flex: 1,
     backgroundColor: '#f8fafc',
     padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
   configItemLabel: {
-    fontSize: 11,
-    color: '#64748b',
-    marginBottom: 4,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
   configItemValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: '#001F3F',
+  },
+  editConfigBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   actionBar: {
-    marginBottom: 16,
+    marginBottom: 20,
     gap: 12,
   },
   statsRow: {
@@ -1172,223 +1405,217 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   statChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   statSaved: {
-    backgroundColor: '#dcfce7',
-    borderWidth: 1,
-    borderColor: '#15803d',
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
   },
   statPending: {
-    backgroundColor: '#fef3c7',
-    borderWidth: 1,
-    borderColor: '#f59e0b',
+    backgroundColor: '#fffbeb',
+    borderColor: '#fef3c7',
   },
   statAbsent: {
-    backgroundColor: '#fee2e2',
-    borderWidth: 1,
-    borderColor: '#ef4444',
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
   },
   statText: {
     fontSize: 11,
     fontWeight: '700',
+    color: '#334155',
   },
   buttonRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 12,
   },
   autoSaveBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#dbe3ee',
-    backgroundColor: '#fff',
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#fff',
   },
   autoSaveBtnActive: {
-    backgroundColor: '#059669',
-    borderColor: '#059669',
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
   },
   autoSaveText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#475569',
+    fontWeight: '700',
+    color: '#64748b',
   },
   autoSaveTextActive: {
     color: '#fff',
   },
-  autoSaveHint: {
-    fontSize: 11,
-    color: '#059669',
+  secondaryActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  secondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  secondaryBtnText: {
+    fontSize: 13,
     fontWeight: '600',
-    textAlign: 'center',
+    color: '#001F3F',
   },
   emptyCard: {
     padding: 40,
     alignItems: 'center',
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
+    borderRadius: 20,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#0f172a',
+    marginTop: 16,
     marginBottom: 4,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#64748b',
     textAlign: 'center',
+    lineHeight: 20,
   },
-  tableCard: {
-    overflow: 'hidden',
+  listWrapper: {
+    gap: 12,
   },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#f8fafc',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#edf2f7',
+  listTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 4,
+    marginLeft: 4,
   },
-  headerText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#94a3b8',
-    textTransform: 'uppercase',
-  },
-  colRoll: { width: 60 },
-  colId: { width: 70 },
-  colName: { flex: 2 },
-  colStatus: { width: 60 },
-  colAttendance: { width: 110 },
-  colMarks: { width: 80 },
-  colGrade: { width: 55 },
   studentRow: {
     flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#edf2f7',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    elevation: 1,
+    shadowOpacity: 0.02,
   },
   studentRowAbsent: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
   },
   studentRowSaved: {
     backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
   },
-  studentCol: {
-    justifyContent: 'center',
+  studentInfoCol: {
+    flex: 1,
+    gap: 4,
   },
-  studentColName: {
-    flex: 2,
-    justifyContent: 'center',
-  },
-  rollTag: {
-    backgroundColor: '#eff6ff',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-  },
-  rollTagText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#2563eb',
-  },
-  studentId: {
-    fontSize: 12,
-    color: '#475569',
+  studentMainInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   studentName: {
+    flex: 1,
     fontSize: 14,
     fontWeight: '700',
     color: '#0f172a',
   },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
+  studentId: {
+    fontSize: 11,
+    color: '#94a3b8',
+    fontWeight: '600',
+    marginLeft: 4,
   },
-  statusBadgeSaved: {
-    backgroundColor: '#dcfce7',
+  rollTag: {
+    backgroundColor: '#001F3F',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  statusBadgeDraft: {
-    backgroundColor: '#fef3c7',
-  },
-  statusText: {
+  rollTagText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: '#fff',
   },
-  statusTextSaved: {
-    color: '#15803d',
-  },
-  statusTextDraft: {
-    color: '#92400e',
+  actionCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   attendanceToggle: {
     flexDirection: 'row',
-    gap: 6,
+    backgroundColor: '#f1f5f9',
+    padding: 3,
+    borderRadius: 10,
+    gap: 2,
   },
   toggleBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   toggleBtnActive: {
-    backgroundColor: '#dcfce7',
-    outlineWidth: 2,
-    outlineColor: '#22c55e',
+    backgroundColor: '#10b981',
   },
   toggleBtnAbsentActive: {
-    backgroundColor: '#fee2e2',
-    outlineWidth: 2,
-    outlineColor: '#ef4444',
+    backgroundColor: '#ef4444',
   },
   toggleText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
     color: '#94a3b8',
   },
   toggleTextActive: {
-    color: '#15803d',
+    color: '#fff',
   },
-  toggleTextAbsentActive: {
-    color: '#b91c1c',
+  marksContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   marksInput: {
-    width: 70,
-    height: 38,
-    borderWidth: 1,
-    borderColor: '#dbe3ee',
-    borderRadius: 8,
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: 8,
-    fontSize: 13,
+    width: 48,
+    height: 40,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    backgroundColor: '#fff',
     textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
   },
   marksInputDisabled: {
-    backgroundColor: '#fff5f5',
-    borderColor: '#fca5a5',
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+    color: '#94a3b8',
   },
   marksInputSaved: {
-    borderColor: '#22c55e',
-    backgroundColor: '#f0fdf4',
+    borderColor: '#10b981',
   },
   gradeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   gradeBadgePass: {
     backgroundColor: '#dcfce7',
@@ -1397,8 +1624,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fee2e2',
   },
   gradeText: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '900',
   },
   gradeTextPass: {
     color: '#15803d',
@@ -1406,91 +1633,91 @@ const styles = StyleSheet.create({
   gradeTextFail: {
     color: '#b91c1c',
   },
+  savedIndicator: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '100%',
-    maxHeight: '80%',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    maxHeight: '85%',
+    paddingBottom: 40,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: '#f1f5f9',
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#0d1b2a',
+    fontWeight: '800',
+    color: '#0f172a',
   },
   modalClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f0f2f7',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f1f5f9',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalCloseText: {
-    fontSize: 16,
-    color: '#4a5568',
+    fontSize: 18,
+    color: '#64748b',
+    fontWeight: '600',
   },
   modalBody: {
-    padding: 16,
+    padding: 20,
   },
   modalLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4a5568',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
     marginBottom: 12,
+    letterSpacing: 0.5,
   },
   chipContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
+    marginBottom: 20,
   },
   chip: {
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: '#e2e8f0',
   },
   chipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
   },
   chipText: {
     fontSize: 14,
-    color: '#4a5568',
+    fontWeight: '600',
+    color: '#64748b',
   },
   chipTextActive: {
     color: '#fff',
   },
   modalFooter: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 16,
+    padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#e4e9f2',
-  },
-  configModalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '100%',
-    maxWidth: 400,
-  },
-  configModalBody: {
-    padding: 16,
+    borderTopColor: '#f1f5f9',
   },
 });

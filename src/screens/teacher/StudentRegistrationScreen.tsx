@@ -296,6 +296,15 @@ export default function StudentRegistrationScreen() {
   const [showRollNumberModal, setShowRollNumberModal] = useState<boolean>(false);
   const [generatedRollNumber, setGeneratedRollNumber] = useState<string>('');
   
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   // NEW: Show/hide password states
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
@@ -310,15 +319,24 @@ export default function StudentRegistrationScreen() {
   // Load credentials
   useEffect(() => {
     const load = async () => {
-      const code = await getSchoolCode();
-      const branch = await getBranchId();
-      if (!code || !branch) {
-        setServerError('Session expired. Please login again.');
-        return;
+      try {
+        const code = await getSchoolCode();
+        const branch = await getBranchId();
+
+        if (!isMounted.current) return;
+
+        if (!code || !branch) {
+          setServerError('Session expired. Please login again.');
+          return;
+        }
+        setLoggedSchoolCode(code);
+        setDefaultBranchId(branch);
+        setForm(prev => ({ ...prev, branch_id: branch }));
+      } catch (err) {
+        if (isMounted.current) {
+          setServerError('Failed to load session info.');
+        }
       }
-      setLoggedSchoolCode(code);
-      setDefaultBranchId(branch);
-      setForm(prev => ({ ...prev, branch_id: branch }));
     };
     load();
   }, []);
@@ -340,6 +358,8 @@ export default function StudentRegistrationScreen() {
           },
         });
 
+        if (!isMounted.current) return;
+
         const items = Array.isArray(res.data?.items) ? res.data.items : [];
         const formattedItems: ClassOption[] = items.map((item: any) => ({
           class_name: String(item.class_name).trim(),
@@ -353,11 +373,16 @@ export default function StudentRegistrationScreen() {
         } else {
           setSectionOptions([]);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Load class/section failed:', err);
+        if (!isMounted.current) return;
+
         setClassOptions([]);
         setSectionOptions([]);
-        setServerError('Unable to load class and section options. Please refresh.');
+
+        if (err?.response?.status !== 401) {
+          setServerError('Unable to load class and section options. Please refresh.');
+        }
       }
     };
 
@@ -665,6 +690,9 @@ export default function StudentRegistrationScreen() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (!isMounted.current) return;
+        if (res.status === 401) return; // AuthContext handles this
+
         if (data && data.detail) {
           if (typeof data.detail === 'object' && !Array.isArray(data.detail)) {
             setFieldErrors(prev => ({ ...prev, ...data.detail }));
@@ -683,12 +711,15 @@ export default function StudentRegistrationScreen() {
         throw new Error('Registration failed. Please check all required fields.');
       }
 
+      if (!isMounted.current) return;
+
       const assignedRollNumber = data?.roll_number || form.roll_number || '—';
       setGeneratedRollNumber(assignedRollNumber);
       setShowRollNumberModal(true);
 
       // Reset form after 3 seconds
       setTimeout(() => {
+        if (!isMounted.current) return;
         setStep(0);
         setShowRollNumberModal(false);
         setPhotoFile(null);
@@ -700,9 +731,13 @@ export default function StudentRegistrationScreen() {
         });
       }, 3000);
     } catch (err: any) {
-      setServerError(`Submission Error: ${err.message}`);
+      if (isMounted.current) {
+        setServerError(`Submission Error: ${err.message}`);
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 

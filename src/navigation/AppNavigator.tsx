@@ -2,9 +2,31 @@ import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Icon from '@react-native-vector-icons/ionicons';
+import {
+  LayoutGrid,
+  Building2,
+  Bell,
+  Settings,
+  UserPlus,
+  Home,
+  Users,
+  GraduationCap,
+  CalendarCheck,
+  Wallet,
+  LogIn,
+  CheckCircle2,
+  BarChart3,
+  BookOpen,
+  Mail,
+  Camera,
+  CreditCard,
+  TrendingDown,
+  Coins
+} from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/common/Header';
+import CustomTabBar from '../components/layout/CustomTabBar';
+import TeacherTabBar from '../components/layout/TeacherTabBar';
 
 // ─── Auth Screens ───────────────────────────────────────────────────────────
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -38,6 +60,7 @@ import TeacherAttendanceGalleryScreen from '../screens/teacher/AttendanceGallery
 import MarkAttendanceScreen from '../components/teacher/MarkAttendanceScreen';
 
 // ─── Student Screens ────────────────────────────────────────────────────────
+import StudentDashboardScreen from '../screens/student/StudentDashboardScreen';
 import StudentAttendanceScreen from '../screens/student/StudentAttendanceScreen';
 import StudentMarksScreen from '../screens/student/StudentMarksScreen';
 import StudentHomeworkScreen from '../screens/student/HomeworkScreen';
@@ -122,6 +145,7 @@ export type RootStackParamList = {
   MarkAttendance: undefined;
   
   // Student
+  StudentDashboard: undefined;
   StudentAttendance: undefined;
   StudentMarks: undefined;
   StudentHomework: undefined;
@@ -177,14 +201,14 @@ const AdminTabNavigator = () => (
     screenOptions={({ route }) => ({
       headerShown: false,
       tabBarIcon: ({ focused, color, size }) => {
-        const icons: Record<string, [string, string]> = {
-          Dashboard: ['grid', 'grid-outline'],
-          Schools: ['business', 'business-outline'],
-          Notifications: ['notifications', 'notifications-outline'],
-          Settings: ['settings', 'settings-outline'],
+        const icons: Record<string, any> = {
+          Dashboard: LayoutGrid,
+          Schools: Building2,
+          Notifications: Bell,
+          Settings: Settings,
         };
-        const [active, inactive] = icons[route.name] ?? ['ellipse', 'ellipse-outline'];
-        return <Icon name={(focused ? active : inactive) as any} size={size} color={color} />;
+        const IconComponent = icons[route.name] ?? LayoutGrid;
+        return <IconComponent size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
       },
       tabBarActiveTintColor: '#007AFF',
       tabBarInactiveTintColor: 'gray',
@@ -202,13 +226,13 @@ const PrincipalTabNavigator = () => (
     screenOptions={({ route }) => ({
       headerShown: false,
       tabBarIcon: ({ focused, color, size }) => {
-        const icons: Record<string, [string, string]> = {
-          Dashboard: ['grid', 'grid-outline'],
-          Branches: ['business', 'business-outline'],
-          'HM Registration': ['person-add', 'person-add-outline'],
+        const icons: Record<string, any> = {
+          Dashboard: LayoutGrid,
+          Branches: Building2,
+          'HM Registration': UserPlus,
         };
-        const [active, inactive] = icons[route.name] ?? ['ellipse', 'ellipse-outline'];
-        return <Icon name={(focused ? active : inactive) as any} size={size} color={color} />;
+        const IconComponent = icons[route.name] ?? LayoutGrid;
+        return <IconComponent size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
       },
       tabBarActiveTintColor: '#007AFF',
       tabBarInactiveTintColor: 'gray',
@@ -225,16 +249,16 @@ const HMTabNavigator = () => (
     screenOptions={({ route }) => ({
       headerShown: false,
       tabBarIcon: ({ focused, color, size }) => {
-        const icons: Record<string, [string, string]> = {
-          Home: ['home', 'home-outline'],
-          Teachers: ['people', 'people-outline'],
-          Students: ['school', 'school-outline'],
-          Attendance: ['calendar', 'calendar-outline'],
-          Fees: ['cash', 'cash-outline'],
-          Visitors: ['log-in', 'log-in-outline'],
+        const icons: Record<string, any> = {
+          Home: Home,
+          Teachers: Users,
+          Students: GraduationCap,
+          Attendance: CalendarCheck,
+          Fees: Wallet,
+          Visitors: LogIn,
         };
-        const [active, inactive] = icons[route.name] ?? ['ellipse', 'ellipse-outline'];
-        return <Icon name={(focused ? active : inactive) as any} size={size} color={color} />;
+        const IconComponent = icons[route.name] ?? Home;
+        return <IconComponent size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
       },
       tabBarActiveTintColor: '#007AFF',
       tabBarInactiveTintColor: 'gray',
@@ -251,60 +275,31 @@ const HMTabNavigator = () => (
 
 const TeacherTabNavigator = () => (
   <Tab.Navigator
-    screenOptions={({ route }) => ({
+    tabBar={(props) => <TeacherTabBar {...props} />}
+    screenOptions={{
       headerShown: false,
-      tabBarIcon: ({ focused, color, size }) => {
-        const icons: Record<string, [string, string]> = {
-          Home: ['home', 'home-outline'],
-          Attendance: ['checkmark-circle', 'checkmark-circle-outline'],
-          Marks: ['stats-chart', 'stats-chart-outline'],
-          Homework: ['book', 'book-outline'],
-          Students: ['people', 'people-outline'],
-          Leaves: ['mail', 'mail-outline'],
-          Scan: ['camera', 'camera-outline'],
-        };
-        const [active, inactive] = icons[route.name] ?? ['ellipse', 'ellipse-outline'];
-        return <Icon name={(focused ? active : inactive) as any} size={size} color={color} />;
-      },
-      tabBarActiveTintColor: '#007AFF',
-      tabBarInactiveTintColor: 'gray',
-    })}
+    }}
   >
     <Tab.Screen name="Home" component={TeacherDashboardScreen} />
-    <Tab.Screen name="Attendance" component={TeacherAttendanceScreen} />
-    <Tab.Screen name="Marks" component={TeacherMarksEntryScreen} />
     <Tab.Screen name="Homework" component={TeacherHomeworkManagementScreen} />
-    <Tab.Screen name="Students" component={TeacherStudentListScreen} />
-    <Tab.Screen name="Leaves" component={TeacherLeaveApprovalScreen} />
     <Tab.Screen name="Scan" component={TeacherVitalScanScreen} />
+    <Tab.Screen name="Leaves" component={TeacherLeaveApprovalScreen} />
+    <Tab.Screen name="Marks" component={TeacherMarksEntryScreen} />
   </Tab.Navigator>
 );
 
 const StudentTabNavigator = () => (
   <Tab.Navigator
-    screenOptions={({ route }) => ({
+    tabBar={(props) => <CustomTabBar {...props} />}
+    screenOptions={{
       headerShown: false,
-      tabBarIcon: ({ focused, color, size }) => {
-        const icons: Record<string, [string, string]> = {
-          Attendance: ['home', 'home-outline'],
-          Marks: ['stats-chart', 'stats-chart-outline'],
-          Homework: ['book', 'book-outline'],
-          Fees: ['cash', 'cash-outline'],
-          Leave: ['mail', 'mail-outline'],
-          Papers: ['document-text', 'document-text-outline'],
-        };
-        const [active, inactive] = icons[route.name] ?? ['ellipse', 'ellipse-outline'];
-        return <Icon name={(focused ? active : inactive) as any} size={size} color={color} />;
-      },
-      tabBarActiveTintColor: '#007AFF',
-      tabBarInactiveTintColor: 'gray',
-    })}
+    }}
   >
-    <Tab.Screen name="Attendance" component={StudentAttendanceScreen} />
-    <Tab.Screen name="Marks" component={StudentMarksScreen} />
+    <Tab.Screen name="Home" component={StudentDashboardScreen} />
     <Tab.Screen name="Homework" component={StudentHomeworkScreen} />
-    <Tab.Screen name="Fees" component={StudentFeeScreen} />
     <Tab.Screen name="Leave" component={StudentLeaveScreen} />
+    <Tab.Screen name="Marks" component={StudentMarksScreen} />
+    <Tab.Screen name="Fees" component={StudentFeeScreen} />
     <Tab.Screen name="Papers" component={StudentQuestionPapersScreen} />
   </Tab.Navigator>
 );
@@ -314,16 +309,16 @@ const AccountantTabNavigator = () => (
     screenOptions={({ route }) => ({
       headerShown: false,
       tabBarIcon: ({ focused, color, size }) => {
-        const icons: Record<string, [string, string]> = {
-          Dashboard: ['grid', 'grid-outline'],
-          Payments: ['card', 'card-outline'],
-          Payroll: ['cash', 'cash-outline'],
-          Fees: ['school', 'school-outline'],
-          Expenses: ['trending-down', 'trending-down-outline'],
-          Reports: ['bar-chart', 'bar-chart-outline'],
+        const icons: Record<string, any> = {
+          Dashboard: LayoutGrid,
+          Payments: CreditCard,
+          Payroll: Coins,
+          Fees: GraduationCap,
+          Expenses: TrendingDown,
+          Reports: BarChart3,
         };
-        const [active, inactive] = icons[route.name] ?? ['ellipse', 'ellipse-outline'];
-        return <Icon name={(focused ? active : inactive) as any} size={size} color={color} />;
+        const IconComponent = icons[route.name] ?? LayoutGrid;
+        return <IconComponent size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
       },
       tabBarActiveTintColor: '#007AFF',
       tabBarInactiveTintColor: 'gray',

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,37 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
   Alert,
   Modal,
+  Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+  Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import {
+  ChevronLeft,
+  Filter,
+  Calendar,
+  User,
+  BookOpen,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  RefreshCw,
+  Search,
+  ChevronRight,
+  Info
+} from 'lucide-react-native';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import { useAuth } from '../../context/AuthContext';
+
+const { width } = Dimensions.get('window');
 
 // Types
 interface LeaveRequest {
@@ -63,37 +84,35 @@ const getBranchId = async (): Promise<string> => {
 const formatDate = (dateString: string): string => {
   if (!dateString) return '-';
   const date = new Date(dateString);
-  return date.toLocaleDateString();
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
 // Status Badge Component
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const getStatusStyle = () => {
-    const upperStatus = status?.toUpperCase() || '';
-    if (upperStatus === 'APPROVED') return styles.badgeApproved;
-    if (upperStatus === 'REJECTED') return styles.badgeRejected;
-    return styles.badgePending;
-  };
+  const upperStatus = status?.toUpperCase() || '';
 
-  const getTextStyle = () => {
-    const upperStatus = status?.toUpperCase() || '';
-    if (upperStatus === 'APPROVED') return styles.badgeTextApproved;
-    if (upperStatus === 'REJECTED') return styles.badgeTextRejected;
-    return styles.badgeTextPending;
-  };
+  let bgColor = '#FEF3C7';
+  let textColor = '#B45309';
+  let icon = <Clock size={12} color="#B45309" />;
+  let label = 'Pending';
 
-  const getIcon = () => {
-    const upperStatus = status?.toUpperCase() || '';
-    if (upperStatus === 'PENDING') return '⏳';
-    if (upperStatus === 'APPROVED') return '✅';
-    return '❌';
-  };
+  if (upperStatus === 'APPROVED') {
+    bgColor = '#DCFCE7';
+    textColor = '#15803D';
+    icon = <CheckCircle2 size={12} color="#15803D" />;
+    label = 'Approved';
+  } else if (upperStatus === 'REJECTED') {
+    bgColor = '#FEE2E2';
+    textColor = '#B91C1C';
+    icon = <XCircle size={12} color="#B91C1C" />;
+    label = 'Rejected';
+  }
 
   return (
-    <View style={[styles.badge, getStatusStyle()]}>
-      <Text style={styles.badgeIcon}>{getIcon()}</Text>
-      <Text style={[styles.badgeText, getTextStyle()]}>
-        {status || 'PENDING'}
+    <View style={[styles.badge, { backgroundColor: bgColor }]}>
+      {icon}
+      <Text style={[styles.badgeText, { color: textColor }]}>
+        {label}
       </Text>
     </View>
   );
@@ -108,32 +127,36 @@ const LeaveRequestCard: React.FC<{
   return (
     <AppCard style={styles.requestCard}>
       <View style={styles.cardHeader}>
-        <View>
-          <Text style={styles.studentName}>{request.student_full_name}</Text>
-          <Text style={styles.rollNumber}>Roll No: {request.roll_number}</Text>
+        <View style={styles.studentInfo}>
+          <View style={styles.avatarPlaceholder}>
+            <User size={20} color="#64748b" />
+          </View>
+          <View>
+            <Text style={styles.studentName}>{request.student_full_name}</Text>
+            <Text style={styles.rollNumber}>Roll No: {request.roll_number}</Text>
+          </View>
         </View>
         <StatusBadge status={request.status} />
       </View>
 
+      <View style={styles.cardDivider} />
+
       <View style={styles.cardDetails}>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Class:</Text>
-          <Text style={styles.detailValue}>{request.class_grade}</Text>
+        <View style={styles.detailGrid}>
+          <View style={styles.detailItem}>
+            <BookOpen size={14} color="#94a3b8" />
+            <Text style={styles.detailValue}>{request.class_grade} - {request.section}</Text>
+          </View>
+          <View style={styles.detailItem}>
+            <Calendar size={14} color="#94a3b8" />
+            <Text style={styles.detailValue}>
+              {formatDate(request.from_date)} {request.from_date !== request.to_date ? `to ${formatDate(request.to_date)}` : ''}
+            </Text>
+          </View>
         </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Section:</Text>
-          <Text style={styles.detailValue}>{request.section}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>From:</Text>
-          <Text style={styles.detailValue}>{formatDate(request.from_date)}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>To:</Text>
-          <Text style={styles.detailValue}>{formatDate(request.to_date)}</Text>
-        </View>
-        <View style={styles.reasonContainer}>
-          <Text style={styles.reasonLabel}>Reason:</Text>
+
+        <View style={styles.reasonBox}>
+          <Info size={14} color="#64748b" style={{ marginTop: 2 }} />
           <Text style={styles.reasonText}>{request.reason}</Text>
         </View>
       </View>
@@ -141,16 +164,18 @@ const LeaveRequestCard: React.FC<{
       {request.status === 'PENDING' && (
         <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={[styles.actionBtn, styles.approveBtn]}
-            onPress={() => onApprove(request.leave_id)}
-          >
-            <Text style={styles.actionBtnText}>✓ Approve</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
             style={[styles.actionBtn, styles.rejectBtn]}
             onPress={() => onReject(request.leave_id)}
           >
-            <Text style={styles.actionBtnText}>✗ Reject</Text>
+            <XCircle size={16} color="#B91C1C" />
+            <Text style={styles.rejectBtnText}>Reject</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.approveBtn]}
+            onPress={() => onApprove(request.leave_id)}
+          >
+            <CheckCircle2 size={16} color="#FFFFFF" />
+            <Text style={styles.approveBtnText}>Approve</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -158,144 +183,27 @@ const LeaveRequestCard: React.FC<{
   );
 };
 
-// Filter Modal Component
-const FilterModal: React.FC<{
-  visible: boolean;
-  classes: ClassItem[];
-  sections: SectionItem[];
-  selectedClass: string;
-  selectedSection: string;
-  selectedStatus: string;
-  loading: boolean;
-  onSelectClass: (classId: string) => void;
-  onSelectSection: (sectionId: string) => void;
-  onSelectStatus: (status: string) => void;
-  onApply: () => void;
-  onClose: () => void;
-}> = ({
-  visible,
-  classes,
-  sections,
-  selectedClass,
-  selectedSection,
-  selectedStatus,
-  loading,
-  onSelectClass,
-  onSelectSection,
-  onSelectStatus,
-  onApply,
-  onClose,
-}) => {
-  const statusOptions = [
-    { value: '', label: 'All Status' },
-    { value: 'PENDING', label: 'Pending' },
-    { value: 'APPROVED', label: 'Approved' },
-    { value: 'REJECTED', label: 'Rejected' },
-  ];
-
-  return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Filter Leave Requests</Text>
-            <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <Text style={styles.modalCloseText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.modalBody}>
-            {/* Class Filter */}
-            <Text style={styles.modalLabel}>Class</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.chipContainer}>
-                <TouchableOpacity
-                  style={[styles.chip, !selectedClass && styles.chipActive]}
-                  onPress={() => onSelectClass('')}
-                >
-                  <Text style={[styles.chipText, !selectedClass && styles.chipTextActive]}>
-                    All Classes
-                  </Text>
-                </TouchableOpacity>
-                {classes.map((cls) => (
-                  <TouchableOpacity
-                    key={cls.id}
-                    style={[styles.chip, selectedClass === cls.id && styles.chipActive]}
-                    onPress={() => onSelectClass(cls.id)}
-                  >
-                    <Text style={[styles.chipText, selectedClass === cls.id && styles.chipTextActive]}>
-                      {cls.name || cls.class_grade || `Class ${cls.id}`}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-
-            {/* Section Filter */}
-            <Text style={[styles.modalLabel, { marginTop: 16 }]}>Section</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.chipContainer}>
-                <TouchableOpacity
-                  style={[styles.chip, !selectedSection && styles.chipActive]}
-                  onPress={() => onSelectSection('')}
-                >
-                  <Text style={[styles.chipText, !selectedSection && styles.chipTextActive]}>
-                    All Sections
-                  </Text>
-                </TouchableOpacity>
-                {sections.map((sec) => (
-                  <TouchableOpacity
-                    key={sec.id}
-                    style={[styles.chip, selectedSection === sec.id && styles.chipActive]}
-                    onPress={() => onSelectSection(sec.id)}
-                  >
-                    <Text style={[styles.chipText, selectedSection === sec.id && styles.chipTextActive]}>
-                      {sec.name || sec.section || `Section ${sec.id}`}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-
-            {/* Status Filter */}
-            <Text style={[styles.modalLabel, { marginTop: 16 }]}>Status</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.chipContainer}>
-                {statusOptions.map((opt) => (
-                  <TouchableOpacity
-                    key={opt.value}
-                    style={[styles.chip, selectedStatus === opt.value && styles.chipActive]}
-                    onPress={() => onSelectStatus(opt.value)}
-                  >
-                    <Text style={[styles.chipText, selectedStatus === opt.value && styles.chipTextActive]}>
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <AppButton title="Cancel" onPress={onClose} type="secondary" />
-            <AppButton title="Apply Filters" onPress={onApply} disabled={loading} />
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
 export default function LeaveApprovalScreen() {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [teacherId, setTeacherId] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
   const [resolvedTeacherId, setResolvedTeacherId] = useState<string>('');
-  
+
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   const [items, setItems] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [msg, setMsg] = useState<string>('');
   const [error, setError] = useState<string>('');
   
   // Filters
@@ -312,33 +220,55 @@ export default function LeaveApprovalScreen() {
   // Load credentials
   useEffect(() => {
     const loadCredentials = async () => {
-      const code = await getSchoolCode();
-      const tid = await getTeacherId();
-      const bid = await getBranchId();
-      setSchoolCode(code);
-      setTeacherId(tid);
-      setBranchId(bid);
+      try {
+        const code = await getSchoolCode();
+        const tid = await getTeacherId();
+        const bid = await getBranchId();
+
+        if (!isMounted.current) return;
+
+        setSchoolCode(code);
+        setTeacherId(tid);
+        setBranchId(bid);
+      } catch (err) {
+        console.error('Failed to load credentials:', err);
+      }
     };
     loadCredentials();
+    setTabBarVisible(true);
+    return () => setTabBarVisible(true);
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   // Resolve teacher ID
   useEffect(() => {
     const resolveTeacherId = async () => {
       if (!schoolCode || !teacherId) return;
-
       try {
         const res = await API.get('/teacher/marks/teacher-context', {
           params: { teacher_id: teacherId },
           headers: { 'x-school-code': schoolCode },
         });
+
+        if (!isMounted.current) return;
+
         const canonicalTeacherId = String(res.data?.teacher_data?.teacher_id || teacherId).trim();
         setResolvedTeacherId(canonicalTeacherId);
-      } catch {
+      } catch (err: any) {
+        if (!isMounted.current) return;
         setResolvedTeacherId(teacherId);
       }
     };
-
     resolveTeacherId();
   }, [schoolCode, teacherId]);
 
@@ -346,32 +276,35 @@ export default function LeaveApprovalScreen() {
   useEffect(() => {
     const fetchClassesSections = async () => {
       if (!schoolCode || !branchId) return;
-      
       setLoadingClassesSections(true);
       try {
         const res = await API.get('/manage/classes-sections', {
           params: { school_code: schoolCode, branch_id: branchId },
         });
+
+        if (!isMounted.current) return;
+
         setClasses(res.data?.classes || []);
         setSections(res.data?.sections || []);
-      } catch (e) {
+      } catch (e: any) {
         console.error('Failed to load classes/sections:', e);
+        if (isMounted.current && e?.response?.status !== 401) {
+          setError('Failed to load filters');
+        }
       } finally {
-        setLoadingClassesSections(false);
+        if (isMounted.current) {
+          setLoadingClassesSections(false);
+        }
       }
     };
-
     fetchClassesSections();
   }, [schoolCode, branchId]);
 
   // Load leave requests
   const loadRequests = useCallback(async () => {
     if (!schoolCode || !resolvedTeacherId) return;
-
     setLoading(true);
-    setMsg('');
     setError('');
-
     try {
       const body: any = {
         school_code: schoolCode,
@@ -382,16 +315,23 @@ export default function LeaveApprovalScreen() {
       if (status) body.status = status;
 
       const res = await API.post('/manage/teacher/leave-requests', body);
+
+      if (!isMounted.current) return;
       setItems(res.data?.items || []);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Failed to load leave requests');
+      if (!isMounted.current) return;
+
+      if (e?.response?.status !== 401) {
+        setError(e?.response?.data?.detail || 'Failed to load leave requests');
+      }
       setItems([]);
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   }, [schoolCode, resolvedTeacherId, classId, sectionId, status]);
 
-  // Load when dependencies change
   useEffect(() => {
     if (schoolCode && resolvedTeacherId) {
       loadRequests();
@@ -421,20 +361,22 @@ export default function LeaveApprovalScreen() {
                 leave_id: leaveId,
                 action,
               });
-              setMsg(`Leave ${action.toLowerCase()} successfully`);
+
+              if (!isMounted.current) return;
+
+              Alert.alert('Success', `Leave ${action.toLowerCase()} successfully`);
               loadRequests();
             } catch (e: any) {
-              setError(e?.response?.data?.detail || 'Failed to update leave status');
+              if (!isMounted.current) return;
+
+              if (e?.response?.status !== 401) {
+                Alert.alert('Error', e?.response?.data?.detail || 'Failed to update leave status');
+              }
             }
           },
         },
       ]
     );
-  };
-
-  const applyFilters = () => {
-    setShowFilterModal(false);
-    loadRequests();
   };
 
   const resetFilters = () => {
@@ -446,116 +388,178 @@ export default function LeaveApprovalScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Navy Hero Header */}
+      <View style={styles.heroHeader}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.goBack()}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.heroTitle}>Leave Approvals</Text>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={onRefresh}
+          >
+            <RefreshCw size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.heroContent}>
+          <Text style={styles.heroGreeting}>Student Leaves</Text>
+          <Text style={styles.heroSubtext}>Review and manage pending leave applications</Text>
+        </View>
+      </View>
+
       <ScrollView
-        contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={styles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#001F3F" />}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.titleWrap}>
-            <Text style={styles.title}>📅 Leave Approval</Text>
-            <Text style={styles.subText}>{items.length} requests</Text>
+        {/* Filter Selection Card */}
+        <AppCard style={styles.filterCard}>
+          <View style={styles.filterHeader}>
+            <View style={styles.filterTitleContainer}>
+              <Filter size={18} color="#001F3F" />
+              <Text style={styles.filterTitle}>Filters</Text>
+            </View>
+            {(classId || sectionId || status !== 'PENDING') && (
+              <TouchableOpacity onPress={resetFilters}>
+                <Text style={styles.resetText}>Reset All</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          <TouchableOpacity style={styles.refreshBtn} onPress={loadRequests}>
-            <Text style={styles.refreshBtnText}>🔄 Refresh</Text>
-          </TouchableOpacity>
-        </View>
 
-        {/* Filter Button */}
-        <View style={styles.filterBar}>
-          <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilterModal(true)}>
-            <Text style={styles.filterBtnText}>🔽 Filter</Text>
-          </TouchableOpacity>
-          {(classId || sectionId || status !== 'PENDING') && (
-            <TouchableOpacity style={styles.resetBtn} onPress={resetFilters}>
-              <Text style={styles.resetBtnText}>Reset Filters</Text>
+          <View style={styles.filterGrid}>
+            <View style={styles.filterItem}>
+              <Text style={styles.filterLabel}>Status</Text>
+              <View style={styles.statusToggle}>
+                {['PENDING', 'APPROVED', 'REJECTED'].map((s) => (
+                  <TouchableOpacity
+                    key={s}
+                    style={[styles.statusBtn, status === s && styles.statusBtnActive]}
+                    onPress={() => setStatus(s)}
+                  >
+                    <Text style={[styles.statusBtnText, status === s && styles.statusBtnTextActive]}>
+                      {s.charAt(0) + s.slice(1).toLowerCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.advancedFilterBtn}
+              onPress={() => setShowFilterModal(true)}
+            >
+              <Search size={16} color="#64748B" />
+              <Text style={styles.advancedFilterText}>
+                {classId ? `Class ${classes.find(c => c.id === classId)?.name || classId}` : 'All Classes'}
+                {sectionId ? ` • Sec ${sections.find(s => s.id === sectionId)?.name || sectionId}` : ' • All Sections'}
+              </Text>
+              <ChevronRight size={16} color="#94A3B8" />
             </TouchableOpacity>
-          )}
+          </View>
+        </AppCard>
+
+        {/* Requests List */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            {status.charAt(0) + status.slice(1).toLowerCase()} Requests ({items.length})
+          </Text>
         </View>
 
-        {/* Active Filters */}
-        {(classId || sectionId || status !== 'PENDING') && (
-          <View style={styles.activeFilters}>
-            <Text style={styles.activeFiltersLabel}>Active Filters:</Text>
-            {classId && (
-              <View style={styles.filterTag}>
-                <Text style={styles.filterTagText}>
-                  Class: {classes.find(c => c.id === classId)?.name || classId}
-                </Text>
-              </View>
-            )}
-            {sectionId && (
-              <View style={styles.filterTag}>
-                <Text style={styles.filterTagText}>
-                  Section: {sections.find(s => s.id === sectionId)?.name || sectionId}
-                </Text>
-              </View>
-            )}
-            {status !== 'PENDING' && status !== '' && (
-              <View style={styles.filterTag}>
-                <Text style={styles.filterTagText}>Status: {status}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Messages */}
-        {msg && (
-          <View style={styles.successContainer}>
-            <Text style={styles.successText}>{msg}</Text>
-          </View>
-        )}
-        {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-
-        {/* Leave Requests List */}
         {loading ? (
-          <Loader />
+          <View style={styles.loaderContainer}><Loader /></View>
         ) : items.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📋</Text>
-            <Text style={styles.emptyTitle}>No leave requests found</Text>
-            <Text style={styles.emptyText}>
-              {classId || sectionId || status !== 'PENDING'
-                ? 'Try adjusting your filters'
-                : 'No pending leave requests at the moment'}
-            </Text>
+          <View style={styles.emptyState}>
+            <Calendar size={48} color="#cbd5e1" />
+            <Text style={styles.emptyStateText}>No requests found matching your filters</Text>
           </View>
         ) : (
-          items.map((request) => (
-            <LeaveRequestCard
-              key={request.leave_id}
-              request={request}
-              onApprove={(id) => actOnLeave(id, 'APPROVED')}
-              onReject={(id) => actOnLeave(id, 'REJECTED')}
-            />
-          ))
+          <View style={styles.requestsList}>
+            {items.map((request) => (
+              <LeaveRequestCard
+                key={request.leave_id}
+                request={request}
+                onApprove={(id) => actOnLeave(id, 'APPROVED')}
+                onReject={(id) => actOnLeave(id, 'REJECTED')}
+              />
+            ))}
+          </View>
         )}
-
-        {/* Footer Info */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>👑 Role: Teacher • Leave Approver</Text>
-        </View>
       </ScrollView>
 
       {/* Filter Modal */}
-      <FilterModal
-        visible={showFilterModal}
-        classes={classes}
-        sections={sections}
-        selectedClass={classId}
-        selectedSection={sectionId}
-        selectedStatus={status}
-        loading={loadingClassesSections}
-        onSelectClass={setClassId}
-        onSelectSection={setSectionId}
-        onSelectStatus={setStatus}
-        onApply={applyFilters}
-        onClose={() => setShowFilterModal(false)}
-      />
+      <Modal visible={showFilterModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Class & Section</Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.modalClose}>
+                <XCircle size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.modalLabel}>Class</Text>
+              <View style={styles.chipContainer}>
+                <TouchableOpacity
+                  style={[styles.chip, !classId && styles.chipActive]}
+                  onPress={() => setClassId('')}
+                >
+                  <Text style={[styles.chipText, !classId && styles.chipTextActive]}>All Classes</Text>
+                </TouchableOpacity>
+                {classes.map((cls) => (
+                  <TouchableOpacity
+                    key={cls.id}
+                    style={[styles.chip, classId === cls.id && styles.chipActive]}
+                    onPress={() => setClassId(cls.id)}
+                  >
+                    <Text style={[styles.chipText, classId === cls.id && styles.chipTextActive]}>
+                      {cls.name || cls.class_grade}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.modalLabel, { marginTop: 20 }]}>Section</Text>
+              <View style={styles.chipContainer}>
+                <TouchableOpacity
+                  style={[styles.chip, !sectionId && styles.chipActive]}
+                  onPress={() => setSectionId('')}
+                >
+                  <Text style={[styles.chipText, !sectionId && styles.chipTextActive]}>All Sections</Text>
+                </TouchableOpacity>
+                {sections.map((sec) => (
+                  <TouchableOpacity
+                    key={sec.id}
+                    style={[styles.chip, sectionId === sec.id && styles.chipActive]}
+                    onPress={() => setSectionId(sec.id)}
+                  >
+                    <Text style={[styles.chipText, sectionId === sec.id && styles.chipTextActive]}>
+                      {sec.name || sec.section}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <AppButton
+                title="Apply Filters"
+                onPress={() => setShowFilterModal(false)}
+                style={styles.modalApplyBtn}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -563,317 +567,324 @@ export default function LeaveApprovalScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f6fb',
+    backgroundColor: '#F8FAFC',
   },
-  contentContainer: {
+  heroHeader: {
+    backgroundColor: '#001F3F',
+    height: 200,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  heroContent: {
+    marginTop: 25,
+  },
+  heroGreeting: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  heroSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  filterCard: {
+    marginTop: -40,
+    borderRadius: 20,
     padding: 16,
-    paddingBottom: 40,
+    backgroundColor: '#FFFFFF',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
-  header: {
+  filterHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
-  titleWrap: {
+  filterTitleContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  subText: {
-    color: '#64748b',
-    fontSize: 14,
-  },
-  refreshBtn: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#ffffff',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-  },
-  refreshBtnText: {
-    color: '#475569',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  filterBar: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  filterBtn: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-  },
-  filterBtnText: {
-    color: '#475569',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  resetBtn: {
-    backgroundColor: '#f1f5f9',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-  },
-  resetBtnText: {
-    color: '#64748b',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  activeFilters: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
-    padding: 10,
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
   },
-  activeFiltersLabel: {
-    fontSize: 12,
+  filterTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  resetText: {
+    fontSize: 14,
+    color: '#2563EB',
     fontWeight: '600',
-    color: '#64748b',
   },
-  filterTag: {
-    backgroundColor: '#e2e8f0',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 16,
+  filterGrid: {
+    gap: 12,
   },
-  filterTagText: {
-    fontSize: 11,
+  filterItem: {
+    gap: 8,
+  },
+  filterLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  statusToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 4,
+  },
+  statusBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  statusBtnActive: {
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  statusBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  statusBtnTextActive: {
+    color: '#001F3F',
+  },
+  advancedFilterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 48,
+    gap: 10,
+  },
+  advancedFilterText: {
+    flex: 1,
+    fontSize: 14,
     color: '#334155',
     fontWeight: '500',
   },
-  successContainer: {
-    backgroundColor: '#d1fae5',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 16,
+  sectionHeader: {
+    marginTop: 24,
+    marginBottom: 12,
   },
-  successText: {
-    color: '#065f46',
-    fontSize: 13,
-    fontWeight: '600',
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
   },
-  errorContainer: {
-    backgroundColor: '#fee2e2',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: '#991b1b',
-    fontSize: 13,
-    fontWeight: '600',
+  requestsList: {
+    gap: 12,
   },
   requestCard: {
-    marginBottom: 12,
     padding: 16,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#edf2f7',
+  },
+  studentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  avatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   studentName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: '#0F172A',
   },
   rollNumber: {
     fontSize: 12,
-    color: '#64748b',
+    color: '#64748B',
     marginTop: 2,
   },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+  },
   cardDetails: {
-    marginBottom: 12,
+    gap: 12,
   },
-  detailRow: {
+  detailGrid: {
     flexDirection: 'row',
-    marginBottom: 8,
+    flexWrap: 'wrap',
+    gap: 16,
   },
-  detailLabel: {
-    width: 65,
-    fontSize: 13,
-    color: '#64748b',
-    fontWeight: '500',
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   detailValue: {
-    flex: 1,
     fontSize: 13,
-    color: '#0f172a',
-    fontWeight: '500',
+    color: '#475569',
+    fontWeight: '600',
   },
-  reasonContainer: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#edf2f7',
-  },
-  reasonLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748b',
-    marginBottom: 4,
+  reasonBox: {
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   reasonText: {
-    fontSize: 13,
-    color: '#334155',
-    lineHeight: 18,
+    flex: 1,
+    fontSize: 14,
+    color: '#64748B',
+    lineHeight: 20,
   },
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#edf2f7',
+    marginTop: 16,
   },
   actionBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    borderRadius: 10,
+    gap: 8,
   },
   approveBtn: {
-    backgroundColor: '#22c55e',
+    backgroundColor: '#001F3F',
   },
   rejectBtn: {
-    backgroundColor: '#ef4444',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
   },
-  actionBtnText: {
-    color: '#ffffff',
+  approveBtnText: {
+    color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 14,
+  },
+  rejectBtnText: {
+    color: '#B91C1C',
+    fontWeight: '700',
+    fontSize: 14,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-  },
-  badgePending: {
-    backgroundColor: '#fef3c7',
-  },
-  badgeApproved: {
-    backgroundColor: '#dcfce7',
-  },
-  badgeRejected: {
-    backgroundColor: '#fee2e2',
-  },
-  badgeIcon: {
-    fontSize: 11,
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
   },
   badgeText: {
     fontSize: 11,
     fontWeight: '700',
+    textTransform: 'uppercase',
   },
-  badgeTextPending: {
-    color: '#b45309',
-  },
-  badgeTextApproved: {
-    color: '#15803d',
-  },
-  badgeTextRejected: {
-    color: '#b91c1c',
-  },
-  emptyContainer: {
+  loaderContainer: {
+    padding: 40,
     alignItems: 'center',
-    padding: 48,
   },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
+  emptyState: {
+    padding: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 4,
-  },
-  emptyText: {
+  emptyStateText: {
+    marginTop: 10,
+    color: '#94A3B8',
     fontSize: 14,
-    color: '#64748b',
+    fontWeight: '500',
     textAlign: 'center',
-  },
-  footer: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#edf2f7',
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#94a3b8',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     maxHeight: '80%',
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: '#F1F5F9',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: '#0F172A',
   },
   modalClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f0f2f7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCloseText: {
-    fontSize: 16,
-    color: '#4a5568',
+    padding: 4,
   },
   modalBody: {
-    padding: 16,
+    padding: 20,
   },
   modalLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#4a5568',
+    fontWeight: '700',
+    color: '#64748B',
     marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   chipContainer: {
     flexDirection: 'row',
@@ -883,27 +894,30 @@ const styles = StyleSheet.create({
   chip: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: '#E2E8F0',
   },
   chipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
   },
   chipText: {
     fontSize: 14,
-    color: '#4a5568',
+    color: '#64748B',
+    fontWeight: '600',
   },
   chipTextActive: {
-    color: '#fff',
+    color: '#FFFFFF',
   },
   modalFooter: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e4e9f2',
+    padding: 20,
+    paddingTop: 0,
+  },
+  modalApplyBtn: {
+    backgroundColor: '#001F3F',
+    height: 52,
+    borderRadius: 12,
   },
 });

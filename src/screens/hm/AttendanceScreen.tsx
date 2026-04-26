@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,18 +10,23 @@ import {
   Modal,
   Alert,
   Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
+import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
 
 // Local theme bridge
 const C = {
@@ -200,6 +205,14 @@ const ExportModal: React.FC<{
   const [exporting, setExporting] = useState<boolean>(false);
   const [progress, setProgress] = useState<string>('');
   const [selectedSections, setSelectedSections] = useState<Set<string>>(new Set());
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const groups = useMemo(() => {
     if (type !== 'students' || !classItems) return [];
@@ -307,16 +320,21 @@ const ExportModal: React.FC<{
         title: 'Export Attendance',
       });
 
+      if (!isMounted.current) return;
       showToast(`${type === 'teachers' ? 'Teachers' : 'Students'} export completed`);
       onClose();
     } catch (error: any) {
+      if (!isMounted.current) return;
+      if (error?.response?.status === 401) return;
       console.error('Export Error:', error);
       if (error.message !== 'User did not share') {
         showToast('Export failed', 'error');
       }
     } finally {
-      setExporting(false);
-      setProgress('');
+      if (isMounted.current) {
+        setExporting(false);
+        setProgress('');
+      }
     }
   };
 
@@ -482,6 +500,14 @@ const StudentsView: React.FC<{
   const [loading, setLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const loadStudents = useCallback(async (sec: SectionGroup) => {
     if (!sec) return;
@@ -495,11 +521,17 @@ const StudentsView: React.FC<{
           on_date: iso(date),
         },
       });
-      setStudents(res.data?.items || []);
-    } catch (error) {
+      if (isMounted.current) {
+        setStudents(res.data?.items || []);
+      }
+    } catch (error: any) {
+      if (!isMounted.current) return;
+      if (error?.response?.status === 401) return;
       Alert.alert('Error', 'Failed to load students');
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   }, [headers, date]);
 
@@ -730,6 +762,9 @@ const StudentsView: React.FC<{
 
 export default function HMAttendanceScreen() {
   const route = useRoute<any>();
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
   const [view, setView] = useState<'teachers' | 'students'>('teachers');
@@ -754,6 +789,7 @@ export default function HMAttendanceScreen() {
   const [showTeacherExport, setShowTeacherExport] = useState<boolean>(false);
 
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: string }>({ visible: false, message: '', type: 'success' });
+  const isMounted = useRef(true);
 
   const ITEMS_PER_PAGE = 12;
 
@@ -763,14 +799,35 @@ export default function HMAttendanceScreen() {
   }, []);
 
   useEffect(() => {
+    isMounted.current = true;
     const load = async () => {
       const code = await getSchoolCode();
       const bid = await getBranchId();
-      setSchoolCode(code);
-      setBranchId(bid);
+      if (isMounted.current) {
+        setSchoolCode(code);
+        setBranchId(bid);
+      }
     };
     load();
+
+    setTabBarVisible(true);
+    return () => {
+      isMounted.current = false;
+      setTabBarVisible(true);
+    };
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   const loadTeachers = useCallback(async () => {
     if (!schoolCode || !branchId) return;
@@ -780,11 +837,17 @@ export default function HMAttendanceScreen() {
         headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId },
         params: { on_date: iso(date) },
       });
-      setTeachers(res.data?.items || []);
-    } catch (error) {
+      if (isMounted.current) {
+        setTeachers(res.data?.items || []);
+      }
+    } catch (error: any) {
+      if (!isMounted.current) return;
+      if (error?.response?.status === 401) return;
       showToast('Failed to load teachers', 'error');
     } finally {
-      setLoadingTeachers(false);
+      if (isMounted.current) {
+        setLoadingTeachers(false);
+      }
     }
   }, [schoolCode, branchId, date]);
 
@@ -796,11 +859,17 @@ export default function HMAttendanceScreen() {
         headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId },
         params: { on_date: iso(date) },
       });
-      setClassItems(res.data?.items || []);
-    } catch (error) {
+      if (isMounted.current) {
+        setClassItems(res.data?.items || []);
+      }
+    } catch (error: any) {
+      if (!isMounted.current) return;
+      if (error?.response?.status === 401) return;
       showToast('Failed to load classes', 'error');
     } finally {
-      setLoadingClasses(false);
+      if (isMounted.current) {
+        setLoadingClasses(false);
+      }
     }
   }, [schoolCode, branchId, date]);
 
@@ -812,11 +881,17 @@ export default function HMAttendanceScreen() {
         headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId },
         params: { scope: stmtScope, on_date: iso(date) },
       });
-      setStatement(res.data);
-    } catch (error) {
+      if (isMounted.current) {
+        setStatement(res.data);
+      }
+    } catch (error: any) {
+      if (!isMounted.current) return;
+      if (error?.response?.status === 401) return;
       console.error('Failed to load statement:', error);
     } finally {
-      setLoadingStatement(false);
+      if (isMounted.current) {
+        setLoadingStatement(false);
+      }
     }
   }, [schoolCode, branchId, date, stmtScope]);
 
@@ -872,6 +947,19 @@ export default function HMAttendanceScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Header */}
+      <View style={styles.headerStandard}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <AppText style={styles.headerTitle}>Attendance Management</AppText>
+        <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh}>
+          <Icon name="refresh-cw" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
       {toast.visible && (
         <View style={[styles.toast, toast.type === 'error' ? styles.toastError : styles.toastSuccess]}>
           <AppText style={styles.toastText} weight="bold">{toast.message}</AppText>
@@ -879,13 +967,15 @@ export default function HMAttendanceScreen() {
       )}
 
       <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={C.primary} />}
       >
-        <View style={styles.header}>
-          <AppText style={styles.title} weight="bold">📊 Attendance Management</AppText>
-          <AppText style={styles.subtitle}>
-            {view === 'teachers' ? `${filteredTeachers.length} teachers` : `${classItems.length} classes`}
+        <View style={styles.subHeader}>
+          <AppText style={styles.subHeaderText}>
+            {view === 'teachers' ? `${filteredTeachers.length} teachers tracked` : `${classItems.length} classes tracked`}
           </AppText>
         </View>
 
@@ -1099,8 +1189,51 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
+    flex: 1,
+  },
+  refreshIconBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  subHeader: {
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    marginBottom: 16,
+  },
+  subHeaderText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '600',
+  },
   contentContainer: {
-    padding: 16,
     paddingBottom: 40,
   },
   toast: {

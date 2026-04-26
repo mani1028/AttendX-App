@@ -1,16 +1,38 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
   RefreshControl,
   Alert,
+  StatusBar,
+  Platform,
+  TouchableOpacity,
+  Modal,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
+import { colors } from '../../constants/theme';
+import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
+
+// Local theme bridge
+const C = {
+  bg: colors.bg,
+  card: colors.surface,
+  border: colors.border,
+  text: colors.textPrimary,
+  textMuted: colors.textMuted,
+  primary: colors.primary,
+  success: colors.success,
+  error: colors.error,
+  warning: colors.warning,
+};
 
 interface PendingStudent {
   student_id: string;
@@ -25,6 +47,9 @@ interface PendingStudent {
 }
 
 const PendingStudents = () => {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
   const [students, setStudents] = useState<PendingStudent[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,7 +60,21 @@ const PendingStudents = () => {
   // Load school code from storage
   useEffect(() => {
     loadSchoolCode();
+    setTabBarVisible(true);
+    return () => setTabBarVisible(true);
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   useEffect(() => {
     if (schoolCode) {
@@ -141,37 +180,37 @@ const PendingStudents = () => {
       >
         <View style={styles.studentInfo}>
           <View style={styles.studentHeader}>
-            <Text style={styles.studentName}>{item.student_name}</Text>
+            <AppText style={styles.studentName}>{item.student_name}</AppText>
             {isUrgent && (
               <View style={styles.urgentBadge}>
                 <Icon name="clock" size={12} color="#dc2626" />
-                <Text style={styles.urgentText}>Overdue</Text>
+                <AppText style={styles.urgentText}>Overdue</AppText>
               </View>
             )}
           </View>
           {item.class_grade && item.section && (
-            <Text style={styles.studentClass}>
+            <AppText style={styles.studentClass}>
               Class {item.class_grade} - Section {item.section}
-            </Text>
+            </AppText>
           )}
           <View style={styles.feeDetails}>
-            <Text style={styles.feeText}>Total: {formatAmount(item.total_fee)}</Text>
-            <Text style={styles.paidText}>Paid: {formatAmount(item.paid_amount)}</Text>
-            <Text style={[styles.dueText, { color: statusStyle.color }]}>
+            <AppText style={styles.feeText}>Total: {formatAmount(item.total_fee)}</AppText>
+            <AppText style={styles.paidText}>Paid: {formatAmount(item.paid_amount)}</AppText>
+            <AppText style={[styles.dueText, { color: statusStyle.color }]}>
               Due: {formatAmount(item.due_amount)}
-            </Text>
+            </AppText>
           </View>
           {item.due_date && (
-            <Text style={styles.dueDate}>
+            <AppText style={styles.dueDate}>
               Due Date: {formatDate(item.due_date)}
-            </Text>
+            </AppText>
           )}
         </View>
         <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
           <Icon name={statusStyle.icon as any} size={12} color={statusStyle.color} />
-          <Text style={[styles.statusText, { color: statusStyle.color }]}>
+          <AppText style={[styles.statusText, { color: statusStyle.color }]}>
             {getStatusText(item.status)}
-          </Text>
+          </AppText>
         </View>
       </TouchableOpacity>
     );
@@ -179,15 +218,28 @@ const PendingStudents = () => {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Header */}
+      <View style={styles.headerStandard}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <AppText style={styles.headerTitle} weight="bold">Pending Students</AppText>
+        <View style={{ width: 40 }} />
+      </View>
+
       <ScrollView
         style={styles.scrollView}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
         <View style={styles.header}>
-          <Text style={styles.title}>⚠️ Pending Fees Alert</Text>
-          <Text style={styles.subtitle}>Monitor student fee status</Text>
+          <AppText style={styles.title}>⚠️ Pending Fees Alert</AppText>
+          <AppText style={styles.subtitle}>Monitor student fee status</AppText>
         </View>
 
         {/* Summary Cards */}
@@ -195,18 +247,18 @@ const PendingStudents = () => {
           <View style={styles.summaryContainer}>
             <View style={[styles.summaryCard, styles.unpaidCard]}>
               <Icon name="alert-circle" size={24} color="#dc2626" />
-              <Text style={styles.summaryNumber}>{unpaidCount}</Text>
-              <Text style={styles.summaryLabel}>Unpaid Students</Text>
+              <AppText style={styles.summaryNumber}>{unpaidCount}</AppText>
+              <AppText style={styles.summaryLabel}>Unpaid Students</AppText>
             </View>
             <View style={[styles.summaryCard, styles.partialCard]}>
               <Icon name="clock" size={24} color="#d97706" />
-              <Text style={styles.summaryNumber}>{partialCount}</Text>
-              <Text style={styles.summaryLabel}>Partial Payments</Text>
+              <AppText style={styles.summaryNumber}>{partialCount}</AppText>
+              <AppText style={styles.summaryLabel}>Partial Payments</AppText>
             </View>
             <View style={[styles.summaryCard, styles.pendingCard]}>
               <Icon name="dollar-sign" size={24} color="#059669" />
-              <Text style={styles.summaryNumber}>{formatAmount(totalPending)}</Text>
-              <Text style={styles.summaryLabel}>Total Pending</Text>
+              <AppText style={styles.summaryNumber}>{formatAmount(totalPending)}</AppText>
+              <AppText style={styles.summaryLabel}>Total Pending</AppText>
             </View>
           </View>
         )}
@@ -215,24 +267,24 @@ const PendingStudents = () => {
         {students.length > 0 && (
           <View style={styles.alertBanner}>
             <Icon name="alert-triangle" size={20} color="#7f1d1d" />
-            <Text style={styles.alertText}>
+            <AppText style={styles.alertText}>
               {unpaidCount} student{unpaidCount !== 1 ? 's' : ''} with unpaid fees | 
               Total Pending: {formatAmount(totalPending)}
-            </Text>
+            </AppText>
           </View>
         )}
 
         {/* Collection Rate */}
         {students.length > 0 && (
           <View style={styles.collectionCard}>
-            <Text style={styles.collectionTitle}>Collection Rate</Text>
+            <AppText style={styles.collectionTitle}>Collection Rate</AppText>
             <View style={styles.progressBarContainer}>
               <View style={[styles.progressBar, { width: `${collectionRate}%` }]} />
             </View>
-            <Text style={styles.collectionRate}>{collectionRate.toFixed(1)}%</Text>
-            <Text style={styles.collectionDetails}>
+            <AppText style={styles.collectionRate}>{collectionRate.toFixed(1)}%</AppText>
+            <AppText style={styles.collectionDetails}>
               {formatAmount(totalPaid)} collected out of {formatAmount(totalFees)}
-            </Text>
+            </AppText>
           </View>
         )}
 
@@ -240,13 +292,13 @@ const PendingStudents = () => {
         {loading && students.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#059669" />
-            <Text style={styles.loadingText}>Loading pending students...</Text>
+            <AppText style={styles.loadingText}>Loading pending students...</AppText>
           </View>
         ) : students.length > 0 ? (
           <View style={styles.studentsList}>
             <View style={styles.listHeader}>
-              <Text style={styles.listTitle}>Students with Pending Fees</Text>
-              <Text style={styles.studentCount}>{students.length} Students</Text>
+              <AppText style={styles.listTitle}>Students with Pending Fees</AppText>
+              <AppText style={styles.studentCount}>{students.length} Students</AppText>
             </View>
             {students.map((student, index) => (
               <React.Fragment key={student.student_id || index}>
@@ -257,8 +309,8 @@ const PendingStudents = () => {
         ) : (
           <View style={styles.emptyContainer}>
             <Icon name="check-circle" size={64} color="#059669" />
-            <Text style={styles.emptyTitle}>All Clear!</Text>
-            <Text style={styles.emptyText}>No pending fees! All students are up-to-date. ✓</Text>
+            <AppText style={styles.emptyTitle}>All Clear!</AppText>
+            <AppText style={styles.emptyText}>No pending fees! All students are up-to-date. ✓</AppText>
           </View>
         )}
       </ScrollView>
@@ -273,7 +325,7 @@ const PendingStudents = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Student Fee Details</Text>
+              <AppText style={styles.modalTitle}>Student Fee Details</AppText>
               <TouchableOpacity onPress={() => setShowDetailsModal(false)}>
                 <Icon name="x" size={24} color="#4a5568" />
               </TouchableOpacity>
@@ -282,52 +334,52 @@ const PendingStudents = () => {
             {selectedStudent && (
               <ScrollView style={styles.modalBody}>
                 <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Student Name</Text>
-                  <Text style={styles.detailValue}>{selectedStudent.student_name}</Text>
+                  <AppText style={styles.detailLabel}>Student Name</AppText>
+                  <AppText style={styles.detailValue}>{selectedStudent.student_name}</AppText>
                 </View>
 
                 {selectedStudent.class_grade && (
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Class & Section</Text>
-                    <Text style={styles.detailValue}>
+                    <AppText style={styles.detailLabel}>Class & Section</AppText>
+                    <AppText style={styles.detailValue}>
                       Class {selectedStudent.class_grade} - Section {selectedStudent.section}
-                    </Text>
+                    </AppText>
                   </View>
                 )}
 
                 <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Total Fee</Text>
-                  <Text style={styles.detailValue}>{formatAmount(selectedStudent.total_fee)}</Text>
+                  <AppText style={styles.detailLabel}>Total Fee</AppText>
+                  <AppText style={styles.detailValue}>{formatAmount(selectedStudent.total_fee)}</AppText>
                 </View>
 
                 <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Amount Paid</Text>
-                  <Text style={[styles.detailValue, styles.paidDetail]}>
+                  <AppText style={styles.detailLabel}>Amount Paid</AppText>
+                  <AppText style={[styles.detailValue, styles.paidDetail]}>
                     {formatAmount(selectedStudent.paid_amount)}
-                  </Text>
+                  </AppText>
                 </View>
 
                 <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Due Amount</Text>
-                  <Text style={[styles.detailValue, styles.dueDetail, { color: getStatusStyle(selectedStudent.status).color }]}>
+                  <AppText style={styles.detailLabel}>Due Amount</AppText>
+                  <AppText style={[styles.detailValue, styles.dueDetail, { color: getStatusStyle(selectedStudent.status).color }]}>
                     {formatAmount(selectedStudent.due_amount)}
-                  </Text>
+                  </AppText>
                 </View>
 
                 {selectedStudent.due_date && (
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Due Date</Text>
-                    <Text style={styles.detailValue}>{formatDate(selectedStudent.due_date)}</Text>
+                    <AppText style={styles.detailLabel}>Due Date</AppText>
+                    <AppText style={styles.detailValue}>{formatDate(selectedStudent.due_date)}</AppText>
                   </View>
                 )}
 
                 <View style={styles.detailSection}>
-                  <Text style={styles.detailLabel}>Status</Text>
+                  <AppText style={styles.detailLabel}>Status</AppText>
                   <View style={[styles.statusBadgeLarge, { backgroundColor: getStatusStyle(selectedStudent.status).backgroundColor }]}>
                     <Icon name={getStatusStyle(selectedStudent.status).icon as any} size={14} color={getStatusStyle(selectedStudent.status).color} />
-                    <Text style={[styles.statusTextLarge, { color: getStatusStyle(selectedStudent.status).color }]}>
+                    <AppText style={[styles.statusTextLarge, { color: getStatusStyle(selectedStudent.status).color }]}>
                       {getStatusText(selectedStudent.status)}
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
 
@@ -352,7 +404,7 @@ const PendingStudents = () => {
                       }}
                     >
                       <Icon name="bell" size={16} color="#fff" />
-                      <Text style={styles.reminderButtonText}>Send Reminder</Text>
+                      <AppText style={styles.reminderButtonText}>Send Reminder</AppText>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -364,7 +416,7 @@ const PendingStudents = () => {
                 style={styles.closeModalButton}
                 onPress={() => setShowDetailsModal(false)}
               >
-                <Text style={styles.closeModalButtonText}>Close</Text>
+                <AppText style={styles.closeModalButtonText}>Close</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -379,16 +431,37 @@ import { TouchableOpacity, Modal } from 'react-native';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: C.bg,
+  },
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    color: '#ffffff',
+    textAlign: 'center',
+    flex: 1,
   },
   scrollView: {
     flex: 1,
   },
   header: {
     padding: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: C.border,
   },
   title: {
     fontSize: 20,

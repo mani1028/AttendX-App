@@ -2,19 +2,25 @@
 // React Native Conversion (Android + iOS)
 // Exact same logic preserved
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  StatusBar,
+  Platform,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
+import Icon from '@react-native-vector-icons/feather';
 import { colors } from "../../constants/theme";
 import AppText from "../../components/common/AppText";
+import { useAuth } from "../../context/AuthContext";
 
 import SummaryCards from "./SummaryCardsscreen";
 import FeeManagement from "./FeeManagementScreen";
@@ -36,6 +42,8 @@ const C = {
 
 const AccountantDashboardScreen = () => {
   const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
 
   const [activeTab, setActiveTab] = useState("summary");
   const [schoolCode, setSchoolCode] = useState("");
@@ -43,7 +51,21 @@ const AccountantDashboardScreen = () => {
 
   useEffect(() => {
     checkAuthentication();
+    setTabBarVisible(true);
+    return () => setTabBarVisible(true);
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   const checkAuthentication = async () => {
     try {
@@ -93,13 +115,27 @@ const AccountantDashboardScreen = () => {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-    >
-      <AppText style={styles.header}>
-        💰 Accountant Dashboard
-      </AppText>
+    <View style={styles.mainContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Header */}
+      <View style={styles.headerStandard}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <AppText style={styles.headerTitle} weight="bold">Accountant Module</AppText>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
+        <AppText style={styles.header}>
+          💰 Dashboard Overview
+        </AppText>
 
       <ScrollView
         horizontal
@@ -193,6 +229,7 @@ const AccountantDashboardScreen = () => {
         )}
       </View>
     </ScrollView>
+    </View>
   );
 };
 
@@ -226,10 +263,35 @@ const TabButton = ({
 export default AccountantDashboardScreen;
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    backgroundColor: C.bg,
+  },
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    color: '#ffffff',
+    textAlign: 'center',
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: C.bg,
-    padding: 20,
+    padding: 16,
   },
 
   header: {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,12 +6,19 @@ import {
   ActivityIndicator,
   RefreshControl,
   DimensionValue,
+  Platform,
+  StatusBar,
+  TouchableOpacity,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
 
 // Local theme bridge
 const C = {
@@ -32,6 +39,9 @@ interface MonthlyCollection {
 }
 
 const Reports = () => {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
   const [collections, setCollections] = useState<MonthlyCollection[]>([]);
   const [maxCollection, setMaxCollection] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -41,7 +51,22 @@ const Reports = () => {
   // Load school code from storage
   useEffect(() => {
     loadSchoolCode();
+
+    setTabBarVisible(true);
+    return () => setTabBarVisible(true);
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   useEffect(() => {
     if (schoolCode) {
@@ -134,15 +159,29 @@ const Reports = () => {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Header */}
+      <View style={styles.headerStandard}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <AppText style={styles.headerTitle}>Financial Reports</AppText>
+        <TouchableOpacity style={styles.refreshIconBtn} onPress={() => fetchReports()}>
+          <Icon name="refresh-cw" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
       >
-        <View style={styles.header}>
-          <AppText style={styles.title}>Financial Reports</AppText>
-          <AppText style={styles.subtitle}>Monthly fee collection analysis</AppText>
+        <View style={styles.subHeader}>
+          <AppText style={styles.subHeaderText}>Monthly fee collection analysis</AppText>
         </View>
 
         {/* Monthly Collections Section */}
@@ -287,24 +326,49 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  scrollView: {
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
     flex: 1,
   },
-  header: {
-    padding: 20,
-    backgroundColor: C.card,
+  refreshIconBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  subHeader: {
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomColor: '#e2e8f0',
+    marginBottom: 8,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: C.text,
-  },
-  subtitle: {
+  subHeaderText: {
     fontSize: 14,
-    color: C.textMuted,
-    marginTop: 4,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  scrollView: {
+    flex: 1,
   },
   reportSection: {
     backgroundColor: C.card,

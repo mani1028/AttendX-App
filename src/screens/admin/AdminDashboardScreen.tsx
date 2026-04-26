@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,10 +11,34 @@ import {
   Alert,
   Switch,
   Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import Icon from '@react-native-vector-icons/feather';
+import {
+  Bell,
+  RefreshCw,
+  Calendar,
+  Home,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  Search,
+  X,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Edit2,
+  CreditCard,
+  Mail,
+  Trash2,
+  AlertTriangle,
+  Frown,
+  DollarSign
+} from 'lucide-react-native';
+import * as adminService from '../../services/adminService';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
@@ -23,6 +47,7 @@ import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
 // Types
 interface School {
@@ -197,22 +222,22 @@ const SchoolCard: React.FC<{
 
       <View style={styles.cardActions}>
         <TouchableOpacity style={styles.actionBtn} onPress={() => onEdit(school)}>
-          <Icon name="edit-2" size={12} color={colors.textMuted} />
+          <Edit2 size={12} color={colors.textMuted} />
           <AppText style={styles.actionBtnText}>Edit</AppText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionBtn} onPress={() => onSubscription(school)}>
-          <Icon name="credit-card" size={12} color={colors.textMuted} />
+          <CreditCard size={12} color={colors.textMuted} />
           <AppText style={styles.actionBtnText}>Sub</AppText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionBtn} onPress={() => onResendCredentials(school)}>
-          <Icon name="mail" size={12} color={colors.textMuted} />
+          <Mail size={12} color={colors.textMuted} />
           <AppText style={styles.actionBtnText}>Resend</AppText>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.actionBtn, styles.deleteBtn]} 
           onPress={() => onDelete(school)}
         >
-          <Icon name="trash-2" size={12} color={colors.error} />
+          <Trash2 size={12} color={colors.error} />
           <AppText style={[styles.actionBtnText, styles.deleteBtnText]}>Del</AppText>
         </TouchableOpacity>
       </View>
@@ -224,12 +249,12 @@ const SchoolCard: React.FC<{
 const StatCard: React.FC<{
   title: string;
   value: string | number;
-  icon: string;
+  icon: any;
   color: string;
   loading?: boolean;
-}> = ({ title, value, icon, color, loading }) => (
+}> = ({ title, value, icon: Icon, color, loading }) => (
   <View style={[styles.statCard, { borderLeftColor: color }]}>
-    <Icon name={icon} size={20} color={color} style={{ marginBottom: 4 }} />
+    <Icon size={20} color={color} style={{ marginBottom: 4 }} />
     {loading ? (
       <View style={styles.skeletonValue} />
     ) : (
@@ -294,10 +319,10 @@ const SchoolFormModal: React.FC<{
     setSaving(true);
     try {
       if (mode === 'create') {
-        await API.post('/schools', formData);
+        await adminService.createSchool(formData);
         Alert.alert('Success', 'School created successfully');
       } else {
-        await API.put(`/schools/${initialData?.id}`, formData);
+        await adminService.updateSchool(initialData?.id || '', formData);
         Alert.alert('Success', 'School updated successfully');
       }
       onSuccess();
@@ -325,7 +350,7 @@ const SchoolFormModal: React.FC<{
               {mode === 'create' ? 'Register New School' : 'Edit School Details'}
             </AppText>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <Icon name="x" size={18} color={colors.textMuted} />
+              <X size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -439,8 +464,8 @@ const SubscriptionModal: React.FC<{
     if (!school) return;
     setLoading(true);
     try {
-      const res = await API.get(`/schools/${school.id}/subscription`);
-      setSubscription(res.data.subscription);
+      const sub = await adminService.getSchoolSubscription(school.id);
+      setSubscription(sub);
     } catch (err) {
       console.error('Failed to load subscription', err);
     } finally {
@@ -451,8 +476,8 @@ const SubscriptionModal: React.FC<{
   const fetchPayments = async () => {
     if (!school) return;
     try {
-      const res = await API.get(`/schools/${school.id}/payments`);
-      setPayments(res.data.payments || []);
+      const paymentsList = await adminService.getSchoolPayments(school.id);
+      setPayments(paymentsList);
     } catch (err) {
       console.error('Failed to load payments', err);
     }
@@ -469,7 +494,7 @@ const SubscriptionModal: React.FC<{
         payload.amount_paid = parseFloat(amountPaid) || 0;
         payload.payment_method = paymentMethod;
       }
-      await API.put(`/schools/${school.id}/subscription`, payload);
+      await adminService.updateSubscription(school.id, payload);
       Alert.alert('Success', 'Subscription updated successfully');
       await fetchSubscription();
       onSuccess();
@@ -512,7 +537,7 @@ const SubscriptionModal: React.FC<{
               <AppText style={{ fontSize: 12, color: colors.textMuted }}>{school?.name}</AppText>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <Icon name="x" size={18} color={colors.textMuted} />
+              <X size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -636,7 +661,7 @@ const SubscriptionModal: React.FC<{
             {activeTab === 'history' && (
               payments.length === 0 ? (
                 <View style={styles.emptyPayments}>
-                  <Icon name="dollar-sign" size={40} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 12 }} />
+                  <DollarSign size={40} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 12 }} />
                   <AppText style={styles.emptyText}>No payment records found</AppText>
                 </View>
               ) : (
@@ -688,7 +713,7 @@ const DeleteConfirmModal: React.FC<{
     <View style={styles.modalOverlay}>
       <View style={styles.deleteModal}>
         <View style={styles.deleteIconWrap}>
-          <Icon name="alert-triangle" size={28} color={colors.error} />
+          <AlertTriangle size={28} color={colors.error} />
         </View>
         <AppText style={styles.deleteTitle}>Delete School?</AppText>
         <AppText style={styles.deleteMessage}>
@@ -714,7 +739,7 @@ const DeleteConfirmModal: React.FC<{
 
 export default function AdminDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { userName } = useAuth();
+  const { userName, setTabBarVisible } = useAuth();
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -722,13 +747,16 @@ export default function AdminDashboardScreen() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
-  
+  const { unreadCount } = useUnreadNotifications();
+
   // Modal states
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<School | null>(null);
   const [subscriptionSchool, setSubscriptionSchool] = useState<School | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<School | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const lastScrollY = useRef(0);
 
   const ITEMS_PER_PAGE = 8;
 
@@ -750,8 +778,7 @@ export default function AdminDashboardScreen() {
 
     setLoading(true);
     try {
-      const res = await API.get('/schools/all');
-      const data = Array.isArray(res.data) ? res.data : [];
+      const data = await adminService.getAllSchools();
       setSchools(data);
       await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
     } catch (err: any) {
@@ -781,17 +808,19 @@ export default function AdminDashboardScreen() {
     } catch (e) {}
 
     try {
-      const res = await API.get('/schools/subscription/stats');
-      setStats(res.data.stats);
-      await AsyncStorage.setItem(cacheKey, JSON.stringify(res.data.stats));
+      const statsData = await adminService.getSubscriptionStats();
+      setStats(statsData);
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(statsData));
     } catch (err) {
       console.error('Stats not available', err);
     }
   };
 
   useEffect(() => {
+    setTabBarVisible(true);
     fetchSchools();
     fetchStats();
+    return () => setTabBarVisible(true);
   }, []);
 
   const onRefresh = useCallback(async () => {
@@ -800,11 +829,21 @@ export default function AdminDashboardScreen() {
     setRefreshing(false);
   }, []);
 
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
+      setTabBarVisible(false);
+    } else if (currentScrollY < lastScrollY.current - 10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget?.id) return;
     setDeleting(true);
     try {
-      await API.delete(`/schools/${deleteTarget.id}`);
+      await adminService.deleteSchool(deleteTarget.id);
       Alert.alert('Success', 'School deleted successfully');
       setDeleteTarget(null);
       fetchSchools();
@@ -818,7 +857,7 @@ export default function AdminDashboardScreen() {
 
   const handleResendCredentials = async (school: School) => {
     try {
-      await API.post(`/schools/${school.id}/resend-credentials`);
+      await adminService.resendCredentials(school.id);
       Alert.alert('Success', 'Credentials resent to the registered school email');
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.detail || 'Failed to resend credentials');
@@ -827,7 +866,7 @@ export default function AdminDashboardScreen() {
 
   const handleSendReminder = async (school: School) => {
     try {
-      await API.post(`/schools/${school.id}/send-reminder`);
+      await adminService.sendReminder(school.id);
       Alert.alert('Success', `Reminder sent to ${school.email}`);
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.detail || 'Failed to send reminder');
@@ -892,8 +931,32 @@ export default function AdminDashboardScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Header */}
+      <View style={styles.headerStandard}>
+        <View style={styles.headerTitleContainer}>
+          <AppText style={styles.headerTitle}>Admin Dashboard</AppText>
+        </View>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
+            <Bell size={20} color="#fff" />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
+            <RefreshCw size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.contentContainer}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
       >
         {/* Welcome Section */}
@@ -903,7 +966,7 @@ export default function AdminDashboardScreen() {
             <AppText style={styles.welcomeSub}>Here is what is happening across your schools today.</AppText>
           </View>
           <View style={styles.dateBadge}>
-            <Icon name="calendar" size={12} color={colors.textMuted} />
+            <Calendar size={12} color={colors.textMuted} />
             <AppText style={styles.dateText}>
               {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </AppText>
@@ -913,7 +976,7 @@ export default function AdminDashboardScreen() {
         {/* Expiring Alert */}
         {expiringSchools.length > 0 && (
           <View style={styles.alertBanner}>
-            <Icon name="alert-triangle" size={16} color={colors.warning} />
+            <AlertTriangle size={16} color={colors.warning} />
             <AppText style={styles.alertText}>
               {expiringSchools.length} school(s) have trials ending in 3 days or less!
             </AppText>
@@ -922,10 +985,10 @@ export default function AdminDashboardScreen() {
 
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
-          <StatCard title="Schools" value={stats?.total_schools || 0} icon="home" color={colors.primary} loading={!stats} />
-          <StatCard title="Paid" value={stats?.active_paid || 0} icon="check-circle" color={colors.success} loading={!stats} />
-          <StatCard title="Trial" value={stats?.trial_active || 0} icon="clock" color={colors.secondary} loading={!stats} />
-          <StatCard title="Due" value={stats?.payment_due || 0} icon="alert-circle" color={colors.warning} loading={!stats} />
+          <StatCard title="Schools" value={stats?.total_schools || 0} icon={Home} color={colors.primary} loading={!stats} />
+          <StatCard title="Paid" value={stats?.active_paid || 0} icon={CheckCircle} color={colors.success} loading={!stats} />
+          <StatCard title="Trial" value={stats?.trial_active || 0} icon={Clock} color={colors.secondary} loading={!stats} />
+          <StatCard title="Due" value={stats?.payment_due || 0} icon={AlertCircle} color={colors.warning} loading={!stats} />
         </View>
 
         {/* Filter Bar */}
@@ -949,7 +1012,7 @@ export default function AdminDashboardScreen() {
 
           {/* Search */}
           <View style={styles.searchContainer}>
-            <Icon name="search" size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
+            <Search size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search schools..."
@@ -962,7 +1025,7 @@ export default function AdminDashboardScreen() {
             />
             {searchTerm.length > 0 && (
               <TouchableOpacity onPress={() => setSearchTerm('')} style={styles.clearBtn}>
-                <Icon name="x" size={14} color={colors.textMuted} />
+                <X size={14} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
@@ -976,7 +1039,7 @@ export default function AdminDashboardScreen() {
           <View style={{ marginTop: 40 }}><Loader /></View>
         ) : paginatedSchools.length === 0 ? (
           <AppCard style={styles.emptyCard}>
-            <Icon name="frown" size={48} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 12 }} />
+            <Frown size={48} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 12 }} />
             <AppText style={styles.emptyTitle}>No schools found</AppText>
             <AppText style={styles.emptyText}>Try adjusting your search or filters</AppText>
           </AppCard>
@@ -1002,7 +1065,7 @@ export default function AdminDashboardScreen() {
                   onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                 >
-                  <Icon name="chevron-left" size={18} color={currentPage === 1 ? colors.border : colors.textPrimary} />
+                  <ChevronLeft size={18} color={currentPage === 1 ? colors.border : colors.textPrimary} />
                 </TouchableOpacity>
                 <AppText style={styles.pageInfo}>
                   Page {currentPage} of {totalPages}
@@ -1012,7 +1075,7 @@ export default function AdminDashboardScreen() {
                   onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                 >
-                  <Icon name="chevron-right" size={18} color={currentPage === totalPages ? colors.border : colors.textPrimary} />
+                  <ChevronRight size={18} color={currentPage === totalPages ? colors.border : colors.textPrimary} />
                 </TouchableOpacity>
               </View>
             )}
@@ -1068,6 +1131,57 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 16,
     paddingBottom: 40,
+  },
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  refreshIconBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 18,
+  },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.error,
+    borderWidth: 1.5,
+    borderColor: '#001F3F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   welcomeSection: {
     flexDirection: 'row',

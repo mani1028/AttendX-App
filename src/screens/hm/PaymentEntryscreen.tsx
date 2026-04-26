@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,12 +9,18 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
+  StatusBar,
+  Platform,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
 
 // Local theme bridge
 const C = {
@@ -60,6 +66,9 @@ interface FormData {
 }
 
 const PaymentEntry = () => {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
   const [fees, setFees] = useState<Fee[]>([]);
   const [formData, setFormData] = useState<FormData>({
     fee_id: "",
@@ -77,7 +86,21 @@ const PaymentEntry = () => {
   // Load school code from storage
   useEffect(() => {
     loadSchoolCode();
+    setTabBarVisible(true);
+    return () => setTabBarVisible(true);
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   useEffect(() => {
     if (schoolCode) {
@@ -245,8 +268,21 @@ const PaymentEntry = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView 
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Header */}
+      <View style={styles.headerStandard}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <AppText style={styles.headerTitle} weight="bold">Payment Entry</AppText>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView
         style={styles.scrollView}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
@@ -503,6 +539,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
+  },
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    color: '#ffffff',
+    textAlign: 'center',
+    flex: 1,
   },
   scrollView: {
     flex: 1,

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,12 +8,18 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
+  Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
 
 // Local theme bridge
 const C = {
@@ -58,6 +64,10 @@ const getBranchId = async (): Promise<string> => {
 };
 
 export default function HMTeacherLeavesPage() {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const isMounted = useRef(true);
+  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
   const [status, setStatus] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | ''>('PENDING');
@@ -72,8 +82,28 @@ export default function HMTeacherLeavesPage() {
 
   // Load credentials
   useEffect(() => {
+    isMounted.current = true;
     loadCredentials();
+
+    // Ensure tab bar is visible on entry and cleanup
+    setTabBarVisible(true);
+    return () => {
+      isMounted.current = false;
+      setTabBarVisible(true);
+    };
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   useEffect(() => {
     if (schoolCode && branchId) {
@@ -84,16 +114,20 @@ export default function HMTeacherLeavesPage() {
   const loadCredentials = async () => {
     const code = await getSchoolCode();
     const branch = await getBranchId();
-    setSchoolCode(code);
-    setBranchId(branch);
+    if (isMounted.current) {
+      setSchoolCode(code);
+      setBranchId(branch);
+    }
   };
 
   const loadRequests = async () => {
     if (!schoolCode || !branchId) return;
 
-    setMsg('');
-    setError('');
-    setLoading(true);
+    if (isMounted.current) {
+      setMsg('');
+      setError('');
+      setLoading(true);
+    }
 
     try {
       const res = await API.post('/manage/hm/teacher-leave-requests', {
@@ -102,12 +136,18 @@ export default function HMTeacherLeavesPage() {
         status: status || null,
       });
 
-      setItems(res.data?.items || []);
+      if (isMounted.current) {
+        setItems(res.data?.items || []);
+      }
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to load leave requests');
-      setItems([]);
+      if (err?.response?.status !== 401 && isMounted.current) {
+        setError(err?.response?.data?.detail || 'Failed to load leave requests');
+        setItems([]);
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -118,9 +158,11 @@ export default function HMTeacherLeavesPage() {
   };
 
   const actOnLeave = async (leaveId: string, action: 'APPROVED' | 'REJECTED') => {
-    setMsg('');
-    setError('');
-    setActionLoading(true);
+    if (isMounted.current) {
+      setMsg('');
+      setError('');
+      setActionLoading(true);
+    }
 
     try {
       await API.put('/manage/hm/teacher-leave-requests/action', {
@@ -129,18 +171,28 @@ export default function HMTeacherLeavesPage() {
         action,
       });
 
-      setMsg(`Leave ${action.toLowerCase()} successfully`);
-      await loadRequests();
-      
-      // Auto clear message after 3 seconds
-      setTimeout(() => setMsg(''), 3000);
+      if (isMounted.current) {
+        setMsg(`Leave ${action.toLowerCase()} successfully`);
+        await loadRequests();
+
+        // Auto clear message after 3 seconds
+        setTimeout(() => {
+          if (isMounted.current) setMsg('');
+        }, 3000);
+      }
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to update leave status');
-      setTimeout(() => setError(''), 3000);
+      if (err?.response?.status !== 401 && isMounted.current) {
+        setError(err?.response?.data?.detail || 'Failed to update leave status');
+        setTimeout(() => {
+          if (isMounted.current) setError('');
+        }, 3000);
+      }
     } finally {
-      setActionLoading(false);
-      setShowStatusModal(false);
-      setSelectedLeave(null);
+      if (isMounted.current) {
+        setActionLoading(false);
+        setShowStatusModal(false);
+        setSelectedLeave(null);
+      }
     }
   };
 
@@ -262,27 +314,32 @@ export default function HMTeacherLeavesPage() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Header */}
+      <View style={styles.headerStandard}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <AppText style={styles.headerTitle}>Teacher Leave Approvals</AppText>
+        <TouchableOpacity style={styles.refreshIconBtn} onPress={loadRequests} disabled={loading}>
+          <Icon name="refresh-cw" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.titleWrap}>
-            <Icon name="calendar" size={20} color={C.primary} />
-            <View>
-              <AppText style={styles.title}>Teacher Leave Approvals</AppText>
-              <AppText style={styles.subText}>
-                {pendingCount > 0 ? `${pendingCount} pending` : 'All reviewed'}
-              </AppText>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.refreshBtn} onPress={loadRequests} disabled={loading}>
-            <Icon name="refresh-cw" size={16} color={C.text} />
-            <AppText style={styles.refreshBtnText}>Refresh</AppText>
-          </TouchableOpacity>
+        {/* Sub Header Info */}
+        <View style={styles.subHeader}>
+          <AppText style={styles.subHeaderText}>
+            {pendingCount > 0 ? `${pendingCount} pending requests` : 'All requests reviewed'}
+          </AppText>
         </View>
 
         {/* Status Filter */}
@@ -465,47 +522,49 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  scrollView: {
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  refreshIconBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    paddingBottom: 12,
-    gap: 12,
   },
-  titleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  subHeader: {
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    marginBottom: 16,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: C.text,
+  subHeaderText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '600',
   },
-  subText: {
-    color: C.textMuted,
-    fontSize: 13,
-    marginTop: 2,
-  },
-  refreshBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  refreshBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: C.text,
+  scrollView: {
+    flex: 1,
   },
   filterContainer: {
     paddingHorizontal: 16,

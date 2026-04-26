@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
     View,
     Text,
@@ -13,17 +13,14 @@ import {
     Dimensions,
     StatusBar,
     Modal,
+    NativeSyntheticEvent,
+    NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import LinearGradient from 'react-native-linear-gradient';
-import API from '../../services/api';
-import { colors } from '../../constants/colors';
+import { getTeachersForLeave, getLeaveRequests, submitLeaveRequest } from '../../services/studentService';
 import { useAuth } from '../../context/AuthContext';
 import Icon from '@react-native-vector-icons/feather';
-import AppButton from '../../components/common/AppButton';
-import AppCard from '../../components/common/AppCard';
-import AppText from '../../components/common/AppText';
 
 const { width, height } = Dimensions.get('window');
 
@@ -44,9 +41,38 @@ interface LeaveRequest {
     reason: string;
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
     created_at?: string;
+    teacher_comment?: string;
 }
 
 // Helper functions
+const formatDateRange = (from: string, to: string) => {
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    if (from === to) {
+        return fromDate.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+        });
+    }
+    return `${fromDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+    })} - ${toDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    })}`;
+};
+
+const getDuration = (from: string, to: string) => {
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    const diffTime = Math.abs(toDate.getTime() - fromDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+};
+
 const getSchoolCode = async (): Promise<string> => {
     const code = await AsyncStorage.getItem('school_code');
     return code || (await AsyncStorage.getItem('schoolCode')) || '';
@@ -97,71 +123,14 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 
     return (
         <View style={[styles.badge, config.container]}>
-            <Icon name={config.icon} size={12} color={config.iconColor} />
+            <Icon name={config.icon as any} size={12} color={config.iconColor} />
             <Text style={[styles.badgeText, config.text]}>{config.label}</Text>
         </View>
     );
 };
 
-// Teacher Card Component
-const TeacherCard: React.FC<{
-    teacher: Teacher;
-    isSelected: boolean;
-    onSelect: () => void;
-}> = ({ teacher, isSelected, onSelect }) => (
-    <TouchableOpacity
-        style={[styles.teacherCard, isSelected && styles.teacherCardSelected]}
-        onPress={onSelect}
-    >
-        <View style={styles.teacherAvatar}>
-            <Text style={styles.teacherAvatarText}>
-                {teacher.teacher_full_name.charAt(0)}
-            </Text>
-        </View>
-        <View style={styles.teacherInfo}>
-            <Text style={styles.teacherName}>{teacher.teacher_full_name}</Text>
-            {teacher.subject && (
-                <Text style={styles.teacherSubject}>{teacher.subject}</Text>
-            )}
-        </View>
-        {isSelected && (
-            <View style={styles.selectedIndicator}>
-                <Icon name="check" size={16} color="#ffffff" />
-            </View>
-        )}
-    </TouchableOpacity>
-);
-
 // Leave History Card Component
-const LeaveHistoryCard: React.FC<{ request: LeaveRequest }> = ({ request }) => {
-    const formatDateRange = (from: string, to: string) => {
-        const fromDate = new Date(from);
-        const toDate = new Date(to);
-        if (from === to) {
-            return fromDate.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-            });
-        }
-        return `${fromDate.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-        })} - ${toDate.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-        })}`;
-    };
-
-    const getDuration = (from: string, to: string) => {
-        const fromDate = new Date(from);
-        const toDate = new Date(to);
-        const diffTime = Math.abs(toDate.getTime() - fromDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
-    };
-
+const LeaveHistoryCard: React.FC<{ request: LeaveRequest; onView: () => void }> = ({ request, onView }) => {
     return (
         <View style={styles.historyCard}>
             <View style={styles.historyCardHeader}>
@@ -192,34 +161,57 @@ const LeaveHistoryCard: React.FC<{ request: LeaveRequest }> = ({ request }) => {
                 </View>
                 <View style={styles.historyReason}>
                     <Icon name="file-text" size={14} color="#64748b" />
-                    <Text style={styles.historyReasonText} numberOfLines={2}>
+                    <Text style={styles.historyReasonText} numberOfLines={1}>
                         {request.reason}
                     </Text>
                 </View>
+            </View>
+
+            <View style={styles.historyFooter}>
+                <TouchableOpacity style={styles.viewDetailsBtn} onPress={onView}>
+                    <Text style={styles.viewDetailsText}>View Details</Text>
+                    <Icon name="arrow-right" size={14} color="#3b82f6" />
+                </TouchableOpacity>
             </View>
         </View>
     );
 };
 
-export default function LeaveScreen() {
-    const { userName } = useAuth();
+export default function LeaveScreen({ navigation }: any) {
+    const { setTabBarVisible } = useAuth();
+    const isMounted = useRef(true);
     const [schoolCode, setSchoolCode] = useState<string>('');
     const [studentId, setStudentId] = useState<string>('');
     const [parentId, setParentId] = useState<string>('');
 
+    const lastScrollY = useRef(0);
+
+    const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const currentScrollY = event.nativeEvent.contentOffset.y;
+        if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
+            setTabBarVisible(false);
+        } else if (currentScrollY < lastScrollY.current - 10) {
+            setTabBarVisible(true);
+        }
+        lastScrollY.current = currentScrollY;
+    };
+
     // Form fields
+    const [leaveType, setLeaveType] = useState<'ONE_DAY' | 'MULTIPLE_DAYS'>('ONE_DAY');
     const [fromDate, setFromDate] = useState<Date | null>(null);
     const [toDate, setToDate] = useState<Date | null>(null);
     const [reason, setReason] = useState<string>('');
     const [teacherId, setTeacherId] = useState<string>('');
     const [teachers, setTeachers] = useState<Teacher[]>([]);
+    const [showTeacherModal, setShowTeacherModal] = useState<boolean>(false);
 
     // UI states
-    const [loadingTeachers, setLoadingTeachers] = useState<boolean>(false);
     const [submitting, setSubmitting] = useState<boolean>(false);
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [history, setHistory] = useState<LeaveRequest[]>([]);
     const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
+    const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
+    const [showDetailModal, setShowDetailModal] = useState<boolean>(false);
 
     // Date picker states
     const [showFromDatePicker, setShowFromDatePicker] = useState<boolean>(false);
@@ -227,10 +219,12 @@ export default function LeaveScreen() {
 
     // Load stored credentials and cached data
     useEffect(() => {
+        isMounted.current = true;
         const loadInitialData = async () => {
             const code = await getSchoolCode();
             const sid = await getStudentId();
             const pid = await getParentId();
+            if (!isMounted.current) return;
             setSchoolCode(code);
             setStudentId(sid);
             setParentId(pid);
@@ -239,20 +233,23 @@ export default function LeaveScreen() {
             if (sid) {
                try {
                    const cachedTeachers = await AsyncStorage.getItem(`teachers_cache_${sid}`);
-                   if (cachedTeachers) {
+                   if (cachedTeachers && isMounted.current) {
                        const teachersData = JSON.parse(cachedTeachers);
                        setTeachers(teachersData);
-                       if (teachersData.length > 0) setTeacherId(teachersData[0].teacher_id);
+                       // Don't auto-select to show placeholder
                    }
 
                    const cachedHistory = await AsyncStorage.getItem(`leave_history_cache_${sid}`);
-                   if (cachedHistory) setHistory(JSON.parse(cachedHistory));
+                   if (cachedHistory && isMounted.current) setHistory(JSON.parse(cachedHistory));
                } catch (e) {
                    console.log('Failed to load leave cache');
                }
             }
         };
         loadInitialData();
+        return () => {
+            isMounted.current = false;
+        };
     }, []);
 
     // Load data from API when credentials are ready
@@ -264,44 +261,37 @@ export default function LeaveScreen() {
     }, [schoolCode, studentId]);
 
     const loadTeachers = async () => {
-        if (!schoolCode || !studentId) return;
+        if (!studentId) return;
 
-        setLoadingTeachers(true);
         try {
-            const res = await API.get('/manage/student-dashboard/teachers-for-leave', {
-                params: {
-                    school_code: schoolCode,
-                    student_id: studentId,
-                },
-            });
-            const teachersData = res.data?.items || [];
-            setTeachers(teachersData);
-            if (teachersData.length > 0 && !teacherId) {
-                setTeacherId(teachersData[0].teacher_id);
+            const teachersData = await getTeachersForLeave();
+            if (isMounted.current) {
+                setTeachers(teachersData);
+                if (teachersData.length > 0 && !teacherId) {
+                    // Don't auto-select to show placeholder
+                }
             }
             await AsyncStorage.setItem(`teachers_cache_${studentId}`, JSON.stringify(teachersData));
-        } catch (error) {
-            console.error('Failed to load teachers', error);
-        } finally {
-            setLoadingTeachers(false);
+        } catch (error: any) {
+            if (error?.response?.status !== 401) {
+                console.error('Failed to load teachers', error);
+            }
         }
     };
 
     const loadHistory = async () => {
-        if (!schoolCode || !studentId) return;
+        if (!studentId) return;
 
         try {
-            const res = await API.get('/manage/student-dashboard/leave-requests', {
-                params: {
-                    school_code: schoolCode,
-                    student_id: studentId,
-                },
-            });
-            const historyData = res.data?.items || [];
-            setHistory(historyData);
+            const historyData = await getLeaveRequests();
+            if (isMounted.current) {
+                setHistory(historyData);
+            }
             await AsyncStorage.setItem(`leave_history_cache_${studentId}`, JSON.stringify(historyData));
-        } catch (error) {
-            console.error('Failed to load leave history', error);
+        } catch (error: any) {
+            if (error?.response?.status !== 401) {
+                console.error('Failed to load leave history', error);
+            }
         }
     };
 
@@ -318,18 +308,22 @@ export default function LeaveScreen() {
         }
 
         if (!fromDate) {
-            Alert.alert('Error', 'Please select from date');
+            Alert.alert('Error', 'Please select a date');
             return;
         }
 
-        if (!toDate) {
-            Alert.alert('Error', 'Please select to date');
-            return;
-        }
-
-        if (toDate < fromDate) {
-            Alert.alert('Error', 'To date must be after from date');
-            return;
+        let finalToDate = toDate;
+        if (leaveType === 'ONE_DAY') {
+            finalToDate = fromDate;
+        } else {
+            if (!toDate) {
+                Alert.alert('Error', 'Please select to date');
+                return;
+            }
+            if (toDate < fromDate) {
+                Alert.alert('Error', 'To date must be after from date');
+                return;
+            }
         }
 
         if (!reason.trim()) {
@@ -339,32 +333,38 @@ export default function LeaveScreen() {
 
         setSubmitting(true);
         try {
-            await API.post('/manage/student-dashboard/leave-requests', {
-                school_code: schoolCode,
-                student_id: studentId,
+            await submitLeaveRequest({
                 parent_id: parentId ? Number(parentId) : null,
                 teacher_id: teacherId,
                 from_date: formatDate(fromDate),
-                to_date: formatDate(toDate),
+                to_date: formatDate(finalToDate as Date),
                 reason: reason.trim(),
             });
 
-            setShowSuccessModal(true);
-            
-            // Reset form
-            setFromDate(null);
-            setToDate(null);
-            setReason('');
-            await loadHistory();
-            
-            setTimeout(() => {
-                setShowSuccessModal(false);
-            }, 2000);
+            if (isMounted.current) {
+                setShowSuccessModal(true);
+
+                // Reset form
+                setFromDate(null);
+                setToDate(null);
+                setReason('');
+                await loadHistory();
+
+                setTimeout(() => {
+                    if (isMounted.current) {
+                        setShowSuccessModal(false);
+                    }
+                }, 2000);
+            }
         } catch (error: any) {
-            const errorMsg = error?.response?.data?.detail || 'Failed to submit leave request';
-            Alert.alert('Error', errorMsg);
+            if (error?.response?.status !== 401) {
+                const errorMsg = error?.response?.data?.detail || 'Failed to submit leave request';
+                Alert.alert('Error', errorMsg);
+            }
         } finally {
-            setSubmitting(false);
+            if (isMounted.current) {
+                setSubmitting(false);
+            }
         }
     };
 
@@ -389,149 +389,119 @@ export default function LeaveScreen() {
         }
     };
 
-    const getGreeting = () => {
-        const hour = new Date().getHours();
-        if (hour < 12) return 'Morning';
-        if (hour < 17) return 'Afternoon';
-        return 'Evening';
-    };
-
-    const pendingRequests = history.filter(h => h.status === 'PENDING');
-    const approvedRequests = history.filter(h => h.status === 'APPROVED');
-    const rejectedRequests = history.filter(h => h.status === 'REJECTED');
+    const selectedTeacher = teachers.find(t => String(t.teacher_id) === String(teacherId));
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
+            <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
             
+            <View style={styles.header}>
+                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                    <Icon name="arrow-left" size={24} color="#fff" />
+                </TouchableOpacity>
+                <View style={styles.headerTitleContainer}>
+                    <Text style={styles.headerTitle}>Leave Requests</Text>
+                    <Text style={styles.headerSubtitle}>{history.length} Records</Text>
+                </View>
+                <TouchableOpacity
+                    style={styles.notificationIcon}
+                    onPress={() => navigation.navigate('Notifications')}
+                >
+                    <Icon name="bell" size={22} color="#fff" />
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.refreshWrapper}>
+                <TouchableOpacity style={styles.refreshPill} onPress={refreshAll}>
+                    <Text style={styles.refreshPillText}>Refresh</Text>
+                    <Icon name="refresh-cw" size={14} color="#3b82f6" />
+                </TouchableOpacity>
+            </View>
+
             <ScrollView
                 contentContainerStyle={styles.contentContainer}
+                showsVerticalScrollIndicator={false}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor="#3b82f6" />
                 }
             >
-                {/* Gradient Header */}
-                <LinearGradient
-                    colors={['#3b82f6', '#2563eb', '#1d4ed8']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.gradientHeader}
-                >
-                    <View style={styles.headerContent}>
-                        <View style={styles.welcomeSection}>
-                            <View>
-                                <Text style={styles.welcomeGreeting}>Good {getGreeting()}! 👋</Text>
-                                <Text style={styles.welcomeTitle}>Leave Management</Text>
-                                <Text style={styles.welcomeSub}>Request time off and track approvals</Text>
-                            </View>
-                            <TouchableOpacity style={styles.notificationIcon}>
-                                <Icon name="bell" size={20} color="#fff" />
-                                {pendingRequests.length > 0 && (
-                                    <View style={styles.notificationBadge}>
-                                        <Text style={styles.notificationBadgeText}>
-                                            {pendingRequests.length}
-                                        </Text>
-                                    </View>
-                                )}
+                <View style={styles.formCard}>
+                    <Text style={styles.cardTitle}>APPLY LEAVE</Text>
+                    
+                    {/* Leave Type Toggle */}
+                    <View style={styles.formGroup}>
+                        <Text style={styles.formLabel}>Leave Type</Text>
+                        <View style={styles.toggleContainer}>
+                            <TouchableOpacity 
+                                style={[styles.toggleButton, leaveType === 'ONE_DAY' && styles.toggleButtonActive]}
+                                onPress={() => setLeaveType('ONE_DAY')}
+                            >
+                                <Text style={[styles.toggleButtonText, leaveType === 'ONE_DAY' && styles.toggleButtonTextActive]}>
+                                    One Day
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.toggleButton, leaveType === 'MULTIPLE_DAYS' && styles.toggleButtonActive]}
+                                onPress={() => setLeaveType('MULTIPLE_DAYS')}
+                            >
+                                <Text style={[styles.toggleButtonText, leaveType === 'MULTIPLE_DAYS' && styles.toggleButtonTextActive]}>
+                                    Multiple Days
+                                </Text>
                             </TouchableOpacity>
                         </View>
                     </View>
-                </LinearGradient>
 
-                {/* Stats Summary */}
-                <View style={styles.statsSection}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll}>
-                        <View style={[styles.statCard, styles.statCardTotal]}>
-                            <Icon name="file-text" size={24} color="#3b82f6" />
-                            <Text style={styles.statNumber}>{history.length}</Text>
-                            <Text style={styles.statLabel}>Total Requests</Text>
-                        </View>
-                        <View style={[styles.statCard, styles.statCardPending]}>
-                            <Icon name="clock" size={24} color="#f59e0b" />
-                            <Text style={styles.statNumber}>{pendingRequests.length}</Text>
-                            <Text style={styles.statLabel}>Pending</Text>
-                        </View>
-                        <View style={[styles.statCard, styles.statCardApproved]}>
-                            <Icon name="check-circle" size={24} color="#22c55e" />
-                            <Text style={styles.statNumber}>{approvedRequests.length}</Text>
-                            <Text style={styles.statLabel}>Approved</Text>
-                        </View>
-                        <View style={[styles.statCard, styles.statCardRejected]}>
-                            <Icon name="x-circle" size={24} color="#ef4444" />
-                            <Text style={styles.statNumber}>{rejectedRequests.length}</Text>
-                            <Text style={styles.statLabel}>Rejected</Text>
-                        </View>
-                    </ScrollView>
-                </View>
-
-                {/* Apply Leave Form Section */}
-                <View style={styles.formSection}>
-                    <Text style={styles.sectionTitle}>Request Leave</Text>
-                    
-                    {/* Teacher Selection */}
+                    {/* Teacher Selection Dropdown */}
                     <View style={styles.formGroup}>
                         <Text style={styles.formLabel}>Select Teacher</Text>
-                        {loadingTeachers ? (
-                            <ActivityIndicator size="large" color="#3b82f6" />
-                        ) : teachers.length === 0 ? (
-                            <View style={styles.noTeachersContainer}>
-                                <Icon name="users" size={32} color="#cbd5e1" />
-                                <Text style={styles.noTeachersText}>No teachers available</Text>
-                            </View>
-                        ) : (
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.teachersScroll}>
-                                {teachers.map((teacher) => (
-                                    <TeacherCard
-                                        key={teacher.teacher_id}
-                                        teacher={teacher}
-                                        isSelected={teacherId === teacher.teacher_id}
-                                        onSelect={() => setTeacherId(teacher.teacher_id)}
-                                    />
-                                ))}
-                            </ScrollView>
-                        )}
+                        <TouchableOpacity
+                            style={styles.dropdownButton}
+                            onPress={() => setShowTeacherModal(true)}
+                        >
+                            <Text style={[styles.dropdownText, !selectedTeacher && styles.dropdownPlaceholder]}>
+                                {selectedTeacher ? selectedTeacher.teacher_full_name : 'Select teacher'}
+                            </Text>
+                            <Icon name="chevron-down" size={20} color="#64748b" />
+                        </TouchableOpacity>
                     </View>
 
                     {/* Date Selection */}
-                    <View style={styles.dateRow}>
-                        <View style={[styles.formGroup, styles.halfWidth]}>
-                            <Text style={styles.formLabel}>From Date</Text>
-                            <TouchableOpacity 
-                                style={styles.datePickerBtn} 
-                                onPress={() => setShowFromDatePicker(true)}
-                            >
-                                <Icon name="calendar" size={18} color="#64748b" />
-                                <Text style={styles.datePickerText}>
-                                    {fromDate ? formatDate(fromDate) : 'Select date'}
-                                </Text>
-                                <Icon name="chevron-down" size={18} color="#64748b" />
-                            </TouchableOpacity>
-                            {showFromDatePicker && (
-                                <DateTimePicker
-                                    value={fromDate || new Date()}
-                                    mode="date"
-                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                    onChange={onFromDateChange}
-                                    minimumDate={new Date()}
-                                />
-                            )}
-                        </View>
+                    <View style={styles.formGroup}>
+                        <Text style={styles.formLabel}>{leaveType === 'ONE_DAY' ? 'Select Date' : 'From Date'}</Text>
+                        <TouchableOpacity
+                            style={styles.inputField}
+                            onPress={() => setShowFromDatePicker(true)}
+                        >
+                            <Text style={[styles.inputText, !fromDate && styles.dropdownPlaceholder]}>
+                                {fromDate ? fromDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }).replace(/\//g, '-') : 'dd-mm-yy'}
+                            </Text>
+                            <Icon name="calendar" size={18} color="#64748b" />
+                        </TouchableOpacity>
+                        {showFromDatePicker && (
+                            <DateTimePicker
+                                value={fromDate || new Date()}
+                                mode="date"
+                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                onChange={onFromDateChange}
+                                minimumDate={new Date()}
+                            />
+                        )}
+                    </View>
 
-                        <View style={[styles.formGroup, styles.halfWidth]}>
+                    {leaveType === 'MULTIPLE_DAYS' && (
+                        <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>To Date</Text>
                             <TouchableOpacity 
-                                style={styles.datePickerBtn} 
+                                style={styles.inputField}
                                 onPress={() => setShowToDatePicker(true)}
                                 disabled={!fromDate}
                             >
-                                <Icon name="calendar" size={18} color="#64748b" />
-                                <Text style={[
-                                    styles.datePickerText,
-                                    !fromDate && styles.datePickerTextDisabled
-                                ]}>
-                                    {toDate ? formatDate(toDate) : 'Select date'}
+                                <Text style={[styles.inputText, (!toDate || !fromDate) && styles.dropdownPlaceholder]}>
+                                    {toDate ? toDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }).replace(/\//g, '-') : 'dd-mm-yy'}
                                 </Text>
-                                <Icon name="chevron-down" size={18} color="#64748b" />
+                                <Icon name="calendar" size={18} color="#64748b" />
                             </TouchableOpacity>
                             {showToDatePicker && (
                                 <DateTimePicker
@@ -543,76 +513,195 @@ export default function LeaveScreen() {
                                 />
                             )}
                         </View>
-                    </View>
+                    )}
 
                     {/* Reason */}
                     <View style={styles.formGroup}>
                         <Text style={styles.formLabel}>Reason for Leave</Text>
-                        <View style={styles.textAreaContainer}>
-                            <TextInput
-                                style={styles.textArea}
-                                multiline
-                                numberOfLines={4}
-                                value={reason}
-                                onChangeText={setReason}
-                                placeholder="Please provide a detailed reason for your leave request..."
-                                placeholderTextColor="#94a3b8"
-                                textAlignVertical="top"
-                            />
-                            <Text style={styles.charCount}>
-                                {reason.length}/500 characters
-                            </Text>
-                        </View>
+                        <TextInput
+                            style={styles.textInputArea}
+                            multiline
+                            numberOfLines={4}
+                            value={reason}
+                            onChangeText={setReason}
+                            placeholder="Reason"
+                            placeholderTextColor="#94a3b8"
+                            textAlignVertical="top"
+                        />
                     </View>
 
                     {/* Submit Button */}
                     <TouchableOpacity
-                        style={styles.submitButton}
+                        style={styles.submitBtn}
                         onPress={handleSubmit}
                         disabled={submitting}
                     >
-                        <LinearGradient
-                            colors={['#3b82f6', '#2563eb']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.submitGradient}
-                        >
-                            {submitting ? (
-                                <ActivityIndicator size="small" color="#fff" />
-                            ) : (
-                                <>
-                                    <Icon name="send" size={18} color="#fff" />
-                                    <Text style={styles.submitButtonText}>Submit Leave Request</Text>
-                                </>
-                            )}
-                        </LinearGradient>
+                        {submitting ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <>
+                                <Icon name="send" size={20} color="#fff" style={styles.submitIcon} />
+                                <Text style={styles.submitBtnText}>Submit Leave Request</Text>
+                            </>
+                        )}
                     </TouchableOpacity>
                 </View>
 
                 {/* Leave History Section */}
-                <View style={styles.historySection}>
-                    <View style={styles.historyHeader}>
-                        <Text style={styles.sectionTitle}>Leave History</Text>
-                        <Text style={styles.historyCount}>{history.length} requests</Text>
-                    </View>
+                <View style={styles.historyCardContainer}>
+                    <Text style={styles.cardTitle}>LEAVE HISTORY</Text>
 
                     {history.length === 0 ? (
-                        <View style={styles.emptyHistory}>
-                            <View style={styles.emptyIconContainer}>
-                                <Icon name="calendar" size={48} color="#cbd5e1" />
+                        <View style={styles.emptyHistoryState}>
+                            <View style={styles.illustrationPlaceholder}>
+                                <View style={styles.illuLayer1} />
+                                <View style={styles.illuLayer2} />
+                                <View style={styles.illuLayer3} />
+                                <Icon name="file-text" size={40} color="#3b82f6" style={styles.illuIcon} />
                             </View>
-                            <Text style={styles.emptyTitle}>No Leave Requests</Text>
-                            <Text style={styles.emptyText}>
-                                You haven't submitted any leave requests yet
+                            <Text style={styles.emptyHistoryTitle}>No Leave Requests Yet</Text>
+                            <Text style={styles.emptyHistorySubtitle}>
+                                Your Leave Request History Will Appear Here
                             </Text>
                         </View>
                     ) : (
                         history.map((request) => (
-                            <LeaveHistoryCard key={request.leave_id} request={request} />
+                            <LeaveHistoryCard
+                                key={request.leave_id}
+                                request={request}
+                                onView={() => {
+                                    setSelectedRequest(request);
+                                    setShowDetailModal(true);
+                                }}
+                            />
                         ))
                     )}
                 </View>
             </ScrollView>
+
+            {/* Leave Detail Modal */}
+            <Modal
+                visible={showDetailModal}
+                transparent
+                animationType="slide"
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.teacherModalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Leave Details</Text>
+                            <TouchableOpacity onPress={() => setShowDetailModal(false)}>
+                                <Icon name="x" size={24} color="#0f172a" />
+                            </TouchableOpacity>
+                        </View>
+                        {selectedRequest && (
+                            <ScrollView style={styles.teacherList}>
+                                <View style={styles.detailCard}>
+                                    <View style={styles.detailStatusRow}>
+                                        <StatusBadge status={selectedRequest.status} />
+                                        <Text style={styles.detailDateText}>
+                                            Applied on {new Date(selectedRequest.created_at || Date.now()).toLocaleDateString('en-GB')}
+                                        </Text>
+                                    </View>
+
+                                    <View style={styles.detailInfoSection}>
+                                        <Text style={styles.detailLabel}>TEACHER</Text>
+                                        <View style={styles.detailValueContainer}>
+                                            <View style={styles.detailAvatar}>
+                                                <Text style={styles.detailAvatarText}>
+                                                    {selectedRequest.teacher_full_name?.charAt(0)}
+                                                </Text>
+                                            </View>
+                                            <View>
+                                                <Text style={styles.detailValueText}>{selectedRequest.teacher_full_name}</Text>
+                                                <Text style={styles.detailSubValueText}>Teacher</Text>
+                                            </View>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.detailInfoSection}>
+                                        <Text style={styles.detailLabel}>DURATION</Text>
+                                        <View style={styles.detailValueContainer}>
+                                            <Icon name="calendar" size={16} color="#64748b" />
+                                            <Text style={styles.detailValueText}>
+                                                {formatDateRange(selectedRequest.from_date, selectedRequest.to_date)}
+                                                {"\n"}<Text style={styles.detailDurationText}>({getDuration(selectedRequest.from_date, selectedRequest.to_date)})</Text>
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.detailInfoSection}>
+                                        <Text style={styles.detailLabel}>REASON</Text>
+                                        <View style={styles.detailReasonBox}>
+                                            <Text style={styles.detailReasonText}>{selectedRequest.reason}</Text>
+                                        </View>
+                                    </View>
+
+                                    {selectedRequest.teacher_comment && (
+                                        <View style={styles.detailInfoSection}>
+                                            <Text style={styles.detailLabel}>TEACHER'S COMMENT</Text>
+                                            <View style={[styles.detailReasonBox, { backgroundColor: '#F0F7FF' }]}>
+                                                <Text style={styles.detailReasonText}>{selectedRequest.teacher_comment}</Text>
+                                            </View>
+                                        </View>
+                                    )}
+                                </View>
+                            </ScrollView>
+                        )}
+                        <TouchableOpacity
+                            style={styles.modalCloseBtn}
+                            onPress={() => setShowDetailModal(false)}
+                        >
+                            <Text style={styles.modalCloseBtnText}>Close</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Teacher Selection Modal */}
+            <Modal
+                visible={showTeacherModal}
+                transparent
+                animationType="slide"
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.teacherModalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Select Teacher</Text>
+                            <TouchableOpacity onPress={() => setShowTeacherModal(false)}>
+                                <Icon name="x" size={24} color="#0f172a" />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.teacherList}>
+                            {teachers.map((teacher) => (
+                                <TouchableOpacity
+                                    key={teacher.teacher_id}
+                                    style={[
+                                        styles.teacherItem,
+                                        String(teacherId) === String(teacher.teacher_id) && styles.teacherItemSelected
+                                    ]}
+                                    onPress={() => {
+                                        setTeacherId(teacher.teacher_id);
+                                        setShowTeacherModal(false);
+                                    }}
+                                >
+                                    <View style={styles.teacherItemAvatar}>
+                                        <Text style={styles.teacherItemAvatarText}>
+                                            {teacher.teacher_full_name.charAt(0)}
+                                        </Text>
+                                    </View>
+                                    <View>
+                                        <Text style={styles.teacherItemName}>{teacher.teacher_full_name}</Text>
+                                        {teacher.subject && <Text style={styles.teacherItemSubject}>{teacher.subject}</Text>}
+                                    </View>
+                                    {String(teacherId) === String(teacher.teacher_id) && (
+                                        <Icon name="check" size={20} color="#3b82f6" style={styles.checkIcon} />
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
 
             {/* Success Modal */}
             <Modal
@@ -620,7 +709,7 @@ export default function LeaveScreen() {
                 transparent
                 animationType="fade"
             >
-                <View style={styles.modalOverlay}>
+                <View style={styles.modalOverlayCenter}>
                     <View style={styles.successModal}>
                         <View style={styles.successIconContainer}>
                             <Icon name="check-circle" size={48} color="#22c55e" />
@@ -639,413 +728,299 @@ export default function LeaveScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8fafc',
+        backgroundColor: '#F8FAFC',
+    },
+    header: {
+        backgroundColor: '#001F3F',
+        height: Platform.OS === 'ios' ? 70 : 55,
+        paddingHorizontal: 16,
+        paddingTop: Platform.OS === 'ios' ? 35 : 0,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    backButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+    },
+    headerTitleContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    headerTitle: {
+        color: '#FFFFFF',
+        fontSize: 17,
+        fontWeight: '700',
+    },
+    headerSubtitle: {
+        display: 'none',
+    },
+    notificationIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255, 255, 255, 0.12)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    refreshWrapper: {
+        display: 'none',
     },
     contentContainer: {
         paddingBottom: 40,
+        paddingTop: 16,
+        paddingHorizontal: 12,
     },
-    gradientHeader: {
-        borderBottomLeftRadius: 24,
-        borderBottomRightRadius: 24,
-        paddingTop: 20,
-        paddingBottom: 30,
-        paddingHorizontal: 20,
-    },
-    headerContent: {
-        marginTop: 10,
-    },
-    welcomeSection: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-    },
-    welcomeGreeting: {
-        fontSize: 14,
-        color: '#bfdbfe',
-        marginBottom: 4,
-    },
-    welcomeTitle: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: '#ffffff',
-        marginBottom: 6,
-    },
-    welcomeSub: {
-        fontSize: 13,
-        color: '#bfdbfe',
-    },
-    notificationIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        position: 'relative',
-    },
-    notificationBadge: {
-        position: 'absolute',
-        top: -4,
-        right: -4,
-        minWidth: 18,
-        height: 18,
-        borderRadius: 9,
-        backgroundColor: '#ef4444',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 4,
-    },
-    notificationBadgeText: {
-        fontSize: 10,
-        fontWeight: '700',
-        color: '#ffffff',
-    },
-    statsSection: {
-        marginTop: -20,
-        paddingHorizontal: 16,
-    },
-    statsScroll: {
-        flexDirection: 'row',
-    },
-    statCard: {
-        backgroundColor: '#ffffff',
-        borderRadius: 16,
+    formCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
         padding: 16,
-        marginRight: 12,
-        minWidth: width * 0.28,
-        alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 3,
+        shadowRadius: 10,
+        elevation: 2,
     },
-    statCardTotal: {
-        borderTopWidth: 3,
-        borderTopColor: '#3b82f6',
-    },
-    statCardPending: {
-        borderTopWidth: 3,
-        borderTopColor: '#f59e0b',
-    },
-    statCardApproved: {
-        borderTopWidth: 3,
-        borderTopColor: '#22c55e',
-    },
-    statCardRejected: {
-        borderTopWidth: 3,
-        borderTopColor: '#ef4444',
-    },
-    statNumber: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: '#0f172a',
-        marginTop: 8,
-    },
-    statLabel: {
-        fontSize: 11,
-        fontWeight: '600',
-        color: '#64748b',
-        marginTop: 4,
-    },
-    formSection: {
-        backgroundColor: '#ffffff',
-        marginHorizontal: 16,
-        marginTop: 20,
-        borderRadius: 20,
-        padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 3,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: '#0f172a',
+    cardTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#1E293B',
         marginBottom: 16,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     formGroup: {
         marginBottom: 20,
     },
     formLabel: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#475569',
+        fontSize: 14,
+        color: '#64748B',
         marginBottom: 8,
-    },
-    teachersScroll: {
-        flexDirection: 'row',
-    },
-    teacherCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#f8fafc',
-        borderRadius: 12,
-        padding: 12,
-        marginRight: 12,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-        minWidth: width * 0.4,
-    },
-    teacherCardSelected: {
-        backgroundColor: '#eff6ff',
-        borderColor: '#3b82f6',
-    },
-    teacherAvatar: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#3b82f6',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    teacherAvatarText: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#ffffff',
-    },
-    teacherInfo: {
-        flex: 1,
-    },
-    teacherName: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#0f172a',
-        marginBottom: 2,
-    },
-    teacherSubject: {
-        fontSize: 11,
-        color: '#64748b',
-    },
-    selectedIndicator: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        backgroundColor: '#3b82f6',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    dateRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        gap: 12,
-    },
-    halfWidth: {
-        flex: 1,
-    },
-    datePickerBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        height: 48,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-        backgroundColor: '#f8fafc',
-        borderRadius: 12,
-        paddingHorizontal: 14,
-    },
-    datePickerText: {
-        flex: 1,
-        fontSize: 14,
-        color: '#0f172a',
-        marginLeft: 8,
-    },
-    datePickerTextDisabled: {
-        color: '#94a3b8',
-    },
-    textAreaContainer: {
-        position: 'relative',
-    },
-    textArea: {
-        minHeight: 100,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-        backgroundColor: '#f8fafc',
-        borderRadius: 12,
-        padding: 12,
-        fontSize: 14,
-        color: '#0f172a',
-        textAlignVertical: 'top',
-    },
-    charCount: {
-        fontSize: 11,
-        color: '#94a3b8',
-        textAlign: 'right',
-        marginTop: 6,
-    },
-    submitButton: {
-        marginTop: 8,
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    submitGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 14,
-    },
-    submitButtonText: {
-        color: '#ffffff',
-        fontSize: 15,
-        fontWeight: '700',
-    },
-    historySection: {
-        paddingHorizontal: 16,
-        marginTop: 20,
-    },
-    historyHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    historyCount: {
-        fontSize: 13,
-        color: '#64748b',
         fontWeight: '500',
     },
-    historyCard: {
-        backgroundColor: '#ffffff',
-        borderRadius: 16,
+    toggleContainer: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    toggleButton: {
+        flex: 1,
+        height: 44,
+        borderRadius: 22,
+        borderWidth: 1,
+        borderColor: '#3B82F6',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    toggleButtonActive: {
+        backgroundColor: '#3B82F6',
+    },
+    toggleButtonText: {
+        color: '#3B82F6',
+        fontWeight: '600',
+    },
+    toggleButtonTextActive: {
+        color: '#FFFFFF',
+    },
+    dropdownButton: {
+        height: 52,
+        backgroundColor: '#F8FAFC',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+    },
+    dropdownText: {
+        fontSize: 15,
+        color: '#1E293B',
+    },
+    dropdownPlaceholder: {
+        color: '#94A3B8',
+    },
+    inputField: {
+        height: 52,
+        backgroundColor: '#F8FAFC',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+    },
+    inputText: {
+        fontSize: 15,
+        color: '#1E293B',
+    },
+    textInputArea: {
+        backgroundColor: '#F8FAFC',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
         padding: 16,
-        marginBottom: 12,
+        fontSize: 15,
+        color: '#1E293B',
+        minHeight: 120,
+    },
+    submitBtn: {
+        backgroundColor: '#3B82F6',
+        height: 54,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 10,
+    },
+    submitIcon: {
+        marginRight: 10,
+        transform: [{ rotate: '-45deg' }, { translateY: -2 }],
+    },
+    submitBtnText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    historyCardContainer: {
+        backgroundColor: '#FFFFFF',
+        marginTop: 15,
+        borderRadius: 12,
+        padding: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
-        shadowRadius: 6,
+        shadowRadius: 10,
         elevation: 2,
     },
-    historyCardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 12,
-    },
-    historyTeacherInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    historyTeacherAvatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#eff6ff',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    historyTeacherAvatarText: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#3b82f6',
-    },
-    historyTeacherName: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#0f172a',
-        marginBottom: 2,
-    },
-    historyDuration: {
-        fontSize: 11,
-        color: '#64748b',
-    },
-    historyCardBody: {
-        gap: 8,
-    },
-    historyDateRange: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    historyDateText: {
-        fontSize: 12,
-        color: '#475569',
-    },
-    historyReason: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 8,
-    },
-    historyReasonText: {
-        flex: 1,
-        fontSize: 13,
-        color: '#64748b',
-        lineHeight: 18,
-    },
-    badge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 4,
-        paddingHorizontal: 10,
-        borderRadius: 12,
-        gap: 6,
-    },
-    badgeApproved: {
-        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    },
-    badgeRejected: {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    },
-    badgePending: {
-        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    },
-    badgeText: {
-        fontSize: 11,
-        fontWeight: '700',
-    },
-    badgeTextApproved: {
-        color: '#22c55e',
-    },
-    badgeTextRejected: {
-        color: '#ef4444',
-    },
-    badgeTextPending: {
-        color: '#f59e0b',
-    },
-    noTeachersContainer: {
+    emptyHistoryState: {
         alignItems: 'center',
         paddingVertical: 30,
     },
-    noTeachersText: {
-        fontSize: 14,
-        color: '#94a3b8',
-        marginTop: 8,
-    },
-    emptyHistory: {
-        alignItems: 'center',
-        paddingVertical: 48,
-        backgroundColor: '#ffffff',
-        borderRadius: 16,
-    },
-    emptyIconContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: '#f1f5f9',
+    illustrationPlaceholder: {
+        width: 150,
+        height: 120,
+        marginBottom: 20,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 16,
     },
-    emptyTitle: {
+    illuLayer1: {
+        width: 100,
+        height: 100,
+        backgroundColor: '#F1F5F9',
+        borderRadius: 50,
+        position: 'absolute',
+    },
+    illuLayer2: {
+        width: 80,
+        height: 80,
+        backgroundColor: '#E2E8F0',
+        borderRadius: 40,
+        position: 'absolute',
+        opacity: 0.5,
+    },
+    illuLayer3: {
+        width: 60,
+        height: 60,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 30,
+        position: 'absolute',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    illuIcon: {
+        zIndex: 1,
+    },
+    emptyHistoryTitle: {
         fontSize: 16,
-        fontWeight: '600',
-        color: '#0f172a',
+        fontWeight: 'bold',
+        color: '#1E293B',
         marginBottom: 8,
     },
-    emptyText: {
+    emptyHistorySubtitle: {
         fontSize: 13,
-        color: '#64748b',
+        color: '#64748B',
         textAlign: 'center',
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalOverlayCenter: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    teacherModalContent: {
+        backgroundColor: '#FFFFFF',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        maxHeight: '80%',
+        paddingBottom: 30,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#1E293B',
+    },
+    teacherList: {
+        padding: 20,
+    },
+    teacherItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F8FAFC',
+    },
+    teacherItemSelected: {
+        backgroundColor: '#F0F7FF',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        marginHorizontal: -12,
+    },
+    teacherItemAvatar: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#3B82F6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    teacherItemAvatarText: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    teacherItemName: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#1E293B',
+    },
+    teacherItemSubject: {
+        fontSize: 13,
+        color: '#64748B',
+        marginTop: 2,
+    },
+    checkIcon: {
+        marginLeft: 'auto',
     },
     successModal: {
         backgroundColor: '#ffffff',
@@ -1068,5 +1043,199 @@ const styles = StyleSheet.create({
         color: '#64748b',
         textAlign: 'center',
         lineHeight: 20,
+    },
+    badge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingVertical: 4,
+        paddingHorizontal: 10,
+        borderRadius: 12,
+    },
+    badgeApproved: {
+        backgroundColor: '#f0fdf4',
+    },
+    badgeRejected: {
+        backgroundColor: '#fef2f2',
+    },
+    badgePending: {
+        backgroundColor: '#fffbeb',
+    },
+    badgeText: {
+        fontSize: 11,
+        fontWeight: 'bold',
+    },
+    badgeTextApproved: {
+        color: '#22c55e',
+    },
+    badgeTextRejected: {
+        color: '#ef4444',
+    },
+    badgeTextPending: {
+        color: '#f59e0b',
+    },
+    historyCard: {
+        backgroundColor: '#F8FAFC',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+    },
+    historyCardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    historyTeacherInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    historyTeacherAvatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#E2E8F0',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    historyTeacherAvatarText: {
+        color: '#64748B',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    historyTeacherName: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#1E293B',
+    },
+    historyDuration: {
+        fontSize: 12,
+        color: '#64748B',
+        marginTop: 2,
+    },
+    historyCardBody: {
+        gap: 10,
+    },
+    historyDateRange: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    historyDateText: {
+        fontSize: 13,
+        color: '#475569',
+    },
+    historyReason: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 8,
+    },
+    historyReasonText: {
+        fontSize: 13,
+        color: '#64748B',
+        lineHeight: 18,
+        flex: 1,
+    },
+    historyFooter: {
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#F1F5F9',
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+    },
+    viewDetailsBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    viewDetailsText: {
+        fontSize: 13,
+        color: '#3b82f6',
+        fontWeight: '600',
+    },
+    detailCard: {
+        backgroundColor: '#fff',
+    },
+    detailStatusRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    detailDateText: {
+        fontSize: 12,
+        color: '#94a3b8',
+    },
+    detailInfoSection: {
+        marginBottom: 20,
+    },
+    detailLabel: {
+        fontSize: 11,
+        fontWeight: 'bold',
+        color: '#94a3b8',
+        marginBottom: 8,
+        letterSpacing: 0.5,
+    },
+    detailValueContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 10,
+    },
+    detailValueText: {
+        fontSize: 15,
+        color: '#1e293b',
+        fontWeight: '600',
+    },
+    detailSubValueText: {
+        fontSize: 12,
+        color: '#94a3b8',
+        marginTop: 2,
+    },
+    detailAvatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#F0F7FF',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    detailAvatarText: {
+        color: '#3B82F6',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    detailDurationText: {
+        fontSize: 13,
+        color: '#3b82f6',
+        fontWeight: '600',
+    },
+    detailReasonBox: {
+        backgroundColor: '#F8FAFC',
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    detailReasonText: {
+        fontSize: 14,
+        color: '#475569',
+        lineHeight: 20,
+    },
+    modalCloseBtn: {
+        margin: 20,
+        backgroundColor: '#F1F5F9',
+        height: 50,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalCloseBtnText: {
+        color: '#475569',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });

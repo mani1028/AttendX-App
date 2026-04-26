@@ -27,15 +27,14 @@ interface Notification {
 const getSchoolCode = async () => (await AsyncStorage.getItem('school_code')) || '';
 const getBranchId = async () => (await AsyncStorage.getItem('branch_id')) || '';
 
-const isNotificationNew = (createdAt: string): boolean => {
-  if (!createdAt) return false;
-  const diff = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60);
-  return diff < 60;
+const isNotificationNew = (id: string, readIds: string[]): boolean => {
+  return !readIds.includes(id);
 };
 
 export default function NotificationPanel({ type = 'student', isHM = false }) {
   const navigation = useNavigation();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [readIds, setReadIds] = useState<string[]>([]);
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -50,9 +49,9 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
     try {
       const schoolCode = await getSchoolCode();
       const branchId = await getBranchId();
-      let endpoint = '/notifications/student/list';
-      if (type === 'teacher') endpoint = '/notifications/teacher/list';
-      else if (type === 'hm') endpoint = '/notifications/hm/list';
+
+      // Use role-based endpoint pattern consistent with useUnreadNotifications hook
+      const endpoint = `/notifications/${type.toLowerCase()}/list`;
 
       const res = await API.get(endpoint, {
         headers: {
@@ -60,8 +59,13 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
           'X-Branch-Id': branchId,
         },
       });
-      const newItems = res.data?.items || [];
+      const newItems = res.data?.items || res.data?.data || [];
       setNotifications(newItems);
+
+      const readStatus = await AsyncStorage.getItem('read_notifications');
+      const currentReadIds = readStatus ? JSON.parse(readStatus) : [];
+      setReadIds(currentReadIds);
+
       if (previousCount >= 0 && newItems.length > previousCount) {
         const added = newItems.length - previousCount;
         const msg = added === 1 ? `📢 new notification: ${newItems[0]?.title}` : `📢 ${added} new notifications`;
@@ -85,7 +89,7 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
     fetchNotifications(); // initial load for badge
     const interval = setInterval(fetchNotifications, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchNotifications]);
 
   const handleDelete = async (id: string) => {
     if (!canDelete) return;
@@ -106,16 +110,25 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
 
   const handleViewAll = () => {
     setVisible(false);
-    if (type === 'student') navigation.navigate('Notifications' as never);
-    else if (type === 'teacher') navigation.navigate('Notifications' as never);
+    navigation.navigate('Notifications' as never);
   };
 
-  const unreadCount = notifications.filter(n => isNotificationNew(n.created_at)).length;
+  const unreadCount = notifications.filter(n => isNotificationNew(n.id, readIds)).length;
 
   const renderItem = ({ item }: { item: Notification }) => {
-    const isNew = isNotificationNew(item.created_at);
+    const isNew = isNotificationNew(item.id, readIds);
     return (
-      <TouchableOpacity style={[styles.notificationItem, isNew && styles.newItem]} onPress={() => {}}>
+      <TouchableOpacity
+        style={[styles.notificationItem, isNew && styles.newItem]}
+        onPress={async () => {
+          // Mark as read when clicked
+          if (isNew) {
+            const newReadIds = [...readIds, item.id];
+            setReadIds(newReadIds);
+            await AsyncStorage.setItem('read_notifications', JSON.stringify(newReadIds));
+          }
+        }}
+      >
         <View style={styles.notificationHeader}>
           <View style={styles.typeBadge}>
             <Text style={styles.typeText}>{item.type || 'Event'}</Text>
@@ -141,9 +154,9 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
     <>
       <TouchableOpacity style={styles.bellButton} onPress={() => setVisible(true)}>
         <Text style={styles.bellIcon}>🔔</Text>
-        {notifications.length > 0 && (
+        {unreadCount > 0 && (
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>{unreadCount || notifications.length}</Text>
+            <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
           </View>
         )}
       </TouchableOpacity>

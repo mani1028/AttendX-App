@@ -11,9 +11,39 @@ import {
   Alert,
   Platform,
   FlatList,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute, NavigationProp } from '@react-navigation/native';
+import { useNavigation, useRoute, NavigationProp, useFocusEffect } from '@react-navigation/native';
+import {
+  Bell,
+  RefreshCw,
+  Calendar,
+  Users,
+  GraduationCap,
+  School,
+  FileText,
+  Mail,
+  User,
+  LayoutDashboard,
+  Layers,
+  PlusCircle,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Edit2,
+  Trash2,
+  Eye,
+  Save,
+  X,
+  Search,
+  CheckCircle2,
+  AlertTriangle
+} from 'lucide-react-native';
+import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
@@ -21,7 +51,6 @@ import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AvatarBubble from '../../components/common/AvatarBubble';
 import { useAuth } from '../../context/AuthContext';
-import Icon from '@react-native-vector-icons/feather';
 import AppText from '../../components/common/AppText';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
@@ -114,17 +143,17 @@ const KpiCard: React.FC<{
   title: string;
   value: number;
   sub: string;
-  icon: string;
+  icon: any;
   iconBg: string;
   iconColor: string;
   badge: string;
   badgeUp: boolean;
   onPress?: () => void;
-}> = ({ title, value, sub, icon, iconBg, iconColor, badge, badgeUp, onPress }) => (
+}> = ({ title, value, sub, icon: Icon, iconBg, iconColor, badge, badgeUp, onPress }) => (
   <TouchableOpacity style={styles.kpiCard} onPress={onPress} activeOpacity={0.8}>
     <View style={styles.kpiHeader}>
       <View style={[styles.kpiIcon, { backgroundColor: iconBg }]}>
-        <AppText style={[styles.kpiIconText, { color: iconColor }]}>{icon}</AppText>
+        <Icon size={20} color={iconColor} />
       </View>
       <View style={[styles.kpiBadge, badgeUp ? styles.kpiBadgeUp : styles.kpiBadgeDown]}>
         <AppText style={styles.kpiBadgeText}>{badgeUp ? '▲' : '▼'} {badge}</AppText>
@@ -146,14 +175,20 @@ const BranchCard: React.FC<{ branch: Branch; onPress: () => void }> = ({ branch,
           <AppText style={styles.branchName}>{branch.branch_name}</AppText>
           <AppText style={styles.branchId}>ID: {branch.branch_id}</AppText>
         </View>
-        <View>
+        <View style={{ alignItems: 'flex-end', gap: 4 }}>
           <StatusBadge status={branch.branch_status} />
           <HealthBadge status={branch.health_status} />
         </View>
       </View>
 
-      <AppText style={styles.branchHm}>👨‍🏫 HM: {branch.hm_name || 'No HM'}</AppText>
-      <AppText style={styles.branchEmail}>✉️ {branch.hm_email || 'No email'}</AppText>
+      <View style={styles.branchInfoRow}>
+        <User size={14} color={colors.textMuted} />
+        <AppText style={styles.branchHm}>HM: {branch.hm_name || 'No HM'}</AppText>
+      </View>
+      <View style={styles.branchInfoRow}>
+        <Mail size={14} color={colors.textMuted} />
+        <AppText style={styles.branchEmail}>{branch.hm_email || 'No email'}</AppText>
+      </View>
 
       <View style={styles.branchStats}>
         <View style={styles.branchStat}>
@@ -175,7 +210,10 @@ const BranchCard: React.FC<{ branch: Branch; onPress: () => void }> = ({ branch,
       </View>
 
       <View style={styles.branchFooter}>
-        <AppText style={styles.branchPendingLeaves}>📋 Pending Leaves: {branch.pending_leave_requests || 0}</AppText>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <FileText size={14} color={colors.textMuted} />
+          <AppText style={styles.branchPendingLeaves}>Leaves: {branch.pending_leave_requests || 0}</AppText>
+        </View>
         <AppText style={styles.branchViewBtn}>View Details →</AppText>
       </View>
     </TouchableOpacity>
@@ -233,10 +271,10 @@ const BranchRow: React.FC<{
         </View>
         <View style={styles.branchRowActions}>
           <TouchableOpacity style={styles.saveBtn} onPress={onSave}>
-            <AppText style={styles.saveBtnText}>💾</AppText>
+            <Save size={14} color={colors.success} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-            <AppText style={styles.cancelBtnText}>✕</AppText>
+            <X size={14} color={colors.error} />
           </TouchableOpacity>
         </View>
       </View>
@@ -254,13 +292,16 @@ const BranchRow: React.FC<{
       <AppText style={styles.branchRowDate}>{formatDate(branch.creation_date)}</AppText>
       <View style={styles.branchRowActions}>
         <TouchableOpacity style={styles.editRowBtn} onPress={onEdit}>
-          <AppText style={styles.editRowBtnText}>✏️ Edit</AppText>
+          <Edit2 size={12} color={colors.accent} />
+          <AppText style={styles.editRowBtnText}>Edit</AppText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.deleteRowBtn} onPress={onDelete}>
-          <AppText style={styles.deleteRowBtnText}>🗑️ Del</AppText>
+          <Trash2 size={12} color={colors.error} />
+          <AppText style={styles.deleteRowBtnText}>Del</AppText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.viewRowBtn} onPress={onView}>
-          <AppText style={styles.viewRowBtnText}>👁️ View</AppText>
+          <Eye size={12} color={colors.success} />
+          <AppText style={styles.viewRowBtnText}>View</AppText>
         </TouchableOpacity>
       </View>
     </View>
@@ -350,7 +391,7 @@ const HMRegistrationModal: React.FC<{
           <View style={styles.modalHeader}>
             <AppText style={styles.modalTitle}>Register New HM</AppText>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <AppText style={styles.modalCloseText}>✕</AppText>
+              <X size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
           <View style={styles.modalBody}>
@@ -368,9 +409,10 @@ const HMRegistrationModal: React.FC<{
 
 export default function PrincipalDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { userName } = useAuth();
+  const { userName, setTabBarVisible } = useAuth();
   const route = useRoute();
   const overviewRef = useRef<ScrollView>(null);
+  const lastScrollY = useRef(0);
 
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [stats, setStats] = useState<Stats>({
@@ -390,6 +432,16 @@ export default function PrincipalDashboardScreen() {
   const [view, setView] = useState<'dashboard' | 'branches' | 'addhm'>('dashboard');
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const { unreadCount, refreshUnreadCount } = useUnreadNotifications();
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   const [selectedBranchId, setSelectedBranchId] = useState<string>('ALL');
   const [showAllBranches, setShowAllBranches] = useState<boolean>(false);
   const [branchSearchTerm, setBranchSearchTerm] = useState<string>('');
@@ -414,16 +466,34 @@ export default function PrincipalDashboardScreen() {
   useEffect(() => {
     const load = async () => {
       const code = await getSchoolCode();
-      setSchoolCode(code);
+      if (isMounted.current) {
+        setSchoolCode(code);
+      }
     };
     load();
+
+    setTabBarVisible(true);
+    return () => setTabBarVisible(true);
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   // Fetch stats and branches
   const fetchStatsAndBranches = useCallback(async () => {
     if (!schoolCode) return;
     setLoading(true);
     try {
+      refreshUnreadCount();
       const res = await API.get('/principal/dashboard/overview', {
         headers: { 'x-school-code': schoolCode },
       });
@@ -445,8 +515,10 @@ export default function PrincipalDashboardScreen() {
         };
         const branchData = data.items || [];
 
-        setStats(statsData);
-        setBranches(branchData);
+        if (isMounted.current) {
+          setStats(statsData);
+          setBranches(branchData);
+        }
 
         // Cache data
         await Promise.all([
@@ -454,14 +526,18 @@ export default function PrincipalDashboardScreen() {
           AsyncStorage.setItem(`principal_branches_${schoolCode}`, JSON.stringify(branchData))
         ]);
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (!isMounted.current) return;
+      if (err?.response?.status === 401) return;
       console.error('Failed to fetch dashboard data:', err);
       // Only alert if we don't have cached data
       if (branches.length === 0) {
         Alert.alert('Error', 'Failed to load dashboard data');
       }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   }, [schoolCode, branches.length]);
 
@@ -475,15 +551,21 @@ export default function PrincipalDashboardScreen() {
         headers: { 'x-school-code': schoolCode },
       });
       const marksData = Array.isArray(res.data?.items) ? res.data.items : [];
-      setMarksSummary(marksData);
+      if (isMounted.current) {
+        setMarksSummary(marksData);
+      }
 
       // Cache marks summary
       await AsyncStorage.setItem(`principal_marks_summary_${schoolCode}_${selectedBranchId}`, JSON.stringify(marksData));
-    } catch (err) {
+    } catch (err: any) {
+      if (!isMounted.current) return;
+      if (err?.response?.status === 401) return;
       console.error('Failed to fetch marks summary:', err);
       // No clear state here, keep cached if it failed
     } finally {
-      setMarksSummaryLoading(false);
+      if (isMounted.current) {
+        setMarksSummaryLoading(false);
+      }
     }
   }, [schoolCode, selectedBranchId]);
 
@@ -506,6 +588,8 @@ export default function PrincipalDashboardScreen() {
         AsyncStorage.getItem(branchesKey),
         AsyncStorage.getItem(marksKey)
       ]);
+
+      if (!isMounted.current) return;
 
       if (cachedStats) {
         setStats(JSON.parse(cachedStats));
@@ -538,13 +622,14 @@ export default function PrincipalDashboardScreen() {
     try {
       const marksKey = `principal_marks_summary_${schoolCode}_${selectedBranchId}`;
       const cachedMarks = await AsyncStorage.getItem(marksKey);
-      if (cachedMarks) {
+      if (isMounted.current && cachedMarks) {
         setMarksSummary(JSON.parse(cachedMarks));
       }
     } catch (err) {
       console.error('Error loading cached marks:', err);
     }
   };
+
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -693,10 +778,13 @@ export default function PrincipalDashboardScreen() {
         status: editData.branch_status,
         password: null,
       });
+      if (!isMounted.current) return;
       Alert.alert('Success', 'Branch updated successfully');
       cancelEdit();
       fetchStatsAndBranches();
-    } catch (err) {
+    } catch (err: any) {
+      if (!isMounted.current) return;
+      if (err?.response?.status === 401) return;
       Alert.alert('Error', 'Failed to update branch');
     }
   };
@@ -747,10 +835,38 @@ export default function PrincipalDashboardScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Navy Header */}
+      <View style={styles.headerStandard}>
+        <View style={styles.headerTitleContainer}>
+          <AppText style={styles.headerTitle}>Principal Dashboard</AppText>
+        </View>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
+            <Bell size={20} color="#fff" />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.refreshIconBtn}
+            onPress={onRefresh}
+            disabled={loading || refreshing}
+          >
+            <RefreshCw size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <ScrollView
         ref={overviewRef}
         contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
         {/* Welcome Section */}
         <View style={styles.welcomeSection}>
@@ -758,15 +874,25 @@ export default function PrincipalDashboardScreen() {
             <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Principal'}!</AppText>
             <AppText style={styles.welcomeSub}>Complete school-wide branch health and operational status.</AppText>
           </View>
+          <View style={styles.dateBadge}>
+            <Calendar size={12} color={colors.textMuted} />
+            <AppText style={styles.dateText}>
+              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </AppText>
+          </View>
         </View>
 
         {/* Top Bar */}
         <View style={styles.topBar}>
           <View style={styles.topBarLeft}>
             <View style={styles.topBarIcon}>
-              <AppText style={styles.topBarIconText}>
-                {view === 'dashboard' ? '⊞' : view === 'branches' ? '⊟' : '+'}
-              </AppText>
+              {view === 'dashboard' ? (
+                <LayoutDashboard size={20} color={colors.accent} />
+              ) : view === 'branches' ? (
+                <Layers size={20} color={colors.accent} />
+              ) : (
+                <PlusCircle size={20} color={colors.accent} />
+              )}
             </View>
             <View>
               <AppText style={styles.title}>
@@ -816,12 +942,13 @@ export default function PrincipalDashboardScreen() {
                   onPress={() => setView(key)}
                 >
                   <AppText style={[styles.viewBtnText, view === key && styles.viewBtnTextActive]}>
-                    {key === 'dashboard' ? '⊞ Dashboard' : key === 'branches' ? '⊟ Branches' : '+ Add Branch'}
+                    {key === 'dashboard' ? 'Dashboard' : key === 'branches' ? 'Branches' : 'Add Branch'}
                   </AppText>
                 </TouchableOpacity>
               ))}
               <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
-                <AppText style={styles.refreshBtnText}>↻ Refresh</AppText>
+                <RefreshCw size={14} color={colors.textMuted} style={{ marginRight: 4 }} />
+                <AppText style={styles.refreshBtnText}>Refresh</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -838,7 +965,7 @@ export default function PrincipalDashboardScreen() {
                 title={selectedBranchId === 'ALL' ? 'Total Branches' : 'Selected Branch'}
                 value={displayedStats.branches}
                 sub={selectedBranchId === 'ALL' ? 'All sub-branches' : `${selectedBranch?.branch_name || 'Branch'} snapshot`}
-                icon="🏫"
+                icon={School}
                 iconBg="rgba(59, 130, 246, 0.1)"
                 iconColor="#3b82f6"
                 badge="Live"
@@ -849,7 +976,7 @@ export default function PrincipalDashboardScreen() {
                 title="Total Teachers"
                 value={displayedStats.teachers}
                 sub={selectedBranchId === 'ALL' ? 'Across all branches' : `Teachers in ${selectedBranchId}`}
-                icon="👨‍🏫"
+                icon={Users}
                 iconBg="rgba(16, 185, 129, 0.1)"
                 iconColor="#10b981"
                 badge="Live"
@@ -860,7 +987,7 @@ export default function PrincipalDashboardScreen() {
                 title="Total Students"
                 value={displayedStats.students}
                 sub={selectedBranchId === 'ALL' ? 'Across all branches' : `Students in ${selectedBranchId}`}
-                icon="👨‍🎓"
+                icon={GraduationCap}
                 iconBg="rgba(249, 115, 22, 0.1)"
                 iconColor="#f97316"
                 badge="Live"
@@ -871,7 +998,7 @@ export default function PrincipalDashboardScreen() {
                 title="Active Branches"
                 value={selectedBranchId === 'ALL' ? stats.activeBranches : (selectedBranch?.branch_status === 'ACTIVE' ? 1 : 0)}
                 sub={selectedBranchId === 'ALL' ? 'Operational branches' : 'Branch active status'}
-                icon="🏫"
+                icon={CheckCircle2}
                 iconBg="rgba(16, 185, 129, 0.1)"
                 iconColor="#10b981"
                 badge="Status"
@@ -882,7 +1009,7 @@ export default function PrincipalDashboardScreen() {
                 title="Inactive Branches"
                 value={selectedBranchId === 'ALL' ? stats.inactiveBranches : (selectedBranch?.branch_status === 'ACTIVE' ? 0 : 1)}
                 sub={selectedBranchId === 'ALL' ? 'Need attention' : 'Branch inactive status'}
-                icon="🏫"
+                icon={AlertTriangle}
                 iconBg="rgba(239, 68, 68, 0.1)"
                 iconColor="#dc2626"
                 badge="Watch"
@@ -893,7 +1020,7 @@ export default function PrincipalDashboardScreen() {
                 title="Pending Leaves"
                 value={displayedStats.pendingLeaves}
                 sub={selectedBranchId === 'ALL' ? 'Across all branches' : `Pending in ${selectedBranchId}`}
-                icon="👨‍🏫"
+                icon={FileText}
                 iconBg="rgba(234, 88, 12, 0.1)"
                 iconColor="#ea580c"
                 badge="Pending"
@@ -1070,14 +1197,14 @@ export default function PrincipalDashboardScreen() {
                     onPress={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
                   >
-                    <AppText style={styles.pageBtnText}>«</AppText>
+                    <ChevronsLeft size={18} color={currentPage === 1 ? colors.border : colors.textMuted} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
                     onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
                   >
-                    <AppText style={styles.pageBtnText}>‹</AppText>
+                    <ChevronLeft size={18} color={currentPage === 1 ? colors.border : colors.textMuted} />
                   </TouchableOpacity>
                   <AppText style={styles.pageInfo}>Page {currentPage} of {totalPages}</AppText>
                   <TouchableOpacity
@@ -1085,14 +1212,14 @@ export default function PrincipalDashboardScreen() {
                     onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
                   >
-                    <AppText style={styles.pageBtnText}>›</AppText>
+                    <ChevronRight size={18} color={currentPage === totalPages ? colors.border : colors.textMuted} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
                     onPress={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
                   >
-                    <AppText style={styles.pageBtnText}>»</AppText>
+                    <ChevronsRight size={18} color={currentPage === totalPages ? colors.border : colors.textMuted} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -1171,14 +1298,14 @@ export default function PrincipalDashboardScreen() {
                           onPress={() => setBranchCardsPage(1)}
                           disabled={branchCardsPage === 1}
                         >
-                          <AppText style={styles.pageBtnText}>«</AppText>
+                          <ChevronsLeft size={16} color={branchCardsPage === 1 ? colors.border : colors.textMuted} />
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[styles.pageBtn, branchCardsPage === 1 && styles.pageBtnDisabled]}
                           onPress={() => setBranchCardsPage(p => Math.max(1, p - 1))}
                           disabled={branchCardsPage === 1}
                         >
-                          <AppText style={styles.pageBtnText}>‹</AppText>
+                          <ChevronLeft size={16} color={branchCardsPage === 1 ? colors.border : colors.textMuted} />
                         </TouchableOpacity>
                         <AppText style={styles.pageInfo}>Page {branchCardsPage} of {branchCardsTotalPages}</AppText>
                         <TouchableOpacity
@@ -1186,14 +1313,14 @@ export default function PrincipalDashboardScreen() {
                           onPress={() => setBranchCardsPage(p => Math.min(branchCardsTotalPages, p + 1))}
                           disabled={branchCardsPage === branchCardsTotalPages}
                         >
-                          <AppText style={styles.pageBtnText}>›</AppText>
+                          <ChevronRight size={16} color={branchCardsPage === branchCardsTotalPages ? colors.border : colors.textMuted} />
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[styles.pageBtn, branchCardsPage === branchCardsTotalPages && styles.pageBtnDisabled]}
                           onPress={() => setBranchCardsPage(branchCardsTotalPages)}
                           disabled={branchCardsPage === branchCardsTotalPages}
                         >
-                          <AppText style={styles.pageBtnText}>»</AppText>
+                          <ChevronsRight size={16} color={branchCardsPage === branchCardsTotalPages ? colors.border : colors.textMuted} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1274,14 +1401,14 @@ export default function PrincipalDashboardScreen() {
                   onPress={() => setCurrentPage(1)}
                   disabled={currentPage === 1}
                 >
-                  <AppText style={styles.pageBtnText}>«</AppText>
+                  <ChevronsLeft size={18} color={currentPage === 1 ? colors.border : colors.textMuted} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
                   onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                 >
-                  <AppText style={styles.pageBtnText}>‹</AppText>
+                  <ChevronLeft size={18} color={currentPage === 1 ? colors.border : colors.textMuted} />
                 </TouchableOpacity>
                 <AppText style={styles.pageInfo}>Page {currentPage} of {totalPages}</AppText>
                 <TouchableOpacity
@@ -1289,14 +1416,14 @@ export default function PrincipalDashboardScreen() {
                   onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                 >
-                  <AppText style={styles.pageBtnText}>›</AppText>
+                  <ChevronRight size={18} color={currentPage === totalPages ? colors.border : colors.textMuted} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
                   onPress={() => setCurrentPage(totalPages)}
                   disabled={currentPage === totalPages}
                 >
-                  <AppText style={styles.pageBtnText}>»</AppText>
+                  <ChevronsRight size={18} color={currentPage === totalPages ? colors.border : colors.textMuted} />
                 </TouchableOpacity>
               </View>
             )}
@@ -1324,7 +1451,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   contentContainer: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 40,
   },
   errorContainer: {
@@ -1343,6 +1470,38 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 14,
     color: colors.textMuted,
+  },
+  welcomeSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  welcomeTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  welcomeSub: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  dateText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
   topBar: {
     backgroundColor: colors.surface,
@@ -1924,15 +2083,19 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2,
   },
+  branchInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
   branchHm: {
     fontSize: 13,
     color: colors.textMuted,
-    marginBottom: 4,
   },
   branchEmail: {
     fontSize: 12,
     color: colors.textMuted,
-    marginBottom: 12,
   },
   branchStats: {
     flexDirection: 'row',
@@ -2225,6 +2388,57 @@ const styles = StyleSheet.create({
   emptyText: {
     color: colors.textMuted,
     fontSize: 14,
+  },
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  refreshIconBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 18,
+  },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.error,
+    borderWidth: 1.5,
+    borderColor: '#001F3F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,

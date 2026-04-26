@@ -11,15 +11,20 @@ import {
   Image,
   ActivityIndicator,
   Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
+import { ChevronLeft } from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
+import { useAuth } from '../../context/AuthContext';
 
 // Types
 interface ImageItem {
@@ -72,10 +77,36 @@ const Toast: React.FC<{
 
 export default function VitalScanScreen() {
   const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const isMounted = useRef(true);
   const cameraRef = useRef<Camera>(null);
   const device = useCameraDevice('back');
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [cameraActive, setCameraActive] = useState<boolean>(false);
+
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    setTabBarVisible(true);
+    isMounted.current = true;
+    const unsubscribe = navigation.addListener('focus', () => {
+      setTabBarVisible(true);
+    });
+    return () => {
+      isMounted.current = false;
+      unsubscribe();
+    };
+  }, [navigation, setTabBarVisible]);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
+      setTabBarVisible(false);
+    } else if (currentScrollY < lastScrollY.current - 10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   // Form state
   const [studentName, setStudentName] = useState<string>('');
@@ -111,10 +142,11 @@ export default function VitalScanScreen() {
         const schoolCode = await AsyncStorage.getItem('school_code') || '';
         const employeeId = await AsyncStorage.getItem('employee_id') || '';
         const id = `${schoolCode}_${employeeId}`;
+        if (!isMounted.current) return;
         setUserId(id);
 
         const cachedState = await AsyncStorage.getItem(`last_vital_scan_state_${id}`);
-        if (cachedState) {
+        if (cachedState && isMounted.current) {
           const state = JSON.parse(cachedState);
           setStudentName(state.studentName || '');
           setCheckupNote(state.checkupNote || '');
@@ -224,6 +256,7 @@ export default function VitalScanScreen() {
         qualityPrioritization: 'quality',
         flash: 'off',
       });
+      if (!isMounted.current) return;
       const newImage = { uri: `file://${photo.path}` };
       
       if (scanType === 'eye') {
@@ -237,7 +270,9 @@ export default function VitalScanScreen() {
       setResult(null);
       showToast('Image captured', `${images.length + 1}/${maxImages} captured`, '📸', '#22C55E');
     } catch (err) {
-      showToast('Capture failed', 'Please try again', '❌', '#EF4444');
+      if (isMounted.current) {
+        showToast('Capture failed', 'Please try again', '❌', '#EF4444');
+      }
     }
   };
 
@@ -310,8 +345,11 @@ export default function VitalScanScreen() {
         const res = await API.post(`/vitalscan/predict/${endpoint}`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
+        if (!isMounted.current) return;
         resultsData.push(res.data);
       }
+
+      if (!isMounted.current) return;
 
       const hasConcern = resultsData.some(r => r.health_status?.toLowerCase() !== 'good');
       const predictions = [...new Set(resultsData.map(r => r.prediction))].join(' | ');
@@ -325,10 +363,14 @@ export default function VitalScanScreen() {
       
       showToast('Analysis complete', `Report ready for ${studentName}`, '✅', '#22C55E');
     } catch (err: any) {
+      if (!isMounted.current) return;
+      if (err?.response?.status === 401) return;
       const message = err?.response?.data?.detail || err?.response?.data?.message || 'Check backend connection';
       showToast('Analysis failed', message, '❌', '#EF4444');
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -336,6 +378,22 @@ export default function VitalScanScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Navy Header */}
+      <View style={styles.headerStandard}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <ChevronLeft size={24} color="#fff" />
+        </TouchableOpacity>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>VitalScan AI</Text>
+        </View>
+        <View style={{ width: 40 }} />
+      </View>
+
       {/* Toast */}
       <Toast
         visible={toast.visible}
@@ -434,30 +492,26 @@ export default function VitalScanScreen() {
         </View>
       )}
 
-      <ScrollView contentContainerStyle={styles.contentContainer}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.logoBox}>
-            <Text style={styles.logoText}>🔬</Text>
-          </View>
-          <View>
-            <Text style={styles.title}>VitalScan AI</Text>
-            <Text style={styles.subtitle}>AI Health Diagnostics</Text>
-          </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.newBtn} onPress={startNewStudent}>
-              <Text style={styles.newBtnText}>👤 New</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.feverBtn} onPress={() => setShowFeverModal(true)}>
-              <Text style={styles.feverBtnText}>🌡️ Fever</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.skinBtn} 
-              onPress={() => navigation.navigate('SkinDisease' as never)}
-            >
-              <Text style={styles.skinBtnText}>🔍 Skin</Text>
-            </TouchableOpacity>
-          </View>
+      <ScrollView
+        contentContainerStyle={styles.contentContainer}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header Actions Row */}
+        <View style={styles.topActionsRow}>
+          <TouchableOpacity style={styles.newBtn} onPress={startNewStudent}>
+            <Text style={styles.newBtnText}>👤 New</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.feverBtn} onPress={() => setShowFeverModal(true)}>
+            <Text style={styles.feverBtnText}>🌡️ Fever</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.skinBtn}
+            onPress={() => navigation.navigate('SkinDisease' as never)}
+          >
+            <Text style={styles.skinBtnText}>🔍 Skin</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Identity Card */}
@@ -704,9 +758,41 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f0f2f7',
   },
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
+  },
   contentContainer: {
     padding: 16,
     paddingBottom: 40,
+  },
+  topActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 20,
   },
   toast: {
     position: 'absolute',

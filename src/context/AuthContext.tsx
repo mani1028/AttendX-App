@@ -16,6 +16,8 @@ interface AuthContextType {
   signIn: (role: string, name: string, token: string) => Promise<void>;
   refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
+  isTabBarVisible: boolean;
+  setTabBarVisible: (visible: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,6 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userToken, setUserToken] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isTabBarVisible, setTabBarVisible] = useState(true);
 
   const refreshAuth = async () => {
     try {
@@ -73,19 +76,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const handleAuthChange = () => { refreshAuth(); };
     eventEmitter.on('auth-change', handleAuthChange);
-    eventEmitter.on('app-logout', () => {
-      setUserRole(null);
-      setUserToken(null);
-      setUserName(null);
-    });
+
+    const handleLogout = () => {
+      // Use a small delay to ensure any pending events/renders finish
+      // before clearing auth state which triggers navigation resets
+      setTimeout(() => {
+        setUserRole(null);
+        setUserToken(null);
+        setUserName(null);
+      }, 10);
+    };
+
+    eventEmitter.on('app-logout', handleLogout);
 
     return () => {
       eventEmitter.off('auth-change', handleAuthChange);
+      eventEmitter.off('app-logout', handleLogout);
     };
   }, []);
 
   return (
-    <AuthContext.Provider value={{ userRole, userToken, userName, isLoading, setIsLoading, signIn, refreshAuth, logout }}>
+    <AuthContext.Provider value={{
+      userRole,
+      userToken,
+      userName,
+      isLoading,
+      setIsLoading,
+      signIn,
+      refreshAuth,
+      logout,
+      isTabBarVisible,
+      setTabBarVisible
+    }}>
       {children}
     </AuthContext.Provider>
   );

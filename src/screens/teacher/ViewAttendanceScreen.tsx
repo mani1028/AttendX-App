@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,16 +12,21 @@ import {
   Alert,
   Share,
   Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import RNFS from 'react-native-fs';
 import RNShare from 'react-native-share';
+import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import { useAuth } from '../../context/AuthContext';
 
 // Types
 interface Student {
@@ -320,7 +325,9 @@ const ImageModal: React.FC<{
 
 export default function ViewAttendanceScreen() {
   const today = new Date().toISOString().split('T')[0];
-  
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
+
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
   const [employeeId, setEmployeeId] = useState<string>('');
@@ -598,6 +605,18 @@ export default function ViewAttendanceScreen() {
     }
   };
 
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
+
   const totalStudents = students?.length ?? 0;
   const totalPresent = students?.reduce((sum, s) => sum + s.presentDays, 0) ?? 0;
   const totalAbsent = totalStudents * totalDays - totalPresent;
@@ -607,8 +626,21 @@ export default function ViewAttendanceScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => {}}>
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>View Attendance</Text>
+        <View style={styles.backBtn} />
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.contentContainer}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Stats Cards */}
@@ -815,6 +847,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f0f2f7',
+  },
+  header: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
+    flex: 1,
   },
   contentContainer: {
     padding: 16,

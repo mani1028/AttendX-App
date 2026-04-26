@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,19 @@ import {
   Image,
   Alert,
   Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { useNavigation } from '@react-navigation/native';
+import { ChevronLeft } from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
+import { useAuth } from '../../context/AuthContext';
 
 // Types
 interface PredictionResult {
@@ -26,10 +32,37 @@ interface PredictionResult {
 }
 
 export default function SkinDiseaseScreen() {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const isMounted = useRef(true);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [userId, setUserId] = useState<string>('');
+
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    setTabBarVisible(true);
+    isMounted.current = true;
+    const unsubscribe = navigation.addListener('focus', () => {
+      setTabBarVisible(true);
+    });
+    return () => {
+      isMounted.current = false;
+      unsubscribe();
+    };
+  }, [navigation, setTabBarVisible]);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
+      setTabBarVisible(false);
+    } else if (currentScrollY < lastScrollY.current - 10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   // Load user context and cached result on mount
   useEffect(() => {
@@ -38,10 +71,12 @@ export default function SkinDiseaseScreen() {
         const schoolCode = await AsyncStorage.getItem('school_code') || '';
         const employeeId = await AsyncStorage.getItem('employee_id') || '';
         const id = `${schoolCode}_${employeeId}`;
+        if (!isMounted.current) return;
         setUserId(id);
 
         const cachedResult = await AsyncStorage.getItem(`last_skin_prediction_${id}`);
         const cachedImage = await AsyncStorage.getItem(`last_skin_image_${id}`);
+        if (!isMounted.current) return;
         if (cachedResult) {
           setPrediction(JSON.parse(cachedResult));
         }
@@ -136,6 +171,8 @@ export default function SkinDiseaseScreen() {
 
       console.log('Backend Response:', response.data);
 
+      if (!isMounted.current) return;
+
       if (response.data && response.data.predictions) {
         const result = response.data.predictions[0];
         const predictionData = {
@@ -157,15 +194,19 @@ export default function SkinDiseaseScreen() {
         Alert.alert('No Result', 'No prediction returned from the server');
       }
     } catch (error: any) {
+      if (!isMounted.current) return;
+      if (error?.response?.status === 401) return;
       console.error('Upload Error:', error);
       Alert.alert(
         'Error',
         error?.response?.data?.detail || 'Backend error. Is the model loaded?'
       );
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
-  }, [selectedImage]);
+  }, [selectedImage, userId]);
 
   const resetAnalysis = useCallback(async () => {
     setSelectedImage(null);
@@ -193,17 +234,30 @@ export default function SkinDiseaseScreen() {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>🔬 Skin Disease AI Analysis</Text>
-        <Text style={styles.subtitle}>
-          Upload a skin image for AI-powered disease detection
-        </Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Navy Header */}
+      <View style={styles.headerStandard}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <ChevronLeft size={24} color="#fff" />
+        </TouchableOpacity>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>Skin Analysis</Text>
+        </View>
+        <View style={{ width: 40 }} />
       </View>
+
+      <ScrollView
+        style={styles.mainContent}
+        contentContainerStyle={styles.contentContainer}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
 
       {/* Image Selection Card */}
       <AppCard style={styles.card}>
@@ -356,6 +410,7 @@ export default function SkinDiseaseScreen() {
         </AppCard>
       </View>
     </ScrollView>
+    </View>
   );
 }
 
@@ -363,6 +418,35 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f172a',
+  },
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
+  },
+  mainContent: {
+    flex: 1,
   },
   contentContainer: {
     padding: 20,

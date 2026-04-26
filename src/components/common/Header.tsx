@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import Icon from '@react-native-vector-icons/feather';
+import { Shield, Bell } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../constants/theme';
 import { useNavigation } from '@react-navigation/native';
@@ -26,7 +26,7 @@ const Header = () => {
     <View style={styles.container}>
       <View style={styles.leftSection}>
         <View style={styles.logoPlaceholder}>
-          <Icon name="shield" size={20} color={colors.accent} />
+          <Shield size={20} color={colors.accent} />
         </View>
         <View>
           <AppText style={styles.appName}>AttendX</AppText>
@@ -39,7 +39,7 @@ const Header = () => {
           style={styles.iconButton}
           onPress={handleNotificationsPress}
         >
-          <Icon name="bell" size={22} color={colors.textPrimary} />
+          <Bell size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.profileButton}

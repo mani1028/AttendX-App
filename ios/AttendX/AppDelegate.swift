@@ -15,14 +15,30 @@ class AppDelegate: RCTAppDelegate {
   }
 
   override func sourceURL(for bridge: RCTBridge) -> URL? {
-    self.bundleURL()
+    return self.bundleURL()
+  }
+
+  override func newArchEnabled() -> Bool {
+    return false
+  }
+
+  override func fabricEnabled() -> Bool {
+    return false
+  }
+
+  override func turboModuleEnabled() -> Bool {
+    return false
+  }
+
+  override func bridgelessEnabled() -> Bool {
+    return false
   }
 
   override func bundleURL() -> URL? {
 #if DEBUG
-    RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
+    return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
 #else
-    Bundle.main.url(forResource: "main", withExtension: "jsbundle")
+    return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
   }
 }

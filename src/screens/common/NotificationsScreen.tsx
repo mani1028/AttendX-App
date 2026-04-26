@@ -1,22 +1,27 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  Alert,
+  StatusBar,
+  Platform,
+  Modal,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { ChevronLeft, Bell, Calendar, Info, AlertTriangle, PartyPopper, Tent, CheckCheck, X } from 'lucide-react-native';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
-import AppButton from '../../components/common/AppButton';
+import AppText from '../../components/common/AppText';
 import AppCard from '../../components/common/AppCard';
+import { colors } from '../../constants/theme';
+import LinearGradient from 'react-native-linear-gradient';
+import { useAuth } from '../../context/AuthContext';
 
-// Types
 interface Notification {
   id: string;
   title: string;
@@ -24,247 +29,286 @@ interface Notification {
   type: string;
   event_date: string | null;
   created_at: string;
+  is_read?: boolean;
 }
 
-// Helper functions
-const getSchoolCode = async (): Promise<string> => {
-  const code = await AsyncStorage.getItem('school_code');
-  return code || (await AsyncStorage.getItem('schoolCode')) || '';
+const getTypeIcon = (type: string) => {
+  switch (type?.toLowerCase()) {
+    case 'event': return <Calendar size={20} color="#3b82f6" />;
+    case 'program': return <Tent size={20} color="#22c55e" />;
+    case 'festival': return <PartyPopper size={20} color="#f59e0b" />;
+    case 'urgent': return <AlertTriangle size={20} color="#ef4444" />;
+    case 'announcement': return <Info size={20} color="#f43f5e" />;
+    default: return <Bell size={20} color="#6366f1" />;
+  }
 };
 
-const getBranchId = async (): Promise<string> => {
-  const id = await AsyncStorage.getItem('branch_id');
-  return id || (await AsyncStorage.getItem('branchId')) ||
-         (await AsyncStorage.getItem('branch')) ||
-         (await AsyncStorage.getItem('BranchID')) || '01';
-};
-
-const getUserRole = async (): Promise<string> => {
-  const role = await AsyncStorage.getItem('user_role');
-  return (role || (await AsyncStorage.getItem('userRole')) || 'student').toLowerCase();
-};
-
-const getTypeColor = (type: string): { background: string; color: string } => {
-  const colors: Record<string, { background: string; color: string }> = {
-    event: { background: '#dbeafe', color: '#1e40af' },
-    program: { background: '#dcfce7', color: '#15803d' },
-    festival: { background: '#fef3c7', color: '#92400e' },
-    holiday: { background: '#f3e8ff', color: '#6b21a8' },
-    announcement: { background: '#fecdd3', color: '#9f1239' },
-    urgent: { background: '#fecaca', color: '#991b1b' },
-  };
-  return colors[type?.toLowerCase()] || colors.event;
-};
-
-const getAccentColor = (type: string): string => {
-  const colors: Record<string, string> = {
-    event: '#3b82f6',
-    program: '#22c55e',
-    festival: '#f59e0b',
-    holiday: '#a855f7',
-    announcement: '#f43f5e',
-    urgent: '#ef4444',
-  };
-  return colors[type?.toLowerCase()] || '#3b82f6';
-};
-
-const formatDate = (dateString: string): string => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-};
-
-const formatDateTime = (dateString: string): string => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
-
-// Type Badge Component
-const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
-  const { background, color } = getTypeColor(type);
-  return (
-    <View style={[styles.typeBadge, { backgroundColor: background }]}>
-      <Text style={[styles.typeBadgeText, { color }]}>
-        {type || 'Event'}
-      </Text>
-    </View>
-  );
-};
-
-// Notification Card Component
-const NotificationCard: React.FC<{ notification: Notification }> = ({ notification }) => {
-  const accentColor = getAccentColor(notification.type);
-  
-  return (
-    <View style={[styles.notificationCard, { borderLeftColor: accentColor }]}>
-      <View style={styles.cardHeader}>
-        <TypeBadge type={notification.type} />
-      </View>
-      
-      <Text style={styles.cardTitle}>{notification.title}</Text>
-      <Text style={styles.cardDescription}>{notification.description}</Text>
-      
-      {notification.event_date && (
-        <View style={styles.eventDate}>
-          <Text style={styles.eventDateIcon}>📅</Text>
-          <Text style={styles.eventDateText}>{formatDate(notification.event_date)}</Text>
-        </View>
-      )}
-      
-      <Text style={styles.timestamp}>
-        Posted on {formatDateTime(notification.created_at)}
-      </Text>
-    </View>
-  );
+const getTypeStyles = (type: string) => {
+  switch (type?.toLowerCase()) {
+    case 'event': return { bg: '#dbeafe', color: '#1e40af' };
+    case 'program': return { bg: '#dcfce7', color: '#15803d' };
+    case 'festival': return { bg: '#fef3c7', color: '#92400e' };
+    case 'urgent': return { bg: '#fee2e2', color: '#991b1b' };
+    case 'announcement': return { bg: '#fff1f2', color: '#9f1239' };
+    default: return { bg: '#eef2ff', color: '#4338ca' };
+  }
 };
 
 export default function NotificationsScreen() {
   const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [schoolCode, setSchoolCode] = useState<string>('');
-  const [branchId, setBranchId] = useState<string>('');
-  const [userRole, setUserRole] = useState<string>('');
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState<boolean>(false);
 
-  // Load credentials and cached notifications
+  const isMounted = useRef(true);
+
   useEffect(() => {
-    const loadInitialData = async () => {
-      const code = await getSchoolCode();
-      const bid = await getBranchId();
-      const role = await getUserRole();
-      setSchoolCode(code);
-      setBranchId(bid);
-      setUserRole(role);
-
-      // Load cached notifications
-      try {
-        const cacheKey = `notifications_cache_${code}_${bid}_${role}`;
-        const cached = await AsyncStorage.getItem(cacheKey);
-        if (cached) {
-          setNotifications(JSON.parse(cached));
-        }
-      } catch (e) {
-        console.log('Failed to load cached notifications');
-      }
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
     };
-    loadInitialData();
   }, []);
 
-  // Fetch notifications when credentials are ready
-  useEffect(() => {
-    if (schoolCode && branchId && userRole) {
-      fetchNotifications(notifications.length === 0);
-    }
-  }, [schoolCode, branchId, userRole]);
-
   const fetchNotifications = async (showLoading = true) => {
-    if (!schoolCode || !branchId) return;
-    
     if (showLoading) setLoading(true);
-    setError(null);
-    
     try {
-      const endpoint = userRole === 'teacher'
-        ? '/notifications/teacher/list'
-        : '/notifications/student/list';
-      
-      const response = await API.get(endpoint, {
-        headers: {
-          'X-School-Code': schoolCode,
-          'X-Branch-Id': branchId,
-        },
-      });
-      
-      const items = response.data?.items || [];
-      setNotifications(items);
+      const role = (await AsyncStorage.getItem('user_role')) || (await AsyncStorage.getItem('userRole')) || 'student';
 
-      // Cache the notifications
-      const cacheKey = `notifications_cache_${schoolCode}_${branchId}_${userRole}`;
-      await AsyncStorage.setItem(cacheKey, JSON.stringify(items));
-    } catch (err) {
+      let endpoint = '/notifications/student/list';
+      if (role.toLowerCase() === 'teacher') {
+        endpoint = '/notifications/teacher/list';
+      } else if (role.toLowerCase() === 'hm') {
+        endpoint = '/notifications/hm/list';
+      } else if (role.toLowerCase() === 'admin') {
+        endpoint = '/notifications/admin/list';
+      } else if (role.toLowerCase() === 'principal') {
+        endpoint = '/notifications/principal/list';
+      } else if (role.toLowerCase() === 'accountant') {
+        endpoint = '/notifications/accountant/list';
+      }
+
+      const response = await API.get(endpoint);
+
+      if (!isMounted.current) return;
+
+      const items = response.data?.items || [];
+
+      // Load read status from local storage for simulation if backend doesn't support it
+      const readStatus = await AsyncStorage.getItem('read_notifications');
+      const readIds = readStatus ? JSON.parse(readStatus) : [];
+
+      setNotifications(items.map((item: any) => ({
+        ...item,
+        is_read: item.is_read || readIds.includes(item.id)
+      })));
+    } catch (err: any) {
       console.error('Failed to fetch notifications:', err);
-      // Keep showing cached notifications on error
-      if (notifications.length === 0) {
-        setError('Failed to load notifications');
+      if (isMounted.current && err?.response?.status !== 401) {
+        // Optional: show error message to user
       }
     } finally {
-      if (showLoading) setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchNotifications();
-    setRefreshing(false);
-  }, [schoolCode, branchId, userRole]);
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
 
-  const handleBack = () => {
-    navigation.goBack();
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchNotifications(false);
+  }, []);
+
+  const handleNotificationPress = (notification: Notification) => {
+    markAsRead(notification.id);
+    setSelectedNotification(notification);
+    setShowDetailModal(true);
+  };
+
+  const markAsRead = async (id: string) => {
+    try {
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      const readStatus = await AsyncStorage.getItem('read_notifications');
+      const readIds = readStatus ? JSON.parse(readStatus) : [];
+      if (!readIds.includes(id)) {
+        readIds.push(id);
+        await AsyncStorage.setItem('read_notifications', JSON.stringify(readIds));
+      }
+    } catch (err) {
+      console.error('Failed to mark as read:', err);
+    }
+  };
+
+  const markAllRead = async () => {
+    try {
+      const allIds = notifications.map(n => n.id);
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      await AsyncStorage.setItem('read_notifications', JSON.stringify(allIds));
+    } catch (err) {
+      console.error('Failed to mark all as read:', err);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>←</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
-        <View style={styles.headerTitle}>
-          <Text style={styles.title}>School Announcements & Alerts</Text>
+        <View style={styles.headerTitleContainer}>
+          <AppText style={styles.headerTitle}>Notifications</AppText>
         </View>
-        <View style={styles.notificationCount}>
-          <Text style={styles.notificationCountText}>
-            {notifications.length} {notifications.length === 1 ? 'Alert' : 'Alerts'}
-          </Text>
-        </View>
+        <TouchableOpacity onPress={markAllRead} style={styles.markAllBtn}>
+          <CheckCheck size={20} color="#fff" />
+        </TouchableOpacity>
       </View>
 
-      {/* Error Message */}
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        {loading ? (
+          <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 40 }} />
+        ) : notifications.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Bell size={64} color="#cbd5e1" />
+            <AppText style={styles.emptyTitle}>No Notifications</AppText>
+            <AppText style={styles.emptyText}>You're all caught up! No new notices for you.</AppText>
+          </View>
+        ) : (
+          <View style={styles.listContainer}>
+            {notifications.map((item) => {
+              const styles_type = getTypeStyles(item.type);
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  onPress={() => handleNotificationPress(item)}
+                  activeOpacity={0.7}
+                >
+                  <AppCard style={[styles.notificationCard, !item.is_read && styles.unreadCard]}>
+                    <View style={[styles.iconContainer, { backgroundColor: styles_type.bg }]}>
+                      {getTypeIcon(item.type)}
+                    </View>
+                    <View style={styles.cardContent}>
+                      <View style={styles.cardHeader}>
+                        <AppText style={[styles.typeText, { color: styles_type.color }]}>{item.type?.toUpperCase()}</AppText>
+                        <AppText style={styles.dateText}>{formatDate(item.created_at)}</AppText>
+                      </View>
+                      <AppText style={styles.cardTitle}>{item.title}</AppText>
+                      <AppText style={styles.cardDesc} numberOfLines={3}>{item.description}</AppText>
+                      {item.event_date && (
+                        <View style={styles.eventInfo}>
+                          <Calendar size={12} color="#64748b" />
+                          <AppText style={styles.eventDate}>Event Date: {formatDate(item.event_date)}</AppText>
+                        </View>
+                      )}
+                    </View>
+                    {!item.is_read && <View style={styles.unreadDot} />}
+                  </AppCard>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+        <View style={{ height: 40 }} />
+      </ScrollView>
 
-      {/* Notifications List */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
-          <Text style={styles.loadingText}>Loading notifications...</Text>
+      {/* Notification Detail Modal */}
+      <Modal
+        visible={showDetailModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDetailModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <LinearGradient
+              colors={['#001F3F', '#08335e']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalHeader}
+            >
+              <View style={styles.modalTitleRow}>
+                <AppText style={styles.modalTitle}>Notification Details</AppText>
+                <TouchableOpacity onPress={() => setShowDetailModal(false)}>
+                  <X size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+
+            <ScrollView style={styles.modalBody}>
+              {selectedNotification && (
+                <>
+                  <View style={styles.modalTypeContainer}>
+                    <View style={[styles.modalTypeBadge, { backgroundColor: getTypeStyles(selectedNotification.type).bg }]}>
+                      {getTypeIcon(selectedNotification.type)}
+                      <AppText style={[styles.modalTypeText, { color: getTypeStyles(selectedNotification.type).color }]}>
+                        {selectedNotification.type?.toUpperCase()}
+                      </AppText>
+                    </View>
+                    <AppText style={styles.modalDateText}>
+                      Received on {formatDate(selectedNotification.created_at)}
+                    </AppText>
+                  </View>
+
+                  <AppText style={styles.modalFullTitle}>{selectedNotification.title}</AppText>
+
+                  <View style={styles.divider} />
+
+                  <AppText style={styles.modalDetailLabel}>Message</AppText>
+                  <AppText style={styles.modalFullDesc}>
+                    {selectedNotification.description}
+                  </AppText>
+
+                  {selectedNotification.event_date && (
+                    <View style={styles.modalEventBox}>
+                      <Calendar size={20} color="#3b82f6" />
+                      <View>
+                        <AppText style={styles.eventBoxLabel}>Scheduled Date</AppText>
+                        <AppText style={styles.eventBoxValue}>
+                          {formatDate(selectedNotification.event_date)}
+                        </AppText>
+                      </View>
+                    </View>
+                  )}
+                </>
+              )}
+              <View style={{ height: 30 }} />
+            </ScrollView>
+          </View>
         </View>
-      ) : notifications.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>🔔</Text>
-          <Text style={styles.emptyTitle}>No announcements yet</Text>
-          <Text style={styles.emptyText}>Check back later for school updates and alerts</Text>
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.listContainer}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          showsVerticalScrollIndicator={false}
-        >
-          {notifications.map((notification) => (
-            <NotificationCard key={notification.id} notification={notification} />
-          ))}
-        </ScrollView>
-      )}
+      </Modal>
     </View>
   );
 }
@@ -272,162 +316,234 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: '#f8fafc',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#001F3F',
+    height: Platform.OS === 'ios' ? 70 : 55,
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    paddingTop: Platform.OS === 'ios' ? 35 : 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backBtn: {
-    padding: 8,
-    marginRight: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
-  backBtnText: {
-    fontSize: 24,
-    color: '#2563eb',
+  markAllBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1e293b',
-  },
-  notificationCount: {
-    backgroundColor: '#3b82f6',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  notificationCountText: {
     color: '#fff',
-    fontWeight: '600',
-    fontSize: 12,
+    fontSize: 17,
+    fontWeight: '700',
   },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fee2e2',
-    borderWidth: 1,
-    borderColor: '#fecaca',
-    borderRadius: 8,
-    padding: 12,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    gap: 8,
-  },
-  errorIcon: {
-    fontSize: 16,
-  },
-  errorText: {
+  content: {
     flex: 1,
-    color: '#991b1b',
-    fontSize: 14,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#64748b',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-    opacity: 0.5,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#94a3b8',
-    textAlign: 'center',
+  contentContainer: {
+    paddingBottom: 40,
+    paddingTop: 16,
   },
   listContainer: {
-    padding: 16,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
   },
   notificationCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    flexDirection: 'row',
+    padding: 15,
+    marginBottom: 12,
+    alignItems: 'flex-start',
+  },
+  unreadCard: {
     borderLeftWidth: 4,
+    borderLeftColor: '#2563eb',
+    backgroundColor: '#fff',
+    shadowOpacity: 0.1,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  cardContent: {
+    flex: 1,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 4,
   },
-  typeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  typeBadgeText: {
-    fontSize: 11,
+  typeText: {
+    fontSize: 10,
     fontWeight: '700',
-    textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  dateText: {
+    fontSize: 10,
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 8,
+    color: '#0f172a',
+    marginBottom: 4,
   },
-  cardDescription: {
-    fontSize: 14,
-    color: '#475569',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  eventDate: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  eventDateIcon: {
-    fontSize: 14,
-  },
-  eventDateText: {
+  cardDesc: {
     fontSize: 13,
     color: '#64748b',
+    lineHeight: 18,
   },
-  timestamp: {
+  eventInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 5,
+  },
+  eventDate: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#2563eb',
+    position: 'absolute',
+    top: 15,
+    right: 15,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    padding: 60,
+    marginTop: 40,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginTop: 20,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#94a3b8',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    padding: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalTypeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 6,
+  },
+  modalTypeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  modalDateText: {
     fontSize: 11,
     color: '#94a3b8',
-    marginTop: 4,
+    fontWeight: '600',
+  },
+  modalFullTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 12,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#f1f5f9',
+    marginBottom: 16,
+  },
+  modalDetailLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  modalFullDesc: {
+    fontSize: 15,
+    color: '#334155',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  modalEventBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#f0f9ff',
+    borderRadius: 12,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#e0f2fe',
+  },
+  eventBoxLabel: {
+    fontSize: 11,
+    color: '#0369a1',
+    fontWeight: '700',
+  },
+  eventBoxValue: {
+    fontSize: 14,
+    color: '#0c4a6e',
+    fontWeight: '600',
   },
 });

@@ -1,7 +1,6 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -12,6 +11,9 @@ import {
   Alert,
   Platform,
   FlatList,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -19,10 +21,24 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
 import { Dimensions } from 'react-native';
 import API from '../../services/api';
+import {
+  getBranchTeachers,
+  getBranchStudents,
+  getClassesSections,
+  getBranchLeaves,
+  getBranchExams,
+  getExamMarks,
+  getStudentAttendanceReport,
+  getTeacherAttendance,
+  getStudentExamsData
+} from '../../services/principalService';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import { useAuth } from '../../context/AuthContext';
+import Icon from '@react-native-vector-icons/feather';
+import AppText from '../../components/common/AppText';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -150,9 +166,9 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const isActive = status?.toUpperCase() === 'ACTIVE';
   return (
     <View style={[styles.statusBadge, isActive ? styles.statusActive : styles.statusInactive]}>
-      <Text style={[styles.statusText, isActive ? styles.statusTextActive : styles.statusTextInactive]}>
+      <AppText style={[styles.statusText, isActive ? styles.statusTextActive : styles.statusTextInactive]}>
         {status || 'INACTIVE'}
-      </Text>
+      </AppText>
     </View>
   );
 };
@@ -162,9 +178,9 @@ const AttendanceBadge: React.FC<{ status: string }> = ({ status }) => {
   const isPresent = status === 'PRESENT';
   return (
     <View style={[styles.attendanceBadge, isPresent ? styles.attendancePresent : styles.attendanceAbsent]}>
-      <Text style={[styles.attendanceText, isPresent ? styles.attendanceTextPresent : styles.attendanceTextAbsent]}>
+      <AppText style={[styles.attendanceText, isPresent ? styles.attendanceTextPresent : styles.attendanceTextAbsent]}>
         {isPresent ? '✓ Present' : '✗ Absent'}
-      </Text>
+      </AppText>
     </View>
   );
 };
@@ -174,9 +190,9 @@ const ResultBadge: React.FC<{ result: string }> = ({ result }) => {
   const isPass = result === 'PASS';
   return (
     <View style={[styles.resultBadge, isPass ? styles.resultPass : styles.resultFail]}>
-      <Text style={[styles.resultText, isPass ? styles.resultTextPass : styles.resultTextFail]}>
+      <AppText style={[styles.resultText, isPass ? styles.resultTextPass : styles.resultTextFail]}>
         {result}
-      </Text>
+      </AppText>
     </View>
   );
 };
@@ -193,7 +209,7 @@ const GradeBadge: React.FC<{ grade: string }> = ({ grade }) => {
   };
   return (
     <View style={[styles.gradeBadge, { backgroundColor: getGradeColor() + '20' }]}>
-      <Text style={[styles.gradeText, { color: getGradeColor() }]}>{grade || '-'}</Text>
+      <AppText style={[styles.gradeText, { color: getGradeColor() }]}>{grade || '-'}</AppText>
     </View>
   );
 };
@@ -209,7 +225,7 @@ const LeaveStatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const config = getStatusConfig();
   return (
     <View style={[styles.leaveBadge, { backgroundColor: config.bg }]}>
-      <Text style={[styles.leaveText, { color: config.color }]}>{config.label}</Text>
+      <AppText style={[styles.leaveText, { color: config.color }]}>{config.label}</AppText>
     </View>
   );
 };
@@ -223,10 +239,10 @@ const StatCard: React.FC<{
 }> = ({ title, value, icon, color }) => (
   <View style={styles.statCard}>
     <View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statTitle}>{title}</Text>
+      <AppText style={styles.statValue}>{value}</AppText>
+      <AppText style={styles.statTitle}>{title}</AppText>
     </View>
-    <Text style={styles.statIcon}>{icon}</Text>
+    <AppText style={styles.statIcon}>{icon}</AppText>
   </View>
 );
 
@@ -239,7 +255,7 @@ const ClassCard: React.FC<{
 }> = ({ branchClassName, sections, studentCounts, onSelectSection }) => (
   <AppCard style={styles.classCard}>
     <View style={styles.classHeader}>
-      <Text style={styles.classTitle}>Class {branchClassName}</Text>
+      <AppText style={styles.classTitle}>Class {branchClassName}</AppText>
     </View>
     <View style={styles.sectionList}>
       {sections.map(section => (
@@ -248,8 +264,8 @@ const ClassCard: React.FC<{
           style={styles.sectionBtn}
           onPress={() => onSelectSection(branchClassName, section)}
         >
-          <Text style={styles.sectionName}>Section {section}</Text>
-          <Text style={styles.sectionCount}>{studentCounts[`${branchClassName}-${section}`] || 0} students →</Text>
+          <AppText style={styles.sectionName}>Section {section}</AppText>
+          <AppText style={styles.sectionCount}>{studentCounts[`${branchClassName}-${section}`] || 0} students →</AppText>
         </TouchableOpacity>
       ))}
     </View>
@@ -260,13 +276,13 @@ const ClassCard: React.FC<{
 const TeacherCard: React.FC<{ teacher: Teacher }> = ({ teacher }) => (
   <AppCard style={styles.teacherCard}>
     <View style={styles.teacherHeader}>
-      <Text style={styles.teacherName}>{teacher.teacher_full_name}</Text>
+      <AppText style={styles.teacherName}>{teacher.teacher_full_name}</AppText>
       <StatusBadge status={teacher.teacher_status} />
     </View>
-    <Text style={styles.teacherId}>ID: {teacher.employee_id}</Text>
-    <Text style={styles.teacherSubject}>📚 {teacher.department_subject || '—'}</Text>
-    <Text style={styles.teacherContact}>📞 {teacher.mobile_number || '—'}</Text>
-    <Text style={styles.teacherEmail}>✉️ {teacher.email_id || '—'}</Text>
+    <AppText style={styles.teacherId}>ID: {teacher.employee_id}</AppText>
+    <AppText style={styles.teacherSubject}>📚 {teacher.department_subject || '—'}</AppText>
+    <AppText style={styles.teacherContact}>📞 {teacher.mobile_number || '—'}</AppText>
+    <AppText style={styles.teacherEmail}>✉️ {teacher.email_id || '—'}</AppText>
   </AppCard>
 );
 
@@ -278,13 +294,13 @@ const StudentCard: React.FC<{
   <TouchableOpacity onPress={() => onPress(student)}>
     <AppCard style={styles.studentCard}>
       <View style={styles.studentHeader}>
-        <Text style={styles.studentName}>{student.student_full_name}</Text>
-        <Text style={styles.studentRoll}>Roll: {student.roll_number}</Text>
+        <AppText style={styles.studentName}>{student.student_full_name}</AppText>
+        <AppText style={styles.studentRoll}>Roll: {student.roll_number}</AppText>
       </View>
       <View style={styles.studentDetails}>
-        <Text style={styles.studentInfo}>📚 Class {student.class_grade} - Section {student.section}</Text>
-        <Text style={styles.studentInfo}>🎫 Adm: {student.admission_number}</Text>
-        <Text style={styles.studentInfo}>👨 Father: {student.father_guardian_name}</Text>
+        <AppText style={styles.studentInfo}>📚 Class {student.class_grade} - Section {student.section}</AppText>
+        <AppText style={styles.studentInfo}>🎫 Adm: {student.admission_number}</AppText>
+        <AppText style={styles.studentInfo}>👨 Father: {student.father_guardian_name}</AppText>
       </View>
     </AppCard>
   </TouchableOpacity>
@@ -294,12 +310,12 @@ const StudentCard: React.FC<{
 const LeaveCard: React.FC<{ leave: LeaveRequest }> = ({ leave }) => (
   <AppCard style={styles.leaveCard}>
     <View style={styles.leaveHeader}>
-      <Text style={styles.leaveStudent}>{leave.student_name}</Text>
+      <AppText style={styles.leaveStudent}>{leave.student_name}</AppText>
       <LeaveStatusBadge status={leave.status} />
     </View>
-    <Text style={styles.leaveDetails}>Roll: {leave.roll_number} | Class {leave.class_grade}-{leave.section}</Text>
-    <Text style={styles.leaveDates}>📅 {formatDate(leave.from_date)} → {formatDate(leave.to_date)}</Text>
-    <Text style={styles.leaveReason}>📝 {leave.reason}</Text>
+    <AppText style={styles.leaveDetails}>Roll: {leave.roll_number} | Class {leave.class_grade}-{leave.section}</AppText>
+    <AppText style={styles.leaveDates}>📅 {formatDate(leave.from_date)} → {formatDate(leave.to_date)}</AppText>
+    <AppText style={styles.leaveReason}>📝 {leave.reason}</AppText>
   </AppCard>
 );
 
@@ -310,15 +326,15 @@ const MarksRow: React.FC<{
 }> = ({ student, onPress }) => (
   <TouchableOpacity style={styles.marksRow} onPress={() => onPress(student)}>
     <View style={styles.marksRowHeader}>
-      <Text style={styles.marksStudentName}>{student.student_name}</Text>
+      <AppText style={styles.marksStudentName}>{student.student_name}</AppText>
       <ResultBadge result={student.result} />
     </View>
     <View style={styles.marksRowDetails}>
-      <Text style={styles.marksInfo}>Roll: {student.roll_number || '-'}</Text>
-      <Text style={styles.marksInfo}>Class {student.class_grade}-{student.section}</Text>
-      <Text style={[styles.marksPercentage, { color: student.percentage >= 60 ? '#10b981' : student.percentage >= 35 ? '#f97316' : '#ef4444' }]}>
+      <AppText style={styles.marksInfo}>Roll: {student.roll_number || '-'}</AppText>
+      <AppText style={styles.marksInfo}>Class {student.class_grade}-{student.section}</AppText>
+      <AppText style={[styles.marksPercentage, { color: student.percentage >= 60 ? '#10b981' : student.percentage >= 35 ? '#f97316' : '#ef4444' }]}>
         {student.percentage.toFixed(1)}%
-      </Text>
+      </AppText>
     </View>
   </TouchableOpacity>
 );
@@ -335,7 +351,7 @@ const PassFailChart: React.FC<{ passed: number; failed: number; title: string }>
   
   return (
     <View style={styles.chartCard}>
-      <Text style={styles.chartTitle}>{title}</Text>
+      <AppText style={styles.chartTitle}>{title}</AppText>
       <PieChart
         data={data}
         width={screenWidth - 80}
@@ -350,16 +366,16 @@ const PassFailChart: React.FC<{ passed: number; failed: number; title: string }>
       />
       <View style={styles.chartStats}>
         <View style={styles.chartStat}>
-          <Text style={[styles.chartStatValue, { color: '#10b981' }]}>{passed}</Text>
-          <Text style={styles.chartStatLabel}>Passed</Text>
+          <AppText style={[styles.chartStatValue, { color: '#10b981' }]}>{passed}</AppText>
+          <AppText style={styles.chartStatLabel}>Passed</AppText>
         </View>
         <View style={styles.chartStat}>
-          <Text style={[styles.chartStatValue, { color: '#ef4444' }]}>{failed}</Text>
-          <Text style={styles.chartStatLabel}>Failed</Text>
+          <AppText style={[styles.chartStatValue, { color: '#ef4444' }]}>{failed}</AppText>
+          <AppText style={styles.chartStatLabel}>Failed</AppText>
         </View>
         <View style={styles.chartStat}>
-          <Text style={styles.chartStatValue}>{total}</Text>
-          <Text style={styles.chartStatLabel}>Total</Text>
+          <AppText style={styles.chartStatValue}>{total}</AppText>
+          <AppText style={styles.chartStatLabel}>Total</AppText>
         </View>
       </View>
     </View>
@@ -370,17 +386,39 @@ export default function BranchDetailsScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { branchId, branchName, hmName, hmEmail, branchStatus } = route.params as any;
+  const { setTabBarVisible } = useAuth();
 
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'teachers' | 'students' | 'attendance' | 'leaves' | 'marks'>('teachers');
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  
+
+  // Scroll visibility logic
+  const lastScrollY = useRef(0);
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
+
+  useEffect(() => {
+    setTabBarVisible(true);
+    return () => setTabBarVisible(true);
+  }, []);
+
   // Data states
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [classSections, setClassSections] = useState<ClassSection[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [showAllLeaves, setShowAllLeaves] = useState<boolean>(false);
+  const LEAVES_INITIAL_COUNT = 5;
   const [exams, setExams] = useState<Exam[]>([]);
   
   // Filter states
@@ -420,99 +458,96 @@ export default function BranchDetailsScreen() {
   const [currentSelectedExamId, setCurrentSelectedExamId] = useState<number | null>(null);
   const [currentSelectedExamName, setCurrentSelectedExamName] = useState<string>('');
 
+  // Cache loading
+  const loadCachedData = useCallback(async () => {
+    if (!branchId) return;
+    try {
+      const keys = [
+        `branch_teachers_${branchId}`,
+        `branch_students_${branchId}`,
+        `branch_classes_${branchId}`,
+        `branch_leaves_${branchId}`,
+        `branch_exams_${branchId}`,
+      ];
+      const cached = await AsyncStorage.multiGet(keys);
+      cached.forEach(([key, value]) => {
+        if (!value) return;
+        const data = JSON.parse(value);
+        if (key.includes('teachers')) setTeachers(data);
+        else if (key.includes('students')) setStudents(data);
+        else if (key.includes('classes')) setClassSections(data);
+        else if (key.includes('leaves')) setLeaveRequests(data);
+        else if (key.includes('exams')) setExams(data);
+      });
+    } catch (err) {
+      console.error('Failed to load cached branch data:', err);
+    }
+  }, [branchId]);
+
   // Load school code
   useEffect(() => {
     const load = async () => {
       const code = await getSchoolCode();
       setSchoolCode(code);
+      await loadCachedData();
     };
     load();
-  }, []);
+  }, [loadCachedData]);
 
   // Fetch data
   const fetchTeachers = useCallback(async () => {
     if (!branchId) return;
-    try {
-      const res = await API.get(`/principal/branch/${branchId}/teachers`);
-      setTeachers(res.data.teachers || []);
-    } catch (err) {
-      console.error('Failed to fetch teachers:', err);
-    }
+    const data = await getBranchTeachers(branchId);
+    setTeachers(data);
+    await AsyncStorage.setItem(`branch_teachers_${branchId}`, JSON.stringify(data));
   }, [branchId]);
 
   const fetchStudents = useCallback(async () => {
     if (!branchId) return;
-    try {
-      const res = await API.get(`/principal/branch/${branchId}/students`);
-      setStudents(res.data.students || []);
-    } catch (err) {
-      console.error('Failed to fetch students:', err);
-    }
+    const data = await getBranchStudents(branchId);
+    setStudents(data);
+    await AsyncStorage.setItem(`branch_students_${branchId}`, JSON.stringify(data));
   }, [branchId]);
 
   const fetchClassSections = useCallback(async () => {
     if (!branchId) return;
-    try {
-      const res = await API.get(`/manage/classes-sections?branch_id=${branchId}`);
-      setClassSections(res.data.items || []);
-    } catch (err) {
-      console.error('Failed to fetch class sections:', err);
-    }
+    const data = await getClassesSections(branchId);
+    setClassSections(data);
+    await AsyncStorage.setItem(`branch_classes_${branchId}`, JSON.stringify(data));
   }, [branchId]);
 
-  const fetchLeaveRequests = useCallback(async () => {
+  const fetchLeaveRequests = useCallback(async (limit?: number) => {
     if (!branchId) return;
-    try {
-      const res = await API.get(`/principal/branch/${branchId}/leaves`);
-      setLeaveRequests(res.data.leaves || []);
-    } catch (err) {
-      console.error('Failed to fetch leave requests:', err);
+    setLoading(true);
+    const data = await getBranchLeaves(branchId, limit);
+    setLeaveRequests(data);
+    if (!limit || limit === LEAVES_INITIAL_COUNT) {
+      await AsyncStorage.setItem(`branch_leaves_${branchId}`, JSON.stringify(data));
     }
+    setLoading(false);
   }, [branchId]);
 
   const fetchExams = useCallback(async () => {
     if (!branchId) return;
-    try {
-      const res = await API.get(`/principal/branch/${branchId}/exams`);
-      setExams(res.data?.exams || []);
-    } catch (err) {
-      console.error('Failed to fetch exams:', err);
-      setExams([]);
-    }
+    const data = await getBranchExams(branchId);
+    setExams(data);
+    await AsyncStorage.setItem(`branch_exams_${branchId}`, JSON.stringify(data));
   }, [branchId]);
 
   const fetchExamMarks = useCallback(async (examId: string, classGrade: string, section: string) => {
     if (!examId || !branchId) return;
     setLoading(true);
-    try {
-      let url = `/principal/branch/${branchId}/exam/${examId}/marks`;
-      const params = [];
-      if (classGrade) params.push(`class_grade=${encodeURIComponent(classGrade)}`);
-      if (section) params.push(`section=${encodeURIComponent(section)}`);
-      if (params.length) url += `?${params.join('&')}`;
-      const res = await API.get(url);
-      setExamMarks(res.data.items || []);
-    } catch (err) {
-      console.error('Failed to fetch exam marks:', err);
-      setExamMarks([]);
-    } finally {
-      setLoading(false);
-    }
+    const data = await getExamMarks(branchId, examId, classGrade, section);
+    setExamMarks(data);
+    setLoading(false);
   }, [branchId]);
 
   const fetchStudentAttendance = useCallback(async (className: string, sectionName: string, date: string) => {
     try {
-      const res = await API.post('/manage/attendance/student/fetch-report', {
-        school_code: schoolCode,
-        branch_id: branchId,
-        class_grade: className,
-        section: sectionName,
-        attendance_date: date,
-      });
-      const data = res.data || { present: [], absent: [] };
+      const data = await getStudentAttendanceReport(schoolCode, branchId, className, sectionName, date);
       const allStudents = [
-        ...(data.present || []).map(s => ({ ...s, status: 'PRESENT' })),
-        ...(data.absent || []).map(s => ({ ...s, status: 'ABSENT' })),
+        ...(data.present || []).map((s: any) => ({ ...s, status: 'PRESENT' })),
+        ...(data.absent || []).map((s: any) => ({ ...s, status: 'ABSENT' })),
       ];
       setAttendanceData(allStudents);
       setShowAttendanceModal(true);
@@ -524,27 +559,17 @@ export default function BranchDetailsScreen() {
 
   const fetchTeacherAttendance = useCallback(async (date: string) => {
     setTeacherAttendanceLoading(true);
-    try {
-      const res = await API.get(`/principal/branch/${branchId}/teachers/attendance?date=${date}`);
-      setTeacherAttendanceData(res.data?.items || []);
-      setTeacherAttendanceSummary(res.data?.summary || { total: 0, present: 0, absent: 0, attendance_pct: 0 });
-    } catch (err) {
-      console.error('Failed to fetch teacher attendance:', err);
-    } finally {
-      setTeacherAttendanceLoading(false);
-    }
+    const data = await getTeacherAttendance(branchId, date);
+    setTeacherAttendanceData(data?.items || []);
+    setTeacherAttendanceSummary(data?.summary || { total: 0, present: 0, absent: 0, attendance_pct: 0 });
+    setTeacherAttendanceLoading(false);
   }, [branchId]);
 
   const fetchStudentExamsData = useCallback(async (studentId: string) => {
     setLoadingExamsData(true);
-    try {
-      const res = await API.get(`/principal/student/${studentId}/exams-data`);
-      setStudentExamsData(res.data);
-    } catch (err) {
-      console.error('Failed to fetch student exam data:', err);
-    } finally {
-      setLoadingExamsData(false);
-    }
+    const data = await getStudentExamsData(studentId);
+    if (data) setStudentExamsData(data);
+    setLoadingExamsData(false);
   }, []);
 
   // Initial data fetch
@@ -553,7 +578,7 @@ export default function BranchDetailsScreen() {
       fetchTeachers();
       fetchStudents();
       fetchClassSections();
-      fetchLeaveRequests();
+      fetchLeaveRequests(LEAVES_INITIAL_COUNT);
       fetchExams();
     }
   }, [branchId]);
@@ -693,11 +718,11 @@ export default function BranchDetailsScreen() {
       fetchTeachers(),
       fetchStudents(),
       fetchClassSections(),
-      fetchLeaveRequests(),
+      fetchLeaveRequests(showAllLeaves ? 50 : LEAVES_INITIAL_COUNT),
       fetchExams(),
     ]);
     setRefreshing(false);
-  }, [fetchTeachers, fetchStudents, fetchClassSections, fetchLeaveRequests, fetchExams]);
+  }, [fetchTeachers, fetchStudents, fetchClassSections, fetchLeaveRequests, fetchExams, showAllLeaves]);
 
   const handleSort = (column: 'percentage' | 'name' | 'roll') => {
     if (sortBy === column) {
@@ -708,8 +733,29 @@ export default function BranchDetailsScreen() {
     }
   };
 
-  const handleStudentClick = async (student: StudentMarkSummary) => {
-    setSelectedStudent(student);
+  const handleStudentClick = async (student: Student | StudentMarkSummary) => {
+    // If it's a raw Student object, create a partial summary
+    if ('student_full_name' in student) {
+      const summary: StudentMarkSummary = {
+        student_id: student.student_id,
+        student_name: student.student_full_name,
+        roll_number: student.roll_number,
+        admission_number: student.admission_number,
+        class_grade: student.class_grade,
+        section: student.section,
+        marks: [],
+        total_marks: 0,
+        max_possible: 0,
+        subjects_count: 0,
+        failed_subjects: 0,
+        percentage: 0,
+        result: 'PASS',
+      };
+      setSelectedStudent(summary);
+    } else {
+      setSelectedStudent(student);
+    }
+
     const currentExam = exams.find(e => e.exam_id === selectedExam);
     setCurrentSelectedExamId(selectedExam ? parseInt(selectedExam) : null);
     setCurrentSelectedExamName(currentExam ? currentExam.exam_name : '');
@@ -779,19 +825,27 @@ export default function BranchDetailsScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+        >
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <AppText style={styles.title} weight="bold">{branchName || 'Branch Details'}</AppText>
+        <View style={{ width: 40 }} />
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>←</Text>
-          </TouchableOpacity>
-          <View>
-            <Text style={styles.title}>{branchName || 'Branch Details'}</Text>
-            <Text style={styles.subtitle}>Branch ID: {branchId}</Text>
-          </View>
+        <View style={styles.branchSubHeader}>
+          <AppText style={styles.subtitle}>Branch ID: {branchId}</AppText>
           <StatusBadge status={branchStatus || 'ACTIVE'} />
         </View>
 
@@ -811,13 +865,13 @@ export default function BranchDetailsScreen() {
               style={[styles.tab, activeTab === tab && styles.tabActive]}
               onPress={() => setActiveTab(tab as any)}
             >
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                {tab === 'teachers' && '👨‍🏫 Teachers'}
-                {tab === 'students' && '👨‍🎓 Students'}
-                {tab === 'attendance' && '📊 Attendance'}
-                {tab === 'leaves' && '📋 Leaves'}
-                {tab === 'marks' && '📝 Marks'}
-              </Text>
+              <AppText style={[styles.tabText, activeTab === tab && styles.tabTextActive]} weight="medium">
+                {tab === 'teachers' && 'Teachers'}
+                {tab === 'students' && 'Students'}
+                {tab === 'attendance' && 'Attendance'}
+                {tab === 'leaves' && 'Leaves'}
+                {tab === 'marks' && 'Marks'}
+              </AppText>
             </TouchableOpacity>
           ))}
         </View>
@@ -836,8 +890,8 @@ export default function BranchDetailsScreen() {
             </View>
             {filteredTeachers.length === 0 ? (
               <AppCard style={styles.emptyCard}>
-                <Text style={styles.emptyIcon}>👨‍🏫</Text>
-                <Text style={styles.emptyTitle}>No teachers found</Text>
+                <AppText style={styles.emptyIcon}>👨‍🏫</AppText>
+                <AppText style={styles.emptyTitle}>No teachers found</AppText>
               </AppCard>
             ) : (
               filteredTeachers.map(teacher => <TeacherCard key={teacher.teacher_id} teacher={teacher} />)
@@ -850,14 +904,14 @@ export default function BranchDetailsScreen() {
           <>
             <View style={styles.filterRow}>
               <View style={styles.filterField}>
-                <Text style={styles.filterLabel}>Class</Text>
+                <AppText style={styles.filterLabel}>Class</AppText>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.chipContainer}>
                     <TouchableOpacity
                       style={[styles.chip, !selectedClass && styles.chipActive]}
                       onPress={() => { setSelectedClass(''); setSelectedSection(''); }}
                     >
-                      <Text style={[styles.chipText, !selectedClass && styles.chipTextActive]}>All</Text>
+                      <AppText style={[styles.chipText, !selectedClass && styles.chipTextActive]}>All</AppText>
                     </TouchableOpacity>
                     {classSections.map(cls => (
                       <TouchableOpacity
@@ -865,9 +919,9 @@ export default function BranchDetailsScreen() {
                         style={[styles.chip, selectedClass === cls.class_name && styles.chipActive]}
                         onPress={() => { setSelectedClass(cls.class_name); setSelectedSection(''); }}
                       >
-                        <Text style={[styles.chipText, selectedClass === cls.class_name && styles.chipTextActive]}>
+                        <AppText style={[styles.chipText, selectedClass === cls.class_name && styles.chipTextActive]}>
                           Class {cls.class_name}
-                        </Text>
+                        </AppText>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -876,14 +930,14 @@ export default function BranchDetailsScreen() {
 
               {selectedClass && (
                 <View style={styles.filterField}>
-                  <Text style={styles.filterLabel}>Section</Text>
+                  <AppText style={styles.filterLabel}>Section</AppText>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View style={styles.chipContainer}>
                       <TouchableOpacity
                         style={[styles.chip, !selectedSection && styles.chipActive]}
                         onPress={() => setSelectedSection('')}
                       >
-                        <Text style={[styles.chipText, !selectedSection && styles.chipTextActive]}>All</Text>
+                        <AppText style={[styles.chipText, !selectedSection && styles.chipTextActive]}>All</AppText>
                       </TouchableOpacity>
                       {classSections.find(c => c.class_name === selectedClass)?.sections.map(sec => (
                         <TouchableOpacity
@@ -891,9 +945,9 @@ export default function BranchDetailsScreen() {
                           style={[styles.chip, selectedSection === sec && styles.chipActive]}
                           onPress={() => setSelectedSection(sec)}
                         >
-                          <Text style={[styles.chipText, selectedSection === sec && styles.chipTextActive]}>
+                          <AppText style={[styles.chipText, selectedSection === sec && styles.chipTextActive]}>
                             Section {sec}
-                          </Text>
+                          </AppText>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -914,12 +968,12 @@ export default function BranchDetailsScreen() {
 
             {filteredStudents.length === 0 ? (
               <AppCard style={styles.emptyCard}>
-                <Text style={styles.emptyIcon}>👨‍🎓</Text>
-                <Text style={styles.emptyTitle}>No students found</Text>
+                <AppText style={styles.emptyIcon}>👨‍🎓</AppText>
+                <AppText style={styles.emptyTitle}>No students found</AppText>
               </AppCard>
             ) : (
               filteredStudents.map(student => (
-                <StudentCard key={student.student_id} student={student} onPress={() => {}} />
+                <StudentCard key={student.student_id} student={student} onPress={handleStudentClick} />
               ))
             )}
           </>
@@ -934,23 +988,23 @@ export default function BranchDetailsScreen() {
                   style={[styles.attendanceTypeBtn, attendanceType === 'student' && styles.attendanceTypeBtnActive]}
                   onPress={() => setAttendanceType('student')}
                 >
-                  <Text style={[styles.attendanceTypeText, attendanceType === 'student' && styles.attendanceTypeTextActive]}>
-                    📚 Student Attendance
-                  </Text>
+                  <AppText style={[styles.attendanceTypeText, attendanceType === 'student' && styles.attendanceTypeTextActive]}>
+                    📚 Student
+                  </AppText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.attendanceTypeBtn, attendanceType === 'teacher' && styles.attendanceTypeBtnActive]}
                   onPress={() => setAttendanceType('teacher')}
                 >
-                  <Text style={[styles.attendanceTypeText, attendanceType === 'teacher' && styles.attendanceTypeTextActive]}>
-                    👩‍🏫 Teacher Attendance
-                  </Text>
+                  <AppText style={[styles.attendanceTypeText, attendanceType === 'teacher' && styles.attendanceTypeTextActive]}>
+                    👩‍🏫 Teacher
+                  </AppText>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.attendanceDateRow}>
                 <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
-                  <Text style={styles.dateText}>📅 {attendanceDate}</Text>
+                  <AppText style={styles.dateText}>📅 {attendanceDate}</AppText>
                 </TouchableOpacity>
                 {showDatePicker && (
                   <DateTimePicker
@@ -986,16 +1040,16 @@ export default function BranchDetailsScreen() {
                 <Loader />
               ) : teacherAttendanceData.length === 0 ? (
                 <AppCard style={styles.emptyCard}>
-                  <Text style={styles.emptyIcon}>👩‍🏫</Text>
-                  <Text style={styles.emptyTitle}>No teacher attendance data</Text>
-                  <Text style={styles.emptyText}>Select a date and click "Fetch Attendance"</Text>
+                  <AppText style={styles.emptyIcon}>👩‍🏫</AppText>
+                  <AppText style={styles.emptyTitle}>No teacher attendance data</AppText>
+                  <AppText style={styles.emptyText}>Select a date and click "Fetch Attendance"</AppText>
                 </AppCard>
               ) : (
                 <>
                   <View style={styles.attendanceSummary}>
-                    <Text style={styles.attendanceSummaryText}>
+                    <AppText style={styles.attendanceSummaryText}>
                       Present: {teacherAttendanceSummary.present} / {teacherAttendanceSummary.total} ({teacherAttendanceSummary.attendance_pct}%)
-                    </Text>
+                    </AppText>
                     <View style={styles.attendanceFilterRow}>
                       {['ALL', 'PRESENT', 'ABSENT'].map(filter => (
                         <TouchableOpacity
@@ -1003,17 +1057,17 @@ export default function BranchDetailsScreen() {
                           style={[styles.filterChip, teacherAttendanceFilter === filter && styles.filterChipActive]}
                           onPress={() => setTeacherAttendanceFilter(filter as any)}
                         >
-                          <Text style={[styles.filterChipText, teacherAttendanceFilter === filter && styles.filterChipTextActive]}>
+                          <AppText style={[styles.filterChipText, teacherAttendanceFilter === filter && styles.filterChipTextActive]}>
                             {filter === 'ALL' ? 'All' : filter === 'PRESENT' ? 'Present' : 'Absent'}
-                          </Text>
+                          </AppText>
                         </TouchableOpacity>
                       ))}
                     </View>
                   </View>
                   {filteredTeacherAttendance.map((teacher, idx) => (
                     <AppCard key={idx} style={styles.teacherAttendanceCard}>
-                      <Text style={styles.teacherAttendanceName}>{teacher.teacher_full_name}</Text>
-                      <Text style={styles.teacherAttendanceId}>ID: {teacher.employee_id}</Text>
+                      <AppText style={styles.teacherAttendanceName}>{teacher.teacher_full_name}</AppText>
+                      <AppText style={styles.teacherAttendanceId}>ID: {teacher.employee_id}</AppText>
                       <AttendanceBadge status={teacher.status} />
                     </AppCard>
                   ))}
@@ -1025,13 +1079,53 @@ export default function BranchDetailsScreen() {
 
         {/* Leaves Tab */}
         {activeTab === 'leaves' && (
-          leaveRequests.length === 0 ? (
+          loading && leaveRequests.length === 0 ? (
+            <Loader />
+          ) : leaveRequests.length === 0 ? (
             <AppCard style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>📋</Text>
-              <Text style={styles.emptyTitle}>No leave requests</Text>
+              <AppText style={styles.emptyIcon}>📋</AppText>
+              <AppText style={styles.emptyTitle}>No leave requests</AppText>
             </AppCard>
           ) : (
-            leaveRequests.map(leave => <LeaveCard key={leave.leave_id} leave={leave} />)
+            <>
+              {leaveRequests.map(leave => (
+                <LeaveCard key={leave.leave_id} leave={leave} />
+              ))}
+
+              {loading && leaveRequests.length > 0 && (
+                <ActivityIndicator color={colors.primary} style={{ marginVertical: 10 }} />
+              )}
+
+              {!showAllLeaves && leaveRequests.length >= LEAVES_INITIAL_COUNT && (
+                <TouchableOpacity
+                  style={styles.viewAllLeavesBtn}
+                  onPress={() => {
+                    setShowAllLeaves(true);
+                    fetchLeaveRequests(50);
+                  }}
+                  disabled={loading}
+                >
+                  <AppText style={styles.viewAllLeavesText}>
+                    {loading ? 'Fetching...' : 'View All Recent Requests →'}
+                  </AppText>
+                </TouchableOpacity>
+              )}
+
+              {showAllLeaves && (
+                <TouchableOpacity
+                  style={styles.viewAllLeavesBtn}
+                  onPress={() => {
+                    setShowAllLeaves(false);
+                    fetchLeaveRequests(LEAVES_INITIAL_COUNT);
+                  }}
+                  disabled={loading}
+                >
+                  <AppText style={styles.viewAllLeavesText}>
+                    {loading ? 'Fetching...' : 'Show Less'}
+                  </AppText>
+                </TouchableOpacity>
+              )}
+            </>
           )
         )}
 
@@ -1040,14 +1134,14 @@ export default function BranchDetailsScreen() {
           <>
             <View style={styles.filterRow}>
               <View style={styles.filterField}>
-                <Text style={styles.filterLabel}>Class</Text>
+                <AppText style={styles.filterLabel}>Class</AppText>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.chipContainer}>
                     <TouchableOpacity
                       style={[styles.chip, !selectedClass && styles.chipActive]}
                       onPress={() => { setSelectedClass(''); setSelectedSection(''); setSelectedExam(''); }}
                     >
-                      <Text style={[styles.chipText, !selectedClass && styles.chipTextActive]}>All</Text>
+                      <AppText style={[styles.chipText, !selectedClass && styles.chipTextActive]}>All</AppText>
                     </TouchableOpacity>
                     {classSections.map(cls => (
                       <TouchableOpacity
@@ -1055,9 +1149,9 @@ export default function BranchDetailsScreen() {
                         style={[styles.chip, selectedClass === cls.class_name && styles.chipActive]}
                         onPress={() => { setSelectedClass(cls.class_name); setSelectedSection(''); setSelectedExam(''); }}
                       >
-                        <Text style={[styles.chipText, selectedClass === cls.class_name && styles.chipTextActive]}>
+                        <AppText style={[styles.chipText, selectedClass === cls.class_name && styles.chipTextActive]}>
                           Class {cls.class_name}
-                        </Text>
+                        </AppText>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -1066,14 +1160,14 @@ export default function BranchDetailsScreen() {
 
               {selectedClass && (
                 <View style={styles.filterField}>
-                  <Text style={styles.filterLabel}>Section</Text>
+                  <AppText style={styles.filterLabel}>Section</AppText>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View style={styles.chipContainer}>
                       <TouchableOpacity
                         style={[styles.chip, !selectedSection && styles.chipActive]}
                         onPress={() => { setSelectedSection(''); setSelectedExam(''); }}
                       >
-                        <Text style={[styles.chipText, !selectedSection && styles.chipTextActive]}>All</Text>
+                        <AppText style={[styles.chipText, !selectedSection && styles.chipTextActive]}>All</AppText>
                       </TouchableOpacity>
                       {classSections.find(c => c.class_name === selectedClass)?.sections.map(sec => (
                         <TouchableOpacity
@@ -1081,9 +1175,9 @@ export default function BranchDetailsScreen() {
                           style={[styles.chip, selectedSection === sec && styles.chipActive]}
                           onPress={() => { setSelectedSection(sec); setSelectedExam(''); }}
                         >
-                          <Text style={[styles.chipText, selectedSection === sec && styles.chipTextActive]}>
+                          <AppText style={[styles.chipText, selectedSection === sec && styles.chipTextActive]}>
                             Section {sec}
-                          </Text>
+                          </AppText>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -1092,7 +1186,7 @@ export default function BranchDetailsScreen() {
               )}
 
               <View style={styles.filterField}>
-                <Text style={styles.filterLabel}>Exam</Text>
+                <AppText style={styles.filterLabel}>Exam</AppText>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.chipContainer}>
                     {exams.map(exam => (
@@ -1101,9 +1195,9 @@ export default function BranchDetailsScreen() {
                         style={[styles.chip, selectedExam === exam.exam_id && styles.chipActive]}
                         onPress={() => setSelectedExam(exam.exam_id)}
                       >
-                        <Text style={[styles.chipText, selectedExam === exam.exam_id && styles.chipTextActive]}>
+                        <AppText style={[styles.chipText, selectedExam === exam.exam_id && styles.chipTextActive]}>
                           {exam.exam_name}
-                        </Text>
+                        </AppText>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -1115,35 +1209,35 @@ export default function BranchDetailsScreen() {
               <Loader />
             ) : !selectedExam ? (
               <AppCard style={styles.emptyCard}>
-                <Text style={styles.emptyIcon}>📝</Text>
-                <Text style={styles.emptyTitle}>Select an exam to view marks</Text>
+                <AppText style={styles.emptyIcon}>📝</AppText>
+                <AppText style={styles.emptyTitle}>Select an exam to view marks</AppText>
               </AppCard>
             ) : processedStudentData.length === 0 ? (
               <AppCard style={styles.emptyCard}>
-                <Text style={styles.emptyIcon}>📊</Text>
-                <Text style={styles.emptyTitle}>No exam data found</Text>
+                <AppText style={styles.emptyIcon}>📊</AppText>
+                <AppText style={styles.emptyTitle}>No exam data found</AppText>
               </AppCard>
             ) : (
               <>
                 {/* Summary Stats */}
                 <View style={styles.summaryCard}>
                   <View style={styles.summaryItem}>
-                    <Text style={styles.summaryLabel}>Total Students</Text>
-                    <Text style={styles.summaryValue}>{overallStats.total}</Text>
+                    <AppText style={styles.summaryLabel}>Total Students</AppText>
+                    <AppText style={styles.summaryValue}>{overallStats.total}</AppText>
                   </View>
                   <View style={styles.summaryItem}>
-                    <Text style={styles.summaryLabel}>Passed</Text>
-                    <Text style={[styles.summaryValue, { color: '#a7f3d0' }]}>{overallStats.passed}</Text>
-                    <Text style={styles.summarySub}>{overallStats.total > 0 ? ((overallStats.passed / overallStats.total) * 100).toFixed(1) : 0}%</Text>
+                    <AppText style={styles.summaryLabel}>Passed</AppText>
+                    <AppText style={[styles.summaryValue, { color: '#a7f3d0' }]}>{overallStats.passed}</AppText>
+                    <AppText style={styles.summarySub}>{overallStats.total > 0 ? ((overallStats.passed / overallStats.total) * 100).toFixed(1) : 0}%</AppText>
                   </View>
                   <View style={styles.summaryItem}>
-                    <Text style={styles.summaryLabel}>Failed</Text>
-                    <Text style={[styles.summaryValue, { color: '#fecaca' }]}>{overallStats.failed}</Text>
-                    <Text style={styles.summarySub}>{overallStats.total > 0 ? ((overallStats.failed / overallStats.total) * 100).toFixed(1) : 0}%</Text>
+                    <AppText style={styles.summaryLabel}>Failed</AppText>
+                    <AppText style={[styles.summaryValue, { color: '#fecaca' }]}>{overallStats.failed}</AppText>
+                    <AppText style={styles.summarySub}>{overallStats.total > 0 ? ((overallStats.failed / overallStats.total) * 100).toFixed(1) : 0}%</AppText>
                   </View>
                   <View style={styles.summaryItem}>
-                    <Text style={styles.summaryLabel}>Average</Text>
-                    <Text style={styles.summaryValue}>{overallStats.avgPercentage.toFixed(1)}%</Text>
+                    <AppText style={styles.summaryLabel}>Average</AppText>
+                    <AppText style={styles.summaryValue}>{overallStats.avgPercentage.toFixed(1)}%</AppText>
                   </View>
                 </View>
 
@@ -1163,24 +1257,24 @@ export default function BranchDetailsScreen() {
                         style={[styles.filterChip, resultFilter === filter && styles.filterChipActive]}
                         onPress={() => setResultFilter(filter as any)}
                       >
-                        <Text style={[styles.filterChipText, resultFilter === filter && styles.filterChipTextActive]}>
+                        <AppText style={[styles.filterChipText, resultFilter === filter && styles.filterChipTextActive]}>
                           {filter === 'ALL' ? 'All' : filter}
-                        </Text>
+                        </AppText>
                       </TouchableOpacity>
                     ))}
                   </View>
                   <View style={styles.sortRow}>
-                    <Text style={styles.sortLabel}>Sort by:</Text>
+                    <AppText style={styles.sortLabel}>Sort by:</AppText>
                     {(['percentage', 'name', 'roll'] as const).map(opt => (
                       <TouchableOpacity
                         key={opt}
                         style={[styles.sortBtn, sortBy === opt && styles.sortBtnActive]}
                         onPress={() => handleSort(opt)}
                       >
-                        <Text style={[styles.sortBtnText, sortBy === opt && styles.sortBtnTextActive]}>
+                        <AppText style={[styles.sortBtnText, sortBy === opt && styles.sortBtnTextActive]}>
                           {opt === 'percentage' ? 'Score' : opt === 'name' ? 'Name' : 'Roll'}
                           {sortBy === opt && (sortOrder === 'asc' ? ' ↑' : ' ↓')}
-                        </Text>
+                        </AppText>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -1201,11 +1295,11 @@ export default function BranchDetailsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
+              <AppText style={styles.modalTitle} weight="bold">
                 Attendance - Class {selectedClassForAttendance} Section {selectedSectionForAttendance}
-              </Text>
+              </AppText>
               <TouchableOpacity onPress={() => setShowAttendanceModal(false)} style={styles.modalClose}>
-                <Text style={styles.modalCloseText}>✕</Text>
+                <AppText style={styles.modalCloseText}>✕</AppText>
               </TouchableOpacity>
             </View>
 
@@ -1215,32 +1309,32 @@ export default function BranchDetailsScreen() {
                   style={[styles.filterChip, attendanceFilter === 'ALL' && styles.filterChipActive]}
                   onPress={() => setAttendanceFilter('ALL')}
                 >
-                  <Text style={[styles.filterChipText, attendanceFilter === 'ALL' && styles.filterChipTextActive]}>All</Text>
+                  <AppText style={[styles.filterChipText, attendanceFilter === 'ALL' && styles.filterChipTextActive]}>All</AppText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.filterChip, attendanceFilter === 'PRESENT' && styles.filterChipActive]}
                   onPress={() => setAttendanceFilter('PRESENT')}
                 >
-                  <Text style={[styles.filterChipText, attendanceFilter === 'PRESENT' && styles.filterChipTextActive]}>Present</Text>
+                  <AppText style={[styles.filterChipText, attendanceFilter === 'PRESENT' && styles.filterChipTextActive]}>Present</AppText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.filterChip, attendanceFilter === 'ABSENT' && styles.filterChipActive]}
                   onPress={() => setAttendanceFilter('ABSENT')}
                 >
-                  <Text style={[styles.filterChipText, attendanceFilter === 'ABSENT' && styles.filterChipTextActive]}>Absent</Text>
+                  <AppText style={[styles.filterChipText, attendanceFilter === 'ABSENT' && styles.filterChipTextActive]}>Absent</AppText>
                 </TouchableOpacity>
               </View>
 
               <ScrollView>
                 {filteredAttendance.map((item, idx) => (
                   <View key={idx} style={styles.attendanceRow}>
-                    <Text style={styles.attendanceRoll}>{item.roll_number || '-'}</Text>
-                    <Text style={styles.attendanceName}>{item.student_full_name || item.name || '-'}</Text>
+                    <AppText style={styles.attendanceRoll}>{item.roll_number || '-'}</AppText>
+                    <AppText style={styles.attendanceName}>{item.student_full_name || item.name || '-'}</AppText>
                     <AttendanceBadge status={item.status} />
                   </View>
                 ))}
                 {filteredAttendance.length === 0 && (
-                  <Text style={styles.emptyText}>No attendance data found</Text>
+                  <AppText style={styles.emptyText}>No attendance data found</AppText>
                 )}
               </ScrollView>
             </View>
@@ -1257,9 +1351,9 @@ export default function BranchDetailsScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, styles.largeModal]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{selectedStudent?.student_name}</Text>
+              <AppText style={styles.modalTitle} weight="bold">{selectedStudent?.student_name}</AppText>
               <TouchableOpacity onPress={() => setSelectedStudent(null)} style={styles.modalClose}>
-                <Text style={styles.modalCloseText}>✕</Text>
+                <AppText style={styles.modalCloseText}>✕</AppText>
               </TouchableOpacity>
             </View>
 
@@ -1267,12 +1361,12 @@ export default function BranchDetailsScreen() {
               {selectedStudent && (
                 <>
                   <View style={styles.studentInfoGrid}>
-                    <Text style={styles.studentInfoItem}>Roll: {selectedStudent.roll_number || '-'}</Text>
-                    <Text style={styles.studentInfoItem}>Class {selectedStudent.class_grade}-{selectedStudent.section}</Text>
-                    <Text style={styles.studentInfoItem}>Total: {selectedStudent.total_marks}/{selectedStudent.max_possible}</Text>
-                    <Text style={[styles.studentInfoItem, { fontWeight: '700', color: selectedStudent.percentage >= 60 ? '#10b981' : selectedStudent.percentage >= 35 ? '#f97316' : '#ef4444' }]}>
+                    <AppText style={styles.studentInfoItem}>Roll: {selectedStudent.roll_number || '-'}</AppText>
+                    <AppText style={styles.studentInfoItem}>Class {selectedStudent.class_grade}-{selectedStudent.section}</AppText>
+                    <AppText style={styles.studentInfoItem}>Total: {selectedStudent.total_marks}/{selectedStudent.max_possible}</AppText>
+                    <AppText style={[styles.studentInfoItem, { fontWeight: '700', color: selectedStudent.percentage >= 60 ? '#10b981' : selectedStudent.percentage >= 35 ? '#f97316' : '#ef4444' }]}>
                       {selectedStudent.percentage.toFixed(1)}%
-                    </Text>
+                    </AppText>
                     <ResultBadge result={selectedStudent.result} />
                   </View>
 
@@ -1282,19 +1376,19 @@ export default function BranchDetailsScreen() {
                   ) : studentExamsData && studentExamsData.exams && studentExamsData.exams.length > 0 ? (
                     <View style={styles.examSection}>
                       <View style={styles.examHeader}>
-                        <Text style={styles.examTitle}>📊 Exam Performance</Text>
+                        <AppText style={styles.examTitle} weight="bold">📊 Exam Performance</AppText>
                         <View style={styles.examToggle}>
                           <TouchableOpacity
                             style={[styles.examToggleBtn, !showAllExamsChart && styles.examToggleBtnActive]}
                             onPress={() => setShowAllExamsChart(false)}
                           >
-                            <Text style={[styles.examToggleText, !showAllExamsChart && styles.examToggleTextActive]}>Single Exam</Text>
+                            <AppText style={[styles.examToggleText, !showAllExamsChart && styles.examToggleTextActive]}>Single</AppText>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={[styles.examToggleBtn, showAllExamsChart && styles.examToggleBtnActive]}
                             onPress={() => setShowAllExamsChart(true)}
                           >
-                            <Text style={[styles.examToggleText, showAllExamsChart && styles.examToggleTextActive]}>All Exams</Text>
+                            <AppText style={[styles.examToggleText, showAllExamsChart && styles.examToggleTextActive]}>Trend</AppText>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -1302,7 +1396,7 @@ export default function BranchDetailsScreen() {
                       {!showAllExamsChart ? (
                         currentSelectedExamId && barChartData.length > 0 ? (
                           <View style={styles.chartContainer}>
-                            <Text style={styles.chartSubtitle}>{currentSelectedExamName} - Subject-wise Percentage</Text>
+                            <AppText style={styles.chartSubtitle}>{currentSelectedExamName}</AppText>
                             <BarChart
                               data={{
                                 labels: barChartData.map(d => d.subject),
@@ -1326,11 +1420,11 @@ export default function BranchDetailsScreen() {
                             />
                           </View>
                         ) : (
-                          <Text style={styles.noDataText}>No data available for the selected exam</Text>
+                          <AppText style={styles.noDataText}>No data available</AppText>
                         )
                       ) : lineChartData.length > 0 && allSubjects.length > 0 ? (
                         <View style={styles.chartContainer}>
-                          <Text style={styles.chartSubtitle}>Percentage Trend Across Exams</Text>
+                          <AppText style={styles.chartSubtitle}>Trend Across Exams</AppText>
                           <LineChart
                             data={{
                               labels: lineChartData.map(d => d.exam_name),
@@ -1357,18 +1451,18 @@ export default function BranchDetailsScreen() {
                           />
                         </View>
                       ) : (
-                        <Text style={styles.noDataText}>No data available for trend analysis</Text>
+                        <AppText style={styles.noDataText}>No trend data</AppText>
                       )}
                     </View>
                   ) : null}
 
                   {/* Subject-wise Marks Table */}
-                  <Text style={styles.subjectTitle}>Subject-wise Marks</Text>
+                  <AppText style={styles.subjectTitle} weight="bold">Subject-wise Marks</AppText>
                   {selectedStudent.marks.map((mark, idx) => (
                     <View key={idx} style={styles.subjectRow}>
-                      <Text style={styles.subjectName}>{mark.subject_name}</Text>
-                      <Text style={styles.subjectMarks}>{mark.marks_obtained}</Text>
-                      <Text style={styles.subjectMax}>{mark.max_marks}</Text>
+                      <AppText style={styles.subjectName}>{mark.subject_name}</AppText>
+                      <AppText style={styles.subjectMarks}>{mark.marks_obtained}</AppText>
+                      <AppText style={styles.subjectMax}>{mark.max_marks}</AppText>
                       <GradeBadge grade={mark.grade} />
                     </View>
                   ))}
@@ -1389,36 +1483,36 @@ export default function BranchDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f6fb',
+    backgroundColor: '#f8fafc',
   },
   contentContainer: {
     padding: 16,
     paddingBottom: 40,
   },
   header: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 20,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    marginBottom: 20,
+    justifyContent: 'space-between',
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
     alignItems: 'center',
     justifyContent: 'center',
   },
   backBtnText: {
     fontSize: 18,
-    color: '#0f172a',
+    color: '#ffffff',
   },
   title: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#0f172a',
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 12,
@@ -1442,6 +1536,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
   },
   statValue: {
     fontSize: 28,
@@ -1472,7 +1571,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabActive: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#001F3F',
   },
   tabText: {
     fontSize: 12,
@@ -1522,8 +1621,8 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   chipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
   },
   chipText: {
     fontSize: 13,
@@ -1729,7 +1828,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   classHeader: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#001F3F',
     padding: 14,
   },
   classTitle: {
@@ -1776,8 +1875,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   attendanceTypeBtnActive: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
+    backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
   },
   attendanceTypeText: {
     fontSize: 13,
@@ -1830,8 +1929,8 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   filterChipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
   },
   filterChipText: {
     fontSize: 12,
@@ -1914,8 +2013,8 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   sortBtnActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
   },
   sortBtnText: {
     fontSize: 12,
@@ -1929,7 +2028,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-around',
-    backgroundColor: 'linear-gradient(135deg, #667eea, #764ba2)',
+    backgroundColor: '#001F3F',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
@@ -2091,7 +2190,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f5f9',
   },
   examToggleBtnActive: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#001F3F',
   },
   examToggleText: {
     fontSize: 11,
@@ -2152,5 +2251,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
     textAlign: 'center',
+  },
+  branchSubHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  viewAllLeavesBtn: {
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  viewAllLeavesText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#001F3F',
   },
 });

@@ -1,17 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   Alert,
+  StatusBar,
+  Platform,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
+import { colors } from '../../constants/theme';
+import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
 
 interface DashboardSummary {
   total_fees_collected: number;
@@ -21,6 +28,9 @@ interface DashboardSummary {
 }
 
 const SummaryCards = () => {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -29,7 +39,21 @@ const SummaryCards = () => {
   // Load school code from storage
   useEffect(() => {
     loadSchoolCode();
+    setTabBarVisible(true);
+    return () => setTabBarVisible(true);
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   useEffect(() => {
     if (schoolCode) {
@@ -135,8 +159,8 @@ const SummaryCards = () => {
   if (loading && !summary) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loadingText}>Loading dashboard summary...</Text>
+        <ActivityIndicator size="large" color="#001F3F" />
+        <AppText style={styles.loadingText}>Loading dashboard summary...</AppText>
       </View>
     );
   }
@@ -145,10 +169,10 @@ const SummaryCards = () => {
     return (
       <View style={styles.errorContainer}>
         <Icon name="alert-circle" size={48} color="#dc2626" />
-        <Text style={styles.errorTitle}>Error Loading Summary</Text>
-        <Text style={styles.errorText}>Unable to load dashboard data</Text>
+        <AppText style={styles.errorTitle}>Error Loading Summary</AppText>
+        <AppText style={styles.errorText}>Unable to load dashboard data</AppText>
         <TouchableOpacity style={styles.retryButton} onPress={fetchSummary}>
-          <Text style={styles.retryButtonText}>Retry</Text>
+          <AppText style={styles.retryButtonText}>Retry</AppText>
         </TouchableOpacity>
       </View>
     );
@@ -157,109 +181,124 @@ const SummaryCards = () => {
   const cardData = getCardConfig(summary);
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      <View style={styles.cardsContainer}>
-        {cardData.map((card, index) => (
-          <View key={index} style={styles.cardWrapper}>
-            <View style={[styles.card, { backgroundColor: card.gradient[0] }]}>
-              <View style={styles.cardContent}>
-                <View style={[styles.iconContainer, { backgroundColor: card.iconBg }]}>
-                  <Icon name={card.icon} size={28} color="#fff" />
-                </View>
-                <View style={styles.infoContainer}>
-                  <Text style={styles.label}>{card.label}</Text>
-                  <Text style={styles.value}>{card.formattedValue}</Text>
-                  <Text style={styles.compactValue}>{formatAmountCompact(card.value)}</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Header */}
+      <View style={styles.headerStandard}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <AppText style={styles.headerTitle} weight="bold">Summary Cards</AppText>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View style={styles.cardsContainer}>
+          {cardData.map((card, index) => (
+            <View key={index} style={styles.cardWrapper}>
+              <View style={[styles.card, { backgroundColor: card.gradient[0] }]}>
+                <View style={styles.cardContent}>
+                  <View style={[styles.iconContainer, { backgroundColor: card.iconBg }]}>
+                    <Icon name={card.icon} size={28} color="#fff" />
+                  </View>
+                  <View style={styles.infoContainer}>
+                    <AppText style={styles.label}>{card.label}</AppText>
+                    <AppText style={styles.value}>{card.formattedValue}</AppText>
+                    <AppText style={styles.compactValue}>{formatAmountCompact(card.value)}</AppText>
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.summarySection}>
-        <View style={styles.summaryHeader}>
-          <Icon name="pie-chart" size={20} color="#2563eb" />
-          <Text style={styles.summaryTitle}>Financial Summary</Text>
+          ))}
         </View>
 
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Collection Rate</Text>
-            <Text style={styles.summaryValue}>
-              {summary.total_fees_collected + summary.total_pending_fees > 0
-                ? ((summary.total_fees_collected / (summary.total_fees_collected + summary.total_pending_fees)) * 100).toFixed(1)
-                : 0}%
-            </Text>
-            <View style={styles.progressBarContainer}>
-              <View 
-                style={[
-                  styles.progressBar, 
-                  { 
-                    width: `${summary.total_fees_collected + summary.total_pending_fees > 0
-                      ? (summary.total_fees_collected / (summary.total_fees_collected + summary.total_pending_fees)) * 100
-                      : 0}%` 
-                  }
-                ]} 
-              />
+        <View style={styles.summarySection}>
+          <View style={styles.summaryHeader}>
+            <Icon name="pie-chart" size={20} color="#001F3F" />
+            <AppText style={styles.summaryTitle}>Financial Summary</AppText>
+          </View>
+
+          <View style={styles.summaryGrid}>
+            <View style={styles.summaryItem}>
+              <AppText style={styles.summaryLabel}>Collection Rate</AppText>
+              <AppText style={styles.summaryValue}>
+                {summary.total_fees_collected + summary.total_pending_fees > 0
+                  ? ((summary.total_fees_collected / (summary.total_fees_collected + summary.total_pending_fees)) * 100).toFixed(1)
+                  : 0}%
+              </AppText>
+              <View style={styles.progressBarContainer}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    {
+                      width: `${summary.total_fees_collected + summary.total_pending_fees > 0
+                        ? (summary.total_fees_collected / (summary.total_fees_collected + summary.total_pending_fees)) * 100
+                        : 0}%`
+                    }
+                  ]}
+                />
+              </View>
+            </View>
+
+            <View style={styles.summaryItem}>
+              <AppText style={styles.summaryLabel}>Expense Ratio</AppText>
+              <AppText style={styles.summaryValue}>
+                {summary.total_fees_collected > 0
+                  ? ((summary.total_expenses / summary.total_fees_collected) * 100).toFixed(1)
+                  : 0}%
+              </AppText>
+              <View style={styles.progressBarContainer}>
+                <View
+                  style={[
+                    styles.progressBarExpense,
+                    {
+                      width: `${summary.total_fees_collected > 0
+                        ? (summary.total_expenses / summary.total_fees_collected) * 100
+                        : 0}%`
+                    }
+                  ]}
+                />
+              </View>
             </View>
           </View>
 
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Expense Ratio</Text>
-            <Text style={styles.summaryValue}>
-              {summary.total_fees_collected > 0
-                ? ((summary.total_expenses / summary.total_fees_collected) * 100).toFixed(1)
-                : 0}%
-            </Text>
-            <View style={styles.progressBarContainer}>
-              <View 
-                style={[
-                  styles.progressBarExpense, 
-                  { 
-                    width: `${summary.total_fees_collected > 0
-                      ? (summary.total_expenses / summary.total_fees_collected) * 100
-                      : 0}%` 
-                  }
-                ]} 
-              />
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <AppText style={styles.statLabel}>Total Fees</AppText>
+              <AppText style={styles.statValue}>
+                {formatAmount(summary.total_fees_collected + summary.total_pending_fees)}
+              </AppText>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <AppText style={styles.statLabel}>Profit Margin</AppText>
+              <AppText style={[styles.statValue, summary.net_balance >= 0 ? styles.positive : styles.negative]}>
+                {summary.total_fees_collected > 0
+                  ? ((summary.net_balance / summary.total_fees_collected) * 100).toFixed(1)
+                  : 0}%
+              </AppText>
             </View>
           </View>
         </View>
 
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Total Fees</Text>
-            <Text style={styles.statValue}>
-              {formatAmount(summary.total_fees_collected + summary.total_pending_fees)}
-            </Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Profit Margin</Text>
-            <Text style={[styles.statValue, summary.net_balance >= 0 ? styles.positive : styles.negative]}>
-              {summary.total_fees_collected > 0
-                ? ((summary.net_balance / summary.total_fees_collected) * 100).toFixed(1)
-                : 0}%
-            </Text>
-          </View>
+        <TouchableOpacity style={styles.refreshButton} onPress={fetchSummary}>
+          <Icon name="refresh-cw" size={16} color="#fff" />
+          <AppText style={styles.refreshButtonText}>Refresh Data</AppText>
+        </TouchableOpacity>
+
+        <View style={styles.footer}>
+          <AppText style={styles.footerText}>Last updated: {new Date().toLocaleString()}</AppText>
         </View>
-      </View>
-
-      <TouchableOpacity style={styles.refreshButton} onPress={fetchSummary}>
-        <Icon name="refresh-cw" size={16} color="#fff" />
-        <Text style={styles.refreshButtonText}>Refresh Data</Text>
-      </TouchableOpacity>
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Last updated: {new Date().toLocaleString()}</Text>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
@@ -267,6 +306,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f0f2f7',
+  },
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    color: '#ffffff',
+    textAlign: 'center',
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -451,7 +514,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#001F3F',
     marginHorizontal: 16,
     marginTop: 8,
     marginBottom: 16,

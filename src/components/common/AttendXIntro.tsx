@@ -166,11 +166,14 @@ const AttendXIntro: React.FC<AttendXIntroProps> = ({ onComplete, duration = 3200
             {/* Gradient X as SVG */}
             <Animated.View
               style={{
-                transform: [{ translateX: xTranslateX }],
+                transform: [
+                  { translateX: xTranslateX },
+                  { translateY: Platform.OS === 'ios' ? 2 : 0 } // Vertical adjustment for iOS
+                ],
                 opacity: xOpacity,
               }}
             >
-              <Svg width={48} height={60} viewBox="0 0 60 68">
+              <Svg width={48} height={60} viewBox="0 0 60 60">
                 <Defs>
                   <SvgGradient id="xGrad" x1="0" y1="0" x2="1" y2="0">
                     <Stop offset="0%" stopColor="#1565c0" />
@@ -180,11 +183,12 @@ const AttendXIntro: React.FC<AttendXIntroProps> = ({ onComplete, duration = 3200
                   </SvgGradient>
                 </Defs>
                 <SvgText
-                  x="0"
-                  y="60"
-                  fontFamily={Platform.OS === 'ios' ? 'Montserrat' : 'sans-serif'}
+                  x="30"
+                  y={Platform.OS === 'ios' ? 52 : 54} // Fine-tune baseline per platform
+                  textAnchor="middle"
+                  fontFamily={Platform.OS === 'ios' ? 'System' : 'sans-serif'}
                   fontWeight="800"
-                  fontSize={72}
+                  fontSize={68}
                   fill="url(#xGrad)"
                 >
                   X
@@ -242,16 +246,17 @@ const styles = StyleSheet.create({
   },
   lettersRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
+    height: 60,
   },
   letter: {
-    fontFamily: Platform.OS === 'ios' ? 'Montserrat-Bold' : 'sans-serif',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
     fontWeight: '800',
     fontSize: 48,
     lineHeight: 52,
   },
   tagline: {
-    fontFamily: Platform.OS === 'ios' ? 'Montserrat-SemiBold' : 'sans-serif',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
     fontWeight: '700',
     fontSize: 16,
     color: '#3a9fd6',

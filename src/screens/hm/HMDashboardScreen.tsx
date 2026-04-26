@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,16 +9,21 @@ import {
   Dimensions,
   Platform,
   DimensionValue,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from '@react-native-vector-icons/feather';
+import { Bell, RefreshCw, Calendar as CalendarIcon, Users, User, Grid, TrendingUp, Home, GitBranch } from 'lucide-react-native';
 import { Svg, Circle } from 'react-native-svg';
 import API from '../../services/api';
+import * as hmService from '../../services/hmService';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
 // Local theme bridge for consistency
 const C = {
@@ -116,7 +121,7 @@ const StatCard = ({
   label, 
   value, 
   subtext, 
-  icon, 
+  icon: IconComponent,
   iconBg, 
   iconColor, 
   trend, 
@@ -132,11 +137,11 @@ const StatCard = ({
   >
     <View style={styles.cardTop}>
       <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
-        <Icon name={icon} size={20} color={iconColor} />
+        <IconComponent size={20} color={iconColor} />
       </View>
       {trend && (
         <View style={[styles.trendBadge, trendUp ? styles.trendUp : styles.trendDown]}>
-          <Icon name={trendUp ? 'arrow-up' : 'arrow-down'} size={8} color={trendUp ? C.success : C.error} />
+          <TrendingUp size={8} color={trendUp ? C.success : C.error} />
           <AppText style={[styles.trendText, { color: trendUp ? C.success : C.error }]}>{trend}</AppText>
         </View>
       )}
@@ -203,7 +208,9 @@ const ClassChip = ({ label, percentage, present, total, onPress }: any) => {
 
 export default function DashboardPage() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { userName } = useAuth();
+  const { userName, setTabBarVisible } = useAuth();
+  const isMounted = useRef(true);
+  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
   const [stats, setStats] = useState<StatsData | null>(null);
@@ -211,10 +218,29 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const { unreadCount } = useUnreadNotifications();
 
   useEffect(() => {
     loadCredentials();
+
+    setTabBarVisible(true);
+    return () => {
+      isMounted.current = false;
+      setTabBarVisible(true);
+    };
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   useEffect(() => {
     if (schoolCode && branchId) {
@@ -235,8 +261,10 @@ export default function DashboardPage() {
         await AsyncStorage.getItem('branch_code') ||
         await AsyncStorage.getItem('branchCode') || '';
       
-      setSchoolCode(code);
-      setBranchId(branch);
+      if (isMounted.current) {
+        setSchoolCode(code);
+        setBranchId(branch);
+      }
     } catch (err) {
       console.error('Error loading credentials:', err);
       setError('Failed to load credentials');
@@ -252,6 +280,8 @@ export default function DashboardPage() {
         AsyncStorage.getItem(statsKey),
         AsyncStorage.getItem(classesKey)
       ]);
+
+      if (!isMounted.current) return;
 
       if (cachedStats) {
         setStats(JSON.parse(cachedStats));
@@ -277,45 +307,53 @@ export default function DashboardPage() {
 
   const loadDashboardData = async () => {
     if (!schoolCode || !branchId) {
-      setError('Missing school code or branch ID. Please login again.');
-      setLoading(false);
+      if (isMounted.current) {
+        setError('Missing school code or branch ID. Please login again.');
+        setLoading(false);
+      }
       return;
     }
 
-    setError('');
+    if (isMounted.current) setError('');
 
     let statsOk = false;
     let classesOk = false;
 
     try {
-      const statsRes = await API.get('/hm/dashboard/stats', { headers: getHeaders() });
-      const statsData = statsRes.data;
-      setStats(statsData);
-      statsOk = true;
+      const statsData = await hmService.getHMStats(getHeaders());
+      if (isMounted.current) {
+        setStats(statsData);
+        statsOk = true;
+      }
 
       // Cache stats
       await AsyncStorage.setItem(`hm_stats_${schoolCode}_${branchId}`, JSON.stringify(statsData));
     } catch (err: any) {
+      if (err?.response?.status === 401) return;
       console.log('Stats error:', err?.response?.data || err);
     }
 
     try {
-      const classesRes = await API.get('/hm/classes', { headers: getHeaders() });
-      const classesData = classesRes.data?.items || [];
-      setClasses(classesData);
-      classesOk = true;
+      const classesData = await hmService.getHMClasses(getHeaders());
+      if (isMounted.current) {
+        setClasses(classesData);
+        classesOk = true;
+      }
 
       // Cache classes
       await AsyncStorage.setItem(`hm_classes_${schoolCode}_${branchId}`, JSON.stringify(classesData));
     } catch (err: any) {
+      if (err?.response?.status === 401) return;
       console.log('Classes error:', err?.response?.data || err);
     }
 
-    if (!statsOk && !classesOk) {
-      setError('Unable to load dashboard data. Please check the connection.');
-    }
+    if (isMounted.current) {
+      if (!statsOk && !classesOk) {
+        setError('Unable to load dashboard data. Please check the connection.');
+      }
 
-    setLoading(false);
+      setLoading(false);
+    }
   };
 
   const onRefresh = async () => {
@@ -351,30 +389,55 @@ export default function DashboardPage() {
   const sortedClasses = [...classes].sort((a, b) => (b.attendance_pct ?? 0) - (a.attendance_pct ?? 0));
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.text} />
-      }
-    >
-      {/* Welcome Section */}
-      <View style={styles.welcomeSection}>
-        <View>
-          <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'HM'}!</AppText>
-          <AppText style={styles.welcomeSub}>Manage your school's daily attendance and activities.</AppText>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Header */}
+      <View style={styles.headerStandard}>
+        <View style={styles.headerTitleContainer}>
+          <AppText style={styles.headerTitle}>HM Dashboard</AppText>
         </View>
-        <View style={styles.dateBadge}>
-          <Icon name="calendar" size={12} color={C.muted} />
-          <AppText style={styles.dateText}>
-            {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-          </AppText>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
+            <Bell size={20} color="#fff" />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
+            <RefreshCw size={20} color="#fff" />
+          </TouchableOpacity>
         </View>
       </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.text} />
+        }
+      >
+        {/* Welcome Section */}
+        <View style={styles.welcomeSection}>
+          <View>
+            <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'HM'}!</AppText>
+            <AppText style={styles.welcomeSub}>Manage your school's daily activities.</AppText>
+          </View>
+          <View style={styles.dateBadge}>
+            <CalendarIcon size={12} color={C.muted} />
+            <AppText style={styles.dateText}>
+              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </AppText>
+          </View>
+        </View>
 
       {/* Error Banner */}
       {error ? (
         <View style={styles.errorBanner}>
-          <Icon name="alert-circle" size={16} color={C.error} />
+          <TrendingUp size={16} color={C.error} />
           <AppText style={styles.errorText}>⚠ {error}</AppText>
         </View>
       ) : null}
@@ -385,7 +448,7 @@ export default function DashboardPage() {
           label="Total Teachers"
           value={(cards.total_teachers ?? 0).toLocaleString()}
           subtext={`${teacherAtt.present ?? 0} present today`}
-          icon="users"
+          icon={Users}
           iconBg={C.primary + '15'}
           iconColor={C.primary}
           trend="Live"
@@ -399,7 +462,7 @@ export default function DashboardPage() {
           label="Total Students"
           value={(cards.total_students ?? 0).toLocaleString()}
           subtext={`${studentAtt.present ?? 0} present today`}
-          icon="user"
+          icon={User}
           iconBg={C.successSoft}
           iconColor={C.success}
           trend="Live"
@@ -413,7 +476,7 @@ export default function DashboardPage() {
           label="Active Classes"
           value={(cards.total_classes ?? 0).toLocaleString()}
           subtext={`${classes.length} sections tracked`}
-          icon="grid"
+          icon={Grid}
           iconBg={C.warningSoft}
           iconColor={C.warning}
           trend="Active"
@@ -427,7 +490,7 @@ export default function DashboardPage() {
           label="Today's Attendance"
           value={`${cards.today_attendance_pct ?? 0}%`}
           subtext="combined percentage"
-          icon="trending-up"
+          icon={TrendingUp}
           iconBg="rgba(124, 58, 237, 0.1)"
           iconColor="#7c3aed"
           trend={(cards.today_attendance_pct ?? 0) >= 75 ? 'Good' : 'Low'}
@@ -614,11 +677,11 @@ export default function DashboardPage() {
       {/* Bottom Bar */}
       <View style={styles.bottomBar}>
         <View style={styles.bottomItem}>
-          <Icon name="home" size={13} color="#6366f1" />
+          <Home size={13} color="#6366f1" />
           <AppText style={styles.bottomText}>School: <AppText style={styles.bottomStrong}>{schoolCode || '—'}</AppText></AppText>
         </View>
         <View style={styles.bottomItem}>
-          <Icon name="git-branch" size={13} color="#6366f1" />
+          <GitBranch size={13} color="#6366f1" />
           <AppText style={styles.bottomText}>Branch: <AppText style={styles.bottomStrong}>{branchId || '—'}</AppText></AppText>
         </View>
         <View style={[styles.bottomItem, styles.liveIndicator]}>
@@ -626,7 +689,8 @@ export default function DashboardPage() {
           <AppText style={styles.bottomText}>Live</AppText>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -634,6 +698,60 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
+  },
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  refreshIconBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 18,
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#ef4444',
+    borderWidth: 1.5,
+    borderColor: '#001F3F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  scrollView: {
+    flex: 1,
   },
   welcomeSection: {
     flexDirection: 'row',

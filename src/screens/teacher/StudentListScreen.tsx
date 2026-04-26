@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,16 +8,37 @@ import {
   RefreshControl,
   ActivityIndicator,
   TextInput,
-  Alert,
   Modal,
   Image,
-  FlatList,
+  StatusBar,
+  Platform,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import {
+  ChevronLeft,
+  Search,
+  Users,
+  User,
+  GraduationCap,
+  Calendar,
+  Droplets,
+  Phone,
+  Briefcase,
+  X,
+  BookOpen,
+  LayoutGrid,
+  Info,
+  ChevronRight,
+  Filter
+} from 'lucide-react-native';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import { teacherService } from '../../services/teacherService';
+import { useAuth } from '../../context/AuthContext';
 
 // Types
 interface Student {
@@ -85,61 +106,64 @@ const StudentCard: React.FC<{
   student: Student;
   onView: (student: Student) => void;
 }> = ({ student, onView }) => (
-  <AppCard style={styles.studentCard}>
-    <View style={styles.cardHeader}>
-      {student.student_photograph ? (
-        <Image
-          source={{ uri: `data:image/jpeg;base64,${student.student_photograph}` }}
-          style={styles.studentAvatar}
-        />
-      ) : (
-        <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarText}>{initials(student.student_full_name)}</Text>
+  <TouchableOpacity activeOpacity={0.7} onPress={() => onView(student)}>
+    <AppCard style={styles.studentCard}>
+      <View style={styles.cardHeader}>
+        {student.student_photograph ? (
+          <Image
+            source={{ uri: `data:image/jpeg;base64,${student.student_photograph}` }}
+            style={styles.studentAvatar}
+          />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarText}>{initials(student.student_full_name)}</Text>
+          </View>
+        )}
+        <View style={styles.cardInfo}>
+          <Text style={styles.studentName} numberOfLines={1}>{student.student_full_name || '-'}</Text>
+          <View style={styles.cardMeta}>
+            <View style={styles.rollTag}>
+              <Text style={styles.rollTagText}>#{student.roll_number || '-'}</Text>
+            </View>
+            <StatusBadge status={student.student_status} />
+          </View>
         </View>
-      )}
-      <View style={styles.cardInfo}>
-        <Text style={styles.studentName}>{student.student_full_name || '-'}</Text>
-        <View style={styles.cardMeta}>
-          <Text style={styles.rollBadge}>Roll: {student.roll_number || '-'}</Text>
-          <StatusBadge status={student.student_status} />
+        <ChevronRight size={20} color="#cbd5e1" />
+      </View>
+
+      <View style={styles.cardDivider} />
+
+      <View style={styles.cardDetailsRow}>
+        <View style={styles.miniDetail}>
+          <Text style={styles.miniLabel}>Gender</Text>
+          <Text style={styles.miniValue}>{student.gender || '-'}</Text>
+        </View>
+        <View style={styles.miniDetail}>
+          <Text style={styles.miniLabel}>Class</Text>
+          <Text style={styles.miniValue}>{student.class_grade}-{student.section}</Text>
+        </View>
+        <View style={styles.miniDetail}>
+          <Text style={styles.miniLabel}>ID</Text>
+          <Text style={styles.miniValue}>{student.student_id}</Text>
         </View>
       </View>
-    </View>
-    <View style={styles.cardDetails}>
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Class:</Text>
-        <Text style={styles.detailValue}>{student.class_grade || '-'}</Text>
-      </View>
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Section:</Text>
-        <Text style={styles.detailValue}>{student.section || '-'}</Text>
-      </View>
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Gender:</Text>
-        <Text style={styles.detailValue}>{student.gender || '-'}</Text>
-      </View>
-      {student.father_guardian_name && (
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Father:</Text>
-          <Text style={styles.detailValue}>{student.father_guardian_name}</Text>
-        </View>
-      )}
-    </View>
-    <TouchableOpacity style={styles.viewBtn} onPress={() => onView(student)}>
-      <Text style={styles.viewBtnText}>👁️ View Details</Text>
-    </TouchableOpacity>
-  </AppCard>
+    </AppCard>
+  </TouchableOpacity>
 );
 
 // Detail Groups for Modal
 const DETAIL_GROUPS = [
-  { label: 'Personal Info', icon: '👤', keys: ['student_full_name', 'gender', 'date_of_birth', 'blood_group'] },
-  { label: 'Academic', icon: '📚', keys: ['class_grade', 'section', 'roll_number', 'admission_number'] },
-  { label: 'Father / Guardian', icon: '👨', keys: ['father_guardian_name', 'father_guardian_mobile', 'father_guardian_occupation'] },
-  { label: 'Mother / Guardian', icon: '👩', keys: ['mother_guardian_name', 'mother_guardian_mobile', 'mother_guardian_occupation'] },
+  { label: 'Personal Info', icon: <User size={16} color="#001F3F" />, keys: ['student_full_name', 'gender', 'date_of_birth', 'blood_group'] },
+  { label: 'Academic', icon: <GraduationCap size={16} color="#001F3F" />, keys: ['class_grade', 'section', 'roll_number', 'admission_number'] },
+  { label: 'Father / Guardian', icon: <User size={16} color="#001F3F" />, keys: ['father_guardian_name', 'father_guardian_mobile', 'father_guardian_occupation'] },
+  { label: 'Mother / Guardian', icon: <User size={16} color="#001F3F" />, keys: ['mother_guardian_name', 'mother_guardian_mobile', 'mother_guardian_occupation'] },
 ];
 
 export default function StudentListScreen() {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const isMounted = useRef(true);
+  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
   const [employeeId, setEmployeeId] = useState<string>('');
@@ -153,22 +177,29 @@ export default function StudentListScreen() {
   const [viewStudent, setViewStudent] = useState<Student | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  const ITEMS_PER_PAGE = 10;
+  const ITEMS_PER_PAGE = 15;
 
   // Load credentials and cached data
   useEffect(() => {
+    isMounted.current = true;
     const load = async () => {
-      const code = await getSchoolCode();
-      const bid = await getBranchId();
-      const eid = await getEmployeeId();
-      setSchoolCode(code);
-      setBranchId(bid);
-      setEmployeeId(eid);
-
-      // Load cache
       try {
+        const code = await getSchoolCode();
+        const bid = await getBranchId();
+        const eid = await getEmployeeId();
+
+        if (!isMounted.current) return;
+
+        setSchoolCode(code);
+        setBranchId(bid);
+        setEmployeeId(eid);
+
+        // Load cache
         const cacheKey = `teacher_students_cache_${code}_${bid}_${eid}`;
         const cached = await AsyncStorage.getItem(cacheKey);
+
+        if (!isMounted.current) return;
+
         if (cached) {
           const { classes, students, lastClass, lastSection } = JSON.parse(cached);
           if (classes) setAssignedClasses(classes);
@@ -181,6 +212,12 @@ export default function StudentListScreen() {
       }
     };
     load();
+
+    setTabBarVisible(true);
+    return () => {
+      isMounted.current = false;
+      setTabBarVisible(true);
+    };
   }, []);
 
   // Load assigned classes for teacher
@@ -189,22 +226,25 @@ export default function StudentListScreen() {
     
     try {
       const assigned = await teacherService.getAssignedClasses(schoolCode, branchId, employeeId);
+
+      if (!isMounted.current) return;
+
       setAssignedClasses(assigned);
       
-      // Auto-select first class if available and none selected
       if (assigned.length > 0 && !selectedClass) {
         setSelectedClass(assigned[0].class_grade);
         setSelectedSection(assigned[0].section);
       }
 
-      // Update cache with assigned classes
       const cacheKey = `teacher_students_cache_${schoolCode}_${branchId}_${employeeId}`;
       const existing = await AsyncStorage.getItem(cacheKey);
       const data = existing ? JSON.parse(existing) : {};
       await AsyncStorage.setItem(cacheKey, JSON.stringify({ ...data, classes: assigned }));
 
-    } catch (error) {
-      console.error('Failed to load assigned classes:', error);
+    } catch (error: any) {
+      if (error?.response?.status !== 401) {
+        console.error('Failed to load assigned classes:', error);
+      }
     }
   };
 
@@ -221,10 +261,12 @@ export default function StudentListScreen() {
         selectedClass,
         selectedSection,
       );
+
+      if (!isMounted.current) return;
+
       setRecords(students);
       setCurrentPage(1);
 
-      // Update cache
       const cacheKey = `teacher_students_cache_${schoolCode}_${branchId}_${employeeId}`;
       const existing = await AsyncStorage.getItem(cacheKey);
       const data = existing ? JSON.parse(existing) : {};
@@ -234,21 +276,23 @@ export default function StudentListScreen() {
         lastClass: selectedClass,
         lastSection: selectedSection
       }));
-    } catch (error) {
-      console.error('Failed to fetch students:', error);
+    } catch (error: any) {
+      if (error?.response?.status !== 401) {
+        console.error('Failed to fetch students:', error);
+      }
     } finally {
-      if (showLoading) setLoading(false);
+      if (isMounted.current) {
+        if (showLoading) setLoading(false);
+      }
     }
   };
 
-  // Load data when credentials are ready
   useEffect(() => {
     if (schoolCode && branchId && employeeId) {
       loadAssignedClasses();
     }
   }, [schoolCode, branchId, employeeId]);
 
-  // Fetch students when selection changes
   useEffect(() => {
     if (selectedClass && selectedSection && schoolCode && branchId) {
       fetchStudents(!records.length);
@@ -261,18 +305,18 @@ export default function StudentListScreen() {
     setRefreshing(false);
   }, [selectedClass, selectedSection]);
 
-  // Filter by roll number
   const filtered = useMemo(() => {
     const q = rollSearch.trim().toLowerCase();
     if (!q) return records;
-    return records.filter(r => String(r.roll_number || '').toLowerCase().includes(q));
+    return records.filter(r =>
+      String(r.roll_number || '').toLowerCase().includes(q) ||
+      String(r.student_full_name || '').toLowerCase().includes(q)
+    );
   }, [records, rollSearch]);
 
-  // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  // Get unique class options from assigned classes
   const classOptions = useMemo(() => {
     const uniqueClasses = new Map();
     assignedClasses.forEach(item => {
@@ -283,48 +327,71 @@ export default function StudentListScreen() {
     return Array.from(uniqueClasses.keys());
   }, [assignedClasses]);
 
-  // Get section options for selected class
   const sectionOptions = useMemo(() => {
     return assignedClasses
       .filter(item => item.class_grade === selectedClass)
       .map(item => item.section);
   }, [assignedClasses, selectedClass]);
 
-  const renderPageNumbers = () => {
-    const pages = [];
-    const maxVisible = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
 
-    if (endPage - startPage + 1 < maxVisible) {
-      startPage = Math.max(1, endPage - maxVisible + 1);
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
     }
-
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(i);
-    }
-    return pages;
+    lastScrollY.current = currentScrollY;
   };
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>👨‍🏫 My Students</Text>
-          <Text style={styles.subtitle}>{filtered.length} students in your class</Text>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Navy Hero Header */}
+      <View style={styles.heroHeader}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.goBack()}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.heroTitle}>My Students</Text>
+          <View style={{ width: 40 }} />
         </View>
 
-        {/* Class/Section Selection */}
-        <AppCard style={styles.filterCard}>
-          <Text style={styles.sectionTitle}>Select Class & Section</Text>
+        <View style={styles.heroContent}>
+          <View style={styles.heroRow}>
+            <View>
+              <Text style={styles.heroGreeting}>Class Roster</Text>
+              <Text style={styles.heroSubtext}>
+                {filtered.length} students in {selectedClass}-{selectedSection}
+              </Text>
+            </View>
+            <View style={styles.heroIconContainer}>
+              <Users size={32} color="rgba(255,255,255,0.8)" />
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#001F3F" />}
+      >
+        {/* Selection Card */}
+        <AppCard style={styles.mainCard}>
+          <View style={styles.cardHeaderRow}>
+            <Filter size={18} color="#001F3F" />
+            <Text style={styles.cardTitle}>Class Selection</Text>
+          </View>
           
-          {/* Class Selection */}
-          <View style={styles.filterField}>
-            <Text style={styles.filterLabel}>Class</Text>
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>Select Class</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.chipContainer}>
                 {classOptions.map((cls) => (
@@ -333,7 +400,6 @@ export default function StudentListScreen() {
                     style={[styles.filterChip, selectedClass === cls && styles.filterChipActive]}
                     onPress={() => {
                       setSelectedClass(cls);
-                      // Auto-select first section for this class
                       const firstSection = assignedClasses.find(item => item.class_grade === cls)?.section;
                       if (firstSection) setSelectedSection(firstSection);
                     }}
@@ -347,10 +413,9 @@ export default function StudentListScreen() {
             </ScrollView>
           </View>
 
-          {/* Section Selection */}
           {selectedClass && sectionOptions.length > 0 && (
-            <View style={styles.filterField}>
-              <Text style={styles.filterLabel}>Section</Text>
+            <View style={[styles.filterSection, { marginTop: 12 }]}>
+              <Text style={styles.filterLabel}>Select Section</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.chipContainer}>
                   {sectionOptions.map((sec) => (
@@ -370,43 +435,45 @@ export default function StudentListScreen() {
           )}
         </AppCard>
 
-        {/* Search */}
+        {/* Search Card */}
         {selectedClass && selectedSection && (
-          <AppCard style={styles.searchCard}>
+          <View style={styles.searchWrapper}>
             <View style={styles.searchContainer}>
+              <Search size={18} color="#94a3b8" />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search by Roll Number..."
+                placeholder="Search name or roll number..."
                 placeholderTextColor="#94a3b8"
                 value={rollSearch}
                 onChangeText={setRollSearch}
               />
               {rollSearch.length > 0 && (
                 <TouchableOpacity onPress={() => setRollSearch('')} style={styles.clearBtn}>
-                  <Text style={styles.clearBtnText}>✕</Text>
+                  <X size={16} color="#94a3b8" />
                 </TouchableOpacity>
               )}
             </View>
-          </AppCard>
+          </View>
         )}
 
         {/* Student List */}
         {!selectedClass || !selectedSection ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📚</Text>
+            <BookOpen size={64} color="#cbd5e1" />
             <Text style={styles.emptyTitle}>No class selected</Text>
-            <Text style={styles.emptyText}>Please select a class and section above</Text>
+            <Text style={styles.emptyText}>Please select a class and section to view students</Text>
           </View>
         ) : loading ? (
-          <Loader />
+          <View style={{ marginTop: 40 }}><Loader /></View>
         ) : paginated.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>👨‍🎓</Text>
+            <Users size={64} color="#cbd5e1" />
             <Text style={styles.emptyTitle}>No students found</Text>
-            <Text style={styles.emptyText}>No students assigned to this class-section</Text>
+            <Text style={styles.emptyText}>We couldn't find any students matching your criteria</Text>
           </View>
         ) : (
-          <>
+          <View style={styles.listContainer}>
+            <Text style={styles.listHeading}>Student Roster</Text>
             {paginated.map((student) => (
               <StudentCard
                 key={student.student_id}
@@ -423,53 +490,45 @@ export default function StudentListScreen() {
                   onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                 >
-                  <Text style={styles.pageBtnText}>◀</Text>
+                  <ChevronLeft size={20} color={currentPage === 1 ? '#cbd5e1' : '#001F3F'} />
                 </TouchableOpacity>
 
-                {renderPageNumbers().map(p => (
-                  <TouchableOpacity
-                    key={p}
-                    style={[styles.pageBtn, currentPage === p && styles.pageBtnActive]}
-                    onPress={() => setCurrentPage(p)}
-                  >
-                    <Text style={[styles.pageBtnText, currentPage === p && styles.pageBtnTextActive]}>
-                      {p}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                <View style={styles.pageIndicator}>
+                  <Text style={styles.pageText}>Page {currentPage} of {totalPages}</Text>
+                </View>
 
                 <TouchableOpacity
                   style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
                   onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                 >
-                  <Text style={styles.pageBtnText}>▶</Text>
+                  <ChevronRight size={20} color={currentPage === totalPages ? '#cbd5e1' : '#001F3F'} />
                 </TouchableOpacity>
               </View>
             )}
-
-            {/* Footer Info */}
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>
-                Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
-              </Text>
-            </View>
-          </>
+          </View>
         )}
 
-        {/* School Info Footer */}
-        <View style={styles.schoolFooter}>
-          <Text style={styles.schoolFooterText}>🏫 School: {schoolCode || '—'}</Text>
-          <Text style={styles.schoolFooterText}>👑 Role: Teacher</Text>
+        {/* Footer Info */}
+        <View style={styles.footerBranding}>
+          <Text style={styles.brandingText}>AttendX Teacher Portal</Text>
+          <Text style={styles.schoolInfoText}>School: {schoolCode || '—'}</Text>
         </View>
       </ScrollView>
 
-      {/* View Detail Modal */}
+      {/* Student Detail Modal */}
       <Modal visible={!!viewStudent} transparent animationType="slide" onRequestClose={() => setViewStudent(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderInfo}>
+              <View style={styles.modalHeaderTop}>
+                <View style={styles.modalHandle} />
+                <TouchableOpacity onPress={() => setViewStudent(null)} style={styles.modalCloseBtn}>
+                  <X size={20} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalProfile}>
                 {viewStudent?.student_photograph ? (
                   <Image
                     source={{ uri: `data:image/jpeg;base64,${viewStudent.student_photograph}` }}
@@ -480,34 +539,35 @@ export default function StudentListScreen() {
                     <Text style={styles.modalAvatarText}>{initials(viewStudent?.student_full_name || '')}</Text>
                   </View>
                 )}
-                <View>
-                  <Text style={styles.modalTitle}>{viewStudent?.student_full_name || 'Student Details'}</Text>
-                  <View style={styles.modalMeta}>
-                    <Text style={styles.modalRoll}>Roll: {viewStudent?.roll_number || '—'}</Text>
+                <View style={styles.modalProfileInfo}>
+                  <Text style={styles.modalStudentName}>{viewStudent?.student_full_name}</Text>
+                  <View style={styles.modalProfileMeta}>
+                    <View style={styles.rollTag}>
+                      <Text style={styles.rollTagText}>Roll #{viewStudent?.roll_number}</Text>
+                    </View>
                     <StatusBadge status={viewStudent?.student_status || ''} />
                   </View>
                 </View>
               </View>
-              <TouchableOpacity onPress={() => setViewStudent(null)} style={styles.modalClose}>
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
               {DETAIL_GROUPS.map((group) => {
                 const entries: Array<[string, unknown]> = group.keys
                   .filter(k => viewStudent?.[k as keyof Student] !== undefined && viewStudent?.[k as keyof Student] !== '')
                   .map(k => [k, viewStudent?.[k as keyof Student]] as [string, unknown]);
+
                 if (entries.length === 0) return null;
+
                 return (
                   <View key={group.label} style={styles.detailGroup}>
                     <View style={styles.groupHeader}>
-                      <Text style={styles.groupIcon}>{group.icon}</Text>
+                      {group.icon}
                       <Text style={styles.groupTitle}>{group.label}</Text>
                     </View>
-                    <View style={styles.groupGrid}>
-                      {entries.map(([k, v], i) => (
-                        <View key={k} style={[styles.gridCell, i % 2 === 0 && styles.gridCellLeft]}>
+                    <View style={styles.gridContainer}>
+                      {entries.map(([k, v]) => (
+                        <View key={k} style={styles.gridItem}>
                           <Text style={styles.gridLabel}>{fmt(k)}</Text>
                           <Text style={styles.gridValue}>{String(v ?? '—')}</Text>
                         </View>
@@ -516,10 +576,11 @@ export default function StudentListScreen() {
                   </View>
                 );
               })}
+              <View style={{ height: 40 }} />
             </ScrollView>
 
             <View style={styles.modalFooter}>
-              <AppButton title="Close" onPress={() => setViewStudent(null)} type="secondary" />
+              <AppButton title="Close Profile" onPress={() => setViewStudent(null)} style={styles.closeModalBtn} />
             </View>
           </View>
         </View>
@@ -531,405 +592,453 @@ export default function StudentListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: '#F8FAFC',
   },
-  contentContainer: {
-    padding: 16,
+  heroHeader: {
+    backgroundColor: '#001F3F',
+    height: 200,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  heroContent: {
+    marginTop: 25,
+  },
+  heroRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  heroGreeting: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '800',
+  },
+  heroSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  heroIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
     paddingBottom: 40,
   },
-  header: {
-    marginBottom: 20,
+  mainCard: {
+    marginTop: -30,
+    borderRadius: 20,
+    padding: 16,
+    backgroundColor: '#fff',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    marginBottom: 16,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0d1b2a',
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#4a5568',
-    marginTop: 4,
-  },
-  sectionTitle: {
-    fontSize: 14,
+  cardTitle: {
+    fontSize: 16,
     fontWeight: '700',
-    color: '#0d1b2a',
-    marginBottom: 12,
+    color: '#0F172A',
   },
-  filterCard: {
-    padding: 16,
-    marginBottom: 16,
-  },
-  searchCard: {
-    padding: 16,
-    marginBottom: 16,
-  },
-  filterField: {
-    marginBottom: 16,
+  filterSection: {
+    gap: 8,
   },
   filterLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#4a5568',
-    marginBottom: 8,
+    color: '#64748b',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   chipContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
   },
   filterChip: {
     paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: '#E2E8F0',
   },
   filterChipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
   },
   filterChipText: {
-    fontSize: 13,
-    color: '#4a5568',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
   },
   filterChipTextActive: {
     color: '#fff',
   },
+  searchWrapper: {
+    marginBottom: 16,
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#e4e9f2',
-    borderRadius: 10,
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: 12,
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    paddingHorizontal: 16,
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 12,
   },
   searchInput: {
     flex: 1,
-    height: 44,
-    fontSize: 14,
-    color: '#0d1b2a',
+    fontSize: 15,
+    color: '#0F172A',
+    fontWeight: '500',
   },
   clearBtn: {
-    padding: 8,
+    padding: 4,
   },
-  clearBtnText: {
-    fontSize: 14,
-    color: '#8898aa',
+  listContainer: {
+    gap: 12,
+  },
+  listHeading: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 4,
+    marginLeft: 4,
   },
   studentCard: {
-    marginBottom: 12,
+    borderRadius: 16,
     padding: 16,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    gap: 14,
   },
   studentAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    marginRight: 12,
+    width: 54,
+    height: 54,
+    borderRadius: 15,
   },
   avatarPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    backgroundColor: '#2563eb',
+    width: 54,
+    height: 54,
+    borderRadius: 15,
+    backgroundColor: '#001F3F',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
   avatarText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
   },
   cardInfo: {
     flex: 1,
+    gap: 4,
   },
   studentName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
-    color: '#0d1b2a',
-    marginBottom: 4,
+    color: '#0F172A',
   },
   cardMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  rollBadge: {
-    fontSize: 12,
-    fontFamily: 'monospace',
-    backgroundColor: '#dbeafe',
+  rollTag: {
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    color: '#2563eb',
-    fontWeight: '600',
-  },
-  cardDetails: {
-    marginBottom: 12,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  detailLabel: {
-    width: 60,
-    fontSize: 13,
-    color: '#4a5568',
-  },
-  detailValue: {
-    flex: 1,
-    fontSize: 13,
-    color: '#0d1b2a',
-    fontWeight: '500',
-  },
-  viewBtn: {
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#2563eb',
-    alignItems: 'center',
+    borderColor: '#E2E8F0',
   },
-  viewBtnText: {
-    fontSize: 14,
+  rollTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#001F3F',
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 14,
+  },
+  cardDetailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  miniDetail: {
+    gap: 2,
+  },
+  miniLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+  },
+  miniValue: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#2563eb',
+    color: '#334155',
   },
   statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 20,
+    borderRadius: 8,
   },
   statusActive: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: '#DCFCE7',
   },
   statusInactive: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: '#FEE2E2',
   },
   statusText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
   statusTextActive: {
-    color: '#059669',
+    color: '#166534',
   },
   statusTextInactive: {
-    color: '#dc2626',
+    color: '#991B1B',
   },
   emptyContainer: {
     alignItems: 'center',
-    padding: 48,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 16,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0d1b2a',
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   emptyText: {
-    fontSize: 14,
-    color: '#4a5568',
+    fontSize: 15,
+    color: '#64748b',
     textAlign: 'center',
+    maxWidth: '80%',
+    lineHeight: 22,
   },
   pagination: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    marginVertical: 16,
+    justifyContent: 'center',
+    marginTop: 20,
+    gap: 16,
   },
   pageBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  pageBtnActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    elevation: 1,
   },
   pageBtnDisabled: {
-    opacity: 0.4,
+    opacity: 0.5,
+    backgroundColor: '#F8FAFC',
   },
-  pageBtnText: {
-    fontSize: 14,
-    color: '#4a5568',
-  },
-  pageBtnTextActive: {
-    color: '#fff',
-  },
-  footer: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#8898aa',
-  },
-  schoolFooter: {
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: '#fff',
+  pageIndicator: {
+    backgroundColor: '#001F3F',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e4e9f2',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
   },
-  schoolFooterText: {
+  pageText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  footerBranding: {
+    alignItems: 'center',
+    marginTop: 40,
+    paddingBottom: 20,
+    gap: 4,
+  },
+  brandingText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#001F3F',
+    opacity: 0.5,
+  },
+  schoolInfoText: {
     fontSize: 12,
-    color: '#4a5568',
+    color: '#94a3b8',
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '100%',
-    maxHeight: '90%',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    height: '85%',
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
+    padding: 24,
+    paddingTop: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: '#F1F5F9',
   },
-  modalHeaderInfo: {
+  modalHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 2,
+  },
+  modalCloseBtn: {
+    position: 'absolute',
+    right: 0,
+    top: -4,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalProfile: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 20,
   },
   modalAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
+    width: 80,
+    height: 80,
+    borderRadius: 25,
   },
   modalAvatarPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    backgroundColor: '#2563eb',
+    width: 80,
+    height: 80,
+    borderRadius: 25,
+    backgroundColor: '#001F3F',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalAvatarText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: '800',
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0d1b2a',
+  modalProfileInfo: {
+    flex: 1,
+    gap: 8,
   },
-  modalMeta: {
+  modalStudentName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalProfileMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-  modalRoll: {
-    fontSize: 12,
-    fontFamily: 'monospace',
-    backgroundColor: '#dbeafe',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    color: '#2563eb',
-    fontWeight: '600',
-  },
-  modalClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f0f2f7',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalCloseText: {
-    fontSize: 16,
-    color: '#4a5568',
+    gap: 10,
   },
   modalBody: {
-    padding: 16,
+    padding: 24,
   },
   detailGroup: {
-    marginBottom: 16,
+    marginBottom: 24,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 20,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
-    borderRadius: 12,
-    overflow: 'hidden',
+    borderColor: '#F1F5F9',
   },
   groupHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    backgroundColor: '#f7f9fc',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
-  },
-  groupIcon: {
-    fontSize: 14,
+    gap: 10,
+    marginBottom: 16,
   },
   groupTitle: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#001F3F',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    color: '#2563eb',
+    letterSpacing: 1,
   },
-  groupGrid: {
+  gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 16,
   },
-  gridCell: {
-    width: '50%',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
-  },
-  gridCellLeft: {
-    borderRightWidth: 1,
-    borderRightColor: '#e4e9f2',
+  gridItem: {
+    width: '47%',
+    gap: 4,
   },
   gridLabel: {
     fontSize: 11,
     fontWeight: '700',
+    color: '#94a3b8',
     textTransform: 'uppercase',
-    color: '#8898aa',
-    marginBottom: 4,
   },
   gridValue: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#0d1b2a',
+    fontWeight: '700',
+    color: '#334155',
   },
   modalFooter: {
-    padding: 16,
+    padding: 24,
     borderTopWidth: 1,
-    borderTopColor: '#e4e9f2',
+    borderTopColor: '#F1F5F9',
+  },
+  closeModalBtn: {
+    backgroundColor: '#001F3F',
+    borderRadius: 15,
+    height: 56,
   },
 });

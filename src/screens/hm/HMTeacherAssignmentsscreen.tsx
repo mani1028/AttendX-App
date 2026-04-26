@@ -1,12 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, TextInput,
-  Modal, ActivityIndicator, StyleSheet, Alert,
+  View, ScrollView, TouchableOpacity, TextInput,
+  Modal, ActivityIndicator, StyleSheet, Alert, StatusBar, Platform,
+  NativeSyntheticEvent, NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from '@react-native-vector-icons/ionicons';
+import { useNavigation } from '@react-navigation/native';
+import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
+import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 const C = {
@@ -46,6 +50,10 @@ function teacherLabel(t: any) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function HMTeacherAssignmentsScreen() {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
+
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
 
@@ -106,7 +114,20 @@ export default function HMTeacherAssignmentsScreen() {
       setSchoolCode(sc);
       setBranchId(bid);
     })();
+    setTabBarVisible(true);
+    return () => setTabBarVisible(true);
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = event.nativeEvent.contentOffset.y;
+    const deltaY = y - lastScrollY.current;
+    if (y > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10 || y < 10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = y;
+  };
 
   useEffect(() => {
     if (schoolCode && branchId) loadMeta();
@@ -290,19 +311,35 @@ export default function HMTeacherAssignmentsScreen() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <ScrollView style={styles.page} contentContainerStyle={{ paddingBottom: 40 }}>
-
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Teacher Assignments</Text>
-          <Text style={styles.subtitle}>Assign class teachers and subject teachers</Text>
-        </View>
-        <TouchableOpacity style={styles.btnOutline} onPress={loadMeta} disabled={isBusy}>
-          <Icon name="refresh-outline" size={16} color={C.text2} />
-          <Text style={styles.btnOutlineText}>Refresh</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <View style={styles.navHeader}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <AppText style={styles.navTitle}>Teacher Assignments</AppText>
+        <TouchableOpacity style={styles.refreshBtn} onPress={loadMeta} disabled={isBusy}>
+          <Icon name="refresh-cw" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
+
+      <ScrollView
+        style={styles.page}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
+
+        {/* Header (Section Title) */}
+        <View style={styles.header}>
+          <View>
+            <AppText style={styles.title}>Management</AppText>
+            <AppText style={styles.subtitle}>Assign class teachers and subject teachers</AppText>
+          </View>
+        </View>
 
       {/* Info Bar */}
       {schoolCode || branchId ? (
@@ -310,29 +347,29 @@ export default function HMTeacherAssignmentsScreen() {
           {schoolCode ? (
             <View style={styles.infoItem}>
               <Icon name="school-outline" size={14} color={C.primary} />
-              <Text style={styles.infoText}>School: <Text style={styles.infoBold}>{schoolCode}</Text></Text>
-            </View>
-          ) : null}
-          {branchId ? (
-            <View style={styles.infoItem}>
-              <Icon name="git-branch-outline" size={14} color={C.primary} />
-              <Text style={styles.infoText}>Branch: <Text style={styles.infoBold}>{branchId}</Text></Text>
-            </View>
-          ) : null}
-        </View>
-      ) : null}
+      <AppText style={styles.infoText}>School: <AppText style={styles.infoBold}>{schoolCode}</AppText></AppText>
+    </View>
+  ) : null}
+  {branchId ? (
+    <View style={styles.infoItem}>
+      <Icon name="git-branch" size={14} color={C.primary} />
+      <AppText style={styles.infoText}>Branch: <AppText style={styles.infoBold}>{branchId}</AppText></AppText>
+    </View>
+  ) : null}
+</View>
+) : null}
 
-      {/* Message */}
-      {message.text ? (
-        <View style={[styles.messageBanner, {
-          backgroundColor: message.type === 'success' ? C.successSoft : message.type === 'error' ? C.dangerSoft : C.warningSoft,
-          borderColor: message.type === 'success' ? C.success + '40' : message.type === 'error' ? C.danger + '40' : C.warning + '40',
-        }]}>
-          <Text style={{ color: message.type === 'success' ? C.success : message.type === 'error' ? C.danger : C.warning, fontWeight: '700' }}>
-            {message.text}
-          </Text>
-        </View>
-      ) : null}
+{/* Message */}
+{message.text ? (
+<View style={[styles.messageBanner, {
+  backgroundColor: message.type === 'success' ? C.successSoft : message.type === 'error' ? C.dangerSoft : C.warningSoft,
+  borderColor: message.type === 'success' ? C.success + '40' : message.type === 'error' ? C.danger + '40' : C.warning + '40',
+}]}>
+  <AppText style={{ color: message.type === 'success' ? C.success : message.type === 'error' ? C.danger : C.warning, fontWeight: '700' }}>
+    {message.text}
+  </AppText>
+</View>
+) : null}
 
       {loading ? (
         <ActivityIndicator size="large" color={C.primary} style={{ marginTop: 40 }} />
@@ -341,12 +378,12 @@ export default function HMTeacherAssignmentsScreen() {
           {/* Class Selection */}
           <View style={styles.panel}>
             <View style={styles.panelHead}>
-              <Text style={styles.panelTitle}>Select Class</Text>
-              <Text style={styles.panelSub}>Tap a class then choose a section</Text>
+              <AppText style={styles.panelTitle}>Select Class</AppText>
+              <AppText style={styles.panelSub}>Tap a class then choose a section</AppText>
             </View>
             <View style={styles.panelBody}>
               {classNames.length === 0 ? (
-                <Text style={{ color: C.text3, textAlign: 'center', padding: 20 }}>No classes found</Text>
+                <AppText style={{ color: C.text3, textAlign: 'center', padding: 20 }}>No classes found</AppText>
               ) : (
                 <View style={styles.classGrid}>
                   {classNames.map(cls => (
@@ -359,12 +396,12 @@ export default function HMTeacherAssignmentsScreen() {
                         setSelectedSection(secs[0] || '');
                       }}
                     >
-                      <Text style={[styles.className, selectedClass === cls && { color: C.primary }]}>
+                      <AppText style={[styles.className, selectedClass === cls && { color: C.primary }]}>
                         Class {cls}
-                      </Text>
-                      <Text style={styles.classMeta}>
+                      </AppText>
+                      <AppText style={styles.classMeta}>
                         {(classesMap[cls] || []).length} section(s)
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -373,7 +410,7 @@ export default function HMTeacherAssignmentsScreen() {
               {/* Section Selection */}
               {selectedClass && classesMap[selectedClass]?.length > 0 ? (
                 <View style={styles.sectionWrap}>
-                  <Text style={styles.sectionTitle}>SECTIONS</Text>
+                  <AppText style={styles.sectionTitle}>SECTIONS</AppText>
                   <View style={styles.sectionList}>
                     {(classesMap[selectedClass] || []).map(sec => (
                       <TouchableOpacity
@@ -381,9 +418,9 @@ export default function HMTeacherAssignmentsScreen() {
                         style={[styles.sectionBtn, selectedSection === sec && styles.sectionBtnActive]}
                         onPress={() => setSelectedSection(sec)}
                       >
-                        <Text style={[styles.sectionBtnText, selectedSection === sec && { color: C.white }]}>
+                        <AppText style={[styles.sectionBtnText, selectedSection === sec && { color: C.white }]}>
                           {sec}
-                        </Text>
+                        </AppText>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -396,7 +433,7 @@ export default function HMTeacherAssignmentsScreen() {
           {selectedClass && selectedSection ? (
             <View style={styles.panel}>
               <View style={styles.panelHead}>
-                <Text style={styles.panelTitle}>Class {selectedClass} — Section {selectedSection}</Text>
+                <AppText style={styles.panelTitle}>Class {selectedClass} — Section {selectedSection}</AppText>
               </View>
               <View style={styles.panelBody}>
 
@@ -408,38 +445,38 @@ export default function HMTeacherAssignmentsScreen() {
                     <View style={styles.card}>
                       <View style={styles.cardHead}>
                         <View>
-                          <Text style={styles.cardTitle}>
-                            <Icon name="person-outline" size={14} /> Class Teacher
-                          </Text>
-                          <Text style={styles.cardSub}>Assign the class teacher for this section</Text>
+                          <AppText style={styles.cardTitle}>
+                            <Icon name="user" size={14} /> Class Teacher
+                          </AppText>
+                          <AppText style={styles.cardSub}>Assign the class teacher for this section</AppText>
                         </View>
                       </View>
                       <View style={styles.cardBody}>
-                        <Text style={styles.label}>Select Teacher</Text>
+                        <AppText style={styles.label}>Select Teacher</AppText>
                         <TouchableOpacity
                           style={styles.picker}
                           onPress={() => openTeacherPicker('class')}
                           disabled={isBusy}
                         >
-                          <Text style={{ color: classTeacherId ? C.text : C.text3, fontSize: 14 }}>
+                          <AppText style={{ color: classTeacherId ? C.text : C.text3, fontSize: 14 }}>
                             {classTeacherId ? getTeacherName(classTeacherId) : 'Select Teacher'}
-                          </Text>
-                          <Icon name="chevron-down-outline" size={16} color={C.text3} />
+                          </AppText>
+                          <Icon name="chevron-down" size={16} color={C.text3} />
                         </TouchableOpacity>
 
                         {currentClassTeacher ? (
                           <View style={styles.currentBadge}>
-                            <Icon name="checkmark-circle-outline" size={14} color={C.success} />
-                            <Text style={styles.currentBadgeText}>
+                            <Icon name="check-circle" size={14} color={C.success} />
+                            <AppText style={styles.currentBadgeText}>
                               Current: {teacherLabel(currentClassTeacher)}
-                            </Text>
+                            </AppText>
                           </View>
                         ) : null}
 
                         <View style={styles.noteBox}>
-                          <Text style={styles.noteText}>
+                          <AppText style={styles.noteText}>
                             If the selected teacher is already a class teacher for another section, you will get a warning.
-                          </Text>
+                          </AppText>
                         </View>
 
                         <TouchableOpacity
@@ -449,7 +486,7 @@ export default function HMTeacherAssignmentsScreen() {
                         >
                           {classTeacherSaving
                             ? <ActivityIndicator color="#fff" size="small" />
-                            : <Text style={styles.btnPrimaryText}>Save Class Teacher</Text>}
+                            : <AppText style={styles.btnPrimaryText}>Save Class Teacher</AppText>}
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -458,10 +495,10 @@ export default function HMTeacherAssignmentsScreen() {
                     <View style={[styles.card, { marginTop: 12 }]}>
                       <View style={styles.cardHead}>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.cardTitle}>
-                            <Icon name="book-outline" size={14} /> Subject Teachers
-                          </Text>
-                          <Text style={styles.cardSub}>Assign teachers to each subject</Text>
+                          <AppText style={styles.cardTitle}>
+                            <Icon name="book" size={14} /> Subject Teachers
+                          </AppText>
+                          <AppText style={styles.cardSub}>Assign teachers to each subject</AppText>
                         </View>
                         <TouchableOpacity
                           style={styles.btnOutline}
@@ -472,29 +509,29 @@ export default function HMTeacherAssignmentsScreen() {
                             setSubjectModalOpen(true);
                           }}
                         >
-                          <Icon name="add-outline" size={16} color={C.text2} />
-                          <Text style={styles.btnOutlineText}>Add Subject</Text>
+                          <Icon name="plus" size={16} color={C.text2} />
+                          <AppText style={styles.btnOutlineText}>Add Subject</AppText>
                         </TouchableOpacity>
                       </View>
                       <View style={styles.cardBody}>
                         {subjects.length === 0 ? (
-                          <Text style={{ color: C.text2, fontSize: 14 }}>
+                          <AppText style={{ color: C.text2, fontSize: 14 }}>
                             No subjects found. Use "Add Subject" to add subjects first.
-                          </Text>
+                          </AppText>
                         ) : (
                           <>
                             {subjects.map(subject => (
                               <View key={subject} style={styles.subjectRow}>
-                                <Text style={styles.subjectName}>{subject}</Text>
+                                <AppText style={styles.subjectName}>{subject}</AppText>
                                 <TouchableOpacity
                                   style={styles.picker}
                                   onPress={() => openTeacherPicker(subject)}
                                   disabled={isBusy}
                                 >
-                                  <Text style={{ color: subjectTeacherMap[subject] ? C.text : C.text3, fontSize: 13, flex: 1 }}>
+                                  <AppText style={{ color: subjectTeacherMap[subject] ? C.text : C.text3, fontSize: 13, flex: 1 }}>
                                     {subjectTeacherMap[subject] ? getTeacherName(subjectTeacherMap[subject]) : 'Select Teacher'}
-                                  </Text>
-                                  <Icon name="chevron-down-outline" size={16} color={C.text3} />
+                                  </AppText>
+                                  <Icon name="chevron-down" size={16} color={C.text3} />
                                 </TouchableOpacity>
                               </View>
                             ))}
@@ -505,7 +542,7 @@ export default function HMTeacherAssignmentsScreen() {
                             >
                               {subjectTeacherSaving
                                 ? <ActivityIndicator color="#fff" size="small" />
-                                : <Text style={styles.btnPrimaryText}>Save Subject Teachers</Text>}
+                                : <AppText style={styles.btnPrimaryText}>Save Subject Teachers</AppText>}
                             </TouchableOpacity>
                           </>
                         )}
@@ -517,9 +554,9 @@ export default function HMTeacherAssignmentsScreen() {
             </View>
           ) : (
             <View style={styles.emptyState}>
-              <Icon name="school-outline" size={40} color={C.text3} />
-              <Text style={styles.emptyTitle}>Select a class and section</Text>
-              <Text style={{ color: C.text3, fontSize: 13 }}>to manage teacher assignments</Text>
+              <Icon name="home" size={40} color={C.text3} />
+              <AppText style={styles.emptyTitle}>Select a class and section</AppText>
+              <AppText style={{ color: C.text3, fontSize: 13 }}>to manage teacher assignments</AppText>
             </View>
           )}
         </>
@@ -530,9 +567,9 @@ export default function HMTeacherAssignmentsScreen() {
         <View style={styles.overlay}>
           <View style={[styles.modal, { maxHeight: '80%' }]}>
             <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>Select Teacher</Text>
+              <AppText style={styles.modalTitle}>Select Teacher</AppText>
               <TouchableOpacity onPress={() => setTeacherPickerVisible(false)}>
-                <Icon name="close-outline" size={22} color={C.text} />
+                <Icon name="x" size={22} color={C.text} />
               </TouchableOpacity>
             </View>
             <ScrollView>
@@ -542,7 +579,7 @@ export default function HMTeacherAssignmentsScreen() {
                   style={styles.pickerOption}
                   onPress={() => onPickTeacher(teacher)}
                 >
-                  <Text style={styles.pickerOptionText}>{teacherLabel(teacher)}</Text>
+                  <AppText style={styles.pickerOptionText}>{teacherLabel(teacher)}</AppText>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -555,15 +592,15 @@ export default function HMTeacherAssignmentsScreen() {
         <View style={styles.overlay}>
           <View style={styles.modal}>
             <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>
-                <Icon name="book-outline" size={16} /> Add Subject
-              </Text>
+              <AppText style={styles.modalTitle}>
+                <Icon name="book" size={16} /> Add Subject
+              </AppText>
               <TouchableOpacity onPress={() => setSubjectModalOpen(false)}>
-                <Icon name="close-outline" size={22} color={C.text} />
+                <Icon name="x" size={22} color={C.text} />
               </TouchableOpacity>
             </View>
             <View style={styles.modalBody}>
-              <Text style={styles.label}>Subject Name</Text>
+              <AppText style={styles.label}>Subject Name</AppText>
               <TextInput
                 style={styles.input}
                 value={subjectModalNewSubject}
@@ -572,19 +609,19 @@ export default function HMTeacherAssignmentsScreen() {
                 placeholderTextColor={C.text3}
               />
               {subjectModalError ? (
-                <Text style={{ color: C.danger, fontSize: 13, marginTop: 8 }}>{subjectModalError}</Text>
+                <AppText style={{ color: C.danger, fontSize: 13, marginTop: 8 }}>{subjectModalError}</AppText>
               ) : null}
             </View>
             <View style={styles.modalFoot}>
               <TouchableOpacity style={styles.btnOutline} onPress={() => setSubjectModalOpen(false)}>
-                <Text style={styles.btnOutlineText}>Cancel</Text>
+                <AppText style={styles.btnOutlineText}>Cancel</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.btnPrimary, !subjectModalNewSubject.trim() && styles.btnDisabled]}
                 onPress={handleCreateSubject}
                 disabled={!subjectModalNewSubject.trim() || subjectTeacherSaving}
               >
-                <Text style={styles.btnPrimaryText}>Add Subject</Text>
+                <AppText style={styles.btnPrimaryText}>Add Subject</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -596,54 +633,85 @@ export default function HMTeacherAssignmentsScreen() {
         <View style={styles.overlay}>
           <View style={styles.modal}>
             <View style={styles.modalHead}>
-              <Icon name="warning-outline" size={20} color={C.warning} />
-              <Text style={[styles.modalTitle, { marginLeft: 6 }]}>Class Teacher Already Assigned</Text>
+              <Icon name="alert-triangle" size={20} color={C.warning} />
+              <AppText style={[styles.modalTitle, { marginLeft: 6 }]}>Class Teacher Already Assigned</AppText>
             </View>
             <View style={styles.modalBody}>
-              <Text style={{ color: C.text2, lineHeight: 22 }}>
-                <Text style={{ fontWeight: '700', color: C.text }}>{overrideConflict?.teacher_name}</Text> is already
+              <AppText style={{ color: C.text2, lineHeight: 22 }}>
+                <AppText style={{ fontWeight: '700', color: C.text }}>{overrideConflict?.teacher_name}</AppText> is already
                 assigned as class teacher for{' '}
-                <Text style={{ fontWeight: '700', color: C.text }}>
+                <AppText style={{ fontWeight: '700', color: C.text }}>
                   Class {overrideConflict?.current_class_grade} — Section {overrideConflict?.current_section}
-                </Text>.{'\n\n'}
+                </AppText>.{'\n\n'}
                 Choose how to continue for{' '}
-                <Text style={{ fontWeight: '700', color: C.text }}>
+                <AppText style={{ fontWeight: '700', color: C.text }}>
                   Class {selectedClass} — Section {selectedSection}
-                </Text>.
-              </Text>
+                </AppText>.
+              </AppText>
             </View>
             <View style={styles.modalFoot}>
               <TouchableOpacity
                 style={styles.btnOutline}
                 onPress={() => { setOverrideOpen(false); setOverrideConflict(null); }}
               >
-                <Text style={styles.btnOutlineText}>Cancel</Text>
+                <AppText style={styles.btnOutlineText}>Cancel</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.btnOutline}
                 onPress={() => saveClassTeacher('keep_both')}
                 disabled={classTeacherSaving}
               >
-                <Text style={styles.btnOutlineText}>Assign Both</Text>
+                <AppText style={styles.btnOutlineText}>Assign Both</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.btnPrimary}
                 onPress={() => saveClassTeacher('move')}
                 disabled={classTeacherSaving}
               >
-                <Text style={styles.btnPrimaryText}>Move</Text>
+                <AppText style={styles.btnPrimaryText}>Move</AppText>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-
     </ScrollView>
+    </View>
+  );
+}
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: C.bg,
+  },
+  navHeader: {
+    backgroundColor: '#001F3F',
+    height: Platform.OS === 'ios' ? 100 : 70,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 40 : 0,
+  },
+  backButton: {
+    padding: 8,
+    width: 40,
+  },
+  navTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+  },
+  refreshBtn: {
+    padding: 8,
+    width: 40,
+    alignItems: 'flex-end',
+  },
   page: { flex: 1, backgroundColor: C.bg, padding: 16 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
   title: { fontSize: 20, fontWeight: '800', color: C.text },

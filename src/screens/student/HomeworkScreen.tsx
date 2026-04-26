@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,14 +11,17 @@ import {
   Platform,
   Dimensions,
   StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import LinearGradient from 'react-native-linear-gradient';
-import Icon from 'react-native-vector-icons/Feather';
-import API from '../../services/api';
+import Icon from '@react-native-vector-icons/feather';
+import { getSubjects, getHomework } from '../../services/studentService';
 import { colors } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -73,62 +76,6 @@ const formatDisplayDate = (dateString: string): string => {
   });
 };
 
-// Bottom Navigation Bar Component (matching attendance screen)
-interface BottomTabItem {
-  id: string;
-  label: string;
-  icon: string;
-}
-
-const BOTTOM_TAB_ITEMS: BottomTabItem[] = [
-  { id: 'home', label: 'Home', icon: 'home' },
-  { id: 'homework', label: 'Home Work', icon: 'book-open' },
-  { id: 'more', label: 'More', icon: 'more-horizontal' },
-  { id: 'leave', label: 'Leave', icon: 'calendar' },
-  { id: 'marks', label: 'Marks', icon: 'star' },
-  { id: 'profile', label: 'Profile', icon: 'user' },
-];
-
-const BottomTabBar: React.FC<{
-  activeTab: string;
-  onTabPress: (tabId: string) => void;
-}> = ({ activeTab, onTabPress }) => {
-  return (
-    <View style={styles.bottomBarContainer}>
-      <View style={styles.bottomBarInner}>
-        {BOTTOM_TAB_ITEMS.map((item) => {
-          const isActive = activeTab === item.id;
-          return (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.bottomTabItem}
-              onPress={() => onTabPress(item.id)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.bottomIconWrapper, isActive && styles.bottomIconWrapperActive]}>
-                <Icon
-                  name={item.icon}
-                  size={22}
-                  color={isActive ? '#3b82f6' : '#94a3b8'}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.bottomTabLabel,
-                  isActive && styles.bottomTabLabelActive,
-                ]}
-              >
-                {item.label}
-              </Text>
-              {isActive && <View style={styles.activeIndicator} />}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </View>
-  );
-};
-
 // Homework Card Component (matches image design)
 const HomeworkCard: React.FC<{
   homework: Homework;
@@ -161,8 +108,21 @@ const HomeworkCard: React.FC<{
 };
 
 export default function HomeworkScreen() {
-  const { userName } = useAuth();
+  const navigation = useNavigation<any>();
+  const { userName, setTabBarVisible } = useAuth();
   const [schoolCode, setSchoolCode] = useState<string>('');
+
+  const lastScrollY = useRef(0);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
+      setTabBarVisible(false);
+    } else if (currentScrollY < lastScrollY.current - 10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
   const [studentId, setStudentId] = useState<string>('');
   const [selectedSubject, setSelectedSubject] = useState<string>('All Subjects');
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDate());
@@ -174,7 +134,6 @@ export default function HomeworkScreen() {
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [showHomeworkModal, setShowHomeworkModal] = useState<boolean>(false);
   const [selectedHomework, setSelectedHomework] = useState<Homework | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('homework');
 
   // Load school code and student ID
   useEffect(() => {
@@ -192,8 +151,7 @@ export default function HomeworkScreen() {
         const cachedHomework = await AsyncStorage.getItem(`homework_data_cache_${id}`);
         if (cachedHomework) {
           const items = JSON.parse(cachedHomework);
-          setAllItems(items);
-          applyFrontendFilters(items, subjectFilter, assignedDate);
+          setHomeworkList(items);
         }
       } catch (e) {
         console.log('Failed to load cached homework');
@@ -206,21 +164,36 @@ export default function HomeworkScreen() {
   useEffect(() => {
     if (schoolCode && studentId) {
       loadSubjects();
-      loadHomework(assignedDate, subjectFilter);
+      loadHomework(selectedDate, selectedSubject);
     }
   }, [schoolCode, studentId]);
 
   // Apply filters whenever subjects, homework, or filter options change
+  const applyFilters = useCallback(() => {
+    let filtered = [...homeworkList];
+
+    if (selectedSubject && selectedSubject !== 'All Subjects') {
+      filtered = filtered.filter(hw =>
+        hw.subject_name.toLowerCase() === selectedSubject.toLowerCase()
+      );
+    }
+
+    if (selectedDate) {
+      filtered = filtered.filter(hw =>
+        normalizeDate(hw.assigned_date) === normalizeDate(selectedDate)
+      );
+    }
+
+    setFilteredHomework(filtered);
+  }, [homeworkList, selectedSubject, selectedDate]);
+
   useEffect(() => {
     applyFilters();
-  }, [subjects, homeworkList, selectedSubject, selectedDate]);
+  }, [applyFilters]);
 
   const loadSubjects = async () => {
     try {
-      const res = await API.get('/manage/student-dashboard/subjects', {
-        params: { school_code: schoolCode, student_id: studentId },
-      });
-      const items = res.data?.items || [];
+      const items = await getSubjects();
       setSubjects(items);
       await AsyncStorage.setItem(`homework_subjects_cache_${studentId}`, JSON.stringify(items));
     } catch (err) {
@@ -228,40 +201,37 @@ export default function HomeworkScreen() {
     }
   };
 
-  const loadHomework = async (dateToFetch: string, subjectToFetch: string) => {
-    if (!schoolCode || !studentId) return;
+  const loadHomework = async (dateToFetch?: string, subjectToFetch?: string) => {
+    if (!studentId) return;
 
     setLoading(true);
     try {
-      const params: any = {
-        school_code: schoolCode,
-        student_id: studentId,
-      };
+      const params: any = {};
 
       if (dateToFetch) {
         params.assigned_date = dateToFetch;
       }
 
-      if (subjectToFetch && subjectToFetch !== 'ALL') {
-        const selectedSubject = subjects.find(
+      if (subjectToFetch && subjectToFetch !== 'All Subjects' && subjectToFetch !== 'ALL') {
+        const selectedSub = subjects.find(
           (s) =>
             String(s.subject_name || '')
               .trim()
               .toLowerCase() === subjectToFetch.toLowerCase()
         );
-        if (selectedSubject?.subject_id) {
-          params.subject_id = selectedSubject.subject_id;
+        if (selectedSub?.subject_id) {
+          params.subject_id = selectedSub.subject_id;
         }
       }
 
-      const res = await API.get('/manage/student-dashboard/homework', { params });
-      const items = res.data?.items || [];
-      setAllItems(items);
-      applyFrontendFilters(items, subjectToFetch || subjectFilter, dateToFetch);
+      const items = await getHomework(params);
+      setHomeworkList(items);
+
+      // Cache the result
+      await AsyncStorage.setItem(`homework_data_cache_${studentId}`, JSON.stringify(items));
     } catch (err) {
       console.error('Fetch homework failed:', err);
-      setAllItems([]);
-      setFilteredItems([]);
+      setHomeworkList([]);
     } finally {
       setLoading(false);
     }
@@ -269,7 +239,7 @@ export default function HomeworkScreen() {
 
   const refreshAll = async () => {
     setRefreshing(true);
-    await Promise.all([loadSubjects(), loadHomework()]);
+    await Promise.all([loadSubjects(), loadHomework(selectedDate, selectedSubject)]);
     setRefreshing(false);
   };
 
@@ -289,46 +259,61 @@ export default function HomeworkScreen() {
     setSelectedSubject(subjectName);
   };
 
-  const handleTabPress = (tabId: string) => {
-    setActiveTab(tabId);
-    // Placeholder for navigation - replace with your router logic
-    console.log(`Navigate to ${tabId}`);
-  };
-
   const pendingCount = filteredHomework.filter(hw => hw.status !== 'SUBMITTED').length;
+
+  // Header Section
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <TouchableOpacity style={styles.backButton} onPress={() => {}}>
+        <Icon name="arrow-left" size={24} color="#fff" />
+      </TouchableOpacity>
+      <View style={styles.headerTitleContainer}>
+        <Text style={styles.headerTitle}>Home Work</Text>
+      </View>
+      <TouchableOpacity
+        style={styles.notificationIcon}
+        onPress={() => navigation.navigate('Notifications')}
+      >
+        <Icon name="bell" size={24} color="#fff" />
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
       
+      {renderHeader()}
+
       <ScrollView
         contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor="#3b82f6" />
         }
       >
-        {/* Header Section */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Home Work</Text>
-          <View style={styles.pendingContainer}>
-            <Text style={styles.pendingCount}>{pendingCount}</Text>
-            <Text style={styles.pendingLabel}>Pending</Text>
+        <View style={styles.mainCard}>
+          {/* Filter Row */}
+          <View style={styles.filterRow}>
+            {/* Subject Filter */}
+            <TouchableOpacity style={styles.filterChip} onPress={() => {}}>
+              <Text style={styles.filterChipText} numberOfLines={1}>{selectedSubject}</Text>
+              <Icon name="chevron-down" size={16} color="#64748b" />
+            </TouchableOpacity>
+
+            {/* Date Filter */}
+            <TouchableOpacity style={styles.filterChip} onPress={() => setShowDatePicker(true)}>
+              <Text style={styles.filterChipText}>{formatDisplayDate(selectedDate)}</Text>
+              <Icon name="calendar" size={14} color="#64748b" />
+            </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Filter Row */}
-        <View style={styles.filterRow}>
-          {/* Subject Filter */}
-          <TouchableOpacity style={styles.filterChip} onPress={() => {}}>
-            <Text style={styles.filterChipText}>{selectedSubject}</Text>
-            <Icon name="chevron-down" size={16} color="#64748b" />
-          </TouchableOpacity>
-
-          {/* Date Filter */}
-          <TouchableOpacity style={styles.filterChip} onPress={() => setShowDatePicker(true)}>
-            <Text style={styles.filterChipText}>{formatDisplayDate(selectedDate)}</Text>
-            <Icon name="calendar" size={14} color="#64748b" />
-          </TouchableOpacity>
+          <View style={styles.pendingStatusRow}>
+             <View style={styles.pendingDot} />
+             <Text style={styles.pendingText}>{pendingCount} Homework Pending</Text>
+          </View>
         </View>
 
         {/* Homework List */}
@@ -450,9 +435,6 @@ export default function HomeworkScreen() {
           </View>
         </View>
       </Modal>
-
-      {/* Bottom Navigation Bar */}
-      <BottomTabBar activeTab={activeTab} onTabPress={handleTabPress} />
     </View>
   );
 }
@@ -460,66 +442,98 @@ export default function HomeworkScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#F8FAFC',
   },
   contentContainer: {
-    paddingBottom: 80,
+    paddingBottom: 40,
+    paddingTop: 16,
+    paddingHorizontal: 12,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    backgroundColor: '#001F3F',
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 20,
-    backgroundColor: '#ffffff',
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 28,
+    color: '#FFFFFF',
+    fontSize: 18,
     fontWeight: '700',
-    color: '#0f172a',
+    textAlign: 'center',
   },
-  pendingContainer: {
+  notificationIcon: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fef3c7',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    flexDirection: 'row',
-    gap: 4,
   },
-  pendingCount: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#d97706',
-  },
-  pendingLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#d97706',
+  mainCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+    marginBottom: 15,
   },
   filterRow: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 12,
-    marginBottom: 20,
+    gap: 8,
+    marginBottom: 12,
   },
   filterChip: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 30,
+    justifyContent: 'space-between',
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 10,
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   filterChipText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
-    color: '#334155',
+    color: '#1e293b',
+    flex: 1,
+  },
+  pendingStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 4,
+  },
+  pendingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#f59e0b',
+  },
+  pendingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
   },
   listContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 4,
   },
   homeworkCard: {
     backgroundColor: '#ffffff',
@@ -712,58 +726,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#ffffff',
-  },
-  // Bottom Navigation Styles
-  bottomBarContainer: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 10,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-    paddingTop: 8,
-  },
-  bottomBarInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 8,
-  },
-  bottomTabItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 20,
-    minWidth: 58,
-  },
-  bottomIconWrapper: {
-    padding: 6,
-    borderRadius: 30,
-  },
-  bottomIconWrapperActive: {
-    backgroundColor: '#eff6ff',
-  },
-  bottomTabLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#94a3b8',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  bottomTabLabelActive: {
-    color: '#3b82f6',
-    fontWeight: '600',
-  },
-  activeIndicator: {
-    position: 'absolute',
-    bottom: -8,
-    width: 24,
-    height: 3,
-    backgroundColor: '#3b82f6',
-    borderRadius: 2,
   },
 });

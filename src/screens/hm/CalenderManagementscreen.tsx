@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,13 +11,18 @@ import {
   Switch,
   ActivityIndicator,
   Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from '@react-native-vector-icons/feather';
 import API, { buildApiUrl } from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
 
 // Local theme bridge
 const C = {
@@ -77,6 +82,10 @@ interface FormData {
 }
 
 export default function CalendarManagement() {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -101,7 +110,20 @@ export default function CalendarManagement() {
   useEffect(() => {
     fetchEvents();
     loadSavedCountry();
+    setTabBarVisible(true);
+    return () => setTabBarVisible(true);
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = event.nativeEvent.contentOffset.y;
+    const deltaY = y - lastScrollY.current;
+    if (y > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10 || y < 10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = y;
+  };
 
   useEffect(() => {
     if (selectedCountry) {
@@ -476,23 +498,40 @@ export default function CalendarManagement() {
   );
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <AppText style={styles.title}>Calendar Management</AppText>
-          <AppText style={styles.subtitle}>Plan holidays, festivals, and events for the year</AppText>
-        </View>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity style={styles.addBtn} onPress={() => setShowHolidaysModal(true)}>
-            <Icon name="calendar" size={18} color="#fff" />
-            <AppText style={styles.addBtnText}>Public Holidays</AppText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.addBtn} onPress={() => handleAddEvent(new Date())}>
-            <Icon name="plus" size={18} color="#fff" />
-            <AppText style={styles.addBtnText}>Add Event</AppText>
-          </TouchableOpacity>
-        </View>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <View style={styles.navHeader}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Icon name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <AppText style={styles.navTitle}>Calendar Management</AppText>
+        <View style={{ width: 40 }} />
       </View>
+
+      <ScrollView
+        style={styles.content}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
+        <View style={styles.header}>
+          <View>
+            <AppText style={styles.title}>Calendar Planning</AppText>
+            <AppText style={styles.subtitle}>Plan holidays, festivals, and events for the year</AppText>
+          </View>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity style={styles.addBtn} onPress={() => setShowHolidaysModal(true)}>
+              <Icon name="calendar" size={18} color="#fff" />
+              <AppText style={styles.addBtnText}>Public Holidays</AppText>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.addBtn} onPress={() => handleAddEvent(new Date())}>
+              <Icon name="plus" size={18} color="#fff" />
+              <AppText style={styles.addBtnText}>Add Event</AppText>
+            </TouchableOpacity>
+          </View>
+        </View>
 
       <View style={styles.calendarContainer}>
         <View style={styles.calendarHeader}>
@@ -708,7 +747,7 @@ export default function CalendarManagement() {
                           </AppText>
                         </TouchableOpacity>
                       ))}
-                    </ScrollView>
+                      </ScrollView>
                   </View>
                 </View>
                 <TouchableOpacity
@@ -767,7 +806,7 @@ export default function CalendarManagement() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
   );
 }
 
@@ -775,6 +814,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
+  },
+  navHeader: {
+    backgroundColor: '#001F3F',
+    height: Platform.OS === 'ios' ? 100 : 70,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 40 : 0,
+  },
+  backButton: {
+    padding: 8,
+    width: 40,
+  },
+  navTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+  },
+  content: {
+    flex: 1,
   },
   header: {
     padding: 20,

@@ -81,7 +81,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               style={styles.logo}
               resizeMode="contain"
             />
-            <Text style={styles.brandTitle}>Attendance Reimagined</Text>
             <Text style={styles.brandSubtitle}>
               The next generation of educational management, built with security and scalability
             </Text>
@@ -153,13 +152,13 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 30,
     marginTop: 20,
     width: '100%',
   },
   logo: {
-    width: 80,
-    height: 80,
+    width: 300,
+    height: 100,
     marginBottom: 16,
     alignSelf: 'center',
   },
@@ -178,7 +177,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    padding: 24,
+    padding: 20,
     borderRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
