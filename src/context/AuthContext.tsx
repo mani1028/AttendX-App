@@ -1,6 +1,7 @@
 // src/context/AuthContext.tsx
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { InteractionManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStoredRole, performLogout } from '../utils/authSession';
 import { setAuthToken } from '../services/api';
@@ -78,13 +79,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     eventEmitter.on('auth-change', handleAuthChange);
 
     const handleLogout = () => {
-      // Use a small delay to ensure any pending events/renders finish
-      // before clearing auth state which triggers navigation resets
-      setTimeout(() => {
-        setUserRole(null);
-        setUserToken(null);
-        setUserName(null);
-      }, 10);
+      // Use InteractionManager and a delay to ensure any pending events/renders
+      // finish before clearing auth state which triggers navigation resets.
+      // This prevents "React Native native module communication failure"
+      // during rapid navigation transitions (especially on 401 errors).
+      InteractionManager.runAfterInteractions(() => {
+        setTimeout(() => {
+          setUserRole(null);
+          setUserToken(null);
+          setUserName(null);
+        }, 500);
+      });
     };
 
     eventEmitter.on('app-logout', handleLogout);

@@ -6,10 +6,14 @@ buildscript {
         targetSdkVersion = 36
         ndkVersion = "27.1.12297006"
         kotlinVersion = "1.9.24"
+        gradlePluginVersion = "8.7.3"
     }
     repositories {
         google()
         mavenCentral()
+        maven {
+            url = uri("https://github.com/jitsi/jitsi-maven-repository/raw/master/releases")
+        }
     }
     dependencies {
         classpath("com.android.tools.build:gradle")

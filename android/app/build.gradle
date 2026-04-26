@@ -15,13 +15,13 @@ def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
-    compileSdk rootProject.ext.compileSdkVersion
+    compileSdk 36
 
     namespace "com.attendx"
     defaultConfig {
         applicationId "com.attendx"
         minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
+        targetSdkVersion 35
         versionCode 1
         versionName "1.0"
 
@@ -56,13 +56,19 @@ android {
 // The configurations.all block is already present to handle duplicate classes.
 configurations.all {
     resolutionStrategy {
-        force 'androidx.core:core:1.12.0'
+        force 'androidx.core:core:1.13.1'
+        force 'androidx.core:core-ktx:1.13.1'
+        force 'androidx.activity:activity:1.9.3'
+        force 'androidx.activity:activity-ktx:1.9.3'
+        force 'androidx.appcompat:appcompat:1.7.0'
     }
     exclude group: 'com.android.support', module: 'support-compat'
 }
 
 dependencies {
     implementation("com.facebook.react:react-android")
+    implementation("androidx.activity:activity-ktx:1.9.3")
+    implementation("androidx.appcompat:appcompat:1.7.0")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

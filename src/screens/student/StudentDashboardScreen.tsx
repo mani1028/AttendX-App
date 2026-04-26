@@ -105,6 +105,7 @@ export default function StudentDashboardScreen() {
   ];
 
   const quickAccess = [
+    { name: 'Live Class', icon: 'videocam', color: '#f5f3ff', iconColor: '#8b5cf6', screen: 'VideoMeeting', params: { roomName: 'AttendX-General-Class', displayName: userName || 'Student' } },
     { name: 'Assignments', icon: 'clipboard', color: '#fdf2f8', iconColor: '#db2777', screen: 'StudentHomework' },
     { name: 'Attendance', icon: 'list', color: '#fef2f2', iconColor: '#ef4444', screen: 'StudentAttendance' },
     { name: 'Results', icon: 'stats-chart', color: '#ecfeff', iconColor: '#06b6d4', screen: 'StudentMarks' },
@@ -196,7 +197,7 @@ export default function StudentDashboardScreen() {
               <TouchableOpacity
                 key={`quick-${i}`}
                 style={styles.gridItem}
-                onPress={() => item.screen && navigation.navigate(item.screen as any)}
+                onPress={() => item.screen && navigation.navigate(item.screen as any, (item as any).params)}
               >
                 <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
                   <Icon name={item.icon} size={24} color={item.iconColor} />

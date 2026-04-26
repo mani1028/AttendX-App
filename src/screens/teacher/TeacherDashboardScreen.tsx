@@ -31,7 +31,8 @@ import {
   Briefcase,
   BookOpen,
   Mail,
-  Hash
+  Hash,
+  Video
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
@@ -115,12 +116,13 @@ export default function TeacherDashboardScreen() {
 
   const quickActions = [
     { label: 'Mark Attendance', icon: CalendarCheck2, color: '#3b82f6', route: 'TeacherAttendance' },
+    { label: 'Live Class', icon: Video, color: '#8b5cf6', route: 'VideoMeeting', params: { roomName: 'AttendX-General-Class', displayName: userName || profile?.name || 'Teacher' } },
     { label: 'Enrollment', icon: UserPlus, color: '#10b981', route: 'TeacherRegisterPublic', params: { school_code: '', branch_id: '' } },
-    { label: 'Manage Profiles', icon: Users2, color: '#8b5cf6', route: 'TeacherStudentList' },
+    { label: 'Manage Profiles', icon: Users2, color: '#6366f1', route: 'TeacherStudentList' },
     { label: 'Vital Scan AI', icon: Heart, color: '#ef4444', route: 'TeacherVitalScan' },
     { label: 'Leave Approval', icon: FileEdit, color: '#f59e0b', route: 'TeacherLeaveApproval' },
     { label: 'Question Paper', icon: ClipboardEdit, color: '#10b981', route: 'TeacherMarksEntry' },
-    { label: 'My Profile', icon: User, color: '#6366f1', route: 'Profile' },
+    { label: 'My Profile', icon: User, color: '#64748b', route: 'Profile' },
   ];
 
   const schedule = [
