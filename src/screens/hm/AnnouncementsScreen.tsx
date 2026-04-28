@@ -14,12 +14,17 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
+import {
+  ChevronLeft,
+  RefreshCw,
+  Send,
+  Trash2,
+} from 'lucide-react-native';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import API from "../../services/api";
 import { colors } from "../../constants/theme";
 import AppText from "../../components/common/AppText";
-import Icon from "@react-native-vector-icons/feather";
 import { useAuth } from "../../context/AuthContext";
 
 // Local theme bridge
@@ -308,11 +313,11 @@ const AnnouncementsScreen = () => {
       {/* Standardized Header */}
       <View style={styles.headerStandard}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
-        <AppText style={styles.headerTitle}>Announcements</AppText>
+        <AppText style={styles.headerTitle} weight="bold">Announcements</AppText>
         <TouchableOpacity style={styles.refreshIconBtn} onPress={() => fetchAnnouncements()}>
-          <Icon name="refresh-cw" size={20} color="#fff" />
+          <RefreshCw size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -325,11 +330,11 @@ const AnnouncementsScreen = () => {
           {/* Form Section */}
 
       <View style={styles.card}>
-        <AppText style={styles.sectionTitle}>
+        <AppText style={styles.sectionTitle} weight="bold">
           Post New Announcement
         </AppText>
 
-        <AppText style={styles.label}>Announcement Title *</AppText>
+        <AppText style={styles.label} weight="semiBold">Announcement Title *</AppText>
         <TextInput
           style={styles.input}
           placeholder="Annual Sports Day 2025"
@@ -340,7 +345,7 @@ const AnnouncementsScreen = () => {
           }
         />
 
-        <AppText style={styles.label}>Description *</AppText>
+        <AppText style={styles.label} weight="semiBold">Description *</AppText>
         <TextInput
           style={[styles.input, styles.textArea]}
           multiline
@@ -352,7 +357,7 @@ const AnnouncementsScreen = () => {
           }
         />
 
-        <AppText style={styles.label}>Type</AppText>
+        <AppText style={styles.label} weight="semiBold">Type</AppText>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.typeRow}>
@@ -374,6 +379,7 @@ const AnnouncementsScreen = () => {
                     formData.notification_type === type &&
                       styles.activeTypeText,
                   ]}
+                  weight="semiBold"
                 >
                   {type}
                 </AppText>
@@ -382,7 +388,7 @@ const AnnouncementsScreen = () => {
           </View>
         </ScrollView>
 
-        <AppText style={styles.label}>
+        <AppText style={styles.label} weight="semiBold">
           Event Date (Optional)
         </AppText>
         <TextInput
@@ -403,7 +409,7 @@ const AnnouncementsScreen = () => {
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <AppText style={styles.submitText}>
+            <AppText style={styles.submitText} weight="bold">
               Post Announcement
             </AppText>
           )}
@@ -413,7 +419,7 @@ const AnnouncementsScreen = () => {
       {/* History Section */}
 
       <View style={styles.card}>
-        <AppText style={styles.sectionTitle}>
+        <AppText style={styles.sectionTitle} weight="bold">
           Announcement History
         </AppText>
 
@@ -440,11 +446,12 @@ const AnnouncementsScreen = () => {
                       color: typeColor.color,
                     },
                   ]}
+                  weight="bold"
                 >
                   {announcement.type.toUpperCase()}
                 </AppText>
 
-                <AppText style={styles.title}>
+                <AppText style={styles.title} weight="bold">
                   {announcement.title}
                 </AppText>
 
@@ -479,8 +486,8 @@ const AnnouncementsScreen = () => {
                       <ActivityIndicator color="#fff" size="small" />
                     ) : (
                       <>
-                        <Icon name="send" size={14} color="#fff" style={{marginRight: 6}} />
-                        <AppText style={styles.buttonText}>
+                        <Send size={14} color="#fff" style={{marginRight: 6}} />
+                        <AppText style={styles.buttonText} weight="bold">
                           Resend
                         </AppText>
                       </>
@@ -493,8 +500,8 @@ const AnnouncementsScreen = () => {
                       handleDelete(announcement.id)
                     }
                   >
-                    <Icon name="trash-2" size={14} color="#fff" style={{marginRight: 6}} />
-                    <AppText style={styles.buttonText}>
+                    <Trash2 size={14} color="#fff" style={{marginRight: 6}} />
+                    <AppText style={styles.buttonText} weight="bold">
                       Delete
                     </AppText>
                   </TouchableOpacity>
@@ -534,7 +541,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#ffffff',
     textAlign: 'center',
     flex: 1,
@@ -563,13 +569,11 @@ const styles = StyleSheet.create({
 
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "700",
     marginBottom: 16,
     color: C.text,
   },
 
   label: {
-    fontWeight: "600",
     marginBottom: 8,
     marginTop: 10,
     color: C.text,
@@ -613,7 +617,6 @@ const styles = StyleSheet.create({
   typeText: {
     color: C.textMuted,
     fontSize: 13,
-    fontWeight: "600",
   },
 
   activeTypeText: {
@@ -630,7 +633,6 @@ const styles = StyleSheet.create({
 
   submitText: {
     color: "#fff",
-    fontWeight: "700",
     fontSize: 16,
   },
 
@@ -649,13 +651,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
     fontSize: 11,
-    fontWeight: "800",
     marginBottom: 10,
   },
 
   title: {
     fontSize: 17,
-    fontWeight: "700",
     color: C.text,
   },
 
@@ -700,7 +700,6 @@ const styles = StyleSheet.create({
 
   buttonText: {
     color: "#fff",
-    fontWeight: "700",
     fontSize: 13,
   },
 

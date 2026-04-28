@@ -32,7 +32,9 @@ import {
   BookOpen,
   User,
   LayoutGrid,
-  ClipboardList
+  ClipboardList,
+  Clock,
+  X
 } from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
@@ -107,9 +109,9 @@ const GradeBadge: React.FC<{ grade: string }> = ({ grade }) => {
   if (!grade) return null;
   return (
     <View style={[styles.gradeBadge, isFail ? styles.gradeBadgeFail : styles.gradeBadgePass]}>
-      <Text style={[styles.gradeText, isFail ? styles.gradeTextFail : styles.gradeTextPass]}>
+      <AppText weight="bold" style={[styles.gradeText, isFail ? styles.gradeTextFail : styles.gradeTextPass]}>
         {grade}
-      </Text>
+      </AppText>
     </View>
   );
 };
@@ -117,7 +119,7 @@ const GradeBadge: React.FC<{ grade: string }> = ({ grade }) => {
 // Roll Tag Component
 const RollTag: React.FC<{ roll: string }> = ({ roll }) => (
   <View style={styles.rollTag}>
-    <Text style={styles.rollTagText}>#{roll}</Text>
+    <AppText weight="bold" style={styles.rollTagText}>#{roll}</AppText>
   </View>
 );
 
@@ -135,9 +137,9 @@ const StudentRow: React.FC<{
       <View style={styles.studentInfoCol}>
         <View style={styles.studentMainInfo}>
           <RollTag roll={student.roll_number} />
-          <Text style={styles.studentName} numberOfLines={1}>{student.student_full_name}</Text>
+          <AppText weight="bold" style={styles.studentName} numberOfLines={1}>{student.student_full_name}</AppText>
         </View>
-        <Text style={styles.studentId}>ID: {student.student_id}</Text>
+        <AppText weight="semiBold" style={styles.studentId}>ID: {student.student_id}</AppText>
       </View>
 
       <View style={styles.actionCol}>
@@ -146,13 +148,13 @@ const StudentRow: React.FC<{
             style={[styles.toggleBtn, !student.isAbsent && styles.toggleBtnActive]}
             onPress={() => onAbsentToggle(student.student_id, false)}
           >
-            <Text style={[styles.toggleText, !student.isAbsent && styles.toggleTextActive]}>P</Text>
+            <AppText weight="bold" style={[styles.toggleText, !student.isAbsent && styles.toggleTextActive]}>P</AppText>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.toggleBtn, student.isAbsent && styles.toggleBtnAbsentActive]}
             onPress={() => onAbsentToggle(student.student_id, true)}
           >
-            <Text style={[styles.toggleText, student.isAbsent && styles.toggleTextAbsentActive]}>A</Text>
+            <AppText weight="bold" style={[styles.toggleText, student.isAbsent && styles.toggleTextAbsentActive]}>A</AppText>
           </TouchableOpacity>
         </View>
 
@@ -229,15 +231,15 @@ const FilterModal: React.FC<{
     <View style={styles.modalOverlay}>
       <View style={styles.modalContent}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Filters</Text>
+          <AppText weight="bold" style={styles.modalTitle}>Filters</AppText>
           <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-            <Text style={styles.modalCloseText}>✕</Text>
+            <X size={20} color="#64748b" />
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.modalBody}>
           {/* Class Filter */}
-          <Text style={styles.modalLabel}>Class</Text>
+          <AppText weight="bold" style={styles.modalLabel}>Class</AppText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.chipContainer}>
               {loadingClasses ? (
@@ -249,9 +251,9 @@ const FilterModal: React.FC<{
                     style={[styles.chip, selectedClass === cls.class_id && styles.chipActive]}
                     onPress={() => onSelectClass(cls.class_id)}
                   >
-                    <Text style={[styles.chipText, selectedClass === cls.class_id && styles.chipTextActive]}>
+                    <AppText weight="semiBold" style={[styles.chipText, selectedClass === cls.class_id && styles.chipTextActive]}>
                       {cls.class_name}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))
               )}
@@ -261,7 +263,7 @@ const FilterModal: React.FC<{
           {/* Section Filter */}
           {selectedClass && (
             <>
-              <Text style={[styles.modalLabel, { marginTop: 16 }]}>Section</Text>
+              <AppText weight="bold" style={[styles.modalLabel, { marginTop: 16 }]}>Section</AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.chipContainer}>
                   {loadingSections ? (
@@ -273,9 +275,9 @@ const FilterModal: React.FC<{
                         style={[styles.chip, selectedSection === sec.section_id && styles.chipActive]}
                         onPress={() => onSelectSection(sec.section_id)}
                       >
-                        <Text style={[styles.chipText, selectedSection === sec.section_id && styles.chipTextActive]}>
+                        <AppText weight="semiBold" style={[styles.chipText, selectedSection === sec.section_id && styles.chipTextActive]}>
                           {sec.section_name}
-                        </Text>
+                        </AppText>
                       </TouchableOpacity>
                     ))
                   )}
@@ -285,7 +287,7 @@ const FilterModal: React.FC<{
           )}
 
           {/* Exam Filter */}
-          <Text style={[styles.modalLabel, { marginTop: 16 }]}>Exam</Text>
+          <AppText weight="bold" style={[styles.modalLabel, { marginTop: 16 }]}>Exam</AppText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.chipContainer}>
               {loadingExams ? (
@@ -297,9 +299,9 @@ const FilterModal: React.FC<{
                     style={[styles.chip, selectedExam === exam.exam_id && styles.chipActive]}
                     onPress={() => onSelectExam(exam.exam_id)}
                   >
-                    <Text style={[styles.chipText, selectedExam === exam.exam_id && styles.chipTextActive]}>
+                    <AppText weight="semiBold" style={[styles.chipText, selectedExam === exam.exam_id && styles.chipTextActive]}>
                       {exam.exam_name}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))
               )}
@@ -309,7 +311,7 @@ const FilterModal: React.FC<{
           {/* Subject Filter */}
           {selectedClass && (
             <>
-              <Text style={[styles.modalLabel, { marginTop: 16 }]}>Subject</Text>
+              <AppText weight="bold" style={[styles.modalLabel, { marginTop: 16 }]}>Subject</AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.chipContainer}>
                   {loadingSubjects ? (
@@ -321,9 +323,9 @@ const FilterModal: React.FC<{
                         style={[styles.chip, selectedSubject === subj.subject_id && styles.chipActive]}
                         onPress={() => onSelectSubject(subj.subject_id)}
                       >
-                        <Text style={[styles.chipText, selectedSubject === subj.subject_id && styles.chipTextActive]}>
+                        <AppText weight="semiBold" style={[styles.chipText, selectedSubject === subj.subject_id && styles.chipTextActive]}>
                           {subj.subject_name}
-                        </Text>
+                        </AppText>
                       </TouchableOpacity>
                     ))
                   )}
@@ -356,14 +358,14 @@ const ExamConfigModal: React.FC<{
     <View style={styles.modalOverlay}>
       <View style={styles.configModalContent}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Exam Configuration</Text>
+          <AppText weight="bold" style={styles.modalTitle}>Exam Configuration</AppText>
           <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-            <Text style={styles.modalCloseText}>✕</Text>
+            <X size={20} color="#64748b" />
           </TouchableOpacity>
         </View>
 
         <View style={styles.configModalBody}>
-          <Text style={styles.modalLabel}>Total Marks</Text>
+          <AppText weight="bold" style={styles.modalLabel}>Total Marks</AppText>
           <TextInput
             style={styles.configInput}
             placeholder="Enter total marks"
@@ -372,7 +374,7 @@ const ExamConfigModal: React.FC<{
             onChangeText={onMaxMarksChange}
           />
 
-          <Text style={[styles.modalLabel, { marginTop: 16 }]}>Pass Marks</Text>
+          <AppText weight="bold" style={[styles.modalLabel, { marginTop: 16 }]}>Pass Marks</AppText>
           <TextInput
             style={styles.configInput}
             placeholder="Enter pass marks"
@@ -955,13 +957,13 @@ export default function MarksEntryScreen() {
           >
             <ChevronLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.heroTitle}>Marks Entry</Text>
+          <AppText weight="bold" style={styles.heroTitle}>Marks Entry</AppText>
           <View style={{ width: 40 }} />
         </View>
 
         <View style={styles.heroContent}>
-          <Text style={styles.heroGreeting}>Academic Grading</Text>
-          <Text style={styles.heroSubtext}>Enter and manage student marks for examinations</Text>
+          <AppText weight="bold" style={styles.heroGreeting}>Academic Grading</AppText>
+          <AppText weight="medium" style={styles.heroSubtext}>Enter and manage student marks for examinations</AppText>
         </View>
       </View>
 
@@ -976,7 +978,7 @@ export default function MarksEntryScreen() {
         <AppCard style={styles.mainCard}>
           <View style={styles.cardHeader}>
             <Filter size={20} color="#001F3F" />
-            <Text style={styles.cardTitle}>Selection Filters</Text>
+            <AppText weight="bold" style={styles.cardTitle}>Selection Filters</AppText>
           </View>
 
           <View style={styles.cardBody}>
@@ -985,25 +987,25 @@ export default function MarksEntryScreen() {
               {classId ? (
                 <View style={styles.filterTag}>
                   <LayoutGrid size={12} color="#001F3F" />
-                  <Text style={styles.filterTagText}>Class {classes.find(c => c.class_id === classId)?.class_name}</Text>
+                  <AppText weight="semiBold" style={styles.filterTagText}>Class {classes.find(c => c.class_id === classId)?.class_name}</AppText>
                 </View>
               ) : null}
               {sectionId ? (
                 <View style={styles.filterTag}>
                   <BookOpen size={12} color="#001F3F" />
-                  <Text style={styles.filterTagText}>Sec {sections.find(s => s.section_id === sectionId)?.section_name}</Text>
+                  <AppText weight="semiBold" style={styles.filterTagText}>Sec {sections.find(s => s.section_id === sectionId)?.section_name}</AppText>
                 </View>
               ) : null}
               {examId ? (
                 <View style={styles.filterTag}>
                   <ClipboardList size={12} color="#001F3F" />
-                  <Text style={styles.filterTagText}>{exams.find(e => e.exam_id === examId)?.exam_name}</Text>
+                  <AppText weight="semiBold" style={styles.filterTagText}>{exams.find(e => e.exam_id === examId)?.exam_name}</AppText>
                 </View>
               ) : null}
               {subjectId ? (
                 <View style={styles.filterTag}>
                   <BookOpen size={12} color="#001F3F" />
-                  <Text style={styles.filterTagText}>{subjects.find(s => s.subject_id === subjectId)?.subject_name}</Text>
+                  <AppText weight="semiBold" style={styles.filterTagText}>{subjects.find(s => s.subject_id === subjectId)?.subject_name}</AppText>
                 </View>
               ) : null}
             </View>
@@ -1023,12 +1025,12 @@ export default function MarksEntryScreen() {
             <View style={styles.configHeader}>
               <View style={styles.configTitleRow}>
                 <Settings size={18} color="#001F3F" />
-                <Text style={styles.configTitle}>Exam Rules</Text>
+                <AppText weight="bold" style={styles.configTitle}>Exam Rules</AppText>
               </View>
               {examSubjectId && !isEditMode && (
                 <View style={styles.savedBadge}>
                   <CheckCircle2 size={12} color="#15803d" />
-                  <Text style={styles.savedBadgeText}>Set</Text>
+                  <AppText weight="bold" style={styles.savedBadgeText}>Set</AppText>
                 </View>
               )}
             </View>
@@ -1037,7 +1039,7 @@ export default function MarksEntryScreen() {
               <View style={styles.configForm}>
                 <View style={styles.configRow}>
                   <View style={styles.configInputGroup}>
-                    <Text style={styles.configLabel}>Total Marks</Text>
+                    <AppText weight="semiBold" style={styles.configLabel}>Total Marks</AppText>
                     <TextInput
                       style={styles.configInput}
                       placeholder="e.g. 100"
@@ -1047,7 +1049,7 @@ export default function MarksEntryScreen() {
                     />
                   </View>
                   <View style={styles.configInputGroup}>
-                    <Text style={styles.configLabel}>Pass Marks</Text>
+                    <AppText weight="semiBold" style={styles.configLabel}>Pass Marks</AppText>
                     <TextInput
                       style={styles.configInput}
                       placeholder="e.g. 33"
@@ -1067,12 +1069,12 @@ export default function MarksEntryScreen() {
             ) : (
               <View style={styles.configDisplay}>
                 <View style={styles.configItem}>
-                  <Text style={styles.configItemLabel}>Total</Text>
-                  <Text style={styles.configItemValue}>{inputMaxMarks}</Text>
+                  <AppText weight="bold" style={styles.configItemLabel}>Total</AppText>
+                  <AppText weight="bold" style={styles.configItemValue}>{inputMaxMarks}</AppText>
                 </View>
                 <View style={styles.configItem}>
-                  <Text style={styles.configItemLabel}>Pass</Text>
-                  <Text style={styles.configItemValue}>{inputPassMarks}</Text>
+                  <AppText weight="bold" style={styles.configItemLabel}>Pass</AppText>
+                  <AppText weight="bold" style={styles.configItemValue}>{inputPassMarks}</AppText>
                 </View>
                 <TouchableOpacity style={styles.editConfigBtn} onPress={() => setIsEditMode(true)}>
                   <RefreshCw size={16} color="#64748b" />
@@ -1088,15 +1090,15 @@ export default function MarksEntryScreen() {
             <View style={styles.statsRow}>
               <View style={[styles.statChip, styles.statSaved]}>
                 <CheckCircle2 size={12} color="#15803d" />
-                <Text style={styles.statText}>{totalSaved} Saved</Text>
+                <AppText weight="bold" style={styles.statText}>{totalSaved} Saved</AppText>
               </View>
               <View style={[styles.statChip, styles.statPending]}>
                 <AlertCircle size={12} color="#b45309" />
-                <Text style={styles.statText}>{totalPending} Pending</Text>
+                <AppText weight="bold" style={styles.statText}>{totalPending} Pending</AppText>
               </View>
               <View style={[styles.statChip, styles.statAbsent]}>
                 <XCircle size={12} color="#b91c1c" />
-                <Text style={styles.statText}>{totalAbsent} Absent</Text>
+                <AppText weight="bold" style={styles.statText}>{totalAbsent} Absent</AppText>
               </View>
             </View>
 
@@ -1113,20 +1115,20 @@ export default function MarksEntryScreen() {
                 onPress={() => setAutoSave(!autoSave)}
               >
                 <Clock size={16} color={autoSave ? '#fff' : '#64748b'} />
-                <Text style={[styles.autoSaveText, autoSave && styles.autoSaveTextActive]}>
+                <AppText weight="bold" style={[styles.autoSaveText, autoSave && styles.autoSaveTextActive]}>
                   {autoSave ? 'Auto ON' : 'Auto OFF'}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             </View>
 
             <View style={styles.secondaryActions}>
               <TouchableOpacity style={styles.secondaryBtn} onPress={() => loadStudents(true)}>
                 <RefreshCw size={16} color="#001F3F" />
-                <Text style={styles.secondaryBtnText}>Refresh</Text>
+                <AppText weight="semiBold" style={styles.secondaryBtnText}>Refresh</AppText>
               </TouchableOpacity>
               <TouchableOpacity style={styles.secondaryBtn} onPress={exportToCSV}>
                 <Download size={16} color="#001F3F" />
-                <Text style={styles.secondaryBtnText}>Export</Text>
+                <AppText weight="semiBold" style={styles.secondaryBtnText}>Export</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -1138,10 +1140,10 @@ export default function MarksEntryScreen() {
         ) : students.length === 0 ? (
           <AppCard style={styles.emptyCard}>
             <Search size={48} color="#cbd5e1" />
-            <Text style={styles.emptyTitle}>Ready to grade?</Text>
-            <Text style={styles.emptyText}>
+            <AppText weight="bold" style={styles.emptyTitle}>Ready to grade?</AppText>
+            <AppText weight="regular" style={styles.emptyText}>
               Configure filters and exam rules above to load the student list.
-            </Text>
+            </AppText>
             <AppButton
               title="Select Filters"
               type="secondary"
@@ -1151,7 +1153,7 @@ export default function MarksEntryScreen() {
           </AppCard>
         ) : (
           <View style={styles.listWrapper}>
-            <Text style={styles.listTitle}>Student List ({students.length})</Text>
+            <AppText weight="bold" style={styles.listTitle}>Student List ({students.length})</AppText>
             {students.map(student => (
               <StudentRow
                 key={student.student_id}
@@ -1220,7 +1222,6 @@ const styles = StyleSheet.create({
   heroTitle: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '700',
   },
   heroContent: {
     marginTop: 20,
@@ -1228,7 +1229,6 @@ const styles = StyleSheet.create({
   heroGreeting: {
     color: '#FFFFFF',
     fontSize: 24,
-    fontWeight: '800',
   },
   heroSubtext: {
     color: 'rgba(255,255,255,0.7)',
@@ -1263,7 +1263,6 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#0F172A',
   },
   cardBody: {
@@ -1288,7 +1287,6 @@ const styles = StyleSheet.create({
   },
   filterTagText: {
     fontSize: 12,
-    fontWeight: '600',
     color: '#001F3F',
   },
   primaryButton: {
@@ -1319,7 +1317,6 @@ const styles = StyleSheet.create({
   },
   configTitle: {
     fontSize: 15,
-    fontWeight: '700',
     color: '#0F172A',
   },
   savedBadge: {
@@ -1333,7 +1330,6 @@ const styles = StyleSheet.create({
   },
   savedBadgeText: {
     fontSize: 11,
-    fontWeight: '800',
     color: '#15803d',
     textTransform: 'uppercase',
   },
@@ -1350,7 +1346,6 @@ const styles = StyleSheet.create({
   },
   configLabel: {
     fontSize: 12,
-    fontWeight: '600',
     color: '#64748b',
   },
   configInput: {
@@ -1378,14 +1373,12 @@ const styles = StyleSheet.create({
   },
   configItemLabel: {
     fontSize: 10,
-    fontWeight: '700',
     color: '#94a3b8',
     textTransform: 'uppercase',
     marginBottom: 2,
   },
   configItemValue: {
     fontSize: 18,
-    fontWeight: '800',
     color: '#001F3F',
   },
   editConfigBtn: {
@@ -1428,7 +1421,6 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 11,
-    fontWeight: '700',
     color: '#334155',
   },
   buttonRow: {
@@ -1452,7 +1444,6 @@ const styles = StyleSheet.create({
   },
   autoSaveText: {
     fontSize: 13,
-    fontWeight: '700',
     color: '#64748b',
   },
   autoSaveTextActive: {
@@ -1470,7 +1461,6 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: {
     fontSize: 13,
-    fontWeight: '600',
     color: '#001F3F',
   },
   emptyCard: {
@@ -1480,7 +1470,6 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#0f172a',
     marginTop: 16,
     marginBottom: 4,
@@ -1496,7 +1485,6 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#0f172a',
     marginBottom: 4,
     marginLeft: 4,
@@ -1532,13 +1520,11 @@ const styles = StyleSheet.create({
   studentName: {
     flex: 1,
     fontSize: 14,
-    fontWeight: '700',
     color: '#0f172a',
   },
   studentId: {
     fontSize: 11,
     color: '#94a3b8',
-    fontWeight: '600',
     marginLeft: 4,
   },
   rollTag: {
@@ -1549,7 +1535,6 @@ const styles = StyleSheet.create({
   },
   rollTagText: {
     fontSize: 10,
-    fontWeight: '800',
     color: '#fff',
   },
   actionCol: {
@@ -1579,7 +1564,6 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 13,
-    fontWeight: '800',
     color: '#94a3b8',
   },
   toggleTextActive: {
@@ -1599,7 +1583,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     textAlign: 'center',
     fontSize: 15,
-    fontWeight: '700',
     color: '#0f172a',
   },
   marksInputDisabled: {
@@ -1625,7 +1608,6 @@ const styles = StyleSheet.create({
   },
   gradeText: {
     fontSize: 12,
-    fontWeight: '900',
   },
   gradeTextPass: {
     color: '#15803d',
@@ -1662,7 +1644,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '800',
     color: '#0f172a',
   },
   modalClose: {
@@ -1683,7 +1664,6 @@ const styles = StyleSheet.create({
   },
   modalLabel: {
     fontSize: 13,
-    fontWeight: '700',
     color: '#94a3b8',
     textTransform: 'uppercase',
     marginBottom: 12,
@@ -1709,7 +1689,6 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 14,
-    fontWeight: '600',
     color: '#64748b',
   },
   chipTextActive: {

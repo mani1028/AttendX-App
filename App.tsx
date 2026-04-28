@@ -1,13 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AttendXIntro from './src/components/common/AttendXIntro';
 import AppNavigator from './src/navigation/AppNavigator';
 import { AuthProvider } from './src/context/AuthContext';
+import notificationService from './src/services/notificationService';
 
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
+
+  useEffect(() => {
+    // Initialize notification service on app startup
+    const initializeNotifications = async () => {
+      try {
+        await notificationService.initialize();
+        console.log('App: Notifications initialized');
+      } catch (error) {
+        console.error('App: Failed to initialize notifications:', error);
+      }
+    };
+
+    initializeNotifications();
+  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

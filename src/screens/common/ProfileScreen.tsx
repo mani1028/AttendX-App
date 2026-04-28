@@ -11,6 +11,7 @@ import {
   TextInput,
   Platform,
   StatusBar,
+  Image,
 } from 'react-native';
 import {
   ChevronLeft,
@@ -45,13 +46,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../constants/theme';
-import { getStudentProfile, getStudentProfilePhotoUrl } from '../../services/studentService';
+import { getStudentProfile, getStudentProfilePhotoDataUri, getStudentProfilePhotoUrl } from '../../services/studentService';
+import { getTeacherProfile, getTeacherProfilePhotoDataUri, getTeacherProfilePhotoUrl } from '../../services/teacherService';
+import { buildApiUrl } from '../../services/api';
 
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import AvatarBubble from '../../components/common/AvatarBubble';
-import API from '../../services/api';
 
 interface UserProfile {
   name: string;
@@ -98,10 +100,68 @@ interface AppSettings {
   language: string;
 }
 
+const toText = (value: unknown): string => {
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number') return String(value).trim();
+  return '';
+};
+
+const firstNonEmptyText = (...values: unknown[]): string => {
+  for (const value of values) {
+    const text = toText(value);
+    if (text) return text;
+  }
+  return '';
+};
+
+const normalizeRoleBucket = (role: string): 'student' | 'teacher' => {
+  const key = String(role || '').trim().toLowerCase();
+  return key === 'student' || key === 'students' ? 'student' : 'teacher';
+};
+
+const getPhotoCacheKey = (roleBucket: 'student' | 'teacher', id: string, schoolCode: string): string | null => {
+  if (!id) return null;
+  return `profile_photo_url:${roleBucket}:${schoolCode || 'unknown'}:${id}`;
+};
+
+const normalizePhotoUri = (value: unknown): string | null => {
+  const photo = toText(value);
+  if (!photo) return null;
+
+  if (
+    photo.startsWith('data:') ||
+    photo.startsWith('http://') ||
+    photo.startsWith('https://') ||
+    photo.startsWith('file://') ||
+    photo.startsWith('content://')
+  ) {
+    return photo;
+  }
+
+  if (photo.startsWith('/')) {
+    return buildApiUrl(photo);
+  }
+
+  if (/\.(png|jpe?g|webp|gif)(\?.*)?$/i.test(photo)) {
+    return photo;
+  }
+
+  const compact = photo.replace(/\s+/g, '');
+  const likelyBase64 = compact.length > 80 && /^[A-Za-z0-9+/=_-]+$/.test(compact);
+  if (likelyBase64) {
+    const normalized = compact.replace(/-/g, '+').replace(/_/g, '/');
+    return `data:image/jpeg;base64,${normalized}`;
+  }
+
+  return photo;
+};
+
 export default function ProfileScreen() {
   const navigation = useNavigation();
-  const { logout, refreshAuth } = useAuth();
+  const { logout } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [profilePhotoError, setProfilePhotoError] = useState(false);
 
   const isMounted = useRef(true);
 
@@ -132,41 +192,101 @@ export default function ProfileScreen() {
 
   const fetchProfileData = useCallback(async () => {
     try {
+      const cachedProfilePhoto = await AsyncStorage.getItem('profile_photo_url');
+      if (cachedProfilePhoto && isMounted.current) {
+        setProfilePhotoUrl(cachedProfilePhoto);
+        setProfilePhotoError(false);
+      }
+
       const storedRole = (await AsyncStorage.getItem('userRole')) || (await AsyncStorage.getItem('role')) || 'student';
       const normalizedRole = String(storedRole).trim().toLowerCase();
+      const roleBucket = normalizeRoleBucket(normalizedRole);
       let freshData;
-      if (normalizedRole === 'student' || normalizedRole === 'students') {
+      if (roleBucket === 'student') {
         freshData = await getStudentProfile();
       } else {
-        const response = await API.get('profile/details');
-        freshData = response.data;
+        freshData = await getTeacherProfile();
       }
 
       if (!isMounted.current) return;
 
       if (freshData) {
+        const storedUserRaw = await AsyncStorage.getItem('user');
+        const storedUser = storedUserRaw ? (() => {
+          try {
+            return JSON.parse(storedUserRaw);
+          } catch {
+            return {};
+          }
+        })() : {};
+
+        const [storedEmail, storedPhone, storedBranchName, storedBranchId, storedSchoolName, storedSchoolCode, storedTeacherId, storedEmployeeId, storedStudentId] =
+          await AsyncStorage.multiGet([
+            'email',
+            'phone',
+            'branch_name',
+            'branch_id',
+            'school_name',
+            'school_code',
+            'teacher_id',
+            'employee_id',
+            'student_id',
+          ]).then(items => items.map(([, value]) => value || ''));
+
+        const resolvedProfile = {
+          ...(freshData as any),
+          role: firstNonEmptyText((freshData as any)?.role, normalizedRole, 'student'),
+          name: firstNonEmptyText((freshData as any)?.name, (freshData as any)?.full_name, (freshData as any)?.teacher_full_name, (freshData as any)?.student_full_name, storedUser?.name),
+          email: firstNonEmptyText((freshData as any)?.email, (freshData as any)?.email_id, (freshData as any)?.email_address, storedEmail, storedUser?.email),
+          phone: firstNonEmptyText((freshData as any)?.phone, (freshData as any)?.mobile, (freshData as any)?.mobile_number, (freshData as any)?.phone_number, storedPhone, storedUser?.phone),
+          branch_name: firstNonEmptyText((freshData as any)?.branch_name, (freshData as any)?.branchName, (freshData as any)?.branch, storedBranchName, storedUser?.branch_name),
+          branch_id: firstNonEmptyText((freshData as any)?.branch_id, (freshData as any)?.branchId, storedBranchId, storedUser?.branch_id),
+          school_name: firstNonEmptyText((freshData as any)?.school_name, (freshData as any)?.schoolName, (freshData as any)?.school, storedSchoolName, storedUser?.school_name),
+          school_code: firstNonEmptyText((freshData as any)?.school_code, (freshData as any)?.schoolCode, storedSchoolCode, storedUser?.school_code),
+          teacher_id: firstNonEmptyText((freshData as any)?.teacher_id, storedTeacherId, storedUser?.teacher_id),
+          employee_id: firstNonEmptyText((freshData as any)?.employee_id, storedEmployeeId, storedUser?.employee_id),
+          student_id: firstNonEmptyText((freshData as any)?.student_id, storedStudentId, storedUser?.student_id),
+        };
+
         setUserInfo(prev => ({
           ...prev,
-          ...freshData,
-          role: String((freshData as any)?.role || normalizedRole || prev.role || 'student'),
+          ...resolvedProfile,
+          role: resolvedProfile.role || prev.role || 'student',
         }));
 
-        if (normalizedRole === 'student' || normalizedRole === 'students') {
-          const studentId =
-            String((freshData as any)?.student_id || '').trim() ||
-            (await AsyncStorage.getItem('student_id')) ||
-            '';
-          const schoolCode =
-            String((freshData as any)?.school_code || '').trim() ||
-            (await AsyncStorage.getItem('school_code')) ||
-            '';
+        const entityId = roleBucket === 'student'
+          ? resolvedProfile.student_id
+          : (resolvedProfile.teacher_id || resolvedProfile.employee_id);
+        const schoolCode = resolvedProfile.school_code;
+        const photoCacheKey = getPhotoCacheKey(roleBucket, entityId, schoolCode);
 
-          if (studentId) {
-            const profilePhotoUrl = await getStudentProfilePhotoUrl(studentId, schoolCode);
-            if (profilePhotoUrl && isMounted.current) {
-              await AsyncStorage.setItem('profile_photo_url', profilePhotoUrl);
-            }
+        if (photoCacheKey) {
+          const scopedCachedPhoto = await AsyncStorage.getItem(photoCacheKey);
+          if (scopedCachedPhoto && isMounted.current) {
+            setProfilePhotoUrl(scopedCachedPhoto);
+            setProfilePhotoError(false);
           }
+        }
+
+        const directProfilePhoto = normalizePhotoUri(
+          (freshData as any)?.profile_photo_url ||
+          (roleBucket === 'student' ? (freshData as any)?.student_photograph : (freshData as any)?.teacher_photograph)
+        );
+
+        let resolvedPhoto = directProfilePhoto;
+        if (!resolvedPhoto && entityId) {
+          resolvedPhoto = roleBucket === 'student'
+            ? ((await getStudentProfilePhotoDataUri(entityId, schoolCode)) || (await getStudentProfilePhotoUrl(entityId, schoolCode)))
+            : ((await getTeacherProfilePhotoDataUri(entityId, schoolCode)) || (await getTeacherProfilePhotoUrl(entityId, schoolCode)));
+        }
+
+        if (resolvedPhoto && isMounted.current) {
+          await AsyncStorage.setItem('profile_photo_url', resolvedPhoto);
+          if (photoCacheKey) {
+            await AsyncStorage.setItem(photoCacheKey, resolvedPhoto);
+          }
+          setProfilePhotoUrl(resolvedPhoto);
+          setProfilePhotoError(false);
         }
       }
 
@@ -200,7 +320,7 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const renderInfoRow = (label: string, value: string, IconComponent: any, onEdit?: () => void) => (
+  const renderInfoRow = (label: string, value: string | undefined, IconComponent: any, onEdit?: () => void) => (
     <View style={styles.infoRow}>
       <View style={styles.iconCircle}>
         <IconComponent size={18} color="#2563eb" />
@@ -241,12 +361,20 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.profileSummary}>
-          <AvatarBubble
-            displayName={userInfo.name || 'User'}
-            size={80}
-            textSize={28}
-            primaryColor="#2563eb"
-          />
+          {profilePhotoUrl && !profilePhotoError ? (
+            <Image
+              source={{ uri: profilePhotoUrl }}
+              style={styles.profileAvatarImage}
+              onError={() => setProfilePhotoError(true)}
+            />
+          ) : (
+            <AvatarBubble
+              displayName={userInfo.name || 'User'}
+              size={80}
+              textSize={28}
+              primaryColor="#2563eb"
+            />
+          )}
           <View style={styles.profileTextInfo}>
             <AppText style={styles.userName}>{userInfo.name}</AppText>
             <AppText style={styles.userRole}>
@@ -403,6 +531,14 @@ const styles = StyleSheet.create({
   profileTextInfo: {
     marginLeft: 20,
   },
+  profileAvatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: '#2563eb',
+    backgroundColor: '#e2e8f0',
+  },
   userName: {
     fontSize: 22,
     fontWeight: '800',
@@ -461,6 +597,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0f172a',
     marginTop: 2,
+  },
+  editIcon: {
+    padding: 6,
+    borderRadius: 8,
   },
   divider: {
     height: 1,

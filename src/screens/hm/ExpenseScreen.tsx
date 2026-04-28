@@ -15,7 +15,17 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Icon from '@react-native-vector-icons/feather';
+import {
+  ChevronLeft,
+  RefreshCw,
+  Plus,
+  Trash2,
+  Calendar,
+  AlertCircle,
+  IndianRupee,
+  LayoutDashboard,
+  Filter,
+} from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
@@ -292,12 +302,12 @@ const ExpenseManagement = () => {
         </View>
       </View>
       <View style={styles.expenseAmountContainer}>
-        <AppText style={styles.expenseAmount}>{formatAmount(item.amount)}</AppText>
+        <AppText style={styles.expenseAmount} weight="bold">{formatAmount(item.amount)}</AppText>
         <TouchableOpacity 
           onPress={() => confirmDelete(item.id)}
           style={styles.deleteIcon}
         >
-          <AppText style={styles.deleteIconText}>🗑️</AppText>
+          <Trash2 size={18} color={C.error} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -310,11 +320,11 @@ const ExpenseManagement = () => {
       {/* Standardized Header */}
       <View style={styles.headerStandard}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
-        <AppText style={styles.headerTitle}>Expense Management</AppText>
+        <AppText style={styles.headerTitle} weight="bold">Expense Management</AppText>
         <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh}>
-          <Icon name="refresh-cw" size={20} color="#fff" />
+          <RefreshCw size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -328,11 +338,14 @@ const ExpenseManagement = () => {
       >
         {/* Form Section */}
         <View style={styles.formSection}>
-          <AppText style={styles.formTitle}>➕ Add Expense</AppText>
+          <View style={styles.sectionHeaderRow}>
+            <Plus size={20} color={C.text} />
+            <AppText style={styles.formTitle} weight="bold">Add Expense</AppText>
+          </View>
           
           <View style={styles.formGroup}>
             <View>
-              <AppText style={styles.label}>Title</AppText>
+              <AppText style={styles.label} weight="semiBold">Title</AppText>
               <TextInput
                 style={styles.input}
                 placeholder="e.g., Stationery Purchase"
@@ -343,7 +356,7 @@ const ExpenseManagement = () => {
             </View>
 
             <View>
-              <AppText style={styles.label}>Amount (₹)</AppText>
+              <AppText style={styles.label} weight="semiBold">Amount (₹)</AppText>
               <TextInput
                 style={styles.input}
                 placeholder="Enter amount"
@@ -355,7 +368,7 @@ const ExpenseManagement = () => {
             </View>
 
             <View>
-              <AppText style={styles.label}>Category</AppText>
+              <AppText style={styles.label} weight="semiBold">Category</AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
                 <View style={styles.categoryContainer}>
                   {categories.map((cat) => (
@@ -384,12 +397,13 @@ const ExpenseManagement = () => {
             </View>
 
             <View>
-              <AppText style={styles.label}>Date</AppText>
+              <AppText style={styles.label} weight="semiBold">Date</AppText>
               <TouchableOpacity 
                 style={styles.dateInput}
                 onPress={() => setShowDatePicker(true)}
               >
                 <AppText style={styles.dateText}>{formData.date}</AppText>
+                <Calendar size={18} color={C.muted} />
               </TouchableOpacity>
             </View>
 
@@ -401,7 +415,7 @@ const ExpenseManagement = () => {
               {loading ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <AppText style={styles.submitButtonText}>Add Expense</AppText>
+                <AppText style={styles.submitButtonText} weight="bold">Add Expense</AppText>
               )}
             </TouchableOpacity>
           </View>
@@ -410,10 +424,13 @@ const ExpenseManagement = () => {
         {/* Expense List Section */}
         <View style={styles.listSection}>
           <View style={styles.listHeader}>
-            <AppText style={styles.listTitle}>📋 Expense List</AppText>
+            <View style={styles.sectionHeaderRow}>
+              <LayoutDashboard size={20} color={C.text} />
+              <AppText style={styles.listTitle} weight="bold">Expense List</AppText>
+            </View>
             <View style={styles.summaryCard}>
-              <AppText style={styles.summaryLabel}>Total Expenses</AppText>
-              <AppText style={styles.summaryAmount}>{formatAmount(getTotalExpenses())}</AppText>
+              <AppText style={styles.summaryLabel} weight="semiBold">Total Expenses</AppText>
+              <AppText style={styles.summaryAmount} weight="bold">{formatAmount(getTotalExpenses())}</AppText>
             </View>
           </View>
 
@@ -426,16 +443,19 @@ const ExpenseManagement = () => {
             <>
               {/* Category Summary */}
               <View style={styles.categorySummary}>
-                <AppText style={styles.categorySummaryTitle}>Expenses by Category</AppText>
+                <View style={styles.sectionHeaderRow}>
+                  <Filter size={18} color={C.text} />
+                  <AppText style={styles.categorySummaryTitle} weight="semiBold">Expenses by Category</AppText>
+                </View>
                 <View style={styles.categorySummaryGrid}>
                   {Object.entries(getExpensesByCategory()).map(([category, amount]) => (
                     <View key={category} style={styles.categorySummaryItem}>
                       <View style={[styles.categorySummaryBadge, { backgroundColor: categoryColors[category] }]}>
-                        <AppText style={[styles.categorySummaryText, { color: categoryTextColors[category] }]}>
+                        <AppText style={[styles.categorySummaryText, { color: categoryTextColors[category] }]} weight="semiBold">
                           {category}
                         </AppText>
                       </View>
-                      <AppText style={styles.categorySummaryAmount}>{formatAmount(amount)}</AppText>
+                      <AppText style={styles.categorySummaryAmount} weight="bold">{formatAmount(amount)}</AppText>
                     </View>
                   ))}
                 </View>
@@ -444,7 +464,7 @@ const ExpenseManagement = () => {
               {/* Expense List */}
               <View style={styles.expenseList}>
                 <View style={styles.expenseListHeader}>
-                  <AppText style={styles.expenseListHeaderText}>Recent Expenses</AppText>
+                  <AppText style={styles.expenseListHeaderText} weight="semiBold">Recent Expenses</AppText>
                 </View>
                 {expenses.map((expense) => (
                   <React.Fragment key={expense.id}>
@@ -481,7 +501,10 @@ const ExpenseManagement = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <AppText style={styles.modalTitle}>Delete Expense</AppText>
+            <View style={styles.modalHeader}>
+              <AlertCircle size={24} color={C.error} />
+              <AppText style={styles.modalTitle} weight="bold">Delete Expense</AppText>
+            </View>
             <AppText style={styles.modalMessage}>
               Are you sure you want to delete this expense? This action cannot be undone.
             </AppText>
@@ -490,13 +513,13 @@ const ExpenseManagement = () => {
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setShowDeleteModal(false)}
               >
-                <AppText style={styles.cancelButtonText}>Cancel</AppText>
+                <AppText style={styles.cancelButtonText} weight="semiBold">Cancel</AppText>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.modalButton, styles.deleteButton]}
                 onPress={handleDeleteExpense}
               >
-                <AppText style={styles.deleteButtonText}>Delete</AppText>
+                <AppText style={styles.deleteButtonText} weight="semiBold">Delete</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -528,7 +551,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#ffffff',
     textAlign: 'center',
     flex: 1,
@@ -553,7 +575,6 @@ const styles = StyleSheet.create({
   },
   formTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: C.text,
     marginBottom: 16,
   },
@@ -561,7 +582,6 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   label: {
-    fontWeight: '600',
     color: C.textMuted,
     fontSize: 14,
     marginBottom: 6,
@@ -581,6 +601,9 @@ const styles = StyleSheet.create({
     borderColor: C.border,
     borderRadius: 8,
     backgroundColor: C.bg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   dateText: {
     fontSize: 14,
@@ -607,10 +630,8 @@ const styles = StyleSheet.create({
   },
   categoryOptionText: {
     fontSize: 14,
-    fontWeight: '500',
   },
   categoryOptionTextSelected: {
-    fontWeight: '700',
   },
   submitButton: {
     backgroundColor: C.danger,
@@ -621,7 +642,6 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     color: '#ffffff',
-    fontWeight: '600',
     fontSize: 16,
   },
   listSection: {
@@ -639,7 +659,6 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: C.text,
   },
   summaryCard: {
@@ -653,11 +672,9 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: 12,
     color: C.textMuted,
-    fontWeight: '500',
   },
   summaryAmount: {
     fontSize: 20,
-    fontWeight: '800',
     color: C.danger,
   },
   categorySummary: {
@@ -670,7 +687,6 @@ const styles = StyleSheet.create({
   },
   categorySummaryTitle: {
     fontSize: 14,
-    fontWeight: '600',
     color: C.text,
     marginBottom: 12,
   },
@@ -691,11 +707,9 @@ const styles = StyleSheet.create({
   },
   categorySummaryText: {
     fontSize: 12,
-    fontWeight: '600',
   },
   categorySummaryAmount: {
     fontSize: 14,
-    fontWeight: '700',
     color: C.text,
   },
   expenseList: {
@@ -714,7 +728,6 @@ const styles = StyleSheet.create({
   },
   expenseListHeaderText: {
     fontSize: 14,
-    fontWeight: '600',
     color: C.text,
   },
   expenseRow: {
@@ -731,9 +744,20 @@ const styles = StyleSheet.create({
   },
   expenseTitle: {
     fontSize: 16,
-    fontWeight: '600',
     color: C.text,
     marginBottom: 4,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
   },
   expenseMeta: {
     flexDirection: 'row',
@@ -748,7 +772,6 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 11,
-    fontWeight: '600',
   },
   expenseDate: {
     fontSize: 12,
@@ -761,7 +784,6 @@ const styles = StyleSheet.create({
   },
   expenseAmount: {
     fontSize: 16,
-    fontWeight: '700',
     color: C.text,
   },
   deleteIcon: {
@@ -812,7 +834,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: C.text,
     marginBottom: 12,
   },
@@ -837,14 +858,12 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: C.text,
-    fontWeight: '600',
   },
   deleteButton: {
     backgroundColor: C.danger,
   },
   deleteButtonText: {
     color: '#ffffff',
-    fontWeight: '600',
   },
 });
 

@@ -16,7 +16,7 @@ import {
   NativeScrollEvent,
   Dimensions,
 } from 'react-native';
-import { Camera, useCameraDevice } from 'react-native-vision-camera';
+// import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -32,7 +32,8 @@ import {
   RefreshCw,
   Save,
   Clock,
-  Calendar
+  Calendar,
+  Bell
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as teacherService from '../../services/teacherService';
@@ -127,7 +128,7 @@ const StatusBadge: React.FC<{ status: 'present' | 'absent' | 'changed' }> = ({ s
   return (
     <View style={[styles.badge, { backgroundColor: config.bg }]}>
       {config.icon}
-      <Text style={[styles.badgeText, { color: config.text }]}>{getText()}</Text>
+      <AppText style={[styles.badgeText, { color: config.text }]}>{getText()}</AppText>
     </View>
   );
 };
@@ -151,12 +152,12 @@ const Stepper: React.FC<{ step: number }> = ({ step }) => (
                 {isDone ? (
                   <CheckCircle2 size={16} color="#fff" />
                 ) : (
-                  <Text style={[styles.stepNumber, isActive && styles.stepNumberActive]}>{stepNumber}</Text>
+                  <AppText style={[styles.stepNumber, isActive && styles.stepNumberActive]}>{stepNumber}</AppText>
                 )}
               </View>
-              <Text style={[styles.stepLabel, (isDone || isActive) && styles.stepLabelActive]} numberOfLines={1}>
+              <AppText style={[styles.stepLabel, (isDone || isActive) && styles.stepLabelActive]} numberOfLines={1}>
                 {label}
-              </Text>
+              </AppText>
             </View>
             {idx < stepLabels.length - 1 && (
               <View style={[styles.stepConnector, isDone && styles.stepConnectorDone]} />
@@ -188,13 +189,13 @@ const Toast: React.FC<{
 
   return (
     <View style={[styles.toast, { borderLeftColor: color }]}>
-      <Text style={styles.toastIcon}>{icon}</Text>
+      <AppText style={styles.toastIcon}>{icon}</AppText>
       <View style={styles.toastContent}>
-        <Text style={styles.toastTitle}>{title}</Text>
-        {message && <Text style={styles.toastMessage}>{message}</Text>}
+        <AppText style={styles.toastTitle}>{title}</AppText>
+        {message && <AppText style={styles.toastMessage}>{message}</AppText>}
       </View>
       <TouchableOpacity onPress={onClose}>
-        <Text style={styles.toastClose}>✕</Text>
+        <AppText style={styles.toastClose}>✕</AppText>
       </TouchableOpacity>
     </View>
   );
@@ -209,6 +210,7 @@ export default function TeacherAttendanceScreen() {
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
   const [employeeId, setEmployeeId] = useState<string>('');
+  const [isClassTeacher, setIsClassTeacher] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
@@ -240,8 +242,9 @@ export default function TeacherAttendanceScreen() {
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [cameraActive, setCameraActive] = useState<boolean>(false);
   const [cameraUse, setCameraUse] = useState<'teacher' | 'student'>('teacher');
-  const cameraRef = useRef<Camera>(null);
-  const device = useCameraDevice('back');
+  const cameraRef = useRef<any>(null);
+  // const device = useCameraDevice('back');
+  const device = null;
   
   // Form
   const [form, setForm] = useState({
@@ -319,10 +322,12 @@ export default function TeacherAttendanceScreen() {
         const code = await getSchoolCode();
         const bid = await getBranchId();
         const eid = await getEmployeeId();
+        const classTeacherFlag = await AsyncStorage.getItem('is_class_teacher');
         if (!isMounted.current) return;
         setSchoolCode(code);
         setBranchId(bid);
         setEmployeeId(eid);
+        setIsClassTeacher(classTeacherFlag === '1' || String(classTeacherFlag).toLowerCase() === 'true');
         setForm(prev => ({ ...prev, employee_id: eid, branch_id: bid }));
 
         const sessionKey = `teacher_session_${eid}_${code}`;
@@ -363,7 +368,7 @@ export default function TeacherAttendanceScreen() {
     
     Camera.requestCameraPermission().then(permission => {
       if (isMounted.current) {
-        setHasPermission(permission === 'authorized');
+        setHasPermission(permission === 'granted');
       }
     });
   }, []);
@@ -391,7 +396,6 @@ export default function TeacherAttendanceScreen() {
     if (!cameraRef.current) return null;
     try {
       const photo = await cameraRef.current.takePhoto({
-        qualityPrioritization: 'quality',
         flash: 'off',
       });
       return `file://${photo.path}`;
@@ -712,22 +716,24 @@ export default function TeacherAttendanceScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-      {/* Navy Hero Header */}
-      <View style={styles.heroHeader}>
-        <View style={styles.headerTop}>
+      {/* Navy Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
           <TouchableOpacity
-            style={styles.iconButton}
+            style={styles.backBtn}
             onPress={() => navigation.goBack()}
           >
             <ChevronLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.heroTitle}>Mark Attendance</Text>
-          <View style={{ width: 40 }} />
+          <AppText style={styles.headerTitle}>{isClassTeacher ? 'Class Teacher Attendance' : 'Teacher Attendance'}</AppText>
+          <TouchableOpacity style={styles.notificationBtn}>
+            <Bell size={22} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.heroContent}>
-          <Text style={styles.heroGreeting}>Scan Attendance</Text>
-          <Text style={styles.heroSubtext}>AI-powered facial recognition for student attendance</Text>
+          <AppText style={styles.heroGreeting}>Scan Attendance</AppText>
+          <AppText style={styles.heroSubtext}>AI-powered facial recognition for student attendance</AppText>
         </View>
       </View>
 
@@ -749,21 +755,24 @@ export default function TeacherAttendanceScreen() {
         {/* Camera View */}
         {cameraActive && hasPermission && device && (
           <View style={styles.cameraContainer}>
-            <Camera
+            {/* <Camera
               ref={cameraRef}
               style={styles.camera}
               device={device}
               isActive={cameraActive}
               photo={true}
-            />
+            /> */}
+            <View style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center'}}>
+              <Text style={{color: '#fff', fontSize: 16}}>Camera disabled for debugging</Text>
+            </View>
             <View style={styles.cameraOverlay}>
-              <Text style={styles.cameraStep}>
-                {cameraUse === 'teacher' ? 'Teacher Verification' : `Image ${studentImages.length + 1}/3`}
-              </Text>
+              <AppText style={styles.cameraStep}>
+                {cameraUse === 'teacher' ? 'Teacher Face Verification' : `Image ${studentImages.length + 1}/3`}
+              </AppText>
               <View style={styles.cameraControls}>
                 {cameraUse === 'student' && studentImages.length > 0 && (
                   <TouchableOpacity style={styles.cameraDoneBtn} onPress={() => stopCamera()}>
-                    <Text style={styles.cameraDoneText}>✓ DONE ({studentImages.length})</Text>
+                    <AppText style={styles.cameraDoneText}>✓ DONE ({studentImages.length})</AppText>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
@@ -788,12 +797,12 @@ export default function TeacherAttendanceScreen() {
           <AppCard style={styles.mainCard}>
             <View style={styles.cardHeader}>
               <UserCheck size={20} color="#001F3F" />
-              <Text style={styles.cardTitle}>Teacher Verification</Text>
+              <AppText style={styles.cardTitle}>Teacher Face Verification</AppText>
             </View>
 
             <View style={styles.cardBody}>
               <View style={styles.field}>
-                <Text style={styles.label}>Employee ID</Text>
+                <AppText style={styles.label}>Employee ID</AppText>
                 <TextInput style={styles.input} value={employeeId} editable={false} placeholder="Employee ID" />
               </View>
 
@@ -801,11 +810,11 @@ export default function TeacherAttendanceScreen() {
                 <View style={styles.buttonGrid}>
                   <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#001F3F' }]} onPress={() => startCamera('teacher')}>
                     <CameraIcon size={20} color="#fff" />
-                    <Text style={styles.actionBtnText}>Open Camera</Text>
+                    <AppText style={styles.actionBtnText}>Start Camera</AppText>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#F1F5F9' }]} onPress={handleTeacherUpload}>
                     <Upload size={20} color="#001F3F" />
-                    <Text style={[styles.actionBtnText, { color: '#001F3F' }]}>Upload Photo</Text>
+                    <AppText style={[styles.actionBtnText, { color: '#001F3F' }]}>Upload</AppText>
                   </TouchableOpacity>
                 </View>
               )}
@@ -815,7 +824,7 @@ export default function TeacherAttendanceScreen() {
                   <Image source={{ uri: teacherImage }} style={styles.previewImage} />
                   <View style={styles.previewBadge}>
                     <CheckCircle2 size={12} color="#fff" />
-                    <Text style={styles.previewBadgeText}>Ready</Text>
+                    <AppText style={styles.previewBadgeText}>Ready</AppText>
                   </View>
                 </View>
               )}
@@ -835,24 +844,24 @@ export default function TeacherAttendanceScreen() {
           <AppCard style={styles.mainCard}>
             <View style={styles.cardHeader}>
               <CheckCircle2 size={20} color="#10B981" />
-              <Text style={styles.cardTitle}>Teacher Verified</Text>
+              <AppText style={styles.cardTitle}>Teacher Verified</AppText>
             </View>
 
             <View style={styles.cardBody}>
               <View style={styles.teacherInfo}>
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Name</Text>
-                  <Text style={styles.infoValue}>{teacherData.teacher_full_name}</Text>
+                  <AppText style={styles.infoLabel}>Name</AppText>
+                  <AppText style={styles.infoValue}>{teacherData.teacher_full_name}</AppText>
                 </View>
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Employee ID</Text>
-                  <Text style={styles.infoValue}>{teacherData.employee_id}</Text>
+                  <AppText style={styles.infoLabel}>Employee ID</AppText>
+                  <AppText style={styles.infoValue}>{teacherData.employee_id}</AppText>
                 </View>
               </View>
 
               {assignedClasses.length > 0 && (
                 <View style={styles.field}>
-                  <Text style={styles.label}>Select Assigned Class</Text>
+                  <AppText style={styles.label}>Select Assigned Class</AppText>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View style={styles.chipContainer}>
                       {assignedClassOptions.map(opt => (
@@ -864,9 +873,9 @@ export default function TeacherAttendanceScreen() {
                             setForm(prev => ({ ...prev, class_grade: opt.class_grade, section: opt.section }));
                           }}
                         >
-                          <Text style={[styles.chipText, selectedClassKey === opt.key && styles.chipTextActive]}>
+                          <AppText style={[styles.chipText, selectedClassKey === opt.key && styles.chipTextActive]}>
                             {opt.label}
-                          </Text>
+                          </AppText>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -887,12 +896,12 @@ export default function TeacherAttendanceScreen() {
           <AppCard style={styles.mainCard}>
             <View style={styles.cardHeader}>
               <LayoutGrid size={20} color="#001F3F" />
-              <Text style={styles.cardTitle}>Attendance Configuration</Text>
+              <AppText style={styles.cardTitle}>Attendance Configuration</AppText>
             </View>
 
             <View style={styles.cardBody}>
               <View style={styles.field}>
-                <Text style={styles.label}>Class</Text>
+                <AppText style={styles.label}>Class</AppText>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.chipContainer}>
                     {effectiveClassOptions.map((c: any) => (
@@ -901,9 +910,9 @@ export default function TeacherAttendanceScreen() {
                         style={[styles.chip, form.class_grade === c.class_name && styles.chipActive]}
                         onPress={() => handleClassChange(c.class_name)}
                       >
-                        <Text style={[styles.chipText, form.class_grade === c.class_name && styles.chipTextActive]}>
+                        <AppText style={[styles.chipText, form.class_grade === c.class_name && styles.chipTextActive]}>
                           Class {c.class_name}
-                        </Text>
+                        </AppText>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -912,7 +921,7 @@ export default function TeacherAttendanceScreen() {
 
               {form.class_grade && (
                 <View style={styles.field}>
-                  <Text style={styles.label}>Section</Text>
+                  <AppText style={styles.label}>Section</AppText>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View style={styles.chipContainer}>
                       {effectiveSectionOptions.map((sec: string) => (
@@ -921,9 +930,9 @@ export default function TeacherAttendanceScreen() {
                           style={[styles.chip, form.section === sec && styles.chipActive]}
                           onPress={() => handleSectionChange(sec)}
                         >
-                          <Text style={[styles.chipText, form.section === sec && styles.chipTextActive]}>
+                          <AppText style={[styles.chipText, form.section === sec && styles.chipTextActive]}>
                             Section {sec}
-                          </Text>
+                          </AppText>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -932,10 +941,10 @@ export default function TeacherAttendanceScreen() {
               )}
 
               <View style={styles.field}>
-                <Text style={styles.label}>Attendance Date</Text>
+                <AppText style={styles.label}>Attendance Date</AppText>
                 <TouchableOpacity style={styles.dateSelector} onPress={() => setShowDatePicker(true)}>
                   <Calendar size={16} color="#64748B" />
-                  <Text style={styles.dateSelectorText}>{form.attendance_date}</Text>
+                  <AppText style={styles.dateSelectorText}>{form.attendance_date}</AppText>
                 </TouchableOpacity>
                 {showDatePicker && (
                   <DateTimePicker
@@ -951,8 +960,8 @@ export default function TeacherAttendanceScreen() {
               </View>
 
               <View style={styles.imageGridHeader}>
-                <Text style={styles.label}>Student Images</Text>
-                <Text style={styles.imageCount}>{studentImages.length}/3</Text>
+                <AppText style={styles.label}>Student Images</AppText>
+                <AppText style={styles.imageCount}>{studentImages.length}/3</AppText>
               </View>
 
               {!cameraActive && (
@@ -963,7 +972,7 @@ export default function TeacherAttendanceScreen() {
                     disabled={studentImages.length >= 3}
                   >
                     <CameraIcon size={20} color="#fff" />
-                    <Text style={styles.actionBtnText}>Capture Students</Text>
+                    <AppText style={styles.actionBtnText}>Capture Students</AppText>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: '#F1F5F9' }]}
@@ -971,7 +980,7 @@ export default function TeacherAttendanceScreen() {
                     disabled={studentImages.length >= 3}
                   >
                     <Upload size={20} color="#001F3F" />
-                    <Text style={[styles.actionBtnText, { color: '#001F3F' }]}>Upload</Text>
+                    <AppText style={[styles.actionBtnText, { color: '#001F3F' }]}>Upload</AppText>
                   </TouchableOpacity>
                 </View>
               )}
@@ -1007,27 +1016,27 @@ export default function TeacherAttendanceScreen() {
           <>
             <View style={styles.statsRow}>
               <View style={[styles.miniStatCard, { borderLeftColor: '#3B82F6' }]}>
-                <Text style={styles.miniStatVal}>{result.summary.total_students}</Text>
-                <Text style={styles.miniStatLabel}>Total</Text>
+                <AppText style={styles.miniStatVal}>{result.summary.total_students}</AppText>
+                <AppText style={styles.miniStatLabel}>Total</AppText>
               </View>
               <View style={[styles.miniStatCard, { borderLeftColor: '#10B981' }]}>
-                <Text style={styles.miniStatVal}>{result.summary.present_count}</Text>
-                <Text style={styles.miniStatLabel}>Present</Text>
+                <AppText style={styles.miniStatVal}>{result.summary.present_count}</AppText>
+                <AppText style={styles.miniStatLabel}>Present</AppText>
               </View>
               <View style={[styles.miniStatCard, { borderLeftColor: '#EF4444' }]}>
-                <Text style={styles.miniStatVal}>{result.summary.absent_count}</Text>
-                <Text style={styles.miniStatLabel}>Absent</Text>
+                <AppText style={styles.miniStatVal}>{result.summary.absent_count}</AppText>
+                <AppText style={styles.miniStatLabel}>Absent</AppText>
               </View>
               <View style={[styles.miniStatCard, { borderLeftColor: '#F59E0B' }]}>
-                <Text style={styles.miniStatVal}>{attendanceRate}%</Text>
-                <Text style={styles.miniStatLabel}>Rate</Text>
+                <AppText style={styles.miniStatVal}>{attendanceRate}%</AppText>
+                <AppText style={styles.miniStatLabel}>Rate</AppText>
               </View>
             </View>
 
             <AppCard style={styles.mainCard}>
               <View style={styles.cardHeader}>
                 <AlertCircle size={20} color="#F59E0B" />
-                <Text style={styles.cardTitle}>Manual Review</Text>
+                <AppText style={styles.cardTitle}>Manual Review</AppText>
               </View>
 
               <View style={styles.cardBody}>
@@ -1038,39 +1047,39 @@ export default function TeacherAttendanceScreen() {
                       style={[styles.filterChip, manualFilter === filter && styles.filterChipActive]}
                       onPress={() => setManualFilter(filter)}
                     >
-                      <Text style={[styles.filterChipText, manualFilter === filter && styles.filterChipTextActive]}>
+                      <AppText style={[styles.filterChipText, manualFilter === filter && styles.filterChipTextActive]}>
                         {filter.charAt(0).toUpperCase() + filter.slice(1)} ({manualCounts[filter as keyof typeof manualCounts]})
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
 
                 <View style={styles.tableWrapper}>
                   <View style={styles.tHeader}>
-                    <Text style={[styles.tHead, { width: 40 }]}>#</Text>
-                    <Text style={[styles.tHead, { flex: 1 }]}>Student Name</Text>
-                    <Text style={[styles.tHead, { width: 80, textAlign: 'center' }]}>Status</Text>
+                    <AppText style={[styles.tHead, { width: 40 }]}>#</AppText>
+                    <AppText style={[styles.tHead, { flex: 1 }]}>Student Name</AppText>
+                    <AppText style={[styles.tHead, { width: 80, textAlign: 'center' }]}>Status</AppText>
                   </View>
 
                   {filteredManualRows.map((item, idx) => (
                     <View key={item.student_id} style={styles.tRow}>
-                      <Text style={[styles.tCell, { width: 40, color: '#94A3B8' }]}>{item.roll || idx + 1}</Text>
+                      <AppText style={[styles.tCell, { width: 40, color: '#94A3B8' }]}>{item.roll || idx + 1}</AppText>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.tCellName}>{item.name}</Text>
-                        {item._changed && <Text style={styles.changedText}>• Manually Edited</Text>}
+                        <AppText style={styles.tCellName}>{item.name}</AppText>
+                        {item._changed && <AppText style={styles.changedText}>• Manually Edited</AppText>}
                       </View>
                       <View style={styles.statusToggle}>
                         <TouchableOpacity
                           style={[styles.toggleBtn, item._currentStatus === 'PRESENT' && styles.toggleBtnP]}
                           onPress={() => setManualStatusById(prev => ({ ...prev, [item.student_id]: 'PRESENT' }))}
                         >
-                          <Text style={[styles.toggleText, item._currentStatus === 'PRESENT' && styles.toggleTextActive]}>P</Text>
+                          <AppText style={[styles.toggleText, item._currentStatus === 'PRESENT' && styles.toggleTextActive]}>P</AppText>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[styles.toggleBtn, item._currentStatus === 'ABSENT' && styles.toggleBtnA]}
                           onPress={() => setManualStatusById(prev => ({ ...prev, [item.student_id]: 'ABSENT' }))}
                         >
-                          <Text style={[styles.toggleText, item._currentStatus === 'ABSENT' && styles.toggleTextActive]}>A</Text>
+                          <AppText style={[styles.toggleText, item._currentStatus === 'ABSENT' && styles.toggleTextActive]}>A</AppText>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1083,7 +1092,6 @@ export default function TeacherAttendanceScreen() {
                     onPress={saveAttendance}
                     disabled={manualSaving}
                     style={[styles.primaryButton, { flex: 1 }]}
-                    icon={<Save size={20} color="#fff" />}
                   />
                   <TouchableOpacity style={styles.retryBtn} onPress={() => setStep(3)}>
                     <RefreshCw size={20} color="#64748B" />
@@ -1100,7 +1108,7 @@ export default function TeacherAttendanceScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Confirm Capture</Text>
+              <AppText style={styles.modalTitle}>Confirm Capture</AppText>
               <TouchableOpacity onPress={retakeImage}>
                 <XCircle size={24} color="#64748B" />
               </TouchableOpacity>
@@ -1108,10 +1116,10 @@ export default function TeacherAttendanceScreen() {
             {previewImage && <Image source={{ uri: previewImage }} style={styles.modalImage} />}
             <View style={styles.modalButtons}>
               <TouchableOpacity style={[styles.modalBtn, styles.modalBtnSecondary]} onPress={retakeImage}>
-                <Text style={styles.modalBtnTextSecondary}>Retake</Text>
+                <AppText style={styles.modalBtnTextSecondary}>Retake</AppText>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={confirmStudentImage}>
-                <Text style={styles.modalBtnTextPrimary}>Use Photo</Text>
+                <AppText style={styles.modalBtnTextPrimary}>Use Photo</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -1124,93 +1132,117 @@ export default function TeacherAttendanceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F0F4F8',
   },
-  heroHeader: {
+  header: {
     backgroundColor: '#001F3F',
-    height: 180,
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    paddingBottom: 28,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
   },
-  headerTop: {
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
+  headerTitle: {
+    fontSize: 22,
     fontWeight: '700',
+    color: '#ffffff',
+  },
+  notificationBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   heroContent: {
-    marginTop: 20,
+    paddingHorizontal: 20,
+    marginTop: 8,
   },
   heroGreeting: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '800',
   },
   heroSubtext: {
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.75)',
     fontSize: 13,
-    marginTop: 4,
+    marginTop: 6,
+    lineHeight: 18,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 100,
+    paddingHorizontal: 16,
+    paddingBottom: 120,
+    paddingTop: 12,
   },
   stepperWrapper: {
-    marginTop: -30,
-    marginBottom: 20,
+    marginTop: -24,
+    marginBottom: 24,
+    paddingHorizontal: 16,
     alignItems: 'center',
   },
   stepperContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    elevation: 4,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 24,
+    elevation: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
     alignItems: 'center',
     width: '100%',
     justifyContent: 'center',
   },
   stepItem: {
     alignItems: 'center',
-    width: 60,
+    width: 65,
   },
   stepCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
   },
   stepActive: {
     backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
+    elevation: 3,
+    shadowOpacity: 0.2,
   },
   stepDone: {
     backgroundColor: '#10B981',
+    borderColor: '#059669',
   },
   stepNumber: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '600',
     color: '#64748B',
   },
   stepNumberActive: {
@@ -1223,63 +1255,70 @@ const styles = StyleSheet.create({
   },
   stepLabelActive: {
     color: '#001F3F',
+    fontWeight: '700',
   },
   stepConnector: {
-    width: 20,
-    height: 2,
-    backgroundColor: '#F1F5F9',
-    marginTop: -15,
+    width: 18,
+    height: 2.5,
+    backgroundColor: '#E2E8F0',
+    marginTop: -16,
+    marginHorizontal: 4,
   },
   stepConnectorDone: {
     backgroundColor: '#10B981',
   },
   mainCard: {
     borderRadius: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderWidth: 0,
-    elevation: 2,
-    shadowOpacity: 0.05,
+    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
     marginBottom: 16,
     overflow: 'hidden',
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    padding: 16,
+    gap: 12,
+    padding: 18,
     backgroundColor: '#F8FAFC',
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#ECEFF1',
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#1A202C',
+    flex: 1,
   },
   cardBody: {
-    padding: 16,
+    padding: 18,
   },
   field: {
-    marginBottom: 16,
+    marginBottom: 18,
   },
   label: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#64748B',
-    marginBottom: 8,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
+    backgroundColor: '#F7F9FB',
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
     borderRadius: 12,
-    padding: 12,
+    padding: 13,
     fontSize: 14,
-    color: '#0F172A',
+    color: '#1A202C',
+    fontWeight: '500',
   },
   buttonGrid: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 14,
     marginBottom: 16,
   },
   actionBtn: {
@@ -1288,86 +1327,97 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
+    elevation: 2,
+    shadowOpacity: 0.1,
   },
   actionBtnText: {
     color: '#fff',
-    fontWeight: '600',
     fontSize: 14,
+    fontWeight: '600',
   },
   previewContainer: {
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
     marginBottom: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
+    elevation: 2,
+    shadowOpacity: 0.08,
   },
   previewImage: {
     width: '100%',
-    height: 180,
+    height: 200,
     resizeMode: 'cover',
   },
   previewBadge: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 12,
+    right: 12,
     backgroundColor: '#10B981',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    elevation: 3,
+    shadowOpacity: 0.3,
   },
   previewBadgeText: {
     color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
   },
   primaryButton: {
     backgroundColor: '#001F3F',
-    borderRadius: 12,
-    height: 50,
+    borderRadius: 14,
+    height: 52,
+    elevation: 3,
+    shadowOpacity: 0.2,
   },
   teacherInfo: {
-    backgroundColor: '#F0F9FF',
-    padding: 16,
-    borderRadius: 16,
+    backgroundColor: '#EFF6FF',
+    padding: 18,
+    borderRadius: 18,
     marginBottom: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#BAE6FD',
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   infoLabel: {
     fontSize: 12,
-    color: '#0369A1',
     fontWeight: '600',
+    color: '#0369A1',
   },
   infoValue: {
     fontSize: 13,
-    color: '#0C4A6E',
     fontWeight: '700',
+    color: '#0C4A6E',
   },
   chipContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
+    paddingVertical: 4,
   },
   chip: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#F7F9FB',
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },
   chipActive: {
     backgroundColor: '#001F3F',
     borderColor: '#001F3F',
+    elevation: 2,
+    shadowOpacity: 0.15,
   },
   chipText: {
     fontSize: 13,
@@ -1380,199 +1430,231 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 8,
+    marginTop: 12,
   },
   dateSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
+    gap: 12,
+    backgroundColor: '#F7F9FB',
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
   },
   dateSelectorText: {
     fontSize: 14,
-    color: '#0F172A',
-    fontWeight: '500',
+    fontWeight: '600',
+    color: '#1A202C',
   },
   imageGridHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   imageCount: {
-    fontSize: 12,
-    color: '#94A3B8',
+    fontSize: 13,
     fontWeight: '700',
+    color: '#475569',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   thumbScroll: {
-    marginBottom: 16,
+    marginBottom: 18,
+    paddingVertical: 4,
   },
   thumbWrapper: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    marginRight: 10,
-    borderWidth: 1,
+    width: 90,
+    height: 90,
+    borderRadius: 14,
+    marginRight: 12,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
+    elevation: 2,
+    shadowOpacity: 0.06,
   },
   thumbImg: {
     width: '100%',
     height: '100%',
-    borderRadius: 11,
+    borderRadius: 13,
   },
   thumbRemove: {
     position: 'absolute',
-    top: -5,
-    right: -5,
+    top: -6,
+    right: -6,
+    elevation: 3,
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingHorizontal: 2,
   },
   miniStatCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     flex: 1,
-    marginHorizontal: 4,
-    padding: 12,
-    borderRadius: 16,
-    borderLeftWidth: 4,
+    marginHorizontal: 6,
+    padding: 14,
+    borderRadius: 18,
+    borderLeftWidth: 5,
     elevation: 2,
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
   },
   miniStatVal: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: '#0F172A',
   },
   miniStatLabel: {
-    fontSize: 10,
+    fontSize: 11,
+    fontWeight: '600',
     color: '#94A3B8',
-    fontWeight: '700',
-    marginTop: 2,
+    marginTop: 4,
   },
   filterScroll: {
-    marginBottom: 16,
+    marginBottom: 18,
+    paddingVertical: 4,
   },
   filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#F1F5F9',
-    marginRight: 8,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   filterChipActive: {
     backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
   },
   filterChipText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#64748B',
   },
   filterChipTextActive: {
     color: '#fff',
   },
   tableWrapper: {
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 18,
     overflow: 'hidden',
     marginBottom: 20,
+    elevation: 2,
+    shadowOpacity: 0.06,
   },
   tHeader: {
     flexDirection: 'row',
     backgroundColor: '#F8FAFC',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderBottomWidth: 2,
+    borderBottomColor: '#ECEFF1',
   },
   tHead: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#94A3B8',
+    fontWeight: '700',
+    color: '#64748B',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   tRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
+    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
   },
   tCell: {
     fontSize: 13,
     fontWeight: '600',
+    color: '#475569',
   },
   tCellName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#1A202C',
   },
   changedText: {
-    fontSize: 10,
+    fontSize: 11,
+    fontWeight: '600',
     color: '#F59E0B',
-    fontWeight: '700',
-    marginTop: 1,
+    marginTop: 2,
   },
   statusToggle: {
     flexDirection: 'row',
     backgroundColor: '#F1F5F9',
-    borderRadius: 8,
-    padding: 2,
-    width: 80,
+    borderRadius: 10,
+    padding: 3,
+    width: 90,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   toggleBtn: {
     flex: 1,
-    height: 28,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   toggleBtnP: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#DCFCE7',
+    borderColor: '#10B981',
   },
   toggleBtnA: {
-    backgroundColor: '#EF4444',
+    backgroundColor: '#FEE2E2',
+    borderColor: '#EF4444',
   },
   toggleText: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#94A3B8',
   },
   toggleTextActive: {
-    color: '#fff',
+    color: '#0F172A',
   },
   retryBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
+    width: 54,
+    height: 54,
+    borderRadius: 14,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    elevation: 2,
+    shadowOpacity: 0.06,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
   },
   badgeText: {
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
     textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   toast: {
     position: 'absolute',
-    top: 50,
-    left: 20,
-    right: 20,
-    backgroundColor: '#fff',
+    top: 60,
+    left: 16,
+    right: 16,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
@@ -1580,89 +1662,99 @@ const styles = StyleSheet.create({
     elevation: 10,
     zIndex: 9999,
     borderLeftWidth: 5,
+    borderLeftColor: '#2563eb',
   },
-  toastIcon: { fontSize: 24, marginRight: 12 },
+  toastIcon: { fontSize: 24, marginRight: 14 },
   toastContent: { flex: 1 },
-  toastTitle: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
-  toastMessage: { fontSize: 12, color: '#64748B', marginTop: 2 },
-  toastClose: { color: '#CBD5E1', fontSize: 18, padding: 4 },
+  toastTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
+  toastMessage: { fontSize: 12, color: '#64748B', marginTop: 3 },
+  toastClose: { color: '#CBD5E1', fontSize: 18, padding: 4, fontWeight: '600' },
   cameraContainer: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: '#000',
     zIndex: 9999,
   },
   camera: { flex: 1 },
   cameraOverlay: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 50,
     left: 0,
     right: 0,
     alignItems: 'center',
   },
   cameraStep: {
-    backgroundColor: 'rgba(0,31,63,0.8)',
+    backgroundColor: 'rgba(0,31,63,0.9)',
     color: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
     borderRadius: 20,
     fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 20,
+    fontWeight: '600',
+    marginBottom: 24,
   },
   cameraControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
+    gap: 24,
   },
   cameraCaptureBtn: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     backgroundColor: '#fff',
-    borderWidth: 5,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderWidth: 6,
+    borderColor: 'rgba(255,255,255,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
+    elevation: 5,
   },
   cameraDoneBtn: {
     backgroundColor: '#10B981',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     borderRadius: 20,
+    elevation: 3,
   },
-  cameraDoneText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  cameraDoneText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   closeCameraBtn: {
     position: 'absolute',
     top: 50,
     right: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 20,
-    padding: 4,
+    padding: 6,
+    elevation: 5,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    padding: 24,
     alignItems: 'center',
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: 16,
+    marginBottom: 20,
+    alignItems: 'center',
   },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
-  modalImage: { width: '100%', height: 300, borderRadius: 16, marginBottom: 20 },
-  modalButtons: { flexDirection: 'row', gap: 12, width: '100%' },
-  modalBtn: { flex: 1, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
+  modalImage: { width: '100%', height: 320, borderRadius: 18, marginBottom: 24 },
+  modalButtons: { flexDirection: 'row', gap: 14, width: '100%' },
+  modalBtn: { flex: 1, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', elevation: 2 },
   modalBtnPrimary: { backgroundColor: '#001F3F' },
-  modalBtnSecondary: { backgroundColor: '#F1F5F9' },
-  modalBtnTextPrimary: { color: '#fff', fontWeight: '700' },
-  modalBtnTextSecondary: { color: '#64748B', fontWeight: '700' },
+  modalBtnSecondary: { backgroundColor: '#F1F5F9', borderWidth: 1.5, borderColor: '#E2E8F0' },
+  modalBtnTextPrimary: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  modalBtnTextSecondary: { color: '#475569', fontWeight: '600', fontSize: 14 },
 });

@@ -21,6 +21,7 @@ import AppCard from '../../components/common/AppCard';
 import { colors } from '../../constants/theme';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
+import notificationService from '../../services/notificationService';
 
 interface Notification {
   id: string;
@@ -141,6 +142,10 @@ export default function NotificationsScreen() {
       if (!readIds.includes(id)) {
         readIds.push(id);
         await AsyncStorage.setItem('read_notifications', JSON.stringify(readIds));
+        
+        // Update badge count
+        const unreadCount = Math.max(0, (notifications.length - readIds.length));
+        await notificationService.updateBadgeCount(unreadCount);
       }
     } catch (err) {
       console.error('Failed to mark as read:', err);
@@ -152,6 +157,9 @@ export default function NotificationsScreen() {
       const allIds = notifications.map(n => n.id);
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       await AsyncStorage.setItem('read_notifications', JSON.stringify(allIds));
+      
+      // Update badge count to 0
+      await notificationService.updateBadgeCount(0);
     } catch (err) {
       console.error('Failed to mark all as read:', err);
     }

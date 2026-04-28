@@ -41,6 +41,7 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import API from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getTeacherProfile, getTeacherProfilePhotoDataUri, getTeacherProfilePhotoUrl } from '../../services/teacherService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -59,6 +60,8 @@ export default function TeacherDashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<TeacherProfile | null>(null);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [profilePhotoError, setProfilePhotoError] = useState(false);
   const { unreadCount, refreshUnreadCount } = useUnreadNotifications();
 
   const lastScrollY = useRef(0);
@@ -66,9 +69,54 @@ export default function TeacherDashboardScreen() {
   const fetchDashboardData = useCallback(async () => {
     try {
       refreshUnreadCount();
-      const response = await API.get('profile/details');
-      if (response.data && isMounted.current) {
-        setProfile(response.data);
+      const responseData = await getTeacherProfile();
+      if (responseData && isMounted.current) {
+        setProfile(responseData);
+
+        const teacherId = String(responseData.teacher_id || responseData.employee_id || '').trim();
+        const schoolCode = String(responseData.school_code || '').trim();
+        const scopedPhotoKey = teacherId ? `profile_photo_url:teacher:${schoolCode || 'unknown'}:${teacherId}` : null;
+
+        if (scopedPhotoKey) {
+          const scopedCachedPhoto = await AsyncStorage.getItem(scopedPhotoKey);
+          if (scopedCachedPhoto) {
+            setProfilePhotoUrl(scopedCachedPhoto);
+            setProfilePhotoError(false);
+          }
+        } else {
+          const cachedProfilePhoto = await AsyncStorage.getItem('profile_photo_url');
+          if (cachedProfilePhoto) {
+            setProfilePhotoUrl(cachedProfilePhoto);
+            setProfilePhotoError(false);
+          }
+        }
+
+        const directPhoto = String(responseData.profile_photo_url || responseData.teacher_photograph || '').trim();
+        const normalizedDirectPhoto =
+          directPhoto.startsWith('data:') ||
+          directPhoto.startsWith('http://') ||
+          directPhoto.startsWith('https://') ||
+          directPhoto.startsWith('file://') ||
+          directPhoto.startsWith('content://')
+            ? directPhoto
+            : (/^[A-Za-z0-9+/=_-]{80,}$/.test(directPhoto.replace(/\s+/g, ''))
+                ? `data:image/jpeg;base64,${directPhoto.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/')}`
+                : directPhoto || null);
+
+        const resolvedPhoto =
+          normalizedDirectPhoto ||
+          (await getTeacherProfilePhotoDataUri(teacherId, schoolCode)) ||
+          (await getTeacherProfilePhotoUrl(teacherId, schoolCode)) ||
+          null;
+
+        if (resolvedPhoto) {
+          setProfilePhotoUrl(resolvedPhoto);
+          setProfilePhotoError(false);
+          await AsyncStorage.setItem('profile_photo_url', resolvedPhoto);
+          if (scopedPhotoKey) {
+            await AsyncStorage.setItem(scopedPhotoKey, resolvedPhoto);
+          }
+        }
       }
     } catch (error: any) {
       if (error?.response?.status !== 401) {
@@ -108,21 +156,19 @@ export default function TeacherDashboardScreen() {
   };
 
   const stats = [
-    { label: 'Total Students', value: '120', sub: 'All Classes', icon: Users, color: '#818cf8' },
-    { label: 'Present Today', value: '112', sub: 'Live', icon: CheckCircle2, color: '#34d399' },
-    { label: 'Absent Today', value: '8', sub: 'Total', icon: X, color: '#f87171' },
-    { label: 'Attendance %', value: '93%', sub: 'Avg', icon: Percent, color: '#fbbf24' },
+    { label: 'Total Students', value: '120', sub: 'All Classes', icon: Users, color: '#6366f1' },
+    { label: 'Present Today', value: '112', sub: 'Live', icon: CheckCircle2, color: '#10b981' },
+    { label: 'Absent Today', value: '8', sub: 'Total', icon: X, color: '#ef4444' },
+    { label: 'Attendance %', value: '93%', sub: 'Avg', icon: Percent, color: '#f59e0b' },
   ];
 
   const quickActions = [
     { label: 'Mark Attendance', icon: CalendarCheck2, color: '#3b82f6', route: 'TeacherAttendance' },
-    { label: 'Live Class', icon: Video, color: '#8b5cf6', route: 'VideoMeeting', params: { roomName: 'AttendX-General-Class', displayName: userName || profile?.name || 'Teacher' } },
-    { label: 'Enrollment', icon: UserPlus, color: '#10b981', route: 'TeacherRegisterPublic', params: { school_code: '', branch_id: '' } },
-    { label: 'Manage Profiles', icon: Users2, color: '#6366f1', route: 'TeacherStudentList' },
+    { label: 'Student Enrollment', icon: UserPlus, color: '#10b981', route: 'TeacherRegisterPublic' },
+    { label: 'Manage Profiles', icon: Users2, color: '#8b5cf6', route: 'TeacherStudentList' },
     { label: 'Vital Scan AI', icon: Heart, color: '#ef4444', route: 'TeacherVitalScan' },
     { label: 'Leave Approval', icon: FileEdit, color: '#f59e0b', route: 'TeacherLeaveApproval' },
     { label: 'Question Paper', icon: ClipboardEdit, color: '#10b981', route: 'TeacherMarksEntry' },
-    { label: 'My Profile', icon: User, color: '#64748b', route: 'Profile' },
   ];
 
   const schedule = [
@@ -162,8 +208,9 @@ export default function TeacherDashboardScreen() {
             onPress={() => navigation.navigate('Profile')}
           >
             <Image
-              source={{ uri: 'https://avatar.iran.liara.run/public/31' }}
+              source={{ uri: profilePhotoUrl && !profilePhotoError ? profilePhotoUrl : 'https://avatar.iran.liara.run/public/31' }}
               style={styles.profileImage}
+              onError={() => setProfilePhotoError(true)}
             />
           </TouchableOpacity>
           <TouchableOpacity
@@ -173,7 +220,7 @@ export default function TeacherDashboardScreen() {
             <Bell size={24} color="#fff" strokeWidth={1.5} />
             {unreadCount > 0 && (
               <View style={styles.badge}>
-                <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+                <AppText weight="bold" style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
               </View>
             )}
           </TouchableOpacity>
@@ -181,102 +228,110 @@ export default function TeacherDashboardScreen() {
 
         {/* Welcome Text */}
         <View style={styles.welcomeSection}>
-          <AppText style={styles.hiText}>Hi {userName?.split(' ')[0] || profile?.name?.split(' ')[0] || 'Teacher'} 👋</AppText>
-          <AppText style={styles.subText}>Here's What's happening today.</AppText>
-        </View>
-
-        {/* Profile Details Card - Same like Student Dashboard overview */}
-        <View style={styles.profileDetailsCard}>
-          <View style={styles.profileInfoGrid}>
-            <View style={styles.profileInfoItem}>
-              <View style={[styles.infoIconWrapper, { backgroundColor: '#eef2ff' }]}>
-                <Hash size={16} color="#6366f1" />
-              </View>
-              <View>
-                <AppText style={styles.infoLabel}>Employee ID</AppText>
-                <AppText style={styles.infoValue}>{profile?.employee_id || 'T-1002'}</AppText>
-              </View>
-            </View>
-            <View style={styles.profileInfoItem}>
-              <View style={[styles.infoIconWrapper, { backgroundColor: '#f0fdf4' }]}>
-                <Briefcase size={16} color="#22c55e" />
-              </View>
-              <View>
-                <AppText style={styles.infoLabel}>Designation</AppText>
-                <AppText style={styles.infoValue}>{profile?.designation || 'Sr. Teacher'}</AppText>
-              </View>
-            </View>
-            <View style={styles.profileInfoItem}>
-              <View style={[styles.infoIconWrapper, { backgroundColor: '#fff7ed' }]}>
-                <BookOpen size={16} color="#f97316" />
-              </View>
-              <View>
-                <AppText style={styles.infoLabel}>Department</AppText>
-                <AppText style={styles.infoValue}>{profile?.department_subject || 'Science'}</AppText>
-              </View>
-            </View>
-            <View style={styles.profileInfoItem}>
-              <View style={[styles.infoIconWrapper, { backgroundColor: '#fef2f2' }]}>
-                <Mail size={16} color="#ef4444" />
-              </View>
-              <View>
-                <AppText style={styles.infoLabel}>Email</AppText>
-                <AppText style={styles.infoValue} numberOfLines={1}>{profile?.email || 'teacher@school.com'}</AppText>
-              </View>
-            </View>
-          </View>
+          <AppText weight="bold" style={styles.hiText}>Hi {userName?.split(' ')[0] || profile?.name?.split(' ')[0] || 'Mahesh'} 👋</AppText>
+          <AppText weight="semiBold" style={styles.subText}>Here's What's happening today.</AppText>
         </View>
 
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
           {stats.map((stat, index) => (
             <View key={index} style={styles.statCard}>
-              <View style={[styles.statIconWrapper, { backgroundColor: stat.color + '10' }]}>
-                <stat.icon size={20} color={stat.color} />
+              <View style={[styles.statIconWrapper, { backgroundColor: stat.color + '15' }]}>
+                <stat.icon size={22} color={stat.color} />
               </View>
-              <AppText style={styles.statValue}>{stat.value}</AppText>
-              <AppText style={styles.statLabel}>{stat.label}</AppText>
-              <AppText style={styles.statSub}>{stat.sub}</AppText>
+              <View style={styles.statContent}>
+                <AppText weight="bold" style={styles.statValue}>{stat.value}</AppText>
+                <AppText weight="semiBold" style={styles.statLabel}>{stat.label}</AppText>
+                <AppText weight="semiBold" style={styles.statSub}>{stat.sub}</AppText>
+              </View>
             </View>
           ))}
         </View>
 
         {/* Quick Actions */}
-        <AppText style={styles.sectionTitle}>Quick Actions</AppText>
+        <View style={styles.sectionHeader}>
+          <AppText weight="bold" style={styles.sectionTitle}>Quick Actions</AppText>
+        </View>
         <View style={styles.quickActionGrid}>
           {quickActions.map((action, index) => (
             <TouchableOpacity
               key={index}
-              style={styles.actionCard}
-              onPress={() => navigation.navigate(action.route as any, action.params)}
+              style={[
+                styles.actionCard,
+                action.label === 'Vital Scan AI' && styles.actionCardHighlighted
+              ]}
+              onPress={() => action.route && navigation.navigate(action.route as any)}
             >
-              <View style={[styles.actionIconContainer, { backgroundColor: action.color + '08' }]}>
-                <action.icon size={26} color={action.color} />
+              <View style={[styles.actionIconContainer, { backgroundColor: action.color + '10' }]}>
+                <action.icon size={24} color={action.color} strokeWidth={2} />
               </View>
-              <AppText style={styles.actionLabel}>{action.label.replace(' ', '\n')}</AppText>
+              <AppText weight="bold" style={styles.actionLabel}>{action.label.replace(' ', '\n')}</AppText>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Today's Schedule */}
         <View style={styles.sectionHeader}>
-          <AppText style={styles.sectionTitle}>Today's Schedule</AppText>
-          <TouchableOpacity>
-            <AppText style={styles.viewAllBtn}>View All</AppText>
+          <AppText weight="bold" style={styles.sectionTitle}>Today's Schedule</AppText>
+          <TouchableOpacity onPress={() => {}}>
+            <AppText weight="bold" style={styles.viewAllBtn}>View All</AppText>
           </TouchableOpacity>
         </View>
 
         {schedule.map((item, index) => (
           <View key={index} style={styles.scheduleCard}>
             <View>
-              <AppText style={styles.scheduleType}>{item.title}</AppText>
-              <AppText style={styles.scheduleInfo}>{item.class}</AppText>
+              <AppText weight="bold" style={styles.scheduleType}>{item.title}</AppText>
+              <AppText weight="semiBold" style={styles.scheduleInfo}>{item.class}</AppText>
             </View>
             <View style={[styles.statusBadge, { backgroundColor: item.statusBg }]}>
-              <AppText style={[styles.statusLabel, { color: item.statusColor }]}>{item.status}</AppText>
+              <AppText weight="bold" style={[styles.statusLabel, { color: item.statusColor }]}>{item.status}</AppText>
             </View>
           </View>
         ))}
+
+        {/* Teacher Profile Section (Moved from top as requested) */}
+        <AppText weight="bold" style={styles.sectionTitle}>Your Profile</AppText>
+        <View style={styles.profileDetailsCard}>
+          <View style={styles.profileInfoGrid}>
+            <View style={styles.profileInfoItem}>
+              <View style={[styles.infoIconWrapper, { backgroundColor: '#eef2ff' }]}>
+                <Hash size={14} color="#6366f1" />
+              </View>
+              <View>
+                <AppText weight="semiBold" style={styles.infoLabel}>Employee ID</AppText>
+                <AppText weight="bold" style={styles.infoValue}>{profile?.employee_id || 'T-1002'}</AppText>
+              </View>
+            </View>
+            <View style={styles.profileInfoItem}>
+              <View style={[styles.infoIconWrapper, { backgroundColor: '#f0fdf4' }]}>
+                <Briefcase size={14} color="#22c55e" />
+              </View>
+              <View>
+                <AppText weight="semiBold" style={styles.infoLabel}>Designation</AppText>
+                <AppText weight="bold" style={styles.infoValue}>{profile?.designation || 'Sr. Teacher'}</AppText>
+              </View>
+            </View>
+            <View style={styles.profileInfoItem}>
+              <View style={[styles.infoIconWrapper, { backgroundColor: '#fff7ed' }]}>
+                <BookOpen size={14} color="#f97316" />
+              </View>
+              <View>
+                <AppText weight="semiBold" style={styles.infoLabel}>Department</AppText>
+                <AppText weight="bold" style={styles.infoValue}>{profile?.department_subject || 'Science'}</AppText>
+              </View>
+            </View>
+            <View style={styles.profileInfoItem}>
+              <View style={[styles.infoIconWrapper, { backgroundColor: '#fef2f2' }]}>
+                <Mail size={14} color="#ef4444" />
+              </View>
+              <View>
+                <AppText weight="semiBold" style={styles.infoLabel}>Email</AppText>
+                <AppText weight="bold" style={styles.infoValue} numberOfLines={1}>{profile?.email || 'teacher@school.com'}</AppText>
+              </View>
+            </View>
+          </View>
+        </View>
 
         <View style={{ height: 120 }} />
       </ScrollView>
@@ -298,7 +353,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 380,
+    height: 320,
     backgroundColor: '#001F3F',
   },
   scrollView: {
@@ -313,7 +368,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   profileContainer: {
     width: 68,
@@ -322,11 +377,12 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#34D399',
     padding: 3,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   profileImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 32,
+    borderRadius: 30,
   },
   notificationBtn: {
     width: 48,
@@ -338,8 +394,8 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: 5,
-    right: 5,
+    top: 8,
+    right: 8,
     minWidth: 16,
     height: 16,
     borderRadius: 8,
@@ -348,82 +404,35 @@ const styles = StyleSheet.create({
     borderColor: '#001F3F',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 2,
   },
   badgeText: {
     color: '#fff',
     fontSize: 8,
-    fontWeight: '800',
-    textAlign: 'center',
   },
   welcomeSection: {
-    marginBottom: 20,
+    marginBottom: 28,
   },
   hiText: {
     fontSize: 34,
-    fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.5,
   },
   subText: {
-    fontSize: 17,
-    color: 'rgba(255,255,255,0.7)',
-    marginTop: 6,
-    fontWeight: '500',
-  },
-  profileDetailsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 5,
-  },
-  profileInfoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 15,
-  },
-  profileInfoItem: {
-    width: '45%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  infoIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoLabel: {
-    fontSize: 10,
-    color: '#64748b',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  infoValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginTop: 1,
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 4,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
   },
   statCard: {
-    width: (SCREEN_WIDTH - 52) / 2,
+    width: (SCREEN_WIDTH - 55) / 2,
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    borderRadius: 22,
     padding: 20,
+    marginBottom: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
@@ -431,83 +440,92 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   statIconWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
+  statContent: {
+    gap: 2,
+  },
   statValue: {
     fontSize: 28,
-    fontWeight: '800',
     color: '#1E293B',
     letterSpacing: -0.5,
   },
   statLabel: {
     fontSize: 15,
-    fontWeight: '700',
     color: '#64748B',
-    marginTop: 4,
+    marginTop: 2,
   },
   statSub: {
     fontSize: 13,
     color: '#94A3B8',
-    marginTop: 6,
-    fontWeight: '500',
+    marginTop: 2,
   },
   sectionTitle: {
     fontSize: 22,
-    fontWeight: '800',
     color: '#1E293B',
-    marginTop: 36,
-    marginBottom: 20,
     letterSpacing: -0.5,
   },
   quickActionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 15,
   },
   actionCard: {
-    width: (SCREEN_WIDTH - 76) / 4,
+    width: (SCREEN_WIDTH - 85) / 4,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 18,
     paddingVertical: 18,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#F1F5F9',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
     elevation: 2,
   },
+  actionCardHighlighted: {
+    borderColor: '#3B82F6',
+    borderWidth: 1.5,
+  },
   actionIconContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   actionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
     color: '#334155',
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: 12,
+    paddingHorizontal: 2,
+  },
+  profileDetailsCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 20,
+    padding: 20,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 36,
-    marginBottom: 18,
+    marginTop: 32,
+    marginBottom: 20,
   },
   viewAllBtn: {
     fontSize: 16,
-    fontWeight: '800',
     color: '#3B82F6',
   },
   scheduleCard: {
@@ -527,7 +545,6 @@ const styles = StyleSheet.create({
   },
   scheduleType: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#1E293B',
     letterSpacing: -0.3,
   },
@@ -535,7 +552,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748B',
     marginTop: 6,
-    fontWeight: '500',
   },
   statusBadge: {
     paddingHorizontal: 16,
@@ -544,6 +560,5 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     fontSize: 13,
-    fontWeight: '700',
   },
 });

@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -32,12 +31,14 @@ import {
   Edit3,
   CheckCircle2,
   XCircle,
-  Layout
+  Layout,
+  X
 } from 'lucide-react-native';
 import API from '../../services/api';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
@@ -105,7 +106,7 @@ const HomeworkCard: React.FC<{
         <View style={styles.subjectIcon}>
           <BookOpen size={16} color="#2563EB" />
         </View>
-        <Text style={styles.subjectText}>{item.subject_name}</Text>
+        <AppText weight="bold" style={styles.subjectText}>{item.subject_name}</AppText>
       </View>
       <View style={styles.actionIcons}>
         <TouchableOpacity onPress={() => onEdit(item)} style={styles.iconBtn}>
@@ -117,19 +118,19 @@ const HomeworkCard: React.FC<{
       </View>
     </View>
     
-    <Text style={styles.homeworkTitle}>{item.title}</Text>
-    <Text style={styles.homeworkDesc} numberOfLines={2}>
+    <AppText weight="bold" style={styles.homeworkTitle}>{item.title}</AppText>
+    <AppText style={styles.homeworkDesc} numberOfLines={2}>
       {item.description || 'No description provided.'}
-    </Text>
+    </AppText>
     
     <View style={styles.cardFooter}>
       <View style={styles.metaItem}>
         <Layout size={14} color="#94A3B8" />
-        <Text style={styles.metaText}>{item.class_name} - {item.section_name}</Text>
+        <AppText weight="semiBold" style={styles.metaText}>{item.class_name} - {item.section_name}</AppText>
       </View>
       <View style={styles.metaItem}>
         <Calendar size={14} color="#94A3B8" />
-        <Text style={styles.metaText}>Due: {formatDisplayDate(item.due_date)}</Text>
+        <AppText weight="semiBold" style={styles.metaText}>Due: {formatDisplayDate(item.due_date)}</AppText>
       </View>
     </View>
   </AppCard>
@@ -482,7 +483,7 @@ export default function HomeworkManagementScreen() {
           >
             <ChevronLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.heroTitle}>Homework</Text>
+          <AppText weight="bold" style={styles.heroTitle}>Homework</AppText>
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => setShowFormModal(true)}
@@ -492,8 +493,8 @@ export default function HomeworkManagementScreen() {
         </View>
 
         <View style={styles.heroContent}>
-          <Text style={styles.heroGreeting}>Assignments</Text>
-          <Text style={styles.heroSubtext}>Manage and track student homework</Text>
+          <AppText weight="bold" style={styles.heroGreeting}>Assignments</AppText>
+          <AppText style={styles.heroSubtext}>Manage and track student homework</AppText>
         </View>
       </View>
 
@@ -511,10 +512,10 @@ export default function HomeworkManagementScreen() {
             onPress={() => setShowFilterModal(true)}
           >
             <Filter size={18} color="#001F3F" />
-            <Text style={styles.filterText}>
+            <AppText weight="semiBold" style={styles.filterText}>
               {filterClass ? `Class ${filterClass}` : 'All Classes'}
               {filterSection ? ` • Sec ${filterSection}` : ' • All Sections'}
-            </Text>
+            </AppText>
             <Search size={18} color="#94A3B8" />
           </TouchableOpacity>
           {(filterClass || filterSection) && (
@@ -522,14 +523,14 @@ export default function HomeworkManagementScreen() {
               style={styles.clearFilter}
               onPress={() => { setFilterClass(''); setFilterSection(''); }}
             >
-              <Text style={styles.clearFilterText}>Clear Filters</Text>
+              <AppText weight="semiBold" style={styles.clearFilterText}>Clear Filters</AppText>
             </TouchableOpacity>
           )}
         </AppCard>
 
         {/* List Header */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Homework</Text>
+          <AppText weight="bold" style={styles.sectionTitle}>Recent Homework</AppText>
           <TouchableOpacity onPress={onRefresh}>
             <RefreshCw size={16} color="#2563EB" />
           </TouchableOpacity>
@@ -540,7 +541,7 @@ export default function HomeworkManagementScreen() {
         ) : items.length === 0 ? (
           <View style={styles.emptyState}>
             <FileText size={48} color="#cbd5e1" />
-            <Text style={styles.emptyStateText}>No homework assignments found</Text>
+            <AppText weight="medium" style={styles.emptyStateText}>No homework assignments found</AppText>
             <AppButton
               title="Create First Assignment"
               onPress={() => setShowFormModal(true)}
@@ -567,16 +568,16 @@ export default function HomeworkManagementScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{editingId ? 'Edit Homework' : 'New Assignment'}</Text>
+              <AppText weight="bold" style={styles.modalTitle}>{editingId ? 'Edit Homework' : 'New Assignment'}</AppText>
               <TouchableOpacity onPress={resetForm} style={styles.modalClose}>
-                <XCircle size={24} color="#64748B" />
+                <X size={24} color="#64748B" />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalBody}>
               {!editingId && (
                 <>
-                  <Text style={styles.fieldLabel}>Class & Section</Text>
+                  <AppText weight="bold" style={styles.fieldLabel}>Class & Section</AppText>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
                     <View style={styles.chipGroup}>
                       {classOptions.map(cls => (
@@ -585,7 +586,7 @@ export default function HomeworkManagementScreen() {
                           style={[styles.chip, form.class_name === cls.class_name && styles.chipActive]}
                           onPress={() => setForm(prev => ({ ...prev, class_name: cls.class_name, section_name: '', subject_name: '' }))}
                         >
-                          <Text style={[styles.chipText, form.class_name === cls.class_name && styles.chipTextActive]}>{cls.class_name}</Text>
+                          <AppText weight="semiBold" style={[styles.chipText, form.class_name === cls.class_name && styles.chipTextActive]}>{cls.class_name}</AppText>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -600,14 +601,14 @@ export default function HomeworkManagementScreen() {
                             style={[styles.chip, form.section_name === sec && styles.chipActive]}
                             onPress={() => setForm(prev => ({ ...prev, section_name: sec, subject_name: '' }))}
                           >
-                            <Text style={[styles.chipText, form.section_name === sec && styles.chipTextActive]}>{sec}</Text>
+                            <AppText weight="semiBold" style={[styles.chipText, form.section_name === sec && styles.chipTextActive]}>{sec}</AppText>
                           </TouchableOpacity>
                         ))}
                       </View>
                     </ScrollView>
                   )}
 
-                  <Text style={styles.fieldLabel}>Subject</Text>
+                  <AppText weight="bold" style={styles.fieldLabel}>Subject</AppText>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
                     <View style={styles.chipGroup}>
                       {subjectOptions.map(subj => (
@@ -616,7 +617,7 @@ export default function HomeworkManagementScreen() {
                           style={[styles.chip, form.subject_name === subj && styles.chipActive]}
                           onPress={() => setForm(prev => ({ ...prev, subject_name: subj }))}
                         >
-                          <Text style={[styles.chipText, form.subject_name === subj && styles.chipTextActive]}>{subj}</Text>
+                          <AppText weight="semiBold" style={[styles.chipText, form.subject_name === subj && styles.chipTextActive]}>{subj}</AppText>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -624,15 +625,15 @@ export default function HomeworkManagementScreen() {
                 </>
               )}
 
-              <Text style={styles.fieldLabel}>Due Date</Text>
+              <AppText weight="bold" style={styles.fieldLabel}>Due Date</AppText>
               <TouchableOpacity style={styles.dateSelector} onPress={() => setShowDuePicker(true)}>
                 <Calendar size={18} color="#94A3B8" />
-                <Text style={form.due_date ? styles.dateValue : styles.datePlaceholder}>
+                <AppText weight="medium" style={form.due_date ? styles.dateValue : styles.datePlaceholder}>
                   {form.due_date ? form.due_date : 'Select due date'}
-                </Text>
+                </AppText>
               </TouchableOpacity>
 
-              <Text style={styles.fieldLabel}>Title</Text>
+              <AppText weight="bold" style={styles.fieldLabel}>Title</AppText>
               <TextInput
                 style={styles.input}
                 placeholder="Homework title (e.g. Chapter 1 Exercise)"
@@ -640,7 +641,7 @@ export default function HomeworkManagementScreen() {
                 onChangeText={t => setForm(p => ({ ...p, title: t }))}
               />
 
-              <Text style={styles.fieldLabel}>Description</Text>
+              <AppText weight="bold" style={styles.fieldLabel}>Description</AppText>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Instructions for students..."
@@ -681,19 +682,19 @@ export default function HomeworkManagementScreen() {
         <View style={styles.filterModalOverlay}>
           <View style={styles.filterModalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Filter Assignments</Text>
+              <AppText weight="bold" style={styles.modalTitle}>Filter Assignments</AppText>
               <TouchableOpacity onPress={() => setShowFilterModal(false)}>
-                <XCircle size={24} color="#64748B" />
+                <X size={24} color="#64748B" />
               </TouchableOpacity>
             </View>
             <View style={styles.modalBody}>
-              <Text style={styles.fieldLabel}>Class</Text>
+              <AppText weight="bold" style={styles.fieldLabel}>Class</AppText>
               <View style={styles.chipGroup}>
                 <TouchableOpacity
                   style={[styles.chip, !filterClass && styles.chipActive]}
                   onPress={() => { setFilterClass(''); setFilterSection(''); }}
                 >
-                  <Text style={[styles.chipText, !filterClass && styles.chipTextActive]}>All</Text>
+                  <AppText weight="semiBold" style={[styles.chipText, !filterClass && styles.chipTextActive]}>All</AppText>
                 </TouchableOpacity>
                 {classOptions.map(cls => (
                   <TouchableOpacity
@@ -701,20 +702,20 @@ export default function HomeworkManagementScreen() {
                     style={[styles.chip, filterClass === cls.class_name && styles.chipActive]}
                     onPress={() => { setFilterClass(cls.class_name); setFilterSection(''); }}
                   >
-                    <Text style={[styles.chipText, filterClass === cls.class_name && styles.chipTextActive]}>{cls.class_name}</Text>
+                    <AppText weight="semiBold" style={[styles.chipText, filterClass === cls.class_name && styles.chipTextActive]}>{cls.class_name}</AppText>
                   </TouchableOpacity>
                 ))}
               </View>
 
               {filterClass !== '' && (
                 <>
-                  <Text style={[styles.fieldLabel, { marginTop: 15 }]}>Section</Text>
+                  <AppText weight="bold" style={[styles.fieldLabel, { marginTop: 15 }]}>Section</AppText>
                   <View style={styles.chipGroup}>
                     <TouchableOpacity
                       style={[styles.chip, !filterSection && styles.chipActive]}
                       onPress={() => setFilterSection('')}
                     >
-                      <Text style={[styles.chipText, !filterSection && styles.chipTextActive]}>All</Text>
+                      <AppText weight="semiBold" style={[styles.chipText, !filterSection && styles.chipTextActive]}>All</AppText>
                     </TouchableOpacity>
                     {classOptions.find(c => c.class_name === filterClass)?.sections.map(sec => (
                       <TouchableOpacity
@@ -722,7 +723,7 @@ export default function HomeworkManagementScreen() {
                         style={[styles.chip, filterSection === sec && styles.chipActive]}
                         onPress={() => setFilterSection(sec)}
                       >
-                        <Text style={[styles.chipText, filterSection === sec && styles.chipTextActive]}>{sec}</Text>
+                        <AppText weight="semiBold" style={[styles.chipText, filterSection === sec && styles.chipTextActive]}>{sec}</AppText>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -768,7 +769,6 @@ const styles = StyleSheet.create({
   heroTitle: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '700',
   },
   heroContent: {
     marginTop: 25,
@@ -776,7 +776,6 @@ const styles = StyleSheet.create({
   heroGreeting: {
     color: '#FFFFFF',
     fontSize: 24,
-    fontWeight: '800',
   },
   heroSubtext: {
     color: 'rgba(255,255,255,0.7)',
@@ -807,7 +806,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: '#334155',
-    fontWeight: '600',
   },
   clearFilter: {
     marginTop: 8,
@@ -816,7 +814,6 @@ const styles = StyleSheet.create({
   clearFilterText: {
     fontSize: 12,
     color: '#2563EB',
-    fontWeight: '600',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -827,7 +824,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#0F172A',
   },
   homeworkList: {
@@ -868,7 +864,6 @@ const styles = StyleSheet.create({
   },
   subjectText: {
     fontSize: 12,
-    fontWeight: '800',
     color: '#2563EB',
     textTransform: 'uppercase',
   },
@@ -881,7 +876,6 @@ const styles = StyleSheet.create({
   },
   homeworkTitle: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#0F172A',
     marginBottom: 4,
   },
@@ -905,7 +899,6 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    fontWeight: '600',
     color: '#94A3B8',
   },
   loaderContainer: {
@@ -921,7 +914,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#94A3B8',
     fontSize: 14,
-    fontWeight: '500',
     textAlign: 'center',
   },
   emptyStateBtn: {
@@ -950,7 +942,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#0F172A',
   },
   modalClose: {
@@ -961,7 +952,6 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 13,
-    fontWeight: '700',
     color: '#64748B',
     marginBottom: 10,
     textTransform: 'uppercase',
@@ -989,7 +979,6 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 13,
     color: '#64748B',
-    fontWeight: '600',
   },
   chipTextActive: {
     color: '#FFFFFF',
@@ -1008,7 +997,6 @@ const styles = StyleSheet.create({
   dateValue: {
     fontSize: 14,
     color: '#0F172A',
-    fontWeight: '500',
   },
   datePlaceholder: {
     fontSize: 14,

@@ -10,23 +10,39 @@ import {
   Modal,
   Image,
   Alert,
-  Share,
   Platform,
   StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import RNFS from 'react-native-fs';
 import RNShare from 'react-native-share';
-import Icon from '@react-native-vector-icons/feather';
+import {
+  ChevronLeft,
+  Bell,
+  Calendar,
+  Download,
+  Camera,
+  Users,
+  CheckCircle2,
+  XCircle,
+  Search,
+  ChevronRight,
+  Filter
+} from 'lucide-react-native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
-import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
+import AppText from '../../components/common/AppText';
+import { RootStackParamList } from '../../navigation/AppNavigator';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Types
 interface Student {
@@ -73,40 +89,31 @@ const fmtDate = (dateString: string): string => {
   }
 };
 
-// Status Badge Component
-const StatusBadge: React.FC<{ present: boolean }> = ({ present }) => {
-  return (
-    <View style={[styles.statusBadge, present ? styles.statusPresent : styles.statusAbsent]}>
-      <Text style={[styles.statusText, present ? styles.statusTextPresent : styles.statusTextAbsent]}>
-        {present ? 'Present' : 'Absent'}
-      </Text>
-    </View>
-  );
-};
-
 // Student Card Component
-const StudentCard: React.FC<{ student: Student; index: number; totalDays: number }> = ({ 
+const StudentCard: React.FC<{ student: Student; index: number }> = ({
   student, 
   index, 
-  totalDays 
 }) => {
   const present = student.presentDays > 0;
   
   return (
     <View style={styles.studentCard}>
-      <View style={styles.studentNumber}>
-        <Text style={styles.studentNumberText}>{index + 1}</Text>
-      </View>
       <View style={styles.studentInfo}>
-        <View style={styles.studentAvatar}>
-          <Text style={styles.studentAvatarText}>{(student.name || '?')[0].toUpperCase()}</Text>
+        <View style={[styles.studentAvatar, { backgroundColor: present ? '#ecfdf5' : '#fef2f2' }]}>
+          <AppText style={[styles.studentAvatarText, { color: present ? '#10b981' : '#ef4444' }]}>
+            {(student.name || '?')[0].toUpperCase()}
+          </AppText>
         </View>
         <View style={styles.studentDetails}>
-          <Text style={styles.studentName}>{student.name}</Text>
-          <Text style={styles.studentRoll}>Roll: {student.roll}</Text>
+          <AppText style={styles.studentName}>{student.name}</AppText>
+          <AppText style={styles.studentRoll}>Roll No: {student.roll}</AppText>
         </View>
       </View>
-      <StatusBadge present={present} />
+      <View style={[styles.statusBadge, present ? styles.statusPresent : styles.statusAbsent]}>
+        <AppText style={[styles.statusText, present ? styles.statusTextPresent : styles.statusTextAbsent]}>
+          {present ? 'Present' : 'Absent'}
+        </AppText>
+      </View>
     </View>
   );
 };
@@ -115,13 +122,11 @@ const StudentCard: React.FC<{ student: Student; index: number; totalDays: number
 const ExportModal: React.FC<{
   visible: boolean;
   onClose: () => void;
-  schoolCode: string;
-  branchId: string;
   selClass: string;
   selSection: string;
   onExport: (format: 'excel' | 'csv') => void;
   exporting: boolean;
-}> = ({ visible, onClose, schoolCode, branchId, selClass, selSection, onExport, exporting }) => {
+}> = ({ visible, onClose, selClass, selSection, onExport, exporting }) => {
   const today = new Date().toISOString().split('T')[0];
   const [startDate, setStartDate] = useState<string>(today);
   const [endDate, setEndDate] = useState<string>(today);
@@ -157,29 +162,26 @@ const ExportModal: React.FC<{
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <View style={styles.modalHeaderIcon}>
-              <Text style={styles.modalHeaderIconText}>📊</Text>
-            </View>
             <View>
-              <Text style={styles.modalTitle}>Export Attendance</Text>
-              <Text style={styles.modalSubtitle}>
+              <AppText style={styles.modalTitle}>Export Attendance</AppText>
+              <AppText style={styles.modalSubtitle}>
                 Class {selClass}–{selSection}
-              </Text>
+              </AppText>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <Text style={styles.modalCloseText}>✕</Text>
+              <XCircle size={24} color="#64748B" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.modalBody}>
-            {/* Start Date */}
             <View style={styles.modalField}>
-              <Text style={styles.modalLabel}>📅 Start Date</Text>
+              <AppText style={styles.modalLabel}>Start Date</AppText>
               <TouchableOpacity 
                 style={styles.modalDateBtn} 
                 onPress={() => setShowStartPicker(true)}
               >
-                <Text style={styles.modalDateText}>{fmtDate(startDate)}</Text>
+                <Calendar size={18} color="#64748B" style={{ marginRight: 10 }} />
+                <AppText style={styles.modalDateText}>{fmtDate(startDate)}</AppText>
               </TouchableOpacity>
               {showStartPicker && (
                 <DateTimePicker
@@ -194,14 +196,14 @@ const ExportModal: React.FC<{
               )}
             </View>
 
-            {/* End Date */}
             <View style={styles.modalField}>
-              <Text style={styles.modalLabel}>📅 End Date</Text>
+              <AppText style={styles.modalLabel}>End Date</AppText>
               <TouchableOpacity 
                 style={styles.modalDateBtn} 
                 onPress={() => setShowEndPicker(true)}
               >
-                <Text style={styles.modalDateText}>{fmtDate(endDate)}</Text>
+                <Calendar size={18} color="#64748B" style={{ marginRight: 10 }} />
+                <AppText style={styles.modalDateText}>{fmtDate(endDate)}</AppText>
               </TouchableOpacity>
               {showEndPicker && (
                 <DateTimePicker
@@ -216,46 +218,48 @@ const ExportModal: React.FC<{
               )}
             </View>
 
-            {/* Format Selection */}
             <View style={styles.modalField}>
-              <Text style={styles.modalLabel}>Format</Text>
+              <AppText style={styles.modalLabel}>Format</AppText>
               <View style={styles.formatRow}>
                 <TouchableOpacity
                   style={[styles.formatBtn, format === 'excel' && styles.formatBtnActive]}
                   onPress={() => setFormat('excel')}
                 >
-                  <Text style={[styles.formatBtnText, format === 'excel' && styles.formatBtnTextActive]}>
+                  <AppText style={[styles.formatBtnText, format === 'excel' && styles.formatBtnTextActive]}>
                     Excel (.xlsx)
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.formatBtn, format === 'csv' && styles.formatBtnActive]}
                   onPress={() => setFormat('csv')}
                 >
-                  <Text style={[styles.formatBtnText, format === 'csv' && styles.formatBtnTextActive]}>
+                  <AppText style={[styles.formatBtnText, format === 'csv' && styles.formatBtnTextActive]}>
                     CSV (.csv)
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Preview */}
             <View style={styles.modalPreview}>
-              <View style={styles.modalPreviewDot} />
-              <Text style={styles.modalPreviewText}>
-                Exporting {days} day{days !== 1 ? 's' : ''} · {fmtDate(startDate)}
-                {startDate !== endDate && ` → ${fmtDate(endDate)}`} · {format.toUpperCase()}
-              </Text>
+              <AppText style={styles.modalPreviewText}>
+                Exporting {days} day{days !== 1 ? 's' : ''} · {format.toUpperCase()}
+              </AppText>
             </View>
           </View>
 
           <View style={styles.modalFooter}>
-            <AppButton title="Cancel" onPress={onClose} type="secondary" />
-            <AppButton 
-              title={exporting ? 'Exporting...' : `Export ${format.toUpperCase()}`} 
+            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
+              <AppText style={styles.cancelBtnText}>Cancel</AppText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.confirmExportBtn}
               onPress={handleExport}
               disabled={exporting}
-            />
+            >
+              <AppText style={styles.confirmExportBtnText}>
+                {exporting ? 'Exporting...' : 'Export Now'}
+              </AppText>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -283,17 +287,17 @@ const ImageModal: React.FC<{
       <View style={styles.imageModalOverlay}>
         <View style={styles.imageModalContent}>
           <View style={styles.imageModalHeader}>
-            <Text style={styles.imageModalTitle}>{title}</Text>
+            <AppText style={styles.imageModalTitle}>{title}</AppText>
             <TouchableOpacity onPress={onClose} style={styles.imageModalClose}>
-              <Text style={styles.imageModalCloseText}>✕</Text>
+              <XCircle size={24} color="#64748B" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.imageModalBody}>
             {images.length === 0 ? (
               <View style={styles.imageModalEmpty}>
-                <Text style={styles.imageModalEmptyIcon}>📷</Text>
-                <Text style={styles.imageModalEmptyText}>No images found</Text>
+                <Camera size={48} color="#CBD5E1" />
+                <AppText style={styles.imageModalEmptyText}>No images found</AppText>
               </View>
             ) : (
               <>
@@ -311,9 +315,9 @@ const ImageModal: React.FC<{
                     ))}
                   </ScrollView>
                 )}
-                <Text style={styles.imageModalCounter}>
+                <AppText style={styles.imageModalCounter}>
                   Image {activeIndex + 1} of {images.length}
-                </Text>
+                </AppText>
               </>
             )}
           </View>
@@ -324,10 +328,12 @@ const ImageModal: React.FC<{
 };
 
 export default function ViewAttendanceScreen() {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const today = new Date().toISOString().split('T')[0];
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
 
+  const [activeTab, setActiveTab] = useState<'attendance' | 'overview'>('attendance');
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
   const [employeeId, setEmployeeId] = useState<string>('');
@@ -386,7 +392,7 @@ export default function ViewAttendanceScreen() {
       const uniqueClasses = [...new Set(items.map((i: ClassItem) => i.class_grade))];
       setClassOptions(uniqueClasses);
     } catch (error) {
-      Alert.alert('Error', 'Failed to load classes');
+      console.error('Error loading classes:', error);
     } finally {
       setLoadingClasses(false);
     }
@@ -470,7 +476,7 @@ export default function ViewAttendanceScreen() {
         Alert.alert('No Data', 'No attendance records found for this date');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch attendance data');
+      console.error('Error fetching attendance:', error);
       setStudents([]);
     } finally {
       setLoading(false);
@@ -488,7 +494,6 @@ export default function ViewAttendanceScreen() {
   const handleExport = async (format: 'excel' | 'csv') => {
     setExporting(true);
     try {
-      // For mobile, we'll use a different approach - share via API
       const response = await API.post('/hm/students/export', {
         school_code: schoolCode,
         branch_id: branchId,
@@ -501,7 +506,6 @@ export default function ViewAttendanceScreen() {
         responseType: 'blob',
       });
 
-      // Save and share file
       const fileUri = `${RNFS.DocumentDirectoryPath}/attendance_${selClass}_${selSection}_${viewDate}.${format === 'excel' ? 'xlsx' : 'csv'}`;
 
       const base64 = await new Promise<string>((resolve) => {
@@ -521,7 +525,6 @@ export default function ViewAttendanceScreen() {
         title: 'Share Attendance Report',
       });
       
-      Alert.alert('Success', `Attendance exported as ${format.toUpperCase()}`);
       setShowExportModal(false);
     } catch (error) {
       Alert.alert('Error', 'Failed to export attendance');
@@ -628,215 +631,224 @@ export default function ViewAttendanceScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-      {/* Header */}
+      {/* Navy Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => {}}>
-          <Icon name="arrow-left" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>View Attendance</Text>
-        <View style={styles.backBtn} />
+        <View style={styles.headerContent}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <ChevronLeft size={24} color="#fff" />
+          </TouchableOpacity>
+          <AppText style={styles.headerTitle}>Attendance</AppText>
+          <TouchableOpacity style={styles.notificationBtn}>
+            <Bell size={22} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Tab Switcher */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'attendance' && styles.activeTab]}
+            onPress={() => setActiveTab('attendance')}
+          >
+            <AppText style={[styles.tabText, activeTab === 'attendance' && styles.activeTabText]}>
+              Student Attendance
+            </AppText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'overview' && styles.activeTab]}
+            onPress={() => setActiveTab('overview')}
+          >
+            <AppText style={[styles.tabText, activeTab === 'overview' && styles.activeTabText]}>
+              Overview
+            </AppText>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* Stats Cards */}
-        <View style={styles.statsGrid}>
-          <AppCard style={styles.statCard}>
-            <Text style={styles.statValue}>{totalStudents}</Text>
-            <Text style={styles.statLabel}>Total Students</Text>
-            <Text style={styles.statSub}>
-              {viewedInfo ? `Class ${viewedInfo.class}-${viewedInfo.section}` : 'Select class'}
-            </Text>
-          </AppCard>
-          <AppCard style={styles.statCard}>
-            <Text style={[styles.statValue, { color: '#059669' }]}>{totalPresent}</Text>
-            <Text style={styles.statLabel}>Present</Text>
-            <Text style={styles.statSub}>{overallPct}% attendance</Text>
-          </AppCard>
-          <AppCard style={styles.statCard}>
-            <Text style={[styles.statValue, { color: '#dc2626' }]}>{totalAbsent}</Text>
-            <Text style={styles.statLabel}>Absent</Text>
-            <Text style={styles.statSub}>{100 - overallPct}% absent</Text>
-          </AppCard>
-          <AppCard style={styles.statCard}>
-            <Text style={[styles.statValue, { color: overallPct >= 80 ? '#059669' : overallPct >= 50 ? '#d97706' : '#dc2626' }]}>
-              {overallPct}%
-            </Text>
-            <Text style={styles.statLabel}>Attendance Rate</Text>
-            <Text style={styles.statSub}>
-              {overallPct >= 80 ? 'Excellent' : overallPct >= 50 ? 'Needs attention' : 'Critical'}
-            </Text>
-          </AppCard>
-        </View>
-
-        {/* Control Card */}
-        <AppCard style={styles.controlCard}>
-          <Text style={styles.controlTitle}>📊 Attendance Controls</Text>
-
-          {/* Class Selection */}
-          <View style={styles.field}>
-            <Text style={styles.label}>🎓 Class</Text>
-            {loadingClasses ? (
-              <ActivityIndicator size="small" color="#2563eb" />
-            ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.chipContainer}>
-                  {classOptions.map(c => (
-                    <TouchableOpacity
-                      key={c}
-                      style={[styles.chip, selClass === c && styles.chipActive]}
-                      onPress={() => handleClassChange(c)}
-                    >
-                      <Text style={[styles.chipText, selClass === c && styles.chipTextActive]}>
-                        {c}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+        {activeTab === 'attendance' ? (
+          <>
+            {/* Class & Date Selection */}
+            <View style={styles.selectionCard}>
+              <View style={styles.fieldRow}>
+                <View style={[styles.field, { flex: 1, marginRight: 10 }]}>
+                  <AppText style={styles.label}>Class</AppText>
+                  <TouchableOpacity
+                    style={styles.dropdown}
+                    onPress={() => {}} // In a real app, show a picker
+                  >
+                    <Users size={18} color="#64748B" style={{ marginRight: 8 }} />
+                    <AppText style={styles.dropdownText}>
+                      {selClass ? `Class ${selClass}` : 'Select'}
+                    </AppText>
+                    <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
+                  </TouchableOpacity>
+                  {/* Simplified class list for now */}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+                    {classOptions.map(c => (
+                      <TouchableOpacity
+                        key={c}
+                        style={[styles.chip, selClass === c && styles.chipActive]}
+                        onPress={() => handleClassChange(c)}
+                      >
+                        <AppText style={[styles.chipText, selClass === c && styles.chipTextActive]}>
+                          {c}
+                        </AppText>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
                 </View>
-              </ScrollView>
-            )}
-          </View>
 
-          {/* Section Selection */}
-          {selClass && (
-            <View style={styles.field}>
-              <Text style={styles.label}>🔤 Section</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.chipContainer}>
-                  {selSectionOptions.map(s => (
-                    <TouchableOpacity
-                      key={s}
-                      style={[styles.chip, selSection === s && styles.chipActive]}
-                      onPress={() => setSelSection(s)}
-                    >
-                      <Text style={[styles.chipText, selSection === s && styles.chipTextActive]}>
-                        Section {s}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
-          )}
+                {selClass !== '' && (
+                  <View style={[styles.field, { flex: 1 }]}>
+                    <AppText style={styles.label}>Section</AppText>
+                    <View style={styles.chipRow}>
+                      {selSectionOptions.map(s => (
+                        <TouchableOpacity
+                          key={s}
+                          style={[styles.chip, selSection === s && styles.chipActive]}
+                          onPress={() => setSelSection(s)}
+                        >
+                          <AppText style={[styles.chipText, selSection === s && styles.chipTextActive]}>
+                            {s}
+                          </AppText>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </View>
 
-          {/* Date Selection */}
-          <View style={styles.field}>
-            <Text style={styles.label}>📅 Date</Text>
-            <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
-              <Text style={styles.dateText}>{fmtDate(viewDate)}</Text>
-            </TouchableOpacity>
-            {showDatePicker && (
-              <DateTimePicker
-                value={new Date(viewDate)}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, date) => {
-                  setShowDatePicker(false);
-                  if (date) setViewDate(date.toISOString().split('T')[0]);
-                }}
+              <View style={styles.field}>
+                <AppText style={styles.label}>Date</AppText>
+                <TouchableOpacity style={styles.dateInput} onPress={() => setShowDatePicker(true)}>
+                  <Calendar size={18} color="#64748B" style={{ marginRight: 10 }} />
+                  <AppText style={styles.dateInputText}>{fmtDate(viewDate)}</AppText>
+                </TouchableOpacity>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={new Date(viewDate)}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, date) => {
+                      setShowDatePicker(false);
+                      if (date) setViewDate(date.toISOString().split('T')[0]);
+                    }}
+                  />
+                )}
+              </View>
+
+              <AppButton
+                title={loading ? 'Searching...' : 'Search Attendance'}
+                onPress={handleView}
+                disabled={loading || !selClass || !selSection}
+                style={styles.searchBtn}
               />
-            )}
-          </View>
+            </View>
 
-          {/* Action Buttons */}
-          <View style={styles.actionRow}>
-            <AppButton
-              title={loading ? 'Loading...' : 'View Attendance'}
-              onPress={handleView}
-              disabled={loading || !selClass || !selSection}
-              style={styles.viewBtn}
-            />
-            <AppButton
-              title="Export"
-              onPress={() => setShowExportModal(true)}
-              disabled={!selClass || !selSection}
-              type="secondary"
-              style={styles.exportBtn}
-            />
-          </View>
-        </AppCard>
-
-        {/* Image Buttons */}
-        {students && students.length > 0 && (
-          <View style={styles.imageBtnRow}>
-            <TouchableOpacity style={styles.imageBtn} onPress={loadTeacherImage}>
-              <Text style={styles.imageBtnText}>📷 Teacher Photo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.imageBtn} onPress={loadStudentImages}>
-              <Text style={styles.imageBtnText}>📸 Student Images</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Student List */}
-        {loading ? (
-          <Loader />
-        ) : students === null ? (
-          <AppCard style={styles.emptyCard}>
-            <Text style={styles.emptyIcon}>📋</Text>
-            <Text style={styles.emptyTitle}>No Data</Text>
-            <Text style={styles.emptyText}>
-              {selClass && selSection
-                ? `Select a date and click "View Attendance" to load records for Class ${selClass}-${selSection}.`
-                : 'Select class, section and date above, then click View Attendance.'}
-            </Text>
-          </AppCard>
-        ) : students.length === 0 ? (
-          <AppCard style={styles.emptyCard}>
-            <Text style={styles.emptyIcon}>🔍</Text>
-            <Text style={styles.emptyTitle}>No Records</Text>
-            <Text style={styles.emptyText}>No attendance records found for this date.</Text>
-          </AppCard>
-        ) : (
-          <AppCard style={styles.listCard}>
-            <View style={styles.listHeader}>
-              <Text style={styles.listTitle}>Student Attendance</Text>
-              <View style={styles.listBadges}>
-                <View style={[styles.pill, styles.pillGreen]}>
-                  <Text style={styles.pillText}>✓ {totalPresent} Present</Text>
+            {/* Summary Tiles */}
+            {students && (
+              <View style={styles.summaryGrid}>
+                <View style={[styles.summaryTile, { backgroundColor: '#eef2ff' }]}>
+                  <CheckCircle2 size={24} color="#6366f1" />
+                  <AppText style={styles.summaryValue}>{totalPresent}</AppText>
+                  <AppText style={styles.summaryLabel}>Present</AppText>
                 </View>
-                <View style={[styles.pill, styles.pillRed]}>
-                  <Text style={styles.pillText}>✗ {totalAbsent} Absent</Text>
+                <View style={[styles.summaryTile, { backgroundColor: '#fef2f2' }]}>
+                  <XCircle size={24} color="#ef4444" />
+                  <AppText style={styles.summaryValue}>{totalAbsent}</AppText>
+                  <AppText style={styles.summaryLabel}>Absent</AppText>
+                </View>
+                <View style={[styles.summaryTile, { backgroundColor: '#f0fdf4' }]}>
+                  <Users size={24} color="#10b981" />
+                  <AppText style={styles.summaryValue}>{overallPct}%</AppText>
+                  <AppText style={styles.summaryLabel}>Attendance</AppText>
                 </View>
               </View>
-            </View>
+            )}
 
-            {students.map((student, idx) => (
-              <StudentCard key={student.id} student={student} index={idx} totalDays={totalDays} />
-            ))}
-          </AppCard>
+            {/* List Actions */}
+            {students && students.length > 0 && (
+              <View style={styles.listActions}>
+                <TouchableOpacity style={styles.actionIconButton} onPress={loadTeacherImage}>
+                  <Camera size={20} color="#001F3F" />
+                  <AppText style={styles.actionIconLabel}>Teacher Photo</AppText>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionIconButton} onPress={loadStudentImages}>
+                  <Users size={20} color="#001F3F" />
+                  <AppText style={styles.actionIconLabel}>Student Photos</AppText>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionIconButton} onPress={() => setShowExportModal(true)}>
+                  <Download size={20} color="#001F3F" />
+                  <AppText style={styles.actionIconLabel}>Export</AppText>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Student List */}
+            {loading ? (
+              <ActivityIndicator size="large" color="#001F3F" style={{ marginTop: 40 }} />
+            ) : students === null ? (
+              <View style={styles.emptyState}>
+                <Search size={48} color="#CBD5E1" />
+                <AppText style={styles.emptyStateTitle}>No Records Selected</AppText>
+                <AppText style={styles.emptyStateSub}>Select class and date to view attendance records</AppText>
+              </View>
+            ) : students.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Filter size={48} color="#CBD5E1" />
+                <AppText style={styles.emptyStateTitle}>No Records Found</AppText>
+                <AppText style={styles.emptyStateSub}>Try a different date or class</AppText>
+              </View>
+            ) : (
+              <View style={styles.listContainer}>
+                <View style={styles.listHeader}>
+                  <AppText style={styles.listHeaderText}>Student Details</AppText>
+                  <AppText style={styles.listHeaderCount}>{students.length} Total</AppText>
+                </View>
+                {students.map((student, idx) => (
+                  <StudentCard key={student.id} student={student} index={idx} />
+                ))}
+              </View>
+            )}
+          </>
+        ) : (
+          <View style={styles.overviewContainer}>
+            {/* Overview content placeholder - can be expanded later */}
+            <View style={styles.emptyState}>
+              <ActivityIndicator size="small" color="#001F3F" />
+              <AppText style={[styles.emptyStateSub, { marginTop: 10 }]}>Loading statistical overview...</AppText>
+            </View>
+          </View>
         )}
       </ScrollView>
 
-      {/* Export Modal */}
+      {/* Modals */}
       <ExportModal
         visible={showExportModal}
         onClose={() => setShowExportModal(false)}
-        schoolCode={schoolCode}
-        branchId={branchId}
         selClass={selClass}
         selSection={selSection}
         onExport={handleExport}
         exporting={exporting}
       />
 
-      {/* Teacher Image Modal */}
       <ImageModal
         visible={showTeacherImage}
         images={teacherImages}
-        title="📸 Teacher Verification Photo"
+        title="Teacher Verification"
         onClose={() => setShowTeacherImage(false)}
       />
 
-      {/* Student Images Modal */}
       <ImageModal
         visible={showStudentImages}
         images={studentImages}
-        title={`📷 Student Attendance Images — ${viewedInfo?.date ? fmtDate(viewedInfo.date) : ''}`}
+        title="Student Attendance Images"
         onClose={() => setShowStudentImages(false)}
       />
     </View>
@@ -846,489 +858,513 @@ export default function ViewAttendanceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: '#F8FAFC',
   },
   header: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   backBtn: {
     width: 40,
     height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#ffffff',
-    textAlign: 'center',
-    flex: 1,
   },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 20,
-  },
-  statCard: {
-    flex: 1,
-    minWidth: '45%',
-    padding: 14,
+  notificationBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#0d1b2a',
+  tabContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 12,
   },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    color: '#4a5568',
-    marginTop: 4,
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  statSub: {
-    fontSize: 10,
-    color: '#8898aa',
-    marginTop: 2,
+  activeTab: {
+    backgroundColor: '#FFFFFF',
   },
-  controlCard: {
-    padding: 18,
-    marginBottom: 16,
-  },
-  controlTitle: {
+  tabText: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#0d1b2a',
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.6)',
+  },
+  activeTabText: {
+    color: '#001F3F',
+  },
+  contentContainer: {
+    padding: 20,
+    paddingBottom: 100,
+  },
+  selectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    elevation: 2,
+    marginBottom: 20,
+  },
+  fieldRow: {
+    flexDirection: 'row',
     marginBottom: 16,
   },
   field: {
     marginBottom: 16,
   },
   label: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#4a5568',
+    color: '#1E293B',
     marginBottom: 8,
-    textTransform: 'uppercase',
   },
-  chipContainer: {
+  dropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 48,
+  },
+  dropdownText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
   chip: {
-    paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: '#E2E8F0',
+    marginRight: 8,
   },
   chipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
   },
   chipText: {
-    fontSize: 14,
-    color: '#4a5568',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
   },
   chipTextActive: {
-    color: '#fff',
+    color: '#FFFFFF',
   },
-  dateBtn: {
-    height: 46,
-    borderWidth: 1,
-    borderColor: '#e4e9f2',
-    borderRadius: 10,
-    backgroundColor: '#f8fafc',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-  },
-  dateText: {
-    fontSize: 14,
-    color: '#0d1b2a',
-  },
-  actionRow: {
+  dateInput: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 48,
+  },
+  dateInputText: {
+    fontSize: 14,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  searchBtn: {
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: '#001F3F',
     marginTop: 8,
   },
-  viewBtn: {
-    flex: 2,
-  },
-  exportBtn: {
-    flex: 1,
-  },
-  imageBtnRow: {
+  summaryGrid: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  imageBtn: {
+  summaryTile: {
     flex: 1,
-    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  summaryValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginTop: 8,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  listActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 8,
+  },
+  actionIconButton: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     paddingVertical: 12,
-    borderRadius: 10,
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e4e9f2',
-    alignItems: 'center',
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 1,
   },
-  imageBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2563eb',
+  actionIconLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#001F3F',
+    marginTop: 6,
   },
-  emptyCard: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0d1b2a',
-    marginBottom: 4,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: '#4a5568',
-    textAlign: 'center',
-  },
-  listCard: {
-    overflow: 'hidden',
+  listContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    elevation: 2,
   },
   listHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
-  listTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#2563eb',
+  listHeaderText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E293B',
   },
-  listBadges: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  pill: {
+  listHeaderCount: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 20,
-  },
-  pillGreen: {
-    backgroundColor: '#d1fae5',
-  },
-  pillRed: {
-    backgroundColor: '#fee2e2',
-  },
-  pillText: {
-    fontSize: 11,
-    fontWeight: '700',
+    borderRadius: 8,
   },
   studentCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
-  },
-  studentNumber: {
-    width: 32,
-  },
-  studentNumberText: {
-    fontSize: 12,
-    color: '#8898aa',
-    fontWeight: '700',
+    borderBottomColor: '#F1F5F9',
   },
   studentInfo: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
   },
   studentAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#dbeafe',
-    alignItems: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   studentAvatarText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#2563eb',
   },
   studentDetails: {
-    flex: 1,
+    marginLeft: 12,
   },
   studentName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0d1b2a',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
   },
   studentRoll: {
-    fontSize: 11,
-    color: '#4a5568',
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '500',
   },
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 10,
   },
   statusPresent: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: '#ecfdf5',
   },
   statusAbsent: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: '#fef2f2',
   },
   statusText: {
     fontSize: 12,
     fontWeight: '700',
   },
   statusTextPresent: {
-    color: '#059669',
+    color: '#10b981',
   },
   statusTextAbsent: {
-    color: '#dc2626',
+    color: '#ef4444',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginTop: 16,
+  },
+  emptyStateSub: {
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 40,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 24,
     maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
-  },
-  modalHeaderIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    backgroundColor: '#d1fae5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalHeaderIconText: {
-    fontSize: 18,
+    marginBottom: 24,
   },
   modalTitle: {
-    fontSize: 15,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#0d1b2a',
+    color: '#1E293B',
   },
   modalSubtitle: {
-    fontSize: 11,
-    color: '#4a5568',
-    marginTop: 2,
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 4,
   },
   modalClose: {
-    marginLeft: 'auto',
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    backgroundColor: '#f0f2f7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCloseText: {
-    fontSize: 16,
-    color: '#4a5568',
+    padding: 4,
   },
   modalBody: {
-    padding: 16,
+    marginBottom: 24,
   },
   modalField: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   modalLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#4a5568',
-    marginBottom: 6,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 8,
   },
   modalDateBtn: {
-    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#e4e9f2',
-    borderRadius: 10,
-    backgroundColor: '#f8fafc',
-    justifyContent: 'center',
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
     paddingHorizontal: 14,
+    height: 48,
   },
   modalDateText: {
     fontSize: 14,
-    color: '#0d1b2a',
+    color: '#1E293B',
+    fontWeight: '500',
   },
   formatRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   formatBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
+    height: 48,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#F8FAFC',
   },
   formatBtnActive: {
-    backgroundColor: '#d1fae5',
-    borderColor: '#059669',
+    backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
   },
   formatBtnText: {
-    fontSize: 13,
-    color: '#4a5568',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
   },
   formatBtnTextActive: {
-    color: '#059669',
-    fontWeight: '600',
+    color: '#FFFFFF',
   },
   modalPreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 10,
-    backgroundColor: '#d1fae5',
+    backgroundColor: '#F1F5F9',
+    padding: 12,
     borderRadius: 10,
-    marginTop: 8,
-  },
-  modalPreviewDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#059669',
+    alignItems: 'center',
   },
   modalPreviewText: {
-    flex: 1,
-    fontSize: 11,
-    color: '#059669',
+    fontSize: 12,
     fontWeight: '600',
+    color: '#475569',
   },
   modalFooter: {
     flexDirection: 'row',
     gap: 12,
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e4e9f2',
+  },
+  cancelBtn: {
+    flex: 1,
+    height: 52,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+  cancelBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  confirmExportBtn: {
+    flex: 2,
+    height: 52,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#001F3F',
+  },
+  confirmExportBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   imageModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    backgroundColor: 'rgba(0,0,0,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   imageModalContent: {
     width: '90%',
-    maxHeight: '80%',
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
     overflow: 'hidden',
   },
   imageModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: '#F1F5F9',
   },
   imageModalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0d1b2a',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
   },
   imageModalClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f0f2f7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  imageModalCloseText: {
-    fontSize: 16,
-    color: '#4a5568',
+    padding: 4,
   },
   imageModalBody: {
-    padding: 16,
+    padding: 20,
     alignItems: 'center',
   },
   imageModalMain: {
     width: '100%',
     height: 300,
-    resizeMode: 'contain',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
   },
   imageModalThumbs: {
     flexDirection: 'row',
-    marginTop: 12,
+    marginTop: 16,
   },
   imageModalThumb: {
     width: 60,
     height: 60,
-    borderRadius: 8,
-    marginRight: 8,
+    borderRadius: 12,
+    marginRight: 10,
     borderWidth: 2,
-    borderColor: '#e4e9f2',
+    borderColor: '#E2E8F0',
     overflow: 'hidden',
   },
   imageModalThumbActive: {
-    borderColor: '#2563eb',
+    borderColor: '#001F3F',
   },
   imageModalThumbImg: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   imageModalCounter: {
-    marginTop: 12,
-    fontSize: 12,
-    color: '#4a5568',
+    marginTop: 16,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
   },
   imageModalEmpty: {
     alignItems: 'center',
-    padding: 40,
-  },
-  imageModalEmptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
+    paddingVertical: 40,
   },
   imageModalEmptyText: {
     fontSize: 14,
-    color: '#4a5568',
+    color: '#64748B',
+    marginTop: 12,
+    fontWeight: '500',
+  },
+  overviewContainer: {
+    paddingTop: 40,
   },
 });

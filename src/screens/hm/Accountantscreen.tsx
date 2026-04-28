@@ -17,7 +17,7 @@ import {
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
-import Icon from '@react-native-vector-icons/feather';
+import { ChevronLeft, LayoutDashboard } from 'lucide-react-native';
 import { colors } from "../../constants/theme";
 import AppText from "../../components/common/AppText";
 import { useAuth } from "../../context/AuthContext";
@@ -121,7 +121,7 @@ const AccountantDashboardScreen = () => {
       {/* Standardized Header */}
       <View style={styles.headerStandard}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} weight="bold">Accountant Module</AppText>
         <View style={{ width: 40 }} />
@@ -133,9 +133,12 @@ const AccountantDashboardScreen = () => {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        <AppText style={styles.header}>
-          💰 Dashboard Overview
-        </AppText>
+        <View style={styles.headerRow}>
+          <LayoutDashboard size={28} color={C.primary} />
+          <AppText style={styles.header} weight="bold">
+            Dashboard Overview
+          </AppText>
+        </View>
 
       <ScrollView
         horizontal
@@ -253,6 +256,7 @@ const TabButton = ({
           active &&
             styles.activeTabText,
         ]}
+        weight="semiBold"
       >
         {title}
       </AppText>
@@ -296,8 +300,13 @@ const styles = StyleSheet.create({
 
   header: {
     fontSize: 28,
-    fontWeight: "700",
     color: C.text,
+  },
+
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     marginBottom: 24,
   },
 
@@ -326,7 +335,6 @@ const styles = StyleSheet.create({
 
   tabText: {
     fontSize: 15,
-    fontWeight: "500",
     color: C.text,
   },
 

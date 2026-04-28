@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -11,15 +10,37 @@ import {
   Image,
   ActivityIndicator,
   Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  ChevronLeft,
+  Copy,
+  Check,
+  User,
+  BookOpen,
+  Users,
+  Heart,
+  Camera,
+  Eye,
+  EyeOff,
+  ChevronRight,
+  PlusCircle,
+  Calendar,
+  X
+} from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 // Types
 interface ClassOption {
@@ -246,12 +267,14 @@ const PasswordStrength: React.FC<{ password: string }> = ({ password }) => {
 
 const PasswordRule: React.FC<{ valid: boolean; children: React.ReactNode }> = ({ valid, children }) => (
   <View style={styles.passwordRule}>
-    <Text style={[styles.passwordRuleIcon, valid && styles.passwordRuleIconValid]}>
-      {valid ? '✓' : '○'}
-    </Text>
-    <Text style={[styles.passwordRuleText, valid && styles.passwordRuleTextValid]}>
+    {valid ? (
+      <Check size={12} color="#059669" />
+    ) : (
+      <View style={styles.passwordRuleDot} />
+    )}
+    <AppText style={[styles.passwordRuleText, valid && styles.passwordRuleTextValid]}>
       {children}
-    </Text>
+    </AppText>
   </View>
 );
 
@@ -263,24 +286,27 @@ const FormField: React.FC<{
   children: React.ReactNode;
 }> = ({ label, required, error, children }) => (
   <View style={styles.formGroup}>
-    <Text style={styles.formLabel}>
+    <AppText weight="semiBold" style={styles.formLabel}>
       {label}
-      {required && <Text style={styles.requiredStar}> *</Text>}
-    </Text>
+      {required && <AppText style={styles.requiredStar}> *</AppText>}
+    </AppText>
     {children}
-    {error && <Text style={styles.fieldError}>{error}</Text>}
+    {error && <AppText style={styles.fieldError}>{error}</AppText>}
   </View>
 );
 
 // Preview Field Component
 const PreviewField: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <View style={styles.previewField}>
-    <Text style={styles.previewFieldLabel}>{label}</Text>
-    <Text style={styles.previewFieldValue}>{value || '—'}</Text>
+    <AppText weight="semiBold" style={styles.previewFieldLabel}>{label}</AppText>
+    <AppText weight="medium" style={styles.previewFieldValue}>{value || '—'}</AppText>
   </View>
 );
 
 export default function StudentRegistrationScreen() {
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
   const [loggedSchoolCode, setLoggedSchoolCode] = useState<string>('');
   const [defaultBranchId, setDefaultBranchId] = useState<string>('');
   const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
@@ -300,10 +326,23 @@ export default function StudentRegistrationScreen() {
 
   useEffect(() => {
     isMounted.current = true;
+    setTabBarVisible(true);
     return () => {
       isMounted.current = false;
+      setTabBarVisible(true);
     };
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   // NEW: Show/hide password states
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -746,28 +785,48 @@ export default function StudentRegistrationScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.contentContainer}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>📝 Student Registration</Text>
-          <Text style={styles.subtitle}>
-            {step === totalSteps - 1 ? 'Preview & Confirm' : `Step ${step + 1} of ${totalSteps} — ${STEPS[step]}`}
-          </Text>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Navy Hero Header */}
+      <View style={styles.heroHeader}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.goBack()}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <AppText weight="bold" style={styles.heroTitle}>Registration</AppText>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={copyRegistrationLink}
+          >
+            <Copy size={20} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
 
-        {/* Copy Registration Link Button */}
-        <TouchableOpacity style={styles.copyLinkBtn} onPress={copyRegistrationLink}>
-          <Text style={styles.copyLinkBtnText}>🔗 Copy Registration Link</Text>
-        </TouchableOpacity>
+        <View style={styles.heroContent}>
+          <AppText weight="bold" style={styles.heroGreeting}>Student Enrollment</AppText>
+          <AppText style={styles.heroSubtext}>
+            {step === totalSteps - 1 ? 'Preview & Confirm' : `Step ${step + 1} of ${totalSteps} — ${STEPS[step]}`}
+          </AppText>
+        </View>
+      </View>
 
+      <ScrollView
+        contentContainerStyle={styles.contentContainer}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
         {serverError && (
           <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{serverError}</Text>
+            <AppText style={styles.errorText}>{serverError}</AppText>
           </View>
         )}
         {serverSuccess && (
           <View style={styles.successBox}>
-            <Text style={styles.successText}>{serverSuccess}</Text>
+            <AppText style={styles.successText}>{serverSuccess}</AppText>
           </View>
         )}
 
@@ -776,11 +835,11 @@ export default function StudentRegistrationScreen() {
           {STEPS.map((label, i) => (
             <TouchableOpacity key={label} style={styles.stepItem} onPress={() => setStep(i)}>
               <View style={[styles.stepCircle, step > i && styles.stepCompleted, step === i && styles.stepActive]}>
-                {step > i ? <Text style={styles.stepIcon}>✓</Text> : <Text style={styles.stepNumber}>{i + 1}</Text>}
+                {step > i ? <Check size={14} color="#FFF" /> : <AppText weight="bold" style={[styles.stepNumber, step === i && styles.stepNumberActive]}>{i + 1}</AppText>}
               </View>
-              <Text style={[styles.stepLabel, step === i && styles.stepLabelActive, step > i && styles.stepLabelCompleted]}>
+              <AppText weight={step === i ? "bold" : "regular"} style={[styles.stepLabel, step === i && styles.stepLabelActive, step > i && styles.stepLabelCompleted]}>
                 {label}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           ))}
         </View>
@@ -790,12 +849,16 @@ export default function StudentRegistrationScreen() {
           {/* Step 0: Basic Info */}
           {step === 0 && (
             <View>
-              <Text style={styles.sectionTitle}>Personal Details</Text>
+              <View style={styles.sectionHeader}>
+                <User size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Personal Details</AppText>
+              </View>
               
               <FormField label="First Name" required error={fieldErrors.first_name}>
                 <TextInput
                   style={[styles.input, fieldErrors.first_name && styles.inputError]}
                   placeholder="Enter first name"
+                  placeholderTextColor="#94A3B8"
                   value={form.first_name}
                   onChangeText={(text) => handleChange('first_name', text)}
                 />
@@ -805,6 +868,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.last_name && styles.inputError]}
                   placeholder="Enter last name"
+                  placeholderTextColor="#94A3B8"
                   value={form.last_name}
                   onChangeText={(text) => handleChange('last_name', text)}
                 />
@@ -818,7 +882,7 @@ export default function StudentRegistrationScreen() {
                       style={[styles.genderBtn, form.gender === g && styles.genderBtnActive]}
                       onPress={() => handleChange('gender', g)}
                     >
-                      <Text style={[styles.genderText, form.gender === g && styles.genderTextActive]}>{g}</Text>
+                      <AppText weight="semiBold" style={[styles.genderText, form.gender === g && styles.genderTextActive]}>{g}</AppText>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -828,6 +892,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="e.g. O+"
+                  placeholderTextColor="#94A3B8"
                   value={form.blood_group}
                   onChangeText={(text) => handleChange('blood_group', text)}
                 />
@@ -835,7 +900,8 @@ export default function StudentRegistrationScreen() {
 
               <FormField label="Date of Birth" required error={fieldErrors.date_of_birth}>
                 <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDOBPicker(true)}>
-                  <Text style={styles.dateText}>{form.date_of_birth || 'Select date'}</Text>
+                  <Calendar size={18} color="#64748B" />
+                  <AppText style={styles.dateText}>{form.date_of_birth || 'Select date'}</AppText>
                 </TouchableOpacity>
                 {showDOBPicker && (
                   <DateTimePicker
@@ -858,6 +924,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.nationality && styles.inputError]}
                   placeholder="Nationality"
+                  placeholderTextColor="#94A3B8"
                   value={form.nationality}
                   onChangeText={(text) => handleChange('nationality', text)}
                 />
@@ -867,6 +934,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mother_tongue && styles.inputError]}
                   placeholder="e.g. Telugu"
+                  placeholderTextColor="#94A3B8"
                   value={form.mother_tongue}
                   onChangeText={(text) => handleChange('mother_tongue', text)}
                 />
@@ -876,6 +944,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.religion && styles.inputError]}
                   placeholder="e.g. Hindu"
+                  placeholderTextColor="#94A3B8"
                   value={form.religion}
                   onChangeText={(text) => handleChange('religion', text)}
                 />
@@ -885,6 +954,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="e.g. OBC"
+                  placeholderTextColor="#94A3B8"
                   value={form.caste_category}
                   onChangeText={(text) => handleChange('caste_category', text)}
                 />
@@ -894,6 +964,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.aadhaar_number && styles.inputError]}
                   placeholder="12-digit Aadhaar"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="numeric"
                   maxLength={12}
                   value={form.aadhaar_number}
@@ -906,7 +977,10 @@ export default function StudentRegistrationScreen() {
           {/* Step 1: Academics */}
           {step === 1 && (
             <View>
-              <Text style={styles.sectionTitle}>Academic Details</Text>
+              <View style={styles.sectionHeader}>
+                <BookOpen size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Academic Details</AppText>
+              </View>
 
               <FormField label="Class" required error={fieldErrors.class_grade}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -917,9 +991,9 @@ export default function StudentRegistrationScreen() {
                         style={[styles.chip, form.class_grade === cls.class_name && styles.chipActive]}
                         onPress={() => handleClassChange(cls.class_name)}
                       >
-                        <Text style={[styles.chipText, form.class_grade === cls.class_name && styles.chipTextActive]}>
+                        <AppText weight="semiBold" style={[styles.chipText, form.class_grade === cls.class_name && styles.chipTextActive]}>
                           Class {cls.class_name}
-                        </Text>
+                        </AppText>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -931,6 +1005,7 @@ export default function StudentRegistrationScreen() {
                   <TextInput
                     style={[styles.input, styles.sectionInput, fieldErrors.section && styles.inputError]}
                     placeholder="Enter section (A, B, C...)"
+                    placeholderTextColor="#94A3B8"
                     value={form.section}
                     onChangeText={handleSectionChange}
                     autoCapitalize="characters"
@@ -943,6 +1018,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.admission_number && styles.inputError]}
                   placeholder="e.g. ADM2024001"
+                  placeholderTextColor="#94A3B8"
                   value={form.admission_number}
                   onChangeText={(text) => handleChange('admission_number', text)}
                 />
@@ -952,6 +1028,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.academic_year && styles.inputError]}
                   placeholder="e.g. 2024-25"
+                  placeholderTextColor="#94A3B8"
                   value={form.academic_year}
                   onChangeText={handleAcademicYearChange}
                   maxLength={7}
@@ -962,6 +1039,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Default: ENGLISH"
+                  placeholderTextColor="#94A3B8"
                   value={form.medium_of_instruction}
                   onChangeText={(text) => handleChange('medium_of_instruction', text)}
                 />
@@ -969,7 +1047,8 @@ export default function StudentRegistrationScreen() {
 
               <FormField label="Date of Admission">
                 <TouchableOpacity style={styles.dateBtn} onPress={() => setShowAdmissionDatePicker(true)}>
-                  <Text style={styles.dateText}>{form.date_of_admission || 'Select date'}</Text>
+                  <Calendar size={18} color="#64748B" />
+                  <AppText style={styles.dateText}>{form.date_of_admission || 'Select date'}</AppText>
                 </TouchableOpacity>
                 {showAdmissionDatePicker && (
                   <DateTimePicker
@@ -988,6 +1067,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Enter previous school name"
+                  placeholderTextColor="#94A3B8"
                   value={form.previous_school_name}
                   onChangeText={(text) => handleChange('previous_school_name', text)}
                 />
@@ -997,6 +1077,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="TC Number"
+                  placeholderTextColor="#94A3B8"
                   value={form.transfer_certificate_number}
                   onChangeText={(text) => handleChange('transfer_certificate_number', text)}
                 />
@@ -1007,12 +1088,16 @@ export default function StudentRegistrationScreen() {
           {/* Step 2: Parent & Address */}
           {step === 2 && (
             <View>
-              <Text style={styles.sectionTitle}>Parent / Guardian Details</Text>
+              <View style={styles.sectionHeader}>
+                <Users size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Parent / Guardian Details</AppText>
+              </View>
 
               <FormField label="Father / Guardian Name" required error={fieldErrors.father_guardian_name}>
                 <TextInput
                   style={[styles.input, fieldErrors.father_guardian_name && styles.inputError]}
                   placeholder="Full name"
+                  placeholderTextColor="#94A3B8"
                   value={form.father_guardian_name}
                   onChangeText={(text) => handleChange('father_guardian_name', text)}
                 />
@@ -1022,6 +1107,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.father_guardian_mobile && styles.inputError]}
                   placeholder="10-digit mobile"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="phone-pad"
                   maxLength={10}
                   value={form.father_guardian_mobile}
@@ -1033,6 +1119,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Occupation"
+                  placeholderTextColor="#94A3B8"
                   value={form.father_guardian_occupation}
                   onChangeText={(text) => handleChange('father_guardian_occupation', text)}
                 />
@@ -1042,6 +1129,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mother_guardian_name && styles.inputError]}
                   placeholder="Full name"
+                  placeholderTextColor="#94A3B8"
                   value={form.mother_guardian_name}
                   onChangeText={(text) => handleChange('mother_guardian_name', text)}
                 />
@@ -1051,6 +1139,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mother_guardian_mobile && styles.inputError]}
                   placeholder="10-digit mobile"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="phone-pad"
                   maxLength={10}
                   value={form.mother_guardian_mobile}
@@ -1062,6 +1151,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Occupation"
+                  placeholderTextColor="#94A3B8"
                   value={form.mother_guardian_occupation}
                   onChangeText={(text) => handleChange('mother_guardian_occupation', text)}
                 />
@@ -1071,6 +1161,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.parent_guardian_email && styles.inputError]}
                   placeholder="email@example.com"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   value={form.parent_guardian_email}
@@ -1078,12 +1169,16 @@ export default function StudentRegistrationScreen() {
                 />
               </FormField>
 
-              <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Current Address</Text>
+              <View style={[styles.sectionHeader, { marginTop: 20 }]}>
+                <BookOpen size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Current Address</AppText>
+              </View>
 
               <FormField label="House No." required error={fieldErrors.house_no}>
                 <TextInput
                   style={[styles.input, fieldErrors.house_no && styles.inputError]}
                   placeholder="e.g. 12-3A"
+                  placeholderTextColor="#94A3B8"
                   value={form.house_no}
                   onChangeText={(text) => handleChange('house_no', text)}
                 />
@@ -1093,6 +1188,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.street_locality && styles.inputError]}
                   placeholder="Street or locality"
+                  placeholderTextColor="#94A3B8"
                   value={form.street_locality}
                   onChangeText={(text) => handleChange('street_locality', text)}
                 />
@@ -1102,6 +1198,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.village_town_city && styles.inputError]}
                   placeholder="City or village"
+                  placeholderTextColor="#94A3B8"
                   value={form.village_town_city}
                   onChangeText={(text) => handleChange('village_town_city', text)}
                 />
@@ -1111,6 +1208,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mandal_taluk && styles.inputError]}
                   placeholder="Mandal or Taluk"
+                  placeholderTextColor="#94A3B8"
                   value={form.mandal_taluk}
                   onChangeText={(text) => handleChange('mandal_taluk', text)}
                 />
@@ -1120,6 +1218,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.district && styles.inputError]}
                   placeholder="District"
+                  placeholderTextColor="#94A3B8"
                   value={form.district}
                   onChangeText={(text) => handleChange('district', text)}
                 />
@@ -1129,6 +1228,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.state && styles.inputError]}
                   placeholder="State"
+                  placeholderTextColor="#94A3B8"
                   value={form.state}
                   onChangeText={(text) => handleChange('state', text)}
                 />
@@ -1138,6 +1238,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.pin_code && styles.inputError]}
                   placeholder="6-digit PIN"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="numeric"
                   maxLength={6}
                   value={form.pin_code}
@@ -1150,12 +1251,16 @@ export default function StudentRegistrationScreen() {
           {/* Step 3: Health & Transport */}
           {step === 3 && (
             <View>
-              <Text style={styles.sectionTitle}>Health, Emergency & Transport</Text>
+              <View style={styles.sectionHeader}>
+                <Heart size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Health, Emergency & Transport</AppText>
+              </View>
 
               <FormField label="Allergies Details">
                 <TextInput
                   style={styles.input}
                   placeholder="Any allergies"
+                  placeholderTextColor="#94A3B8"
                   value={form.allergies_details}
                   onChangeText={(text) => handleChange('allergies_details', text)}
                 />
@@ -1165,6 +1270,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Any medical conditions"
+                  placeholderTextColor="#94A3B8"
                   value={form.medical_conditions}
                   onChangeText={(text) => handleChange('medical_conditions', text)}
                 />
@@ -1174,6 +1280,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.emergency_contact_name && styles.inputError]}
                   placeholder="Contact person name"
+                  placeholderTextColor="#94A3B8"
                   value={form.emergency_contact_name}
                   onChangeText={(text) => handleChange('emergency_contact_name', text)}
                 />
@@ -1183,6 +1290,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.emergency_contact_number && styles.inputError]}
                   placeholder="10-digit number"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="phone-pad"
                   maxLength={10}
                   value={form.emergency_contact_number}
@@ -1194,6 +1302,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Hospital or doctor name"
+                  placeholderTextColor="#94A3B8"
                   value={form.nearest_hospital_doctor}
                   onChangeText={(text) => handleChange('nearest_hospital_doctor', text)}
                 />
@@ -1203,6 +1312,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mode_of_transport && styles.inputError]}
                   placeholder="e.g. Bus, Private"
+                  placeholderTextColor="#94A3B8"
                   value={form.mode_of_transport}
                   onChangeText={(text) => handleChange('mode_of_transport', text)}
                 />
@@ -1212,6 +1322,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Bus route or vehicle no."
+                  placeholderTextColor="#94A3B8"
                   value={form.bus_route_vehicle_number}
                   onChangeText={(text) => handleChange('bus_route_vehicle_number', text)}
                 />
@@ -1221,6 +1332,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Hostel or Day Scholar"
+                  placeholderTextColor="#94A3B8"
                   value={form.hostel_day_scholar}
                   onChangeText={(text) => handleChange('hostel_day_scholar', text)}
                 />
@@ -1241,7 +1353,7 @@ export default function StudentRegistrationScreen() {
                     style={styles.eyeButton} 
                     onPress={() => setShowPassword(!showPassword)}
                   >
-                    <Text style={styles.eyeButtonText}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                    {showPassword ? <EyeOff size={20} color="#64748B" /> : <Eye size={20} color="#64748B" />}
                   </TouchableOpacity>
                 </View>
                 {form.password && <PasswordStrength password={form.password} />}
@@ -1262,7 +1374,7 @@ export default function StudentRegistrationScreen() {
                     style={styles.eyeButton} 
                     onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
-                    <Text style={styles.eyeButtonText}>{showConfirmPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                    {showConfirmPassword ? <EyeOff size={20} color="#64748B" /> : <Eye size={20} color="#64748B" />}
                   </TouchableOpacity>
                 </View>
               </FormField>
@@ -1272,18 +1384,21 @@ export default function StudentRegistrationScreen() {
           {/* Step 4: Photo */}
           {step === 4 && (
             <View>
-              <Text style={styles.sectionTitle}>Student Photograph</Text>
+              <View style={styles.sectionHeader}>
+                <Camera size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Student Photograph</AppText>
+              </View>
               
-              {fieldErrors.photo && <Text style={styles.fieldError}>{fieldErrors.photo}</Text>}
+              {fieldErrors.photo && <AppText style={styles.fieldError}>{fieldErrors.photo}</AppText>}
 
               <TouchableOpacity style={styles.photoZone} onPress={handleImagePick}>
                 {photoPreview ? (
                   <Image source={{ uri: photoPreview }} style={styles.photoPreview} />
                 ) : (
                   <View style={styles.photoPlaceholder}>
-                    <Text style={styles.photoIcon}>📷</Text>
-                    <Text style={styles.photoText}>Tap to add photo</Text>
-                    <Text style={styles.photoSubtext}>Camera or Gallery</Text>
+                    <Camera size={48} color="#CBD5E1" />
+                    <AppText weight="semiBold" style={styles.photoText}>Tap to add photo</AppText>
+                    <AppText style={styles.photoSubtext}>Camera or Gallery</AppText>
                   </View>
                 )}
               </TouchableOpacity>
@@ -1299,19 +1414,19 @@ export default function StudentRegistrationScreen() {
                   <Image source={{ uri: photoPreview }} style={styles.previewPhoto} />
                 ) : (
                   <View style={styles.previewPhotoPlaceholder}>
-                    <Text style={styles.previewPhotoText}>No Photo</Text>
+                    <AppText style={styles.previewPhotoText}>No Photo</AppText>
                   </View>
                 )}
-                <View>
-                  <Text style={styles.previewName}>{form.student_full_name || '—'}</Text>
-                  <Text style={styles.previewMeta}>
-                    Class {form.class_grade || '—'} | Section {form.section || '—'} | {form.academic_year || '—'}
-                  </Text>
-                  <Text style={styles.previewMeta}>
-                    Admission No: {form.admission_number || '—'} | Roll: {form.roll_number || '—'}
-                  </Text>
+                <View style={{ flex: 1 }}>
+                  <AppText weight="bold" style={styles.previewName}>{form.student_full_name || '—'}</AppText>
+                  <AppText style={styles.previewMeta}>
+                    Class {form.class_grade || '—'} | Section {form.section || '—'}
+                  </AppText>
+                  <AppText style={styles.previewMeta}>
+                    {form.academic_year || '—'} | Admission: {form.admission_number || '—'}
+                  </AppText>
                   <View style={styles.previewBadge}>
-                    <Text style={styles.previewBadgeText}>{form.student_status}</Text>
+                    <AppText weight="bold" style={styles.previewBadgeText}>{form.student_status}</AppText>
                   </View>
                 </View>
               </View>
@@ -1319,7 +1434,7 @@ export default function StudentRegistrationScreen() {
               {/* Personal Details */}
               <View style={styles.previewCard}>
                 <View style={styles.previewCardHeader}>
-                  <Text style={styles.previewCardTitle}>📋 Personal Details</Text>
+                  <AppText weight="bold" style={styles.previewCardTitle}>Personal Details</AppText>
                 </View>
                 <View style={styles.previewGrid}>
                   <PreviewField label="First Name" value={form.first_name} />
@@ -1331,8 +1446,8 @@ export default function StudentRegistrationScreen() {
                   <PreviewField label="Nationality" value={form.nationality} />
                   <PreviewField label="Mother Tongue" value={form.mother_tongue} />
                   <PreviewField label="Religion" value={form.religion} />
-                  <PreviewField label="Caste Category" value={form.caste_category} />
-                  <PreviewField label="Aadhaar Number" value={form.aadhaar_number || '—'} />
+                  <PreviewField label="Caste" value={form.caste_category} />
+                  <PreviewField label="Aadhaar" value={form.aadhaar_number || '—'} />
                   <PreviewField label="Status" value={form.student_status} />
                 </View>
               </View>
@@ -1340,7 +1455,7 @@ export default function StudentRegistrationScreen() {
               {/* Academic Details */}
               <View style={styles.previewCard}>
                 <View style={styles.previewCardHeader}>
-                  <Text style={styles.previewCardTitle}>🎓 Academic Details</Text>
+                  <AppText weight="bold" style={styles.previewCardTitle}>Academic Details</AppText>
                 </View>
                 <View style={styles.previewGrid}>
                   <PreviewField label="Class" value={form.class_grade} />
@@ -1358,7 +1473,7 @@ export default function StudentRegistrationScreen() {
               {/* Parent Details */}
               <View style={styles.previewCard}>
                 <View style={styles.previewCardHeader}>
-                  <Text style={styles.previewCardTitle}>👨‍👩‍👧 Parent / Guardian Details</Text>
+                  <AppText weight="bold" style={styles.previewCardTitle}>Parent / Guardian Details</AppText>
                 </View>
                 <View style={styles.previewGrid}>
                   <PreviewField label="Father Name" value={form.father_guardian_name} />
@@ -1374,7 +1489,7 @@ export default function StudentRegistrationScreen() {
               {/* Address */}
               <View style={styles.previewCard}>
                 <View style={styles.previewCardHeader}>
-                  <Text style={styles.previewCardTitle}>🏠 Address</Text>
+                  <AppText weight="bold" style={styles.previewCardTitle}>Address</AppText>
                 </View>
                 <View style={styles.previewGrid}>
                   <PreviewField label="House No." value={form.house_no} />
@@ -1390,7 +1505,7 @@ export default function StudentRegistrationScreen() {
               {/* Health & Transport */}
               <View style={styles.previewCard}>
                 <View style={styles.previewCardHeader}>
-                  <Text style={styles.previewCardTitle}>🏥 Health & Transport</Text>
+                  <AppText weight="bold" style={styles.previewCardTitle}>Health & Transport</AppText>
                 </View>
                 <View style={styles.previewGrid}>
                   <PreviewField label="Allergies" value={form.allergies_details} />
@@ -1405,9 +1520,9 @@ export default function StudentRegistrationScreen() {
               </View>
 
               <View style={styles.previewFooter}>
-                <Text style={styles.previewFooterText}>
+                <AppText weight="semiBold" style={styles.previewFooterText}>
                   Please review all details carefully before submitting.
-                </Text>
+                </AppText>
               </View>
             </View>
           )}
@@ -1415,7 +1530,7 @@ export default function StudentRegistrationScreen() {
           {/* Navigation Buttons */}
           <View style={styles.navButtons}>
             <AppButton
-              title="← Back"
+              title="Back"
               onPress={prevStep}
               disabled={step === 0 || loading}
               type="secondary"
@@ -1423,14 +1538,14 @@ export default function StudentRegistrationScreen() {
             />
             {isLastStep ? (
               <AppButton
-                title={loading ? 'Registering...' : '✓ Confirm & Register'}
+                title={loading ? 'Registering...' : 'Confirm'}
                 onPress={submit}
                 disabled={loading}
                 style={styles.navBtn}
               />
             ) : (
               <AppButton
-                title="Next →"
+                title="Next"
                 onPress={nextStep}
                 disabled={loading}
                 style={styles.navBtn}
@@ -1441,9 +1556,8 @@ export default function StudentRegistrationScreen() {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>🏫 School: {loggedSchoolCode || '—'}</Text>
-          <Text style={styles.footerText}>🏢 Branch: {defaultBranchId || '—'}</Text>
-          <Text style={styles.footerText}>👑 Role: Head Master</Text>
+          <AppText style={styles.footerText}>School: {loggedSchoolCode || '—'}</AppText>
+          <AppText style={styles.footerText}>Branch: {defaultBranchId || '—'}</AppText>
         </View>
       </ScrollView>
 
@@ -1451,17 +1565,17 @@ export default function StudentRegistrationScreen() {
       <Modal visible={showRollNumberModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>✅ Registration Complete</Text>
-            <Text style={styles.modalMessage}>
+            <AppText weight="bold" style={styles.modalTitle}>Registration Complete</AppText>
+            <AppText style={styles.modalMessage}>
               Your student details were saved successfully and a roll number has been assigned.
-            </Text>
+            </AppText>
             <View style={styles.rollNumberDisplay}>
-              <Text style={styles.rollNumberLabel}>Assigned Roll Number</Text>
-              <Text style={styles.rollNumberValue}>{generatedRollNumber || '—'}</Text>
+              <AppText weight="semiBold" style={styles.rollNumberLabel}>Assigned Roll Number</AppText>
+              <AppText weight="bold" style={styles.rollNumberValue}>{generatedRollNumber || '—'}</AppText>
             </View>
-            <Text style={styles.modalNote}>
+            <AppText style={styles.modalNote}>
               Copy this roll number or note it down for records.
-            </Text>
+            </AppText>
             <AppButton title="OK" onPress={() => setShowRollNumberModal(false)} />
           </View>
         </View>
@@ -1473,37 +1587,48 @@ export default function StudentRegistrationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: '#F8FAFC',
+  },
+  heroHeader: {
+    backgroundColor: '#001F3F',
+    height: 180,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+  },
+  heroContent: {
+    marginTop: 20,
+  },
+  heroGreeting: {
+    color: '#FFFFFF',
+    fontSize: 24,
+  },
+  heroSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    marginTop: 4,
   },
   contentContainer: {
     padding: 16,
     paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0d1b2a',
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#4a5568',
-    marginTop: 4,
-  },
-  copyLinkBtn: {
-    backgroundColor: '#dbeafe',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-    marginBottom: 16,
-  },
-  copyLinkBtnText: {
-    color: '#2563eb',
-    fontWeight: '600',
-    fontSize: 13,
   },
   errorBox: {
     backgroundColor: '#fee2e2',
@@ -1532,18 +1657,26 @@ const styles = StyleSheet.create({
   stepperContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: -30,
     marginBottom: 20,
-    flexWrap: 'wrap',
+    padding: 16,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   stepItem: {
     alignItems: 'center',
     flex: 1,
   },
   stepCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#e4e9f2',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1551,71 +1684,71 @@ const styles = StyleSheet.create({
     backgroundColor: '#059669',
   },
   stepActive: {
-    backgroundColor: '#2563eb',
-  },
-  stepIcon: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
+    backgroundColor: '#001F3F',
   },
   stepNumber: {
-    color: '#4a5568',
-    fontSize: 12,
-    fontWeight: 'bold',
+    color: '#64748B',
+    fontSize: 11,
+  },
+  stepNumberActive: {
+    color: '#FFF',
   },
   stepLabel: {
-    fontSize: 9,
-    color: '#4a5568',
-    marginTop: 4,
+    fontSize: 8,
+    color: '#64748B',
+    marginTop: 6,
     textAlign: 'center',
   },
   stepLabelActive: {
-    color: '#2563eb',
-    fontWeight: 'bold',
+    color: '#001F3F',
   },
   stepLabelCompleted: {
     color: '#059669',
   },
   formCard: {
-    padding: 16,
+    padding: 20,
     marginBottom: 16,
+    borderRadius: 16,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0d1b2a',
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     marginBottom: 16,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: '#F1F5F9',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    color: '#001F3F',
   },
   formGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   formLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#4a5568',
-    marginBottom: 6,
+    fontSize: 13,
+    color: '#64748B',
+    marginBottom: 8,
   },
   requiredStar: {
-    color: '#dc2626',
+    color: '#EF4444',
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: '#e4e9f2',
-    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
     padding: 12,
     fontSize: 14,
-    backgroundColor: '#f8fafc',
-    color: '#0d1b2a',
+    backgroundColor: '#F8FAFC',
+    color: '#0F172A',
   },
   inputError: {
-    borderColor: '#dc2626',
+    borderColor: '#EF4444',
   },
   disabledInput: {
-    backgroundColor: '#f1f5f9',
-    color: '#94a3b8',
+    backgroundColor: '#F1F5F9',
+    color: '#94A3B8',
   },
   sectionInput: {
     textTransform: 'uppercase',
@@ -1626,89 +1759,93 @@ const styles = StyleSheet.create({
   },
   genderBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#e4e9f2',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
+    backgroundColor: '#F8FAFC',
   },
   genderBtnActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
   },
   genderText: {
-    color: '#4a5568',
-    fontWeight: '600',
+    color: '#64748B',
+    fontSize: 14,
   },
   genderTextActive: {
-    color: '#fff',
+    color: '#FFF',
   },
   dateBtn: {
-    borderWidth: 1.5,
-    borderColor: '#e4e9f2',
-    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
     padding: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F8FAFC',
   },
   dateText: {
     fontSize: 14,
-    color: '#0d1b2a',
+    color: '#0F172A',
   },
   chipContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
   },
   chip: {
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: '#E2E8F0',
   },
   chipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
   },
   chipText: {
     fontSize: 14,
-    color: '#4a5568',
+    color: '#64748B',
   },
   chipTextActive: {
-    color: '#fff',
+    color: '#FFF',
   },
   fieldError: {
     fontSize: 11,
-    color: '#dc2626',
+    color: '#EF4444',
     marginTop: 4,
   },
   passwordStrength: {
-    marginTop: 8,
-    padding: 10,
-    backgroundColor: '#f0f2f7',
-    borderRadius: 8,
+    marginTop: 10,
+    padding: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   passwordRule: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     marginBottom: 4,
   },
-  passwordRuleIcon: {
-    fontSize: 12,
-    color: '#94a3b8',
-  },
-  passwordRuleIconValid: {
-    color: '#059669',
+  passwordRuleDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#CBD5E1',
   },
   passwordRuleText: {
     fontSize: 11,
-    color: '#4a5568',
+    color: '#64748B',
   },
   passwordRuleTextValid: {
     color: '#059669',
-    fontWeight: '600',
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -1724,107 +1861,104 @@ const styles = StyleSheet.create({
     right: 12,
     padding: 8,
   },
-  eyeButtonText: {
-    fontSize: 18,
-  },
   photoZone: {
     borderWidth: 2,
-    borderColor: '#e4e9f2',
+    borderColor: '#E2E8F0',
     borderStyle: 'dashed',
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 16,
+    padding: 30,
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F8FAFC',
   },
   photoPreview: {
-    width: 150,
-    height: 150,
-    borderRadius: 12,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     resizeMode: 'cover',
   },
   photoPlaceholder: {
     alignItems: 'center',
   },
-  photoIcon: {
-    fontSize: 48,
-    marginBottom: 8,
-  },
   photoText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4a5568',
+    fontSize: 15,
+    color: '#001F3F',
+    marginTop: 12,
   },
   photoSubtext: {
-    fontSize: 11,
-    color: '#94a3b8',
+    fontSize: 12,
+    color: '#94A3B8',
     marginTop: 4,
   },
   previewHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 16,
     marginBottom: 20,
     padding: 16,
-    backgroundColor: '#f0f2f7',
-    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   previewPhoto: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     resizeMode: 'cover',
   },
   previewPhotoPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    backgroundColor: '#e4e9f2',
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
   previewPhotoText: {
-    fontSize: 11,
-    color: '#94a3b8',
+    fontSize: 10,
+    color: '#64748B',
   },
   previewName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0d1b2a',
+    fontSize: 18,
+    color: '#001F3F',
   },
   previewMeta: {
     fontSize: 12,
-    color: '#4a5568',
+    color: '#64748B',
     marginTop: 2,
   },
   previewBadge: {
     marginTop: 6,
-    backgroundColor: '#dbeafe',
-    paddingHorizontal: 8,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 10,
     paddingVertical: 2,
     borderRadius: 12,
     alignSelf: 'flex-start',
   },
   previewBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#2563eb',
+    color: '#166534',
+    textTransform: 'uppercase',
   },
   previewCard: {
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
-    borderRadius: 12,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
     overflow: 'hidden',
+    backgroundColor: '#FFF',
   },
   previewCardHeader: {
     padding: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F8FAFC',
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: '#E2E8F0',
   },
   previewCardTitle: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#2563eb',
+    color: '#001F3F',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   previewGrid: {
     flexDirection: 'row',
@@ -1832,105 +1966,108 @@ const styles = StyleSheet.create({
   },
   previewField: {
     width: '50%',
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    padding: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F1F5F9',
   },
   previewFieldLabel: {
     fontSize: 10,
-    fontWeight: '600',
-    color: '#94a3b8',
+    color: '#94A3B8',
     textTransform: 'uppercase',
     marginBottom: 4,
   },
   previewFieldValue: {
     fontSize: 13,
-    fontWeight: '500',
-    color: '#0d1b2a',
+    color: '#0F172A',
   },
   previewFooter: {
-    marginTop: 12,
+    marginTop: 10,
     padding: 12,
-    backgroundColor: '#f0fdf4',
-    borderRadius: 10,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
   },
   previewFooterText: {
     fontSize: 12,
-    color: '#059669',
+    color: '#166534',
     textAlign: 'center',
   },
   navButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 24,
     gap: 12,
   },
   navBtn: {
     flex: 1,
+    height: 50,
   },
   footer: {
     marginTop: 16,
-    padding: 12,
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    padding: 16,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
   },
   footerText: {
     fontSize: 11,
-    color: '#4a5568',
+    color: '#94A3B8',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 30,
     width: '100%',
     maxWidth: 400,
     alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#059669',
+    fontSize: 20,
+    color: '#001F3F',
     marginBottom: 12,
   },
   modalMessage: {
     fontSize: 14,
-    color: '#4a5568',
+    color: '#64748B',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    lineHeight: 20,
   },
   rollNumberDisplay: {
-    backgroundColor: '#dbeafe',
-    padding: 20,
-    borderRadius: 12,
+    backgroundColor: '#F0F9FF',
+    padding: 24,
+    borderRadius: 20,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
     width: '100%',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
   },
   rollNumberLabel: {
     fontSize: 12,
-    color: '#64748b',
-    marginBottom: 8,
+    color: '#0369A1',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   rollNumberValue: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#2563eb',
-    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    fontSize: 36,
+    color: '#0284C7',
+    letterSpacing: 2,
   },
   modalNote: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#94A3B8',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
 });

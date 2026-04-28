@@ -16,7 +16,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Camera, useCameraDevice } from 'react-native-vision-camera';
+// import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
@@ -79,8 +79,9 @@ export default function VitalScanScreen() {
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
-  const cameraRef = useRef<Camera>(null);
-  const device = useCameraDevice('back');
+  const cameraRef = useRef<any>(null);
+  // const device = useCameraDevice('back');
+  const device = null;
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [cameraActive, setCameraActive] = useState<boolean>(false);
 
@@ -464,13 +465,16 @@ export default function VitalScanScreen() {
       {/* Camera View */}
       {cameraActive && hasPermission && (
         <View style={styles.cameraContainer}>
-          <Camera
+          {/* <Camera
             ref={cameraRef}
             style={styles.camera}
             device={device!}
             isActive={cameraActive}
             photo={true}
-          />
+          /> */}
+          <View style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center'}}>
+            <Text style={{color: '#fff', fontSize: 16}}>Camera disabled for debugging</Text>
+          </View>
           <View style={styles.cameraOverlay}>
             <Text style={styles.cameraStep}>
               {scanType === 'eye' ? 'Vision Scan' : teethSteps[images.length] || 'Done'}

@@ -1,15 +1,24 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Shield, Bell } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../constants/theme';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AvatarBubble from './AvatarBubble';
 import AppText from './AppText';
 
 const Header = () => {
   const { userRole, userName } = useAuth();
   const navigation = useNavigation<any>();
+  const { unreadCount, refreshUnreadCount } = useUnreadNotifications();
+
+  // Refresh unread count when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshUnreadCount();
+    }, [refreshUnreadCount])
+  );
 
   const handleProfilePress = () => {
     navigation.navigate('Profile');
@@ -39,7 +48,16 @@ const Header = () => {
           style={styles.iconButton}
           onPress={handleNotificationsPress}
         >
-          <Bell size={22} color={colors.textPrimary} />
+          <View style={styles.bellContainer}>
+            <Bell size={22} color={colors.textPrimary} />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </View>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.profileButton}
@@ -98,6 +116,45 @@ const styles = StyleSheet.create({
   },
   rightSection: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconButton: {
+    padding: 4,
+  },
+  bellContainer: {
+    position: 'relative',
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+    paddingHorizontal: 4,
+  },
+  profileButton: {
+    padding: 2,
+  },
+});
+
+export default Header;
     alignItems: 'center',
     gap: 12,
   },

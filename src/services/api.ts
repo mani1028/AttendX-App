@@ -1,21 +1,13 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 import eventEmitter from '../utils/eventEmitter';
+import { ENV } from '../config/api.config';
 
 /* ================= BASE URL ================= */
 
 const getBaseUrl = (): string => {
-  // Toggle this flag to route development builds to the deployed API.
-  const useLiveServer = true;
-
-  if (__DEV__ && !useLiveServer) {
-    if (Platform.OS === 'android') {
-      return 'http://10.0.2.2:5000/api/'; // Android emulator
-    }
-    return 'http://localhost:5000/api/'; // iOS simulator / default local
-  }
-  return 'https://attendex-api.vshiftx.com/api/'; // Live server URL
+  const baseUrl = ENV.API_URL.replace(/\/$/, '');
+  return `${baseUrl}/api/`;
 };
 
 const API_BASE = getBaseUrl();

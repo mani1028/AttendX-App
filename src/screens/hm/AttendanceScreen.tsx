@@ -19,7 +19,24 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
-import Icon from '@react-native-vector-icons/feather';
+import {
+  ChevronLeft,
+  RefreshCw,
+  Calendar,
+  Search,
+  Filter,
+  Download,
+  User,
+  Users,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ArrowRight,
+  ChevronRight,
+  X,
+  BookOpen,
+  Users2
+} from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
@@ -121,24 +138,34 @@ const classColor = (grade: string): string => {
 
 // Status Badge Component
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const isPresent = status === 'PRESENT';
+  const isHalfDay = status === 'HALF_DAY' || status === 'LATE';
+
   const getStyle = () => {
-    if (status === 'PRESENT') return styles.badgePresent;
-    if (status === 'HALF_DAY' || status === 'LATE') return styles.badgeHalfDay;
+    if (isPresent) return styles.badgePresent;
+    if (isHalfDay) return styles.badgeHalfDay;
     return styles.badgeAbsent;
   };
   const getTextStyle = () => {
-    if (status === 'PRESENT') return styles.badgePresentText;
-    if (status === 'HALF_DAY' || status === 'LATE') return styles.badgeHalfDayText;
+    if (isPresent) return styles.badgePresentText;
+    if (isHalfDay) return styles.badgeHalfDayText;
     return styles.badgeAbsentText;
   };
   const getText = () => {
-    if (status === 'PRESENT') return 'PRESENT';
-    if (status === 'HALF_DAY' || status === 'LATE') return 'HALF DAY';
+    if (isPresent) return 'PRESENT';
+    if (isHalfDay) return 'HALF DAY';
     return 'ABSENT';
   };
+  const getIcon = () => {
+    if (isPresent) return <CheckCircle2 size={12} color={C.success} />;
+    if (isHalfDay) return <Clock size={12} color={C.warning} />;
+    return <XCircle size={12} color={C.error} />;
+  };
+
   return (
     <View style={[styles.badge, getStyle()]}>
-      <AppText style={[styles.badgeText, getTextStyle()]}>{getText()}</AppText>
+      {getIcon()}
+      <AppText style={[styles.badgeText, getTextStyle()]} weight="bold">{getText()}</AppText>
     </View>
   );
 };
@@ -354,7 +381,7 @@ const ExportModal: React.FC<{
               Export {type === 'teachers' ? 'Teacher' : 'Student'} Attendance
             </AppText>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <AppText style={styles.modalCloseText}>✕</AppText>
+              <X size={20} color={C.muted} />
             </TouchableOpacity>
           </View>
 
@@ -362,10 +389,12 @@ const ExportModal: React.FC<{
             <AppText style={styles.modalLabel} weight="semiBold">Date Range</AppText>
             <View style={styles.dateRangeRow}>
               <TouchableOpacity style={styles.dateBtn} onPress={() => setShowStartPicker(true)}>
+                <Calendar size={14} color={C.primary} style={{ marginRight: 6 }} />
                 <AppText style={styles.dateText}>{iso(startDate)}</AppText>
               </TouchableOpacity>
-              <AppText style={styles.dateArrow}>→</AppText>
+              <ArrowRight size={16} color={C.muted} />
               <TouchableOpacity style={styles.dateBtn} onPress={() => setShowEndPicker(true)}>
+                <Calendar size={14} color={C.primary} style={{ marginRight: 6 }} />
                 <AppText style={styles.dateText}>{iso(endDate)}</AppText>
               </TouchableOpacity>
             </View>
@@ -427,21 +456,17 @@ const ExportModal: React.FC<{
                         <View style={[styles.checkbox, allSelected && styles.checkboxChecked, someSelected && !allSelected && styles.checkboxIndeterminate]} />
                       </TouchableOpacity>
 
-                      {sections.map(sec => {
-                        const key = `${grade}:${sec.section}`;
-                        const isSelected = selectedSections.has(key);
-                        return (
-                          <TouchableOpacity
-                            key={key}
-                            style={[styles.sectionRow, isSelected && styles.sectionRowSelected]}
-                            onPress={() => toggleSection(grade, sec.section)}
-                          >
-                            <View style={[styles.checkboxSmall, isSelected && styles.checkboxSmallChecked]} />
-                            <AppText style={styles.sectionText}>Section {sec.section}</AppText>
-                            <AppText style={styles.sectionCount}>{sec.students_total || 0} students</AppText>
-                          </TouchableOpacity>
-                        );
-                      })}
+                      <TouchableOpacity
+                        key={key}
+                        style={[styles.sectionRow, isSelected && styles.sectionRowSelected]}
+                        onPress={() => toggleSection(grade, sec.section)}
+                      >
+                        <View style={[styles.checkboxSmall, isSelected && styles.checkboxSmallChecked]}>
+                          {isSelected && <CheckCircle2 size={12} color="#fff" />}
+                        </View>
+                        <AppText style={styles.sectionText}>Section {sec.section}</AppText>
+                        <AppText style={styles.sectionCount}>{sec.students_total || 0} students</AppText>
+                      </TouchableOpacity>
                     </View>
                   );
                 })}
@@ -579,7 +604,7 @@ const StudentsView: React.FC<{
   if (!selectedSection) {
     return (
       <View style={styles.emptyPanel}>
-        <AppText style={styles.emptyIcon}>📚</AppText>
+        <BookOpen size={48} color={C.muted} style={{ marginBottom: 12 }} />
         <AppText style={styles.emptyTitle} weight="bold">Select a class section</AppText>
         <AppText style={styles.emptyText}>Choose from the left panel</AppText>
       </View>
@@ -672,16 +697,17 @@ const StudentsView: React.FC<{
         {/* Search & Filter */}
         <View style={styles.searchFilterBar}>
           <View style={styles.searchContainer}>
+            <Search size={18} color={C.muted} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search by name, roll no, admission no..."
+              placeholder="Search by name, roll no..."
               placeholderTextColor={C.muted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
-                <AppText style={styles.clearBtnText}>✕</AppText>
+                <X size={14} color={C.muted} />
               </TouchableOpacity>
             )}
           </View>
@@ -707,7 +733,7 @@ const StudentsView: React.FC<{
           <Loader />
         ) : filteredStudents.length === 0 ? (
           <View style={styles.emptyPanel}>
-            <AppText style={styles.emptyIcon}>👥</AppText>
+            <Users2 size={48} color={C.muted} style={{ marginBottom: 12 }} />
             <AppText style={styles.emptyTitle} weight="bold">No students found</AppText>
             <AppText style={styles.emptyText}>Try adjusting your search</AppText>
           </View>
@@ -952,11 +978,11 @@ export default function HMAttendanceScreen() {
       {/* Standardized Header */}
       <View style={styles.headerStandard}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
-        <AppText style={styles.headerTitle}>Attendance Management</AppText>
+        <AppText style={styles.headerTitle} weight="bold">Attendance Management</AppText>
         <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh}>
-          <Icon name="refresh-cw" size={20} color="#fff" />
+          <RefreshCw size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -974,7 +1000,7 @@ export default function HMAttendanceScreen() {
         refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={C.primary} />}
       >
         <View style={styles.subHeader}>
-          <AppText style={styles.subHeaderText}>
+          <AppText style={styles.subHeaderText} weight="semiBold">
             {view === 'teachers' ? `${filteredTeachers.length} teachers tracked` : `${classItems.length} classes tracked`}
           </AppText>
         </View>
@@ -985,18 +1011,24 @@ export default function HMAttendanceScreen() {
               style={[styles.toggleBtn, view === 'teachers' && styles.toggleBtnActive]}
               onPress={() => setView('teachers')}
             >
-              <AppText style={[styles.toggleText, view === 'teachers' && styles.toggleTextActive]} weight="semiBold">👨‍🏫 Teachers</AppText>
+              <AppText style={[styles.toggleText, view === 'teachers' && styles.toggleTextActive]} weight="semiBold">
+                <Users size={14} color={view === 'teachers' ? '#fff' : C.muted} /> Teachers
+              </AppText>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.toggleBtn, view === 'students' && styles.toggleBtnActive]}
               onPress={() => setView('students')}
             >
-              <AppText style={[styles.toggleText, view === 'students' && styles.toggleTextActive]} weight="semiBold">👨‍🎓 Students</AppText>
+              <AppText style={[styles.toggleText, view === 'students' && styles.toggleTextActive]} weight="semiBold">
+                <Users2 size={14} color={view === 'students' ? '#fff' : C.muted} /> Students
+              </AppText>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
-            <AppText style={styles.dateText}>📅 {iso(date)}</AppText>
+            <AppText style={styles.dateText}>
+              <Calendar size={14} color={C.primary} /> {iso(date)}
+            </AppText>
           </TouchableOpacity>
           {showDatePicker && (
             <DateTimePicker
@@ -1027,12 +1059,16 @@ export default function HMAttendanceScreen() {
 
           <View style={styles.sectionActions}>
             <TouchableOpacity style={styles.exportBtn} onPress={() => setShowTeacherExport(true)}>
-              <AppText style={styles.exportBtnText} weight="semiBold">📤 Export Teachers</AppText>
+              <AppText style={styles.exportBtnText} weight="semiBold">
+                <Download size={14} color={C.primary} /> Teachers
+              </AppText>
             </TouchableOpacity>
             <TouchableOpacity style={styles.exportBtn} onPress={() => setShowExport(true)}>
-              <AppText style={styles.exportBtnText} weight="semiBold">📤 Export Students</AppText>
+              <AppText style={styles.exportBtnText} weight="semiBold">
+                <Download size={14} color={C.primary} /> Students
+              </AppText>
             </TouchableOpacity>
-            <AppButton title="🔄 Refresh" onPress={onRefresh} type="secondary" />
+            <AppButton title="Refresh" onPress={onRefresh} type="secondary" />
           </View>
         </View>
 
@@ -1080,7 +1116,7 @@ export default function HMAttendanceScreen() {
                 />
                 {search.length > 0 && (
                   <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
-                    <AppText style={styles.clearBtnText}>✕</AppText>
+                    <X size={18} color={C.muted} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -1105,7 +1141,7 @@ export default function HMAttendanceScreen() {
               <Loader />
             ) : paginatedTeachers.length === 0 ? (
               <AppCard style={styles.emptyCard}>
-                <AppText style={styles.emptyIcon}>👨‍🏫</AppText>
+                <Users size={48} color={C.muted} style={{ marginBottom: 12 }} />
                 <AppText style={styles.emptyTitle} weight="bold">No teachers found</AppText>
                 <AppText style={styles.emptyText}>Try adjusting your search or filters</AppText>
               </AppCard>
@@ -1121,15 +1157,15 @@ export default function HMAttendanceScreen() {
                       onPress={() => setPage(p => Math.max(1, p - 1))}
                       disabled={page === 1}
                     >
-                      <AppText style={styles.pageBtnText}>◀</AppText>
+                      <ChevronLeft size={20} color={C.text} />
                     </TouchableOpacity>
-                    <AppText style={styles.pageInfo}>Page {page} of {totalPages}</AppText>
+                    <AppText style={styles.pageInfo} weight="semiBold">Page {page} of {totalPages}</AppText>
                     <TouchableOpacity
                       style={[styles.pageBtn, page === totalPages && styles.pageBtnDisabled]}
                       onPress={() => setPage(p => Math.min(totalPages, p + 1))}
                       disabled={page === totalPages}
                     >
-                      <AppText style={styles.pageBtnText}>▶</AppText>
+                      <ChevronRight size={20} color={C.text} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -1143,7 +1179,7 @@ export default function HMAttendanceScreen() {
             <Loader />
           ) : classItems.length === 0 ? (
             <AppCard style={styles.emptyCard}>
-              <AppText style={styles.emptyIcon}>👨‍🎓</AppText>
+              <BookOpen size={48} color={C.muted} style={{ marginBottom: 12 }} />
               <AppText style={styles.emptyTitle} weight="bold">No classes available</AppText>
               <AppText style={styles.emptyText}>No class data found for this date</AppText>
             </AppCard>
@@ -1191,7 +1227,7 @@ const styles = StyleSheet.create({
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -1206,7 +1242,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#ffffff',
     textAlign: 'center',
     flex: 1,
@@ -1231,7 +1266,6 @@ const styles = StyleSheet.create({
   subHeaderText: {
     fontSize: 14,
     color: '#64748b',
-    fontWeight: '600',
   },
   contentContainer: {
     paddingBottom: 40,
@@ -1515,6 +1549,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   badgePresent: {
     backgroundColor: C.successSoft,

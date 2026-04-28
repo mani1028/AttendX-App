@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -12,15 +11,34 @@ import {
   Alert,
   FlatList,
   Dimensions,
+  StatusBar,
+  Platform,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  ChevronLeft,
+  Bell,
+  User,
+  Users,
+  Calendar,
+  Camera,
+  Info,
+  X,
+  ChevronRight,
+  Filter,
+  Image as ImageIcon
+} from 'lucide-react-native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import * as teacherService from '../../services/teacherService';
-import { colors } from '../../constants/colors';
+import { useAuth } from '../../context/AuthContext';
+import AppText from '../../components/common/AppText';
 import AppButton from '../../components/common/AppButton';
-import AppCard from '../../components/common/AppCard';
-import Loader from '../../components/common/Loader';
+import { RootStackParamList } from '../../navigation/AppNavigator';
+import API from '../../services/api';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Types
 interface GalleryImage {
@@ -32,6 +50,7 @@ interface GalleryImage {
   student_count?: number;
   class_grade?: string;
   section?: string;
+  path?: string;
 }
 
 // Helper functions
@@ -50,11 +69,6 @@ const getTeacherId = async (): Promise<string> => {
   return id || (await AsyncStorage.getItem('teacherId')) || '';
 };
 
-const getEmployeeId = async (): Promise<string> => {
-  const id = await AsyncStorage.getItem('employee_id');
-  return id || (await AsyncStorage.getItem('employeeId')) || '';
-};
-
 // Image Gallery Component
 const ImageGallery: React.FC<{
   images: GalleryImage[];
@@ -63,15 +77,20 @@ const ImageGallery: React.FC<{
   onImagePress: (image: GalleryImage) => void;
 }> = ({ images, loading, onRefresh, onImagePress }) => {
   if (loading) {
-    return <Loader />;
+    return (
+      <View style={styles.listLoader}>
+        <ActivityIndicator size="large" color="#001F3F" />
+        <AppText style={styles.loaderText}>Fetching gallery...</AppText>
+      </View>
+    );
   }
 
   if (images.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>📷</Text>
-        <Text style={styles.emptyTitle}>No images found</Text>
-        <Text style={styles.emptyText}>No attendance images available for this selection</Text>
+        <ImageIcon size={64} color="#CBD5E1" />
+        <AppText style={styles.emptyTitle}>No images found</AppText>
+        <AppText style={styles.emptyText}>No attendance images available for this selection</AppText>
       </View>
     );
   }
@@ -79,111 +98,32 @@ const ImageGallery: React.FC<{
   return (
     <FlatList
       data={images}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => item.id || item.image_url || item.path || Math.random().toString()}
       numColumns={2}
+      scrollEnabled={false}
       columnWrapperStyle={styles.imageRow}
-      renderItem={({ item }) => (
-        <TouchableOpacity
-          style={styles.imageCard}
-          onPress={() => onImagePress(item)}
-        >
-          <Image source={{ uri: item.image_url }} style={styles.imageThumb} />
-          <View style={styles.imageInfo}>
-            <Text style={styles.imageDate}>{item.date}</Text>
-            {item.teacher_name && (
-              <Text style={styles.imageTeacher}>{item.teacher_name}</Text>
-            )}
-            {item.student_count && (
-              <Text style={styles.imageCount}>{item.student_count} students</Text>
-            )}
-          </View>
-        </TouchableOpacity>
-      )}
-      refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} />}
+      renderItem={({ item }) => {
+        const imageUrl = item.image_url || (item.path ? `${API.getUri()}/media/${item.path}` : '');
+        return (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.imageCard}
+            onPress={() => onImagePress({ ...item, image_url: imageUrl })}
+          >
+            <Image source={{ uri: imageUrl }} style={styles.imageThumb} />
+            <View style={styles.imageInfo}>
+              <View style={styles.imageDateRow}>
+                <Calendar size={10} color="#001F3F" />
+                <AppText style={styles.imageDate}>{item.date}</AppText>
+              </View>
+              {item.student_count !== undefined && (
+                <AppText style={styles.imageCount}>{item.student_count} students</AppText>
+              )}
+            </View>
+          </TouchableOpacity>
+        );
+      }}
     />
-  );
-};
-
-// Class Selector Modal
-const ClassSelectorModal: React.FC<{
-  visible: boolean;
-  selectedClass: string;
-  selectedSection: string;
-  onSelect: (classGrade: string, section: string) => void;
-  onClose: () => void;
-}> = ({ visible, selectedClass, selectedSection, onSelect, onClose }) => {
-  const classOptions = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
-  const sectionOptions = ['A', 'B', 'C'];
-
-  const [tempClass, setTempClass] = useState(selectedClass);
-  const [tempSection, setTempSection] = useState(selectedSection);
-
-  useEffect(() => {
-    setTempClass(selectedClass);
-    setTempSection(selectedSection);
-  }, [selectedClass, selectedSection, visible]);
-
-  const handleConfirm = () => {
-    if (tempClass && tempSection) {
-      onSelect(tempClass, tempSection);
-    }
-    onClose();
-  };
-
-  return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Class & Section</Text>
-            <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <Text style={styles.modalCloseText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.modalBody}>
-            <Text style={styles.modalLabel}>Class</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.chipContainer}>
-                {classOptions.map((cls) => (
-                  <TouchableOpacity
-                    key={cls}
-                    style={[styles.chip, tempClass === cls && styles.chipActive]}
-                    onPress={() => setTempClass(cls)}
-                  >
-                    <Text style={[styles.chipText, tempClass === cls && styles.chipTextActive]}>
-                      Class {cls}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-
-            <Text style={[styles.modalLabel, { marginTop: 16 }]}>Section</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.chipContainer}>
-                {sectionOptions.map((sec) => (
-                  <TouchableOpacity
-                    key={sec}
-                    style={[styles.chip, tempSection === sec && styles.chipActive]}
-                    onPress={() => setTempSection(sec)}
-                  >
-                    <Text style={[styles.chipText, tempSection === sec && styles.chipTextActive]}>
-                      Section {sec}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-          </View>
-
-          <View style={styles.modalFooter}>
-            <AppButton title="Cancel" onPress={onClose} type="secondary" />
-            <AppButton title="Confirm" onPress={handleConfirm} />
-          </View>
-        </View>
-      </View>
-    </Modal>
   );
 };
 
@@ -200,20 +140,41 @@ const ImageDetailModal: React.FC<{
       <View style={styles.detailOverlay}>
         <View style={styles.detailContent}>
           <TouchableOpacity style={styles.detailClose} onPress={onClose}>
-            <Text style={styles.detailCloseText}>✕</Text>
+            <X size={24} color="#fff" />
           </TouchableOpacity>
           <Image source={{ uri: image.image_url }} style={styles.detailImage} />
           <View style={styles.detailInfo}>
-            <Text style={styles.detailDate}>📅 {image.date}</Text>
-            {image.teacher_name && (
-              <Text style={styles.detailTeacher}>👨‍🏫 {image.teacher_name}</Text>
-            )}
-            {image.student_count && (
-              <Text style={styles.detailCount}>👥 {image.student_count} students</Text>
-            )}
-            {image.class_grade && image.section && (
-              <Text style={styles.detailClass}>📚 Class {image.class_grade} - Section {image.section}</Text>
-            )}
+            <View style={styles.detailHeader}>
+              <AppText style={styles.detailTitle}>Attendance Details</AppText>
+              <View style={styles.detailDateBadge}>
+                <AppText style={styles.detailDateText}>{image.date}</AppText>
+              </View>
+            </View>
+
+            <View style={styles.detailMetaGrid}>
+              {image.teacher_name && (
+                <View style={styles.detailMetaItem}>
+                  <User size={16} color="#64748B" />
+                  <AppText style={styles.detailMetaText}>{image.teacher_name}</AppText>
+                </View>
+              )}
+              {image.class_grade && (
+                <View style={styles.detailMetaItem}>
+                  <ImageIcon size={16} color="#64748B" />
+                  <AppText style={styles.detailMetaText}>Class {image.class_grade} - {image.section}</AppText>
+                </View>
+              )}
+              {image.student_count !== undefined && (
+                <View style={styles.detailMetaItem}>
+                  <Users size={16} color="#64748B" />
+                  <AppText style={styles.detailMetaText}>{image.student_count} Students Present</AppText>
+                </View>
+              )}
+              <View style={styles.detailMetaItem}>
+                <Camera size={16} color="#64748B" />
+                <AppText style={styles.detailMetaText}>{image.timestamp || 'Verification Shot'}</AppText>
+              </View>
+            </View>
           </View>
         </View>
       </View>
@@ -222,11 +183,14 @@ const ImageDetailModal: React.FC<{
 };
 
 export default function AttendanceGalleryScreen() {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
+
   const [activeTab, setActiveTab] = useState<'teacher' | 'student'>('teacher');
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
   const [teacherId, setTeacherId] = useState<string>('');
-  const [employeeId, setEmployeeId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [teacherImages, setTeacherImages] = useState<GalleryImage[]>([]);
@@ -235,259 +199,224 @@ export default function AttendanceGalleryScreen() {
   const [loadingStudent, setLoadingStudent] = useState<boolean>(false);
   
   // Student filters
-  const [classGrade, setClassGrade] = useState<string>('');
-  const [section, setSection] = useState<string>('');
-  const [showClassSelector, setShowClassSelector] = useState<boolean>(false);
+  const [assignedClasses, setAssignedClasses] = useState<{class_grade: string, section: string}[]>([]);
+  const [selectedClass, setSelectedClass] = useState<string>('');
+  const [selectedSection, setSelectedSection] = useState<string>('');
+
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
   const [showImageDetail, setShowImageDetail] = useState<boolean>(false);
 
   // Load credentials
   useEffect(() => {
-    const loadCredentials = async () => {
+    const load = async () => {
       try {
         const code = await getSchoolCode();
         const bid = await getBranchId();
         const tid = await getTeacherId();
-        const eid = await getEmployeeId();
 
         setSchoolCode(code);
         setBranchId(bid);
         setTeacherId(tid);
-        setEmployeeId(eid);
+
+        if (code && bid && tid) {
+          const assigned = await teacherService.getAssignedClasses(code, bid, tid);
+          setAssignedClasses(assigned);
+          if (assigned.length > 0) {
+            setSelectedClass(assigned[0].class_grade);
+            setSelectedSection(assigned[0].section);
+          }
+        }
       } catch (error) {
-        console.error('Error loading user data:', error);
+        console.error('Error loading data:', error);
       } finally {
         setLoading(false);
       }
     };
-    loadCredentials();
+    load();
   }, []);
 
   // Fetch teacher images
-  const fetchTeacherImages = async () => {
+  const fetchTeacherImages = useCallback(async () => {
     if (!schoolCode || !branchId || !teacherId) return;
-    
     setLoadingTeacher(true);
     try {
       const images = await teacherService.getTeacherGallery(schoolCode, branchId, teacherId);
       setTeacherImages(images);
     } catch (error) {
-      console.error('Failed to fetch teacher images:', error);
+      console.error('Teacher images fetch error:', error);
       setTeacherImages([]);
     } finally {
       setLoadingTeacher(false);
     }
-  };
+  }, [schoolCode, branchId, teacherId]);
 
   // Fetch student images
-  const fetchStudentImages = async () => {
-    if (!schoolCode || !branchId || !classGrade || !section) return;
-    
+  const fetchStudentImages = useCallback(async () => {
+    if (!schoolCode || !branchId || !selectedClass || !selectedSection) return;
     setLoadingStudent(true);
     try {
-      const images = await teacherService.getStudentGallery(schoolCode, branchId, classGrade, section);
+      const images = await teacherService.getStudentGallery(schoolCode, branchId, selectedClass, selectedSection);
       setStudentImages(images);
     } catch (error) {
-      console.error('Failed to fetch student images:', error);
+      console.error('Student images fetch error:', error);
       setStudentImages([]);
     } finally {
       setLoadingStudent(false);
     }
-  };
-
-  // Load data when tab changes or dependencies change
-  useEffect(() => {
-    if (activeTab === 'teacher' && schoolCode && branchId && teacherId) {
-      fetchTeacherImages();
-    }
-  }, [activeTab, schoolCode, branchId, teacherId]);
+  }, [schoolCode, branchId, selectedClass, selectedSection]);
 
   useEffect(() => {
-    if (activeTab === 'student' && schoolCode && branchId && classGrade && section) {
-      fetchStudentImages();
-    }
-  }, [activeTab, schoolCode, branchId, classGrade, section]);
+    if (activeTab === 'teacher') fetchTeacherImages();
+    else if (activeTab === 'student') fetchStudentImages();
+  }, [activeTab, fetchTeacherImages, fetchStudentImages]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    if (activeTab === 'teacher') {
-      await fetchTeacherImages();
-    } else if (activeTab === 'student' && classGrade && section) {
-      await fetchStudentImages();
-    }
+    if (activeTab === 'teacher') await fetchTeacherImages();
+    else await fetchStudentImages();
     setRefreshing(false);
-  }, [activeTab, classGrade, section]);
+  }, [activeTab, fetchTeacherImages, fetchStudentImages]);
 
-  const handleClassSelect = (cls: string, sec: string) => {
-    setClassGrade(cls);
-    setSection(sec);
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
   };
 
-  const handleImagePress = (image: GalleryImage) => {
-    setSelectedImage(image);
-    setShowImageDetail(true);
-  };
+  const classOptions = [...new Set(assignedClasses.map(c => c.class_grade))];
+  const sectionOptions = assignedClasses.filter(c => c.class_grade === selectedClass).map(c => c.section);
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    );
-  }
+  if (loading) return <Loader />;
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>🖼️ Attendance Gallery</Text>
-          <Text style={styles.subtitle}>View and manage attendance verification images</Text>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Navy Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <ChevronLeft size={24} color="#fff" />
+          </TouchableOpacity>
+          <AppText style={styles.headerTitle}>Gallery</AppText>
+          <TouchableOpacity style={styles.notificationBtn}>
+            <Bell size={22} color="#fff" />
+          </TouchableOpacity>
         </View>
 
-        {/* Tabs */}
+        {/* Tab Switcher */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'teacher' && styles.tabActive]}
+            style={[styles.tab, activeTab === 'teacher' && styles.activeTab]}
             onPress={() => setActiveTab('teacher')}
           >
-            <Text style={[styles.tabText, activeTab === 'teacher' && styles.tabTextActive]}>
-              👤 Teacher
-            </Text>
+            <AppText style={[styles.tabText, activeTab === 'teacher' && styles.activeTabText]}>
+              Selfie Logs
+            </AppText>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'student' && styles.tabActive]}
+            style={[styles.tab, activeTab === 'student' && styles.activeTab]}
             onPress={() => setActiveTab('student')}
           >
-            <Text style={[styles.tabText, activeTab === 'student' && styles.tabTextActive]}>
-              👥 Student
-            </Text>
+            <AppText style={[styles.tabText, activeTab === 'student' && styles.activeTabText]}>
+              Class Photos
+            </AppText>
           </TouchableOpacity>
         </View>
+      </View>
 
-        {/* Teacher Tab */}
-        {activeTab === 'teacher' && (
-          <View>
-            <AppCard style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoIcon}>👤</Text>
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoTitle}>Teacher Face Verification Images</Text>
-                  <Text style={styles.infoText}>
-                    These images are captured during teacher attendance verification. They help verify teacher attendance records.
-                  </Text>
-                </View>
-              </View>
-            </AppCard>
-
-            {!schoolCode || !branchId || !teacherId ? (
-              <AppCard style={styles.warningCard}>
-                <View style={styles.warningRow}>
-                  <Text style={styles.warningIcon}>⚠️</Text>
-                  <View>
-                    <Text style={styles.warningTitle}>Missing Information</Text>
-                    <Text style={styles.warningText}>Unable to load teacher data. Please log in again.</Text>
-                  </View>
-                </View>
-              </AppCard>
-            ) : (
-              <ImageGallery
-                images={teacherImages}
-                loading={loadingTeacher}
-                onRefresh={fetchTeacherImages}
-                onImagePress={handleImagePress}
-              />
-            )}
+      <ScrollView
+        contentContainerStyle={styles.contentContainer}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        {/* Context Info Card */}
+        <View style={styles.infoCard}>
+          <View style={styles.infoIconBox}>
+            <Info size={18} color="#001F3F" />
           </View>
-        )}
+          <View style={styles.infoTextBox}>
+            <AppText style={styles.infoTitle}>
+              {activeTab === 'teacher' ? 'Identity Verification' : 'Attendance Evidence'}
+            </AppText>
+            <AppText style={styles.infoDesc}>
+              {activeTab === 'teacher'
+                ? 'Review your attendance verification shots captured during check-ins.'
+                : 'Group photos taken during student attendance marking for verification.'}
+            </AppText>
+          </View>
+        </View>
 
-        {/* Student Tab */}
+        {/* Filters for Student Tab */}
         {activeTab === 'student' && (
-          <View>
-            <AppCard style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoIcon}>👥</Text>
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoTitle}>Student Attendance Class Images</Text>
-                  <Text style={styles.infoText}>
-                    These are the attendance images taken during student attendance marking. They show the class group photo used for face recognition.
-                  </Text>
-                </View>
-              </View>
-            </AppCard>
+          <View style={styles.filterSection}>
+            <View style={styles.filterHeader}>
+              <Filter size={16} color="#64748B" />
+              <AppText style={styles.filterTitleText}>Select Class & Section</AppText>
+            </View>
 
-            {/* Class Selector Button */}
-            <TouchableOpacity
-              style={styles.classSelectorBtn}
-              onPress={() => setShowClassSelector(true)}
-            >
-              <Text style={styles.classSelectorText}>
-                {classGrade && section
-                  ? `Class ${classGrade} - Section ${section}`
-                  : 'Select Class & Section'}
-              </Text>
-              <Text style={styles.classSelectorArrow}>▼</Text>
-            </TouchableOpacity>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
+              {classOptions.map(cls => (
+                <TouchableOpacity
+                  key={cls}
+                  style={[styles.chip, selectedClass === cls && styles.chipActive]}
+                  onPress={() => {
+                    setSelectedClass(cls);
+                    const first = assignedClasses.find(c => c.class_grade === cls)?.section;
+                    if (first) setSelectedSection(first);
+                  }}
+                >
+                  <AppText style={[styles.chipText, selectedClass === cls && styles.chipTextActive]}>
+                    Class {cls}
+                  </AppText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
 
-            {!classGrade || !section ? (
-              <AppCard style={styles.warningCard}>
-                <View style={styles.warningRow}>
-                  <Text style={styles.warningIcon}>⚠️</Text>
-                  <View>
-                    <Text style={styles.warningTitle}>Select a Class</Text>
-                    <Text style={styles.warningText}>
-                      Please select a class from above to view attendance images.
-                    </Text>
-                  </View>
-                </View>
-              </AppCard>
-            ) : (
-              <ImageGallery
-                images={studentImages}
-                loading={loadingStudent}
-                onRefresh={fetchStudentImages}
-                onImagePress={handleImagePress}
-              />
-            )}
+            <View style={styles.sectionRow}>
+              {sectionOptions.map(sec => (
+                <TouchableOpacity
+                  key={sec}
+                  style={[styles.secChip, selectedSection === sec && styles.secChipActive]}
+                  onPress={() => setSelectedSection(sec)}
+                >
+                  <AppText style={[styles.secChipText, selectedSection === sec && styles.secChipTextActive]}>
+                    {sec}
+                  </AppText>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         )}
 
-        {/* Footer Info Cards */}
-        <View style={styles.footerGrid}>
-          <AppCard style={styles.footerCard}>
-            <Text style={styles.footerIcon}>🖼️</Text>
-            <Text style={styles.footerTitle}>Organized Storage</Text>
-            <Text style={styles.footerText}>All images are organized by date and class</Text>
-          </AppCard>
+        {/* Gallery Grid */}
+        <View style={styles.galleryWrapper}>
+          <View style={styles.listHeader}>
+            <AppText style={styles.listHeaderText}>Recent Media</AppText>
+            <AppText style={styles.listHeaderCount}>
+              {(activeTab === 'teacher' ? teacherImages : studentImages).length} Items
+            </AppText>
+          </View>
 
-          <AppCard style={styles.footerCard}>
-            <Text style={styles.footerIcon}>📅</Text>
-            <Text style={styles.footerTitle}>Date Filtering</Text>
-            <Text style={styles.footerText}>View images from specific attendance dates</Text>
-          </AppCard>
-
-          <AppCard style={styles.footerCard}>
-            <Text style={styles.footerIcon}>⬇️</Text>
-            <Text style={styles.footerTitle}>Easy Download</Text>
-            <Text style={styles.footerText}>Download images for record keeping</Text>
-          </AppCard>
+          <ImageGallery
+            images={activeTab === 'teacher' ? teacherImages : studentImages}
+            loading={activeTab === 'teacher' ? loadingTeacher : loadingStudent}
+            onRefresh={onRefresh}
+            onImagePress={(img) => {
+              setSelectedImage(img);
+              setShowImageDetail(true);
+            }}
+          />
         </View>
       </ScrollView>
 
-      {/* Class Selector Modal */}
-      <ClassSelectorModal
-        visible={showClassSelector}
-        selectedClass={classGrade}
-        selectedSection={section}
-        onSelect={handleClassSelect}
-        onClose={() => setShowClassSelector(false)}
-      />
-
-      {/* Image Detail Modal */}
+      {/* Detail Modal */}
       <ImageDetailModal
         visible={showImageDetail}
         image={selectedImage}
@@ -503,290 +432,276 @@ export default function AttendanceGalleryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: '#F8FAFC',
   },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 40,
+  header: {
+    backgroundColor: '#001F3F',
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  loadingContainer: {
-    flex: 1,
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#4a5568',
-  },
-  header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 28,
+  headerTitle: {
+    fontSize: 20,
     fontWeight: '800',
-    color: '#0d1b2a',
+    color: '#ffffff',
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#4a5568',
-    marginTop: 4,
+  notificationBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 12,
   },
   tab: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  tabActive: {
-    backgroundColor: '#2563eb',
+  activeTab: {
+    backgroundColor: '#FFFFFF',
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#4a5568',
+    color: 'rgba(255,255,255,0.6)',
   },
-  tabTextActive: {
-    color: '#fff',
+  activeTabText: {
+    color: '#001F3F',
+  },
+  contentContainer: {
+    padding: 20,
+    paddingBottom: 100,
   },
   infoCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     padding: 16,
     marginBottom: 20,
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
+    borderLeftWidth: 4,
+    borderLeftColor: '#001F3F',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  infoRow: {
-    flexDirection: 'row',
-    gap: 12,
+  infoIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  infoIcon: {
-    fontSize: 20,
-  },
-  infoContent: {
+  infoTextBox: {
     flex: 1,
   },
   infoTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#1e3a8a',
-    marginBottom: 4,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginBottom: 2,
   },
-  infoText: {
-    fontSize: 13,
-    color: '#1e40af',
-    lineHeight: 18,
+  infoDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 16,
+    fontWeight: '500',
   },
-  warningCard: {
+  filterSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     padding: 16,
     marginBottom: 20,
-    backgroundColor: '#fffbeb',
-    borderColor: '#fde68a',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 1,
   },
-  warningRow: {
+  filterHeader: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
   },
-  warningIcon: {
-    fontSize: 20,
-  },
-  warningTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#92400e',
-    marginBottom: 4,
-  },
-  warningText: {
+  filterTitleText: {
     fontSize: 13,
-    color: '#b45309',
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
   },
-  classSelectorBtn: {
+  chipRow: {
+    marginBottom: 12,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  chipActive: {
+    backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  chipTextActive: {
+    color: '#FFFFFF',
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  secChip: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secChipActive: {
+    backgroundColor: '#001F3F',
+  },
+  secChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  secChipTextActive: {
+    color: '#FFFFFF',
+  },
+  galleryWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    elevation: 2,
+  },
+  listHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#e4e9f2',
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
-  classSelectorText: {
-    fontSize: 14,
-    color: '#0d1b2a',
-    fontWeight: '500',
+  listHeaderText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E293B',
   },
-  classSelectorArrow: {
-    fontSize: 12,
-    color: '#4a5568',
+  listHeaderCount: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   imageRow: {
     justifyContent: 'space-between',
-    marginBottom: 12,
+    gap: 12,
   },
   imageCard: {
-    width: (width - 48) / 2,
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    width: (SCREEN_WIDTH - 84) / 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginBottom: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   imageThumb: {
     width: '100%',
     height: 120,
-    resizeMode: 'cover',
+    backgroundColor: '#F1F5F9',
   },
   imageInfo: {
     padding: 8,
   },
-  imageDate: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#2563eb',
+  imageDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  imageTeacher: {
+  imageDate: {
     fontSize: 10,
-    color: '#4a5568',
-    marginTop: 2,
+    fontWeight: '700',
+    color: '#001F3F',
   },
   imageCount: {
-    fontSize: 10,
-    color: '#059669',
+    fontSize: 9,
+    color: '#64748B',
+    fontWeight: '600',
     marginTop: 2,
+  },
+  listLoader: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  loaderText: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
   },
   emptyContainer: {
     alignItems: 'center',
-    padding: 48,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
+    paddingVertical: 60,
   },
   emptyTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#0d1b2a',
-    marginBottom: 4,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginTop: 16,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#4a5568',
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 6,
     textAlign: 'center',
-  },
-  footerGrid: {
-    marginTop: 24,
-    gap: 12,
-  },
-  footerCard: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  footerIcon: {
-    fontSize: 28,
-    marginBottom: 8,
-  },
-  footerTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0d1b2a',
-    marginBottom: 4,
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#4a5568',
-    textAlign: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '100%',
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0d1b2a',
-  },
-  modalClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f0f2f7',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalCloseText: {
-    fontSize: 16,
-    color: '#4a5568',
-  },
-  modalBody: {
-    padding: 16,
-  },
-  modalLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4a5568',
-    marginBottom: 12,
-  },
-  chipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e4e9f2',
-  },
-  chipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
-  },
-  chipText: {
-    fontSize: 14,
-    color: '#4a5568',
-  },
-  chipTextActive: {
-    color: '#fff',
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e4e9f2',
+    paddingHorizontal: 30,
+    fontWeight: '500',
   },
   detailOverlay: {
     flex: 1,
@@ -796,15 +711,14 @@ const styles = StyleSheet.create({
   },
   detailContent: {
     width: '90%',
-    maxHeight: '80%',
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 24,
     overflow: 'hidden',
   },
   detailClose: {
     position: 'absolute',
-    top: 12,
-    right: 12,
+    top: 15,
+    right: 15,
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -813,37 +727,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 10,
   },
-  detailCloseText: {
-    fontSize: 18,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
   detailImage: {
     width: '100%',
-    height: 400,
-    resizeMode: 'contain',
+    height: 350,
+    resizeMode: 'cover',
     backgroundColor: '#000',
   },
   detailInfo: {
-    padding: 16,
+    padding: 20,
   },
-  detailDate: {
-    fontSize: 14,
-    color: '#2563eb',
-    marginBottom: 4,
+  detailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  detailTeacher: {
-    fontSize: 14,
-    color: '#0d1b2a',
-    marginBottom: 4,
+  detailTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
   },
-  detailCount: {
-    fontSize: 14,
-    color: '#059669',
-    marginBottom: 4,
+  detailDateBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#001F3F',
+    borderRadius: 8,
   },
-  detailClass: {
+  detailDateText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  detailMetaGrid: {
+    gap: 12,
+  },
+  detailMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  detailMetaText: {
     fontSize: 14,
-    color: '#4a5568',
+    fontWeight: '600',
+    color: '#475569',
   },
 });

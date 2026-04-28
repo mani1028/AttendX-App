@@ -112,6 +112,23 @@ export const authService = {
       identifier,
     }, true);
   },
+  forgotPasswordReset(
+    schoolId: string,
+    identifier: string,
+    otp: string,
+    resetToken: string,
+    newPassword: string,
+  ) {
+    return postWithFallback(['/auth/forgot-password'], {
+      school_id: schoolId,
+      school_code: schoolId,
+      identifier,
+      otp,
+      reset_token: resetToken,
+      new_password: newPassword,
+      confirm_password: newPassword,
+    }, true);
+  },
   verifyOtp(schoolId: string, identifier: string, otp: string) {
     return postWithFallback(
       ['/auth/verify-otp', '/auth/forgot-password/verify-otp', '/auth/forgot-password'],
@@ -125,7 +142,7 @@ export const authService = {
     );
   },
   resetPassword(schoolId: string, identifier: string, resetToken: string, password: string) {
-    return postWithFallback(['/auth/reset-password', '/auth/forgot-password/reset-password'], {
+    return postWithFallback(['/auth/forgot-password', '/auth/reset-password', '/auth/forgot-password/reset-password'], {
       school_id: schoolId,
       school_code: schoolId,
       identifier,
@@ -133,5 +150,17 @@ export const authService = {
       new_password: password,
       confirm_password: password,
     }, true);
+  },
+  async checkTeacherCapability(schoolId: string, employeeId: string) {
+    const response = await API.get('/auth/teacher-capability', {
+      params: {
+        school_id: schoolId,
+        employee_id: employeeId,
+      },
+      headers: {
+        'X-School-Code': schoolId,
+      },
+    });
+    return response.data;
   },
 };

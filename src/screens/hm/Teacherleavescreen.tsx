@@ -15,7 +15,17 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import Icon from '@react-native-vector-icons/feather';
+import {
+  ChevronLeft,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Calendar,
+  Check,
+  X,
+  AlertCircle
+} from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
@@ -213,11 +223,11 @@ export default function HMTeacherLeavesPage() {
   const getStatusStyle = (status: string) => {
     switch (status) {
       case 'APPROVED':
-        return { bg: C.successSoft, color: C.success, icon: 'check-circle' };
+        return { bg: C.successSoft, color: C.success, icon: CheckCircle };
       case 'REJECTED':
-        return { bg: C.errorSoft, color: C.error, icon: 'x-circle' };
+        return { bg: C.errorSoft, color: C.error, icon: XCircle };
       default:
-        return { bg: C.warningSoft, color: C.warning, icon: 'clock' };
+        return { bg: C.warningSoft, color: C.warning, icon: Clock };
     }
   };
 
@@ -237,7 +247,7 @@ export default function HMTeacherLeavesPage() {
               </AppText>
             </View>
             <View>
-              <AppText style={styles.teacherName}>
+              <AppText style={styles.teacherName} weight="semiBold">
                 {item.teacher_full_name || item.teacher_id}
               </AppText>
               <AppText style={styles.employeeId}>
@@ -246,8 +256,8 @@ export default function HMTeacherLeavesPage() {
             </View>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-            <Icon name={statusStyle.icon as any} size={12} color={statusStyle.color} />
-            <AppText style={[styles.statusText, { color: statusStyle.color }]}>
+            <statusStyle.icon size={12} color={statusStyle.color} />
+            <AppText style={[styles.statusText, { color: statusStyle.color }]} weight="bold">
               {item.status}
             </AppText>
           </View>
@@ -256,25 +266,25 @@ export default function HMTeacherLeavesPage() {
         <View style={styles.cardBody}>
           <View style={styles.dateRange}>
             <View style={styles.dateItem}>
-              <Icon name="calendar" size={14} color={C.textMuted} />
-              <AppText style={styles.dateLabel}>From:</AppText>
-              <AppText style={styles.dateValue}>{formatDate(item.from_date)}</AppText>
+              <Calendar size={14} color={C.textMuted} />
+              <AppText style={styles.dateLabel} weight="regular">From:</AppText>
+              <AppText style={styles.dateValue} weight="semiBold">{formatDate(item.from_date)}</AppText>
             </View>
             <View style={styles.dateItem}>
-              <Icon name="calendar" size={14} color={C.textMuted} />
-              <AppText style={styles.dateLabel}>To:</AppText>
-              <AppText style={styles.dateValue}>{formatDate(item.to_date)}</AppText>
+              <Calendar size={14} color={C.textMuted} />
+              <AppText style={styles.dateLabel} weight="regular">To:</AppText>
+              <AppText style={styles.dateValue} weight="semiBold">{formatDate(item.to_date)}</AppText>
             </View>
           </View>
 
           <View style={styles.reasonContainer}>
-            <AppText style={styles.reasonLabel}>Reason:</AppText>
-            <AppText style={styles.reasonText}>{item.reason}</AppText>
+            <AppText style={styles.reasonLabel} weight="semiBold">Reason:</AppText>
+            <AppText style={styles.reasonText} weight="regular">{item.reason}</AppText>
           </View>
 
           <View style={styles.appliedDate}>
-            <Icon name="clock" size={12} color={C.textMuted} />
-            <AppText style={styles.appliedDateText}>
+            <Clock size={12} color={C.textMuted} />
+            <AppText style={styles.appliedDateText} weight="regular">
               Applied on: {formatDate(item.created_at)}
             </AppText>
           </View>
@@ -287,23 +297,23 @@ export default function HMTeacherLeavesPage() {
               onPress={() => confirmAction(item, 'APPROVED')}
               disabled={actionLoading}
             >
-              <Icon name="check" size={14} color="#fff" />
-              <AppText style={styles.actionBtnText}>Approve</AppText>
+              <Check size={14} color="#fff" />
+              <AppText style={styles.actionBtnText} weight="bold">Approve</AppText>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionBtn, styles.rejectBtn]}
               onPress={() => confirmAction(item, 'REJECTED')}
               disabled={actionLoading}
             >
-              <Icon name="x" size={14} color="#fff" />
-              <AppText style={styles.actionBtnText}>Reject</AppText>
+              <X size={14} color="#fff" />
+              <AppText style={styles.actionBtnText} weight="bold">Reject</AppText>
             </TouchableOpacity>
           </View>
         )}
 
         {!isPending && (
           <View style={styles.resolvedStatus}>
-            <AppText style={styles.resolvedText}>
+            <AppText style={styles.resolvedText} weight="semiBold">
               {item.status === 'APPROVED' ? '✓ Approved' : '✗ Rejected'}
             </AppText>
           </View>
@@ -319,11 +329,11 @@ export default function HMTeacherLeavesPage() {
       {/* Standardized Header */}
       <View style={styles.headerStandard}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
-        <AppText style={styles.headerTitle}>Teacher Leave Approvals</AppText>
+        <AppText style={styles.headerTitle} weight="bold">Teacher Leave Approvals</AppText>
         <TouchableOpacity style={styles.refreshIconBtn} onPress={loadRequests} disabled={loading}>
-          <Icon name="refresh-cw" size={20} color="#fff" />
+          <RefreshCw size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -385,39 +395,39 @@ export default function HMTeacherLeavesPage() {
         {/* Messages */}
         {msg ? (
           <View style={[styles.message, styles.successMessage]}>
-            <Icon name="check-circle" size={16} color={C.success} />
-            <AppText style={styles.successMessageText}>{msg}</AppText>
+            <CheckCircle size={16} color={C.success} />
+            <AppText style={styles.successMessageText} weight="bold">{msg}</AppText>
           </View>
         ) : null}
         
         {error ? (
           <View style={[styles.message, styles.errorMessage]}>
-            <Icon name="alert-circle" size={16} color={C.error} />
-            <AppText style={styles.errorMessageText}>{error}</AppText>
+            <AlertCircle size={16} color={C.error} />
+            <AppText style={styles.errorMessageText} weight="bold">{error}</AppText>
           </View>
         ) : null}
 
         {/* Stats Summary */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <AppText style={styles.statNumber}>{items.length}</AppText>
-            <AppText style={styles.statLabel}>Total Requests</AppText>
+            <AppText style={styles.statNumber} weight="bold">{items.length}</AppText>
+            <AppText style={styles.statLabel} weight="regular">Total Requests</AppText>
           </View>
           <View style={styles.statCard}>
-            <AppText style={[styles.statNumber, styles.pendingNumber]}>{pendingCount}</AppText>
-            <AppText style={styles.statLabel}>Pending</AppText>
+            <AppText style={[styles.statNumber, styles.pendingNumber]} weight="bold">{pendingCount}</AppText>
+            <AppText style={styles.statLabel} weight="regular">Pending</AppText>
           </View>
           <View style={styles.statCard}>
-            <AppText style={[styles.statNumber, styles.approvedNumber]}>
+            <AppText style={[styles.statNumber, styles.approvedNumber]} weight="bold">
               {items.filter(i => i.status === 'APPROVED').length}
             </AppText>
-            <AppText style={styles.statLabel}>Approved</AppText>
+            <AppText style={styles.statLabel} weight="regular">Approved</AppText>
           </View>
           <View style={styles.statCard}>
-            <AppText style={[styles.statNumber, styles.rejectedNumber]}>
+            <AppText style={[styles.statNumber, styles.rejectedNumber]} weight="bold">
               {items.filter(i => i.status === 'REJECTED').length}
             </AppText>
-            <AppText style={styles.statLabel}>Rejected</AppText>
+            <AppText style={styles.statLabel} weight="regular">Rejected</AppText>
           </View>
         </View>
 
@@ -429,17 +439,17 @@ export default function HMTeacherLeavesPage() {
           </View>
         ) : items.length === 0 ? (
           <View style={styles.emptyState}>
-            <Icon name="calendar" size={48} color={C.textMuted} />
-            <AppText style={styles.emptyTitle}>No leave requests found</AppText>
-            <AppText style={styles.emptyText}>
+            <Calendar size={48} color={C.textMuted} />
+            <AppText style={styles.emptyTitle} weight="semiBold">No leave requests found</AppText>
+            <AppText style={styles.emptyText} weight="regular">
               {status ? `No ${status.toLowerCase()} leave requests` : 'No leave requests available'}
             </AppText>
           </View>
         ) : (
           <View style={styles.leavesList}>
             <View style={styles.listHeader}>
-              <AppText style={styles.listHeaderTitle}>Leave Requests</AppText>
-              <AppText style={styles.listHeaderCount}>{items.length} total</AppText>
+              <AppText style={styles.listHeaderTitle} weight="bold">Leave Requests</AppText>
+              <AppText style={styles.listHeaderCount} weight="regular">{items.length} total</AppText>
             </View>
             {items.map(renderLeaveCard)}
           </View>
@@ -456,20 +466,20 @@ export default function HMTeacherLeavesPage() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <AppText style={styles.modalTitle}>Confirm Action</AppText>
+              <AppText style={styles.modalTitle} weight="bold">Confirm Action</AppText>
               <TouchableOpacity onPress={() => setShowStatusModal(false)}>
-                <Icon name="x" size={20} color={C.textMuted} />
+                <X size={20} color={C.textMuted} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalBody}>
-              <AppText style={styles.modalMessage}>
+              <AppText style={styles.modalMessage} weight="regular">
                 Are you sure you want to {selectedLeave?.status === 'PENDING' ? 'process this' : ''} leave request for
               </AppText>
-              <AppText style={styles.modalTeacherName}>
+              <AppText style={styles.modalTeacherName} weight="bold">
                 {selectedLeave?.teacher_full_name || selectedLeave?.teacher_id}
               </AppText>
-              <AppText style={styles.modalDates}>
+              <AppText style={styles.modalDates} weight="semiBold">
                 From {selectedLeave ? formatDate(selectedLeave.from_date) : ''} to {selectedLeave ? formatDate(selectedLeave.to_date) : ''}
               </AppText>
             </View>
@@ -479,7 +489,7 @@ export default function HMTeacherLeavesPage() {
                 style={[styles.modalBtn, styles.cancelModalBtn]}
                 onPress={() => setShowStatusModal(false)}
               >
-                <AppText style={styles.cancelModalBtnText}>Cancel</AppText>
+                <AppText style={styles.cancelModalBtnText} weight="semiBold">Cancel</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.approveModalBtn]}
@@ -490,8 +500,8 @@ export default function HMTeacherLeavesPage() {
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <>
-                    <Icon name="check" size={14} color="#fff" />
-                    <AppText style={styles.approveModalBtnText}>Approve</AppText>
+                    <Check size={14} color="#fff" />
+                    <AppText style={styles.approveModalBtnText} weight="semiBold">Approve</AppText>
                   </>
                 )}
               </TouchableOpacity>
@@ -504,8 +514,8 @@ export default function HMTeacherLeavesPage() {
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <>
-                    <Icon name="x" size={14} color="#fff" />
-                    <AppText style={styles.rejectModalBtnText}>Reject</AppText>
+                    <X size={14} color="#fff" />
+                    <AppText style={styles.rejectModalBtnText} weight="semiBold">Reject</AppText>
                   </>
                 )}
               </TouchableOpacity>
@@ -539,7 +549,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#ffffff',
     textAlign: 'center',
     flex: 1,
@@ -561,7 +570,6 @@ const styles = StyleSheet.create({
   subHeaderText: {
     fontSize: 14,
     color: '#64748b',
-    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
@@ -588,7 +596,6 @@ const styles = StyleSheet.create({
   },
   filterChipText: {
     fontSize: 13,
-    fontWeight: '600',
     color: C.textMuted,
   },
   filterChipTextActive: {
@@ -611,7 +618,6 @@ const styles = StyleSheet.create({
   successMessageText: {
     flex: 1,
     fontSize: 13,
-    fontWeight: '700',
     color: C.success,
   },
   errorMessage: {
@@ -622,7 +628,6 @@ const styles = StyleSheet.create({
   errorMessageText: {
     flex: 1,
     fontSize: 13,
-    fontWeight: '700',
     color: C.error,
   },
   statsContainer: {
@@ -642,7 +647,6 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: 20,
-    fontWeight: '800',
     color: C.text,
   },
   pendingNumber: {
@@ -676,7 +680,6 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 16,
-    fontWeight: '600',
     color: C.text,
     marginTop: 12,
   },
@@ -698,7 +701,6 @@ const styles = StyleSheet.create({
   },
   listHeaderTitle: {
     fontSize: 14,
-    fontWeight: '700',
     color: C.text,
   },
   listHeaderCount: {
@@ -736,12 +738,10 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 18,
-    fontWeight: '700',
     color: C.primary,
   },
   teacherName: {
     fontSize: 15,
-    fontWeight: '700',
     color: C.text,
   },
   employeeId: {
@@ -759,7 +759,6 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 11,
-    fontWeight: '700',
   },
   cardBody: {
     padding: 16,
@@ -780,7 +779,6 @@ const styles = StyleSheet.create({
   },
   dateValue: {
     fontSize: 13,
-    fontWeight: '500',
     color: C.text,
   },
   reasonContainer: {
@@ -788,7 +786,6 @@ const styles = StyleSheet.create({
   },
   reasonLabel: {
     fontSize: 11,
-    fontWeight: '600',
     color: C.textMuted,
     marginBottom: 4,
   },
@@ -830,7 +827,6 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     color: '#ffffff',
-    fontWeight: '700',
     fontSize: 12,
   },
   resolvedStatus: {
@@ -841,7 +837,6 @@ const styles = StyleSheet.create({
   },
   resolvedText: {
     fontSize: 13,
-    fontWeight: '600',
     color: C.textMuted,
   },
   modalOverlay: {
@@ -867,7 +862,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 16,
-    fontWeight: '700',
     color: C.text,
   },
   modalBody: {
@@ -882,7 +876,6 @@ const styles = StyleSheet.create({
   },
   modalTeacherName: {
     fontSize: 16,
-    fontWeight: '700',
     color: C.text,
     marginBottom: 4,
   },
@@ -913,7 +906,6 @@ const styles = StyleSheet.create({
   },
   cancelModalBtnText: {
     fontSize: 13,
-    fontWeight: '600',
     color: C.textMuted,
   },
   approveModalBtn: {
@@ -921,7 +913,6 @@ const styles = StyleSheet.create({
   },
   approveModalBtnText: {
     fontSize: 13,
-    fontWeight: '600',
     color: '#ffffff',
   },
   rejectModalBtn: {
@@ -929,7 +920,6 @@ const styles = StyleSheet.create({
   },
   rejectModalBtnText: {
     fontSize: 13,
-    fontWeight: '600',
     color: '#ffffff',
   },
 });

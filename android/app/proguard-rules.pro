@@ -8,3 +8,18 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+
+# Jitsi SDK
+-keep class org.jitsi.** { *; }
+-keep interface org.jitsi.** { *; }
+-dontwarn org.jitsi.**
+
+# Keep BuildConfig
+-keep class **.BuildConfig { *; }
+-keep class **.R { *; }
+-keep class **.R$* { *; }
+
+# Keep Dropbox SDK
+-keep class com.dropbox.** { *; }
+-dontwarn com.dropbox.**
+

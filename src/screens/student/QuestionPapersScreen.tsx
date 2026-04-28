@@ -17,13 +17,11 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import Icon from '@react-native-vector-icons/feather';
-import API from '../../services/api';
-import { getQuestionPapers, getExamTypes } from '../../services/studentService';
+import { getQuestionPapers, getExamTypes, downloadQuestionPaper } from '../../services/studentService';
 import { colors } from '../../constants/colors';
 import { useAuth } from '../../context/AuthContext';
 
@@ -53,22 +51,6 @@ interface FilterOptions {
   subject: string;
   examType: string;
 }
-
-// Helper functions
-const getSchoolCode = async (): Promise<string> => {
-  const code = await AsyncStorage.getItem('school_code');
-  return code || (await AsyncStorage.getItem('schoolCode')) || '';
-};
-
-const getBranchId = async (): Promise<string> => {
-  const id = await AsyncStorage.getItem('branch_id');
-  return id || (await AsyncStorage.getItem('branchId')) || '';
-};
-
-const getAuthToken = async (): Promise<string> => {
-  const token = await AsyncStorage.getItem('token');
-  return token || '';
-};
 
 const formatDate = (dateString?: string): string => {
   if (!dateString) return '—';
@@ -506,21 +488,9 @@ export default function QuestionPapersScreen() {
         return;
       }
 
-      const code = await getSchoolCode();
-      const bid = await getBranchId();
-      const authToken = await getAuthToken();
-
-      const response = await API.get(`/student/question-papers/${paperId}/download`, {
-        responseType: 'arraybuffer',
-        headers: {
-          'X-School-Code': code,
-          'X-Branch-Id': bid,
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-
       const fileUri = `${RNFS.DocumentDirectoryPath}/question_paper_${paperId}.pdf`;
-      const base64Data = arrayBufferToBase64(response.data);
+      const paperBuffer = await downloadQuestionPaper(paperId);
+      const base64Data = arrayBufferToBase64(paperBuffer);
 
       await RNFS.writeFile(fileUri, base64Data, 'base64');
 
@@ -543,22 +513,10 @@ export default function QuestionPapersScreen() {
         return;
       }
 
-      const code = await getSchoolCode();
-      const bid = await getBranchId();
-      const authToken = await getAuthToken();
-
-      const response = await API.get(`/student/question-papers/${paperId}/download`, {
-        responseType: 'arraybuffer',
-        headers: {
-          'X-School-Code': code,
-          'X-Branch-Id': bid,
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-
       const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const fileUri = `${RNFS.DocumentDirectoryPath}/${sanitizedTitle}.pdf`;
-      const base64Data = arrayBufferToBase64(response.data);
+      const paperBuffer = await downloadQuestionPaper(paperId);
+      const base64Data = arrayBufferToBase64(paperBuffer);
 
       await RNFS.writeFile(fileUri, base64Data, 'base64');
 

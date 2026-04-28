@@ -30,13 +30,27 @@ const FEE_ENDPOINTS = [
   'student-dashboard/fees'
 ];
 const PROFILE_ENDPOINTS = [
-  'student-dashboard/profile'
+  'profile/details',
+  'student-dashboard/profile',
+  'manage/students',
+  'hm/students/directory'
 ];
+const PROFILE_PHOTO_ENDPOINT = 'profile-photo/student';
 const QUESTION_PAPER_ENDPOINTS = [
-  'student/question-papers'
+  'student/question-papers',
+  'student-dashboard/question-papers',
+  'student-dashboard/papers'
 ];
 const EXAM_TYPES_ENDPOINTS = [
-  'student/question-papers/exam-types'
+  'student/question-papers/exam-types',
+  'student-dashboard/question-papers/exam-types',
+  'student-dashboard/papers/exam-types'
+];
+const SCHOOL_HOLIDAYS_ENDPOINTS = [
+  'student/school-holidays'
+];
+const STUDENT_REGISTER_REQUEST_ENDPOINTS = [
+  'student/register-request'
 ];
 const LEAVE_TEACHERS_ENDPOINTS = [
   'student-dashboard/teachers-for-leave'
@@ -79,6 +93,80 @@ function toText(value: unknown, fallback = ''): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return String(value);
   return fallback;
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(item => toText(item, '').trim())
+    .filter(Boolean);
+}
+
+function normalizePhotoSource(value: unknown): string | null {
+  const photo = toText(value, '').trim();
+  if (!photo) return null;
+  if (
+    photo.startsWith('data:') ||
+    photo.startsWith('http://') ||
+    photo.startsWith('https://') ||
+    photo.startsWith('file://') ||
+    photo.startsWith('content://')
+  ) {
+    return photo;
+  }
+
+  const lower = photo.toLowerCase();
+  if (/\.(png|jpe?g|webp|gif)(\?.*)?$/.test(lower)) {
+    return photo;
+  }
+
+  const compact = photo.replace(/\s+/g, '');
+  const likelyBase64 = compact.length > 80 && /^[A-Za-z0-9+/=_-]+$/.test(compact);
+  if (likelyBase64) {
+    const normalized = compact.replace(/-/g, '+').replace(/_/g, '/');
+    return `data:image/jpeg;base64,${normalized}`;
+  }
+
+  return photo;
+}
+
+function arrayBufferToBase64(data: ArrayBuffer): string {
+  const runtimeBuffer = (globalThis as any).Buffer;
+  if (runtimeBuffer?.from) {
+    return runtimeBuffer.from(data).toString('base64');
+  }
+
+  const bytes = new Uint8Array(data);
+  let binary = '';
+  const chunkSize = 0x8000;
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+
+  const btoaFn = (globalThis as any).btoa;
+  if (typeof btoaFn === 'function') {
+    return btoaFn(binary);
+  }
+
+  throw new Error('Base64 encoder is unavailable');
+}
+
+function normalizeContentType(value: unknown): string {
+  const raw = toText(value, '').trim().toLowerCase();
+  if (!raw) return 'image/jpeg';
+  if (raw.includes('image/png')) return 'image/png';
+  if (raw.includes('image/webp')) return 'image/webp';
+  if (raw.includes('image/gif')) return 'image/gif';
+  return 'image/jpeg';
+}
+
+function firstNonEmptyStringArray(...values: unknown[]): string[] {
+  for (const value of values) {
+    const items = toStringArray(value);
+    if (items.length > 0) return items;
+  }
+  return [];
 }
 
 /**
@@ -357,39 +445,220 @@ export async function getStudentProfilePhotoUrl(studentId?: string, schoolCode?:
   return `${url}${separator}school_code=${encodeURIComponent(resolvedSchoolCode)}`;
 }
 
+export async function getStudentProfilePhotoDataUri(studentId?: string, schoolCode?: string): Promise<string | null> {
+  const resolvedStudentId =
+    studentId ||
+    (await AsyncStorage.getItem('student_id')) ||
+    (await AsyncStorage.getItem('studentId')) ||
+    '';
+
+  if (!resolvedStudentId) return null;
+
+  const resolvedSchoolCode =
+    schoolCode ||
+    (await AsyncStorage.getItem('school_code')) ||
+    (await AsyncStorage.getItem('schoolCode')) ||
+    '';
+
+  try {
+    const response = await API.get<ArrayBuffer>(`${PROFILE_PHOTO_ENDPOINT}/${encodeURIComponent(resolvedStudentId)}`, {
+      params: resolvedSchoolCode ? { school_code: resolvedSchoolCode } : undefined,
+      responseType: 'arraybuffer',
+      ...FALLBACK_404_CONFIG,
+    } as any);
+
+    const contentType = normalizeContentType((response.headers as any)?.['content-type']);
+    const base64 = arrayBufferToBase64(response.data);
+    return `data:${contentType};base64,${base64}`;
+  } catch {
+    return null;
+  }
+}
+
 export async function getStudentProfile(): Promise<any> {
   try {
+    const storedUserRaw = await AsyncStorage.getItem('user');
+    const storedUser = storedUserRaw ? (() => {
+      try {
+        return JSON.parse(storedUserRaw);
+      } catch {
+        return {};
+      }
+    })() : {};
+
     const responseData = await getFirstSuccessful<any>(PROFILE_ENDPOINTS);
     const root = asRecord(responseData);
-    const raw = asRecord(firstDefined(root.data, root.profile, root.student, root.user, responseData));
+    const studentId = String(
+      (await AsyncStorage.getItem('student_id')) ||
+      (await AsyncStorage.getItem('studentId')) ||
+      root.student_id ||
+      ''
+    ).trim();
+
+    const candidateList = [
+      root.data,
+      root.items,
+      root.students,
+      root.records,
+      responseData,
+    ].find(Array.isArray) as any[] | undefined;
+
+    const listMatch = candidateList?.find((item: any) => {
+      const row = asRecord(item);
+      const rowId = String(firstDefined(row.student_id, row.studentId, row.id, row.code, row.student_no, row.roll_number, '') || '').trim();
+      return studentId ? rowId === studentId : Boolean(rowId);
+    });
+
+    const raw = asRecord(firstDefined(listMatch, root.data, root.profile, root.student, root.user, storedUser, responseData));
+    let photoSource = normalizePhotoSource(firstDefined(
+      raw.student_photograph,
+      raw.profile_photo_url,
+      raw.photo_url,
+      raw.photo,
+      raw.avatar,
+      root.student_photograph,
+      root.profile_photo_url,
+      root.photo_url,
+      root.photo,
+      root.avatar,
+      storedUser?.student_photograph,
+      storedUser?.profile_photo_url,
+      storedUser?.photo_url,
+      storedUser?.photo,
+      storedUser?.avatar,
+    ));
+
+    if (!photoSource) {
+      const resolvedStudentId = toText(firstDefined(raw.student_id, raw.studentId, root.student_id, storedUser?.student_id, storedUser?.studentId)).trim();
+      const resolvedSchoolCode = toText(firstDefined(raw.school_code, root.school_code, storedUser?.school_code)).trim();
+      photoSource = await getStudentProfilePhotoDataUri(resolvedStudentId, resolvedSchoolCode);
+
+      if (!photoSource) {
+        photoSource = await getStudentProfilePhotoUrl(resolvedStudentId, resolvedSchoolCode);
+      }
+    }
 
     return {
       ...raw,
-      name: toText(firstDefined(raw.name, raw.full_name, raw.student_name)),
-      email: toText(firstDefined(raw.email, raw.email_address)),
-      phone: toText(firstDefined(raw.phone, raw.mobile)),
-      student_id: toText(firstDefined(raw.student_id, root.student_id)),
-      class_grade: toText(firstDefined(raw.class_grade, raw.class_name)),
-      section: toText(firstDefined(raw.section, raw.section_name)),
-      school_name: toText(firstDefined(raw.school_name, raw.school)),
+      profile_photo_url: photoSource || toText(firstDefined(raw.profile_photo_url, root.profile_photo_url)),
+      student_photograph: toText(firstDefined(raw.student_photograph, root.student_photograph)),
+      name: toText(firstDefined(raw.name, raw.full_name, raw.student_name, raw.student_full_name, storedUser?.name, storedUser?.full_name)),
+      email: toText(firstDefined(raw.email, raw.email_address, storedUser?.email)),
+      phone: toText(firstDefined(raw.phone, raw.mobile, raw.phone_number, storedUser?.phone)),
+      student_id: toText(firstDefined(raw.student_id, raw.studentId, root.student_id, storedUser?.student_id, storedUser?.studentId)),
+      class_grade: toText(firstDefined(raw.class_grade, raw.class_name, raw.student_class, storedUser?.class_grade, storedUser?.class_name)),
+      section: toText(firstDefined(raw.section, raw.section_name, storedUser?.section)),
+      roll_number: toText(firstDefined(raw.roll_number, raw.rollNo, storedUser?.roll_number)),
+      school_code: toText(firstDefined(raw.school_code, root.school_code, storedUser?.school_code)),
+      school_name: toText(firstDefined(raw.school_name, raw.school, storedUser?.school_name)),
+      branch_id: toText(firstDefined(raw.branch_id, storedUser?.branch_id)),
+      branch_name: toText(firstDefined(raw.branch_name, storedUser?.branch_name)),
+      blood_group: toText(firstDefined(raw.blood_group, storedUser?.blood_group)),
     };
   } catch (error) {
-    return {};
+    try {
+      const storedUserRaw = await AsyncStorage.getItem('user');
+      return storedUserRaw ? JSON.parse(storedUserRaw) : {};
+    } catch {
+      return {};
+    }
   }
 }
 
 export async function getQuestionPapers(params?: any): Promise<any> {
   const data = await getFirstSuccessful<any>(QUESTION_PAPER_ENDPOINTS, params);
-  return data;
+  const root = asRecord(data);
+  const wrapped = asRecord(firstDefined(root.data, root.result));
+
+  const subjects =
+    (Array.isArray(root.subjects) && root.subjects) ||
+    (Array.isArray(root.papers_by_subject) && root.papers_by_subject) ||
+    (Array.isArray(root.items) && root.items) ||
+    (Array.isArray(root.grouped_by_subject) && root.grouped_by_subject) ||
+    (Array.isArray(root.question_papers_by_subject) && root.question_papers_by_subject) ||
+    (Array.isArray(wrapped.subjects) && wrapped.subjects) ||
+    (Array.isArray(wrapped.papers_by_subject) && wrapped.papers_by_subject) ||
+    (Array.isArray(wrapped.items) && wrapped.items) ||
+    (Array.isArray(wrapped.grouped_by_subject) && wrapped.grouped_by_subject) ||
+    (Array.isArray(wrapped.question_papers_by_subject) && wrapped.question_papers_by_subject) ||
+    [];
+
+  return {
+    ...root,
+    data: wrapped,
+    subjects,
+  };
 }
 
 export async function getExamTypes(): Promise<any> {
   try {
     const data = await getFirstSuccessful<any>(EXAM_TYPES_ENDPOINTS);
-    return data;
+    const root = asRecord(data);
+    const wrapped = asRecord(firstDefined(root.data, root.result));
+    const examTypes = firstNonEmptyStringArray(
+      root.exam_types,
+      root.examTypes,
+      root.items,
+      wrapped.exam_types,
+      wrapped.examTypes,
+      wrapped.items,
+      data,
+    );
+
+    return {
+      ...root,
+      data: wrapped,
+      exam_types: examTypes,
+    };
   } catch (error) {
-    return { exam_types: [] };
+    // Some deployments do not expose a dedicated exam-type endpoint.
+    // Fallback: infer exam types from question papers response.
+    try {
+      const papersResponse = await getQuestionPapers();
+      const subjects = Array.isArray(papersResponse?.subjects) ? papersResponse.subjects : [];
+      const types = new Set<string>();
+
+      subjects.forEach((subject: any) => {
+        const papers = Array.isArray(subject?.papers) ? subject.papers : [];
+        papers.forEach((paper: any) => {
+          const type = toText(paper?.exam_type, '').trim();
+          if (type) {
+            types.add(type);
+          }
+        });
+      });
+
+      return { exam_types: Array.from(types) };
+    } catch (fallbackError) {
+      return { exam_types: [] };
+    }
   }
+}
+
+export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffer> {
+  const endpoints = [
+    `student/question-papers/${encodeURIComponent(paperId)}/download`,
+    `student-dashboard/question-papers/${encodeURIComponent(paperId)}/download`,
+    `student-dashboard/papers/${encodeURIComponent(paperId)}/download`,
+  ];
+
+  let lastError: unknown;
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await API.get<ArrayBuffer>(endpoint, {
+        responseType: 'arraybuffer',
+      });
+      return response.data;
+    } catch (error: any) {
+      lastError = error;
+      if (error.response?.status !== 404) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError ?? new Error('Could not download question paper');
 }
 
 export async function getTeachersForLeave(): Promise<any[]> {
@@ -445,4 +714,35 @@ export async function getHomework(params: any): Promise<any[]> {
   } catch (error) {
     return [];
   }
+}
+
+export async function getSchoolHolidays(params: any = {}): Promise<any[]> {
+  try {
+    const data = await getFirstSuccessful<any>(SCHOOL_HOLIDAYS_ENDPOINTS, params);
+    return data?.items || data?.holidays || data?.calendar || (Array.isArray(data) ? data : []);
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function submitStudentRegisterRequest(formData: FormData): Promise<any> {
+  let lastError: unknown;
+
+  for (const endpoint of STUDENT_REGISTER_REQUEST_ENDPOINTS) {
+    try {
+      const response = await API.post(endpoint, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error: any) {
+      lastError = error;
+      if (error.response?.status !== 404) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError ?? new Error('Could not submit student registration request');
 }

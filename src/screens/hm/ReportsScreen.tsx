@@ -14,7 +14,17 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import Icon from '@react-native-vector-icons/feather';
+import {
+  ChevronLeft,
+  RefreshCw,
+  BarChart2,
+  PieChart,
+  Folder,
+  Calendar,
+  TrendingUp,
+  Activity,
+  FileText,
+} from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
@@ -164,11 +174,11 @@ const Reports = () => {
       {/* Standardized Header */}
       <View style={styles.headerStandard}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
-        <AppText style={styles.headerTitle}>Financial Reports</AppText>
+        <AppText style={styles.headerTitle} weight="bold">Financial Reports</AppText>
         <TouchableOpacity style={styles.refreshIconBtn} onPress={() => fetchReports()}>
-          <Icon name="refresh-cw" size={20} color="#fff" />
+          <RefreshCw size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -181,14 +191,17 @@ const Reports = () => {
         }
       >
         <View style={styles.subHeader}>
-          <AppText style={styles.subHeaderText}>Monthly fee collection analysis</AppText>
+          <View style={styles.subHeaderRow}>
+            <FileText size={16} color="#64748b" />
+            <AppText style={styles.subHeaderText} weight="semiBold">Monthly fee collection analysis</AppText>
+          </View>
         </View>
 
         {/* Monthly Collections Section */}
         <View style={styles.reportSection}>
           <View style={styles.sectionHeader}>
-            <Icon name="bar-chart-2" size={20} color={C.primary} />
-            <AppText style={styles.sectionTitle}>📊 Monthly Collections</AppText>
+            <BarChart2 size={20} color={C.primary} />
+            <AppText style={styles.sectionTitle} weight="bold">Monthly Collections</AppText>
           </View>
           
           {loading && collections.length === 0 ? (
@@ -213,8 +226,8 @@ const Reports = () => {
             </View>
           ) : (
             <View style={styles.emptyContainer}>
-              <Icon name="folder" size={48} color={C.border} />
-              <AppText style={styles.emptyText}>No collection data available.</AppText>
+              <Folder size={48} color={C.border} />
+              <AppText style={styles.emptyText} weight="semiBold">No collection data available.</AppText>
             </View>
           )}
         </View>
@@ -222,33 +235,33 @@ const Reports = () => {
         {/* Summary Section */}
         <View style={styles.reportSection}>
           <View style={styles.sectionHeader}>
-            <Icon name="pie-chart" size={20} color={C.primary} />
-            <AppText style={styles.sectionTitle}>📈 Summary</AppText>
+            <PieChart size={20} color={C.primary} />
+            <AppText style={styles.sectionTitle} weight="bold">Summary</AppText>
           </View>
 
           <View style={styles.summaryTable}>
             <View style={styles.summaryRow}>
-              <AppText style={styles.summaryLabel}>Total Months</AppText>
+              <AppText style={styles.summaryLabel} weight="semiBold">Total Months</AppText>
               <AppText style={styles.summaryValue}>{collections.length}</AppText>
             </View>
             
             <View style={styles.summaryRow}>
-              <AppText style={styles.summaryLabel}>Highest Collection</AppText>
-              <AppText style={[styles.summaryValue, styles.highlightValue]}>
+              <AppText style={styles.summaryLabel} weight="semiBold">Highest Collection</AppText>
+              <AppText style={[styles.summaryValue, styles.highlightValue]} weight="bold">
                 {formatAmount(maxCollection)}
               </AppText>
             </View>
             
             <View style={styles.summaryRow}>
-              <AppText style={styles.summaryLabel}>Average Collection</AppText>
-              <AppText style={styles.summaryValue}>
+              <AppText style={styles.summaryLabel} weight="semiBold">Average Collection</AppText>
+              <AppText style={styles.summaryValue} weight="semiBold">
                 {formatAmount(averageCollection)}
               </AppText>
             </View>
             
             <View style={styles.summaryRow}>
-              <AppText style={styles.summaryLabel}>Total Collection</AppText>
-              <AppText style={[styles.summaryValue, styles.totalValue]}>
+              <AppText style={styles.summaryLabel} weight="semiBold">Total Collection</AppText>
+              <AppText style={[styles.summaryValue, styles.totalValue]} weight="bold">
                 {formatAmount(totalCollections)}
               </AppText>
             </View>
@@ -259,19 +272,19 @@ const Reports = () => {
         {collections.length > 0 && (
           <View style={styles.statsContainer}>
             <View style={styles.statCard}>
-              <Icon name="calendar" size={24} color={C.primary} />
-              <AppText style={styles.statNumber}>{collections.length}</AppText>
-              <AppText style={styles.statLabel}>Months</AppText>
+              <Calendar size={24} color={C.primary} />
+              <AppText style={styles.statNumber} weight="bold">{collections.length}</AppText>
+              <AppText style={styles.statLabel} weight="semiBold">Months</AppText>
             </View>
             <View style={styles.statCard}>
-              <Icon name="trending-up" size={24} color={C.success} />
-              <AppText style={styles.statNumber}>{formatAmountCompact(maxCollection)}</AppText>
-              <AppText style={styles.statLabel}>Highest</AppText>
+              <TrendingUp size={24} color={C.success} />
+              <AppText style={styles.statNumber} weight="bold">{formatAmountCompact(maxCollection)}</AppText>
+              <AppText style={styles.statLabel} weight="semiBold">Highest</AppText>
             </View>
             <View style={styles.statCard}>
-              <Icon name="activity" size={24} color={C.warning} />
-              <AppText style={styles.statNumber}>{formatAmountCompact(averageCollection)}</AppText>
-              <AppText style={styles.statLabel}>Average</AppText>
+              <Activity size={24} color={C.warning} />
+              <AppText style={styles.statNumber} weight="bold">{formatAmountCompact(averageCollection)}</AppText>
+              <AppText style={styles.statLabel} weight="semiBold">Average</AppText>
             </View>
           </View>
         )}
@@ -279,20 +292,20 @@ const Reports = () => {
         {/* Trend Analysis */}
         {collections.length > 1 && (
           <View style={styles.trendSection}>
-            <AppText style={styles.trendTitle}>Trend Analysis</AppText>
+            <AppText style={styles.trendTitle} weight="bold">Trend Analysis</AppText>
             <View style={styles.trendGrid}>
               <View style={styles.trendItem}>
-                <AppText style={styles.trendLabel}>Best Month</AppText>
+                <AppText style={styles.trendLabel} weight="semiBold">Best Month</AppText>
                 {collections.reduce((best, current) => 
                   current.total > best.total ? current : best, collections[0]
                 ).month && (
                   <>
-                    <AppText style={styles.trendValue}>
+                    <AppText style={styles.trendValue} weight="bold">
                       {formatMonth(collections.reduce((best, current) => 
                         current.total > best.total ? current : best, collections[0]
                       ).month)}
                     </AppText>
-                    <AppText style={styles.trendAmount}>
+                    <AppText style={styles.trendAmount} weight="semiBold">
                       {formatAmount(collections.reduce((best, current) => 
                         current.total > best.total ? current : best, collections[0]
                       ).total)}
@@ -301,13 +314,13 @@ const Reports = () => {
                 )}
               </View>
               <View style={styles.trendItem}>
-                <AppText style={styles.trendLabel}>Growth Trend</AppText>
+                <AppText style={styles.trendLabel} weight="semiBold">Growth Trend</AppText>
                 {collections.length >= 2 && (
                   <>
-                    <AppText style={styles.trendValue}>
+                    <AppText style={styles.trendValue} weight="bold">
                       {collections[collections.length - 1].total > collections[0].total ? '↑ Positive' : '↓ Negative'}
                     </AppText>
-                    <AppText style={styles.trendAmount}>
+                    <AppText style={styles.trendAmount} weight="semiBold">
                       {((collections[collections.length - 1].total - collections[0].total) / collections[0].total * 100).toFixed(1)}%
                     </AppText>
                   </>
@@ -343,7 +356,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#ffffff',
     textAlign: 'center',
     flex: 1,
@@ -362,10 +374,14 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e2e8f0',
     marginBottom: 8,
   },
+  subHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   subHeaderText: {
     fontSize: 14,
     color: '#64748b',
-    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
@@ -387,7 +403,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: C.text,
   },
   loadingContainer: {
@@ -417,7 +432,6 @@ const styles = StyleSheet.create({
   },
   label: {
     minWidth: 80,
-    fontWeight: '600',
     color: C.text,
     fontSize: 13,
   },
@@ -440,7 +454,6 @@ const styles = StyleSheet.create({
   barValue: {
     color: '#ffffff',
     fontSize: 11,
-    fontWeight: '600',
   },
   summaryTable: {
     marginTop: 8,
@@ -454,22 +467,18 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   summaryLabel: {
-    fontWeight: '600',
     color: C.textMuted,
     fontSize: 14,
   },
   summaryValue: {
     fontSize: 14,
-    fontWeight: '500',
     color: C.text,
   },
   highlightValue: {
     color: C.primary,
-    fontWeight: '700',
   },
   totalValue: {
     color: C.success,
-    fontWeight: '700',
     fontSize: 16,
   },
   statsContainer: {
@@ -489,7 +498,6 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: 20,
-    fontWeight: '800',
     color: C.text,
     marginTop: 8,
   },
@@ -509,7 +517,6 @@ const styles = StyleSheet.create({
   },
   trendTitle: {
     fontSize: 16,
-    fontWeight: '700',
     color: C.text,
     marginBottom: 16,
   },
@@ -530,7 +537,6 @@ const styles = StyleSheet.create({
   },
   trendValue: {
     fontSize: 14,
-    fontWeight: '600',
     color: C.text,
   },
   trendAmount: {

@@ -14,7 +14,16 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from '@react-native-vector-icons/feather';
+import {
+  ChevronLeft,
+  CircleDollarSign,
+  Clock,
+  TrendingUp,
+  BarChart2,
+  PieChart,
+  RefreshCw,
+  AlertCircle
+} from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
@@ -126,7 +135,7 @@ const SummaryCards = () => {
         value: summaryData.total_fees_collected,
         formattedValue: formatAmount(summaryData.total_fees_collected),
         gradient: ['#059669', '#10b981'],
-        icon: 'dollar-sign',
+        icon: CircleDollarSign,
         iconBg: '#05966920',
       },
       {
@@ -134,7 +143,7 @@ const SummaryCards = () => {
         value: summaryData.total_pending_fees,
         formattedValue: formatAmount(summaryData.total_pending_fees),
         gradient: ['#dc2626', '#ef4444'],
-        icon: 'clock',
+        icon: Clock,
         iconBg: '#dc262620',
       },
       {
@@ -142,7 +151,7 @@ const SummaryCards = () => {
         value: summaryData.total_expenses,
         formattedValue: formatAmount(summaryData.total_expenses),
         gradient: ['#f59e0b', '#fbbf24'],
-        icon: 'trending-up',
+        icon: TrendingUp,
         iconBg: '#f59e0b20',
       },
       {
@@ -150,7 +159,7 @@ const SummaryCards = () => {
         value: summaryData.net_balance,
         formattedValue: formatAmount(summaryData.net_balance),
         gradient: ['#2563eb', '#3b82f6'],
-        icon: 'bar-chart-2',
+        icon: BarChart2,
         iconBg: '#2563eb20',
       },
     ];
@@ -168,11 +177,11 @@ const SummaryCards = () => {
   if (!summary) {
     return (
       <View style={styles.errorContainer}>
-        <Icon name="alert-circle" size={48} color="#dc2626" />
-        <AppText style={styles.errorTitle}>Error Loading Summary</AppText>
+        <AlertCircle size={48} color="#dc2626" />
+        <AppText style={styles.errorTitle} weight="bold">Error Loading Summary</AppText>
         <AppText style={styles.errorText}>Unable to load dashboard data</AppText>
         <TouchableOpacity style={styles.retryButton} onPress={fetchSummary}>
-          <AppText style={styles.retryButtonText}>Retry</AppText>
+          <AppText style={styles.retryButtonText} weight="semiBold">Retry</AppText>
         </TouchableOpacity>
       </View>
     );
@@ -187,7 +196,7 @@ const SummaryCards = () => {
       {/* Standardized Header */}
       <View style={styles.headerStandard}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} weight="bold">Summary Cards</AppText>
         <View style={{ width: 40 }} />
@@ -207,11 +216,11 @@ const SummaryCards = () => {
               <View style={[styles.card, { backgroundColor: card.gradient[0] }]}>
                 <View style={styles.cardContent}>
                   <View style={[styles.iconContainer, { backgroundColor: card.iconBg }]}>
-                    <Icon name={card.icon} size={28} color="#fff" />
+                    <card.icon size={28} color="#fff" />
                   </View>
                   <View style={styles.infoContainer}>
-                    <AppText style={styles.label}>{card.label}</AppText>
-                    <AppText style={styles.value}>{card.formattedValue}</AppText>
+                    <AppText style={styles.label} weight="semiBold">{card.label}</AppText>
+                    <AppText style={styles.value} weight="bold">{card.formattedValue}</AppText>
                     <AppText style={styles.compactValue}>{formatAmountCompact(card.value)}</AppText>
                   </View>
                 </View>
@@ -222,14 +231,14 @@ const SummaryCards = () => {
 
         <View style={styles.summarySection}>
           <View style={styles.summaryHeader}>
-            <Icon name="pie-chart" size={20} color="#001F3F" />
-            <AppText style={styles.summaryTitle}>Financial Summary</AppText>
+            <PieChart size={20} color="#001F3F" />
+            <AppText style={styles.summaryTitle} weight="bold">Financial Summary</AppText>
           </View>
 
           <View style={styles.summaryGrid}>
             <View style={styles.summaryItem}>
-              <AppText style={styles.summaryLabel}>Collection Rate</AppText>
-              <AppText style={styles.summaryValue}>
+              <AppText style={styles.summaryLabel} weight="semiBold">Collection Rate</AppText>
+              <AppText style={styles.summaryValue} weight="bold">
                 {summary.total_fees_collected + summary.total_pending_fees > 0
                   ? ((summary.total_fees_collected / (summary.total_fees_collected + summary.total_pending_fees)) * 100).toFixed(1)
                   : 0}%
@@ -249,8 +258,8 @@ const SummaryCards = () => {
             </View>
 
             <View style={styles.summaryItem}>
-              <AppText style={styles.summaryLabel}>Expense Ratio</AppText>
-              <AppText style={styles.summaryValue}>
+              <AppText style={styles.summaryLabel} weight="semiBold">Expense Ratio</AppText>
+              <AppText style={styles.summaryValue} weight="bold">
                 {summary.total_fees_collected > 0
                   ? ((summary.total_expenses / summary.total_fees_collected) * 100).toFixed(1)
                   : 0}%
@@ -272,15 +281,15 @@ const SummaryCards = () => {
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <AppText style={styles.statLabel}>Total Fees</AppText>
-              <AppText style={styles.statValue}>
+              <AppText style={styles.statLabel} weight="semiBold">Total Fees</AppText>
+              <AppText style={styles.statValue} weight="bold">
                 {formatAmount(summary.total_fees_collected + summary.total_pending_fees)}
               </AppText>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <AppText style={styles.statLabel}>Profit Margin</AppText>
-              <AppText style={[styles.statValue, summary.net_balance >= 0 ? styles.positive : styles.negative]}>
+              <AppText style={styles.statLabel} weight="semiBold">Profit Margin</AppText>
+              <AppText style={[styles.statValue, summary.net_balance >= 0 ? styles.positive : styles.negative]} weight="bold">
                 {summary.total_fees_collected > 0
                   ? ((summary.net_balance / summary.total_fees_collected) * 100).toFixed(1)
                   : 0}%
@@ -290,8 +299,8 @@ const SummaryCards = () => {
         </View>
 
         <TouchableOpacity style={styles.refreshButton} onPress={fetchSummary}>
-          <Icon name="refresh-cw" size={16} color="#fff" />
-          <AppText style={styles.refreshButtonText}>Refresh Data</AppText>
+          <RefreshCw size={16} color="#fff" />
+          <AppText style={styles.refreshButtonText} weight="semiBold">Refresh Data</AppText>
         </TouchableOpacity>
 
         <View style={styles.footer}>
@@ -352,7 +361,6 @@ const styles = StyleSheet.create({
   },
   errorTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#0f172a',
     marginTop: 12,
   },
@@ -370,7 +378,6 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: '#fff',
-    fontWeight: '600',
     fontSize: 14,
   },
   cardsContainer: {
@@ -413,7 +420,6 @@ const styles = StyleSheet.create({
   },
   value: {
     fontSize: 24,
-    fontWeight: 'bold',
     color: '#ffffff',
   },
   compactValue: {
@@ -439,7 +445,6 @@ const styles = StyleSheet.create({
   },
   summaryTitle: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#0f172a',
   },
   summaryGrid: {
@@ -452,11 +457,9 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: 12,
     color: '#64748b',
-    fontWeight: '600',
   },
   summaryValue: {
     fontSize: 20,
-    fontWeight: '700',
     color: '#0f172a',
   },
   progressBarContainer: {
@@ -490,12 +493,10 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 11,
     color: '#64748b',
-    fontWeight: '600',
     marginBottom: 4,
   },
   statValue: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#0f172a',
   },
   statDivider: {
@@ -523,7 +524,6 @@ const styles = StyleSheet.create({
   },
   refreshButtonText: {
     color: '#ffffff',
-    fontWeight: '600',
     fontSize: 14,
   },
   footer: {

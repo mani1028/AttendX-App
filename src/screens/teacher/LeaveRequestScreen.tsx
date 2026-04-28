@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -21,6 +20,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import API from '../../services/api';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
+import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 
@@ -89,9 +89,9 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   return (
     <View style={[styles.badge, { backgroundColor: bgColor }]}>
       {icon}
-      <Text style={[styles.badgeText, { color: textColor }]}>
+      <AppText weight="bold" style={[styles.badgeText, { color: textColor }]}>
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 };
@@ -109,11 +109,11 @@ const LeaveHistoryCard: React.FC<{ request: LeaveRequest }> = ({ request }) => {
       <View style={styles.historyHeader}>
         <View style={styles.dateRangeContainer}>
           <Calendar size={16} color="#64748b" />
-          <Text style={styles.dateText}>{formatDate(request.from_date)}</Text>
+          <AppText weight="semiBold" style={styles.dateText}>{formatDate(request.from_date)}</AppText>
           {request.from_date !== request.to_date && (
             <>
-              <Text style={styles.dateArrow}>→</Text>
-              <Text style={styles.dateText}>{formatDate(request.to_date)}</Text>
+              <AppText style={styles.dateArrow}>→</AppText>
+              <AppText weight="semiBold" style={styles.dateText}>{formatDate(request.to_date)}</AppText>
             </>
           )}
         </View>
@@ -122,13 +122,13 @@ const LeaveHistoryCard: React.FC<{ request: LeaveRequest }> = ({ request }) => {
       
       <View style={styles.reasonContainer}>
         <FileText size={14} color="#94a3b8" style={{ marginTop: 2 }} />
-        <Text style={styles.reasonText} numberOfLines={2}>{request.reason}</Text>
+        <AppText style={styles.reasonText} numberOfLines={2}>{request.reason}</AppText>
       </View>
       
       <View style={styles.cardFooter}>
-        <Text style={styles.appliedDate}>
+        <AppText style={styles.appliedDate}>
           Applied on {formatDate(request.created_at)}
-        </Text>
+        </AppText>
       </View>
     </AppCard>
   );
@@ -315,13 +315,13 @@ export default function LeaveRequestScreen() {
           >
             <ChevronLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.heroTitle}>Leave Request</Text>
+          <AppText weight="bold" style={styles.heroTitle}>Leave Request</AppText>
           <View style={{ width: 40 }} />
         </View>
 
         <View style={styles.heroContent}>
-          <Text style={styles.heroGreeting}>Request Time Off</Text>
-          <Text style={styles.heroSubtext}>Submit and track your leave applications</Text>
+          <AppText weight="bold" style={styles.heroGreeting}>Request Time Off</AppText>
+          <AppText style={styles.heroSubtext}>Submit and track your leave applications</AppText>
         </View>
       </View>
 
@@ -336,7 +336,7 @@ export default function LeaveRequestScreen() {
         <AppCard style={styles.mainCard}>
           <View style={styles.cardHeader}>
             <Calendar size={20} color="#001F3F" />
-            <Text style={styles.cardTitle}>New Application</Text>
+            <AppText weight="bold" style={styles.cardTitle}>New Application</AppText>
           </View>
 
           <View style={styles.typeSelector}>
@@ -344,34 +344,34 @@ export default function LeaveRequestScreen() {
               style={[styles.typeBtn, leaveType === 'one-day' && styles.typeBtnActive]}
               onPress={() => setLeaveType('one-day')}
             >
-              <Text style={[styles.typeBtnText, leaveType === 'one-day' && styles.typeBtnTextActive]}>Single Day</Text>
+              <AppText weight="semiBold" style={[styles.typeBtnText, leaveType === 'one-day' && styles.typeBtnTextActive]}>Single Day</AppText>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.typeBtn, leaveType === 'multiple' && styles.typeBtnActive]}
               onPress={() => setLeaveType('multiple')}
             >
-              <Text style={[styles.typeBtnText, leaveType === 'multiple' && styles.typeBtnTextActive]}>Multiple Days</Text>
+              <AppText weight="semiBold" style={[styles.typeBtnText, leaveType === 'multiple' && styles.typeBtnTextActive]}>Multiple Days</AppText>
             </TouchableOpacity>
           </View>
 
           <View style={styles.formRow}>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{leaveType === 'one-day' ? 'Date' : 'From Date'}</Text>
+              <AppText weight="semiBold" style={styles.inputLabel}>{leaveType === 'one-day' ? 'Date' : 'From Date'}</AppText>
               <TouchableOpacity style={styles.dateSelector} onPress={() => setShowFromDatePicker(true)}>
-                <Text style={fromDate ? styles.dateValue : styles.datePlaceholder}>
+                <AppText weight="semiBold" style={fromDate ? styles.dateValue : styles.datePlaceholder}>
                   {fromDate ? formatDateToYMD(fromDate) : 'YYYY-MM-DD'}
-                </Text>
+                </AppText>
                 <Calendar size={16} color="#94a3b8" />
               </TouchableOpacity>
             </View>
 
             {leaveType === 'multiple' && (
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>To Date</Text>
+                <AppText weight="semiBold" style={styles.inputLabel}>To Date</AppText>
                 <TouchableOpacity style={styles.dateSelector} onPress={() => setShowToDatePicker(true)}>
-                  <Text style={toDate ? styles.dateValue : styles.datePlaceholder}>
+                  <AppText weight="semiBold" style={toDate ? styles.dateValue : styles.datePlaceholder}>
                     {toDate ? formatDateToYMD(toDate) : 'YYYY-MM-DD'}
-                  </Text>
+                  </AppText>
                   <Calendar size={16} color="#94a3b8" />
                 </TouchableOpacity>
               </View>
@@ -379,7 +379,7 @@ export default function LeaveRequestScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Reason for Leave</Text>
+            <AppText weight="semiBold" style={styles.inputLabel}>Reason for Leave</AppText>
             <TextInput
               style={styles.reasonInput}
               multiline
@@ -402,9 +402,9 @@ export default function LeaveRequestScreen() {
 
         {/* History Section */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Application History</Text>
+          <AppText weight="bold" style={styles.sectionTitle}>Application History</AppText>
           <TouchableOpacity onPress={refreshAll}>
-            <Text style={styles.refreshText}>Refresh</Text>
+            <AppText weight="semiBold" style={styles.refreshText}>Refresh</AppText>
           </TouchableOpacity>
         </View>
 
@@ -413,7 +413,7 @@ export default function LeaveRequestScreen() {
         ) : history.length === 0 ? (
           <View style={styles.emptyState}>
             <FileText size={48} color="#cbd5e1" />
-            <Text style={styles.emptyStateText}>No history found</Text>
+            <AppText weight="semiBold" style={styles.emptyStateText}>No history found</AppText>
           </View>
         ) : (
           <View style={styles.historyList}>
@@ -475,7 +475,6 @@ const styles = StyleSheet.create({
   heroTitle: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '700',
   },
   heroContent: {
     marginTop: 25,
@@ -483,7 +482,6 @@ const styles = StyleSheet.create({
   heroGreeting: {
     color: '#FFFFFF',
     fontSize: 24,
-    fontWeight: '800',
   },
   heroSubtext: {
     color: 'rgba(255,255,255,0.7)',
@@ -513,7 +511,6 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#0F172A',
   },
   typeSelector: {
@@ -539,7 +536,6 @@ const styles = StyleSheet.create({
   },
   typeBtnText: {
     fontSize: 14,
-    fontWeight: '600',
     color: '#64748B',
   },
   typeBtnTextActive: {
@@ -555,7 +551,6 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 13,
-    fontWeight: '600',
     color: '#64748B',
     marginBottom: 8,
   },
@@ -573,7 +568,6 @@ const styles = StyleSheet.create({
   dateValue: {
     fontSize: 14,
     color: '#0F172A',
-    fontWeight: '500',
   },
   datePlaceholder: {
     fontSize: 14,
@@ -589,6 +583,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     fontSize: 14,
     color: '#0F172A',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
   },
   submitButton: {
     backgroundColor: '#001F3F',
@@ -598,7 +593,6 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontSize: 16,
-    fontWeight: '700',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -609,13 +603,11 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#0F172A',
   },
   refreshText: {
     fontSize: 14,
     color: '#2563EB',
-    fontWeight: '600',
   },
   historyList: {
     gap: 12,
@@ -640,7 +632,6 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 14,
-    fontWeight: '600',
     color: '#334155',
   },
   dateArrow: {
@@ -678,7 +669,6 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 11,
-    fontWeight: '700',
     textTransform: 'uppercase',
   },
   loaderContainer: {
@@ -694,6 +684,5 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#94A3B8',
     fontSize: 14,
-    fontWeight: '500',
   },
 });

@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -33,6 +32,7 @@ import {
 import API from '../../services/api';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
+import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 
@@ -111,9 +111,9 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   return (
     <View style={[styles.badge, { backgroundColor: bgColor }]}>
       {icon}
-      <Text style={[styles.badgeText, { color: textColor }]}>
+      <AppText weight="bold" style={[styles.badgeText, { color: textColor }]}>
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 };
@@ -132,8 +132,8 @@ const LeaveRequestCard: React.FC<{
             <User size={20} color="#64748b" />
           </View>
           <View>
-            <Text style={styles.studentName}>{request.student_full_name}</Text>
-            <Text style={styles.rollNumber}>Roll No: {request.roll_number}</Text>
+            <AppText weight="bold" style={styles.studentName}>{request.student_full_name}</AppText>
+            <AppText style={styles.rollNumber}>Roll No: {request.roll_number}</AppText>
           </View>
         </View>
         <StatusBadge status={request.status} />
@@ -145,19 +145,19 @@ const LeaveRequestCard: React.FC<{
         <View style={styles.detailGrid}>
           <View style={styles.detailItem}>
             <BookOpen size={14} color="#94a3b8" />
-            <Text style={styles.detailValue}>{request.class_grade} - {request.section}</Text>
+            <AppText weight="semiBold" style={styles.detailValue}>{request.class_grade} - {request.section}</AppText>
           </View>
           <View style={styles.detailItem}>
             <Calendar size={14} color="#94a3b8" />
-            <Text style={styles.detailValue}>
+            <AppText weight="semiBold" style={styles.detailValue}>
               {formatDate(request.from_date)} {request.from_date !== request.to_date ? `to ${formatDate(request.to_date)}` : ''}
-            </Text>
+            </AppText>
           </View>
         </View>
 
         <View style={styles.reasonBox}>
           <Info size={14} color="#64748b" style={{ marginTop: 2 }} />
-          <Text style={styles.reasonText}>{request.reason}</Text>
+          <AppText style={styles.reasonText}>{request.reason}</AppText>
         </View>
       </View>
 
@@ -168,14 +168,14 @@ const LeaveRequestCard: React.FC<{
             onPress={() => onReject(request.leave_id)}
           >
             <XCircle size={16} color="#B91C1C" />
-            <Text style={styles.rejectBtnText}>Reject</Text>
+            <AppText weight="bold" style={styles.rejectBtnText}>Reject</AppText>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, styles.approveBtn]}
             onPress={() => onApprove(request.leave_id)}
           >
             <CheckCircle2 size={16} color="#FFFFFF" />
-            <Text style={styles.approveBtnText}>Approve</Text>
+            <AppText weight="bold" style={styles.approveBtnText}>Approve</AppText>
           </TouchableOpacity>
         </View>
       )}
@@ -399,7 +399,7 @@ export default function LeaveApprovalScreen() {
           >
             <ChevronLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.heroTitle}>Leave Approvals</Text>
+          <AppText weight="bold" style={styles.heroTitle}>Leave Approvals</AppText>
           <TouchableOpacity
             style={styles.iconButton}
             onPress={onRefresh}
@@ -409,8 +409,8 @@ export default function LeaveApprovalScreen() {
         </View>
 
         <View style={styles.heroContent}>
-          <Text style={styles.heroGreeting}>Student Leaves</Text>
-          <Text style={styles.heroSubtext}>Review and manage pending leave applications</Text>
+          <AppText weight="bold" style={styles.heroGreeting}>Student Leaves</AppText>
+          <AppText style={styles.heroSubtext}>Review and manage pending leave applications</AppText>
         </View>
       </View>
 
@@ -426,18 +426,18 @@ export default function LeaveApprovalScreen() {
           <View style={styles.filterHeader}>
             <View style={styles.filterTitleContainer}>
               <Filter size={18} color="#001F3F" />
-              <Text style={styles.filterTitle}>Filters</Text>
+              <AppText weight="bold" style={styles.filterTitle}>Filters</AppText>
             </View>
             {(classId || sectionId || status !== 'PENDING') && (
               <TouchableOpacity onPress={resetFilters}>
-                <Text style={styles.resetText}>Reset All</Text>
+                <AppText weight="semiBold" style={styles.resetText}>Reset All</AppText>
               </TouchableOpacity>
             )}
           </View>
 
           <View style={styles.filterGrid}>
             <View style={styles.filterItem}>
-              <Text style={styles.filterLabel}>Status</Text>
+              <AppText weight="semiBold" style={styles.filterLabel}>Status</AppText>
               <View style={styles.statusToggle}>
                 {['PENDING', 'APPROVED', 'REJECTED'].map((s) => (
                   <TouchableOpacity
@@ -445,9 +445,9 @@ export default function LeaveApprovalScreen() {
                     style={[styles.statusBtn, status === s && styles.statusBtnActive]}
                     onPress={() => setStatus(s)}
                   >
-                    <Text style={[styles.statusBtnText, status === s && styles.statusBtnTextActive]}>
+                    <AppText weight="semiBold" style={[styles.statusBtnText, status === s && styles.statusBtnTextActive]}>
                       {s.charAt(0) + s.slice(1).toLowerCase()}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -458,10 +458,10 @@ export default function LeaveApprovalScreen() {
               onPress={() => setShowFilterModal(true)}
             >
               <Search size={16} color="#64748B" />
-              <Text style={styles.advancedFilterText}>
+              <AppText weight="semiBold" style={styles.advancedFilterText}>
                 {classId ? `Class ${classes.find(c => c.id === classId)?.name || classId}` : 'All Classes'}
                 {sectionId ? ` • Sec ${sections.find(s => s.id === sectionId)?.name || sectionId}` : ' • All Sections'}
-              </Text>
+              </AppText>
               <ChevronRight size={16} color="#94A3B8" />
             </TouchableOpacity>
           </View>
@@ -469,9 +469,9 @@ export default function LeaveApprovalScreen() {
 
         {/* Requests List */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
+          <AppText weight="bold" style={styles.sectionTitle}>
             {status.charAt(0) + status.slice(1).toLowerCase()} Requests ({items.length})
-          </Text>
+          </AppText>
         </View>
 
         {loading ? (
@@ -479,7 +479,7 @@ export default function LeaveApprovalScreen() {
         ) : items.length === 0 ? (
           <View style={styles.emptyState}>
             <Calendar size={48} color="#cbd5e1" />
-            <Text style={styles.emptyStateText}>No requests found matching your filters</Text>
+            <AppText weight="semiBold" style={styles.emptyStateText}>No requests found matching your filters</AppText>
           </View>
         ) : (
           <View style={styles.requestsList}>
@@ -500,20 +500,20 @@ export default function LeaveApprovalScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Class & Section</Text>
+              <AppText weight="bold" style={styles.modalTitle}>Select Class & Section</AppText>
               <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.modalClose}>
                 <XCircle size={24} color="#64748B" />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalBody}>
-              <Text style={styles.modalLabel}>Class</Text>
+              <AppText weight="bold" style={styles.modalLabel}>Class</AppText>
               <View style={styles.chipContainer}>
                 <TouchableOpacity
                   style={[styles.chip, !classId && styles.chipActive]}
                   onPress={() => setClassId('')}
                 >
-                  <Text style={[styles.chipText, !classId && styles.chipTextActive]}>All Classes</Text>
+                  <AppText weight="semiBold" style={[styles.chipText, !classId && styles.chipTextActive]}>All Classes</AppText>
                 </TouchableOpacity>
                 {classes.map((cls) => (
                   <TouchableOpacity
@@ -521,20 +521,20 @@ export default function LeaveApprovalScreen() {
                     style={[styles.chip, classId === cls.id && styles.chipActive]}
                     onPress={() => setClassId(cls.id)}
                   >
-                    <Text style={[styles.chipText, classId === cls.id && styles.chipTextActive]}>
+                    <AppText weight="semiBold" style={[styles.chipText, classId === cls.id && styles.chipTextActive]}>
                       {cls.name || cls.class_grade}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={[styles.modalLabel, { marginTop: 20 }]}>Section</Text>
+              <AppText weight="bold" style={[styles.modalLabel, { marginTop: 20 }]}>Section</AppText>
               <View style={styles.chipContainer}>
                 <TouchableOpacity
                   style={[styles.chip, !sectionId && styles.chipActive]}
                   onPress={() => setSectionId('')}
                 >
-                  <Text style={[styles.chipText, !sectionId && styles.chipTextActive]}>All Sections</Text>
+                  <AppText weight="semiBold" style={[styles.chipText, !sectionId && styles.chipTextActive]}>All Sections</AppText>
                 </TouchableOpacity>
                 {sections.map((sec) => (
                   <TouchableOpacity
@@ -542,9 +542,9 @@ export default function LeaveApprovalScreen() {
                     style={[styles.chip, sectionId === sec.id && styles.chipActive]}
                     onPress={() => setSectionId(sec.id)}
                   >
-                    <Text style={[styles.chipText, sectionId === sec.id && styles.chipTextActive]}>
+                    <AppText weight="semiBold" style={[styles.chipText, sectionId === sec.id && styles.chipTextActive]}>
                       {sec.name || sec.section}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -593,7 +593,6 @@ const styles = StyleSheet.create({
   heroTitle: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '700',
   },
   heroContent: {
     marginTop: 25,
@@ -601,7 +600,6 @@ const styles = StyleSheet.create({
   heroGreeting: {
     color: '#FFFFFF',
     fontSize: 24,
-    fontWeight: '800',
   },
   heroSubtext: {
     color: 'rgba(255,255,255,0.7)',
@@ -636,13 +634,11 @@ const styles = StyleSheet.create({
   },
   filterTitle: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#0F172A',
   },
   resetText: {
     fontSize: 14,
     color: '#2563EB',
-    fontWeight: '600',
   },
   filterGrid: {
     gap: 12,
@@ -652,7 +648,6 @@ const styles = StyleSheet.create({
   },
   filterLabel: {
     fontSize: 13,
-    fontWeight: '600',
     color: '#64748B',
   },
   statusToggle: {
@@ -677,7 +672,6 @@ const styles = StyleSheet.create({
   },
   statusBtnText: {
     fontSize: 13,
-    fontWeight: '600',
     color: '#64748B',
   },
   statusBtnTextActive: {
@@ -698,7 +692,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: '#334155',
-    fontWeight: '500',
   },
   sectionHeader: {
     marginTop: 24,
@@ -706,7 +699,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#0F172A',
   },
   requestsList: {
@@ -740,7 +732,6 @@ const styles = StyleSheet.create({
   },
   studentName: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#0F172A',
   },
   rollNumber: {
@@ -769,7 +760,6 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: 13,
     color: '#475569',
-    fontWeight: '600',
   },
   reasonBox: {
     flexDirection: 'row',
@@ -810,12 +800,10 @@ const styles = StyleSheet.create({
   },
   approveBtnText: {
     color: '#FFFFFF',
-    fontWeight: '700',
     fontSize: 14,
   },
   rejectBtnText: {
     color: '#B91C1C',
-    fontWeight: '700',
     fontSize: 14,
   },
   badge: {
@@ -828,7 +816,6 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 11,
-    fontWeight: '700',
     textTransform: 'uppercase',
   },
   loaderContainer: {
@@ -844,7 +831,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#94A3B8',
     fontSize: 14,
-    fontWeight: '500',
     textAlign: 'center',
   },
   modalOverlay: {
@@ -869,7 +855,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#0F172A',
   },
   modalClose: {
@@ -880,7 +865,6 @@ const styles = StyleSheet.create({
   },
   modalLabel: {
     fontSize: 14,
-    fontWeight: '700',
     color: '#64748B',
     marginBottom: 12,
     textTransform: 'uppercase',
@@ -906,7 +890,6 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 14,
     color: '#64748B',
-    fontWeight: '600',
   },
   chipTextActive: {
     color: '#FFFFFF',

@@ -21,6 +21,7 @@ export const API_CONFIG = {
       logout: 'auth/logout',
       forgotPassword: 'auth/forgot-password',
       resetPassword: 'auth/reset-password',
+      teacherCapability: 'auth/teacher-capability',
     },
     admin: {
       schools: 'admin/schools',
@@ -70,7 +71,10 @@ export const API_CONFIG = {
       profile: 'manage/students',
       profilePhoto: 'profile-photo/student',
       questionPapers: 'student/question-papers',
+      questionPaperDownload: 'student/question-papers/{paper_id}/download',
       examTypes: 'student/question-papers/exam-types',
+      schoolHolidays: 'student/school-holidays',
+      registerRequest: 'student/register-request',
       register: 'student/register',
     },
     manage: {
@@ -105,13 +109,9 @@ export const API_CONFIG = {
 };
 
 export const ENV = {
-  API_URL: __DEV__ 
-    ? (Platform.OS === 'android' ? API_CONFIG.dev.android : API_CONFIG.dev.ios)
-    : API_CONFIG.production,
+  API_URL: API_CONFIG.production,
   
-  SOCKET_URL: __DEV__
-    ? (Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000')
-    : 'https://socket.attendx.com',
+  SOCKET_URL: 'https://socket.attendx.com',
   
   APP_NAME: 'AttendX',
   APP_VERSION: '1.0.0',

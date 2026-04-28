@@ -38,7 +38,6 @@ import ProfileScreen from '../screens/common/ProfileScreen';
 import NotificationsScreen from '../screens/common/NotificationsScreen';
 import PricingScreen from '../screens/common/PricingScreen';
 import LoadingScreen from '../screens/common/LoadingScreen';
-import VideoMeetingScreen from '../screens/common/VideoMeetingScreen';
 
 // ─── Admin Screens ──────────────────────────────────────────────────────────
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
@@ -124,7 +123,6 @@ export type RootStackParamList = {
   Profile: undefined;
   Notifications: undefined;
   Loading: undefined;
-  VideoMeeting: { roomName: string; displayName?: string; subject?: string };
 
   // Admin
   AdminDashboard: undefined;
@@ -345,6 +343,10 @@ const MainTabs = () => {
     case 'principal':  return <PrincipalTabNavigator />;
     case 'hm':         return <HMTabNavigator />;
     case 'teacher':    return <TeacherTabNavigator />;
+    case 'class_teacher':
+    case 'class teacher':
+    case 'classteacher':
+      return <TeacherTabNavigator />;
     case 'student':    return <StudentTabNavigator />;
     case 'accountant': return <AccountantTabNavigator />;
     default:           return <StudentTabNavigator />;
@@ -392,7 +394,6 @@ export default function AppNavigator() {
           {/* Common Screens */}
           <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="VideoMeeting" component={VideoMeetingScreen} options={{ headerShown: false }} />
 
           {/* Admin Screens */}
           <Stack.Screen name="NotificationManager" component={NotificationManagerScreen} options={{ headerShown: false }} />

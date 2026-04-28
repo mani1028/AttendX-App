@@ -11,16 +11,15 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Icon from '@react-native-vector-icons/ionicons';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import { colors } from '../../constants/theme';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import Svg, { Path } from 'react-native-svg';
-import { getStudentAttendance } from '../../services/studentService';
+import { getStudentAttendance, getStudentProfilePhotoDataUri, getStudentProfilePhotoUrl } from '../../services/studentService';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
-import API from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
@@ -53,6 +52,8 @@ export default function StudentDashboardScreen() {
   });
 
   const [recentAttendance, setRecentAttendance] = useState<any[]>([]);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [profilePhotoError, setProfilePhotoError] = useState(false);
   const { unreadCount, refreshUnreadCount } = useUnreadNotifications();
 
   const fetchData = async () => {
@@ -92,6 +93,29 @@ export default function StudentDashboardScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    const loadProfilePhoto = async () => {
+      try {
+        const cached = await AsyncStorage.getItem('profile_photo_url');
+        if (cached && isMounted.current) {
+          setProfilePhotoUrl(cached);
+          setProfilePhotoError(false);
+        }
+
+        const resolved = (await getStudentProfilePhotoDataUri()) || (await getStudentProfilePhotoUrl());
+        if (resolved && isMounted.current) {
+          setProfilePhotoUrl(resolved);
+          setProfilePhotoError(false);
+          await AsyncStorage.setItem('profile_photo_url', resolved);
+        }
+      } catch {
+        // Keep initials/photo fallback behavior when photo endpoint is unavailable.
+      }
+    };
+
+    loadProfilePhoto();
+  }, []);
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchData();
@@ -105,7 +129,6 @@ export default function StudentDashboardScreen() {
   ];
 
   const quickAccess = [
-    { name: 'Live Class', icon: 'videocam', color: '#f5f3ff', iconColor: '#8b5cf6', screen: 'VideoMeeting', params: { roomName: 'AttendX-General-Class', displayName: userName || 'Student' } },
     { name: 'Assignments', icon: 'clipboard', color: '#fdf2f8', iconColor: '#db2777', screen: 'StudentHomework' },
     { name: 'Attendance', icon: 'list', color: '#fef2f2', iconColor: '#ef4444', screen: 'StudentAttendance' },
     { name: 'Results', icon: 'stats-chart', color: '#ecfeff', iconColor: '#06b6d4', screen: 'StudentMarks' },
@@ -138,8 +161,9 @@ export default function StudentDashboardScreen() {
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
               <Image
-                source={{ uri: 'https://i.pravatar.cc/150?u=mani' }}
+                source={{ uri: profilePhotoUrl && !profilePhotoError ? profilePhotoUrl : 'https://i.pravatar.cc/150?u=student' }}
                 style={styles.avatar}
+                onError={() => setProfilePhotoError(true)}
               />
             </TouchableOpacity>
             <TouchableOpacity
@@ -200,7 +224,7 @@ export default function StudentDashboardScreen() {
                 onPress={() => item.screen && navigation.navigate(item.screen as any, (item as any).params)}
               >
                 <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-                  <Icon name={item.icon} size={24} color={item.iconColor} />
+                  <Icon name={item.icon as any} size={24} color={item.iconColor} />
                 </View>
                 <AppText style={styles.gridLabel}>{item.name}</AppText>
               </TouchableOpacity>

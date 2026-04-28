@@ -14,7 +14,17 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from '@react-native-vector-icons/feather';
+import {
+  ChevronLeft,
+  Settings,
+  Check,
+  Info,
+  Save,
+  Calendar,
+  Bell,
+  AlertCircle,
+  CheckCircle2,
+} from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
@@ -170,7 +180,7 @@ export default function HMSettingsPage() {
       {/* Standardized Header */}
       <View style={styles.headerStandard}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} weight="bold">Settings</AppText>
         <View style={{ width: 40 }} />
@@ -186,14 +196,14 @@ export default function HMSettingsPage() {
       >
         <View style={styles.card}>
           <View style={styles.header}>
-            <Icon name="settings" size={18} color={C.text} />
-            <AppText style={styles.title}>HM Settings</AppText>
+            <Settings size={18} color={C.text} />
+            <AppText style={styles.title} weight="bold">HM Settings</AppText>
           </View>
 
           <View style={styles.body}>
             {/* Daily Attendance Frequency */}
             <View style={styles.settingGroup}>
-              <AppText style={styles.label}>Daily Attendance Frequency</AppText>
+              <AppText style={styles.label} weight="bold">Daily Attendance Frequency</AppText>
               <View style={styles.optionContainer}>
                 <TouchableOpacity
                   style={[
@@ -208,11 +218,12 @@ export default function HMSettingsPage() {
                       styles.optionText,
                       dailySessions === 1 && styles.optionTextActive,
                     ]}
+                    weight={dailySessions === 1 ? 'semiBold' : 'regular'}
                   >
                     Take attendance 1 time per day
                   </AppText>
                   {dailySessions === 1 && (
-                    <Icon name="check" size={16} color={C.primary} />
+                    <Check size={16} color={C.primary} />
                   )}
                 </TouchableOpacity>
 
@@ -229,17 +240,18 @@ export default function HMSettingsPage() {
                       styles.optionText,
                       dailySessions === 2 && styles.optionTextActive,
                     ]}
+                    weight={dailySessions === 2 ? 'semiBold' : 'regular'}
                   >
                     Take attendance 2 times per day
                   </AppText>
                   {dailySessions === 2 && (
-                    <Icon name="check" size={16} color={C.primary} />
+                    <Check size={16} color={C.primary} />
                   )}
                 </TouchableOpacity>
               </View>
 
               <View style={styles.hintContainer}>
-                <Icon name="info" size={12} color={C.textMuted} />
+                <Info size={12} color={C.textMuted} />
                 <AppText style={styles.hintText}>
                   Once configured, the system allows attendance only this many times per day.
                   Extra attempts are blocked automatically.
@@ -249,7 +261,7 @@ export default function HMSettingsPage() {
 
             {/* Marks Notification Setting */}
             <View style={styles.settingGroup}>
-              <AppText style={styles.label}>Marks Notification to Student Dashboard</AppText>
+              <AppText style={styles.label} weight="bold">Marks Notification to Student Dashboard</AppText>
               <View style={styles.optionContainer}>
                 <TouchableOpacity
                   style={[
@@ -264,11 +276,12 @@ export default function HMSettingsPage() {
                       styles.optionText,
                       marksNotificationEnabled && styles.optionTextActive,
                     ]}
+                    weight={marksNotificationEnabled ? 'semiBold' : 'regular'}
                   >
                     Enabled: send marks update notifications
                   </AppText>
                   {marksNotificationEnabled && (
-                    <Icon name="check" size={16} color={C.primary} />
+                    <Check size={16} color={C.primary} />
                   )}
                 </TouchableOpacity>
 
@@ -285,17 +298,18 @@ export default function HMSettingsPage() {
                       styles.optionText,
                       !marksNotificationEnabled && styles.optionTextActive,
                     ]}
+                    weight={!marksNotificationEnabled ? 'semiBold' : 'regular'}
                   >
                     Disabled: do not send marks notifications
                   </AppText>
                   {!marksNotificationEnabled && (
-                    <Icon name="check" size={16} color={C.primary} />
+                    <Check size={16} color={C.primary} />
                   )}
                 </TouchableOpacity>
               </View>
 
               <View style={styles.hintContainer}>
-                <Icon name="info" size={12} color={C.textMuted} />
+                <Info size={12} color={C.textMuted} />
                 <AppText style={styles.hintText}>
                   When enabled, saving marks in teacher marks entry posts a marks notification that
                   students can see in student dashboard notifications.
@@ -314,8 +328,8 @@ export default function HMSettingsPage() {
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <>
-                    <Icon name="save" size={16} color="#fff" />
-                    <AppText style={styles.saveButtonText}>Save Setting</AppText>
+                    <Save size={16} color="#fff" />
+                    <AppText style={styles.saveButtonText} weight="bold">Save Setting</AppText>
                   </>
                 )}
               </TouchableOpacity>
@@ -324,13 +338,13 @@ export default function HMSettingsPage() {
             {/* Info Icons Row */}
             <View style={styles.infoRow}>
               <View style={styles.infoItem}>
-                <Icon name="calendar" size={14} color={C.textMuted} />
+                <Calendar size={14} color={C.textMuted} />
                 <AppText style={styles.infoText}>
                   Applies to teacher verification and student attendance marking.
                 </AppText>
               </View>
               <View style={styles.infoItem}>
-                <Icon name="bell" size={14} color={C.textMuted} />
+                <Bell size={14} color={C.textMuted} />
                 <AppText style={styles.infoText}>
                   Applies to marks updates pushed to student notifications.
                 </AppText>
@@ -345,16 +359,17 @@ export default function HMSettingsPage() {
                   msgType === 'error' ? styles.errorMessage : styles.successMessage,
                 ]}
               >
-                <Icon
-                  name={msgType === 'error' ? 'alert-circle' : 'check-circle'}
-                  size={16}
-                  color={msgType === 'error' ? C.errorText : C.successText}
-                />
+                {msgType === 'error' ? (
+                  <AlertCircle size={16} color={C.errorText} />
+                ) : (
+                  <CheckCircle2 size={16} color={C.successText} />
+                )}
                 <AppText
                   style={[
                     styles.messageText,
                     msgType === 'error' ? styles.errorText : styles.successText,
                   ]}
+                  weight="semiBold"
                 >
                   {msg}
                 </AppText>
@@ -428,7 +443,6 @@ const styles = StyleSheet.create({
   title: {
     margin: 0,
     fontSize: 17,
-    fontWeight: '600',
     color: C.text,
   },
   body: {
@@ -439,7 +453,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
     color: C.textMuted,
     marginBottom: 12,
   },
@@ -468,7 +481,6 @@ const styles = StyleSheet.create({
   },
   optionTextActive: {
     color: C.primary,
-    fontWeight: '500',
   },
   hintContainer: {
     flexDirection: 'row',
@@ -503,7 +515,6 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#fff',
     fontSize: 15,
-    fontWeight: '600',
   },
   infoRow: {
     gap: 12,
