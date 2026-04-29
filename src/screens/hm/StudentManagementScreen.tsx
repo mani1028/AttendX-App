@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
   X,
@@ -39,30 +40,10 @@ import RNShare from 'react-native-share';
 import API, { buildApiUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../constants/theme';
+import { HM_THEME as C } from '../../constants/hmTheme';
 import AppText from '../../components/common/AppText';
 import AvatarBubble from '../../components/common/AvatarBubble';
 
-const C = {
-  primary: colors.primary,
-  primarySoft: colors.primary + '15',
-  primaryBorder: colors.primary + '30',
-  success: colors.success,
-  successSoft: colors.successSoft,
-  successBorder: colors.success + '30',
-  danger: colors.error,
-  dangerSoft: colors.errorSoft,
-  dangerBorder: colors.error + '30',
-  warning: colors.warning,
-  warningSoft: colors.warningSoft,
-  white: colors.surface,
-  bg: colors.bg,
-  border: colors.border,
-  borderLight: colors.border + '60',
-  t1: colors.textPrimary,
-  t2: colors.textPrimary + 'CC',
-  t3: colors.textMuted,
-  t4: colors.textMuted + '80',
-};
 
 interface ClassItem {
   class_grade: string;
@@ -284,6 +265,7 @@ function AddClassModal({ visible, onClose, onSave, existingClasses }: AddClassMo
 }
 
 export default function StudentPage() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { userName, setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
@@ -489,11 +471,14 @@ export default function StudentPage() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 10 }] }>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never))}
+        >
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} weight="bold">Student Management</AppText>
@@ -816,8 +801,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    backgroundColor: C.navy,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',

@@ -33,11 +33,23 @@ export default function ResetPasswordScreen({ route, navigation }: any) {
 
     try {
       setLoading(true);
+      console.log('[ResetPassword] Resetting password for:', { schoolId, identifier });
+      
       await authService.resetPassword(schoolId, identifier, resetToken, password);
+      
+      console.log('[ResetPassword] Password reset successfully');
       Alert.alert('Success', 'Password reset successfully');
       navigation.replace('Login');
     } catch (error: any) {
-      const errorMsg = error?.response?.data?.message || error?.message || 'Reset failed';
+      console.error('[ResetPassword] Error resetting password:', error?.response?.data || error?.message);
+      
+      const errorMsg = 
+        error?.response?.data?.message || 
+        error?.response?.data?.detail || 
+        error?.response?.data?.error || 
+        error?.message || 
+        'Failed to reset password. Please try again.';
+      
       Alert.alert('Error', errorMsg);
     } finally {
       setLoading(false);

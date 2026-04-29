@@ -30,10 +30,9 @@ const FEE_ENDPOINTS = [
   'student-dashboard/fees'
 ];
 const PROFILE_ENDPOINTS = [
-  'profile/details',
-  'student-dashboard/profile',
+  'hm/students/directory',
   'manage/students',
-  'hm/students/directory'
+  'profile/details'
 ];
 const PROFILE_PHOTO_ENDPOINT = 'profile-photo/student';
 const QUESTION_PAPER_ENDPOINTS = [
@@ -565,6 +564,31 @@ export async function getStudentProfile(): Promise<any> {
   }
 }
 
+/**
+ * Fetches student profile from the dedicated student dashboard endpoint.
+ * This is a direct call to the profile endpoint with explicit parameters.
+ */
+export async function getProfile(studentId: string, schoolCode: string): Promise<any> {
+  try {
+    // Try profile/details first as it is more likely to be available in this environment
+    const response = await API.get('profile/details', {
+      params: { student_id: studentId, school_code: schoolCode }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('[Service] Failed to fetch profile (profile/details), trying fallback...', error);
+    try {
+      const response = await API.get('student-dashboard/profile', {
+        params: { student_id: studentId, school_code: schoolCode }
+      });
+      return response.data;
+    } catch (fallbackError) {
+      console.error('[Service] Failed to fetch profile from both endpoints.');
+      throw fallbackError;
+    }
+  }
+}
+
 export async function getQuestionPapers(params?: any): Promise<any> {
   const data = await getFirstSuccessful<any>(QUESTION_PAPER_ENDPOINTS, params);
   const root = asRecord(data);
@@ -745,4 +769,99 @@ export async function submitStudentRegisterRequest(formData: FormData): Promise<
   }
 
   throw lastError ?? new Error('Could not submit student registration request');
+}
+
+export async function sendOtp(emailId: string): Promise<any> {
+  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
+  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+
+  // We try a few common OTP sending endpoints
+  const endpoints = ['/auth/request-otp', '/auth/forgot-password', '/teacher/register/send-otp'];
+
+  let lastError: any;
+  for (const endpoint of endpoints) {
+    try {
+      const response = await API.post(endpoint, {
+        email_id: emailId,
+        identifier: emailId,
+        school_code: schoolCode,
+      }, {
+        headers: {
+          'X-School-Code': schoolCode,
+          'X-Branch-Id': branchId,
+        }
+      });
+      return response.data;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
+export async function verifyOtp(emailId: string, otp: string): Promise<any> {
+  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
+  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+
+  const endpoints = ['/auth/verify-otp', '/auth/forgot-password/verify-otp', '/teacher/register/verify-otp'];
+
+  let lastError: any;
+  for (const endpoint of endpoints) {
+    try {
+      const response = await API.post(endpoint, {
+        email_id: emailId,
+        identifier: emailId,
+        otp,
+        school_code: schoolCode,
+      }, {
+        headers: {
+          'X-School-Code': schoolCode,
+          'X-Branch-Id': branchId,
+        }
+      });
+      return response.data;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
+export async function changePassword(emailId: string, newPassword: string, otp: string): Promise<any> {
+  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
+
+  const endpoints = ['/auth/reset-password', '/auth/forgot-password/reset-password', '/auth/forgot-password'];
+
+  let lastError: any;
+  for (const endpoint of endpoints) {
+    try {
+      const response = await API.post(endpoint, {
+        email_id: emailId,
+        identifier: emailId,
+        otp,
+        new_password: newPassword,
+        confirm_password: newPassword,
+        school_code: schoolCode,
+      });
+      return response.data;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
+export async function updateStudentProfile(data: any): Promise<any> {
+  const endpoints = ['manage/students/update', 'profile/update', 'student-dashboard/profile/update'];
+
+  let lastError: any;
+  for (const endpoint of endpoints) {
+    try {
+      const response = await API.post(endpoint, data);
+      return response.data;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }

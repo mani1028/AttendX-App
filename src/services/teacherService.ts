@@ -2,13 +2,23 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import API, { buildApiUrl } from './api';
 
 const PROFILE_ENDPOINTS = [
-  'profile/details',
+  'teacher/marks/teacher-context',
+  'hm/dashboard/profile',
+  'teacher/profile',
   'teacher-dashboard/profile',
-  'manage/teachers',
-  'hm/teachers'
+  'profile/details'
 ];
 
 const PROFILE_PHOTO_ENDPOINT = 'profile-photo/teacher';
+const STUDENT_PHOTO_ENDPOINT = 'profile-photo/student';
+
+const UPDATE_PROFILE_ENDPOINTS = [
+  'teacher-dashboard/profile/update',
+  'teacher/profile/update',
+  'manage/teachers/update',
+  'hm/teachers/update',
+  'profile/update'
+];
 
 const FALLBACK_404_CONFIG = {
   suppressFallback404Log: true,
@@ -91,12 +101,26 @@ function normalizeContentType(value: unknown): string {
 }
 
 async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
+  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
+  const teacherId = await AsyncStorage.getItem('teacher_id') || await AsyncStorage.getItem('teacherId') || await AsyncStorage.getItem('employee_id');
+
   for (const endpoint of endpoints) {
     try {
-      const response = await API.get<T>(endpoint, config);
+      const { params, ...restConfig } = config;
+      const response = await API.get<T>(endpoint, {
+        ...restConfig,
+        params: {
+          school_code: schoolCode,
+          teacher_id: teacherId,
+          employee_id: teacherId,
+          ...params
+        }
+      });
       return response.data;
     } catch (error) {
-      // Try next variant
+      if (__DEV__) {
+        console.log(`[Service] GET ${endpoint} failed, trying next...`);
+      }
     }
   }
   throw new Error('Teacher service GET endpoint not found');
@@ -116,18 +140,16 @@ async function postFirstSuccessful<T>(endpoints: string[], data: any, config: an
 
 export async function getAttendanceSettings(headers: any): Promise<any> {
   const endpoints = [
-    '/hm/attendance/settings',
-    '/api/hm/attendance/settings',
-    '/manage/attendance/settings'
+    'hm/attendance/settings',
+    'manage/attendance/settings'
   ];
   return getFirstSuccessful(endpoints, { headers });
 }
 
 export async function getClassesSections(branchId: string, schoolCode: string): Promise<any> {
   const endpoints = [
-    '/manage/classes-sections',
-    '/api/manage/classes-sections',
-    '/teacher/classes-sections'
+    'manage/classes-sections',
+    'teacher/classes-sections'
   ];
   return getFirstSuccessful(endpoints, {
     params: { branch_id: branchId },
@@ -135,47 +157,52 @@ export async function getClassesSections(branchId: string, schoolCode: string): 
   });
 }
 
-export async function verifyTeacher(formData: FormData): Promise<any> {
+export async function verifyTeacher(payload: any): Promise<any> {
   const endpoints = [
-    '/manage/verify-teacher',
-    '/api/manage/verify-teacher',
-    '/teacher/verify'
+    'manage/verify-teacher',
+    'teacher/verify'
   ];
-  return postFirstSuccessful(endpoints, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  });
+  // Backend expects JSON by default now
+  return postFirstSuccessful(endpoints, payload);
 }
 
 export async function uploadStudentImage(payload: any): Promise<any> {
   const endpoints = [
-    '/manage/attendance/student/upload-image',
-    '/api/manage/attendance/student/upload-image',
-    '/teacher/attendance/upload-image'
+    'manage/attendance/student/upload-image',
+    'teacher/attendance/upload-image'
   ];
   return postFirstSuccessful(endpoints, payload);
 }
 
 export async function processAttendance(payload: any): Promise<any> {
   const endpoints = [
-    '/manage/attendance/student/view',
-    '/api/manage/attendance/student/view',
-    '/teacher/attendance/process'
+    'manage/attendance/student/view'
   ];
   return postFirstSuccessful(endpoints, payload);
 }
 
 export async function getAssignedClasses(schoolCode: string, branchId: string, employeeId: string): Promise<any[]> {
   const endpoints = [
-    '/teacher/assigned-classes',
-    '/api/teacher/assigned-classes',
-    '/manage/teacher/assigned-classes'
+    'teacher/marks/teacher-context',
+    'teacher/assigned-classes',
+    'manage/teacher/assigned-classes'
   ];
   try {
     const data = await getFirstSuccessful<any>(endpoints, {
-      params: { branch_id: branchId, employee_id: employeeId },
-      headers: { 'X-School-Code': schoolCode }
-    });
-    return data.items || (Array.isArray(data) ? data : []);
+      params: { 
+        branch_id: branchId, 
+        employee_id: employeeId, 
+        teacher_id: employeeId, // Explicitly required for teacher-context
+        teacherId: employeeId
+      },
+      headers: { 
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+        'X-Tenant-Id': schoolCode
+      },
+      suppressFallback404Log: true,
+    } as any);
+    return data.assigned_classes || data.items || (Array.isArray(data) ? data : []);
   } catch (err) {
     return [];
   }
@@ -183,9 +210,8 @@ export async function getAssignedClasses(schoolCode: string, branchId: string, e
 
 export async function getStudentsByClass(schoolCode: string, branchId: string, classGrade: string, section: string): Promise<any[]> {
   const endpoints = [
-    '/teacher/students',
-    '/api/teacher/students',
-    '/manage/students'
+    'teacher/students',
+    'manage/students'
   ];
   try {
     const data = await getFirstSuccessful<any>(endpoints, {
@@ -200,9 +226,8 @@ export async function getStudentsByClass(schoolCode: string, branchId: string, c
 
 export async function getTeacherGallery(schoolCode: string, branchId: string, teacherId: string): Promise<any[]> {
   const endpoints = [
-    '/manage/attendance/teacher/gallery',
-    '/api/manage/attendance/teacher/gallery',
-    '/teacher/attendance/gallery/teacher'
+    'manage/attendance/teacher/gallery',
+    'teacher/attendance/gallery/teacher'
   ];
   try {
     const data = await getFirstSuccessful<any>(endpoints, {
@@ -217,9 +242,8 @@ export async function getTeacherGallery(schoolCode: string, branchId: string, te
 
 export async function getStudentGallery(schoolCode: string, branchId: string, classGrade: string, section: string): Promise<any[]> {
   const endpoints = [
-    '/manage/attendance/student/gallery',
-    '/api/manage/attendance/student/gallery',
-    '/teacher/attendance/gallery/student'
+    'manage/attendance/student/gallery',
+    'teacher/attendance/gallery/student'
   ];
   try {
     const data = await getFirstSuccessful<any>(endpoints, {
@@ -249,6 +273,22 @@ export async function getTeacherProfilePhotoUrl(teacherId?: string, schoolCode?:
     '';
 
   const url = buildApiUrl(`/${PROFILE_PHOTO_ENDPOINT}/${encodeURIComponent(resolvedTeacherId)}`);
+  if (!resolvedSchoolCode) return url;
+
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}school_code=${encodeURIComponent(resolvedSchoolCode)}`;
+}
+
+export async function getStudentProfilePhotoUrl(studentId: string, schoolCode?: string): Promise<string | null> {
+  if (!studentId) return null;
+
+  const resolvedSchoolCode =
+    schoolCode ||
+    (await AsyncStorage.getItem('school_code')) ||
+    (await AsyncStorage.getItem('schoolCode')) ||
+    '';
+
+  const url = buildApiUrl(`/${STUDENT_PHOTO_ENDPOINT}/${encodeURIComponent(studentId)}`);
   if (!resolvedSchoolCode) return url;
 
   const separator = url.includes('?') ? '&' : '?';
@@ -297,7 +337,9 @@ export async function getTeacherProfile(): Promise<any> {
       }
     })() : {};
 
-    const responseData = await getFirstSuccessful<any>(PROFILE_ENDPOINTS, FALLBACK_404_CONFIG as any);
+    const responseData = await getFirstSuccessful<any>(PROFILE_ENDPOINTS, {
+      ...FALLBACK_404_CONFIG,
+    } as any);
     const root = asRecord(responseData);
 
     const teacherId = String(
@@ -323,7 +365,7 @@ export async function getTeacherProfile(): Promise<any> {
       return teacherId ? rowId === teacherId : Boolean(rowId);
     });
 
-    const raw = asRecord(firstDefined(listMatch, root.data, root.profile, root.teacher, root.user, storedUser, responseData));
+    const raw = asRecord(firstDefined(listMatch, root.teacher_data, root.data, root.profile, root.teacher, root.user, storedUser, responseData));
 
     let photoSource = normalizePhotoSource(firstDefined(
       raw.teacher_photograph,
@@ -382,6 +424,82 @@ export async function getTeacherProfile(): Promise<any> {
       return {};
     }
   }
+}
+
+export async function getTeacherCapability(schoolId: string, employeeId: string): Promise<any> {
+  const endpoints = [
+    'auth/teacher-capability',
+    'teacher/capability',
+    'manage/teacher/capability'
+  ];
+  return getFirstSuccessful(endpoints, {
+    params: { 
+      school_id: schoolId, 
+      employee_id: employeeId,
+      branch_id: schoolId,
+      teacher_id: employeeId
+    },
+    suppressFallback404Log: true,
+  } as any);
+}
+
+export async function getAttendanceReport(schoolCode: string, branchId: string, attendanceDate: string, classGrade: string, section: string): Promise<any> {
+  const endpoints = [
+    'manage/attendance/student/fetch-report',
+    'teacher/attendance/report',
+    'manage/attendance/fetch-report'
+  ];
+  return postFirstSuccessful(endpoints, {
+    school_code: schoolCode,
+    branch_id: branchId,
+    attendance_date: attendanceDate,
+    class_grade: String(classGrade).toLowerCase(),
+    section: String(section).toLowerCase()
+  });
+}
+
+export async function getBranchStats(schoolCode: string, branchId: string): Promise<any> {
+  const endpoints = [
+    'hm/dashboard/stats',
+    'teacher/dashboard/stats'
+  ];
+  try {
+    const data = await getFirstSuccessful<any>(endpoints, {
+      headers: { 
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+        'X-Tenant-Id': schoolCode
+      },
+      suppressFallback404Log: true,
+    } as any);
+    return data;
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function getTeacherAttendance(schoolCode: string, branchId: string, onDate?: string): Promise<any[]> {
+  const endpoints = [
+    'hm/teachers/attendance',
+    'teacher/attendance/status'
+  ];
+  try {
+    const data = await getFirstSuccessful<any>(endpoints, {
+      params: { 
+        on_date: onDate || new Date().toISOString().split('T')[0],
+        branch_id: branchId 
+      },
+      headers: { 'X-School-Code': schoolCode },
+      suppressFallback404Log: true,
+    } as any);
+    return data.items || data || [];
+  } catch (err) {
+    return [];
+  }
+}
+
+export async function updateTeacherProfile(data: any): Promise<any> {
+  return postFirstSuccessful(UPDATE_PROFILE_ENDPOINTS, data);
 }
 
 

@@ -254,12 +254,29 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
         } else {
           setDisplayName(name || config.label);
         }
-        
-        // Load profile photo
-        const photoUrl = await AsyncStorage.getItem('profile_photo_url');
-        if (photoUrl) {
-          setProfilePhotoUrl(photoUrl);
-          setProfilePhotoError(false);
+
+        const roleBucket = role === 'student' ? 'student' : 'teacher';
+        const storedStudentId = await AsyncStorage.getItem('student_id');
+        const storedTeacherId = await AsyncStorage.getItem('teacher_id');
+        const storedEmployeeId = await AsyncStorage.getItem('employee_id');
+        const entityId = roleBucket === 'student'
+          ? (storedStudentId || '')
+          : (storedTeacherId || storedEmployeeId || '');
+        const scopedPhotoKey = getPhotoCacheKey(roleBucket, entityId, code || '');
+
+        if (scopedPhotoKey) {
+          const scopedPhotoUrl = await AsyncStorage.getItem(scopedPhotoKey);
+          if (scopedPhotoUrl) {
+            setProfilePhotoUrl(scopedPhotoUrl);
+            setProfilePhotoError(false);
+          }
+        } else {
+          // Backward compatibility for older cached installs.
+          const photoUrl = await AsyncStorage.getItem('profile_photo_url');
+          if (photoUrl) {
+            setProfilePhotoUrl(photoUrl);
+            setProfilePhotoError(false);
+          }
         }
       } catch (error) {
         console.error('Failed to load user data:', error);

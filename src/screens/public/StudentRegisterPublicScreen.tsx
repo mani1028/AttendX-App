@@ -308,16 +308,54 @@ export default function StudentRegisterPublicScreen() {
     loadClasses();
   }, [isPublicInvite, form.branch_id, publicSchoolCode, form.class_grade]);
 
-  const fileToBase64 = (file: any): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = String(reader.result || '');
-        resolve(result.includes(',') ? result.split(',')[1] : result);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+  const getImageMimeType = (file: any): string => {
+    const explicitType = String(file?.type || '').trim().toLowerCase();
+    if (explicitType.startsWith('image/')) return explicitType;
+
+    const source = String(file?.fileName || file?.name || file?.uri || '').trim().toLowerCase();
+    if (source.endsWith('.png')) return 'image/png';
+    if (source.endsWith('.webp')) return 'image/webp';
+    if (source.endsWith('.gif')) return 'image/gif';
+    if (source.endsWith('.jpg') || source.endsWith('.jpeg')) return 'image/jpeg';
+
+    return 'image/jpeg';
+  };
+
+  const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+    const runtimeBuffer = (globalThis as any).Buffer;
+    if (runtimeBuffer?.from) {
+      return runtimeBuffer.from(buffer).toString('base64');
+    }
+
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+    }
+
+    const btoaFn = (globalThis as any).btoa;
+    if (typeof btoaFn === 'function') {
+      return btoaFn(binary);
+    }
+
+    throw new Error('Base64 encoder is unavailable');
+  };
+
+  const fileToBase64 = async (file: any): Promise<string> => {
+    if (String(file?.base64 || '').trim()) {
+      return `data:${getImageMimeType(file)};base64,${String(file.base64).replace(/\s+/g, '')}`;
+    }
+
+    if (!file?.uri) {
+      throw new Error('Missing image URI');
+    }
+
+    const response = await fetch(file.uri);
+    const blob = await response.blob();
+    const buffer = await blob.arrayBuffer();
+    const base64 = arrayBufferToBase64(buffer);
+    return `data:${getImageMimeType(file)};base64,${base64}`;
   };
 
   const handleImagePick = () => {
@@ -694,6 +732,7 @@ export default function StudentRegisterPublicScreen() {
                     value={form.date_of_birth ? new Date(form.date_of_birth) : new Date()}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    maximumDate={new Date()}
                     onChange={(event, date) => {
                       if (date) handleDOBChange(date);
                       setShowDOBPicker(false);
@@ -843,6 +882,7 @@ export default function StudentRegisterPublicScreen() {
                     value={form.date_of_admission ? new Date(form.date_of_admission) : new Date()}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    maximumDate={new Date()}
                     onChange={(event, date) => {
                       if (date) handleChange('date_of_admission', date.toISOString().split('T')[0]);
                       setShowAdmissionDatePicker(false);

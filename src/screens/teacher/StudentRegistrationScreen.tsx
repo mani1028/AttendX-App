@@ -33,6 +33,7 @@ import {
   Calendar,
   X
 } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
@@ -195,7 +196,14 @@ const isValidDateOfBirth = (dobString: string): { valid: boolean; error: string 
   return { valid: true, error: null };
 };
 
-const STEPS = ['Basic Info', 'Academics', 'Parent & Address', 'Health & Transport', 'Photo', 'Preview'];
+const STEPS = [
+  'Personal Info',
+  'Academic Details',
+  'Guardian Info',
+  'Contact Info',
+  'Upload Photo',
+  'Review & Submit'
+];
 
 const INITIAL_FORM: FormData = {
   branch_id: '',
@@ -304,6 +312,7 @@ const PreviewField: React.FC<{ label: string; value: string }> = ({ label, value
 );
 
 export default function StudentRegistrationScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
@@ -649,16 +658,54 @@ export default function StudentRegistrationScreen() {
     setStep(s => Math.max(s - 1, 0));
   };
 
-  const fileToBase64 = (file: any): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = String(reader.result || '');
-        resolve(result.includes(',') ? result.split(',')[1] : result);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+  const getImageMimeType = (file: any): string => {
+    const explicitType = String(file?.type || '').trim().toLowerCase();
+    if (explicitType.startsWith('image/')) return explicitType;
+
+    const source = String(file?.fileName || file?.name || file?.uri || '').trim().toLowerCase();
+    if (source.endsWith('.png')) return 'image/png';
+    if (source.endsWith('.webp')) return 'image/webp';
+    if (source.endsWith('.gif')) return 'image/gif';
+    if (source.endsWith('.jpg') || source.endsWith('.jpeg')) return 'image/jpeg';
+
+    return 'image/jpeg';
+  };
+
+  const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+    const runtimeBuffer = (globalThis as any).Buffer;
+    if (runtimeBuffer?.from) {
+      return runtimeBuffer.from(buffer).toString('base64');
+    }
+
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+    }
+
+    const btoaFn = (globalThis as any).btoa;
+    if (typeof btoaFn === 'function') {
+      return btoaFn(binary);
+    }
+
+    throw new Error('Base64 encoder is unavailable');
+  };
+
+  const fileToBase64 = async (file: any): Promise<string> => {
+    if (String(file?.base64 || '').trim()) {
+      return `data:${getImageMimeType(file)};base64,${String(file.base64).replace(/\s+/g, '')}`;
+    }
+
+    if (!file?.uri) {
+      throw new Error('Missing image URI');
+    }
+
+    const response = await fetch(file.uri);
+    const blob = await response.blob();
+    const buffer = await blob.arrayBuffer();
+    const base64 = arrayBufferToBase64(buffer);
+    return `data:${getImageMimeType(file)};base64,${base64}`;
   };
 
   const copyRegistrationLink = async () => {
@@ -787,38 +834,38 @@ export default function StudentRegistrationScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-      {/* Navy Hero Header */}
-      <View style={styles.heroHeader}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => navigation.goBack()}
-          >
-            <ChevronLeft size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <AppText weight="bold" style={styles.heroTitle}>Registration</AppText>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={copyRegistrationLink}
-          >
-            <Copy size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.heroContent}>
-          <AppText weight="bold" style={styles.heroGreeting}>Student Enrollment</AppText>
-          <AppText style={styles.heroSubtext}>
-            {step === totalSteps - 1 ? 'Preview & Confirm' : `Step ${step + 1} of ${totalSteps} — ${STEPS[step]}`}
-          </AppText>
-        </View>
-      </View>
-
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
+        {/* Navy Hero Header */}
+        <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.goBack()}
+            >
+              <ChevronLeft size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <AppText weight="bold" style={styles.heroTitle}>Registration</AppText>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={copyRegistrationLink}
+            >
+              <Copy size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.heroContent}>
+            <AppText weight="bold" style={styles.heroGreeting}>Student Enrollment</AppText>
+            <AppText style={styles.heroSubtext}>
+              {step === totalSteps - 1 ? 'Preview & Confirm' : `Step ${step + 1} of ${totalSteps} — ${STEPS[step]}`}
+            </AppText>
+          </View>
+        </View>
+
         {serverError && (
           <View style={styles.errorBox}>
             <AppText style={styles.errorText}>{serverError}</AppText>
@@ -908,6 +955,7 @@ export default function StudentRegistrationScreen() {
                     value={form.date_of_birth ? new Date(form.date_of_birth) : new Date()}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    maximumDate={new Date()}
                     onChange={(event, date) => {
                       if (date) handleDOBChange(date);
                       setShowDOBPicker(false);
@@ -1055,6 +1103,7 @@ export default function StudentRegistrationScreen() {
                     value={form.date_of_admission ? new Date(form.date_of_admission) : new Date()}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    maximumDate={new Date()}
                     onChange={(event, date) => {
                       if (date) handleChange('date_of_admission', date.toISOString().split('T')[0]);
                       setShowAdmissionDatePicker(false);
@@ -1589,11 +1638,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  heroHeader: {
+  headerStandard: {
     backgroundColor: '#001F3F',
-    height: 180,
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
     paddingHorizontal: 20,
+    paddingBottom: 60,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
   },
@@ -1627,14 +1675,15 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   contentContainer: {
-    padding: 16,
     paddingBottom: 40,
   },
   errorBox: {
     backgroundColor: '#fee2e2',
     padding: 12,
+    marginHorizontal: 16,
     borderRadius: 10,
     marginBottom: 16,
+    marginTop: 16,
     borderWidth: 1,
     borderColor: '#fecaca',
   },
@@ -1645,8 +1694,10 @@ const styles = StyleSheet.create({
   successBox: {
     backgroundColor: '#d1fae5',
     padding: 12,
+    marginHorizontal: 16,
     borderRadius: 10,
     marginBottom: 16,
+    marginTop: 16,
     borderWidth: 1,
     borderColor: '#a7f3d0',
   },
@@ -1659,14 +1710,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: -30,
     marginBottom: 20,
-    padding: 16,
+    marginHorizontal: 20,
+    padding: 20,
     backgroundColor: '#FFF',
-    borderRadius: 16,
-    elevation: 4,
+    borderRadius: 24,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 12,
   },
   stepItem: {
     alignItems: 'center',
@@ -1706,9 +1758,15 @@ const styles = StyleSheet.create({
     color: '#059669',
   },
   formCard: {
-    padding: 20,
-    marginBottom: 16,
-    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
+    marginHorizontal: 16,
+    borderRadius: 24,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1865,7 +1923,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#E2E8F0',
     borderStyle: 'dashed',
-    borderRadius: 16,
+    borderRadius: 24,
     padding: 30,
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
@@ -1896,7 +1954,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     padding: 16,
     backgroundColor: '#F8FAFC',
-    borderRadius: 16,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -1944,7 +2002,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 16,
+    borderRadius: 24,
     overflow: 'hidden',
     backgroundColor: '#FFF',
   },
@@ -2006,10 +2064,16 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: 16,
     padding: 16,
+    marginHorizontal: 16,
     backgroundColor: '#FFF',
-    borderRadius: 16,
+    borderRadius: 24,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   footerText: {
     fontSize: 11,
@@ -2045,7 +2109,7 @@ const styles = StyleSheet.create({
   rollNumberDisplay: {
     backgroundColor: '#F0F9FF',
     padding: 24,
-    borderRadius: 20,
+    borderRadius: 24,
     alignItems: 'center',
     marginBottom: 20,
     width: '100%',

@@ -16,6 +16,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -38,6 +39,7 @@ import {
 } from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
+import HM_THEME from '../../constants/hmTheme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
@@ -226,10 +228,17 @@ const FilterModal: React.FC<{
   onSelectSubject,
   onApply,
   onClose,
-}) => (
-  <Modal visible={visible} transparent animationType="slide">
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalContent}>
+}) => {
+  const [showClassPicker, setShowClassPicker] = useState(false);
+  const [showSectionPicker, setShowSectionPicker] = useState(false);
+  const [showExamPicker, setShowExamPicker] = useState(false);
+  const [showSubjectPicker, setShowSubjectPicker] = useState(false);
+  const LIST_THRESHOLD = 8;
+
+  return (
+      <Modal visible={visible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
         <View style={styles.modalHeader}>
           <AppText weight="bold" style={styles.modalTitle}>Filters</AppText>
           <TouchableOpacity onPress={onClose} style={styles.modalClose}>
@@ -240,12 +249,18 @@ const FilterModal: React.FC<{
         <ScrollView style={styles.modalBody}>
           {/* Class Filter */}
           <AppText weight="bold" style={styles.modalLabel}>Class</AppText>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.chipContainer}>
-              {loadingClasses ? (
-                <ActivityIndicator size="small" color="#2563eb" />
-              ) : (
-                classes.map(cls => (
+          {loadingClasses ? (
+            <ActivityIndicator size="small" color="#2563eb" />
+          ) : classes.length > LIST_THRESHOLD ? (
+            <TouchableOpacity style={styles.pickerButton} onPress={() => setShowClassPicker(true)}>
+              <AppText weight="semiBold" style={styles.pickerButtonText}>
+                {selectedClass ? (classes.find(c => c.class_id === selectedClass)?.class_name || 'Select Class') : 'Select Class'}
+              </AppText>
+            </TouchableOpacity>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.chipContainer}>
+                {classes.map(cls => (
                   <TouchableOpacity
                     key={cls.class_id}
                     style={[styles.chip, selectedClass === cls.class_id && styles.chipActive]}
@@ -255,21 +270,27 @@ const FilterModal: React.FC<{
                       {cls.class_name}
                     </AppText>
                   </TouchableOpacity>
-                ))
-              )}
-            </View>
-          </ScrollView>
+                ))}
+              </View>
+            </ScrollView>
+          )}
 
           {/* Section Filter */}
           {selectedClass && (
             <>
               <AppText weight="bold" style={[styles.modalLabel, { marginTop: 16 }]}>Section</AppText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.chipContainer}>
-                  {loadingSections ? (
-                    <ActivityIndicator size="small" color="#2563eb" />
-                  ) : (
-                    sections.map(sec => (
+              {loadingSections ? (
+                <ActivityIndicator size="small" color="#2563eb" />
+              ) : sections.length > LIST_THRESHOLD ? (
+                <TouchableOpacity style={styles.pickerButton} onPress={() => setShowSectionPicker(true)}>
+                  <AppText weight="semiBold" style={styles.pickerButtonText}>
+                    {selectedSection ? (sections.find(s => s.section_id === selectedSection)?.section_name || 'Select Section') : 'Select Section'}
+                  </AppText>
+                </TouchableOpacity>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.chipContainer}>
+                    {sections.map(sec => (
                       <TouchableOpacity
                         key={sec.section_id}
                         style={[styles.chip, selectedSection === sec.section_id && styles.chipActive]}
@@ -279,21 +300,27 @@ const FilterModal: React.FC<{
                           {sec.section_name}
                         </AppText>
                       </TouchableOpacity>
-                    ))
-                  )}
-                </View>
-              </ScrollView>
+                    ))}
+                  </View>
+                </ScrollView>
+              )}
             </>
           )}
 
           {/* Exam Filter */}
           <AppText weight="bold" style={[styles.modalLabel, { marginTop: 16 }]}>Exam</AppText>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.chipContainer}>
-              {loadingExams ? (
-                <ActivityIndicator size="small" color="#2563eb" />
-              ) : (
-                exams.map(exam => (
+          {loadingExams ? (
+            <ActivityIndicator size="small" color="#2563eb" />
+          ) : exams.length > LIST_THRESHOLD ? (
+            <TouchableOpacity style={styles.pickerButton} onPress={() => setShowExamPicker(true)}>
+              <AppText weight="semiBold" style={styles.pickerButtonText}>
+                {selectedExam ? (exams.find(e => e.exam_id === selectedExam)?.exam_name || 'Select Exam') : 'Select Exam'}
+              </AppText>
+            </TouchableOpacity>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.chipContainer}>
+                {exams.map(exam => (
                   <TouchableOpacity
                     key={exam.exam_id}
                     style={[styles.chip, selectedExam === exam.exam_id && styles.chipActive]}
@@ -303,21 +330,27 @@ const FilterModal: React.FC<{
                       {exam.exam_name}
                     </AppText>
                   </TouchableOpacity>
-                ))
-              )}
-            </View>
-          </ScrollView>
+                ))}
+              </View>
+            </ScrollView>
+          )}
 
           {/* Subject Filter */}
           {selectedClass && (
             <>
               <AppText weight="bold" style={[styles.modalLabel, { marginTop: 16 }]}>Subject</AppText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.chipContainer}>
-                  {loadingSubjects ? (
-                    <ActivityIndicator size="small" color="#2563eb" />
-                  ) : (
-                    subjects.map(subj => (
+              {loadingSubjects ? (
+                <ActivityIndicator size="small" color="#2563eb" />
+              ) : subjects.length > LIST_THRESHOLD ? (
+                <TouchableOpacity style={styles.pickerButton} onPress={() => setShowSubjectPicker(true)}>
+                  <AppText weight="semiBold" style={styles.pickerButtonText}>
+                    {selectedSubject ? (subjects.find(s => s.subject_id === selectedSubject)?.subject_name || 'Select Subject') : 'Select Subject'}
+                  </AppText>
+                </TouchableOpacity>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.chipContainer}>
+                    {subjects.map(subj => (
                       <TouchableOpacity
                         key={subj.subject_id}
                         style={[styles.chip, selectedSubject === subj.subject_id && styles.chipActive]}
@@ -327,21 +360,96 @@ const FilterModal: React.FC<{
                           {subj.subject_name}
                         </AppText>
                       </TouchableOpacity>
-                    ))
-                  )}
-                </View>
-              </ScrollView>
+                    ))}
+                  </View>
+                </ScrollView>
+              )}
             </>
           )}
         </ScrollView>
 
-        <View style={styles.modalFooter}>
-          <AppButton title="Apply Filters" onPress={onApply} />
+          <View style={styles.modalFooter}>
+            <AppButton title="Apply Filters" onPress={onApply} />
+          </View>
         </View>
       </View>
-    </View>
-  </Modal>
-);
+
+      {/* Picker modals for large lists */}
+      <Modal visible={showClassPicker} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowClassPicker(false)}>
+          <View style={[styles.modalContent, { maxHeight: '60%' }]}>
+            <View style={styles.modalHeader}>
+              <AppText weight="bold" style={styles.modalTitle}>Select Class</AppText>
+              <TouchableOpacity onPress={() => setShowClassPicker(false)} style={styles.modalClose}><X size={20} color="#64748b" /></TouchableOpacity>
+            </View>
+            <ScrollView style={{ padding: 20 }}>
+              {classes.map(c => (
+                <TouchableOpacity key={c.class_id} style={styles.pickerOption} onPress={() => { onSelectClass(c.class_id); setShowClassPicker(false); }}>
+                  <AppText style={styles.pickerOptionText}>{c.class_name}</AppText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showSectionPicker} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowSectionPicker(false)}>
+          <View style={[styles.modalContent, { maxHeight: '60%' }]}>
+            <View style={styles.modalHeader}>
+              <AppText weight="bold" style={styles.modalTitle}>Select Section</AppText>
+              <TouchableOpacity onPress={() => setShowSectionPicker(false)} style={styles.modalClose}><X size={20} color="#64748b" /></TouchableOpacity>
+            </View>
+            <ScrollView style={{ padding: 20 }}>
+              {sections.map(s => (
+                <TouchableOpacity key={s.section_id} style={styles.pickerOption} onPress={() => { onSelectSection(s.section_id); setShowSectionPicker(false); }}>
+                  <AppText style={styles.pickerOptionText}>{s.section_name}</AppText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showExamPicker} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowExamPicker(false)}>
+          <View style={[styles.modalContent, { maxHeight: '60%' }]}>
+            <View style={styles.modalHeader}>
+              <AppText weight="bold" style={styles.modalTitle}>Select Exam</AppText>
+              <TouchableOpacity onPress={() => setShowExamPicker(false)} style={styles.modalClose}><X size={20} color="#64748b" /></TouchableOpacity>
+            </View>
+            <ScrollView style={{ padding: 20 }}>
+              {exams.map(e => (
+                <TouchableOpacity key={e.exam_id} style={styles.pickerOption} onPress={() => { onSelectExam(e.exam_id); setShowExamPicker(false); }}>
+                  <AppText style={styles.pickerOptionText}>{e.exam_name}</AppText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showSubjectPicker} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowSubjectPicker(false)}>
+          <View style={[styles.modalContent, { maxHeight: '60%' }]}>
+            <View style={styles.modalHeader}>
+              <AppText weight="bold" style={styles.modalTitle}>Select Subject</AppText>
+              <TouchableOpacity onPress={() => setShowSubjectPicker(false)} style={styles.modalClose}><X size={20} color="#64748b" /></TouchableOpacity>
+            </View>
+            <ScrollView style={{ padding: 20 }}>
+              {subjects.map(su => (
+                <TouchableOpacity key={su.subject_id} style={styles.pickerOption} onPress={() => { onSelectSubject(su.subject_id); setShowSubjectPicker(false); }}>
+                  <AppText style={styles.pickerOptionText}>{su.subject_name}</AppText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+    </Modal>
+  );
+};
 
 // Exam Config Modal
 const ExamConfigModal: React.FC<{
@@ -394,6 +502,7 @@ const ExamConfigModal: React.FC<{
 );
 
 export default function MarksEntryScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
@@ -946,38 +1055,37 @@ export default function MarksEntryScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
-
-      {/* Navy Hero Header */}
-      <View style={styles.heroHeader}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => navigation.goBack()}
-          >
-            <ChevronLeft size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <AppText weight="bold" style={styles.heroTitle}>Marks Entry</AppText>
-          <View style={{ width: 40 }} />
-        </View>
-
-        <View style={styles.heroContent}>
-          <AppText weight="bold" style={styles.heroGreeting}>Academic Grading</AppText>
-          <AppText weight="medium" style={styles.heroSubtext}>Enter and manage student marks for examinations</AppText>
-        </View>
-      </View>
+      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#001F3F" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={HM_THEME.navy} />}
       >
+        {/* Navy Standard Header */}
+        <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('TeacherDashboard')}
+            >
+              <ChevronLeft size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <AppText weight="bold" style={styles.headerTitle}>Marks Entry</AppText>
+            <View style={{ width: 40 }} />
+          </View>
+
+          <View style={styles.headerContent}>
+            <AppText weight="bold" style={styles.headerGreeting}>Academic Grading</AppText>
+            <AppText weight="medium" style={styles.headerSubtext}>Enter and manage student marks for examinations</AppText>
+          </View>
+        </View>
 
         {/* Filter Card */}
         <AppCard style={styles.mainCard}>
           <View style={styles.cardHeader}>
-            <Filter size={20} color="#001F3F" />
+            <Filter size={20} color={HM_THEME.navy} />
             <AppText weight="bold" style={styles.cardTitle}>Selection Filters</AppText>
           </View>
 
@@ -986,25 +1094,25 @@ export default function MarksEntryScreen() {
             <View style={styles.selectedFilters}>
               {classId ? (
                 <View style={styles.filterTag}>
-                  <LayoutGrid size={12} color="#001F3F" />
+                  <LayoutGrid size={12} color={HM_THEME.navy} />
                   <AppText weight="semiBold" style={styles.filterTagText}>Class {classes.find(c => c.class_id === classId)?.class_name}</AppText>
                 </View>
               ) : null}
               {sectionId ? (
                 <View style={styles.filterTag}>
-                  <BookOpen size={12} color="#001F3F" />
+                  <BookOpen size={12} color={HM_THEME.navy} />
                   <AppText weight="semiBold" style={styles.filterTagText}>Sec {sections.find(s => s.section_id === sectionId)?.section_name}</AppText>
                 </View>
               ) : null}
               {examId ? (
                 <View style={styles.filterTag}>
-                  <ClipboardList size={12} color="#001F3F" />
+                  <ClipboardList size={12} color={HM_THEME.navy} />
                   <AppText weight="semiBold" style={styles.filterTagText}>{exams.find(e => e.exam_id === examId)?.exam_name}</AppText>
                 </View>
               ) : null}
               {subjectId ? (
                 <View style={styles.filterTag}>
-                  <BookOpen size={12} color="#001F3F" />
+                  <BookOpen size={12} color={HM_THEME.navy} />
                   <AppText weight="semiBold" style={styles.filterTagText}>{subjects.find(s => s.subject_id === subjectId)?.subject_name}</AppText>
                 </View>
               ) : null}
@@ -1024,7 +1132,7 @@ export default function MarksEntryScreen() {
           <AppCard style={styles.configCard}>
             <View style={styles.configHeader}>
               <View style={styles.configTitleRow}>
-                <Settings size={18} color="#001F3F" />
+                <Settings size={18} color={HM_THEME.navy} />
                 <AppText weight="bold" style={styles.configTitle}>Exam Rules</AppText>
               </View>
               {examSubjectId && !isEditMode && (
@@ -1123,11 +1231,11 @@ export default function MarksEntryScreen() {
 
             <View style={styles.secondaryActions}>
               <TouchableOpacity style={styles.secondaryBtn} onPress={() => loadStudents(true)}>
-                <RefreshCw size={16} color="#001F3F" />
+                <RefreshCw size={16} color={HM_THEME.navy} />
                 <AppText weight="semiBold" style={styles.secondaryBtnText}>Refresh</AppText>
               </TouchableOpacity>
               <TouchableOpacity style={styles.secondaryBtn} onPress={exportToCSV}>
-                <Download size={16} color="#001F3F" />
+                <Download size={16} color={HM_THEME.navy} />
                 <AppText weight="semiBold" style={styles.secondaryBtnText}>Export</AppText>
               </TouchableOpacity>
             </View>
@@ -1198,18 +1306,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  heroHeader: {
-    backgroundColor: '#001F3F',
-    height: 180,
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+  headerStandard: {
+    backgroundColor: HM_THEME.navy,
     paddingHorizontal: 20,
+    paddingBottom: 60,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: Platform.OS === 'ios' ? 0 : 10,
   },
   iconButton: {
     width: 40,
@@ -1219,36 +1332,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  heroTitle: {
+  headerTitle: {
     color: '#FFFFFF',
     fontSize: 18,
   },
-  heroContent: {
+  headerContent: {
     marginTop: 20,
   },
-  heroGreeting: {
+  headerGreeting: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 28,
+    letterSpacing: -0.5,
   },
-  heroSubtext: {
+  headerSubtext: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
+    fontSize: 15,
     marginTop: 4,
   },
   scrollContent: {
-    paddingHorizontal: 16,
     paddingBottom: 100,
   },
   mainCard: {
     marginTop: -30,
-    borderRadius: 20,
+    marginHorizontal: 16,
+    borderRadius: 30,
     backgroundColor: '#fff',
-    borderWidth: 0,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(241, 245, 249, 0.8)',
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 12,
     marginBottom: 16,
     overflow: 'hidden',
   },
@@ -1287,15 +1402,16 @@ const styles = StyleSheet.create({
   },
   filterTagText: {
     fontSize: 12,
-    color: '#001F3F',
+    color: HM_THEME.navy,
   },
   primaryButton: {
-    backgroundColor: '#001F3F',
+    backgroundColor: HM_THEME.navy,
     borderRadius: 12,
     height: 48,
   },
   configCard: {
-    borderRadius: 20,
+    marginHorizontal: 16,
+    borderRadius: 30,
     backgroundColor: '#fff',
     padding: 16,
     marginBottom: 16,
@@ -1379,7 +1495,7 @@ const styles = StyleSheet.create({
   },
   configItemValue: {
     fontSize: 18,
-    color: '#001F3F',
+    color: HM_THEME.navy,
   },
   editConfigBtn: {
     width: 44,
@@ -1390,6 +1506,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionBar: {
+    marginHorizontal: 16,
     marginBottom: 20,
     gap: 12,
   },
@@ -1461,9 +1578,10 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: {
     fontSize: 13,
-    color: '#001F3F',
+    color: HM_THEME.navy,
   },
   emptyCard: {
+    marginHorizontal: 16,
     padding: 40,
     alignItems: 'center',
     borderRadius: 20,
@@ -1481,6 +1599,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   listWrapper: {
+    marginHorizontal: 16,
     gap: 12,
   },
   listTitle: {
@@ -1492,13 +1611,15 @@ const styles = StyleSheet.create({
   studentRow: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 30,
+    padding: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#f1f5f9',
-    elevation: 1,
-    shadowOpacity: 0.02,
+    borderColor: 'rgba(241, 245, 249, 0.8)',
+    elevation: 2,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
   studentRowAbsent: {
     backgroundColor: '#fef2f2',
@@ -1528,7 +1649,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   rollTag: {
-    backgroundColor: '#001F3F',
+    backgroundColor: HM_THEME.navy,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -1631,8 +1752,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    maxHeight: '85%',
+    maxHeight: '90%',
     paddingBottom: 40,
+    width: '100%',
+  },
+  configModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingBottom: 40,
+    width: '100%',
+  },
+  configModalBody: {
+    padding: 20,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1684,8 +1816,8 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   chipActive: {
-    backgroundColor: '#001F3F',
-    borderColor: '#001F3F',
+    backgroundColor: HM_THEME.navy,
+    borderColor: HM_THEME.navy,
   },
   chipText: {
     fontSize: 14,
@@ -1693,6 +1825,31 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: '#fff',
+  },
+  pickerButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 16,
+  },
+  pickerButtonText: {
+    fontSize: 14,
+    color: '#334155',
+  },
+  pickerOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  pickerOptionText: {
+    fontSize: 15,
+    color: '#0f172a',
   },
   modalFooter: {
     padding: 20,

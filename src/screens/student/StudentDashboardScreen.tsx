@@ -1,30 +1,34 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   StyleSheet,
   View,
   ScrollView,
   Image,
   TouchableOpacity,
-  Dimensions,
   ActivityIndicator,
   RefreshControl,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Icon from '@react-native-vector-icons/ionicons';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
-import { colors } from '../../constants/theme';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import Svg, { Path } from 'react-native-svg';
-import { getStudentAttendance, getStudentProfilePhotoDataUri, getStudentProfilePhotoUrl } from '../../services/studentService';
+import { getStudentAttendance, getStudentProfile, getStudentProfilePhotoDataUri, getStudentProfilePhotoUrl } from '../../services/studentService';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width } = Dimensions.get('window');
+const getStudentPhotoCacheKey = (studentId: string, schoolCode: string): string | null => {
+  if (!studentId) return null;
+  return `profile_photo_url:student:${schoolCode || 'unknown'}:${studentId}`;
+};
 
 export default function StudentDashboardScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName, setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
@@ -96,17 +100,42 @@ export default function StudentDashboardScreen() {
   useEffect(() => {
     const loadProfilePhoto = async () => {
       try {
-        const cached = await AsyncStorage.getItem('profile_photo_url');
-        if (cached && isMounted.current) {
-          setProfilePhotoUrl(cached);
+        const studentId = (await AsyncStorage.getItem('student_id')) || (await AsyncStorage.getItem('studentId')) || '';
+        const schoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
+        const scopedCacheKey = getStudentPhotoCacheKey(studentId, schoolCode);
+
+        const freshProfile = await getStudentProfile();
+        const profilePhoto = String(
+          (freshProfile as any)?.profile_photo_url ||
+          (freshProfile as any)?.student_photograph ||
+          ''
+        ).trim();
+
+        if (profilePhoto && isMounted.current) {
+          setProfilePhotoUrl(profilePhoto);
           setProfilePhotoError(false);
+          if (scopedCacheKey) {
+            await AsyncStorage.setItem(scopedCacheKey, profilePhoto);
+          }
+          return;
+        }
+
+        if (scopedCacheKey) {
+          const cached = await AsyncStorage.getItem(scopedCacheKey);
+          if (cached && isMounted.current) {
+            setProfilePhotoUrl(cached);
+            setProfilePhotoError(false);
+            return;
+          }
         }
 
         const resolved = (await getStudentProfilePhotoDataUri()) || (await getStudentProfilePhotoUrl());
         if (resolved && isMounted.current) {
           setProfilePhotoUrl(resolved);
           setProfilePhotoError(false);
-          await AsyncStorage.setItem('profile_photo_url', resolved);
+          if (scopedCacheKey) {
+            await AsyncStorage.setItem(scopedCacheKey, resolved);
+          }
         }
       } catch {
         // Keep initials/photo fallback behavior when photo endpoint is unavailable.
@@ -129,9 +158,9 @@ export default function StudentDashboardScreen() {
   ];
 
   const quickAccess = [
-    { name: 'Assignments', icon: 'clipboard', color: '#fdf2f8', iconColor: '#db2777', screen: 'StudentHomework' },
+    { name: 'Homework', icon: 'clipboard', color: '#fdf2f8', iconColor: '#db2777', screen: 'StudentHomework' },
     { name: 'Attendance', icon: 'list', color: '#fef2f2', iconColor: '#ef4444', screen: 'StudentAttendance' },
-    { name: 'Results', icon: 'stats-chart', color: '#ecfeff', iconColor: '#06b6d4', screen: 'StudentMarks' },
+    { name: 'Marks', icon: 'stats-chart', color: '#ecfeff', iconColor: '#06b6d4', screen: 'StudentMarks' },
     { name: 'Leaves', icon: 'calendar', color: '#eef2ff', iconColor: '#6366f1', screen: 'StudentLeave' },
     { name: 'Fees', icon: 'wallet', color: '#fff7ed', iconColor: '#f97316', screen: 'StudentFee' },
     { name: 'Papers', icon: 'document-text', color: '#f0fdf4', iconColor: '#22c55e', screen: 'StudentQuestionPapers' },
@@ -149,15 +178,18 @@ export default function StudentDashboardScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F50" />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <View style={styles.header}>
+        <View style={[styles.headerContent, { paddingTop: insets.top + 14 }]}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
               <Image
@@ -170,7 +202,7 @@ export default function StudentDashboardScreen() {
               style={styles.notificationBtn}
               onPress={() => navigation.navigate('Notifications')}
             >
-              <Icon name="notifications-outline" size={24} color="#fff" />
+              <Icon name="notifications-outline" size={22} color="#fff" />
               {unreadCount > 0 && (
                 <View style={styles.badge}>
                   <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
@@ -179,10 +211,18 @@ export default function StudentDashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          <AppText style={styles.greeting}>HI {userName?.split(' ')[0] || 'Student'} 👋</AppText>
-          <AppText style={styles.subGreeting}>Here's your academic overview.</AppText>
+          <View style={styles.welcomeSection}>
+            <View>
+              <AppText style={styles.greeting}>HI {userName?.split(' ')[0] || 'student'} 👋</AppText>
+              <AppText style={styles.subGreeting}>Here's your academic overview.</AppText>
+            </View>
+          </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.statsGrid}
+          >
             {stats.map((stat, i) => (
               <View key={`stat-${i}`} style={styles.statCard}>
                 <AppText style={styles.statLabel}>{stat.label}</AppText>
@@ -209,65 +249,68 @@ export default function StudentDashboardScreen() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <AppText style={styles.sectionTitle}>Quick Access</AppText>
-            <TouchableOpacity>
-              <AppText style={styles.viewAll}>View All</AppText>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.quickAccessGrid}>
-            {quickAccess.map((item, i) => (
-              <TouchableOpacity
-                key={`quick-${i}`}
-                style={styles.gridItem}
-                onPress={() => item.screen && navigation.navigate(item.screen as any, (item as any).params)}
-              >
-                <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-                  <Icon name={item.icon as any} size={24} color={item.iconColor} />
-                </View>
-                <AppText style={styles.gridLabel}>{item.name}</AppText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <AppText style={styles.sectionTitle}>Recent Activity</AppText>
-            <TouchableOpacity onPress={() => navigation.navigate('StudentAttendance')}>
-              <AppText style={styles.viewAll}>View All</AppText>
-            </TouchableOpacity>
+        <View style={styles.contentContainer}>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <AppText style={styles.sectionTitle}>Quick Access</AppText>
+              {/* <TouchableOpacity>
+                <AppText style={styles.viewAll}>View All</AppText>
+              </TouchableOpacity> */}
+            </View>
+            <View style={styles.quickAccessGrid}>
+              {quickAccess.map((item, i) => (
+                <TouchableOpacity
+                  key={`quick-${i}`}
+                  style={styles.gridItem}
+                  onPress={() => item.screen && navigation.navigate(item.screen as any, (item as any).params)}
+                >
+                  <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
+                    <Icon name={item.icon as any} size={24} color={item.iconColor} />
+                  </View>
+                  <AppText style={styles.gridLabel}>{item.name}</AppText>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-          {recentAttendance.length > 0 ? (
-            recentAttendance.slice(0, 3).map((item, index) => (
-              <View key={index} style={styles.activityCardRow}>
-                <View style={[styles.activityIcon, { backgroundColor: item.status?.toLowerCase() === 'present' ? '#dcfce7' : '#fee2e2' }]}>
-                  <Icon
-                    name={item.status?.toLowerCase() === 'present' ? "checkmark-circle" : "close-circle"}
-                    size={20}
-                    color={item.status?.toLowerCase() === 'present' ? "#15803d" : "#b91c1c"}
-                  />
-                </View>
-                <View style={styles.activityInfo}>
-                  <AppText style={styles.activityTitle}>Attendance Marked</AppText>
-                  <AppText style={styles.activityDate}>
-                    {new Date(item.attendance_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <AppText style={styles.sectionTitle}>Recent Activity</AppText>
+              <TouchableOpacity onPress={() => navigation.navigate('StudentAttendance')}>
+                <AppText style={styles.viewAll}>View All</AppText>
+              </TouchableOpacity>
+            </View>
+            {recentAttendance.length > 0 ? (
+              recentAttendance.slice(0, 3).map((item, index) => (
+                <View key={index} style={styles.activityCardRow}>
+                  <View style={[styles.activityIcon, { backgroundColor: item.status?.toLowerCase() === 'present' ? '#dcfce7' : '#fee2e2' }]}>
+                    <Icon
+                      name={item.status?.toLowerCase() === 'present' ? "checkmark-circle" : "close-circle"}
+                      size={20}
+                      color={item.status?.toLowerCase() === 'present' ? "#15803d" : "#b91c1c"}
+                    />
+                  </View>
+                  <View style={styles.activityInfo}>
+                    <AppText style={styles.activityTitle}>Attendance Marked</AppText>
+                    <AppText style={styles.activityDate}>
+                      {new Date(item.attendance_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </AppText>
+                  </View>
+                  <AppText style={[styles.activityStatus, { color: item.status?.toLowerCase() === 'present' ? "#15803d" : "#b91c1c" }]}>
+                    {item.status}
                   </AppText>
                 </View>
-                <AppText style={[styles.activityStatus, { color: item.status?.toLowerCase() === 'present' ? "#15803d" : "#b91c1c" }]}>
-                  {item.status}
-                </AppText>
+              ))
+            ) : (
+              <View style={styles.activityCard}>
+                 <AppText style={styles.activityDetail}>No recent activity found.</AppText>
               </View>
-            ))
-          ) : (
-            <View style={styles.activityCard}>
-               <AppText style={styles.activityDetail}>No recent activity found.</AppText>
-            </View>
-          )}
+            )}
+          </View>
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: insets.bottom + 88 }} />
       </ScrollView>
     </View>
   );
@@ -276,38 +319,40 @@ export default function StudentDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f3f5f9',
   },
   center: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    backgroundColor: '#001a3d',
-    paddingTop: 40,
+  headerContent: {
+    backgroundColor: '#001F50',
     paddingHorizontal: 20,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
+  },
+  welcomeSection: {
+    marginBottom: 16,
   },
   avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 2,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 3,
     borderColor: '#22c55e',
   },
   notificationBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -319,8 +364,8 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     backgroundColor: '#ef4444',
-    borderWidth: 1.5,
-    borderColor: '#001a3d',
+    borderWidth: 1,
+    borderColor: '#001F50',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 2,
@@ -332,70 +377,94 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   greeting: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: '800',
-    color: '#fff',
+    color: '#f8fafc',
+    lineHeight: 36,
   },
   subGreeting: {
     fontSize: 14,
-    color: '#94a3b8',
-    marginTop: 4,
+    color: 'rgba(248,250,252,0.68)',
+    marginTop: 2,
+    fontWeight: '600',
   },
-  statsScroll: {
-    marginTop: 20,
+  statsGrid: {
+    marginTop: 8,
     flexDirection: 'row',
+    gap: 12,
+    paddingRight: 24,
   },
   statCard: {
     backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: 15,
-    marginRight: 12,
-    width: 100,
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    width: 152,
+    minHeight: 84,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    elevation: 3,
   },
   attendancePctCard: {
     backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: 15,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     marginTop: 12,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 3,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#64748b',
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '800',
     color: '#0f172a',
-    marginTop: 4,
+    marginTop: 2,
+    lineHeight: 28,
   },
   chartPlaceholder: {
-    width: 100,
+    width: 110,
     height: 40,
     justifyContent: 'center',
   },
+  contentContainer: {
+    marginTop: 6,
+    backgroundColor: '#f3f5f9',
+    paddingTop: 6,
+  },
   section: {
     paddingHorizontal: 20,
-    paddingTop: 25,
+    paddingTop: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0f172a',
+    lineHeight: 22,
   },
   viewAll: {
     fontSize: 14,
     color: '#6366f1',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   quickAccessGrid: {
     flexDirection: 'row',
@@ -403,32 +472,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   gridItem: {
-    width: '22%',
+    width: '24%',
     alignItems: 'center',
     marginBottom: 20,
   },
   iconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   gridLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#64748b',
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
   },
   activityCard: {
     backgroundColor: '#fff',
-    borderRadius: 15,
+    borderRadius: 18,
     padding: 20,
     alignItems: 'center',
     marginBottom: 12,
@@ -440,11 +509,11 @@ const styles = StyleSheet.create({
   },
   activityCardRow: {
     backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: 15,
+    borderRadius: 18,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -452,12 +521,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   activityIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   activityInfo: {
     flex: 1,
@@ -470,7 +539,7 @@ const styles = StyleSheet.create({
   activityDate: {
     fontSize: 12,
     color: '#64748b',
-    marginTop: 2,
+    marginTop: 3,
   },
   activityStatus: {
     fontSize: 12,

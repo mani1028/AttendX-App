@@ -16,6 +16,7 @@ import {
     NativeSyntheticEvent,
     NativeScrollEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { getTeachersForLeave, getLeaveRequests, submitLeaveRequest } from '../../services/studentService';
@@ -31,6 +32,42 @@ interface Teacher {
     subject?: string;
     avatar?: string;
 }
+
+const isClassTeacherEntry = (teacher: Teacher & Record<string, any>): boolean => {
+    const candidates = [
+        teacher.is_class_teacher,
+        teacher.class_teacher,
+        teacher.classTeacher,
+        teacher.isClassTeacher,
+        teacher.role,
+        teacher.designation,
+        teacher.teacher_type,
+        teacher.type,
+        teacher.subject,
+    ];
+
+    return candidates.some((value) => {
+        if (typeof value === 'boolean') {
+            return value;
+        }
+
+        if (typeof value === 'string') {
+            const normalized = value.trim().toLowerCase();
+            return (
+                normalized === 'class teacher' ||
+                normalized === 'class_teacher' ||
+                normalized === 'classteacher' ||
+                normalized.includes('class teacher')
+            );
+        }
+
+        return false;
+    });
+};
+
+const getAutoSelectedTeacher = (teacherList: Teacher[]): Teacher | undefined => {
+    return teacherList.find(isClassTeacherEntry) || teacherList[0];
+};
 
 interface LeaveRequest {
     leave_id: string;
@@ -178,8 +215,10 @@ const LeaveHistoryCard: React.FC<{ request: LeaveRequest; onView: () => void }> 
 };
 
 export default function LeaveScreen({ navigation }: any) {
+    const insets = useSafeAreaInsets();
     const { setTabBarVisible } = useAuth();
     const isMounted = useRef(true);
+    const initialHistoryLimit = 10;
     const [schoolCode, setSchoolCode] = useState<string>('');
     const [studentId, setStudentId] = useState<string>('');
     const [parentId, setParentId] = useState<string>('');
@@ -212,6 +251,7 @@ export default function LeaveScreen({ navigation }: any) {
     const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
     const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
     const [showDetailModal, setShowDetailModal] = useState<boolean>(false);
+    const [showAllHistory, setShowAllHistory] = useState<boolean>(false);
 
     // Date picker states
     const [showFromDatePicker, setShowFromDatePicker] = useState<boolean>(false);
@@ -236,7 +276,6 @@ export default function LeaveScreen({ navigation }: any) {
                    if (cachedTeachers && isMounted.current) {
                        const teachersData = JSON.parse(cachedTeachers);
                        setTeachers(teachersData);
-                       // Don't auto-select to show placeholder
                    }
 
                    const cachedHistory = await AsyncStorage.getItem(`leave_history_cache_${sid}`);
@@ -260,6 +299,21 @@ export default function LeaveScreen({ navigation }: any) {
         }
     }, [schoolCode, studentId]);
 
+    useEffect(() => {
+        const autoSelectedTeacher = getAutoSelectedTeacher(teachers);
+        if (!autoSelectedTeacher) {
+            return;
+        }
+
+        setTeacherId((currentTeacherId) => {
+            if (String(currentTeacherId) === String(autoSelectedTeacher.teacher_id)) {
+                return currentTeacherId;
+            }
+
+            return String(autoSelectedTeacher.teacher_id);
+        });
+    }, [teachers]);
+
     const loadTeachers = async () => {
         if (!studentId) return;
 
@@ -267,9 +321,6 @@ export default function LeaveScreen({ navigation }: any) {
             const teachersData = await getTeachersForLeave();
             if (isMounted.current) {
                 setTeachers(teachersData);
-                if (teachersData.length > 0 && !teacherId) {
-                    // Don't auto-select to show placeholder
-                }
             }
             await AsyncStorage.setItem(`teachers_cache_${studentId}`, JSON.stringify(teachersData));
         } catch (error: any) {
@@ -283,7 +334,7 @@ export default function LeaveScreen({ navigation }: any) {
         if (!studentId) return;
 
         try {
-            const historyData = await getLeaveRequests();
+            const historyData = await getLeaveRequests(showAllHistory ? {} : { limit: initialHistoryLimit });
             if (isMounted.current) {
                 setHistory(historyData);
             }
@@ -299,6 +350,25 @@ export default function LeaveScreen({ navigation }: any) {
         setRefreshing(true);
         await Promise.all([loadTeachers(), loadHistory()]);
         setRefreshing(false);
+    };
+
+    const handleViewMoreHistory = async () => {
+        setShowAllHistory(true);
+        setRefreshing(true);
+        try {
+            const historyData = await getLeaveRequests();
+            if (isMounted.current) {
+                setHistory(historyData);
+            }
+        } catch (error: any) {
+            if (error?.response?.status !== 401) {
+                console.error('Failed to load full leave history', error);
+            }
+        } finally {
+            if (isMounted.current) {
+                setRefreshing(false);
+            }
+        }
     };
 
     const handleSubmit = async () => {
@@ -320,8 +390,8 @@ export default function LeaveScreen({ navigation }: any) {
                 Alert.alert('Error', 'Please select to date');
                 return;
             }
-            if (toDate < fromDate) {
-                Alert.alert('Error', 'To date must be after from date');
+            if (toDate <= fromDate) {
+                Alert.alert('Error', 'Multiple days leave request must be more than 1 day');
                 return;
             }
         }
@@ -395,8 +465,11 @@ export default function LeaveScreen({ navigation }: any) {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
             
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+                <TouchableOpacity
+                    style={styles.backButton}
+                    onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs')}
+                >
                     <Icon name="arrow-left" size={24} color="#fff" />
                 </TouchableOpacity>
                 <View style={styles.headerTitleContainer}>
@@ -453,18 +526,20 @@ export default function LeaveScreen({ navigation }: any) {
                         </View>
                     </View>
 
-                    {/* Teacher Selection Dropdown */}
+                    {/* Class Teacher */}
                     <View style={styles.formGroup}>
-                        <Text style={styles.formLabel}>Select Teacher</Text>
-                        <TouchableOpacity
-                            style={styles.dropdownButton}
-                            onPress={() => setShowTeacherModal(true)}
-                        >
-                            <Text style={[styles.dropdownText, !selectedTeacher && styles.dropdownPlaceholder]}>
-                                {selectedTeacher ? selectedTeacher.teacher_full_name : 'Select teacher'}
-                            </Text>
-                            <Icon name="chevron-down" size={20} color="#64748b" />
-                        </TouchableOpacity>
+                        <Text style={styles.formLabel}>Class Teacher</Text>
+                        <View style={styles.autoTeacherCard}>
+                            <View style={styles.autoTeacherTextBlock}>
+                                <Text style={[styles.dropdownText, !selectedTeacher && styles.dropdownPlaceholder]}>
+                                    {selectedTeacher ? selectedTeacher.teacher_full_name : 'Class teacher will be selected automatically'}
+                                </Text>
+                                <Text style={styles.autoTeacherHint}>
+                                    {selectedTeacher ? 'Auto-selected for your class' : 'No class teacher available yet'}
+                                </Text>
+                            </View>
+                            <Icon name="user-check" size={20} color="#3b82f6" />
+                        </View>
                     </View>
 
                     {/* Date Selection */}
@@ -565,16 +640,23 @@ export default function LeaveScreen({ navigation }: any) {
                             </Text>
                         </View>
                     ) : (
-                        history.map((request) => (
-                            <LeaveHistoryCard
-                                key={request.leave_id}
-                                request={request}
-                                onView={() => {
-                                    setSelectedRequest(request);
-                                    setShowDetailModal(true);
-                                }}
-                            />
-                        ))
+                        <>
+                            {history.slice(0, showAllHistory ? history.length : initialHistoryLimit).map((request) => (
+                                <LeaveHistoryCard
+                                    key={request.leave_id}
+                                    request={request}
+                                    onView={() => {
+                                        setSelectedRequest(request);
+                                        setShowDetailModal(true);
+                                    }}
+                                />
+                            ))}
+                            {!showAllHistory && history.length > initialHistoryLimit && (
+                                <TouchableOpacity style={styles.viewMoreBtn} onPress={handleViewMoreHistory}>
+                                    <Text style={styles.viewMoreText}>View More</Text>
+                                </TouchableOpacity>
+                            )}
+                        </>
                     )}
                 </View>
             </ScrollView>
@@ -732,9 +814,7 @@ const styles = StyleSheet.create({
     },
     header: {
         backgroundColor: '#001F3F',
-        height: Platform.OS === 'ios' ? 70 : 55,
         paddingHorizontal: 16,
-        paddingTop: Platform.OS === 'ios' ? 35 : 0,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -783,6 +863,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 10,
         elevation: 2,
+        marginTop: 10,
     },
     cardTitle: {
         fontSize: 14,
@@ -838,6 +919,27 @@ const styles = StyleSheet.create({
     dropdownText: {
         fontSize: 15,
         color: '#1E293B',
+    },
+    autoTeacherCard: {
+        minHeight: 52,
+        backgroundColor: '#F8FAFC',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#DBEAFE',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    autoTeacherTextBlock: {
+        flex: 1,
+        paddingRight: 12,
+    },
+    autoTeacherHint: {
+        marginTop: 4,
+        fontSize: 12,
+        color: '#64748B',
     },
     dropdownPlaceholder: {
         color: '#94A3B8',
@@ -947,6 +1049,21 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#64748B',
         textAlign: 'center',
+    },
+    viewMoreBtn: {
+        marginTop: 8,
+        alignSelf: 'center',
+        paddingHorizontal: 18,
+        paddingVertical: 10,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: '#cbd5e1',
+        backgroundColor: '#fff',
+    },
+    viewMoreText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#3b82f6',
     },
     modalOverlay: {
         flex: 1,

@@ -13,6 +13,7 @@ import {
   NativeScrollEvent,
   Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft, Calendar, FileText, Clock, CheckCircle2, XCircle } from 'lucide-react-native';
@@ -23,6 +24,7 @@ import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
+import HM_THEME from '../../constants/hmTheme';
 
 const { width } = Dimensions.get('window');
 
@@ -47,6 +49,11 @@ const getTeacherId = async (): Promise<string> => {
   return id || (await AsyncStorage.getItem('teacherId')) || 
          (await AsyncStorage.getItem('employee_id')) || 
          (await AsyncStorage.getItem('employeeId')) || '';
+};
+
+const getBranchId = async (): Promise<string> => {
+  const id = await AsyncStorage.getItem('branch_id');
+  return id || (await AsyncStorage.getItem('branchId')) || '';
 };
 
 const getTodayDate = (): string => {
@@ -135,12 +142,15 @@ const LeaveHistoryCard: React.FC<{ request: LeaveRequest }> = ({ request }) => {
 };
 
 export default function LeaveRequestScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [teacherId, setTeacherId] = useState<string>('');
-  
+  const [branchId, setBranchId] = useState<string>('');
+  const [resolvedTeacherId, setResolvedTeacherId] = useState<string>('');
+
   // Form fields
   const [leaveType, setLeaveType] = useState<'one-day' | 'multiple'>('one-day');
   const [fromDate, setFromDate] = useState<Date | null>(null);
@@ -165,9 +175,11 @@ export default function LeaveRequestScreen() {
     const loadCredentials = async () => {
       const code = await getSchoolCode();
       const tid = await getTeacherId();
+      const bid = await getBranchId();
       if (isMounted.current) {
         setSchoolCode(code);
         setTeacherId(tid);
+        setBranchId(bid);
       }
     };
     loadCredentials();
@@ -190,10 +202,31 @@ export default function LeaveRequestScreen() {
   };
 
   useEffect(() => {
-    if (schoolCode && teacherId) {
+    const resolveTeacherId = async () => {
+      if (!schoolCode || !teacherId) return;
+      try {
+        const res = await API.get('/teacher/marks/teacher-context', {
+          params: { teacher_id: teacherId },
+          headers: { 'x-school-code': schoolCode },
+        });
+
+        if (!isMounted.current) return;
+
+        const canonicalTeacherId = String(res.data?.teacher_data?.teacher_id || teacherId).trim();
+        setResolvedTeacherId(canonicalTeacherId);
+      } catch (err: any) {
+        if (!isMounted.current) return;
+        setResolvedTeacherId(teacherId);
+      }
+    };
+    resolveTeacherId();
+  }, [schoolCode, teacherId]);
+
+  useEffect(() => {
+    if (schoolCode && resolvedTeacherId) {
       loadHistory();
     }
-  }, [schoolCode, teacherId]);
+  }, [schoolCode, resolvedTeacherId]);
 
   const hasDuplicateLeave = (newFromDate: string, newToDate: string): boolean => {
     return history.some((leave) => {
@@ -204,18 +237,23 @@ export default function LeaveRequestScreen() {
   };
 
   const loadHistory = async () => {
-    if (!schoolCode || !teacherId) return;
+    if (!schoolCode || !resolvedTeacherId) return;
     setLoadingHistory(true);
     try {
       let res;
       try {
         res = await API.post('/manage/teacher/leave-requests/list', {
           school_code: schoolCode,
-          teacher_id: teacherId,
+          teacher_id: resolvedTeacherId,
+          branch_id: branchId,
         });
       } catch {
         res = await API.get('/manage/teacher/leave-requests', {
-          params: { school_code: schoolCode, teacher_id: teacherId },
+          params: {
+            school_code: schoolCode,
+            teacher_id: resolvedTeacherId,
+            branch_id: branchId,
+          },
         });
       }
       if (isMounted.current) {
@@ -253,8 +291,8 @@ export default function LeaveRequestScreen() {
       Alert.alert('Error', 'Please select a "To Date"');
       return;
     }
-    if (leaveType === 'multiple' && toDate && toDate < fromDate) {
-      Alert.alert('Error', 'To date must be after from date');
+    if (leaveType === 'multiple' && toDate && toDate <= fromDate) {
+      Alert.alert('Error', 'Multiple days leave request must be more than 1 day');
       return;
     }
     if (!isValidYear(formatDateToYMD(fromDate)) || !isValidYear(formatDateToYMD(finalToDate))) {
@@ -270,11 +308,17 @@ export default function LeaveRequestScreen() {
       return;
     }
 
+    if (!resolvedTeacherId) {
+      Alert.alert('Error', 'Teacher ID not found. Please re-login.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       await API.post('/manage/teacher/leave-requests/submit', {
         school_code: schoolCode,
-        teacher_id: teacherId,
+        teacher_id: resolvedTeacherId,
+        branch_id: branchId,
         from_date: formatDateToYMD(fromDate),
         to_date: formatDateToYMD(finalToDate),
         reason: reason.trim(),
@@ -304,14 +348,14 @@ export default function LeaveRequestScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
 
       {/* Navy Hero Header */}
-      <View style={styles.heroHeader}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20, paddingBottom: 60 }]}>
         <View style={styles.headerTop}>
           <TouchableOpacity
             style={styles.iconButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('TeacherDashboard')}
           >
             <ChevronLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
@@ -330,12 +374,12 @@ export default function LeaveRequestScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor="#001F3F" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor={HM_THEME.navy} />}
       >
         {/* Form Card */}
         <AppCard style={styles.mainCard}>
           <View style={styles.cardHeader}>
-            <Calendar size={20} color="#001F3F" />
+            <Calendar size={20} color={HM_THEME.navy} />
             <AppText weight="bold" style={styles.cardTitle}>New Application</AppText>
           </View>
 
@@ -451,10 +495,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  heroHeader: {
-    backgroundColor: '#001F3F',
-    height: 200,
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+  headerStandard: {
+    backgroundColor: HM_THEME.navy,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
@@ -493,8 +535,8 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   mainCard: {
-    marginTop: -40,
-    borderRadius: 20,
+    marginTop: -30,
+    borderRadius: 30,
     padding: 20,
     backgroundColor: '#FFFFFF',
     elevation: 4,
@@ -539,7 +581,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   typeBtnTextActive: {
-    color: '#001F3F',
+    color: HM_THEME.navy,
   },
   formRow: {
     flexDirection: 'row',
@@ -586,7 +628,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
   },
   submitButton: {
-    backgroundColor: '#001F3F',
+    backgroundColor: HM_THEME.navy,
     borderRadius: 12,
     height: 52,
     marginTop: 10,
@@ -613,7 +655,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   historyCard: {
-    borderRadius: 16,
+    borderRadius: 30,
     padding: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,

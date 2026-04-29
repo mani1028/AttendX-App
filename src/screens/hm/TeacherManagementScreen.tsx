@@ -16,6 +16,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import RNFS from 'react-native-fs';
@@ -40,27 +41,15 @@ import {
   Shield,
   GitBranch,
   Calendar,
+  Camera,
 } from 'lucide-react-native';
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { HM_THEME as C } from '../../constants/hmTheme';
 
-// Local theme bridge
-const C = {
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  muted: colors.textMuted,
-  primary: colors.primary,
-  success: colors.success,
-  successSoft: colors.successSoft,
-  error: colors.error,
-  errorSoft: colors.errorSoft,
-  warning: colors.warning,
-  warningSoft: colors.warningSoft,
-};
 
 const STEPS = ['Basics', 'Contact', 'Emergency', 'Employment', 'Preview'];
 
@@ -193,6 +182,7 @@ function validateStep(step: number, form: any): Record<string, string> {
     if (!form.password || String(form.password).length < 6) errors.password = 'Password must be at least 6 characters';
     if (!form.email_id.trim()) errors.email_id = 'Email is required';
     else if (!isValidEmail(form.email_id)) errors.email_id = 'Enter a valid email';
+    if (!form.teacher_photograph) errors.teacher_photograph = 'Photo is required';
   }
 
   return errors;
@@ -272,6 +262,7 @@ const Stepper = ({ currentStep }: { currentStep: number }) => (
 
 export default function TeacherPage() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState('');
@@ -605,7 +596,15 @@ export default function TeacherPage() {
     try {
       const data = new FormData();
       Object.entries(formData).forEach(([k, v]) => {
-        if (v !== null && v !== '') data.append(k, v);
+        if (k === 'teacher_photograph' && v && v.uri) {
+          data.append('teacher_photograph', {
+            uri: v.uri,
+            type: v.type || 'image/jpeg',
+            name: v.fileName || 'teacher.jpg',
+          } as any);
+        } else if (v !== null && v !== '') {
+          data.append(k, v);
+        }
       });
 
       const res = await API.post('/teacher/register', data, {
@@ -763,6 +762,30 @@ export default function TeacherPage() {
     ]);
   };
 
+  const handleImagePick = () => {
+    Alert.alert(
+      'Select Photo',
+      'Choose an option',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Take Photo', onPress: () => {
+          launchCamera({ mediaType: 'photo', quality: 0.9 }, (response) => {
+            if (response.assets && response.assets[0].uri) {
+              setFormData(prev => ({ ...prev, teacher_photograph: response.assets[0] }));
+            }
+          });
+        } },
+        { text: 'Choose from Gallery', onPress: () => {
+          launchImageLibrary({ mediaType: 'photo', quality: 0.9 }, (response) => {
+            if (response.assets && response.assets[0].uri) {
+              setFormData(prev => ({ ...prev, teacher_photograph: response.assets[0] }));
+            }
+          });
+        } },
+      ]
+    );
+  };
+
   const departments = useMemo(() => {
     const d = items.map(i => i.department_subject).filter(Boolean);
     return ['all', ...new Set(d)];
@@ -913,11 +936,14 @@ export default function TeacherPage() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 10 }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
+        >
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} weight="bold">Teacher Management</AppText>
@@ -1132,6 +1158,22 @@ export default function TeacherPage() {
                     </View>
                     {renderFormField('password', 'Password *', 'Min. 6 characters', 'text')}
                     {renderFormField('salary_amount', 'Salary Amount', 'Optional', 'number')}
+
+                    <View style={styles.formGroupFull}>
+                      <AppText style={styles.label} weight="semiBold">Teacher Photo *</AppText>
+                      <TouchableOpacity style={styles.photoZone} onPress={handleImagePick}>
+                        {formData.teacher_photograph ? (
+                          <Image source={{ uri: formData.teacher_photograph.uri }} style={styles.photoPreview} />
+                        ) : (
+                          <View style={styles.photoPlaceholder}>
+                            <Camera size={32} color={C.muted} />
+                            <AppText style={styles.photoText}>Tap to add photo</AppText>
+                            <AppText style={styles.photoSubtext}>Camera or Gallery</AppText>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                      {fieldErrors.teacher_photograph && <AppText style={styles.errorText}>{fieldErrors.teacher_photograph}</AppText>}
+                    </View>
                   </View>
                 </>
               )}
@@ -1144,9 +1186,13 @@ export default function TeacherPage() {
                   <View style={styles.previewCard}>
                     <View style={styles.previewHeader}>
                       <View style={styles.previewPhoto}>
-                        <AppText style={styles.previewInitial} weight="bold">
-                          {formData.teacher_full_name ? formData.teacher_full_name.charAt(0).toUpperCase() : 'T'}
-                        </AppText>
+                        {formData.teacher_photograph ? (
+                          <Image source={{ uri: formData.teacher_photograph.uri }} style={styles.previewPhotoImage} />
+                        ) : (
+                          <AppText style={styles.previewInitial} weight="bold">
+                            {formData.teacher_full_name ? formData.teacher_full_name.charAt(0).toUpperCase() : 'T'}
+                          </AppText>
+                        )}
                       </View>
                       <View style={styles.previewInfo}>
                         <AppText style={styles.previewName} weight="bold">{formData.teacher_full_name || '—'}</AppText>
@@ -1393,6 +1439,7 @@ export default function TeacherPage() {
           value={datePickerField === 'date_of_birth' && formData.date_of_birth ? new Date(formData.date_of_birth) : new Date()}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          maximumDate={new Date()}
           onChange={(event, selectedDate) => {
             setShowDatePicker(false);
             if (selectedDate) {
@@ -1520,8 +1567,7 @@ export default function TeacherPage() {
 
 const styles = StyleSheet.create({
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    backgroundColor: C.navy,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -1733,6 +1779,41 @@ const styles = StyleSheet.create({
   dateText: { fontSize: 14, color: C.text },
   placeholderText: { fontSize: 14, color: C.muted },
   errorText: { fontSize: 11, color: C.error, marginTop: 4 },
+  photoZone: {
+    borderWidth: 2,
+    borderColor: C.border,
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    backgroundColor: C.bg,
+    marginTop: 8,
+  },
+  photoPreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    resizeMode: 'cover',
+  },
+  photoPlaceholder: {
+    alignItems: 'center',
+  },
+  photoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.text,
+    marginTop: 8,
+  },
+  photoSubtext: {
+    fontSize: 11,
+    color: C.muted,
+    marginTop: 4,
+  },
+  previewPhotoImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 32,
+  },
   footer: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, padding: 16, backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.border },
   footerItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   footerStrong: { color: C.text },

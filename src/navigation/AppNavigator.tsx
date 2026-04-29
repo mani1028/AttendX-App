@@ -59,6 +59,8 @@ import TeacherViewAttendanceScreen from '../screens/teacher/ViewAttendanceScreen
 import TeacherAttendanceGalleryScreen from '../screens/teacher/AttendanceGalleryScreen';
 import MarkAttendanceScreen from '../components/teacher/MarkAttendanceScreen';
 
+import TeacherHomeworkSubmissionsScreen from '../screens/teacher/HomeworkSubmissionsScreen';
+
 // ─── Student Screens ────────────────────────────────────────────────────────
 import StudentDashboardScreen from '../screens/student/StudentDashboardScreen';
 import StudentAttendanceScreen from '../screens/student/StudentAttendanceScreen';
@@ -142,6 +144,7 @@ export type RootStackParamList = {
   TeacherVitalScan: undefined;
   TeacherViewAttendance: undefined;
   TeacherAttendanceGallery: undefined;
+  TeacherHomeworkSubmissions: { homeworkId: string; title: string };
   MarkAttendance: undefined;
   
   // Student
@@ -282,7 +285,7 @@ const TeacherTabNavigator = () => (
   >
     <Tab.Screen name="Home" component={TeacherDashboardScreen} />
     <Tab.Screen name="Homework" component={TeacherHomeworkManagementScreen} />
-    <Tab.Screen name="Scan" component={TeacherVitalScanScreen} />
+    <Tab.Screen name="Scan" component={TeacherAttendanceScreen} />
     <Tab.Screen name="Leaves" component={TeacherLeaveApprovalScreen} />
     <Tab.Screen name="Marks" component={TeacherMarksEntryScreen} />
   </Tab.Navigator>
@@ -412,6 +415,7 @@ export default function AppNavigator() {
           <Stack.Screen name="TeacherVitalScan" component={TeacherVitalScanScreen} options={{ headerShown: false }} />
           <Stack.Screen name="TeacherViewAttendance" component={TeacherViewAttendanceScreen} options={{ headerShown: false }} />
           <Stack.Screen name="TeacherAttendanceGallery" component={TeacherAttendanceGalleryScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="TeacherHomeworkSubmissions" component={TeacherHomeworkSubmissionsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} options={{ headerShown: false }} />
           
           {/* Student Screens */}

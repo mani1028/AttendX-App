@@ -40,14 +40,18 @@ import {
   Home,
   GitBranch,
   MapPin,
-  X
+  X,
+  Eye,
+  EyeOff,
+  Check,
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../constants/theme';
-import { getStudentProfile, getStudentProfilePhotoDataUri, getStudentProfilePhotoUrl } from '../../services/studentService';
-import { getTeacherProfile, getTeacherProfilePhotoDataUri, getTeacherProfilePhotoUrl } from '../../services/teacherService';
+import { getStudentProfile, getStudentProfilePhotoDataUri, getStudentProfilePhotoUrl, getProfile as getStudentProfileDetails, sendOtp, verifyOtp, changePassword, updateStudentProfile } from '../../services/studentService';
+import { getTeacherProfile, getTeacherProfilePhotoDataUri, getTeacherProfilePhotoUrl, updateTeacherProfile } from '../../services/teacherService';
 import { buildApiUrl } from '../../services/api';
 
 import AppButton from '../../components/common/AppButton';
@@ -86,6 +90,7 @@ interface UserProfile {
   father_guardian_mobile: string;
   mother_guardian_name: string;
   mother_guardian_mobile: string;
+  parent_guardian_email?: string;
   roll_number?: string;
   class_grade?: string;
   section?: string;
@@ -95,7 +100,6 @@ interface AppSettings {
   notifications: boolean;
   emailAlerts: boolean;
   pushNotifications: boolean;
-  darkMode: boolean;
   autoSave: boolean;
   language: string;
 }
@@ -158,7 +162,8 @@ const normalizePhotoUri = (value: unknown): string | null => {
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
-  const { logout } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { logout, userToken, userName } = useAuth();
   const [loading, setLoading] = useState(true);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [profilePhotoError, setProfilePhotoError] = useState(false);
@@ -179,31 +184,52 @@ export default function ProfileScreen() {
     gender: '', nationality: '', mother_tongue: '', religion: '', aadhaar_number: '',
     emergency_contact_name: '', emergency_contact_number: '', father_guardian_name: '',
     father_guardian_mobile: '', mother_guardian_name: '', mother_guardian_mobile: '',
+    parent_guardian_email: '',
   });
   
   const [settings, setSettings] = useState<AppSettings>({
     notifications: true, emailAlerts: true, pushNotifications: true,
-    darkMode: false, autoSave: true, language: 'English',
+    autoSave: true, language: 'English',
   });
   
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
   const [editField, setEditField] = useState({ key: '', label: '', value: '' });
+
+  // Password change states
+  const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
+  const [passwordChangeStep, setPasswordChangeStep] = useState<'otp-request' | 'otp-verify' | 'new-password'>(
+    'otp-request'
+  );
+  const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
+  const [passwordChangeOtp, setPasswordChangeOtp] = useState('');
+  const [passwordChangeError, setPasswordChangeError] = useState('');
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [verifiedOtpToken, setVerifiedOtpToken] = useState('');
 
   const fetchProfileData = useCallback(async () => {
     try {
-      const cachedProfilePhoto = await AsyncStorage.getItem('profile_photo_url');
-      if (cachedProfilePhoto && isMounted.current) {
-        setProfilePhotoUrl(cachedProfilePhoto);
-        setProfilePhotoError(false);
-      }
-
       const storedRole = (await AsyncStorage.getItem('userRole')) || (await AsyncStorage.getItem('role')) || 'student';
       const normalizedRole = String(storedRole).trim().toLowerCase();
       const roleBucket = normalizeRoleBucket(normalizedRole);
       let freshData;
       if (roleBucket === 'student') {
-        freshData = await getStudentProfile();
+        const studentId = (await AsyncStorage.getItem('student_id')) || (await AsyncStorage.getItem('studentId'));
+        const schoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode'));
+        if (studentId && schoolCode) {
+          try {
+            freshData = await getStudentProfileDetails(studentId, schoolCode);
+          } catch (e) {
+            freshData = await getStudentProfile();
+          }
+        } else {
+          freshData = await getStudentProfile();
+        }
       } else {
         freshData = await getTeacherProfile();
       }
@@ -236,7 +262,7 @@ export default function ProfileScreen() {
         const resolvedProfile = {
           ...(freshData as any),
           role: firstNonEmptyText((freshData as any)?.role, normalizedRole, 'student'),
-          name: firstNonEmptyText((freshData as any)?.name, (freshData as any)?.full_name, (freshData as any)?.teacher_full_name, (freshData as any)?.student_full_name, storedUser?.name),
+          name: firstNonEmptyText((freshData as any)?.name, (freshData as any)?.full_name, (freshData as any)?.teacher_full_name, (freshData as any)?.student_full_name, userName, storedUser?.name),
           email: firstNonEmptyText((freshData as any)?.email, (freshData as any)?.email_id, (freshData as any)?.email_address, storedEmail, storedUser?.email),
           phone: firstNonEmptyText((freshData as any)?.phone, (freshData as any)?.mobile, (freshData as any)?.mobile_number, (freshData as any)?.phone_number, storedPhone, storedUser?.phone),
           branch_name: firstNonEmptyText((freshData as any)?.branch_name, (freshData as any)?.branchName, (freshData as any)?.branch, storedBranchName, storedUser?.branch_name),
@@ -246,6 +272,7 @@ export default function ProfileScreen() {
           teacher_id: firstNonEmptyText((freshData as any)?.teacher_id, storedTeacherId, storedUser?.teacher_id),
           employee_id: firstNonEmptyText((freshData as any)?.employee_id, storedEmployeeId, storedUser?.employee_id),
           student_id: firstNonEmptyText((freshData as any)?.student_id, storedStudentId, storedUser?.student_id),
+          parent_guardian_email: firstNonEmptyText((freshData as any)?.parent_guardian_email, (freshData as any)?.parent_email, (freshData as any)?.guardian_email, (freshData as any)?.father_email, (freshData as any)?.mother_email, (freshData as any)?.father_guardian_email, storedUser?.parent_guardian_email),
         };
 
         setUserInfo(prev => ({
@@ -265,6 +292,13 @@ export default function ProfileScreen() {
           if (scopedCachedPhoto && isMounted.current) {
             setProfilePhotoUrl(scopedCachedPhoto);
             setProfilePhotoError(false);
+            return;
+          }
+        } else {
+          const cachedProfilePhoto = await AsyncStorage.getItem('profile_photo_url');
+          if (cachedProfilePhoto && isMounted.current) {
+            setProfilePhotoUrl(cachedProfilePhoto);
+            setProfilePhotoError(false);
           }
         }
 
@@ -281,9 +315,10 @@ export default function ProfileScreen() {
         }
 
         if (resolvedPhoto && isMounted.current) {
-          await AsyncStorage.setItem('profile_photo_url', resolvedPhoto);
           if (photoCacheKey) {
             await AsyncStorage.setItem(photoCacheKey, resolvedPhoto);
+          } else {
+            await AsyncStorage.setItem('profile_photo_url', resolvedPhoto);
           }
           setProfilePhotoUrl(resolvedPhoto);
           setProfilePhotoError(false);
@@ -320,7 +355,173 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const renderInfoRow = (label: string, value: string | undefined, IconComponent: any, onEdit?: () => void) => (
+  // Password validation functions
+  const isStrongPassword = (pwd: string): boolean => {
+    const p = String(pwd || '');
+    return (
+      p.length >= 8 &&
+      /[A-Z]/.test(p) &&
+      /[a-z]/.test(p) &&
+      /\d/.test(p) &&
+      /[^A-Za-z0-9]/.test(p)
+    );
+  };
+
+  const getPasswordStrength = (pwd: string) => ({
+    minLength: String(pwd || '').length >= 8,
+    hasUpper: /[A-Z]/.test(String(pwd || '')),
+    hasLower: /[a-z]/.test(String(pwd || '')),
+    hasNumber: /\d/.test(String(pwd || '')),
+    hasSpecial: /[^A-Za-z0-9]/.test(String(pwd || '')),
+  });
+
+  // Password change handlers
+  const handleRequestOtp = async () => {
+    const targetEmail = userInfo.role === 'student' ? (userInfo.parent_guardian_email || userInfo.email) : userInfo.email;
+    if (!targetEmail) {
+      setPasswordChangeError('Email not found in profile');
+      return;
+    }
+
+    setPasswordChangeLoading(true);
+    setPasswordChangeError('');
+
+    try {
+      await sendOtp(targetEmail);
+      setPasswordChangeStep('otp-verify');
+      setPasswordChangeSuccess(`OTP sent to ${targetEmail}`);
+      setTimeout(() => setPasswordChangeSuccess(''), 3000);
+    } catch (err: any) {
+      setPasswordChangeError(
+        err?.response?.data?.message || err?.message || 'Failed to send OTP. Please try again.'
+      );
+    } finally {
+      setPasswordChangeLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!passwordChangeOtp || passwordChangeOtp.length < 4) {
+      setPasswordChangeError('Please enter a valid OTP');
+      return;
+    }
+
+    const targetEmail = userInfo.role === 'student' ? (userInfo.parent_guardian_email || userInfo.email) : userInfo.email;
+    if (!targetEmail) {
+      setPasswordChangeError('Email not found in profile');
+      return;
+    }
+
+    setPasswordChangeLoading(true);
+    setPasswordChangeError('');
+
+    try {
+      const result = await verifyOtp(targetEmail, passwordChangeOtp);
+      setVerifiedOtpToken(result.token || passwordChangeOtp);
+      setPasswordChangeStep('new-password');
+      setPasswordChangeSuccess('OTP verified successfully');
+      setTimeout(() => setPasswordChangeSuccess(''), 2000);
+    } catch (err: any) {
+      setPasswordChangeError(
+        err?.response?.data?.message || err?.message || 'Invalid OTP. Please try again.'
+      );
+    } finally {
+      setPasswordChangeLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordChangeError('');
+
+    if (!newPassword || !confirmPassword) {
+      setPasswordChangeError('Please enter both passwords');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordChangeError('Passwords do not match');
+      return;
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      setPasswordChangeError(
+        'Password must be at least 8 characters with uppercase, lowercase, number, and special character'
+      );
+      return;
+    }
+
+    const targetEmail = userInfo.role === 'student' ? (userInfo.parent_guardian_email || userInfo.email) : userInfo.email;
+    if (!targetEmail) {
+      setPasswordChangeError('Email not found in profile');
+      return;
+    }
+
+    setPasswordChangeLoading(true);
+
+    try {
+      await changePassword(targetEmail, newPassword, passwordChangeOtp);
+      setPasswordChangeSuccess('Password changed successfully!');
+      setTimeout(() => {
+        setShowPasswordChangeModal(false);
+        resetPasswordChangeModal();
+      }, 2000);
+    } catch (err: any) {
+      setPasswordChangeError(
+        err?.response?.data?.message || err?.message || 'Failed to change password. Please try again.'
+      );
+    } finally {
+      setPasswordChangeLoading(false);
+    }
+  };
+
+  const resetPasswordChangeModal = () => {
+    setPasswordChangeStep('otp-request');
+    setPasswordChangeOtp('');
+    setPasswordChangeError('');
+    setPasswordChangeSuccess('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setVerifiedOtpToken('');
+  };
+
+  const handlePasswordChangeModalClose = () => {
+    setShowPasswordChangeModal(false);
+    resetPasswordChangeModal();
+  };
+
+  const handleEditPress = (key: string, label: string, value: string) => {
+    setEditField({ key, label, value: value || '' });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateProfile = async () => {
+    if (!editField.key) return;
+
+    setEditLoading(true);
+    try {
+      const updateData = { [editField.key]: editField.value };
+
+      if (userInfo.role === 'student') {
+        await updateStudentProfile(updateData);
+      } else {
+        await updateTeacherProfile(updateData);
+      }
+
+      setUserInfo(prev => ({ ...prev, [editField.key]: editField.value }));
+      Alert.alert('Success', `${editField.label} updated successfully`);
+      setShowEditModal(false);
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to update profile');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const isStudent = userInfo.role === 'student';
+
+  const renderInfoRow = (label: string, value: string | undefined, IconComponent: any, editableKey?: string) => (
     <View style={styles.infoRow}>
       <View style={styles.iconCircle}>
         <IconComponent size={18} color="#2563eb" />
@@ -329,11 +530,6 @@ export default function ProfileScreen() {
         <AppText style={styles.infoLabel}>{label}</AppText>
         <AppText style={styles.infoValue}>{value || '—'}</AppText>
       </View>
-      {onEdit && (
-        <TouchableOpacity onPress={onEdit} style={styles.editIcon}>
-          <Edit2 size={16} color="#94a3b8" />
-        </TouchableOpacity>
-      )}
     </View>
   );
 
@@ -345,13 +541,21 @@ export default function ProfileScreen() {
     );
   }
 
+  const handleBackPress = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      (navigation as any).navigate('MainTabs');
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001a3d" />
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
             <ChevronLeft size={24} color="#fff" />
           </TouchableOpacity>
           <AppText style={styles.headerTitle}>My Profile</AppText>
@@ -363,7 +567,10 @@ export default function ProfileScreen() {
         <View style={styles.profileSummary}>
           {profilePhotoUrl && !profilePhotoError ? (
             <Image
-              source={{ uri: profilePhotoUrl }}
+              source={{
+                uri: profilePhotoUrl,
+                headers: userToken ? { Authorization: `Bearer ${userToken}` } : undefined
+              }}
               style={styles.profileAvatarImage}
               onError={() => setProfilePhotoError(true)}
             />
@@ -388,39 +595,64 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <AppText style={styles.sectionTitle}>Basic Information</AppText>
           <AppCard style={styles.infoCard}>
-            {renderInfoRow('Full Name', userInfo.name, User)}
-            <View style={styles.divider} />
-            {renderInfoRow('Email Address', userInfo.email, Mail)}
-            <View style={styles.divider} />
-            {renderInfoRow('Phone Number', userInfo.phone, Phone)}
-            <View style={styles.divider} />
-            {renderInfoRow('Blood Group', userInfo.blood_group, Droplet)}
-          </AppCard>
-        </View>
-
-        <View style={styles.section}>
-          <AppText style={styles.sectionTitle}>
-            {userInfo.role === 'student' ? 'Academic Details' : 'Professional Details'}
-          </AppText>
-          <AppCard style={styles.infoCard}>
-            {userInfo.role === 'student' ? (
+            {renderInfoRow('Full Name', userInfo.name, User, userInfo.role === 'student' ? undefined : 'name')}
+            {userInfo.role === 'student' && (
               <>
+                <View style={styles.divider} />
+                {renderInfoRow('Roll Number', userInfo.roll_number, Hash)}
+                <View style={styles.divider} />
                 {renderInfoRow('Class', userInfo.class_grade, BookOpen)}
                 <View style={styles.divider} />
                 {renderInfoRow('Section', userInfo.section, Grid)}
                 <View style={styles.divider} />
-                {renderInfoRow('Roll Number', userInfo.roll_number, Hash)}
+                {renderInfoRow('Blood Group', userInfo.blood_group, Droplet, 'blood_group')}
               </>
-            ) : (
+            )}
+            {userInfo.role !== 'student' && (
               <>
-                {renderInfoRow('Designation', userInfo.designation, Briefcase)}
                 <View style={styles.divider} />
-                {renderInfoRow('Department', userInfo.department_subject, BookOpen)}
+                {renderInfoRow('Blood Group', userInfo.blood_group, Droplet, 'blood_group')}
               </>
             )}
           </AppCard>
         </View>
 
+        {userInfo.role !== 'student' && (
+          <View style={styles.section}>
+            <AppText style={styles.sectionTitle}>Professional Details</AppText>
+            <AppCard style={styles.infoCard}>
+              {renderInfoRow('Designation', userInfo.designation, Briefcase)}
+              <View style={styles.divider} />
+              {renderInfoRow('Department', userInfo.department_subject, BookOpen)}
+            </AppCard>
+          </View>
+        )}
+
+        {userInfo.role === 'student' && (
+          <View style={styles.section}>
+            <AppText style={styles.sectionTitle}>Parental Information</AppText>
+            <AppCard style={styles.infoCard}>
+              {renderInfoRow('Father Name', userInfo.father_guardian_name, User)}
+              <View style={styles.divider} />
+              {renderInfoRow('Father Mobile', userInfo.father_guardian_mobile, Phone, 'father_guardian_mobile')}
+              <View style={styles.divider} />
+              {renderInfoRow('Parent Email', userInfo.parent_guardian_email, Mail, 'parent_guardian_email')}
+            </AppCard>
+          </View>
+        )}
+
+        {userInfo.role !== 'student' && (
+          <View style={styles.section}>
+            <AppText style={styles.sectionTitle}>Contact Information</AppText>
+            <AppCard style={styles.infoCard}>
+              {renderInfoRow('Email', userInfo.email, Mail, userInfo.role === 'student' ? undefined : 'email')}
+              <View style={styles.divider} />
+              {renderInfoRow('Phone', userInfo.phone, Phone, 'phone')}
+              <View style={styles.divider} />
+              {renderInfoRow('Address', userInfo.address, MapPin, 'address')}
+            </AppCard>
+          </View>
+        )}
         <View style={styles.section}>
           <AppText style={styles.sectionTitle}>Organization</AppText>
           <AppCard style={styles.infoCard}>
@@ -441,7 +673,10 @@ export default function ProfileScreen() {
               <ChevronRight size={20} color="#94a3b8" />
             </TouchableOpacity>
             <View style={styles.divider} />
-            <TouchableOpacity style={styles.menuItem} onPress={() => {}}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => setShowPasswordChangeModal(true)}
+            >
               <View style={styles.menuIconContainer}>
                 <Key size={18} color="#0f172a" />
               </View>
@@ -453,6 +688,47 @@ export default function ProfileScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Edit Modal */}
+      <Modal visible={showEditModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <AppText style={styles.modalTitle}>Edit {editField.label}</AppText>
+              <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                <X size={24} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBody}>
+              <View style={styles.passwordInputGroup}>
+                <AppText style={styles.passwordInputLabel}>{editField.label}</AppText>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={editField.value}
+                  onChangeText={(text) => setEditField({ ...editField, value: text })}
+                  placeholder={`Enter ${editField.label.toLowerCase()}`}
+                  placeholderTextColor="#cbd5e1"
+                  autoFocus
+                />
+              </View>
+            </View>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.cancelBtn, { flex: 1, marginRight: 10 }]}
+                onPress={() => setShowEditModal(false)}
+              >
+                <AppText style={styles.cancelBtnText}>Cancel</AppText>
+              </TouchableOpacity>
+              <AppButton
+                title={editLoading ? "Saving..." : "Save Changes"}
+                onPress={handleUpdateProfile}
+                disabled={editLoading}
+                style={{ flex: 2 }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Settings Modal - Simplified for consistent UI */}
       <Modal visible={showSettingsModal} transparent animationType="slide">
@@ -469,10 +745,6 @@ export default function ProfileScreen() {
                 <AppText style={styles.settingLabel}>Push Notifications</AppText>
                 <Switch value={settings.notifications} onValueChange={(v) => setSettings({...settings, notifications: v})} />
               </View>
-              <View style={styles.settingRow}>
-                <AppText style={styles.settingLabel}>Dark Mode (Beta)</AppText>
-                <Switch value={settings.darkMode} onValueChange={(v) => setSettings({...settings, darkMode: v})} />
-              </View>
             </View>
             <View style={styles.modalFooter}>
               <AppButton title="Close" onPress={() => setShowSettingsModal(false)} style={{ flex: 1 }} />
@@ -480,9 +752,194 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Password Change Modal */}
+      <Modal visible={showPasswordChangeModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <AppText style={styles.modalTitle}>Change Password</AppText>
+              <TouchableOpacity onPress={handlePasswordChangeModalClose}>
+                <X size={24} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              {/* Error and Success Messages */}
+              {passwordChangeError && (
+                <View style={styles.errorAlert}>
+                  <AppText style={styles.errorAlertText}>{passwordChangeError}</AppText>
+                </View>
+              )}
+              {passwordChangeSuccess && (
+                <View style={styles.successAlert}>
+                  <AppText style={styles.successAlertText}>{passwordChangeSuccess}</AppText>
+                </View>
+              )}
+
+              {/* Step 1: Request OTP */}
+              {passwordChangeStep === 'otp-request' && (
+                <View>
+                  <AppText style={styles.passwordStepLabel}>Step 1: Request OTP</AppText>
+                  <AppText style={styles.passwordStepDesc}>
+                    We'll send an OTP to: {userInfo.role === 'student' ? (userInfo.parent_guardian_email || userInfo.email) : userInfo.email}
+                  </AppText>
+                  <AppButton
+                    title={passwordChangeLoading ? 'Sending...' : 'Send OTP'}
+                    onPress={handleRequestOtp}
+                    disabled={passwordChangeLoading}
+                    style={styles.passwordModalButton}
+                  />
+                </View>
+              )}
+
+              {/* Step 2: Verify OTP */}
+              {passwordChangeStep === 'otp-verify' && (
+                <View>
+                  <AppText style={styles.passwordStepLabel}>Step 2: Verify OTP</AppText>
+                  <AppText style={styles.passwordStepDesc}>
+                    Enter the OTP sent to your email
+                  </AppText>
+                  <View style={styles.passwordInputGroup}>
+                    <AppText style={styles.passwordInputLabel}>OTP Code</AppText>
+                    <TextInput
+                      style={styles.passwordInput}
+                      placeholder="Enter 4-6 digit OTP"
+                      placeholderTextColor="#cbd5e1"
+                      value={passwordChangeOtp}
+                      onChangeText={setPasswordChangeOtp}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      editable={!passwordChangeLoading}
+                    />
+                  </View>
+                  <AppButton
+                    title={passwordChangeLoading ? 'Verifying...' : 'Verify OTP'}
+                    onPress={handleVerifyOtp}
+                    disabled={passwordChangeLoading || !passwordChangeOtp}
+                    style={styles.passwordModalButton}
+                  />
+                </View>
+              )}
+
+              {/* Step 3: New Password */}
+              {passwordChangeStep === 'new-password' && (
+                <View>
+                  <AppText style={styles.passwordStepLabel}>Step 3: Set New Password</AppText>
+
+                  {/* New Password Input */}
+                  <View style={styles.passwordInputGroup}>
+                    <AppText style={styles.passwordInputLabel}>New Password</AppText>
+                    <View style={styles.passwordInputContainer}>
+                      <TextInput
+                        style={styles.passwordInputField}
+                        placeholder="Enter new password"
+                        placeholderTextColor="#cbd5e1"
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        secureTextEntry={!showNewPassword}
+                        editable={!passwordChangeLoading}
+                      />
+                      <TouchableOpacity
+                        style={styles.passwordToggleIcon}
+                        onPress={() => setShowNewPassword(!showNewPassword)}
+                      >
+                        {showNewPassword ? (
+                          <Eye size={18} color="#64748b" />
+                        ) : (
+                          <EyeOff size={18} color="#64748b" />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Confirm Password Input */}
+                  <View style={styles.passwordInputGroup}>
+                    <AppText style={styles.passwordInputLabel}>Confirm Password</AppText>
+                    <View style={styles.passwordInputContainer}>
+                      <TextInput
+                        style={styles.passwordInputField}
+                        placeholder="Re-enter password"
+                        placeholderTextColor="#cbd5e1"
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        secureTextEntry={!showConfirmPassword}
+                        editable={!passwordChangeLoading}
+                      />
+                      <TouchableOpacity
+                        style={styles.passwordToggleIcon}
+                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? (
+                          <Eye size={18} color="#64748b" />
+                        ) : (
+                          <EyeOff size={18} color="#64748b" />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Password Strength Requirements */}
+                  {newPassword && (
+                    <View style={styles.passwordRequirements}>
+                      <AppText style={styles.passwordReqTitle}>Password must have:</AppText>
+                      <PasswordRequirement
+                        met={getPasswordStrength(newPassword).minLength}
+                        text="At least 8 characters"
+                      />
+                      <PasswordRequirement
+                        met={getPasswordStrength(newPassword).hasUpper}
+                        text="At least 1 uppercase (A-Z)"
+                      />
+                      <PasswordRequirement
+                        met={getPasswordStrength(newPassword).hasLower}
+                        text="At least 1 lowercase (a-z)"
+                      />
+                      <PasswordRequirement
+                        met={getPasswordStrength(newPassword).hasNumber}
+                        text="At least 1 number (0-9)"
+                      />
+                      <PasswordRequirement
+                        met={getPasswordStrength(newPassword).hasSpecial}
+                        text="At least 1 special character"
+                      />
+                    </View>
+                  )}
+
+                  <AppButton
+                    title={passwordChangeLoading ? 'Changing Password...' : 'Change Password'}
+                    onPress={handleChangePassword}
+                    disabled={
+                      passwordChangeLoading ||
+                      !newPassword ||
+                      !confirmPassword ||
+                      !isStrongPassword(newPassword)
+                    }
+                    style={styles.passwordModalButton}
+                  />
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
+
+// Password Requirement Component
+const PasswordRequirement: React.FC<{ met: boolean; text: string }> = ({ met, text }) => (
+  <View style={styles.passwordReq}>
+    {met ? (
+      <Check size={14} color="#059669" />
+    ) : (
+      <View style={styles.passwordReqDot} />
+    )}
+    <AppText style={[styles.passwordReqText, met && styles.passwordReqTextMet]}>
+      {text}
+    </AppText>
+  </View>
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -490,8 +947,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   header: {
-    backgroundColor: '#001a3d',
-    paddingTop: 50,
+    backgroundColor: '#001F3F',
     paddingHorizontal: 20,
     paddingBottom: 30,
     borderBottomLeftRadius: 30,
@@ -671,4 +1127,135 @@ const styles = StyleSheet.create({
   modalFooter: {
     flexDirection: 'row',
   },
+  // Password change modal styles
+  passwordStepLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 8,
+  },
+  passwordStepDesc: {
+    fontSize: 13,
+    color: '#64748b',
+    marginBottom: 20,
+    lineHeight: 18,
+  },
+  passwordInputGroup: {
+    marginBottom: 16,
+  },
+  passwordInputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0f172a',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  passwordInput: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    paddingRight: 8,
+  },
+  passwordInputField: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#0f172a',
+  },
+  passwordToggleIcon: {
+    padding: 6,
+  },
+  passwordRequirements: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: '#059669',
+  },
+  passwordReqTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#047857',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  passwordReq: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  passwordReqDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#cbd5e1',
+    marginRight: 10,
+  },
+  passwordReqText: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  passwordReqTextMet: {
+    color: '#059669',
+    fontWeight: '600',
+  },
+  passwordModalButton: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  errorAlert: {
+    backgroundColor: '#fee2e2',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: '#dc2626',
+  },
+  errorAlertText: {
+    fontSize: 12,
+    color: '#991b1b',
+    fontWeight: '600',
+  },
+  successAlert: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: '#059669',
+  },
+  successAlertText: {
+    fontSize: 12,
+    color: '#047857',
+    fontWeight: '600',
+  },
+  cancelBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    color: '#64748b',
+    fontWeight: '600',
+    fontSize: 14,
+  },
 });
+

@@ -16,6 +16,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -33,23 +34,9 @@ import API, { buildApiUrl } from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { HM_THEME as C } from '../../constants/hmTheme';
 
 // Local theme bridge
-const C = {
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  textMuted: colors.textMuted,
-  primary: colors.primary,
-  primarySoft: colors.primary + '20',
-  success: colors.success,
-  successSoft: colors.successSoft,
-  error: colors.error,
-  errorSoft: colors.errorSoft,
-  warning: colors.warning,
-  warningSoft: colors.warningSoft,
-};
 
 const COLORS = {
   holiday: '#ef4444', // red-500
@@ -93,6 +80,7 @@ interface FormData {
 
 export default function CalendarManagement() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
 
@@ -509,16 +497,23 @@ export default function CalendarManagement() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
-      <View style={styles.navHeader}>
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
+      {/* Standardized Header */}
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          onPress={() =>
+            navigation.canGoBack()
+              ? navigation.goBack()
+              : navigation.navigate('HMDashboard' as never)
+          }
         >
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
-        <AppText style={styles.navTitle} weight="bold">Calendar Management</AppText>
-        <div style={{ width: 40 }} />
+        <AppText style={styles.headerTitle} weight="bold">
+          Calendar Management
+        </AppText>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
@@ -825,69 +820,85 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  navHeader: {
-    backgroundColor: '#001F3F',
-    height: Platform.OS === 'ios' ? 100 : 70,
+  headerStandard: {
+    backgroundColor: C.navy,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 40 : 0,
   },
-  backButton: {
-    padding: 8,
+  backBtn: {
     width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  navTitle: {
-    color: '#fff',
+  headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    flex: 1,
+    color: '#ffffff',
     textAlign: 'center',
+    flex: 1,
   },
   content: {
     flex: 1,
   },
   header: {
-    padding: 20,
+    padding: 18,
+    margin: 16,
+    borderRadius: 20,
+    backgroundColor: C.card,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     flexWrap: 'wrap',
+    gap: 12,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
   title: {
-    fontSize: 24,
+    fontSize: 18,
     color: C.text,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: C.textMuted,
     marginTop: 4,
   },
   headerButtons: {
     flexDirection: 'row',
     gap: 12,
+    flexWrap: 'wrap',
   },
   addBtn: {
     flexDirection: 'row',
     backgroundColor: C.primary,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     gap: 8,
   },
   addBtnText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 12,
   },
   calendarContainer: {
     backgroundColor: C.card,
-    margin: 16,
-    borderRadius: 12,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
     borderColor: C.border,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
   calendarHeader: {
     flexDirection: 'row',
@@ -898,10 +909,10 @@ const styles = StyleSheet.create({
   navBtn: {
     padding: 8,
     backgroundColor: C.primarySoft,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   monthYear: {
-    fontSize: 20,
+    fontSize: 18,
     color: C.text,
   },
   weekdaysRow: {
@@ -920,16 +931,17 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 8,
     margin: 2,
+    backgroundColor: '#fff',
   },
   otherMonthCell: {
     backgroundColor: C.bg,
     opacity: 0.5,
   },
   dayNumber: {
-    fontSize: 14,
+    fontSize: 12,
     color: C.text,
     marginBottom: 4,
   },
@@ -942,7 +954,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 4,
     paddingVertical: 2,
-    borderRadius: 3,
+    borderRadius: 4,
     marginRight: 2,
   },
   eventText: {
@@ -953,12 +965,13 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   bottomSection: {
-    margin: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
   },
   holidaysListBtn: {
     backgroundColor: C.success,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     marginBottom: 12,
   },
@@ -967,10 +980,15 @@ const styles = StyleSheet.create({
   },
   holidaysSidebar: {
     backgroundColor: C.card,
-    borderRadius: 12,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
     borderColor: C.border,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
   sidebarTitle: {
     fontSize: 16,
@@ -983,7 +1001,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 6,
+    borderRadius: 14,
     borderLeftWidth: 3,
   },
   eventListItemContent: {
@@ -1013,12 +1031,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginTop: 12,
+    flexWrap: 'wrap',
   },
   shareBtn: {
     flex: 1,
     backgroundColor: C.success,
     padding: 8,
-    borderRadius: 6,
+    borderRadius: 12,
     alignItems: 'center',
   },
   shareBtnText: {

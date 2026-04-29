@@ -14,6 +14,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
   RefreshCw,
@@ -23,25 +24,10 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
+import { HM_THEME as C } from '../../constants/hmTheme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 
-// Local theme bridge
-const C = {
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  textMuted: colors.textMuted,
-  primary: colors.primary,
-  primarySoft: colors.accentSoft + '20',
-  success: colors.success,
-  successSoft: colors.successSoft,
-  error: colors.error,
-  errorSoft: colors.errorSoft,
-  warning: colors.warning,
-  warningSoft: colors.warningSoft,
-};
 
 // Types
 interface Exam {
@@ -81,6 +67,7 @@ interface MarksReport {
 }
 
 export default function ExamsPage() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
@@ -447,11 +434,14 @@ export default function ExamsPage() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never))}
+        >
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} weight="bold">Exam Management</AppText>
@@ -512,9 +502,8 @@ const styles = StyleSheet.create({
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

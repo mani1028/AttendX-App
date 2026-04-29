@@ -13,6 +13,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from '@react-native-vector-icons/feather';
@@ -198,6 +199,7 @@ const MarksCard: React.FC<{ mark: Mark }> = ({ mark }) => {
 };
 
 export default function StudentMarksScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { userName, setTabBarVisible } = useAuth();
 
@@ -349,8 +351,11 @@ export default function StudentMarksScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
       
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs')}
+        >
           <Icon name="arrow-left" size={24} color="#fff" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
@@ -523,8 +528,6 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -571,6 +574,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
     minHeight: 200,
+    marginTop: 10,
   },
   selectLabel: {
     fontSize: 12,

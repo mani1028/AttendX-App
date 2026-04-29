@@ -18,8 +18,10 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Picker } from '@react-native-picker/picker';
 import RNFS from 'react-native-fs';
 import RNShare from 'react-native-share';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
   Bell,
@@ -31,7 +33,8 @@ import {
   XCircle,
   Search,
   ChevronRight,
-  Filter
+  Filter,
+  LayoutGrid
 } from 'lucide-react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import API from '../../services/api';
@@ -188,6 +191,7 @@ const ExportModal: React.FC<{
                   value={new Date(startDate)}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  maximumDate={new Date()}
                   onChange={(event, date) => {
                     setShowStartPicker(false);
                     if (date) setStartDate(date.toISOString().split('T')[0]);
@@ -210,6 +214,7 @@ const ExportModal: React.FC<{
                   value={new Date(endDate)}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  maximumDate={new Date()}
                   onChange={(event, date) => {
                     setShowEndPicker(false);
                     if (date) setEndDate(date.toISOString().split('T')[0]);
@@ -328,6 +333,7 @@ const ImageModal: React.FC<{
 };
 
 export default function ViewAttendanceScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const today = new Date().toISOString().split('T')[0];
   const { setTabBarVisible } = useAuth();
@@ -345,6 +351,7 @@ export default function ViewAttendanceScreen() {
   const [selSection, setSelSection] = useState<string>('');
   const [selSectionOptions, setSelSectionOptions] = useState<string[]>([]);
   const [loadingClasses, setLoadingClasses] = useState<boolean>(false);
+  const [pickerMode, setPickerMode] = useState<'class' | 'section' | null>(null);
   
   // View
   const [viewDate, setViewDate] = useState<string>(today);
@@ -389,7 +396,7 @@ export default function ViewAttendanceScreen() {
       });
       const items = res.data?.items || [];
       setClassItems(items);
-      const uniqueClasses = [...new Set(items.map((i: ClassItem) => i.class_grade))];
+      const uniqueClasses: string[] = Array.from(new Set<string>(items.map((i: ClassItem) => String(i.class_grade))));
       setClassOptions(uniqueClasses);
     } catch (error) {
       console.error('Error loading classes:', error);
@@ -631,37 +638,48 @@ export default function ViewAttendanceScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-      {/* Navy Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <ChevronLeft size={24} color="#fff" />
+      {/* Navy Standard Header */}
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <AppText style={styles.headerTitle}>Attendance</AppText>
-          <TouchableOpacity style={styles.notificationBtn}>
-            <Bell size={22} color="#fff" />
+          <AppText weight="bold" style={styles.headerTitle}>Attendance</AppText>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => (navigation as any).navigate('Notifications')}
+          >
+            <Bell size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        {/* Tab Switcher */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'attendance' && styles.activeTab]}
-            onPress={() => setActiveTab('attendance')}
-          >
-            <AppText style={[styles.tabText, activeTab === 'attendance' && styles.activeTabText]}>
-              Student Attendance
-            </AppText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'overview' && styles.activeTab]}
-            onPress={() => setActiveTab('overview')}
-          >
-            <AppText style={[styles.tabText, activeTab === 'overview' && styles.activeTabText]}>
-              Overview
-            </AppText>
-          </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <AppText weight="bold" style={styles.headerGreeting}>View Records</AppText>
+          <AppText style={styles.headerSubtext}>Review and export student attendance logs</AppText>
         </View>
+      </View>
+
+      {/* Tab Switcher */}
+      <View style={styles.tabWrapper}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'attendance' && styles.activeTab]}
+          onPress={() => setActiveTab('attendance')}
+        >
+          <AppText weight="bold" style={[styles.tabText, activeTab === 'attendance' && styles.activeTabText]}>
+            Daily Logs
+          </AppText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'overview' && styles.activeTab]}
+          onPress={() => setActiveTab('overview')}
+        >
+          <AppText weight="bold" style={[styles.tabText, activeTab === 'overview' && styles.activeTabText]}>
+            Overview
+          </AppText>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -680,48 +698,37 @@ export default function ViewAttendanceScreen() {
                   <AppText style={styles.label}>Class</AppText>
                   <TouchableOpacity
                     style={styles.dropdown}
-                    onPress={() => {}} // In a real app, show a picker
+                    onPress={() => setPickerMode('class')}
                   >
                     <Users size={18} color="#64748B" style={{ marginRight: 8 }} />
-                    <AppText style={styles.dropdownText}>
-                      {selClass ? `Class ${selClass}` : 'Select'}
+                    <AppText style={styles.dropdownText} aria-label="--Select Class--">
+                      {selClass ? `Class ${selClass}` : '--Select Class--'}
                     </AppText>
                     <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
                   </TouchableOpacity>
-                  {/* Simplified class list for now */}
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
-                    {classOptions.map(c => (
-                      <TouchableOpacity
-                        key={c}
-                        style={[styles.chip, selClass === c && styles.chipActive]}
-                        onPress={() => handleClassChange(c)}
-                      >
-                        <AppText style={[styles.chipText, selClass === c && styles.chipTextActive]}>
-                          {c}
-                        </AppText>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+                  <AppText style={styles.helperText}>
+                    {loadingClasses ? 'Loading classes…' : 'Tap to choose a class'}
+                  </AppText>
                 </View>
 
-                {selClass !== '' && (
-                  <View style={[styles.field, { flex: 1 }]}>
-                    <AppText style={styles.label}>Section</AppText>
-                    <View style={styles.chipRow}>
-                      {selSectionOptions.map(s => (
-                        <TouchableOpacity
-                          key={s}
-                          style={[styles.chip, selSection === s && styles.chipActive]}
-                          onPress={() => setSelSection(s)}
-                        >
-                          <AppText style={[styles.chipText, selSection === s && styles.chipTextActive]}>
-                            {s}
-                          </AppText>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                )}
+                <View style={[styles.field, { flex: 1 }]}> 
+                  <AppText style={styles.label}>Section</AppText>
+                  <TouchableOpacity
+                    style={[styles.dropdown, !selClass && styles.dropdownDisabled]}
+                    onPress={() => selClass ? setPickerMode('section') : Alert.alert('Select class first', 'Choose a class before selecting a section.')}
+                    disabled={!selClass}
+                    aria-label="--Select Section--"
+                  >
+                    <LayoutGrid size={18} color="#64748B" style={{ marginRight: 8 }} />
+                    <AppText style={styles.dropdownText} aria-label="--Select Section--">
+                      {selSection ? `Section ${selSection}` : '--Select Section--'}
+                    </AppText>
+                    <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
+                  </TouchableOpacity>
+                  <AppText style={styles.helperText}>
+                    {selClass ? `${selSectionOptions.length} section${selSectionOptions.length === 1 ? '' : 's'} available` : 'Pick a class first'}
+                  </AppText>
+                </View>
               </View>
 
               <View style={styles.field}>
@@ -735,6 +742,7 @@ export default function ViewAttendanceScreen() {
                     value={new Date(viewDate)}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    maximumDate={new Date()}
                     onChange={(event, date) => {
                       setShowDatePicker(false);
                       if (date) setViewDate(date.toISOString().split('T')[0]);
@@ -828,6 +836,60 @@ export default function ViewAttendanceScreen() {
         )}
       </ScrollView>
 
+      <Modal visible={pickerMode !== null} transparent animationType="fade" onRequestClose={() => setPickerMode(null)}>
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerCard}>
+            <View style={styles.pickerHeader}>
+              <View>
+                <AppText style={styles.pickerTitle}>{pickerMode === 'class' ? 'Select Class' : 'Select Section'}</AppText>
+                <AppText style={styles.pickerSubtitle}>
+                  {pickerMode === 'class' ? 'Choose the class to load available sections.' : 'Choose a section for the selected class.'}
+                </AppText>
+              </View>
+              <TouchableOpacity onPress={() => setPickerMode(null)} style={styles.pickerCloseBtn}>
+                <XCircle size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.pickerShell}>
+              <Picker
+                selectedValue={pickerMode === 'class' ? selClass : selSection}
+                onValueChange={(value) => {
+                  const nextValue = String(value);
+                  if (pickerMode === 'class') {
+                    handleClassChange(nextValue);
+                  } else {
+                    setSelSection(nextValue);
+                  }
+                }}
+                style={styles.picker}
+              >
+                <Picker.Item label="--Select Class--" value="" />
+                {pickerMode === 'class'
+                  ? classOptions.map((item) => (
+                      <Picker.Item key={item} label={`Class ${item}`} value={item} />
+                    ))
+                  : [
+                      <Picker.Item key="placeholder" label="--Select Section--" value="" />,
+                      ...selSectionOptions.map((item) => (
+                        <Picker.Item key={item} label={`Section ${item}`} value={item} />
+                      ))
+                    ]}
+              </Picker>
+            </View>
+
+            <View style={styles.pickerActions}>
+              <TouchableOpacity style={styles.pickerCancelBtn} onPress={() => setPickerMode(null)}>
+                <AppText style={styles.pickerCancelText}>Cancel</AppText>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.pickerDoneBtn} onPress={() => setPickerMode(null)}>
+                <AppText style={styles.pickerDoneText}>Done</AppText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modals */}
       <ExportModal
         visible={showExportModal}
@@ -860,77 +922,102 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  header: {
+  headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
   },
-  headerContent: {
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 12,
   },
-  backBtn: {
+  iconButton: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  headerContent: {
+    marginTop: 24,
+  },
+  headerGreeting: {
+    color: '#FFFFFF',
+    fontSize: 28,
     fontWeight: '800',
-    color: '#ffffff',
+    letterSpacing: -0.5,
   },
-  notificationBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  headerSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 4,
   },
-  tabContainer: {
+  tabWrapper: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    marginTop: -15,
+    paddingVertical: 6,
+    borderRadius: 22,
+    backgroundColor: 'transparent',
     gap: 12,
+    marginBottom: 10,
+    zIndex: 50,
+    elevation: 50,
+    position: 'relative',
   },
   tab: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: '#001F3F',
   },
   activeTab: {
     backgroundColor: '#FFFFFF',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.6)',
+    color: '#FFFFFF',
   },
   activeTabText: {
     color: '#001F3F',
+    fontWeight: '700',
   },
   contentContainer: {
-    padding: 20,
-    paddingBottom: 100,
+    padding: 16,
+    paddingTop: 6,
+    paddingBottom: 120,
   },
   selectionCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 28,
     padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 15,
-    elevation: 2,
+    elevation: 4,
     marginBottom: 20,
   },
   fieldRow: {
@@ -956,37 +1043,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 48,
   },
+  dropdownDisabled: {
+    opacity: 0.55,
+  },
   dropdownText: {
     flex: 1,
     fontSize: 14,
     color: '#1E293B',
     fontWeight: '500',
   },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginRight: 8,
-  },
-  chipActive: {
-    backgroundColor: '#001F3F',
-    borderColor: '#001F3F',
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '600',
+  helperText: {
+    marginTop: 8,
+    fontSize: 12,
     color: '#64748B',
-  },
-  chipTextActive: {
-    color: '#FFFFFF',
+    fontWeight: '500',
   },
   dateInput: {
     flexDirection: 'row',
@@ -1017,8 +1087,13 @@ const styles = StyleSheet.create({
   summaryTile: {
     flex: 1,
     padding: 16,
-    borderRadius: 20,
+    borderRadius: 28,
     alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
   summaryValue: {
     fontSize: 22,
@@ -1060,13 +1135,13 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 16,
+    borderRadius: 28,
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 15,
-    elevation: 2,
+    elevation: 4,
   },
   listHeader: {
     flexDirection: 'row',
@@ -1172,8 +1247,8 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     padding: 24,
     maxHeight: '80%',
   },
@@ -1363,6 +1438,77 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 12,
     fontWeight: '500',
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  pickerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  pickerSubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    color: '#64748B',
+  },
+  pickerCloseBtn: {
+    padding: 4,
+  },
+  pickerShell: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  picker: {
+    width: '100%',
+  },
+  pickerActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  pickerCancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  pickerDoneBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#001F3F',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerDoneText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   overviewContainer: {
     paddingTop: 40,

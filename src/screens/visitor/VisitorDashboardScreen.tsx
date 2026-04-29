@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/feather';
 import { Bell } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -269,6 +270,7 @@ const FilterModal: React.FC<{
                   value={localDateFrom ? new Date(localDateFrom) : new Date()}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  maximumDate={new Date()}
                   onChange={(event, date) => {
                     setShowFromPicker(false);
                     if (date) setLocalDateFrom(date.toISOString().split('T')[0]);
@@ -287,6 +289,7 @@ const FilterModal: React.FC<{
                   value={localDateTo ? new Date(localDateTo) : new Date()}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  maximumDate={new Date()}
                   onChange={(event, date) => {
                     setShowToPicker(false);
                     if (date) setLocalDateTo(date.toISOString().split('T')[0]);
@@ -308,6 +311,7 @@ const FilterModal: React.FC<{
 
 export default function VisitorDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
   const { userName } = useAuth();
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -481,9 +485,10 @@ export default function VisitorDashboardScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
       {/* Standardized Navy Header */}
-      <View style={styles.headerStandard}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+        <View style={{ width: 40 }} />
         <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>Visitor Dashboard</AppText>
+          <AppText style={styles.headerTitle}>Visitor Portal</AppText>
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
@@ -643,6 +648,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 24,
+    marginTop: 20,
+    backgroundColor: colors.surface,
+    padding: 20,
+    borderRadius: 20,
+    // Shadow
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   welcomeTitle: {
     fontSize: 20,
@@ -992,8 +1013,6 @@ const styles = StyleSheet.create({
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',

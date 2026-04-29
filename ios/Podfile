@@ -7,14 +7,6 @@ prepare_react_native_project!
 target 'AttendX' do
   config = use_native_modules!
 
-  # Explicitly define third-party podspecs for compatibility with some older packages
-  pod 'RCT-Folly', :podspec => '../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec', :subspecs => ['Default', 'Fabric']
-  pod 'DoubleConversion', :podspec => '../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec'
-  pod 'glog', :podspec => '../node_modules/react-native/third-party-podspecs/glog.podspec'
-  pod 'fast_float', :podspec => '../node_modules/react-native/third-party-podspecs/fast_float.podspec'
-  pod 'fmt', :podspec => '../node_modules/react-native/third-party-podspecs/fmt.podspec'
-  pod 'boost', :podspec => '../node_modules/react-native/third-party-podspecs/boost.podspec'
-
   use_react_native!(
     :path => config[:reactNativePath],
     :app_path => "#{Pod::Config.instance.installation_root}/..",

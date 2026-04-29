@@ -14,6 +14,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import LinearGradient from 'react-native-linear-gradient';
@@ -22,8 +23,10 @@ import { getSubjects, getHomework } from '../../services/studentService';
 import { colors } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import BottomSheetModal from '../../components/common/BottomSheetModal';
 
 const { width } = Dimensions.get('window');
+const ALL_SUBJECTS = 'All Subjects';
 
 // Types
 interface Subject {
@@ -76,6 +79,11 @@ const formatDisplayDate = (dateString: string): string => {
   });
 };
 
+const truncateDescription = (description: string, length: number = 100): string => {
+  if (!description) return 'No description';
+  return description.length > length ? description.slice(0, length) + '...' : description;
+};
+
 // Homework Card Component (matches image design)
 const HomeworkCard: React.FC<{
   homework: Homework;
@@ -88,8 +96,8 @@ const HomeworkCard: React.FC<{
       </View>
       <View style={styles.cardDetails}>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Assigned Date :</Text>
-          <Text style={styles.detailValue}>{formatDisplayDate(homework.assigned_date)}</Text>
+          <Text style={styles.detailLabel}>Description :</Text>
+          <Text style={styles.detailValue}>{truncateDescription(homework.description)}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Due Date :</Text>
@@ -108,6 +116,7 @@ const HomeworkCard: React.FC<{
 };
 
 export default function HomeworkScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { userName, setTabBarVisible } = useAuth();
   const [schoolCode, setSchoolCode] = useState<string>('');
@@ -124,7 +133,7 @@ export default function HomeworkScreen() {
     lastScrollY.current = currentScrollY;
   };
   const [studentId, setStudentId] = useState<string>('');
-  const [selectedSubject, setSelectedSubject] = useState<string>('All Subjects');
+  const [selectedSubject, setSelectedSubject] = useState<string>(ALL_SUBJECTS);
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDate());
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [homeworkList, setHomeworkList] = useState<Homework[]>([]);
@@ -132,6 +141,7 @@ export default function HomeworkScreen() {
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+  const [showSubjectModal, setShowSubjectModal] = useState<boolean>(false);
   const [showHomeworkModal, setShowHomeworkModal] = useState<boolean>(false);
   const [selectedHomework, setSelectedHomework] = useState<Homework | null>(null);
 
@@ -160,6 +170,10 @@ export default function HomeworkScreen() {
     loadInitialData();
   }, []);
 
+  useEffect(() => {
+    setSelectedSubject(ALL_SUBJECTS);
+  }, []);
+
   // Initial load
   useEffect(() => {
     if (schoolCode && studentId) {
@@ -172,7 +186,7 @@ export default function HomeworkScreen() {
   const applyFilters = useCallback(() => {
     let filtered = [...homeworkList];
 
-    if (selectedSubject && selectedSubject !== 'All Subjects') {
+    if (selectedSubject && selectedSubject !== ALL_SUBJECTS) {
       filtered = filtered.filter(hw =>
         hw.subject_name.toLowerCase() === selectedSubject.toLowerCase()
       );
@@ -212,7 +226,7 @@ export default function HomeworkScreen() {
         params.assigned_date = dateToFetch;
       }
 
-      if (subjectToFetch && subjectToFetch !== 'All Subjects' && subjectToFetch !== 'ALL') {
+      if (subjectToFetch && subjectToFetch !== ALL_SUBJECTS && subjectToFetch !== 'ALL') {
         const selectedSub = subjects.find(
           (s) =>
             String(s.subject_name || '')
@@ -251,20 +265,27 @@ export default function HomeworkScreen() {
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) {
-      setSelectedDate(selectedDate.toISOString().split('T')[0]);
+      const dateString = selectedDate.toISOString().split('T')[0];
+      setSelectedDate(dateString);
+      loadHomework(dateString, selectedSubject);
     }
   };
 
   const handleSubjectPress = (subjectName: string) => {
     setSelectedSubject(subjectName);
+    setShowSubjectModal(false);
+    loadHomework(selectedDate, subjectName);
   };
 
   const pendingCount = filteredHomework.filter(hw => hw.status !== 'SUBMITTED').length;
 
   // Header Section
   const renderHeader = () => (
-    <View style={styles.header}>
-      <TouchableOpacity style={styles.backButton} onPress={() => {}}>
+    <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs')}
+      >
         <Icon name="arrow-left" size={24} color="#fff" />
       </TouchableOpacity>
       <View style={styles.headerTitleContainer}>
@@ -298,7 +319,7 @@ export default function HomeworkScreen() {
           {/* Filter Row */}
           <View style={styles.filterRow}>
             {/* Subject Filter */}
-            <TouchableOpacity style={styles.filterChip} onPress={() => {}}>
+            <TouchableOpacity style={styles.filterChip} onPress={() => setShowSubjectModal(true)}>
               <Text style={styles.filterChipText} numberOfLines={1}>{selectedSubject}</Text>
               <Icon name="chevron-down" size={16} color="#64748b" />
             </TouchableOpacity>
@@ -347,94 +368,163 @@ export default function HomeworkScreen() {
           value={new Date(selectedDate)}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          maximumDate={new Date()}
           onChange={handleDateChange}
         />
       )}
 
-      {/* Homework Detail Modal */}
+      {/* Subject Selection Modal */}
       <Modal
-        visible={showHomeworkModal}
+        visible={showSubjectModal}
         transparent
-        animationType="slide"
-        onRequestClose={() => setShowHomeworkModal(false)}
+        animationType="fade"
+        onRequestClose={() => setShowSubjectModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <LinearGradient
-              colors={['#3b82f6', '#2563eb']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.modalHeader}
-            >
-              <Text style={styles.modalTitle}>Assignment Details</Text>
-              <TouchableOpacity onPress={() => setShowHomeworkModal(false)}>
-                <Icon name="x" size={24} color="#fff" />
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSubjectModal(false)}
+        >
+          <View style={styles.pickerModalContent}>
+            <View style={styles.pickerIndicator} />
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>Select Subject</Text>
+              <TouchableOpacity onPress={() => setShowSubjectModal(false)} style={styles.closePickerButton}>
+                <Icon name="x" size={20} color="#64748b" />
               </TouchableOpacity>
-            </LinearGradient>
-            
-            <ScrollView style={styles.modalBody}>
-              {selectedHomework && (
-                <>
-                  <View style={styles.modalSubjectBadge}>
-                    <Text style={styles.modalSubjectText}>{selectedHomework.subject_name}</Text>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.pickerOptionsList}>
+              <TouchableOpacity
+                style={[
+                  styles.subjectOption,
+                  selectedSubject === ALL_SUBJECTS && styles.selectedSubjectOption
+                ]}
+                onPress={() => handleSubjectPress(ALL_SUBJECTS)}
+              >
+                <View style={styles.subjectOptionContent}>
+                   <View style={[styles.subjectIconContainer, { backgroundColor: '#f1f5f9' }]}>
+                      <Icon name="grid" size={18} color="#64748b" />
+                   </View>
+                   <Text style={[
+                     styles.subjectOptionText,
+                     selectedSubject === ALL_SUBJECTS && styles.selectedSubjectOptionText
+                   ]}>{ALL_SUBJECTS}</Text>
+                </View>
+                {selectedSubject === ALL_SUBJECTS && (
+                  <View style={styles.checkContainer}>
+                    <Icon name="check" size={16} color="#3b82f6" />
                   </View>
-                  <Text style={styles.modalHomeworkTitle}>{selectedHomework.title}</Text>
-                  
-                  <View style={styles.modalDetailSection}>
-                    <Text style={styles.modalDetailLabel}>Description</Text>
-                    <Text style={styles.modalDetailText}>
-                      {selectedHomework.description || 'No description provided'}
-                    </Text>
+                )}
+              </TouchableOpacity>
+              {subjects.map((subject) => (
+                <TouchableOpacity
+                  key={subject.subject_id}
+                  style={[
+                    styles.subjectOption,
+                    selectedSubject === subject.subject_name && styles.selectedSubjectOption
+                  ]}
+                  onPress={() => handleSubjectPress(subject.subject_name)}
+                >
+                  <View style={styles.subjectOptionContent}>
+                    <View style={[styles.subjectIconContainer, { backgroundColor: '#eff6ff' }]}>
+                       <Icon name="book" size={18} color="#3b82f6" />
+                    </View>
+                    <Text style={[
+                      styles.subjectOptionText,
+                      selectedSubject === subject.subject_name && styles.selectedSubjectOptionText
+                    ]}>{subject.subject_name}</Text>
                   </View>
-
-                  <View style={styles.modalInfoGrid}>
-                    <View style={styles.modalInfoItem}>
-                      <Icon name="calendar" size={16} color="#64748b" />
-                      <Text style={styles.modalInfoLabel}>Due Date</Text>
-                      <Text style={styles.modalInfoValue}>
-                        {formatDisplayDate(selectedHomework.due_date)}
-                      </Text>
+                  {selectedSubject === subject.subject_name && (
+                    <View style={styles.checkContainer}>
+                      <Icon name="check" size={16} color="#3b82f6" />
                     </View>
-                    <View style={styles.modalInfoItem}>
-                      <Icon name="user" size={16} color="#64748b" />
-                      <Text style={styles.modalInfoLabel}>Teacher</Text>
-                      <Text style={styles.modalInfoValue}>
-                        {selectedHomework.teacher_full_name}
-                      </Text>
-                    </View>
-                    <View style={styles.modalInfoItem}>
-                      <Icon name="calendar" size={16} color="#64748b" />
-                      <Text style={styles.modalInfoLabel}>Assigned</Text>
-                      <Text style={styles.modalInfoValue}>
-                        {formatDisplayDate(selectedHomework.assigned_date)}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {selectedHomework.attachment_url && (
-                    <TouchableOpacity style={styles.attachmentButton}>
-                      <Icon name="paperclip" size={16} color="#3b82f6" />
-                      <Text style={styles.attachmentText}>View Attachment</Text>
-                    </TouchableOpacity>
                   )}
-
-                  <TouchableOpacity style={styles.submitButton}>
-                    <LinearGradient
-                      colors={['#22c55e', '#16a34a']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.submitGradient}
-                    >
-                      <Icon name="upload" size={18} color="#fff" />
-                      <Text style={styles.submitButtonText}>Submit Assignment</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </>
-              )}
+                </TouchableOpacity>
+              ))}
             </ScrollView>
           </View>
-        </View>
+        </TouchableOpacity>
       </Modal>
+
+      {/* Homework Detail Modal */}
+      <BottomSheetModal
+        visible={showHomeworkModal}
+        onClose={() => setShowHomeworkModal(false)}
+        sheetStyle={styles.modalContent}
+      >
+        <LinearGradient
+          colors={['#3b82f6', '#2563eb']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.modalHeader}
+        >
+          <Text style={styles.modalTitle}>HomeWork Details</Text>
+          <TouchableOpacity onPress={() => setShowHomeworkModal(false)}>
+            <Icon name="x" size={24} color="#fff" />
+          </TouchableOpacity>
+        </LinearGradient>
+
+        <ScrollView style={styles.modalBody}>
+          {selectedHomework && (
+            <>
+              <View style={styles.modalSubjectBadge}>
+                <Text style={styles.modalSubjectText}>{selectedHomework.subject_name}</Text>
+              </View>
+              <Text style={styles.modalHomeworkTitle}>{selectedHomework.title}</Text>
+
+              <View style={styles.modalDetailSection}>
+                <Text style={styles.modalDetailLabel}>Description</Text>
+                <Text style={styles.modalDetailText}>
+                  {selectedHomework.description || 'No description provided'}
+                </Text>
+              </View>
+
+              <View style={styles.modalInfoGrid}>
+                <View style={styles.modalInfoItem}>
+                  <Icon name="calendar" size={16} color="#64748b" />
+                  <Text style={styles.modalInfoLabel}>Due Date</Text>
+                  <Text style={styles.modalInfoValue}>
+                    {formatDisplayDate(selectedHomework.due_date)}
+                  </Text>
+                </View>
+                <View style={styles.modalInfoItem}>
+                  <Icon name="user" size={16} color="#64748b" />
+                  <Text style={styles.modalInfoLabel}>Teacher</Text>
+                  <Text style={styles.modalInfoValue}>
+                    {selectedHomework.teacher_full_name}
+                  </Text>
+                </View>
+                <View style={styles.modalInfoItem}>
+                  <Icon name="calendar" size={16} color="#64748b" />
+                  <Text style={styles.modalInfoLabel}>Assigned</Text>
+                  <Text style={styles.modalInfoValue}>
+                    {formatDisplayDate(selectedHomework.assigned_date)}
+                  </Text>
+                </View>
+              </View>
+
+              {selectedHomework.attachment_url && (
+                <TouchableOpacity style={styles.attachmentButton}>
+                  <Icon name="paperclip" size={16} color="#3b82f6" />
+                  <Text style={styles.attachmentText}>View Attachment</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* <TouchableOpacity style={styles.submitButton}>
+                <LinearGradient
+                  colors={['#22c55e', '#16a34a']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.submitGradient}
+                >
+                  <Icon name="upload" size={18} color="#fff" />
+                  <Text style={styles.submitButtonText}>Submit Assignment</Text>
+                </LinearGradient>
+              </TouchableOpacity> */}
+            </>
+          )}
+        </ScrollView>
+      </BottomSheetModal>
     </View>
   );
 }
@@ -451,8 +541,6 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -491,6 +579,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
     marginBottom: 15,
+    marginTop: 10,
   },
   filterRow: {
     flexDirection: 'row',
@@ -611,11 +700,6 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
   modalContent: {
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 24,
@@ -726,5 +810,86 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  // Subject Picker Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  pickerModalContent: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 8,
+    maxHeight: '70%',
+  },
+  pickerIndicator: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 8,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  closePickerButton: {
+    padding: 4,
+  },
+  pickerOptionsList: {
+    padding: 12,
+  },
+  subjectOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  selectedSubjectOption: {
+    backgroundColor: '#eff6ff',
+  },
+  subjectOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  subjectIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  subjectOptionText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#475569',
+  },
+  selectedSubjectOptionText: {
+    color: '#3b82f6',
+    fontWeight: '600',
+  },
+  checkContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#dbeafe',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

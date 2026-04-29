@@ -12,6 +12,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Bell,
   RefreshCw,
@@ -38,10 +39,13 @@ import { colors } from '../../constants/theme';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
+import { HM_THEME } from '../../constants/hmTheme';
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function AccountantDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
   const { userName, setTabBarVisible } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -79,12 +83,13 @@ export default function AccountantDashboardScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
 
       {/* Standardized Navy Header */}
-      <View style={styles.headerStandard}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+        <View style={{ width: 40 }} />
         <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>Accountant Dashboard</AppText>
+          <AppText style={styles.headerTitle}>Accountant Portal</AppText>
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
@@ -213,9 +218,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
+    backgroundColor: HM_THEME.navy,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -252,7 +255,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.error,
     borderWidth: 1.5,
-    borderColor: '#001F3F',
+    borderColor: HM_THEME.navy,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 2,
@@ -268,7 +271,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 24,
-    marginTop: 8,
+    marginTop: 20,
+    backgroundColor: colors.surface,
+    padding: 20,
+    borderRadius: 30,
+    // Shadow
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   welcomeTitle: {
     fontSize: 20,

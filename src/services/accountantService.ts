@@ -31,6 +31,8 @@ export interface PaymentRecord {
   method: PaymentMethod;
   paid_at?: string;
   created_at?: string;
+  receipt_no?: string;
+  transaction_id?: string;
 }
 
 interface CreateFeePayload {
@@ -106,6 +108,8 @@ function normalizePayment(item: unknown): PaymentRecord {
     method,
     paid_at: toText(row.paid_at ?? row.date, ''),
     created_at: toText(row.created_at, ''),
+    receipt_no: toText(row.receipt_no ?? row.receipt_number, ''),
+    transaction_id: toText(row.transaction_id ?? row.txn_id ?? row.reference_id, ''),
   };
 }
 
@@ -189,5 +193,12 @@ export async function getPendingStudentsReport(): Promise<any[]> {
 
 export async function sendFeeAlerts(): Promise<any> {
   const response = await API.post('accountant/notifications/send-fee-alerts');
+  return response.data;
+}
+
+export async function downloadReceipt(paymentId: string): Promise<ArrayBuffer> {
+  const response = await API.get<ArrayBuffer>(`accountant/receipts/${encodeURIComponent(paymentId)}/download`, {
+    responseType: 'arraybuffer',
+  });
   return response.data;
 }

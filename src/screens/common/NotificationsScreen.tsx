@@ -186,16 +186,21 @@ export default function NotificationsScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft size={24} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>Notifications</AppText>
+      <View style={styles.heroHeader}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <ChevronLeft size={24} color="#fff" />
+          </TouchableOpacity>
+          <AppText style={styles.heroTitle}>Notifications</AppText>
+          <TouchableOpacity onPress={markAllRead} style={styles.markAllBtn}>
+            <CheckCheck size={20} color="#fff" />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={markAllRead} style={styles.markAllBtn}>
-          <CheckCheck size={20} color="#fff" />
-        </TouchableOpacity>
+
+        <View style={styles.heroContent}>
+          <AppText style={styles.heroGreeting}>Notice Board</AppText>
+          <AppText style={styles.heroSubtext}>Stay updated with the latest school announcements</AppText>
+        </View>
       </View>
 
       <ScrollView
@@ -204,7 +209,7 @@ export default function NotificationsScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
       >
         {loading ? (
           <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 40 }} />
@@ -326,25 +331,50 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
-  header: {
+  heroHeader: {
     backgroundColor: '#001F3F',
-    height: Platform.OS === 'ios' ? 70 : 55,
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 35 : 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    height: 180,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
   },
-  headerTitleContainer: {
-    flex: 1,
+  headerTop: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  heroContent: {
+    marginTop: 20,
+  },
+  heroGreeting: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  heroSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    marginTop: 4,
+    fontWeight: '500',
   },
   backBtn: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   markAllBtn: {
     width: 40,
@@ -354,17 +384,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-  },
   content: {
     flex: 1,
   },
   contentContainer: {
     paddingBottom: 40,
-    paddingTop: 16,
+    paddingTop: 20,
   },
   listContainer: {
     paddingHorizontal: 16,

@@ -63,75 +63,102 @@ export const getStoredUser = async (): Promise<any> => {
 
 /* ================= SET SESSION DATA ================= */
 
-export const setSessionData = async (data: {
-  role: string;
-  token?: string;
-  user?: any;
-  school_code?: string;
-  branch_id?: string;
-  [key: string]: any;
-}) => {
+export const setSessionData = async (data: any) => {
   try {
-    if (data.role) {
-      await AsyncStorage.setItem("userRole", data.role);
-      await AsyncStorage.setItem("role", data.role);
+    const role = data.role || data.userRole;
+    if (role) {
+      await AsyncStorage.setItem("userRole", role);
+      await AsyncStorage.setItem("role", role);
     }
     
-    if (data.token) {
-      await AsyncStorage.setItem("token", data.token);
+    const token = data.token || data.accessToken || data.access_token;
+    if (token) {
+      await AsyncStorage.setItem("token", token);
     }
     
     if (data.user) {
       await AsyncStorage.setItem("user", JSON.stringify(data.user));
       
-      // Extract additional fields from user object
-      if (data.user.is_class_teacher !== undefined) {
+      // Extract additional fields from user object (handle both snake_case and camelCase)
+      const isClassTeacher = data.user.is_class_teacher ?? data.user.isClassTeacher;
+      if (isClassTeacher !== undefined) {
         await AsyncStorage.setItem("is_class_teacher", 
-          data.user.is_class_teacher ? "1" : "0"
+          isClassTeacher ? "1" : "0"
         );
       }
       
-      if (data.user.teacher_id) {
-        await AsyncStorage.setItem("teacher_id", data.user.teacher_id);
+      const teacherId = data.user.teacher_id ?? data.user.teacherId;
+      if (teacherId) {
+        await AsyncStorage.setItem("teacher_id", String(teacherId));
+        await AsyncStorage.setItem("teacherId", String(teacherId));
       }
       
-      if (data.user.employee_id) {
-        await AsyncStorage.setItem("employee_id", data.user.employee_id);
+      const employeeId = data.user.employee_id ?? data.user.employeeId;
+      if (employeeId) {
+        await AsyncStorage.setItem("employee_id", String(employeeId));
+        await AsyncStorage.setItem("employeeId", String(employeeId));
+      }
+
+      const userId = data.user.user_id ?? data.user.userId ?? data.user.id;
+      if (userId) {
+        await AsyncStorage.setItem("user_id", String(userId));
+        await AsyncStorage.setItem("userId", String(userId));
+      }
+
+      const branchId = data.user.branch_id ?? data.user.branchId;
+      if (branchId) {
+        await AsyncStorage.setItem("branch_id", String(branchId));
+        await AsyncStorage.setItem("branchId", String(branchId));
+      }
+
+      const studentId = data.user.student_id ?? data.user.studentId;
+      if (studentId) {
+        await AsyncStorage.setItem("student_id", String(studentId));
+        await AsyncStorage.setItem("studentId", String(studentId));
       }
       
-      if (data.user.email) {
-        await AsyncStorage.setItem("email", data.user.email);
+      const email = data.user.email;
+      if (email) {
+        await AsyncStorage.setItem("email", email);
+      }
+
+      const name = data.user.name ?? data.user.full_name ?? data.user.userName ?? data.user.user_name;
+      if (name) {
+        await AsyncStorage.setItem("user_name", name);
       }
     }
     
-    if (data.school_code) {
-      await AsyncStorage.setItem("school_code", data.school_code);
-      await AsyncStorage.setItem("schoolCode", data.school_code);
+    const schoolCode = data.school_code ?? data.schoolCode ?? data.school_id;
+    if (schoolCode) {
+      await AsyncStorage.setItem("school_code", String(schoolCode));
+      await AsyncStorage.setItem("schoolCode", String(schoolCode));
     }
     
-    if (data.branch_id) {
-      await AsyncStorage.setItem("branch_id", data.branch_id);
-      await AsyncStorage.setItem("branchId", data.branch_id);
+    const branchId = data.branch_id ?? data.branchId;
+    if (branchId) {
+      await AsyncStorage.setItem("branch_id", String(branchId));
+      await AsyncStorage.setItem("branchId", String(branchId));
     }
     
-    if (data.branch_name) {
-      await AsyncStorage.setItem("branch_name", data.branch_name);
+    const branchName = data.branch_name ?? data.branchName;
+    if (branchName) {
+      await AsyncStorage.setItem("branch_name", branchName);
     }
     
-    if (data.user_id) {
-      await AsyncStorage.setItem("user_id", data.user_id);
+    const studentId = data.student_id ?? data.studentId;
+    if (studentId) {
+      await AsyncStorage.setItem("student_id", String(studentId));
+      await AsyncStorage.setItem("studentId", String(studentId));
     }
     
-    if (data.student_id) {
-      await AsyncStorage.setItem("student_id", data.student_id);
+    const rollNumber = data.roll_number ?? data.rollNumber;
+    if (rollNumber) {
+      await AsyncStorage.setItem("roll_number", String(rollNumber));
     }
     
-    if (data.roll_number) {
-      await AsyncStorage.setItem("roll_number", data.roll_number);
-    }
-    
-    if (data.parent_id) {
-      await AsyncStorage.setItem("parent_id", data.parent_id);
+    const parentId = data.parent_id ?? data.parentId;
+    if (parentId) {
+      await AsyncStorage.setItem("parent_id", String(parentId));
     }
     
     if (data.hm_email) {

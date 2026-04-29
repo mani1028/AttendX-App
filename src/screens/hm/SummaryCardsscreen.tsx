@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
   CircleDollarSign,
@@ -26,6 +27,7 @@ import {
 } from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
+import { HM_THEME as C } from '../../constants/hmTheme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 
@@ -37,6 +39,7 @@ interface DashboardSummary {
 }
 
 const SummaryCards = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
@@ -168,7 +171,7 @@ const SummaryCards = () => {
   if (loading && !summary) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#001F3F" />
+        <ActivityIndicator size="large" color={C.navy} />
         <AppText style={styles.loadingText}>Loading dashboard summary...</AppText>
       </View>
     );
@@ -191,11 +194,14 @@ const SummaryCards = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 10 }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
+        >
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} weight="bold">Summary Cards</AppText>
@@ -231,7 +237,7 @@ const SummaryCards = () => {
 
         <View style={styles.summarySection}>
           <View style={styles.summaryHeader}>
-            <PieChart size={20} color="#001F3F" />
+            <PieChart size={20} color={C.navy} />
             <AppText style={styles.summaryTitle} weight="bold">Financial Summary</AppText>
           </View>
 
@@ -314,11 +320,10 @@ const SummaryCards = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: C.bg,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    backgroundColor: C.navy,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -344,7 +349,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f2f7',
+    backgroundColor: C.bg,
     padding: 20,
   },
   loadingText: {
@@ -356,7 +361,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f2f7',
+    backgroundColor: C.bg,
     padding: 20,
   },
   errorTitle: {
@@ -515,7 +520,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#001F3F',
+    backgroundColor: C.navy,
     marginHorizontal: 16,
     marginTop: 8,
     marginBottom: 16,

@@ -15,6 +15,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import {
@@ -291,10 +292,6 @@ const BranchRow: React.FC<{
       <StatusBadge status={branch.branch_status} />
       <AppText style={styles.branchRowDate}>{formatDate(branch.creation_date)}</AppText>
       <View style={styles.branchRowActions}>
-        <TouchableOpacity style={styles.editRowBtn} onPress={onEdit}>
-          <Edit2 size={12} color={colors.accent} />
-          <AppText style={styles.editRowBtnText}>Edit</AppText>
-        </TouchableOpacity>
         <TouchableOpacity style={styles.deleteRowBtn} onPress={onDelete}>
           <Trash2 size={12} color={colors.error} />
           <AppText style={styles.deleteRowBtnText}>Del</AppText>
@@ -408,6 +405,7 @@ const HMRegistrationModal: React.FC<{
 };
 
 export default function PrincipalDashboardScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName, setTabBarVisible } = useAuth();
   const route = useRoute();
@@ -837,10 +835,11 @@ export default function PrincipalDashboardScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-      {/* Standardized Navy Header */}
-      <View style={styles.headerStandard}>
+      {/* Fixed Navy Header */}
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+        <View style={{ width: 40 }} />
         <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>Principal Dashboard</AppText>
+          <AppText style={styles.headerTitle}>Principal Portal</AppText>
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
@@ -863,11 +862,12 @@ export default function PrincipalDashboardScreen() {
 
       <ScrollView
         ref={overviewRef}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[styles.contentContainer]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
+
         {/* Welcome Section */}
         <View style={styles.welcomeSection}>
           <View>
@@ -2391,8 +2391,6 @@ const styles = StyleSheet.create({
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',

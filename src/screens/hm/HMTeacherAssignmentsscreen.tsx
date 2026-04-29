@@ -4,6 +4,7 @@ import {
   Modal, ActivityIndicator, StyleSheet, Alert, StatusBar, Platform,
   NativeSyntheticEvent, NativeScrollEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -24,26 +25,9 @@ import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { HM_THEME as C } from '../../constants/hmTheme';
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
-const C = {
-  primary: colors.primary,
-  primarySoft: colors.primary + '15',
-  success: colors.success,
-  successSoft: colors.successSoft,
-  danger: colors.error,
-  dangerSoft: colors.errorSoft,
-  warning: colors.warning,
-  warningSoft: colors.warningSoft,
-  bg: colors.bg,
-  white: colors.surface,
-  text: colors.textPrimary,
-  text2: colors.textPrimary + 'CC',
-  text3: colors.textMuted,
-  border: colors.border,
-  borderSoft: colors.border + '60',
-  sidebar: colors.surface,
-};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 async function getSchoolCode() {
@@ -64,6 +48,7 @@ function teacherLabel(t: any) {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function HMTeacherAssignmentsScreen() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
 
@@ -325,11 +310,11 @@ export default function HMTeacherAssignmentsScreen() {
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
-      <View style={styles.navHeader}>
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
+      <View style={[styles.navHeader, { paddingTop: insets.top }]}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
         >
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
@@ -700,12 +685,11 @@ const styles = StyleSheet.create({
   },
   navHeader: {
     backgroundColor: '#001F3F',
-    height: Platform.OS === 'ios' ? 100 : 70,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 40 : 0,
+    paddingBottom: 16,
   },
   backButton: {
     padding: 8,

@@ -14,6 +14,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
   RefreshCw,
@@ -26,25 +27,8 @@ import API from "../../services/api";
 import { colors } from "../../constants/theme";
 import AppText from "../../components/common/AppText";
 import { useAuth } from "../../context/AuthContext";
+import { HM_THEME as C } from "../../constants/hmTheme";
 
-// Local theme bridge
-const C = {
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  textMuted: colors.textMuted,
-  primary: colors.primary,
-  primarySoft: colors.primary + '20',
-  success: colors.success,
-  successSoft: colors.successSoft,
-  error: colors.error,
-  errorSoft: colors.errorSoft,
-  warning: colors.warning,
-  warningSoft: colors.warningSoft,
-  info: colors.info || '#0ea5e9',
-  infoSoft: (colors.info || '#0ea5e9') + '20',
-};
 
 type Announcement = {
   id: number;
@@ -78,6 +62,7 @@ const getTypeColor = (type: string) => {
 };
 
 const AnnouncementsScreen = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
@@ -311,8 +296,11 @@ const AnnouncementsScreen = () => {
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
       {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
+        >
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} weight="bold">Announcements</AppText>
@@ -526,12 +514,12 @@ const styles = StyleSheet.create({
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderRadius: 0,
   },
   backBtn: {
     width: 40,

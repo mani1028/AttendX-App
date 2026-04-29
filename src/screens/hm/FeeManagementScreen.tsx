@@ -15,8 +15,12 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
+import { Buffer } from 'buffer';
 import {
   ChevronLeft,
   Plus,
@@ -35,27 +39,15 @@ import {
   createFee,
   getAllFees,
   getSchoolStudents,
+  getPaymentHistoryByFee,
+  downloadReceipt,
+  PaymentRecord,
 } from '../../services/accountantService';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { HM_THEME as C } from '../../constants/hmTheme';
 
-// Local theme bridge
-const C = {
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  textMuted: colors.textMuted,
-  primary: colors.primary,
-  primarySoft: colors.primary + '20',
-  success: colors.success,
-  successSoft: colors.successSoft,
-  error: colors.error,
-  errorSoft: colors.errorSoft,
-  warning: colors.warning,
-  warningSoft: colors.warningSoft,
-};
 
 interface Student {
   id: string;
@@ -83,8 +75,17 @@ interface FormData {
   due_date: string;
 }
 
+interface Payment {
+  id: string;
+  amount: number;
+  method: string;
+  paid_at?: string;
+  created_at?: string;
+}
+
 const FeeManagement = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
   const lastScrollY = useRef(0);
@@ -103,6 +104,11 @@ const FeeManagement = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   // Load school code from storage
   useEffect(() => {
@@ -310,6 +316,30 @@ const FeeManagement = () => {
     return `₹${amount.toFixed(2)}`;
   };
 
+  const handleDownloadReceipt = async (paymentId: string, receiptNo: string) => {
+    try {
+      setDownloading(paymentId);
+      const data = await downloadReceipt(paymentId);
+
+      const fileName = `Receipt_${receiptNo || paymentId}.pdf`;
+      const filePath = `${RNFS.CachesDirectoryPath}/${fileName}`;
+
+      const base64Data = Buffer.from(data).toString('base64');
+      await RNFS.writeFile(filePath, base64Data, 'base64');
+
+      await Share.open({
+        url: `file://${filePath}`,
+        type: 'application/pdf',
+        title: 'Payment Receipt',
+      });
+    } catch (error: any) {
+      console.error('Download error:', error);
+      Alert.alert('Error', 'Failed to download receipt. Please try again later.');
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-IN', {
@@ -344,17 +374,28 @@ const FeeManagement = () => {
 
   const renderFeeItem = ({ item }: { item: Fee }) => {
     const statusStyle = getStatusStyle(item.status);
-    
+
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.feeRow}
-        onPress={() => {
-          if (item.status !== 'paid') {
-            setSelectedFee(item);
-            setPaymentAmount('');
-            setShowPaymentModal(true);
-          } else {
-            Alert.alert('Fee Status', 'This fee has been fully paid');
+        onPress={async () => {
+          setSelectedFee(item);
+          setPaymentAmount('');
+          setShowPaymentModal(true);
+
+          // Load payment history for this fee
+          try {
+            setLoadingHistory(true);
+            const history = await getPaymentHistoryByFee(item.id);
+            if (isMounted.current) {
+              setPaymentHistory(history as any[]);
+            }
+          } catch (error) {
+            console.error("Error fetching payment history:", error);
+          } finally {
+            if (isMounted.current) {
+              setLoadingHistory(false);
+            }
           }
         }}
         activeOpacity={0.7}
@@ -399,8 +440,11 @@ const FeeManagement = () => {
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
       {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never))}
+        >
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} weight="bold">Fee Management</AppText>
@@ -573,50 +617,177 @@ const FeeManagement = () => {
                 <View style={styles.modalInfo}>
                   <AppText style={styles.modalLabel} weight="semiBold">Student</AppText>
                   <AppText style={styles.modalValue} weight="bold">{selectedFee.student_name || 'N/A'}</AppText>
-                  
-                  <AppText style={styles.modalLabel} weight="semiBold">Total Fee</AppText>
-                  <AppText style={styles.modalValue} weight="semiBold">{formatAmount(selectedFee.total_fee)}</AppText>
-                  
-                  <AppText style={styles.modalLabel} weight="semiBold">Amount Paid</AppText>
-                  <AppText style={styles.modalValue} weight="semiBold">{formatAmount(selectedFee.paid_amount)}</AppText>
-                  
-                  <AppText style={styles.modalLabel} weight="semiBold">Due Amount</AppText>
-                  <AppText style={[styles.modalValue, styles.dueAmountValue]} weight="bold">{formatAmount(selectedFee.due_amount)}</AppText>
+
+                  <View style={styles.modalInfoRow}>
+                    <View style={styles.modalInfoCol}>
+                      <AppText style={styles.modalLabel} weight="semiBold">Total Fee</AppText>
+                      <AppText style={styles.modalValue} weight="semiBold">{formatAmount(selectedFee.total_fee)}</AppText>
+                    </View>
+                    <View style={styles.modalInfoCol}>
+                      <AppText style={styles.modalLabel} weight="semiBold">Amount Paid</AppText>
+                      <AppText style={[styles.modalValue, { color: C.success }]} weight="semiBold">{formatAmount(selectedFee.paid_amount)}</AppText>
+                    </View>
+                    <View style={styles.modalInfoCol}>
+                      <AppText style={styles.modalLabel} weight="semiBold">Due Amount</AppText>
+                      <AppText style={[styles.modalValue, styles.dueAmountValue]} weight="bold">{formatAmount(selectedFee.due_amount)}</AppText>
+                    </View>
+                  </View>
                 </View>
 
-                <View style={styles.modalForm}>
-                  <AppText style={styles.label} weight="semiBold">Payment Amount (₹)</AppText>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter amount"
-                    placeholderTextColor={C.textMuted}
-                    keyboardType="numeric"
-                    value={paymentAmount}
-                    onChangeText={setPaymentAmount}
-                  />
+                {/* Payment History Section in Modal */}
+                <View style={styles.historySection}>
+                  <AppText style={styles.historyTitle} weight="bold">Payment History</AppText>
+                  {loadingHistory ? (
+                    <ActivityIndicator size="small" color={C.primary} style={{ marginVertical: 10 }} />
+                  ) : paymentHistory.length > 0 ? (
+                    <View style={styles.historyList}>
+                      {paymentHistory.map((payment, idx) => (
+                        <TouchableOpacity
+                          key={payment.id || idx}
+                          style={styles.historyItem}
+                          onPress={() => {
+                            setSelectedPayment(payment);
+                            setShowDetailModal(true);
+                          }}
+                        >
+                          <View>
+                            <AppText style={styles.historyAmount} weight="bold">{formatAmount(payment.amount)}</AppText>
+                            <AppText style={styles.historyDate}>{formatDate(payment.paid_at || payment.created_at || '')}</AppText>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <View style={styles.historyMethodBadge}>
+                              <AppText style={styles.historyMethodText} weight="bold">{payment.method.toUpperCase()}</AppText>
+                            </View>
+                            <ChevronLeft size={16} color={C.textMuted} style={{ transform: [{ rotate: '180deg' }] }} />
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ) : (
+                    <AppText style={styles.noHistoryText}>No payments recorded yet</AppText>
+                  )}
                 </View>
+
+                {selectedFee.status !== 'paid' && (
+                  <View style={styles.modalForm}>
+                    <AppText style={styles.label} weight="semiBold">New Payment (₹)</AppText>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter amount"
+                      placeholderTextColor={C.textMuted}
+                      keyboardType="numeric"
+                      value={paymentAmount}
+                      onChangeText={setPaymentAmount}
+                    />
+                  </View>
+                )}
 
                 <View style={styles.modalButtons}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[styles.modalButton, styles.cancelButton]}
                     onPress={() => setShowPaymentModal(false)}
                   >
-                    <AppText style={styles.cancelButtonText} weight="semiBold">Cancel</AppText>
+                    <AppText style={styles.cancelButtonText} weight="semiBold">Close</AppText>
                   </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.modalButton, styles.payButton]}
-                    onPress={handlePayment}
-                    disabled={processingPayment}
-                  >
-                    {processingPayment ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <AppText style={styles.payButtonText} weight="bold">Record Payment</AppText>
-                    )}
-                  </TouchableOpacity>
+                  {selectedFee.status !== 'paid' && (
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.payButton]}
+                      onPress={handlePayment}
+                      disabled={processingPayment}
+                    >
+                      {processingPayment ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <AppText style={styles.payButtonText} weight="bold">Pay Now</AppText>
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
               </>
             )}
+          </View>
+        </View>
+      </Modal>
+      {/* Payment Detail Modal */}
+      <Modal
+        visible={showDetailModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDetailModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 450 }]}>
+            <View style={styles.modalHeader}>
+              <AppText style={styles.modalTitle} weight="bold">Receipt Details</AppText>
+              <TouchableOpacity onPress={() => setShowDetailModal(false)}>
+                <X size={24} color={C.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedPayment && (
+              <ScrollView style={{ maxHeight: 500 }}>
+                <View style={{ alignItems: 'center', marginBottom: 24, paddingVertical: 10 }}>
+                  <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: C.successSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                    <CheckCircle2 size={32} color={C.success} />
+                  </View>
+                  <AppText style={{ fontSize: 28, color: C.text }} weight="bold">{formatAmount(selectedPayment.amount)}</AppText>
+                  <AppText style={{ fontSize: 14, color: C.success }} weight="semiBold">Payment Successful</AppText>
+                </View>
+
+                <View style={{ backgroundColor: C.bg, borderRadius: 12, padding: 16, gap: 12 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <AppText style={{ fontSize: 13, color: C.textMuted }}>Receipt No</AppText>
+                    <AppText style={{ fontSize: 13, color: C.text }} weight="bold">
+                      {selectedPayment.receipt_no || 'REC-' + selectedPayment.id.substring(0, 8).toUpperCase()}
+                    </AppText>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <AppText style={{ fontSize: 13, color: C.textMuted }}>Transaction ID</AppText>
+                    <AppText style={{ fontSize: 13, color: C.text }} weight="bold">
+                      {selectedPayment.transaction_id || 'TXN-' + Math.random().toString(36).substr(2, 9).toUpperCase()}
+                    </AppText>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <AppText style={{ fontSize: 13, color: C.textMuted }}>Date & Time</AppText>
+                    <AppText style={{ fontSize: 13, color: C.text }} weight="bold">
+                      {new Date(selectedPayment.paid_at || selectedPayment.created_at || '').toLocaleString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </AppText>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <AppText style={{ fontSize: 13, color: C.textMuted }}>Method</AppText>
+                    <AppText style={{ fontSize: 13, color: C.text }} weight="bold">{selectedPayment.method.toUpperCase()}</AppText>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.submitButton, { marginTop: 24, backgroundColor: C.bg, borderWidth: 1, borderColor: C.primary }]}
+                  onPress={() => handleDownloadReceipt(selectedPayment.id, selectedPayment.receipt_no || '')}
+                  disabled={!!downloading}
+                >
+                  {downloading === selectedPayment.id ? (
+                    <ActivityIndicator size="small" color={C.primary} />
+                  ) : (
+                    <FileText size={18} color={C.primary} />
+                  )}
+                  <AppText style={{ color: C.primary }} weight="bold">
+                    {downloading === selectedPayment.id ? 'Downloading...' : 'Download Receipt'}
+                  </AppText>
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+
+            <TouchableOpacity
+              style={[styles.modalButton, styles.cancelButton, { marginTop: 16 }]}
+              onPress={() => setShowDetailModal(false)}
+            >
+              <AppText style={styles.cancelButtonText} weight="semiBold">Back</AppText>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -631,12 +802,12 @@ const styles = StyleSheet.create({
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderRadius: 0,
   },
   backBtn: {
     width: 40,
@@ -656,13 +827,25 @@ const styles = StyleSheet.create({
   formSection: {
     backgroundColor: C.card,
     padding: 20,
-    borderRadius: 12,
+    borderRadius: 30,
     borderLeftWidth: 4,
     borderLeftColor: C.primary,
     margin: 16,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: C.border,
+    // Shadow
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   formTitle: {
     fontSize: 18,
@@ -938,8 +1121,63 @@ const styles = StyleSheet.create({
     color: C.text,
     marginBottom: 12,
   },
+  modalInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  modalInfoCol: {
+    flex: 1,
+  },
   dueAmountValue: {
     color: C.error,
+  },
+  historySection: {
+    marginVertical: 15,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+  },
+  historyTitle: {
+    fontSize: 14,
+    color: C.text,
+    marginBottom: 10,
+  },
+  historyList: {
+    maxHeight: 150,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: C.bg,
+  },
+  historyAmount: {
+    fontSize: 14,
+    color: C.text,
+  },
+  historyDate: {
+    fontSize: 11,
+    color: C.textMuted,
+  },
+  historyMethodBadge: {
+    backgroundColor: C.bg,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  historyMethodText: {
+    fontSize: 10,
+    color: C.primary,
+  },
+  noHistoryText: {
+    fontSize: 12,
+    color: C.textMuted,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 10,
   },
   modalForm: {
     marginBottom: 20,

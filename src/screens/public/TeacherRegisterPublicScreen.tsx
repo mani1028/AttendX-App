@@ -435,18 +435,6 @@ export default function TeacherRegisterPublicScreen() {
     setStep(prev => Math.max(prev - 1, 0));
   };
 
-  const fileToBase64 = (file: any): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = String(reader.result || '');
-        resolve(result.includes(',') ? result.split(',')[1] : result);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
   const submitTeacher = async () => {
     if (!isValidPublicLink) {
       setServerError('Invalid registration link.');
@@ -476,15 +464,28 @@ export default function TeacherRegisterPublicScreen() {
     setLoading(true);
     try {
       const imageSource = photoFile || formData.teacher_photograph;
-      const imageBase64 = await fileToBase64(imageSource);
-      
-      const payload = {
-        ...formData,
-        teacher_photograph: imageBase64,
-      };
 
-      const res = await API.post('/teacher/register', payload, {
-        headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId },
+      const data = new FormData();
+      Object.entries(formData).forEach(([k, v]) => {
+        if (k === 'teacher_photograph') {
+          if (imageSource && imageSource.uri) {
+            data.append('teacher_photograph', {
+              uri: imageSource.uri,
+              type: imageSource.type || 'image/jpeg',
+              name: imageSource.fileName || 'teacher.jpg',
+            } as any);
+          }
+        } else if (v !== null && v !== '') {
+          data.append(k, v);
+        }
+      });
+
+      const res = await API.post('/teacher/register', data, {
+        headers: {
+          'X-School-Code': schoolCode,
+          'X-Branch-Id': branchId,
+          'Content-Type': 'multipart/form-data'
+        },
       });
 
       const createdTeacherId = String(res?.data?.teacher_id || '').trim();
@@ -642,6 +643,7 @@ export default function TeacherRegisterPublicScreen() {
                     value={formData.date_of_birth ? new Date(formData.date_of_birth) : new Date()}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    maximumDate={new Date()}
                     onChange={(_event: any, date?: Date) => {
                       if (date) handleChange('date_of_birth', date.toISOString().split('T')[0]);
                       setShowDOBPicker(false);
@@ -978,6 +980,7 @@ export default function TeacherRegisterPublicScreen() {
                     value={formData.date_of_joining ? new Date(formData.date_of_joining) : new Date()}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    maximumDate={new Date()}
                     onChange={(_event: any, date?: Date) => {
                       if (date) handleChange('date_of_joining', date.toISOString().split('T')[0]);
                       setShowJoiningPicker(false);

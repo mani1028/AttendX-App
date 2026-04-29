@@ -28,10 +28,24 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
     try {
       setLoading(true);
-      await authService.requestOtp(schoolId.trim(), identifier.trim());
-      navigation.navigate('VerifyOtp', { schoolId: schoolId.trim(), identifier: identifier.trim() });
-    } catch {
-      Alert.alert('Error', 'User not found');
+      const trimmedSchoolId = schoolId.trim();
+      const trimmedIdentifier = identifier.trim();
+      
+      console.log('[ForgotPassword] Requesting OTP with:', { schoolId: trimmedSchoolId, identifier: trimmedIdentifier });
+      
+      await authService.requestOtp(trimmedSchoolId, trimmedIdentifier);
+      navigation.navigate('VerifyOtp', { schoolId: trimmedSchoolId, identifier: trimmedIdentifier });
+    } catch (error: any) {
+      console.error('[ForgotPassword] Error requesting OTP:', error?.response?.data || error?.message);
+      
+      const errorMessage = 
+        error?.response?.data?.message || 
+        error?.response?.data?.detail || 
+        error?.response?.data?.error || 
+        error?.message || 
+        'Failed to send OTP. Please check your school code and email/employee ID.';
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }

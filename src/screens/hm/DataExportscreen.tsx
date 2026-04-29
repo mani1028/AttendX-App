@@ -1,16 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Platform,
-  StatusBar,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from 'react-native';
+import { Buffer } from 'buffer';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft, BarChart3, PenSquare, ClipboardList } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -21,20 +11,8 @@ import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { HM_THEME as C } from '../../constants/hmTheme';
 
-const C = {
-  primary: colors.primary,
-  primarySoft: colors.primary + '15',
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  textMuted: colors.textMuted,
-  success: colors.success,
-  successSoft: colors.successSoft,
-  error: colors.error,
-  errorSoft: colors.errorSoft,
-};
 
 interface ClassSectionPair {
   class_grade?: string;
@@ -49,6 +27,7 @@ interface Exam {
 
 export default function HMDataExportPage() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState('');
@@ -297,25 +276,31 @@ export default function HMDataExportPage() {
     }
   };
 
-  const downloadAndShareFile = async (blob: any, filename: string) => {
+  const downloadAndShareFile = async (data: any, filename: string) => {
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = async () => {
-        const base64Data = (reader.result as string).split(',')[1];
-        const fileUri = `${RNFS.CachesDirectoryPath}/${filename}`;
-        
-        await RNFS.writeFile(fileUri, base64Data, 'base64');
+      const base64Data = Buffer.from(data).toString('base64');
+      const filePath = `${RNFS.CachesDirectoryPath}/${filename}`;
 
-        await Share.open({
-          url: `file://${fileUri}`,
-          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          filename: filename,
-        });
-      };
-    } catch (error) {
-      console.error('Error saving/sharing file:', error);
-      Alert.alert('Error', 'Failed to save or share file');
+      await RNFS.writeFile(filePath, base64Data, 'base64');
+
+      const fileUri = Platform.OS === 'android'
+        ? `file://${filePath}`
+        : filePath;
+
+      await Share.open({
+        url: fileUri,
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        filename: filename,
+        failOnCancel: false,
+      });
+
+      // Clean up file after sharing
+      setTimeout(() => RNFS.unlink(filePath).catch(() => {}), 5000);
+    } catch (error: any) {
+      if (error?.message !== 'User did not share') {
+        console.error('Error saving/sharing file:', error);
+        Alert.alert('Error', 'Failed to save or share file');
+      }
     }
   };
 
@@ -349,21 +334,8 @@ export default function HMDataExportPage() {
       const response = await API.get("/hm/export/attendance-only", {
         headers,
         params,
-        responseType: "blob",
+        responseType: "arraybuffer",
       });
-
-      const contentType = String(response?.headers?.["content-type"] || "").toLowerCase();
-      if (contentType.includes("application/json")) {
-        const textPayload = await response.data.text();
-        let detail = "Export failed. Please try again.";
-        try {
-          const parsed = JSON.parse(textPayload || "{}");
-          detail = parsed?.detail || parsed?.message || detail;
-        } catch {
-          if (textPayload) detail = textPayload;
-        }
-        throw new Error(detail);
-      }
 
       const filename = `attendance_export_${start_date}_to_${end_date}.xlsx`;
       await downloadAndShareFile(response.data, filename);
@@ -413,24 +385,10 @@ export default function HMDataExportPage() {
       const response = await API.get("/hm/export/marks-only", {
         headers,
         params,
-        responseType: "blob",
+        responseType: "arraybuffer",
       });
 
-      const contentType = String(response?.headers?.["content-type"] || "").toLowerCase();
-      if (contentType.includes("application/json")) {
-        const textPayload = await response.data.text();
-        let detail = "Export failed. Please try again.";
-        try {
-          const parsed = JSON.parse(textPayload || "{}");
-          detail = parsed?.detail || parsed?.message || detail;
-        } catch {
-          if (textPayload) detail = textPayload;
-        }
-        throw new Error(detail);
-      }
-
       const selectedExamObj = examsList.find(e => e.exam_id.toString() === selectedExam);
-      
       const filename = `marks_export_${selectedExamObj?.exam_name || "marks"}_${classGrade || "all"}_${section || "all"}.xlsx`;
       await downloadAndShareFile(response.data, filename);
 
@@ -489,24 +447,10 @@ export default function HMDataExportPage() {
       const response = await API.get("/hm/export/combined-with-attendance", {
         headers,
         params,
-        responseType: "blob",
+        responseType: "arraybuffer",
       });
 
-      const contentType = String(response?.headers?.["content-type"] || "").toLowerCase();
-      if (contentType.includes("application/json")) {
-        const textPayload = await response.data.text();
-        let detail = "Export failed. Please try again.";
-        try {
-          const parsed = JSON.parse(textPayload || "{}");
-          detail = parsed?.detail || parsed?.message || detail;
-        } catch {
-          if (textPayload) detail = textPayload;
-        }
-        throw new Error(detail);
-      }
-
       const selectedExamObj = examsList.find(e => e.exam_id.toString() === selectedExam);
-      
       const filename = `combined_export_${selectedExamObj?.exam_name || "marks"}_${start_date}_to_${end_date}.xlsx`;
       await downloadAndShareFile(response.data, filename);
 
@@ -872,11 +816,14 @@ export default function HMDataExportPage() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
+        >
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} weight="bold">Data Export</AppText>
@@ -948,9 +895,19 @@ export default function HMDataExportPage() {
           }
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          maximumDate={new Date()}
           onChange={(event, selectedDate) => {
-            setShowAttendanceDatePicker(false);
-            setShowCombinedDatePicker(false);
+            if (Platform.OS === 'android') {
+              setShowAttendanceDatePicker(false);
+              setShowCombinedDatePicker(false);
+            }
+
+            if (event.type === 'dismissed') {
+              setShowAttendanceDatePicker(false);
+              setShowCombinedDatePicker(false);
+              return;
+            }
+
             if (selectedDate) {
               const dateStr = selectedDate.toISOString().slice(0, 10);
               if (showAttendanceDatePicker) {
@@ -962,6 +919,13 @@ export default function HMDataExportPage() {
                 else if (datePickerMode === "end") setCombinedEndDate(dateStr);
                 else setCombinedAnchorDate(dateStr);
               }
+            }
+
+            if (Platform.OS === 'ios') {
+              // On iOS we keep it open until user finishes
+            } else {
+              setShowAttendanceDatePicker(false);
+              setShowCombinedDatePicker(false);
             }
           }}
         />
@@ -983,8 +947,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    backgroundColor: C.navy,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',

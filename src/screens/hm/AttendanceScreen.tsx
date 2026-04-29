@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
   RefreshCw,
@@ -44,22 +45,9 @@ import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { HM_THEME as C } from '../../constants/hmTheme';
 
 // Local theme bridge
-const C = {
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  muted: colors.textMuted,
-  primary: colors.primary,
-  success: colors.success,
-  successSoft: colors.successSoft,
-  error: colors.error,
-  errorSoft: colors.errorSoft,
-  warning: colors.warning,
-  warningSoft: colors.warningSoft,
-};
 
 // Types
 interface Teacher {
@@ -313,7 +301,7 @@ const ExportModal: React.FC<{
 
       let response;
       if (type === 'teachers') {
-        response = await API.get('/hm/teachers/export', {
+        response = await API.get('hm/teachers/export', {
           headers,
           params: { start_date: from, end_date: to, file_format: 'csv' },
         });
@@ -326,7 +314,7 @@ const ExportModal: React.FC<{
             }
           });
         });
-        response = await API.get('/hm/students/export', {
+        response = await API.get('hm/students/export', {
           headers,
           params: {
             start_date: from,
@@ -340,8 +328,10 @@ const ExportModal: React.FC<{
       const content = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
       await RNFS.writeFile(filePath, content, 'utf8');
 
+      const fileUri = Platform.OS === 'android' ? `content://com.visys.attendx.fileprovider/internal_files/${fileName}` : `file://${filePath}`;
+
       await Share.open({
-        url: `file://${filePath}`,
+        url: fileUri,
         type: 'text/csv',
         filename: fileName,
         title: 'Export Attendance',
@@ -403,6 +393,7 @@ const ExportModal: React.FC<{
                 value={startDate}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                maximumDate={new Date()}
                 onChange={(event, date) => {
                   setShowStartPicker(false);
                   if (date) {
@@ -417,6 +408,7 @@ const ExportModal: React.FC<{
                 value={endDate}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                maximumDate={new Date()}
                 onChange={(event, date) => {
                   setShowEndPicker(false);
                   if (date) setEndDate(date);
@@ -456,17 +448,23 @@ const ExportModal: React.FC<{
                         <View style={[styles.checkbox, allSelected && styles.checkboxChecked, someSelected && !allSelected && styles.checkboxIndeterminate]} />
                       </TouchableOpacity>
 
-                      <TouchableOpacity
-                        key={key}
-                        style={[styles.sectionRow, isSelected && styles.sectionRowSelected]}
-                        onPress={() => toggleSection(grade, sec.section)}
-                      >
-                        <View style={[styles.checkboxSmall, isSelected && styles.checkboxSmallChecked]}>
-                          {isSelected && <CheckCircle2 size={12} color="#fff" />}
-                        </View>
-                        <AppText style={styles.sectionText}>Section {sec.section}</AppText>
-                        <AppText style={styles.sectionCount}>{sec.students_total || 0} students</AppText>
-                      </TouchableOpacity>
+                      {sections.map(sec => {
+                        const key = `${grade}:${sec.section}`;
+                        const isSelected = selectedSections.has(key);
+                        return (
+                          <TouchableOpacity
+                            key={key}
+                            style={[styles.sectionRow, isSelected && styles.sectionRowSelected]}
+                            onPress={() => toggleSection(grade, sec.section)}
+                          >
+                            <View style={[styles.checkboxSmall, isSelected && styles.checkboxSmallChecked]}>
+                              {isSelected && <CheckCircle2 size={12} color="#fff" />}
+                            </View>
+                            <AppText style={styles.sectionText}>Section {sec.section}</AppText>
+                            <AppText style={styles.sectionCount}>{sec.students_total || 0} students</AppText>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
                   );
                 })}
@@ -536,10 +534,9 @@ const StudentsView: React.FC<{
 
   const loadStudents = useCallback(async (sec: SectionGroup) => {
     if (!sec) return;
-    setLoading(true);
+    setLoadingPrefix(true);
     try {
-      const res = await API.get('/hm/students', {
-        headers,
+      const res = await API.get('hm/students', {
         params: {
           class_grade: sec.class_grade,
           section: sec.section,
@@ -787,6 +784,7 @@ const StudentsView: React.FC<{
 };
 
 export default function HMAttendanceScreen() {
+  const insets = useSafeAreaInsets();
   const route = useRoute<any>();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
@@ -800,6 +798,7 @@ export default function HMAttendanceScreen() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [page, setPage] = useState<number>(1);
   
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState<boolean>(false);
   
@@ -859,8 +858,7 @@ export default function HMAttendanceScreen() {
     if (!schoolCode || !branchId) return;
     setLoadingTeachers(true);
     try {
-      const res = await API.get('/hm/teachers/attendance', {
-        headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId },
+      const res = await API.get('hm/teachers/attendance', {
         params: { on_date: iso(date) },
       });
       if (isMounted.current) {
@@ -881,8 +879,7 @@ export default function HMAttendanceScreen() {
     if (!schoolCode || !branchId) return;
     setLoadingClasses(true);
     try {
-      const res = await API.get('/hm/classes', {
-        headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId },
+      const res = await API.get('hm/classes', {
         params: { on_date: iso(date) },
       });
       if (isMounted.current) {
@@ -903,8 +900,7 @@ export default function HMAttendanceScreen() {
     if (!schoolCode || !branchId) return;
     setLoadingStatement(true);
     try {
-      const res = await API.get('/hm/attendance/statements', {
-        headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId },
+      const res = await API.get('hm/attendance/statements', {
         params: { scope: stmtScope, on_date: iso(date) },
       });
       if (isMounted.current) {
@@ -962,13 +958,22 @@ export default function HMAttendanceScreen() {
     'X-Branch-Id': branchId,
   }), [schoolCode, branchId]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, view, date]);
+
   const onRefresh = useCallback(async () => {
-    if (view === 'teachers') {
-      await loadTeachers();
-    } else {
-      await loadClasses();
+    setRefreshing(true);
+    try {
+      if (view === 'teachers') {
+        await loadTeachers();
+      } else {
+        await loadClasses();
+      }
+      await loadStatement();
+    } finally {
+      setRefreshing(false);
     }
-    await loadStatement();
   }, [view, loadTeachers, loadClasses, loadStatement]);
 
   return (
@@ -976,8 +981,11 @@ export default function HMAttendanceScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
       {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
+        >
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} weight="bold">Attendance Management</AppText>
@@ -997,7 +1005,7 @@ export default function HMAttendanceScreen() {
         contentContainerStyle={styles.contentContainer}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={C.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
       >
         <View style={styles.subHeader}>
           <AppText style={styles.subHeaderText} weight="semiBold">
@@ -1011,30 +1019,34 @@ export default function HMAttendanceScreen() {
               style={[styles.toggleBtn, view === 'teachers' && styles.toggleBtnActive]}
               onPress={() => setView('teachers')}
             >
-              <AppText style={[styles.toggleText, view === 'teachers' && styles.toggleTextActive]} weight="semiBold">
-                <Users size={14} color={view === 'teachers' ? '#fff' : C.muted} /> Teachers
-              </AppText>
+              <View style={styles.toggleRow}>
+                <Users size={14} color={view === 'teachers' ? '#fff' : C.muted} />
+                <AppText style={[styles.toggleText, view === 'teachers' && styles.toggleTextActive]} weight="semiBold"> Teachers</AppText>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.toggleBtn, view === 'students' && styles.toggleBtnActive]}
               onPress={() => setView('students')}
             >
-              <AppText style={[styles.toggleText, view === 'students' && styles.toggleTextActive]} weight="semiBold">
-                <Users2 size={14} color={view === 'students' ? '#fff' : C.muted} /> Students
-              </AppText>
+              <View style={styles.toggleRow}>
+                <Users2 size={14} color={view === 'students' ? '#fff' : C.muted} />
+                <AppText style={[styles.toggleText, view === 'students' && styles.toggleTextActive]} weight="semiBold"> Students</AppText>
+              </View>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
-            <AppText style={styles.dateText}>
-              <Calendar size={14} color={C.primary} /> {iso(date)}
-            </AppText>
+            <View style={styles.toggleRow}>
+              <Calendar size={14} color={C.primary} />
+              <AppText style={styles.dateText}> {iso(date)}</AppText>
+            </View>
           </TouchableOpacity>
           {showDatePicker && (
             <DateTimePicker
               value={date}
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              maximumDate={new Date()}
               onChange={(event, selectedDate) => {
                 setShowDatePicker(false);
                 if (selectedDate) setDate(selectedDate);
@@ -1059,16 +1071,17 @@ export default function HMAttendanceScreen() {
 
           <View style={styles.sectionActions}>
             <TouchableOpacity style={styles.exportBtn} onPress={() => setShowTeacherExport(true)}>
-              <AppText style={styles.exportBtnText} weight="semiBold">
-                <Download size={14} color={C.primary} /> Teachers
-              </AppText>
+              <View style={styles.toggleRow}>
+                <Download size={14} color={C.primary} />
+                <AppText style={styles.exportBtnText} weight="semiBold"> Teachers</AppText>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.exportBtn} onPress={() => setShowExport(true)}>
-              <AppText style={styles.exportBtnText} weight="semiBold">
-                <Download size={14} color={C.primary} /> Students
-              </AppText>
+              <View style={styles.toggleRow}>
+                <Download size={14} color={C.primary} />
+                <AppText style={styles.exportBtnText} weight="semiBold"> Students</AppText>
+              </View>
             </TouchableOpacity>
-            <AppButton title="Refresh" onPress={onRefresh} type="secondary" />
           </View>
         </View>
 
@@ -1227,12 +1240,12 @@ const styles = StyleSheet.create({
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 20,
+    borderRadius: 0,
   },
   backBtn: {
     width: 40,
@@ -1262,6 +1275,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
     marginBottom: 16,
+    marginTop: 10,
+    marginHorizontal: 16,
+    borderRadius: 12,
   },
   subHeaderText: {
     fontSize: 14,
@@ -1307,6 +1323,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   toggleGroup: {
     flexDirection: 'row',

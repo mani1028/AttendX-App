@@ -23,3 +23,18 @@
 -keep class com.dropbox.** { *; }
 -dontwarn com.dropbox.**
 
+# Giphy SDK & Kotlin Parcelize Fix
+-keep class kotlinx.parcelize.** { *; }
+-keep class com.giphy.sdk.** { *; }
+-dontwarn kotlinx.parcelize.**
+-keep @kotlinx.parcelize.Parcelize class * { *; }
+-keep class * implements android.os.Parcelable {
+    public static final ** CREATOR;
+}
+
+# React Native & Common Libraries
+-keep class com.facebook.react.** { *; }
+-dontwarn com.facebook.react.**
+-keep class com.visys.attendx.** { *; }
+-dontwarn com.facebook.common.internal.**
+

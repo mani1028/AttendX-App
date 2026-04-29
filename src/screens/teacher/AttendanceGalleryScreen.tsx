@@ -16,6 +16,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ChevronLeft,
@@ -35,6 +36,7 @@ import * as teacherService from '../../services/teacherService';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import AppButton from '../../components/common/AppButton';
+import Loader from '../../components/common/Loader';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import API from '../../services/api';
 
@@ -183,6 +185,7 @@ const ImageDetailModal: React.FC<{
 };
 
 export default function AttendanceGalleryScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
@@ -297,37 +300,45 @@ export default function AttendanceGalleryScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-      {/* Navy Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <ChevronLeft size={24} color="#fff" />
+      {/* Navy Hero Header */}
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <AppText style={styles.headerTitle}>Gallery</AppText>
-          <TouchableOpacity style={styles.notificationBtn}>
-            <Bell size={22} color="#fff" />
+          <AppText weight="bold" style={styles.heroTitle}>Gallery</AppText>
+          <TouchableOpacity style={styles.iconButton}>
+            <Bell size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        {/* Tab Switcher */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'teacher' && styles.activeTab]}
-            onPress={() => setActiveTab('teacher')}
-          >
-            <AppText style={[styles.tabText, activeTab === 'teacher' && styles.activeTabText]}>
-              Selfie Logs
-            </AppText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'student' && styles.activeTab]}
-            onPress={() => setActiveTab('student')}
-          >
-            <AppText style={[styles.tabText, activeTab === 'student' && styles.activeTabText]}>
-              Class Photos
-            </AppText>
-          </TouchableOpacity>
+        <View style={styles.heroContent}>
+          <AppText weight="bold" style={styles.heroGreeting}>Media Logs</AppText>
+          <AppText style={styles.heroSubtext}>Review verification photos and class images</AppText>
         </View>
+      </View>
+
+      {/* Tab Switcher */}
+      <View style={styles.tabWrapper}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'teacher' && styles.activeTab]}
+          onPress={() => setActiveTab('teacher')}
+        >
+          <AppText weight="bold" style={[styles.tabText, activeTab === 'teacher' && styles.activeTabText]}>
+            Selfie Logs
+          </AppText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'student' && styles.activeTab]}
+          onPress={() => setActiveTab('student')}
+        >
+          <AppText weight="bold" style={[styles.tabText, activeTab === 'student' && styles.activeTabText]}>
+            Class Photos
+          </AppText>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -434,44 +445,51 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  header: {
+  headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 60,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
   },
-  headerContent: {
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
   },
-  backBtn: {
+  iconButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#ffffff',
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
   },
-  notificationBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  heroContent: {
+    marginTop: 20,
   },
-  tabContainer: {
+  heroGreeting: {
+    color: '#FFFFFF',
+    fontSize: 22,
+  },
+  heroSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  tabWrapper: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    marginTop: -30,
     gap: 12,
   },
   tab: {
@@ -499,16 +517,16 @@ const styles = StyleSheet.create({
   infoCard: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 16,
     marginBottom: 20,
     borderLeftWidth: 4,
     borderLeftColor: '#001F3F',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 10,
-    elevation: 2,
+    elevation: 3,
   },
   infoIconBox: {
     width: 36,
@@ -536,14 +554,14 @@ const styles = StyleSheet.create({
   },
   filterSection: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 16,
     marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
   },
   filterHeader: {
     flexDirection: 'row',
@@ -613,9 +631,9 @@ const styles = StyleSheet.create({
     padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 15,
-    elevation: 2,
+    elevation: 3,
   },
   listHeader: {
     flexDirection: 'row',

@@ -55,7 +55,11 @@ API.interceptors.request.use(async config => {
   if (rawSchoolCode && rawSchoolCode !== 'null') {
     config.headers['X-School-Code'] = rawSchoolCode;
     // Automatically inject school_code into query params if not already present
-    config.params = { school_code: rawSchoolCode, ...config.params };
+    // Avoid double injection for multipart/form-data where it's usually in the body
+    const isMultipart = config.headers?.['Content-Type'] === 'multipart/form-data';
+    if (!isMultipart) {
+      config.params = { school_code: rawSchoolCode, ...config.params };
+    }
   }
 
   const rawStudentId = (await AsyncStorage.getItem('student_id')) || (await AsyncStorage.getItem('studentId'));

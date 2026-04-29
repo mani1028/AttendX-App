@@ -106,10 +106,12 @@ export const authService = {
     return normalizeLoginResponse(response.data as LoginResponse, fallbackRole);
   },
   requestOtp(schoolId: string, identifier: string) {
+    console.log('[authService.requestOtp] Called with:', { schoolId, identifier });
     return postWithFallback(['/auth/forgot-password', '/auth/request-otp'], {
       school_id: schoolId,
       school_code: schoolId,
       identifier,
+      email_id: identifier,
     }, true);
   },
   forgotPasswordReset(
@@ -123,6 +125,7 @@ export const authService = {
       school_id: schoolId,
       school_code: schoolId,
       identifier,
+      email_id: identifier,
       otp,
       reset_token: resetToken,
       new_password: newPassword,
@@ -130,22 +133,26 @@ export const authService = {
     }, true);
   },
   verifyOtp(schoolId: string, identifier: string, otp: string) {
+    console.log('[authService.verifyOtp] Called with:', { schoolId, identifier });
     return postWithFallback(
       ['/auth/verify-otp', '/auth/forgot-password/verify-otp', '/auth/forgot-password'],
       {
       school_id: schoolId,
       school_code: schoolId,
       identifier,
+      email_id: identifier,
       otp,
       },
       true,
     );
   },
   resetPassword(schoolId: string, identifier: string, resetToken: string, password: string) {
+    console.log('[authService.resetPassword] Called with:', { schoolId, identifier, resetTokenProvided: !!resetToken });
     return postWithFallback(['/auth/forgot-password', '/auth/reset-password', '/auth/forgot-password/reset-password'], {
       school_id: schoolId,
       school_code: schoolId,
       identifier,
+      email_id: identifier,
       reset_token: resetToken,
       new_password: password,
       confirm_password: password,

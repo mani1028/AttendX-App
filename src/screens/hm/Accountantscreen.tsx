@@ -17,6 +17,7 @@ import {
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, LayoutDashboard } from 'lucide-react-native';
 import { colors } from "../../constants/theme";
 import AppText from "../../components/common/AppText";
@@ -29,18 +30,12 @@ import ExpenseManagement from "./ExpenseScreen";
 import Reports from "./ReportsScreen";
 import PendingStudents from "./PendingStudentsscreen";
 
+import { HM_THEME as C } from '../../constants/hmTheme';
+
 // Local theme bridge
-const C = {
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  textMuted: colors.textMuted,
-  primary: colors.primary,
-  primarySoft: colors.primary + '20',
-};
 
 const AccountantDashboardScreen = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
@@ -116,11 +111,14 @@ const AccountantDashboardScreen = () => {
 
   return (
     <View style={styles.mainContainer}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
+        >
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} weight="bold">Accountant Module</AppText>
@@ -128,7 +126,8 @@ const AccountantDashboardScreen = () => {
       </View>
 
       <ScrollView
-        style={styles.container}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -273,9 +272,8 @@ const styles = StyleSheet.create({
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -292,21 +290,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingTop: 10,
+  },
   container: {
     flex: 1,
     backgroundColor: C.bg,
-    padding: 16,
   },
 
   header: {
     fontSize: 28,
     color: C.text,
   },
-
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginTop: 10,
     marginBottom: 24,
   },
 

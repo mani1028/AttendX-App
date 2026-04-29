@@ -15,32 +15,18 @@ import {
 } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Bell, RefreshCw, Calendar as CalendarIcon, Users, User, Grid, TrendingUp, Home, GitBranch, AlertCircle } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Bell, RefreshCw, Calendar as CalendarIcon, Users, User, Grid, TrendingUp, Home, GitBranch, AlertCircle, BarChart3, ClipboardList, Megaphone, Settings, FileDown } from 'lucide-react-native';
 import { Svg, Circle } from 'react-native-svg';
 import API from '../../services/api';
 import * as hmService from '../../services/hmService';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../constants/theme';
+import { HM_THEME as C } from '../../constants/hmTheme';
 import AppText from '../../components/common/AppText';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
-// Local theme bridge for consistency
-const C = {
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  muted: colors.textMuted,
-  primary: colors.primary,
-  success: colors.success,
-  successSoft: colors.successSoft,
-  error: colors.error,
-  errorSoft: colors.errorSoft,
-  warning: colors.warning,
-  warningSoft: colors.warningSoft,
-  accent: colors.accent,
-};
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -209,7 +195,19 @@ const ClassChip = ({ label, percentage, present, total, onPress }: any) => {
   );
 };
 
+const QUICK_ACTIONS = [
+  { label: 'Teachers', route: 'Teachers', icon: Users, bg: C.primary + '15', color: C.primary },
+  { label: 'Students', route: 'Students', icon: User, bg: C.successSoft, color: C.success },
+  { label: 'Attendance', route: 'Attendance', icon: CalendarIcon, bg: C.warningSoft, color: C.warning },
+  { label: 'Exams', route: 'HMExams', icon: ClipboardList, bg: 'rgba(124, 58, 237, 0.10)', color: '#7c3aed' },
+  { label: 'Reports', route: 'HMReports', icon: BarChart3, bg: 'rgba(14, 165, 233, 0.10)', color: '#0ea5e9' },
+  { label: 'Announcements', route: 'HMAnnouncements', icon: Megaphone, bg: 'rgba(236, 72, 153, 0.10)', color: '#ec4899' },
+  { label: 'Fees', route: 'HMFeeManagement', icon: FileDown, bg: 'rgba(249, 115, 22, 0.10)', color: '#f97316' },
+  { label: 'Settings', route: 'HMSettings', icon: Settings, bg: C.border + '80', color: C.text },
+] as const;
+
 export default function DashboardPage() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName, setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
@@ -390,30 +388,11 @@ export default function DashboardPage() {
   const teacherAtt = breakdown?.teachers || {};
   const studentAtt = breakdown?.students || {};
   const sortedClasses = [...classes].sort((a, b) => (b.attendance_pct ?? 0) - (a.attendance_pct ?? 0));
+  const userInitial = (userName || 'HM').trim().charAt(0).toUpperCase();
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
-
-      {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle} weight="bold">HM Dashboard</AppText>
-        </View>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
-            <Bell size={20} color="#fff" />
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <AppText style={styles.badgeText} weight="bold">{unreadCount > 9 ? '9+' : unreadCount}</AppText>
-              </View>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
-            <RefreshCw size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       <ScrollView
         style={styles.scrollView}
@@ -423,11 +402,38 @@ export default function DashboardPage() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.text} />
         }
       >
+        <View style={[styles.heroHeader, { paddingTop: insets.top + 12 }]}>
+          <View style={styles.heroTopRow}>
+            <View style={styles.profileAvatar}>
+              <AppText style={styles.profileAvatarText} weight="bold">{userInitial}</AppText>
+            </View>
+            <View style={styles.heroActions}>
+              <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
+                <Bell size={18} color="#fff" />
+                {unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <AppText style={styles.badgeText} weight="bold">{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+                  </View>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
+                <RefreshCw size={18} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.heroCopy}>
+            <AppText style={styles.heroGreeting} weight="bold">Good {getGreeting()}, Head Master</AppText>
+            <AppText style={styles.heroSubtitle}>Here&apos;s what&apos;s happening today.</AppText>
+          </View>
+        </View>
+
+
         {/* Welcome Section */}
         <View style={styles.welcomeSection}>
           <View>
-            <AppText style={styles.welcomeTitle} weight="bold">Good {getGreeting()}, {userName?.split(' ')[0] || 'HM'}!</AppText>
-            <AppText style={styles.welcomeSub}>Manage your school's daily activities.</AppText>
+            <AppText style={styles.welcomeTitle} weight="bold">Daily control center</AppText>
+            <AppText style={styles.welcomeSub}>Manage your school&apos;s activities from one place.</AppText>
           </View>
           <View style={styles.dateBadge}>
             <CalendarIcon size={12} color={C.muted} />
@@ -502,6 +508,36 @@ export default function DashboardPage() {
           onPress={() => goToAttendanceView('students')}
           loading={loading}
         />
+      </View>
+
+      <View style={styles.quickAccessPanel}>
+        <View style={styles.panelHead}>
+          <View>
+            <AppText style={styles.panelTitle} weight="bold">Quick Access</AppText>
+            <AppText style={styles.panelSub}>Jump straight to the core HM tools.</AppText>
+          </View>
+        </View>
+
+        <View style={styles.quickActionGrid}>
+          {QUICK_ACTIONS.map((action) => {
+            const IconComponent = action.icon;
+            return (
+              <TouchableOpacity
+                key={action.label}
+                style={styles.quickActionItem}
+                onPress={() => navigation.navigate(action.route as any)}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: action.bg }]}>
+                  <IconComponent size={18} color={action.color} />
+                </View>
+                <AppText style={styles.quickActionLabel} weight="semiBold">
+                  {action.label}
+                </AppText>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       {/* Main Grid */}
@@ -703,9 +739,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
+    backgroundColor: C.navy,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -741,7 +775,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#ef4444',
     borderWidth: 1.5,
-    borderColor: '#001F3F',
+    borderColor: C.navy,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 2,
@@ -754,6 +788,50 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  heroHeader: {
+    backgroundColor: C.navy,
+    paddingHorizontal: 16,
+    paddingBottom: 18,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    marginBottom: 10,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  profileAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  profileAvatarText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  heroActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  heroCopy: {
+    gap: 4,
+  },
+  heroGreeting: {
+    fontSize: 19,
+    color: '#fff',
+  },
+  heroSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.78)',
+  },
   welcomeSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -761,14 +839,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 20,
     paddingBottom: 8,
-    marginBottom: 16,
+    marginBottom: 12,
+    marginTop: 4,
   },
   welcomeTitle: {
-    fontSize: 20,
+    fontSize: 18,
     color: C.text,
   },
   welcomeSub: {
-    fontSize: 13,
+    fontSize: 12,
     color: C.muted,
     marginTop: 2,
   },
@@ -806,16 +885,25 @@ const styles = StyleSheet.create({
   },
   grid4: {
     paddingHorizontal: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 18,
   },
   statCard: {
     backgroundColor: C.card,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: C.border,
     padding: 16,
     borderTopWidth: 4,
+    width: '48%',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
   cardTop: {
     flexDirection: 'row',
@@ -873,14 +961,32 @@ const styles = StyleSheet.create({
   mainGrid: {
     paddingHorizontal: 16,
     gap: 16,
-    marginBottom: 24,
+    marginBottom: 18,
+  },
+  quickAccessPanel: {
+    backgroundColor: C.card,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+    marginHorizontal: 16,
+    marginBottom: 18,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
   panel: {
     backgroundColor: C.card,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: C.border,
     overflow: 'hidden',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
   panelHead: {
     padding: 16,
@@ -895,6 +1001,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: C.muted,
     marginTop: 2,
+  },
+  quickActionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 16,
+    gap: 12,
+  },
+  quickActionItem: {
+    width: '23%',
+    minWidth: 72,
+    alignItems: 'center',
+    gap: 8,
+  },
+  quickActionIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionLabel: {
+    fontSize: 10,
+    color: C.text,
+    textAlign: 'center',
   },
   barBody: {
     padding: 16,

@@ -14,6 +14,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ChevronLeft,
@@ -29,19 +30,9 @@ import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { HM_THEME as C } from '../../constants/hmTheme';
 
 // Local theme bridge
-const C = {
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  textMuted: colors.textMuted,
-  primary: colors.primary,
-  success: colors.success,
-  error: colors.error,
-  warning: colors.warning,
-};
 
 interface PendingStudent {
   student_id: string;
@@ -56,6 +47,7 @@ interface PendingStudent {
 }
 
 const PendingStudents = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
@@ -232,11 +224,20 @@ const PendingStudents = () => {
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
       {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() =>
+            navigation.canGoBack()
+              ? navigation.goBack()
+              : navigation.navigate('HMDashboard' as never)
+          }
+        >
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
-        <AppText style={styles.headerTitle} weight="bold">Pending Students</AppText>
+        <AppText style={styles.headerTitle} weight="bold">
+          Pending Students
+        </AppText>
         <View style={{ width: 40 }} />
       </View>
 
@@ -449,12 +450,12 @@ const styles = StyleSheet.create({
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderRadius: 0,
   },
   backBtn: {
     width: 40,

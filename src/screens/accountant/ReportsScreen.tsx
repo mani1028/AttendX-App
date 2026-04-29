@@ -11,12 +11,15 @@ import {
 } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../constants/theme';
+import { HM_THEME } from '../../constants/hmTheme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 
 export default function ReportsScreen() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
 
@@ -40,10 +43,10 @@ export default function ReportsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
 
       {/* Standardized Navy Header */}
-      <View style={styles.headerStandard}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -78,13 +81,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
+    backgroundColor: HM_THEME.navy,
+    paddingBottom: 40,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
   headerTitleContainer: {
     flex: 1,
@@ -106,6 +110,10 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 100,
+    marginTop: -20,
+    backgroundColor: colors.bg,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
   },
   title: {
     fontSize: 24,

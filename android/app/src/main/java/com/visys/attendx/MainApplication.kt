@@ -1,4 +1,4 @@
-package com.attendx
+package com.visys.attendx
 
 import android.app.Application
 import android.app.NotificationChannel

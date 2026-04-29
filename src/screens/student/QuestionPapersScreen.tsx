@@ -11,12 +11,12 @@ import {
   Platform,
   Dimensions,
   StatusBar,
-  Modal,
   RefreshControl,
   PermissionsAndroid,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
@@ -24,6 +24,7 @@ import Icon from '@react-native-vector-icons/feather';
 import { getQuestionPapers, getExamTypes, downloadQuestionPaper } from '../../services/studentService';
 import { colors } from '../../constants/colors';
 import { useAuth } from '../../context/AuthContext';
+import BottomSheetModal from '../../components/common/BottomSheetModal';
 
 const { width } = Dimensions.get('window');
 
@@ -93,6 +94,10 @@ const arrayBufferToBase64 = (data: ArrayBuffer): string => {
 
 const requestStoragePermission = async (): Promise<boolean> => {
   if (Platform.OS === 'android') {
+    // Android 10 (API 29) and above do not need WRITE_EXTERNAL_STORAGE for scoped storage downloads
+    if (Platform.Version >= 29) {
+      return true;
+    }
     try {
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
@@ -277,118 +282,110 @@ const FilterModal: React.FC<{
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.filterModal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Filter Papers</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Icon name="x" size={24} color="#64748b" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-            <Text style={styles.filterSectionTitle}>Subject</Text>
-            <View style={styles.filterOptions}>
-              <TouchableOpacity
-                style={[
-                  styles.filterOption,
-                  selectedSubject === 'all' && styles.filterOptionActive,
-                ]}
-                onPress={() => setSelectedSubject('all')}
-              >
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    selectedSubject === 'all' && styles.filterOptionTextActive,
-                  ]}
-                >
-                  All Subjects
-                </Text>
-              </TouchableOpacity>
-              {subjects.map((subject) => (
-                <TouchableOpacity
-                  key={subject.id}
-                  style={[
-                    styles.filterOption,
-                    selectedSubject === subject.id && styles.filterOptionActive,
-                  ]}
-                  onPress={() => setSelectedSubject(subject.id)}
-                >
-                  <Text
-                    style={[
-                      styles.filterOptionText,
-                      selectedSubject === subject.id && styles.filterOptionTextActive,
-                    ]}
-                  >
-                    {subject.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.filterSectionTitle}>Exam Type</Text>
-            <View style={styles.filterOptions}>
-              <TouchableOpacity
-                style={[
-                  styles.filterOption,
-                  selectedExamType === 'all' && styles.filterOptionActive,
-                ]}
-                onPress={() => setSelectedExamType('all')}
-              >
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    selectedExamType === 'all' && styles.filterOptionTextActive,
-                  ]}
-                >
-                  All Types
-                </Text>
-              </TouchableOpacity>
-              {examTypes.map((type) => (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.filterOption,
-                    selectedExamType === type && styles.filterOptionActive,
-                  ]}
-                  onPress={() => setSelectedExamType(type)}
-                >
-                  <Text
-                    style={[
-                      styles.filterOptionText,
-                      selectedExamType === type && styles.filterOptionTextActive,
-                    ]}
-                  >
-                    {type}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <TouchableOpacity style={styles.resetModalBtn} onPress={handleReset}>
-              <Text style={styles.resetModalBtnText}>Reset</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.applyModalBtn} onPress={handleApply}>
-              <View style={styles.applyModalGradient}>
-                <Text style={styles.applyModalBtnText}>Apply Filters</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
+    <BottomSheetModal visible={visible} onClose={onClose} sheetStyle={styles.filterModal}>
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>Filter Papers</Text>
+        <TouchableOpacity onPress={onClose}>
+          <Icon name="x" size={24} color="#64748b" />
+        </TouchableOpacity>
       </View>
-    </Modal>
+
+      <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+        <Text style={styles.filterSectionTitle}>Subject</Text>
+        <View style={styles.filterOptions}>
+          <TouchableOpacity
+            style={[
+              styles.filterOption,
+              selectedSubject === 'all' && styles.filterOptionActive,
+            ]}
+            onPress={() => setSelectedSubject('all')}
+          >
+            <Text
+              style={[
+                styles.filterOptionText,
+                selectedSubject === 'all' && styles.filterOptionTextActive,
+              ]}
+            >
+              All Subjects
+            </Text>
+          </TouchableOpacity>
+          {subjects.map((subject) => (
+            <TouchableOpacity
+              key={subject.id}
+              style={[
+                styles.filterOption,
+                selectedSubject === subject.id && styles.filterOptionActive,
+              ]}
+              onPress={() => setSelectedSubject(subject.id)}
+            >
+              <Text
+                style={[
+                  styles.filterOptionText,
+                  selectedSubject === subject.id && styles.filterOptionTextActive,
+                ]}
+              >
+                {subject.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={styles.filterSectionTitle}>Exam Type</Text>
+        <View style={styles.filterOptions}>
+          <TouchableOpacity
+            style={[
+              styles.filterOption,
+              selectedExamType === 'all' && styles.filterOptionActive,
+            ]}
+            onPress={() => setSelectedExamType('all')}
+          >
+            <Text
+              style={[
+                styles.filterOptionText,
+                selectedExamType === 'all' && styles.filterOptionTextActive,
+              ]}
+            >
+              All Types
+            </Text>
+          </TouchableOpacity>
+          {examTypes.map((type) => (
+            <TouchableOpacity
+              key={type}
+              style={[
+                styles.filterOption,
+                selectedExamType === type && styles.filterOptionActive,
+              ]}
+              onPress={() => setSelectedExamType(type)}
+            >
+              <Text
+                style={[
+                  styles.filterOptionText,
+                  selectedExamType === type && styles.filterOptionTextActive,
+                ]}
+              >
+                {type}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+
+      <View style={styles.modalFooter}>
+        <TouchableOpacity style={styles.resetModalBtn} onPress={handleReset}>
+          <Text style={styles.resetModalBtnText}>Reset</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.applyModalBtn} onPress={handleApply}>
+          <View style={styles.applyModalGradient}>
+            <Text style={styles.applyModalBtnText}>Apply Filters</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+    </BottomSheetModal>
   );
 };
 
 export default function QuestionPapersScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
@@ -409,8 +406,9 @@ export default function QuestionPapersScreen() {
     try {
       const res = await getExamTypes();
       setExamTypes(res.exam_types || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch exam types:', err);
+      // Don't show alert for this, as it's not critical - exam types can be inferred from papers
     }
   }, []);
 
@@ -454,9 +452,10 @@ export default function QuestionPapersScreen() {
       // Build subject options for filter
       const options = [...new Map<string, string>(data.map((s: Subject) => [String(s.subject_id), String(s.subject_name)])).entries()];
       setSubjectOptions(options.map(([id, name]) => ({ id, name })));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch question papers:', err);
-      Alert.alert('Error', 'Failed to load question papers');
+      const errorMsg = err?.message || 'Failed to load question papers';
+      Alert.alert('Error', errorMsg);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -570,105 +569,13 @@ export default function QuestionPapersScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
         <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
           <Icon name="arrow-left" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Question Papers</Text>
         <View style={styles.backBtn} />
       </View>
-
-      {/* Search and Filter Bar */}
-      <View style={styles.searchSection}>
-        <View style={styles.searchContainer}>
-          <Icon name="search" size={18} color="#94a3b8" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by title or teacher..."
-            placeholderTextColor="#94a3b8"
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-            returnKeyType="search"
-            onSubmitEditing={fetchPapers}
-          />
-          {searchTerm !== '' ? (
-            <TouchableOpacity onPress={() => setSearchTerm('')}>
-              <Icon name="x" size={16} color="#94a3b8" />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        <TouchableOpacity
-          style={[styles.filterButton, hasActiveFilters && styles.filterButtonActive]}
-          onPress={() => setShowFilterModal(true)}
-        >
-          <Icon name="sliders" size={18} color={hasActiveFilters ? '#fff' : '#64748b'} />
-          <Text
-            style={[styles.filterButtonText, hasActiveFilters && styles.filterButtonTextActive]}
-          >
-            Filter
-          </Text>
-          {hasActiveFilters && <View style={styles.filterDot} />}
-        </TouchableOpacity>
-      </View>
-
-      {/* Active Filters */}
-      {hasActiveFilters && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.activeFilters}
-        >
-          <View style={styles.activeFiltersContainer}>
-            {searchTerm !== '' && (
-              <View style={styles.activeFilterChip}>
-                <Text style={styles.activeFilterText}>Search: {searchTerm}</Text>
-                <TouchableOpacity onPress={() => setSearchTerm('')}>
-                  <Icon name="x" size={12} color="#64748b" />
-                </TouchableOpacity>
-              </View>
-            )}
-            {filterSubject !== 'all' && (
-              <View style={styles.activeFilterChip}>
-                <Text style={styles.activeFilterText}>
-                  Subject: {subjectOptions.find((s) => s.id === filterSubject)?.name}
-                </Text>
-                <TouchableOpacity onPress={() => setFilterSubject('all')}>
-                  <Icon name="x" size={12} color="#64748b" />
-                </TouchableOpacity>
-              </View>
-            )}
-            {filterExamType !== 'all' && (
-              <View style={styles.activeFilterChip}>
-                <Text style={styles.activeFilterText}>Type: {filterExamType}</Text>
-                <TouchableOpacity onPress={() => setFilterExamType('all')}>
-                  <Icon name="x" size={12} color="#64748b" />
-                </TouchableOpacity>
-              </View>
-            )}
-            <TouchableOpacity onPress={resetFilters}>
-              <Text style={styles.clearAllText}>Clear all</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      )}
-
-      {/* Stats Summary */}
-      {!loading && subjects.length > 0 && (
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Icon name="folder" size={20} color="#3b82f6" />
-            <Text style={styles.statNumber}>{subjects.length}</Text>
-            <Text style={styles.statLabel}>Subjects</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statCard}>
-            <Icon name="file-text" size={20} color="#10b981" />
-            <Text style={styles.statNumber}>{totalPapers}</Text>
-            <Text style={styles.statLabel}>Papers</Text>
-          </View>
-        </View>
-      )}
 
       {/* Papers List */}
       <ScrollView
@@ -681,6 +588,98 @@ export default function QuestionPapersScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* Search and Filter Bar */}
+        <View style={styles.searchSection}>
+          <View style={styles.searchContainer}>
+            <Icon name="search" size={18} color="#94a3b8" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by title or teacher..."
+              placeholderTextColor="#94a3b8"
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+              returnKeyType="search"
+              onSubmitEditing={fetchPapers}
+            />
+            {searchTerm !== '' ? (
+              <TouchableOpacity onPress={() => setSearchTerm('')}>
+                <Icon name="x" size={16} color="#94a3b8" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.filterButton, hasActiveFilters && styles.filterButtonActive]}
+            onPress={() => setShowFilterModal(true)}
+          >
+            <Icon name="sliders" size={18} color={hasActiveFilters ? '#fff' : '#64748b'} />
+            <Text
+              style={[styles.filterButtonText, hasActiveFilters && styles.filterButtonTextActive]}
+            >
+              Filter
+            </Text>
+            {hasActiveFilters && <View style={styles.filterDot} />}
+          </TouchableOpacity>
+        </View>
+
+        {/* Active Filters */}
+        {hasActiveFilters && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.activeFilters}
+          >
+            <View style={styles.activeFiltersContainer}>
+              {searchTerm !== '' && (
+                <View style={styles.activeFilterChip}>
+                  <Text style={styles.activeFilterText}>Search: {searchTerm}</Text>
+                  <TouchableOpacity onPress={() => setSearchTerm('')}>
+                    <Icon name="x" size={12} color="#64748b" />
+                  </TouchableOpacity>
+                </View>
+              )}
+              {filterSubject !== 'all' && (
+                <View style={styles.activeFilterChip}>
+                  <Text style={styles.activeFilterText}>
+                    Subject: {subjectOptions.find((s) => s.id === filterSubject)?.name}
+                  </Text>
+                  <TouchableOpacity onPress={() => setFilterSubject('all')}>
+                    <Icon name="x" size={12} color="#64748b" />
+                  </TouchableOpacity>
+                </View>
+              )}
+              {filterExamType !== 'all' && (
+                <View style={styles.activeFilterChip}>
+                  <Text style={styles.activeFilterText}>Type: {filterExamType}</Text>
+                  <TouchableOpacity onPress={() => setFilterExamType('all')}>
+                    <Icon name="x" size={12} color="#64748b" />
+                  </TouchableOpacity>
+                </View>
+              )}
+              <TouchableOpacity onPress={resetFilters}>
+                <Text style={styles.clearAllText}>Clear all</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        )}
+
+        {/* Stats Summary */}
+        {!loading && subjects.length > 0 && (
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <Icon name="folder" size={20} color="#3b82f6" />
+              <Text style={styles.statNumber}>{subjects.length}</Text>
+              <Text style={styles.statLabel}>Subjects</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statCard}>
+              <Icon name="file-text" size={20} color="#10b981" />
+              <Text style={styles.statNumber}>{totalPapers}</Text>
+              <Text style={styles.statLabel}>Papers</Text>
+            </View>
+          </View>
+        )}
+
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#3b82f6" />
@@ -738,8 +737,6 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -760,8 +757,7 @@ const styles = StyleSheet.create({
   },
   searchSection: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginTop: 16,
+    marginTop: 10,
     gap: 12,
   },
   searchContainer: {
@@ -820,7 +816,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ef4444',
   },
   activeFilters: {
-    paddingHorizontal: 16,
     marginTop: 12,
   },
   activeFiltersContainer: {
@@ -852,7 +847,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#ffffff',
-    marginHorizontal: 16,
     marginTop: 16,
     padding: 16,
     borderRadius: 16,
@@ -1069,7 +1063,6 @@ const styles = StyleSheet.create({
     padding: 60,
     backgroundColor: '#ffffff',
     borderRadius: 16,
-    marginTop: 20,
   },
   emptyIconContainer: {
     width: 80,

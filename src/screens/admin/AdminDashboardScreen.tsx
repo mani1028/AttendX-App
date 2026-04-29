@@ -15,6 +15,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import {
@@ -221,10 +222,6 @@ const SchoolCard: React.FC<{
       )}
 
       <View style={styles.cardActions}>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => onEdit(school)}>
-          <Edit2 size={12} color={colors.textMuted} />
-          <AppText style={styles.actionBtnText}>Edit</AppText>
-        </TouchableOpacity>
         <TouchableOpacity style={styles.actionBtn} onPress={() => onSubscription(school)}>
           <CreditCard size={12} color={colors.textMuted} />
           <AppText style={styles.actionBtnText}>Sub</AppText>
@@ -738,6 +735,7 @@ const DeleteConfirmModal: React.FC<{
 );
 
 export default function AdminDashboardScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName, setTabBarVisible } = useAuth();
   const [schools, setSchools] = useState<School[]>([]);
@@ -933,10 +931,11 @@ export default function AdminDashboardScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-      {/* Standardized Header */}
-      <View style={styles.headerStandard}>
+      {/* Standardized Header - Now Fixed outside ScrollView */}
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+        <View style={{ width: 40 }} />
         <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>Admin Dashboard</AppText>
+          <AppText style={styles.headerTitle}>Admin Portal</AppText>
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
@@ -954,7 +953,8 @@ export default function AdminDashboardScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.contentContainer}
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.contentContainer]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
@@ -1134,8 +1134,6 @@ const styles = StyleSheet.create({
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',

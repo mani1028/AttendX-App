@@ -78,10 +78,10 @@ const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
             >
               <IconComponent
                 size={24}
-                color={isFocused ? '#3b82f6' : '#94a3b8'}
+                color={isFocused ? '#FFFFFF' : '#94a3b8'}
                 strokeWidth={isFocused ? 2.5 : 2}
               />
-              <Text style={[styles.tabLabel, { color: isFocused ? '#3b82f6' : '#94a3b8' }]}>
+              <Text style={[styles.tabLabel, { color: isFocused ? '#FFFFFF' : '#94a3b8' }]}> 
                 {tab.label}
               </Text>
             </TouchableOpacity>
@@ -94,7 +94,7 @@ const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#001A3D',
+    backgroundColor: '#001F3F',
     position: 'absolute',
     bottom: 0,
     width: '100%',
@@ -126,10 +126,10 @@ const styles = StyleSheet.create({
     marginTop: -30,
   },
   centerButton: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#001A3D',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#001F3F',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   centerIconWrapper: {
     width: '100%',
     height: '100%',
-    borderRadius: 30,
+    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
   },

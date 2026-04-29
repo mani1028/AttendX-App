@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
+import BottomSheetModal from './BottomSheetModal';
 
 interface Notification {
   id: string;
@@ -161,41 +162,37 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
         )}
       </TouchableOpacity>
 
-      <Modal visible={visible} animationType="slide" transparent onRequestClose={() => setVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{type === 'hm' ? 'Posted Notifications' : 'School Updates'}</Text>
-              <TouchableOpacity onPress={() => setVisible(false)}>
-                <Text style={styles.closeText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            {loading ? (
-              <ActivityIndicator size="large" style={styles.loader} />
-            ) : notifications.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyIcon}>🔔</Text>
-                <Text>No notifications yet</Text>
-              </View>
-            ) : (
-              <FlatList
-                data={notifications.slice(0, 5)}
-                keyExtractor={item => item.id}
-                renderItem={renderItem}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={fetchNotifications} />}
-                contentContainerStyle={{ paddingBottom: 20 }}
-              />
-            )}
-            {!loading && notifications.length > 0 && (type === 'student' || type === 'teacher') && (
-              <View style={styles.footer}>
-                <TouchableOpacity style={styles.viewAllBtn} onPress={handleViewAll}>
-                  <Text style={styles.viewAllText}>View All →</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
+      <BottomSheetModal visible={visible} onClose={() => setVisible(false)} sheetStyle={styles.modalContent}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>{type === 'hm' ? 'Posted Notifications' : 'School Updates'}</Text>
+          <TouchableOpacity onPress={() => setVisible(false)}>
+            <Text style={styles.closeText}>✕</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
+        {loading ? (
+          <ActivityIndicator size="large" style={styles.loader} />
+        ) : notifications.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>🔔</Text>
+            <Text>No notifications yet</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={notifications.slice(0, 5)}
+            keyExtractor={item => item.id}
+            renderItem={renderItem}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={fetchNotifications} />}
+            contentContainerStyle={{ paddingBottom: 20 }}
+          />
+        )}
+        {!loading && notifications.length > 0 && (type === 'student' || type === 'teacher') && (
+          <View style={styles.footer}>
+            <TouchableOpacity style={styles.viewAllBtn} onPress={handleViewAll}>
+              <Text style={styles.viewAllText}>View All →</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </BottomSheetModal>
 
       {showToast && (
         <View style={styles.toast}>
@@ -211,8 +208,7 @@ const styles = StyleSheet.create({
   bellIcon: { fontSize: 20 },
   badge: { position: 'absolute', top: -4, right: -4, backgroundColor: '#ef4444', borderRadius: 10, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
   badgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold', paddingHorizontal: 4 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%' },
+  modalContent: { backgroundColor: '#fff' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   modalTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
   closeText: { fontSize: 20, color: '#64748b', padding: 4 },
