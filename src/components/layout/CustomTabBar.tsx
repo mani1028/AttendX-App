@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Animated,
   Text,
-  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
@@ -17,14 +16,12 @@ import {
   Plus,
   CreditCard,
   FileText,
-  User,
-  ClipboardCheck
 } from 'lucide-react-native';
 
 const TAB_BAR_HEIGHT = 70;
 const FAB_SIZE = 60;
 
-const CustomTabBar = ({ state, descriptors, navigation }: any) => {
+const CustomTabBar = ({ state, navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { isTabBarVisible } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -37,7 +34,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [isTabBarVisible]);
+  }, [isTabBarVisible, slideAnim]);
 
   const toggleMenu = () => {
     const toValue = isExpanded ? 0 : 1;
@@ -49,7 +46,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
     setIsExpanded(!isExpanded);
   };
 
-  const renderTab = (index: number, label: string, iconName: string) => {
+  const renderTab = (index: number, label: string) => {
     const isFocused = state.index === index;
 
     const onPress = () => {
@@ -62,14 +59,16 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
       if (!isFocused && !event.defaultPrevented) {
         navigation.navigate(state.routes[index].name);
       }
-      if (isExpanded) toggleMenu();
+      if (isExpanded) {
+        toggleMenu();
+      }
     };
 
     const icons: Record<string, any> = {
-      'Home': Home,
+      Home: Home,
       'Home Work': BookOpen,
-      'Leave': CalendarCheck,
-      'Marks': GraduationCap,
+      Leave: CalendarCheck,
+      Marks: GraduationCap,
     };
     const IconComponent = icons[label] ?? Home;
 
@@ -85,7 +84,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
           color={isFocused ? '#3498db' : '#8e8e93'}
           strokeWidth={isFocused ? 2.5 : 2}
         />
-        <Text style={[styles.tabLabel, { color: isFocused ? '#3498db' : '#8e8e93' }]}>
+        <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
           {label}
         </Text>
       </TouchableOpacity>
@@ -156,23 +155,22 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
         styles.container,
         {
           paddingBottom: insets.bottom,
-          transform: [{ translateY: slideAnim }]
-        }
+          transform: [{ translateY: slideAnim }],
+        },
       ]}
     >
       <View style={styles.subMenuContainer}>
         {renderSubMenu(4, CreditCard, -70, -40)}
         {renderSubMenu(5, FileText, 70, -40)}
-        {renderSubMenu(0, User, 0, -100, 'Profile')}
       </View>
 
       <View style={styles.backgroundContainer}>
         <View style={styles.curvedBar}>
-          {renderTab(0, 'Home', 'home')}
-          {renderTab(1, 'Home Work', 'book')}
+          {renderTab(0, 'Home')}
+          {renderTab(1, 'Home Work')}
           <View style={styles.tabItem} />
-          {renderTab(2, 'Leave', 'alert-circle')}
-          {renderTab(3, 'Marks', 'school')}
+          {renderTab(2, 'Leave')}
+          {renderTab(3, 'Marks')}
         </View>
       </View>
 
@@ -237,6 +235,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 4,
     fontWeight: '600',
+    color: '#8e8e93',
+  },
+  tabLabelActive: {
+    color: '#3498db',
   },
   fabContainer: {
     position: 'absolute',

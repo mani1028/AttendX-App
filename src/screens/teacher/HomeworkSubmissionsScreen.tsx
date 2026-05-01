@@ -26,7 +26,7 @@ import API from '../../services/api';
 import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import AppCard from '../../components/common/AppCard';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 
 const { width } = Dimensions.get('window');
 

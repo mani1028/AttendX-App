@@ -11,7 +11,7 @@ import {
   Linking,
 } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';

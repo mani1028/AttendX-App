@@ -161,6 +161,13 @@ const normalizePhotoUri = (value: unknown): string | null => {
   return photo;
 };
 
+  const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number = 8000): Promise<T | null> => {
+    const timeoutPromise = new Promise<null>((resolve) => {
+      setTimeout(() => resolve(null), timeoutMs);
+    });
+    return Promise.race([promise, timeoutPromise]);
+  };
+
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -224,15 +231,27 @@ export default function ProfileScreen() {
         const schoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode'));
         if (studentId && schoolCode) {
           try {
-            freshData = await getStudentProfileDetails(studentId, schoolCode);
+              freshData = await withTimeout(getStudentProfileDetails(studentId, schoolCode), 5000);
           } catch (e) {
-            freshData = await getStudentProfile();
+              try {
+                freshData = await withTimeout(getStudentProfile(), 5000);
+              } catch (e2) {
+                console.warn('Failed to fetch student profile:', e2);
+              }
           }
         } else {
-          freshData = await getStudentProfile();
+            try {
+              freshData = await withTimeout(getStudentProfile(), 5000);
+            } catch (e) {
+              console.warn('Failed to fetch student profile:', e);
+            }
         }
       } else {
-        freshData = await getTeacherProfile();
+          try {
+            freshData = await withTimeout(getTeacherProfile(), 5000);
+          } catch (e) {
+            console.warn('Failed to fetch teacher profile:', e);
+          }
       }
 
       if (!isMounted.current) return;
@@ -293,7 +312,6 @@ export default function ProfileScreen() {
           if (scopedCachedPhoto && isMounted.current) {
             setProfilePhotoUrl(scopedCachedPhoto);
             setProfilePhotoError(false);
-            return;
           }
         } else {
           const cachedProfilePhoto = await AsyncStorage.getItem('profile_photo_url');
@@ -310,9 +328,16 @@ export default function ProfileScreen() {
 
         let resolvedPhoto = directProfilePhoto;
         if (!resolvedPhoto && entityId) {
-          resolvedPhoto = roleBucket === 'student'
-            ? ((await getStudentProfilePhotoDataUri(entityId, schoolCode)) || (await getStudentProfilePhotoUrl(entityId, schoolCode)))
-            : ((await getTeacherProfilePhotoDataUri(entityId, schoolCode)) || (await getTeacherProfilePhotoUrl(entityId, schoolCode)));
+            try {
+              resolvedPhoto = roleBucket === 'student'
+                ? ((await withTimeout(Promise.resolve(getStudentProfilePhotoDataUri(entityId, schoolCode)))) || 
+                   (await withTimeout(Promise.resolve(getStudentProfilePhotoUrl(entityId, schoolCode)))))
+                : ((await withTimeout(Promise.resolve(getTeacherProfilePhotoDataUri(entityId, schoolCode)))) || 
+                   (await withTimeout(Promise.resolve(getTeacherProfilePhotoUrl(entityId, schoolCode)))));
+            } catch (photoError) {
+              console.warn('Error fetching profile photo:', photoError);
+              // Continue without photo on error
+            }
         }
 
         if (resolvedPhoto && isMounted.current) {

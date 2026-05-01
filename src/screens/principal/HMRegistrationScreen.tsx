@@ -621,7 +621,11 @@ export default function HMRegistrationScreen() {
   };
 
   const handleCancel = () => {
-    navigation.goBack();
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      (navigation as any).navigate('PrincipalDashboard');
+    }
   };
 
   const copyInviteLink = async () => {
@@ -775,7 +779,13 @@ export default function HMRegistrationScreen() {
 
       {/* Standardized Navy Header */}
       <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => {
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            (navigation as any).navigate('PrincipalDashboard');
+          }
+        }}>
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>

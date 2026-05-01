@@ -26,7 +26,7 @@ import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 import QRCode from 'react-native-qrcode-svg';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import { formatErrorMessage } from '../../utils/helpers';
 

@@ -11,10 +11,13 @@ import {
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import eventEmitter from '../../utils/eventEmitter';
+import { isJwtExpired } from '../../utils/jwt';
 import { useNavigation } from '@react-navigation/native';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import BottomSheetModal from './BottomSheetModal';
+import { safeJsonParse } from '../../utils/storage';
 
 interface Notification {
   id: string;
@@ -48,6 +51,14 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
+      const token = (await AsyncStorage.getItem('token')) || null;
+      if (!token || isJwtExpired(token)) {
+        // stop background polling by emitting logout and skip fetch
+        eventEmitter.emit('app-logout');
+        setNotifications([]);
+        setLoading(false);
+        return;
+      }
       const schoolCode = await getSchoolCode();
       const branchId = await getBranchId();
 
@@ -64,7 +75,9 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
       setNotifications(newItems);
 
       const readStatus = await AsyncStorage.getItem('read_notifications');
-      const currentReadIds = readStatus ? JSON.parse(readStatus) : [];
+      const currentReadIds = safeJsonParse<string[]>(readStatus, [], () => {
+        AsyncStorage.setItem('read_notifications', JSON.stringify([])).catch(() => {});
+      });
       setReadIds(currentReadIds);
 
       if (previousCount >= 0 && newItems.length > previousCount) {
@@ -87,9 +100,7 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
   }, [visible, fetchNotifications]);
 
   useEffect(() => {
-    fetchNotifications(); // initial load for badge
-    const interval = setInterval(fetchNotifications, 15000);
-    return () => clearInterval(interval);
+    fetchNotifications(); // initial load
   }, [fetchNotifications]);
 
   const handleDelete = async (id: string) => {

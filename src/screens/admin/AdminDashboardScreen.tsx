@@ -47,7 +47,7 @@ import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 import { formatErrorMessage } from '../../utils/helpers';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 

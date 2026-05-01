@@ -88,7 +88,7 @@ API.interceptors.response.use(
   },
   err => {
     const suppressFallback404Log = Boolean((err.config as any)?.suppressFallback404Log);
-    if (suppressFallback404Log && err.response?.status === 404) {
+    if (suppressFallback404Log && (err.response?.status === 404 || err.response?.status === 405)) {
       return Promise.reject(err);
     }
 
@@ -97,6 +97,11 @@ API.interceptors.response.use(
       if (err.response.status === 401) {
         console.warn('[API] 401 Unauthorized detected. Emitting logout.');
         eventEmitter.emit('app-logout');
+      }
+
+      // Suppress 405 errors during fallback attempts (they are expected)
+      if ((err.response.status === 405 || err.response.status === 404) && suppressFallback404Log) {
+        return Promise.reject(err);
       }
 
       // The server responded with a status code outside the 2xx range

@@ -2,7 +2,7 @@
 // React Native Conversion (Android + iOS)
 // Exact same logic preserved
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -10,25 +10,23 @@ import {
   StyleSheet,
   ActivityIndicator,
   StatusBar,
-  Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
-} from "react-native";
+} from 'react-native';
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, LayoutDashboard } from 'lucide-react-native';
-import { colors } from "../../constants/theme";
-import AppText from "../../components/common/AppText";
-import { useAuth } from "../../context/AuthContext";
+import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
 
-import SummaryCards from "./SummaryCardsscreen";
-import FeeManagement from "./FeeManagementScreen";
-import PaymentEntry from "./PaymentEntryscreen";
-import ExpenseManagement from "./ExpenseScreen";
-import Reports from "./ReportsScreen";
-import PendingStudents from "./PendingStudentsscreen";
+import SummaryCards from './SummaryCardsscreen';
+import FeeManagement from './FeeManagementScreen';
+import PaymentEntry from './PaymentEntryscreen';
+import ExpenseManagement from './ExpenseScreen';
+import Reports from './ReportsScreen';
+import PendingStudents from './PendingStudentsscreen';
 
 import { HM_THEME as C } from '../../constants/hmTheme';
 
@@ -40,15 +38,40 @@ const AccountantDashboardScreen = () => {
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
 
-  const [activeTab, setActiveTab] = useState("summary");
-  const [schoolCode, setSchoolCode] = useState("");
+  const [activeTab, setActiveTab] = useState('summary');
+  const [schoolCode, setSchoolCode] = useState('');
   const [loading, setLoading] = useState(true);
+
+  const checkAuthentication = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const role = await AsyncStorage.getItem('role');
+
+      const code =
+        (await AsyncStorage.getItem('school_code')) ||
+        (await AsyncStorage.getItem('schoolCode'));
+
+      if (!token || role !== 'accountant') {
+        navigation.navigate('LoginScreen' as never);
+        return;
+      }
+
+      if (code) {
+        setSchoolCode(code);
+      }
+
+      setLoading(false);
+    } catch (error) {
+      console.log('Auth Error:', error);
+      setLoading(false);
+    }
+  }, [navigation]);
 
   useEffect(() => {
     checkAuthentication();
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
-  }, []);
+  }, [checkAuthentication, setTabBarVisible]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
@@ -62,39 +85,11 @@ const AccountantDashboardScreen = () => {
     lastScrollY.current = currentScrollY;
   };
 
-  const checkAuthentication = async () => {
-    try {
-      // Check authentication and role
-      const token = await AsyncStorage.getItem("token");
-      const role = await AsyncStorage.getItem("role");
-
-      const code =
-        (await AsyncStorage.getItem("school_code")) ||
-        (await AsyncStorage.getItem("schoolCode"));
-
-      if (!token || role !== "accountant") {
-        navigation.navigate("LoginScreen" as never);
-        return;
-      }
-
-      if (code) {
-        setSchoolCode(code);
-      }
-
-      setLoading(false);
-    } catch (error) {
-      console.log("Auth Error:", error);
-      setLoading(false);
-    }
-  };
-
   if (loading) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color={C.primary} />
-        <AppText style={styles.header}>
-          Loading...
-        </AppText>
+        <AppText style={styles.header}>Loading...</AppText>
       </View>
     );
   }
@@ -102,9 +97,7 @@ const AccountantDashboardScreen = () => {
   if (!schoolCode) {
     return (
       <View style={styles.container}>
-        <AppText style={styles.header}>
-          Error: School code not found
-        </AppText>
+        <AppText style={styles.header}>Error: School code not found</AppText>
       </View>
     );
   }
@@ -117,12 +110,18 @@ const AccountantDashboardScreen = () => {
       <View style={[styles.headerStandard, { paddingTop: insets.top }]}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
+          onPress={() =>
+            navigation.canGoBack()
+              ? navigation.goBack()
+              : navigation.navigate('HMDashboard' as never)
+          }
         >
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
-        <AppText style={styles.headerTitle} weight="bold">Accountant Module</AppText>
-        <View style={{ width: 40 }} />
+        <AppText style={styles.headerTitle} weight="bold">
+          Accountant Module
+        </AppText>
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -139,122 +138,68 @@ const AccountantDashboardScreen = () => {
           </AppText>
         </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabContainer}
-      >
-        <TabButton
-          title="Summary"
-          active={activeTab === "summary"}
-          onPress={() =>
-            setActiveTab("summary")
-          }
-        />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabContainer}
+        >
+          <TabButton
+            title="Summary"
+            active={activeTab === 'summary'}
+            onPress={() => setActiveTab('summary')}
+          />
+          <TabButton
+            title="Fee Management"
+            active={activeTab === 'fees'}
+            onPress={() => setActiveTab('fees')}
+          />
+          <TabButton
+            title="Payments"
+            active={activeTab === 'payments'}
+            onPress={() => setActiveTab('payments')}
+          />
+          <TabButton
+            title="Expenses"
+            active={activeTab === 'expenses'}
+            onPress={() => setActiveTab('expenses')}
+          />
+          <TabButton
+            title="Reports"
+            active={activeTab === 'reports'}
+            onPress={() => setActiveTab('reports')}
+          />
+          <TabButton
+            title="Pending"
+            active={activeTab === 'pending'}
+            onPress={() => setActiveTab('pending')}
+          />
+        </ScrollView>
 
-        <TabButton
-          title="Fee Management"
-          active={activeTab === "fees"}
-          onPress={() =>
-            setActiveTab("fees")
-          }
-        />
-
-        <TabButton
-          title="Payments"
-          active={activeTab === "payments"}
-          onPress={() =>
-            setActiveTab("payments")
-          }
-        />
-
-        <TabButton
-          title="Expenses"
-          active={activeTab === "expenses"}
-          onPress={() =>
-            setActiveTab("expenses")
-          }
-        />
-
-        <TabButton
-          title="Reports"
-          active={activeTab === "reports"}
-          onPress={() =>
-            setActiveTab("reports")
-          }
-        />
-
-        <TabButton
-          title="Pending"
-          active={activeTab === "pending"}
-          onPress={() =>
-            setActiveTab("pending")
-          }
-        />
+        <View style={styles.content}>
+          {activeTab === 'summary' && <SummaryCards schoolCode={schoolCode} />}
+          {activeTab === 'fees' && <FeeManagement schoolCode={schoolCode} />}
+          {activeTab === 'payments' && <PaymentEntry schoolCode={schoolCode} />}
+          {activeTab === 'expenses' && (
+            <ExpenseManagement schoolCode={schoolCode} />
+          )}
+          {activeTab === 'reports' && <Reports schoolCode={schoolCode} />}
+          {activeTab === 'pending' && (
+            <PendingStudents schoolCode={schoolCode} />
+          )}
+        </View>
       </ScrollView>
-
-      <View style={styles.content}>
-        {activeTab === "summary" && (
-          <SummaryCards
-            schoolCode={schoolCode}
-          />
-        )}
-
-        {activeTab === "fees" && (
-          <FeeManagement
-            schoolCode={schoolCode}
-          />
-        )}
-
-        {activeTab === "payments" && (
-          <PaymentEntry
-            schoolCode={schoolCode}
-          />
-        )}
-
-        {activeTab === "expenses" && (
-          <ExpenseManagement
-            schoolCode={schoolCode}
-          />
-        )}
-
-        {activeTab === "reports" && (
-          <Reports
-            schoolCode={schoolCode}
-          />
-        )}
-
-        {activeTab === "pending" && (
-          <PendingStudents
-            schoolCode={schoolCode}
-          />
-        )}
-      </View>
-    </ScrollView>
     </View>
   );
 };
 
-const TabButton = ({
-  title,
-  active,
-  onPress,
-}: any) => {
+const TabButton = ({ title, active, onPress }: any) => {
   return (
     <TouchableOpacity
-      style={[
-        styles.tabButton,
-        active &&
-          styles.activeTabButton,
-      ]}
+      style={[styles.tabButton, active && styles.activeTabButton]}
       onPress={onPress}
     >
       <AppText
-        style={[
-          styles.tabText,
-          active &&
-            styles.activeTabText,
-        ]}
+        style={[styles.tabText, active && styles.activeTabText]}
         weight="semiBold"
       >
         {title}
@@ -290,6 +235,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     flex: 1,
   },
+  headerSpacer: {
+    width: 40,
+  },
   scrollView: {
     flex: 1,
   },
@@ -309,14 +257,12 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
     marginTop: 10,
     marginBottom: 24,
   },
 
   tabContainer: {
-    flexDirection: "row",
-    gap: 12,
+    flexDirection: 'row',
     marginBottom: 24,
     paddingBottom: 10,
   },
@@ -326,10 +272,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     backgroundColor: C.card,
     borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: C.border,
+    marginRight: 12,
   },
 
   activeTabButton: {
@@ -343,7 +290,7 @@ const styles = StyleSheet.create({
   },
 
   activeTabText: {
-    color: "#ffffff",
+    color: '#ffffff',
   },
 
   content: {

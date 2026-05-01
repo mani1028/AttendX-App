@@ -16,7 +16,7 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Icon from '@react-native-vector-icons/ionicons';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 import Svg, { Path } from 'react-native-svg';
 import { getStudentAttendance, getStudentProfile, getStudentProfilePhotoDataUri, getStudentProfilePhotoUrl } from '../../services/studentService';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
@@ -47,6 +47,23 @@ export default function StudentDashboardScreen() {
     }
 
     lastScrollY.current = currentScrollY;
+  };
+  const navigateRoot = (screen: keyof RootStackParamList, params?: any) => {
+    try {
+      let nav: any = navigation as any;
+      while (nav.getParent && nav.getParent()) {
+        const p = nav.getParent();
+        if (!p) break;
+        nav = p;
+      }
+      if (nav && nav.navigate) {
+        nav.navigate(screen as any, params);
+        return;
+      }
+    } catch (e) {
+      // fallback to current navigation
+    }
+    (navigation as any).navigate(screen as any, params);
   };
   const [attendanceData, setAttendanceData] = useState({
     percentage: 0,
@@ -191,7 +208,7 @@ export default function StudentDashboardScreen() {
       >
         <View style={[styles.headerContent, { paddingTop: insets.top + 14 }]}>
           <View style={styles.headerTop}>
-            <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+            <TouchableOpacity onPress={() => navigateRoot('Profile')}>
               <Image
                 source={{ uri: profilePhotoUrl && !profilePhotoError ? profilePhotoUrl : 'https://i.pravatar.cc/150?u=student' }}
                 style={styles.avatar}
@@ -200,7 +217,7 @@ export default function StudentDashboardScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.notificationBtn}
-              onPress={() => navigation.navigate('Notifications')}
+              onPress={() => navigateRoot('Notifications')}
             >
               <Icon name="notifications-outline" size={22} color="#fff" />
               {unreadCount > 0 && (
@@ -259,11 +276,11 @@ export default function StudentDashboardScreen() {
               </TouchableOpacity> */}
             </View>
             <View style={styles.quickAccessGrid}>
-              {quickAccess.map((item, i) => (
+                  {quickAccess.map((item, i) => (
                 <TouchableOpacity
                   key={`quick-${i}`}
                   style={styles.gridItem}
-                  onPress={() => item.screen && navigation.navigate(item.screen as any, (item as any).params)}
+                      onPress={() => item.screen && navigateRoot(item.screen as any, (item as any).params)}
                 >
                   <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
                     <Icon name={item.icon as any} size={24} color={item.iconColor} />

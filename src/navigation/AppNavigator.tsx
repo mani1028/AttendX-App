@@ -14,17 +14,12 @@ import {
   CalendarCheck,
   Wallet,
   LogIn,
-  CheckCircle2,
   BarChart3,
-  BookOpen,
-  Mail,
-  Camera,
   CreditCard,
   TrendingDown,
   Coins
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
-import Header from '../components/common/Header';
 import CustomTabBar from '../components/layout/CustomTabBar';
 import TeacherTabBar from '../components/layout/TeacherTabBar';
 
@@ -36,10 +31,10 @@ import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import RegisterSchoolScreen from '../screens/auth/RegisterSchoolScreen';
 
 // ─── Common Screens ─────────────────────────────────────────────────────────
-import ProfileScreen from '../screens/common/ProfileScreen';
 import NotificationsScreen from '../screens/common/NotificationsScreen';
 import PricingScreen from '../screens/common/PricingScreen';
 import LoadingScreen from '../screens/common/LoadingScreen';
+import ProfileScreen from '../screens/common/ProfileScreen';
 
 // ─── Admin Screens ──────────────────────────────────────────────────────────
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
@@ -60,7 +55,6 @@ import TeacherVitalScanScreen from '../screens/teacher/VitalScanScreen';
 import TeacherViewAttendanceScreen from '../screens/teacher/ViewAttendanceScreen';
 import MarkAttendanceScreen from '../components/teacher/MarkAttendanceScreen';
 
-import TeacherHomeworkSubmissionsScreen from '../screens/teacher/HomeworkSubmissionsScreen';
 
 // ─── Student Screens ────────────────────────────────────────────────────────
 import StudentDashboardScreen from '../screens/student/StudentDashboardScreen';
@@ -123,11 +117,11 @@ export type RootStackParamList = {
   MainTabs: undefined;
   
   // Common
-  Profile: undefined;
   Notifications: undefined;
   Loading: undefined;
 
   // Admin
+    Profile: undefined;
   AdminDashboard: undefined;
   NotificationManager: undefined;
   SchoolDetails: undefined;
@@ -144,7 +138,6 @@ export type RootStackParamList = {
   TeacherSkinDisease: undefined;
   TeacherVitalScan: undefined;
   TeacherViewAttendance: undefined;
-  TeacherHomeworkSubmissions: { homeworkId: string; title: string };
   MarkAttendance: undefined;
   
   // Student
@@ -372,7 +365,7 @@ const MainTabs = () => {
 // ─── Root Stack Navigator ───────────────────────────────────────────────────
 
 export default function AppNavigator() {
-  const { userRole, userToken, isLoading } = useAuth();
+  const { userToken, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -410,7 +403,7 @@ export default function AppNavigator() {
           <Stack.Screen name="MainTabs" component={MainTabs} />
           
           {/* Common Screens */}
-          <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
 
           {/* Admin Screens */}
@@ -429,7 +422,6 @@ export default function AppNavigator() {
           <Stack.Screen name="TeacherSkinDisease" component={TeacherSkinDiseaseScreen} options={{ headerShown: false }} />
           <Stack.Screen name="TeacherVitalScan" component={TeacherVitalScanScreen} options={{ headerShown: false }} />
           <Stack.Screen name="TeacherViewAttendance" component={TeacherViewAttendanceScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="TeacherHomeworkSubmissions" component={TeacherHomeworkSubmissionsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} options={{ headerShown: false }} />
           
           {/* Student Screens */}

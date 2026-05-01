@@ -43,7 +43,7 @@ import AppButton from '../../components/common/AppButton';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

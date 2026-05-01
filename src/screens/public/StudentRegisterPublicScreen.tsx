@@ -702,7 +702,13 @@ export default function StudentRegisterPublicScreen() {
         <AppText style={styles.errorText}>
           The link you used is invalid. Please ensure you have correct school code and branch ID.
         </AppText>
-        <AppButton title="Go Back" onPress={() => navigation.goBack()} />
+        <AppButton title="Go Back" onPress={() => {
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            (navigation as any).navigate('RegisterSchool');
+          }
+        }} />
       </View>
     );
   }
@@ -720,7 +726,13 @@ export default function StudentRegisterPublicScreen() {
           <View style={styles.headerTop}>
             <TouchableOpacity
               style={styles.iconButton}
-              onPress={() => navigation.goBack()}
+              onPress={() => {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  (navigation as any).navigate('RegisterSchool');
+                }
+              }}
             >
               <ChevronLeft size={24} color="#FFFFFF" />
             </TouchableOpacity>

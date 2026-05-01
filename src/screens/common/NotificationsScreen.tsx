@@ -22,6 +22,7 @@ import { colors } from '../../constants/theme';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 import notificationService from '../../services/notificationService';
+import { safeJsonParse } from '../../utils/storage';
 
 interface Notification {
   id: string;
@@ -57,7 +58,7 @@ const getTypeStyles = (type: string) => {
 
 export default function NotificationsScreen() {
   const navigation = useNavigation();
-  const { setTabBarVisible } = useAuth();
+  const { setTabBarVisible, userRole } = useAuth();
   const lastScrollY = useRef(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -100,7 +101,9 @@ export default function NotificationsScreen() {
 
       // Load read status from local storage for simulation if backend doesn't support it
       const readStatus = await AsyncStorage.getItem('read_notifications');
-      const readIds = readStatus ? JSON.parse(readStatus) : [];
+      const readIds = safeJsonParse<string[]>(readStatus, [], () => {
+        AsyncStorage.setItem('read_notifications', JSON.stringify([])).catch(() => {});
+      });
 
       setNotifications(items.map((item: any) => ({
         ...item,
@@ -138,7 +141,9 @@ export default function NotificationsScreen() {
     try {
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
       const readStatus = await AsyncStorage.getItem('read_notifications');
-      const readIds = readStatus ? JSON.parse(readStatus) : [];
+      const readIds = safeJsonParse<string[]>(readStatus, [], () => {
+        AsyncStorage.setItem('read_notifications', JSON.stringify([])).catch(() => {});
+      });
       if (!readIds.includes(id)) {
         readIds.push(id);
         await AsyncStorage.setItem('read_notifications', JSON.stringify(readIds));
@@ -182,13 +187,44 @@ export default function NotificationsScreen() {
     lastScrollY.current = currentScrollY;
   };
 
+  const handleBackPress = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    switch (userRole?.toLowerCase()) {
+      case 'teacher':
+        navigation.navigate('TeacherDashboard' as never);
+        break;
+      case 'hm':
+        navigation.navigate('HMDashboard' as never);
+        break;
+      case 'principal':
+        navigation.navigate('PrincipalDashboard' as never);
+        break;
+      case 'accountant':
+        navigation.navigate('AccountantDashboard' as never);
+        break;
+      case 'admin':
+        navigation.navigate('AdminDashboard' as never);
+        break;
+      case 'visitor':
+        navigation.navigate('VisitorDashboard' as never);
+        break;
+      default:
+        navigation.navigate('MainTabs' as never);
+        break;
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
       <View style={styles.heroHeader}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
             <ChevronLeft size={24} color="#fff" />
           </TouchableOpacity>
           <AppText style={styles.heroTitle}>Notifications</AppText>

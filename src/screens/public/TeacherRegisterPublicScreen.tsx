@@ -557,7 +557,13 @@ export default function TeacherRegisterPublicScreen() {
         <Text style={styles.errorText}>
           Please use the link shared by your school.
         </Text>
-        <AppButton title="Go Back" onPress={() => navigation.goBack()} />
+        <AppButton title="Go Back" onPress={() => {
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            (navigation as any).navigate('RegisterSchool');
+          }
+        }} />
       </View>
     );
   }

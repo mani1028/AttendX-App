@@ -812,6 +812,7 @@ export default function CalendarManagement() {
         </View>
       </Modal>
       </ScrollView>
+    </View>
   );
 }
 

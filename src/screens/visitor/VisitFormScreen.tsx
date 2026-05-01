@@ -18,8 +18,9 @@ import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 import { formatErrorMessage } from '../../utils/helpers';
+import { safeGoBack } from '../../utils/navigationHelpers';
 
 // Types
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'VisitForm'>;
@@ -491,7 +492,7 @@ export default function VisitFormScreen() {
             />
             <AppButton
               title="Cancel"
-              onPress={() => navigation.goBack()}
+              onPress={() => safeGoBack(navigation, 'VisitorDashboard')}
               type="secondary"
               style={styles.cancelBtn}
             />

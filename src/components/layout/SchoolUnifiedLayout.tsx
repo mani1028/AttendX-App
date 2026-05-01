@@ -17,6 +17,12 @@ import NotificationPanel from '../common/NotificationPanel';
 import CalendarView from '../common/CalendarView';
 import { colors } from '../../constants/colors';
 
+// Utility function for photo cache key generation
+const getPhotoCacheKey = (roleBucket: 'student' | 'teacher', id: string, schoolCode: string): string | null => {
+  if (!id) return null;
+  return `profile_photo_url:${roleBucket}:${schoolCode || 'unknown'}:${id}`;
+};
+
 // Types
 interface MenuItem {
   title: string;
@@ -197,7 +203,21 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   const navigation = useNavigation();
   const route = useRoute();
   
-  const config = MENU_CONFIG[role] || MENU_CONFIG.hm;
+  // Normalize role values coming from backend or storage (e.g. "class_teacher", "Class Teacher")
+  const normalizeRole = (r: string) => {
+    if (!r) return 'teacher';
+    const v = String(r).trim().toLowerCase();
+    if (v === 'class_teacher' || v === 'class teacher' || v === 'classteacher' || v === 'class-teacher') return 'teacher';
+    if (v === 'hm' || v === 'headmaster' || v === 'head_master') return 'hm';
+    if (v === 'admin' || v === 'administrator') return 'admin';
+    if (v === 'principal') return 'principal';
+    if (v === 'accountant') return 'accountant';
+    if (v === 'student') return 'student';
+    return v;
+  };
+
+  const normalizedRole = normalizeRole(role);
+  const config = MENU_CONFIG[normalizedRole] || MENU_CONFIG.teacher;
   
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -409,10 +429,10 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   };
 
   const isCompact = isTablet || !sidebarExpanded;
-  const showCalendarForRole = role === 'student' || role === 'teacher';
+  const showCalendarForRole = normalizedRole === 'student' || normalizedRole === 'teacher';
   
   // Filter menu items for non-class teachers
-  const visibleMenuItems = (role === 'teacher' && !isClassTeacher)
+  const visibleMenuItems = (normalizedRole === 'teacher' && !isClassTeacher)
     ? config.menu.filter(item =>
         ['Attendance Logs', 'Attendance Verification', 'Homework Management', 'Marks Entry', 'VitalScan AI', 'Question Papers'].includes(item.title)
       )

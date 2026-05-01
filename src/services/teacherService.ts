@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import API, { buildApiUrl } from './api';
 
 const PROFILE_ENDPOINTS = [
-  'auth/teacher-capability',
   'teacher/marks/teacher-context',
   'hm/dashboard/profile',
   'teacher/profile',
@@ -104,6 +103,7 @@ function normalizeContentType(value: unknown): string {
 async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
   const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
   const teacherId = await AsyncStorage.getItem('teacher_id') || await AsyncStorage.getItem('teacherId') || await AsyncStorage.getItem('employee_id');
+  const suppressLogs = config.suppressFallback404Log;
 
   for (const endpoint of endpoints) {
     try {
@@ -118,10 +118,14 @@ async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
           ...params
         }
       });
+      if (__DEV__ && !suppressLogs && endpoint !== endpoints[0]) {
+        console.log(`[Service] GET ${endpoint} succeeded after ${endpoints[0]} failed`);
+      }
       return response.data;
     } catch (error) {
-      if (__DEV__) {
-        console.log(`[Service] GET ${endpoint} failed, trying next...`);
+      const isLastEndpoint = endpoint === endpoints[endpoints.length - 1];
+      if (__DEV__ && !suppressLogs) {
+        console.log(`[Service] GET ${endpoint} failed${isLastEndpoint ? ' (all endpoints exhausted)' : ', trying next...'}`);
       }
     }
   }

@@ -35,15 +35,14 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import { colors } from '../../constants/theme';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeGoBack } from '../../utils/navigationHelpers';
 import API from '../../services/api';
 import { 
   getAssignedClasses, 
   getTeacherProfile, 
-  getTeacherProfilePhotoDataUri, 
-  getTeacherProfilePhotoUrl, 
   getTeacherCapability,
   getAttendanceReport,
   getBranchStats
@@ -118,13 +117,12 @@ export default function TeacherDashboardScreen() {
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      refreshUnreadCount();
       const responseData = await getTeacherProfile();
       if (responseData && isMounted.current) {
         // Fetch capability details if possible
         let capability: TeacherCapability | null = null;
         try {
-          const schoolId = responseData.branch_id || (await AsyncStorage.getItem('branch_id')) || '';
+          const schoolId = responseData.school_code || (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
           const empId = responseData.employee_id || (await AsyncStorage.getItem('employee_id')) || '';
           if (schoolId && empId) {
             capability = await getTeacherCapability(schoolId, empId);
@@ -138,26 +136,15 @@ export default function TeacherDashboardScreen() {
           is_class_teacher: capability?.is_class_teacher ?? false
         });
 
-        const teacherId = String(responseData.teacher_id || responseData.employee_id || '').trim();
-        const photoSchoolCode = String(responseData.school_code || '').trim();
-
         const directPhoto = String(responseData.profile_photo_url || responseData.teacher_photograph || '').trim();
-        const normalizedDirectPhoto =
-          directPhoto.startsWith('data:') ||
-          directPhoto.startsWith('http://') ||
-          directPhoto.startsWith('https://') ||
-          directPhoto.startsWith('file://') ||
-          directPhoto.startsWith('content://')
-            ? directPhoto
-            : (/^[A-Za-z0-9+/=_-]{80,}$/.test(directPhoto.replace(/\s+/g, ''))
-                ? `data:image/jpeg;base64,${directPhoto.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/')}`
-                : directPhoto || null);
+        let resolvedPhoto = directPhoto || null;
 
-        const resolvedPhoto =
-          normalizedDirectPhoto ||
-          (await getTeacherProfilePhotoDataUri(teacherId, photoSchoolCode)) ||
-          (await getTeacherProfilePhotoUrl(teacherId, photoSchoolCode)) ||
-          null;
+        if (!resolvedPhoto) {
+          const cachedPhoto = await AsyncStorage.getItem('profile_photo_url');
+          if (cachedPhoto) {
+            resolvedPhoto = cachedPhoto;
+          }
+        }
 
         if (resolvedPhoto) {
           setProfilePhotoUrl(resolvedPhoto);
@@ -311,22 +298,33 @@ export default function TeacherDashboardScreen() {
         setClassesLoading(false);
       }
     }
-  }, [refreshUnreadCount]);
+  }, []);
 
+  // Set tab bar visibility on mount
   useEffect(() => {
     setTabBarVisible(true);
-    isMounted.current = true;
-    fetchDashboardData();
     return () => {
-      isMounted.current = false;
       setTabBarVisible(true);
     };
-  }, [fetchDashboardData, setTabBarVisible]);
+  }, [setTabBarVisible]);
+
+  // Fetch data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      isMounted.current = true;
+      fetchDashboardData();
+      refreshUnreadCount();
+      return () => {
+        isMounted.current = false;
+      };
+    }, [fetchDashboardData, refreshUnreadCount])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchDashboardData();
-  }, [fetchDashboardData]);
+    refreshUnreadCount();
+  }, [fetchDashboardData, refreshUnreadCount]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
@@ -431,7 +429,7 @@ export default function TeacherDashboardScreen() {
           <View style={styles.headerTop}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => navigation.goBack()}
+              onPress={() => safeGoBack(navigation, 'TeacherDashboard')}
             >
               <View style={styles.backIconCircle}>
                 <ImageIcon size={20} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />

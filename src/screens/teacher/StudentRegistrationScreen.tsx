@@ -38,6 +38,7 @@ import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
+import { safeGoBack } from '../../utils/navigationHelpers';
 import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
@@ -839,7 +840,7 @@ export default function StudentRegistrationScreen() {
           <View style={styles.headerTop}>
             <TouchableOpacity
               style={styles.iconButton}
-              onPress={() => navigation.goBack()}
+              onPress={() => safeGoBack(navigation, 'TeacherDashboard')}
             >
               <ChevronLeft size={24} color="#FFFFFF" />
             </TouchableOpacity>

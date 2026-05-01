@@ -1,9 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Shield, Bell } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../constants/theme';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AvatarBubble from './AvatarBubble';
 import AppText from './AppText';
@@ -11,20 +11,43 @@ import AppText from './AppText';
 const Header = () => {
   const { userRole, userName } = useAuth();
   const navigation = useNavigation<any>();
-  const { unreadCount, refreshUnreadCount } = useUnreadNotifications();
-
-  // Refresh unread count when screen is focused
-  useFocusEffect(
-    React.useCallback(() => {
-      refreshUnreadCount();
-    }, [refreshUnreadCount])
-  );
+  const { unreadCount } = useUnreadNotifications();
 
   const handleProfilePress = () => {
+    try {
+      let nav: any = navigation;
+      while (nav.getParent && nav.getParent()) {
+        const parent = nav.getParent();
+        if (!parent) {
+          break;
+        }
+        nav = parent;
+      }
+
+      if (nav && nav.navigate) {
+        nav.navigate('Profile');
+        return;
+      }
+    } catch (error) {}
+
     navigation.navigate('Profile');
   };
 
   const handleNotificationsPress = () => {
+    try {
+      let nav: any = navigation;
+      while (nav.getParent && nav.getParent()) {
+        const p = nav.getParent();
+        if (!p) {
+          break;
+        }
+        nav = p;
+      }
+      if (nav && nav.navigate) {
+        nav.navigate('Notifications');
+        return;
+      }
+    } catch (e) {}
     navigation.navigate('Notifications');
   };
 
@@ -59,12 +82,9 @@ const Header = () => {
             )}
           </View>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.profileButton}
-          onPress={handleProfilePress}
-        >
+        <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
           <AvatarBubble
-            displayName={displayName}
+            displayName={userName || 'User'}
             size={34}
             textSize={12}
             primaryColor={colors.accent}
@@ -122,6 +142,9 @@ const styles = StyleSheet.create({
   iconButton: {
     padding: 4,
   },
+  profileButton: {
+    padding: 2,
+  },
   bellContainer: {
     position: 'relative',
     width: 30,
@@ -148,9 +171,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     paddingHorizontal: 4,
-  },
-  profileButton: {
-    padding: 2,
   },
 });
 

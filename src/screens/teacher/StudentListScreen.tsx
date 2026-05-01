@@ -41,7 +41,7 @@ import * as teacherService from '../../services/teacherService';
 import { useAuth } from '../../context/AuthContext';
 import HM_THEME from '../../constants/hmTheme';
 import AppText from '../../components/common/AppText';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 import BottomSheetModal from '../../components/common/BottomSheetModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

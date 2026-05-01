@@ -1,5 +1,6 @@
 import notifee, { AndroidImportance, AndroidBadgeIconType, AuthorizationStatus } from '@notifee/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeJsonParse } from '../utils/storage';
 
 interface NotificationPayload {
   title: string;
@@ -157,7 +158,9 @@ class NotificationService {
   private async recordNotification(notificationId: string): Promise<void> {
     try {
       const readStatus = await AsyncStorage.getItem('read_notifications');
-      const readIds: string[] = readStatus ? JSON.parse(readStatus) : [];
+      const readIds = safeJsonParse<string[]>(readStatus, [], () => {
+        AsyncStorage.setItem('read_notifications', JSON.stringify([])).catch(() => {});
+      });
       
       // Don't mark new notifications as read automatically
       // They will be marked as read when user views them

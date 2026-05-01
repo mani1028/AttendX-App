@@ -23,7 +23,6 @@ import {
   Plus,
   BookOpen,
   Calendar,
-  FileText,
   Filter,
   RefreshCw,
   Search,
@@ -101,8 +100,7 @@ const HomeworkCard: React.FC<{
   isEditing: boolean;
   onEdit: (item: HomeworkItem) => void;
   onDelete: (id: string) => void;
-  onViewSubmissions: (item: HomeworkItem) => void;
-}> = ({ item, isEditing, onEdit, onDelete, onViewSubmissions }) => (
+}> = ({ item, isEditing, onEdit, onDelete }) => (
   <AppCard style={[styles.homeworkCard, isEditing && styles.homeworkCardEditing]}>
     <View style={styles.cardHeader}>
       <View style={styles.subjectContainer}>
@@ -137,13 +135,6 @@ const HomeworkCard: React.FC<{
       </View>
     </View>
 
-    <TouchableOpacity 
-      style={styles.viewSubmissionsBtn}
-      onPress={() => onViewSubmissions(item)}
-    >
-      <FileText size={16} color="#2563EB" />
-      <AppText weight="semiBold" style={styles.viewSubmissionsText}>View Submissions</AppText>
-    </TouchableOpacity>
   </AppCard>
 );
 
@@ -716,12 +707,6 @@ export default function HomeworkManagementScreen() {
                 isEditing={editingId === item.homework_id}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
-                onViewSubmissions={(h) => {
-                  (navigation as any).navigate('TeacherHomeworkSubmissions', {
-                    homeworkId: h.homework_id,
-                    title: h.title,
-                  });
-                }}
               />
             ))}
           </View>
@@ -912,21 +897,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-  viewSubmissionsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#EFF6FF',
-    marginTop: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  viewSubmissionsText: {
-    fontSize: 14,
-    color: '#2563EB',
-  },
-    borderBottomColor: '#F1F5F9',
   },
   dropdownItemText: {
     fontSize: 14,

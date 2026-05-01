@@ -10,13 +10,22 @@ export default function NotificationManagerScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
 
+  const handleBackPress = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate('AdminDashboard' as never);
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
       {/* Standardized Header */}
       <View style={[styles.headerStandard, { paddingTop: insets.top + 20, paddingBottom: 60 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backBtn} onPress={handleBackPress}>
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>

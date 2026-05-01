@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Buffer } from 'buffer';
+import { View, TouchableOpacity, StatusBar, ScrollView, Alert, StyleSheet, Platform, ActivityIndicator, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft, BarChart3, PenSquare, ClipboardList } from 'lucide-react-native';
@@ -838,12 +839,12 @@ export default function HMDataExportPage() {
         <View style={styles.card}>
           <View style={styles.header}>
             <AppText style={styles.title} weight="bold">Data Export Center</AppText>
-          <AppText style={styles.subtitle}>
-            Export attendance, marks, or combined data with advanced filtering options
-          </AppText>
-        </View>
+            <AppText style={styles.subtitle}>
+              Export attendance, marks, or combined data with advanced filtering options
+            </AppText>
+          </View>
 
-        <View style={styles.tabsContainer}>
+          <View style={styles.tabsContainer}>
           <TouchableOpacity 
             style={[styles.tab, activeTab === "attendance" && styles.activeTab]} 
             onPress={() => { setActiveTab("attendance"); resetFilters(); }}
@@ -880,6 +881,8 @@ export default function HMDataExportPage() {
 
           {message ? <View style={styles.messageContainer}><AppText style={styles.messageText}>{message}</AppText></View> : null}
           {error ? <View style={styles.errorContainer}><AppText style={styles.errorText}>{error}</AppText></View> : null}
+        </View>
+
         </View>
       </ScrollView>
 

@@ -24,7 +24,7 @@ import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../constants/theme';
 import { HM_THEME as C } from '../../constants/hmTheme';
 import AppText from '../../components/common/AppText';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
 
@@ -116,10 +116,10 @@ const StatCard = ({
   onPress,
   loading 
 }: any) => (
-  <TouchableOpacity 
+  <TouchableOpacity
     style={[styles.statCard, { borderTopColor: accentColor || C.primary }]}
     onPress={onPress}
-    activeOpacity={0.7}
+    activeOpacity={0.8}
   >
     <View style={styles.cardTop}>
       <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
@@ -149,7 +149,7 @@ const StatCard = ({
 );
 
 const BarRow = ({ label, percentage, present, total, onPress }: any) => (
-  <TouchableOpacity style={styles.barRow} onPress={onPress} activeOpacity={0.7}>
+  <TouchableOpacity style={styles.barRow} onPress={onPress} activeOpacity={0.8}>
     <AppText style={styles.barLabel} weight="bold">{label}</AppText>
     <View style={styles.barTrack}>
       <View 
@@ -182,15 +182,23 @@ const ClassChip = ({ label, percentage, present, total, onPress }: any) => {
   const isGood = percentage >= 75;
   return (
     <TouchableOpacity 
-      style={[styles.classChip, { backgroundColor: isGood ? C.successSoft : C.errorSoft, borderColor: isGood ? C.successSoft : C.errorSoft } as any]}
+      style={[styles.classChip, { backgroundColor: C.card, borderColor: C.border } as any]}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
-      <AppText style={styles.chipLabel} weight="bold">Class {label}</AppText>
-      <AppText weight="bold" style={[styles.chipPct, { color: isGood ? C.success : C.error, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
-        {percentage}%
-      </AppText>
-      <AppText style={styles.chipSub}>{present}/{total} present</AppText>
+      <View style={styles.classLeft}> 
+        <AppText style={styles.chipLabel} weight="bold">{label}</AppText>
+        <AppText style={styles.chipSub}>{present}/{total} present</AppText>
+      </View>
+
+      <View style={styles.classRight}>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${percentage}%`, backgroundColor: isGood ? C.success : percentage >= 50 ? C.warning : C.error }]} />
+        </View>
+        <AppText weight="bold" style={[styles.chipPct, { color: isGood ? C.success : percentage >= 50 ? C.warning : C.error, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
+          {percentage}%
+        </AppText>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -803,18 +811,18 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   profileAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.10)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   profileAvatarText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 18,
   },
   heroActions: {
     flexDirection: 'row',
@@ -825,12 +833,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   heroGreeting: {
-    fontSize: 19,
+    fontSize: 20,
     color: '#fff',
   },
   heroSubtitle: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.78)',
+    color: 'rgba(255,255,255,0.85)',
   },
   welcomeSection: {
     flexDirection: 'row',
@@ -893,36 +901,36 @@ const styles = StyleSheet.create({
   },
   statCard: {
     backgroundColor: C.card,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: C.border,
-    padding: 16,
+    padding: 18,
     borderTopWidth: 4,
     width: '48%',
     shadowColor: '#0f172a',
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 3,
   },
   cardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   trendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
+    gap: 6,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
     backgroundColor: C.bg,
@@ -1009,20 +1017,20 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   quickActionItem: {
-    width: '23%',
+    width: '24%',
     minWidth: 72,
     alignItems: 'center',
     gap: 8,
   },
   quickActionIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   quickActionLabel: {
-    fontSize: 10,
+    fontSize: 12,
     color: C.text,
     textAlign: 'center',
   },
@@ -1042,7 +1050,7 @@ const styles = StyleSheet.create({
   },
   barTrack: {
     flex: 1,
-    height: 16,
+    height: 12,
     backgroundColor: C.bg,
     borderRadius: 4,
     overflow: 'hidden',
@@ -1133,9 +1141,13 @@ const styles = StyleSheet.create({
   classChip: {
     borderRadius: 12,
     borderWidth: 1,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     alignItems: 'center',
     width: SCREEN_WIDTH > 400 ? '47%' : '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   chipLabel: {
     fontSize: 11,
@@ -1149,6 +1161,29 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: C.muted,
     marginTop: 4,
+  },
+  classLeft: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  classRight: {
+    width: 96,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  progressTrack: {
+    width: 72,
+    height: 8,
+    backgroundColor: C.bg,
+    borderRadius: 6,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: C.border,
+    marginBottom: 6,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 6,
   },
   bottomBar: {
     flexDirection: 'row',

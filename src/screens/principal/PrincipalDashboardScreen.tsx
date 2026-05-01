@@ -53,7 +53,7 @@ import Loader from '../../components/common/Loader';
 import AvatarBubble from '../../components/common/AvatarBubble';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 
 // Types
 interface Branch {

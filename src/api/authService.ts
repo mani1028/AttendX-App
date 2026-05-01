@@ -67,6 +67,13 @@ async function postWithFallback<TPayload>(endpoints: string[], payload: TPayload
     } catch (error: any) {
       console.log(`[authService] Error posting to ${endpoint}:`, error?.response?.data || error.message);
       lastError = error;
+
+      const status = error?.response?.status;
+      const shouldRetry = status === 404 || status === 405;
+
+      if (!shouldRetry) {
+        throw error;
+      }
     }
   }
 

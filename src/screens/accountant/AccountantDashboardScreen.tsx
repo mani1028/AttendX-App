@@ -18,11 +18,9 @@ import {
   RefreshCw,
   Calendar,
   DollarSign,
-  CreditCard,
   TrendingUp,
   FileText,
   User,
-  Search,
   UserPlus,
   Users,
   HeartPulse,
@@ -30,13 +28,11 @@ import {
   FileEdit,
   CheckSquare,
 } from 'lucide-react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
-import API from '../../services/api';
 import AppText from '../../components/common/AppText';
 import AppCard from '../../components/common/AppCard';
 import { colors } from '../../constants/theme';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
 import { HM_THEME } from '../../constants/hmTheme';
@@ -48,9 +44,7 @@ export default function AccountantDashboardScreen() {
   const insets = useSafeAreaInsets();
   const { userName, setTabBarVisible } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(false);
   const { unreadCount } = useUnreadNotifications();
-
   const lastScrollY = useRef(0);
 
   useEffect(() => {
@@ -66,8 +60,12 @@ export default function AccountantDashboardScreen() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Morning';
-    if (hour < 17) return 'Afternoon';
+    if (hour < 12) {
+      return 'Morning';
+    }
+    if (hour < 17) {
+      return 'Afternoon';
+    }
     return 'Evening';
   };
 
@@ -81,26 +79,43 @@ export default function AccountantDashboardScreen() {
     lastScrollY.current = currentScrollY;
   };
 
+  const ACTION_CARD_WIDTH = (SCREEN_WIDTH - 32 - 24) / 3;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
 
       {/* Standardized Navy Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
-        <View style={{ width: 40 }} />
+      <View
+        style={[
+          styles.headerStandard,
+          { paddingTop: insets.top + 12 },
+        ]}
+      >
+        <View style={styles.headerSpacer} />
         <View style={styles.headerTitleContainer}>
           <AppText style={styles.headerTitle}>Accountant Portal</AppText>
         </View>
         <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
+          <TouchableOpacity
+            style={styles.refreshIconBtn}
+            onPress={() => navigation.navigate('Notifications') as any}
+            accessibilityLabel="Notifications"
+          >
             <Bell size={20} color="#fff" />
             {unreadCount > 0 && (
               <View style={styles.badge}>
-                <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+                <AppText style={styles.badgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </AppText>
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
+          <TouchableOpacity
+            style={styles.refreshIconBtn}
+            onPress={onRefresh}
+            accessibilityLabel="Refresh"
+          >
             <RefreshCw size={20} color="#fff" />
           </TouchableOpacity>
         </View>
@@ -111,19 +126,30 @@ export default function AccountantDashboardScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+          />
         }
       >
         {/* Welcome Section */}
         <View style={styles.welcomeSection}>
           <View>
-            <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Accountant'}!</AppText>
-            <AppText style={styles.welcomeSub}>Manage fees and school finances today.</AppText>
+            <AppText style={styles.welcomeTitle}>
+              Good {getGreeting()}, {userName?.split(' ')[0] || 'Accountant'}!
+            </AppText>
+            <AppText style={styles.welcomeSub}>
+              Manage fees and school finances today.
+            </AppText>
           </View>
           <View style={styles.dateBadge}>
             <Calendar size={12} color={colors.textMuted} />
             <AppText style={styles.dateText}>
-              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {new Date().toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+              })}
             </AppText>
           </View>
         </View>
@@ -131,12 +157,20 @@ export default function AccountantDashboardScreen() {
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
           <View style={[styles.statCard, { borderLeftColor: colors.primary }]}>
-            <DollarSign size={20} color={colors.primary} style={{ marginBottom: 4 }} />
+            <DollarSign
+              size={20}
+              color={colors.primary}
+              style={styles.statIcon}
+            />
             <AppText style={styles.statValue}>₹0</AppText>
             <AppText style={styles.statTitle}>Collected Today</AppText>
           </View>
           <View style={[styles.statCard, { borderLeftColor: colors.success }]}>
-            <TrendingUp size={20} color={colors.success} style={{ marginBottom: 4 }} />
+            <TrendingUp
+              size={20}
+              color={colors.success}
+              style={styles.statIcon}
+            />
             <AppText style={styles.statValue}>0%</AppText>
             <AppText style={styles.statTitle}>Collection Rate</AppText>
           </View>
@@ -145,62 +179,88 @@ export default function AccountantDashboardScreen() {
         {/* Quick Actions */}
         <AppText style={styles.sectionTitle}>Quick Actions</AppText>
         <View style={styles.actionGrid}>
-          <TouchableOpacity style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+          <TouchableOpacity
+            style={[styles.actionCard, { width: ACTION_CARD_WIDTH }]}
+            onPress={() => {}}
+          >
+            <View style={[styles.actionIcon, styles.actionBlue]}>
               <ClipboardCheck size={22} color="#3B82F6" />
             </View>
-            <AppText style={styles.actionLabel}>Mark{"\n"}Attendance</AppText>
+            <AppText style={styles.actionLabel}>Mark Attendance</AppText>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: 'rgba(34, 197, 94, 0.1)' }]}>
+          <TouchableOpacity
+            style={[styles.actionCard, { width: ACTION_CARD_WIDTH }]}
+            onPress={() => {}}
+          >
+            <View style={[styles.actionIcon, styles.actionGreen]}>
               <UserPlus size={22} color="#22C55E" />
             </View>
-            <AppText style={styles.actionLabel}>Student{"\n"}Enrollment</AppText>
+            <AppText style={styles.actionLabel}>Student Enrollment</AppText>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: 'rgba(168, 85, 247, 0.1)' }]}>
+          <TouchableOpacity
+            style={[styles.actionCard, { width: ACTION_CARD_WIDTH }]}
+            onPress={() => {}}
+          >
+            <View style={[styles.actionIcon, styles.actionPurple]}>
               <Users size={22} color="#A855F7" />
             </View>
-            <AppText style={styles.actionLabel}>Manage{"\n"}Profiles</AppText>
+            <AppText style={styles.actionLabel}>Manage Profiles</AppText>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+          <TouchableOpacity
+            style={[styles.actionCard, { width: ACTION_CARD_WIDTH }]}
+            onPress={() => {}}
+          >
+            <View style={[styles.actionIcon, styles.actionRed]}>
               <HeartPulse size={22} color="#EF4444" />
             </View>
-            <AppText style={styles.actionLabel}>Vital Scan{"\n"}AI</AppText>
+            <AppText style={styles.actionLabel}>Health Check</AppText>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: 'rgba(249, 115, 22, 0.1)' }]}>
+          <TouchableOpacity
+            style={[styles.actionCard, { width: ACTION_CARD_WIDTH }]}
+            onPress={() => {}}
+          >
+            <View style={[styles.actionIcon, styles.actionOrange]}>
               <CheckSquare size={22} color="#F97316" />
             </View>
-            <AppText style={styles.actionLabel}>Leave{"\n"}Approval</AppText>
+            <AppText style={styles.actionLabel}>Leave Approval</AppText>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: 'rgba(20, 184, 166, 0.1)' }]}>
+          <TouchableOpacity
+            style={[styles.actionCard, { width: ACTION_CARD_WIDTH }]}
+            onPress={() => {}}
+          >
+            <View style={[styles.actionIcon, styles.actionTeal]}>
               <FileEdit size={22} color="#14B8A6" />
             </View>
-            <AppText style={styles.actionLabel}>Question{"\n"}Paper</AppText>
+            <AppText style={styles.actionLabel}>Question Paper</AppText>
           </TouchableOpacity>
         </View>
 
         <AppCard style={styles.card}>
           <AppText style={styles.cardTitle}>Recent Transactions</AppText>
           <View style={styles.emptyState}>
-            <FileText size={40} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 12 }} />
-            <AppText style={styles.emptyText}>No recent transactions found.</AppText>
+            <FileText
+              size={40}
+              color={colors.textMuted}
+              style={styles.emptyIcon}
+            />
+            <AppText style={styles.emptyText}>
+              No recent transactions found.
+            </AppText>
           </View>
         </AppCard>
 
         <AppCard style={styles.card}>
           <AppText style={styles.cardTitle}>Pending Dues</AppText>
           <View style={styles.emptyState}>
-            <User size={40} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 12 }} />
-            <AppText style={styles.emptyText}>No pending dues to display.</AppText>
+            <User size={40} color={colors.textMuted} style={styles.emptyIcon} />
+            <AppText style={styles.emptyText}>
+              No pending dues to display.
+            </AppText>
           </View>
         </AppCard>
       </ScrollView>
@@ -220,6 +280,7 @@ const styles = StyleSheet.create({
   headerStandard: {
     backgroundColor: HM_THEME.navy,
     paddingHorizontal: 20,
+    paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -227,6 +288,9 @@ const styles = StyleSheet.create({
   headerTitleContainer: {
     flex: 1,
     alignItems: 'center',
+  },
+  headerSpacer: {
+    width: 40,
   },
   headerTitle: {
     fontSize: 18,
@@ -340,6 +404,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
   },
+  statIcon: {
+    marginBottom: 4,
+  },
   sectionTitle: {
     fontSize: 24,
     fontWeight: '800',
@@ -350,19 +417,17 @@ const styles = StyleSheet.create({
   actionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
     marginBottom: 24,
   },
   actionCard: {
-    width: (SCREEN_WIDTH - 32 - 36) / 4,
     backgroundColor: colors.surface,
-    borderRadius: 20,
-    paddingVertical: 16,
-    paddingHorizontal: 4,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#F1F5F9',
-    marginBottom: 8,
+    marginBottom: 12,
     // Shadow
     ...Platform.select({
       ios: {
@@ -377,19 +442,25 @@ const styles = StyleSheet.create({
     }),
   },
   actionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
+  actionBlue: { backgroundColor: 'rgba(59, 130, 246, 0.08)' },
+  actionGreen: { backgroundColor: 'rgba(34, 197, 94, 0.08)' },
+  actionPurple: { backgroundColor: 'rgba(168, 85, 247, 0.06)' },
+  actionRed: { backgroundColor: 'rgba(239, 68, 68, 0.06)' },
+  actionOrange: { backgroundColor: 'rgba(249, 115, 22, 0.06)' },
+  actionTeal: { backgroundColor: 'rgba(20, 184, 166, 0.06)' },
   actionLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: '#334155',
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: 16,
   },
   card: {
     padding: 16,
@@ -406,6 +477,10 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     paddingVertical: 24,
+  },
+  emptyIcon: {
+    opacity: 0.5,
+    marginBottom: 12,
   },
   emptyText: {
     color: colors.textMuted,

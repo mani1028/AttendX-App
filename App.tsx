@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AttendXIntro from './src/components/common/AttendXIntro';
 import AppNavigator from './src/navigation/AppNavigator';
 import { AuthProvider } from './src/context/AuthContext';
+import { NotificationContextProvider } from './src/context/NotificationContext';
 import notificationService from './src/services/notificationService';
 
 export default function App() {
@@ -28,16 +29,18 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AuthProvider>
-          {showIntro ? (
-            <AttendXIntro
-              onComplete={() => setShowIntro(false)}
-              duration={2800}
-            />
-          ) : (
-            <NavigationContainer>
-              <AppNavigator />
-            </NavigationContainer>
-          )}
+          <NotificationContextProvider>
+            {showIntro ? (
+              <AttendXIntro
+                onComplete={() => setShowIntro(false)}
+                duration={2800}
+              />
+            ) : (
+              <NavigationContainer>
+                <AppNavigator />
+              </NavigationContainer>
+            )}
+          </NotificationContextProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

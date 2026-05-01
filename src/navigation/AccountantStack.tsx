@@ -7,11 +7,10 @@ const Stack = createNativeStackNavigator();
 
 export default function AccountantStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen
         name="AccountantDashboard"
         component={AccountantDashboardScreen}
-        options={{ title: 'Accountant Home' }}
       />
     </Stack.Navigator>
   );
