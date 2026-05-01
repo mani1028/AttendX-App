@@ -45,14 +45,40 @@ export const API_CONFIG = {
       teacherAssignments: 'hm/teacher-assignments/details',
     },
     teacher: {
+      // Registration & Auth
       register: 'teacher/register',
       sendOtp: 'teacher/register/send-otp',
       verifyOtp: 'teacher/register/verify-otp',
+      
+      // Context & Classes
       context: 'teacher/marks/teacher-context',
       classes: 'teacher/marks/classes',
       exams: 'teacher/marks/exams',
+      
+      // Student Registration Requests (Class Teacher only)
+      studentRegistrationRequests: 'teacher/student-registration-requests',
+      approveStudentRegistration: 'teacher/student-registration-requests/{id}/accept',
+      rejectStudentRegistration: 'teacher/student-registration-requests/{id}/reject',
+      
+      // Attendance
+      markAttendance: 'teacher/mark-attendance',
+      videoAttendance: 'teacher/video-attendance',
+      attendanceHistory: 'teacher/attendance-history',
+      selfAttendance: 'teacher/self-attendance',
+      
+      // Academics
+      createHomework: 'teacher/homework/create',
+      marksEntry: 'teacher/marks/entry',
       enterMarks: 'teacher/marks/enter',
       marksBulk: 'teacher/marks/bulk',
+      uploadQuestionPapers: 'teacher/question-papers/upload',
+      
+      // Leave Management
+      applyLeave: 'teacher/leave/apply',
+      approveStudentLeave: 'teacher/student-leave/approve',
+      
+      // AI Tools
+      skinPrediction: 'teacher/skin-prediction',
     },
     principal: {
       registerHm: 'principal/register-hm',
@@ -99,11 +125,16 @@ export const API_CONFIG = {
     vitalscan: {
       predictSkin: 'vitalscan/predict/skin',
       predictGemini: 'vitalscan/predict',
+      process: 'vitalscan/process',
     },
     payment: {
       createOrder: 'payment/create-order',
       createOrderByPlan: 'payment/create-order-by-plan',
       verify: 'payment/verify',
+    },
+    notifications: {
+      listTeacher: 'notifications/teacher/list',
+      listStudent: 'notifications/student/list',
     },
   },
 };

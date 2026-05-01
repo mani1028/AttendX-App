@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Animated,
   Text,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
@@ -218,7 +219,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 15,
-    elevation: 10,
+    ...Platform.select({
+
+      android: { elevation: 10 },
+
+      ios: {},
+
+    }),
   },
   curvedBar: {
     flexDirection: 'row',
@@ -254,7 +261,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 4,
     borderColor: '#fff',
-    elevation: 5,
+    ...Platform.select({
+
+      android: { elevation: 5 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -282,7 +295,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563EB',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
+    ...Platform.select({
+
+      android: { elevation: 5 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,

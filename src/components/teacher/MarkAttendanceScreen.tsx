@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -300,8 +301,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    elevation: 2,
     shadowOpacity: 0.06,
+    ...Platform.select({
+      android: { elevation: 2 },
+      ios: {},
+    }),
   },
   dateSelectorLabel: {
     fontSize: 12,
@@ -328,8 +332,11 @@ const styles = StyleSheet.create({
     borderLeftWidth: 5,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 1,
     shadowOpacity: 0.04,
+    ...Platform.select({
+      android: { elevation: 1 },
+      ios: {},
+    }),
   },
   statValue: {
     fontSize: 20,

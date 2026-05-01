@@ -576,7 +576,13 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    elevation: 10,
+    ...Platform.select({
+
+      android: { elevation: 10 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
@@ -624,7 +630,13 @@ const styles = StyleSheet.create({
     padding: 18,
     marginHorizontal: 16,
     backgroundColor: '#FFFFFF',
-    elevation: 6,
+    ...Platform.select({
+
+      android: { elevation: 6 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.12,
@@ -673,7 +685,13 @@ const styles = StyleSheet.create({
   },
   statusBtnActive: {
     backgroundColor: '#FFFFFF',
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -724,7 +742,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
-    elevation: 4,
+    ...Platform.select({
+
+      android: { elevation: 4 },
+
+      ios: {},
+
+    }),
   },
   cardHeader: {
     flexDirection: 'row',

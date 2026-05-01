@@ -256,99 +256,120 @@ export default function ProfileScreen() {
 
       if (!isMounted.current) return;
 
-      if (freshData) {
-        const storedUserRaw = await AsyncStorage.getItem('user');
-        const storedUser = storedUserRaw ? (() => {
-          try {
-            return JSON.parse(storedUserRaw);
-          } catch {
-            return {};
-          }
-        })() : {};
-
-        const [storedEmail, storedPhone, storedBranchName, storedBranchId, storedSchoolName, storedSchoolCode, storedTeacherId, storedEmployeeId, storedStudentId] =
-          await AsyncStorage.multiGet([
-            'email',
-            'phone',
-            'branch_name',
-            'branch_id',
-            'school_name',
-            'school_code',
-            'teacher_id',
-            'employee_id',
-            'student_id',
-          ]).then(items => items.map(([, value]) => value || ''));
-
-        const resolvedProfile = {
-          ...(freshData as any),
-          role: firstNonEmptyText((freshData as any)?.role, normalizedRole, 'student'),
-          name: firstNonEmptyText((freshData as any)?.name, (freshData as any)?.full_name, (freshData as any)?.teacher_full_name, (freshData as any)?.student_full_name, userName, storedUser?.name),
-          email: firstNonEmptyText((freshData as any)?.email, (freshData as any)?.email_id, (freshData as any)?.email_address, storedEmail, storedUser?.email),
-          phone: firstNonEmptyText((freshData as any)?.phone, (freshData as any)?.mobile, (freshData as any)?.mobile_number, (freshData as any)?.phone_number, storedPhone, storedUser?.phone),
-          branch_name: firstNonEmptyText((freshData as any)?.branch_name, (freshData as any)?.branchName, (freshData as any)?.branch, storedBranchName, storedUser?.branch_name),
-          branch_id: firstNonEmptyText((freshData as any)?.branch_id, (freshData as any)?.branchId, storedBranchId, storedUser?.branch_id),
-          school_name: firstNonEmptyText((freshData as any)?.school_name, (freshData as any)?.schoolName, (freshData as any)?.school, storedSchoolName, storedUser?.school_name),
-          school_code: firstNonEmptyText((freshData as any)?.school_code, (freshData as any)?.schoolCode, storedSchoolCode, storedUser?.school_code),
-          teacher_id: firstNonEmptyText((freshData as any)?.teacher_id, storedTeacherId, storedUser?.teacher_id),
-          employee_id: firstNonEmptyText((freshData as any)?.employee_id, storedEmployeeId, storedUser?.employee_id),
-          student_id: firstNonEmptyText((freshData as any)?.student_id, storedStudentId, storedUser?.student_id),
-          parent_guardian_email: firstNonEmptyText((freshData as any)?.parent_guardian_email, (freshData as any)?.parent_email, (freshData as any)?.guardian_email, (freshData as any)?.father_email, (freshData as any)?.mother_email, (freshData as any)?.father_guardian_email, storedUser?.parent_guardian_email),
-        };
-
-        setUserInfo(prev => ({
-          ...prev,
-          ...resolvedProfile,
-          role: resolvedProfile.role || prev.role || 'student',
-        }));
-
-        const entityId = roleBucket === 'student'
-          ? resolvedProfile.student_id
-          : (resolvedProfile.teacher_id || resolvedProfile.employee_id);
-        const schoolCode = resolvedProfile.school_code;
-        const photoCacheKey = getPhotoCacheKey(roleBucket, entityId, schoolCode);
-
-        if (photoCacheKey) {
-          const scopedCachedPhoto = await AsyncStorage.getItem(photoCacheKey);
-          if (scopedCachedPhoto && isMounted.current) {
-            setProfilePhotoUrl(scopedCachedPhoto);
-            setProfilePhotoError(false);
-          }
-        } else {
-          const cachedProfilePhoto = await AsyncStorage.getItem('profile_photo_url');
-          if (cachedProfilePhoto && isMounted.current) {
-            setProfilePhotoUrl(cachedProfilePhoto);
-            setProfilePhotoError(false);
-          }
+      const storedUserRaw = await AsyncStorage.getItem('user');
+      const storedUser = storedUserRaw ? (() => {
+        try {
+          return JSON.parse(storedUserRaw);
+        } catch {
+          return {};
         }
+      })() : {};
 
-        const directProfilePhoto = normalizePhotoUri(
-          (freshData as any)?.profile_photo_url ||
-          (roleBucket === 'student' ? (freshData as any)?.student_photograph : (freshData as any)?.teacher_photograph)
-        );
+      const [storedEmail, storedPhone, storedBranchName, storedBranchId, storedSchoolName, storedSchoolCode, storedTeacherId, storedEmployeeId, storedStudentId] =
+        await AsyncStorage.multiGet([
+          'email',
+          'phone',
+          'branch_name',
+          'branch_id',
+          'school_name',
+          'school_code',
+          'teacher_id',
+          'employee_id',
+          'student_id',
+        ]).then(items => items.map(([, value]) => value || ''));
 
-        let resolvedPhoto = directProfilePhoto;
-        if (!resolvedPhoto && entityId) {
-            try {
-              resolvedPhoto = roleBucket === 'student'
-                ? ((await withTimeout(Promise.resolve(getStudentProfilePhotoDataUri(entityId, schoolCode)))) || 
-                   (await withTimeout(Promise.resolve(getStudentProfilePhotoUrl(entityId, schoolCode)))))
-                : ((await withTimeout(Promise.resolve(getTeacherProfilePhotoDataUri(entityId, schoolCode)))) || 
-                   (await withTimeout(Promise.resolve(getTeacherProfilePhotoUrl(entityId, schoolCode)))));
-            } catch (photoError) {
-              console.warn('Error fetching profile photo:', photoError);
-              // Continue without photo on error
-            }
-        }
+      const profileSource = (freshData as any) || {};
+      const resolvedProfile = {
+        ...profileSource,
+        role: firstNonEmptyText(profileSource?.role, normalizedRole, 'student'),
+        name: firstNonEmptyText(profileSource?.name, profileSource?.full_name, profileSource?.teacher_full_name, profileSource?.student_full_name, userName, storedUser?.name),
+        email: firstNonEmptyText(profileSource?.email, profileSource?.email_id, profileSource?.email_address, storedEmail, storedUser?.email),
+        phone: firstNonEmptyText(profileSource?.phone, profileSource?.mobile, profileSource?.mobile_number, profileSource?.phone_number, storedPhone, storedUser?.phone),
+        branch_name: firstNonEmptyText(profileSource?.branch_name, profileSource?.branchName, profileSource?.branch, storedBranchName, storedUser?.branch_name),
+        branch_id: firstNonEmptyText(profileSource?.branch_id, profileSource?.branchId, storedBranchId, storedUser?.branch_id),
+        school_name: firstNonEmptyText(profileSource?.school_name, profileSource?.schoolName, profileSource?.school, storedSchoolName, storedUser?.school_name),
+        school_code: firstNonEmptyText(profileSource?.school_code, profileSource?.schoolCode, storedSchoolCode, storedUser?.school_code),
+        teacher_id: firstNonEmptyText(profileSource?.teacher_id, storedTeacherId, storedUser?.teacher_id),
+        employee_id: firstNonEmptyText(profileSource?.employee_id, storedEmployeeId, storedUser?.employee_id),
+        student_id: firstNonEmptyText(profileSource?.student_id, storedStudentId, storedUser?.student_id),
+        parent_guardian_email: firstNonEmptyText(profileSource?.parent_guardian_email, profileSource?.parent_email, profileSource?.guardian_email, profileSource?.father_email, profileSource?.mother_email, profileSource?.father_guardian_email, storedUser?.parent_guardian_email),
+        designation: firstNonEmptyText(profileSource?.designation, profileSource?.teacher_designation, storedUser?.designation),
+        department_subject: firstNonEmptyText(profileSource?.department_subject, profileSource?.department, profileSource?.subject, storedUser?.department_subject),
+        address: firstNonEmptyText(profileSource?.address, storedUser?.address),
+        blood_group: firstNonEmptyText(profileSource?.blood_group, storedUser?.blood_group),
+        date_of_birth: firstNonEmptyText(profileSource?.date_of_birth, storedUser?.date_of_birth),
+        gender: firstNonEmptyText(profileSource?.gender, storedUser?.gender),
+        nationality: firstNonEmptyText(profileSource?.nationality, storedUser?.nationality),
+        mother_tongue: firstNonEmptyText(profileSource?.mother_tongue, storedUser?.mother_tongue),
+        religion: firstNonEmptyText(profileSource?.religion, storedUser?.religion),
+        aadhaar_number: firstNonEmptyText(profileSource?.aadhaar_number, storedUser?.aadhaar_number),
+        date_of_joining: firstNonEmptyText(profileSource?.date_of_joining, storedUser?.date_of_joining),
+        qualification: firstNonEmptyText(profileSource?.qualification, storedUser?.qualification),
+        experience_years: firstNonEmptyText(profileSource?.experience_years, profileSource?.experience, storedUser?.experience_years),
+        roll_number: firstNonEmptyText(profileSource?.roll_number, storedUser?.roll_number),
+        class_grade: firstNonEmptyText(profileSource?.class_grade, profileSource?.class, storedUser?.class_grade),
+        section: firstNonEmptyText(profileSource?.section, storedUser?.section),
+        emergency_contact_name: firstNonEmptyText(profileSource?.emergency_contact_name, storedUser?.emergency_contact_name),
+        emergency_contact_number: firstNonEmptyText(profileSource?.emergency_contact_number, storedUser?.emergency_contact_number),
+        father_guardian_name: firstNonEmptyText(profileSource?.father_guardian_name, storedUser?.father_guardian_name),
+        father_guardian_mobile: firstNonEmptyText(profileSource?.father_guardian_mobile, storedUser?.father_guardian_mobile),
+        mother_guardian_name: firstNonEmptyText(profileSource?.mother_guardian_name, storedUser?.mother_guardian_name),
+        mother_guardian_mobile: firstNonEmptyText(profileSource?.mother_guardian_mobile, storedUser?.mother_guardian_mobile),
+      };
 
-        if (resolvedPhoto && isMounted.current) {
-          if (photoCacheKey) {
-            await AsyncStorage.setItem(photoCacheKey, resolvedPhoto);
-          } else {
-            await AsyncStorage.setItem('profile_photo_url', resolvedPhoto);
-          }
-          setProfilePhotoUrl(resolvedPhoto);
+      setUserInfo(prev => ({
+        ...prev,
+        ...resolvedProfile,
+        role: resolvedProfile.role || prev.role || 'student',
+      }));
+
+      const entityId = roleBucket === 'student'
+        ? resolvedProfile.student_id
+        : (resolvedProfile.teacher_id || resolvedProfile.employee_id);
+      const schoolCode = resolvedProfile.school_code;
+      const photoCacheKey = getPhotoCacheKey(roleBucket, entityId, schoolCode);
+
+      if (photoCacheKey) {
+        const scopedCachedPhoto = await AsyncStorage.getItem(photoCacheKey);
+        if (scopedCachedPhoto && isMounted.current) {
+          setProfilePhotoUrl(scopedCachedPhoto);
           setProfilePhotoError(false);
         }
+      } else {
+        const cachedProfilePhoto = await AsyncStorage.getItem('profile_photo_url');
+        if (cachedProfilePhoto && isMounted.current) {
+          setProfilePhotoUrl(cachedProfilePhoto);
+          setProfilePhotoError(false);
+        }
+      }
+
+      const directProfilePhoto = normalizePhotoUri(
+        profileSource?.profile_photo_url ||
+        (roleBucket === 'student' ? profileSource?.student_photograph : profileSource?.teacher_photograph)
+      );
+
+      let resolvedPhoto = directProfilePhoto;
+      if (!resolvedPhoto && entityId && freshData) {
+          try {
+            resolvedPhoto = roleBucket === 'student'
+              ? ((await withTimeout(Promise.resolve(getStudentProfilePhotoDataUri(entityId, schoolCode)))) || 
+                 (await withTimeout(Promise.resolve(getStudentProfilePhotoUrl(entityId, schoolCode)))))
+              : ((await withTimeout(Promise.resolve(getTeacherProfilePhotoDataUri(entityId, schoolCode)))) || 
+                 (await withTimeout(Promise.resolve(getTeacherProfilePhotoUrl(entityId, schoolCode)))));
+          } catch (photoError) {
+            console.warn('Error fetching profile photo:', photoError);
+            // Continue without photo on error
+          }
+      }
+
+      if (resolvedPhoto && isMounted.current) {
+        if (photoCacheKey) {
+          await AsyncStorage.setItem(photoCacheKey, resolvedPhoto);
+        } else {
+          await AsyncStorage.setItem('profile_photo_url', resolvedPhoto);
+        }
+        setProfilePhotoUrl(resolvedPhoto);
+        setProfilePhotoError(false);
       }
 
       const savedSettings = await AsyncStorage.getItem('app_settings');

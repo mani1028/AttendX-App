@@ -1,18 +1,45 @@
 import { NavigationProp } from '@react-navigation/native';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import type { RootStackParamList } from '../navigation/types';
+
+const resolveRouteNavigator = (
+  navigation: NavigationProp<any>,
+  route: keyof RootStackParamList
+): NavigationProp<any> => {
+  let currentNavigation: any = navigation;
+
+  while (currentNavigation) {
+    const routeNames = currentNavigation.getState?.()?.routeNames;
+    if (Array.isArray(routeNames) && routeNames.includes(route)) {
+      return currentNavigation;
+    }
+
+    const parent = currentNavigation.getParent?.();
+    if (!parent) {
+      break;
+    }
+
+    currentNavigation = parent;
+  }
+
+  return navigation;
+};
 
 /**
  * Safe navigation back that checks if we can go back first
  * Falls back to specified route if we can't go back
  */
 export const safeGoBack = (
-  navigation: NavigationProp<RootStackParamList>,
+  navigation: NavigationProp<any>,
   fallbackRoute?: keyof RootStackParamList
 ) => {
-  if (navigation.canGoBack()) {
+  if (navigation.canGoBack && navigation.canGoBack()) {
     navigation.goBack();
   } else if (fallbackRoute) {
-    navigation.navigate(fallbackRoute as never);
+    try {
+      navigation.navigate(fallbackRoute as any);
+    } catch (e) {
+      // ignore
+    }
   }
 };
 
@@ -20,19 +47,25 @@ export const safeGoBack = (
  * Navigate with fallback to main tabs if route doesn't exist
  */
 export const safeNavigate = (
-  navigation: NavigationProp<RootStackParamList>,
+  navigation: NavigationProp<any>,
   route: keyof RootStackParamList,
   params?: any
 ) => {
   try {
-    if (params) {
-      navigation.navigate(route as never, params as never);
-    } else {
-      navigation.navigate(route as never);
+    const targetNavigation: any = resolveRouteNavigator(navigation, route);
+
+    if (params !== undefined) {
+      targetNavigation.navigate(route, params);
+      return;
     }
+
+    targetNavigation.navigate(route);
   } catch (error) {
     console.warn(`[Navigation] Failed to navigate to ${String(route)}:`, error);
-    // Fallback to MainTabs
-    navigation.navigate('MainTabs' as never);
+    try {
+      navigation.navigate('MainTabs' as any);
+    } catch (e) {
+      // ignore
+    }
   }
 };

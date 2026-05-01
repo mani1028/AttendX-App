@@ -1313,7 +1313,13 @@ const styles = StyleSheet.create({
     paddingBottom: 60,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    elevation: 10,
+    ...Platform.select({
+
+      android: { elevation: 10 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.2,
@@ -1360,7 +1366,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: 'rgba(241, 245, 249, 0.8)',
-    elevation: 8,
+    ...Platform.select({
+
+      android: { elevation: 8 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -1418,7 +1430,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#F1F5F9',
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
     shadowOpacity: 0.05,
   },
   configHeader: {
@@ -1617,7 +1635,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(241, 245, 249, 0.8)',
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
     shadowOpacity: 0.05,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },

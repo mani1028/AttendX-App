@@ -2,10 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import API, { buildApiUrl } from './api';
 
 const PROFILE_ENDPOINTS = [
-  'teacher/marks/teacher-context',
-  'hm/dashboard/profile',
   'teacher/profile',
+  'teacher/marks/teacher-context',
   'teacher-dashboard/profile',
+  'auth/teacher-capability',
+  'hm/dashboard/profile',
   'profile/details'
 ];
 
@@ -312,6 +313,17 @@ export async function getTeacherProfile(): Promise<any> {
       }
     })() : {};
 
+    // Retrieve all stored values
+    const [
+      storedEmail, storedPhone, storedBranchName, storedBranchId,
+      storedSchoolName, storedSchoolCode, storedTeacherId, storedEmployeeId,
+      storedDesignation, storedDepartment, storedAddress, storedBloodGroup
+    ] = await AsyncStorage.multiGet([
+      'email', 'phone', 'branch_name', 'branch_id',
+      'school_name', 'school_code', 'teacher_id', 'employee_id',
+      'designation', 'department_subject', 'address', 'blood_group'
+    ]).then(items => items.map(([, value]) => value || ''));
+
     const responseData = await getFirstSuccessful<any>(PROFILE_ENDPOINTS, {
       ...FALLBACK_404_CONFIG,
     } as any);
@@ -331,6 +343,7 @@ export async function getTeacherProfile(): Promise<any> {
       root.items,
       root.teachers,
       root.records,
+      root.teacher,
       responseData,
     ].find(Array.isArray) as any[] | undefined;
 
@@ -379,22 +392,22 @@ export async function getTeacherProfile(): Promise<any> {
       profile_photo_url: photoSource || toText(firstDefined(raw.profile_photo_url, root.profile_photo_url)),
       teacher_photograph: toText(firstDefined(raw.teacher_photograph, root.teacher_photograph)),
       name: toText(firstDefined(raw.name, raw.full_name, raw.teacher_name, raw.teacher_full_name, root.name, root.teacher_name, storedUser?.name, storedUser?.full_name)),
-      email: toText(firstDefined(raw.email, raw.email_address, raw.email_id, raw.teacher_email, root.email, root.email_id, storedUser?.email)),
-      phone: toText(firstDefined(raw.phone, raw.mobile, raw.phone_number, raw.mobile_number, raw.contact_number, root.phone, root.mobile, storedUser?.phone)),
-      teacher_id: toText(firstDefined(raw.teacher_id, raw.teacherId, storedUser?.teacher_id, storedUser?.teacherId)),
-      employee_id: toText(firstDefined(raw.employee_id, raw.employeeId, storedUser?.employee_id, storedUser?.employeeId)),
-      school_code: toText(firstDefined(raw.school_code, root.school_code, storedUser?.school_code)),
-      school_name: toText(firstDefined(raw.school_name, raw.school, raw.schoolName, root.school_name, root.schoolName, storedUser?.school_name)),
-      branch_id: toText(firstDefined(raw.branch_id, raw.branchId, root.branch_id, root.branchId, storedUser?.branch_id)),
-      branch_name: toText(firstDefined(raw.branch_name, raw.branch, raw.branchName, root.branch_name, root.branchName, storedUser?.branch_name)),
-      designation: toText(firstDefined(raw.designation, raw.teacher_designation, root.designation, storedUser?.designation)),
-      department_subject: toText(firstDefined(raw.department_subject, raw.department, raw.subject, root.department_subject, storedUser?.department_subject)),
+      email: toText(firstDefined(raw.email, raw.email_address, raw.email_id, raw.teacher_email, root.email, root.email_id, storedEmail, storedUser?.email)),
+      phone: toText(firstDefined(raw.phone, raw.mobile, raw.phone_number, raw.mobile_number, raw.contact_number, root.phone, root.mobile, storedPhone, storedUser?.phone)),
+      teacher_id: toText(firstDefined(raw.teacher_id, raw.teacherId, storedTeacherId, storedUser?.teacher_id, storedUser?.teacherId)),
+      employee_id: toText(firstDefined(raw.employee_id, raw.employeeId, storedEmployeeId, storedUser?.employee_id, storedUser?.employeeId)),
+      school_code: toText(firstDefined(raw.school_code, root.school_code, storedSchoolCode, storedUser?.school_code)),
+      school_name: toText(firstDefined(raw.school_name, raw.school, raw.schoolName, root.school_name, root.schoolName, storedSchoolName, storedUser?.school_name)),
+      branch_id: toText(firstDefined(raw.branch_id, raw.branchId, root.branch_id, root.branchId, storedBranchId, storedUser?.branch_id)),
+      branch_name: toText(firstDefined(raw.branch_name, raw.branch, raw.branchName, root.branch_name, root.branchName, storedBranchName, storedUser?.branch_name)),
+      designation: toText(firstDefined(raw.designation, raw.teacher_designation, root.designation, storedDesignation, storedUser?.designation)),
+      department_subject: toText(firstDefined(raw.department_subject, raw.department, raw.subject, root.department_subject, storedDepartment, storedUser?.department_subject)),
       date_of_joining: toText(firstDefined(raw.date_of_joining, storedUser?.date_of_joining)),
       qualification: toText(firstDefined(raw.qualification, storedUser?.qualification)),
       experience_years: toText(firstDefined(raw.experience_years, raw.experience, storedUser?.experience_years)),
-      blood_group: toText(firstDefined(raw.blood_group, storedUser?.blood_group)),
+      blood_group: toText(firstDefined(raw.blood_group, storedBloodGroup, storedUser?.blood_group)),
       aadhaar_number: toText(firstDefined(raw.aadhaar_number, storedUser?.aadhaar_number)),
-      address: toText(firstDefined(raw.address, combinedAddress, storedUser?.address)),
+      address: toText(firstDefined(raw.address, combinedAddress, storedAddress, storedUser?.address)),
       gender: toText(firstDefined(raw.gender, storedUser?.gender)),
       nationality: toText(firstDefined(raw.nationality, storedUser?.nationality)),
       mother_tongue: toText(firstDefined(raw.mother_tongue, storedUser?.mother_tongue)),
@@ -484,6 +497,323 @@ export async function getTeacherAttendance(schoolCode: string, branchId: string,
 
 export async function updateTeacherProfile(data: any): Promise<any> {
   return postFirstSuccessful(UPDATE_PROFILE_ENDPOINTS, data);
+}
+
+/* ============ STUDENT REGISTRATION REQUESTS (Class Teacher Only) ============ */
+
+export async function getStudentRegistrationRequests(
+  schoolCode: string,
+  branchId: string,
+  params?: any
+): Promise<any> {
+  return getFirstSuccessful<any>(
+    ['teacher/student-registration-requests'],
+    {
+      params: {
+        branch_id: branchId,
+        ...params
+      },
+      headers: {
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+      },
+      suppressFallback404Log: false,
+    } as any
+  );
+}
+
+export async function approveStudentRegistration(
+  schoolCode: string,
+  branchId: string,
+  requestId: string
+): Promise<any> {
+  const endpoint = `teacher/student-registration-requests/${requestId}/accept`;
+  return postFirstSuccessful(
+    [endpoint],
+    {},
+    {
+      headers: {
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+      },
+    }
+  );
+}
+
+export async function rejectStudentRegistration(
+  schoolCode: string,
+  branchId: string,
+  requestId: string
+): Promise<any> {
+  const endpoint = `teacher/student-registration-requests/${requestId}/reject`;
+  return API.delete(endpoint, {
+    headers: {
+      'X-School-Code': schoolCode,
+      'X-Branch-Id': branchId,
+    },
+  });
+}
+
+/* ============ ATTENDANCE ENDPOINTS ============ */
+
+export async function markAttendance(
+  schoolCode: string,
+  branchId: string,
+  payload: any
+): Promise<any> {
+  return postFirstSuccessful(
+    ['teacher/mark-attendance'],
+    {
+      school_code: schoolCode,
+      branch_id: branchId,
+      ...payload,
+    },
+    {
+      headers: {
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+      },
+    }
+  );
+}
+
+export async function uploadVideoAttendance(
+  schoolCode: string,
+  branchId: string,
+  formData: FormData
+): Promise<any> {
+  return postFirstSuccessful(
+    ['teacher/video-attendance'],
+    formData,
+    {
+      headers: {
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+}
+
+export async function getAttendanceHistory(
+  schoolCode: string,
+  branchId: string,
+  classGrade: string,
+  section: string,
+  date?: string,
+  params?: any
+): Promise<any> {
+  return getFirstSuccessful<any>(
+    ['teacher/attendance-history'],
+    {
+      params: {
+        class_grade: String(classGrade).toLowerCase(),
+        section: String(section).toLowerCase(),
+        date: date || new Date().toISOString().split('T')[0],
+        branch_id: branchId,
+        ...params
+      },
+      headers: {
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+      },
+      suppressFallback404Log: false,
+    } as any
+  );
+}
+
+export async function markSelfAttendance(
+  schoolCode: string,
+  branchId: string,
+  payload: any
+): Promise<any> {
+  return postFirstSuccessful(
+    ['teacher/self-attendance'],
+    {
+      school_code: schoolCode,
+      branch_id: branchId,
+      ...payload,
+    },
+    {
+      headers: {
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+      },
+    }
+  );
+}
+
+/* ============ HOMEWORK & ACADEMICS ============ */
+
+export async function createHomework(
+  schoolCode: string,
+  branchId: string,
+  payload: any
+): Promise<any> {
+  return postFirstSuccessful(
+    ['teacher/homework/create'],
+    {
+      school_code: schoolCode,
+      branch_id: branchId,
+      ...payload,
+    },
+    {
+      headers: {
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+      },
+    }
+  );
+}
+
+export async function submitMarksEntry(
+  schoolCode: string,
+  branchId: string,
+  payload: any
+): Promise<any> {
+  return postFirstSuccessful(
+    ['teacher/marks/entry'],
+    {
+      school_code: schoolCode,
+      branch_id: branchId,
+      ...payload,
+    },
+    {
+      headers: {
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+      },
+    }
+  );
+}
+
+export async function uploadQuestionPapers(
+  schoolCode: string,
+  branchId: string,
+  formData: FormData
+): Promise<any> {
+  return postFirstSuccessful(
+    ['teacher/question-papers/upload'],
+    formData,
+    {
+      headers: {
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+}
+
+/* ============ LEAVE MANAGEMENT ============ */
+
+export async function applyLeave(
+  schoolCode: string,
+  branchId: string,
+  payload: any
+): Promise<any> {
+  return postFirstSuccessful(
+    ['teacher/leave/apply'],
+    {
+      school_code: schoolCode,
+      branch_id: branchId,
+      ...payload,
+    },
+    {
+      headers: {
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+      },
+    }
+  );
+}
+
+export async function approveStudentLeave(
+  schoolCode: string,
+  branchId: string,
+  payload: any
+): Promise<any> {
+  return postFirstSuccessful(
+    ['teacher/student-leave/approve'],
+    {
+      school_code: schoolCode,
+      branch_id: branchId,
+      ...payload,
+    },
+    {
+      headers: {
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+      },
+    }
+  );
+}
+
+/* ============ AI TOOLS & DIAGNOSTICS ============ */
+
+export async function predictSkinCondition(
+  schoolCode: string,
+  branchId: string,
+  payload: any
+): Promise<any> {
+  return postFirstSuccessful(
+    ['teacher/skin-prediction'],
+    {
+      school_code: schoolCode,
+      branch_id: branchId,
+      ...payload,
+    },
+    {
+      headers: {
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+      },
+    }
+  );
+}
+
+export async function processVitalScan(
+  schoolCode: string,
+  branchId: string,
+  payload: any
+): Promise<any> {
+  return postFirstSuccessful(
+    ['vitalscan/process'],
+    {
+      school_code: schoolCode,
+      branch_id: branchId,
+      ...payload,
+    },
+    {
+      headers: {
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+      },
+    }
+  );
+}
+
+/* ============ NOTIFICATIONS ============ */
+
+export async function getTeacherNotifications(
+  schoolCode: string,
+  branchId: string,
+  params?: any
+): Promise<any> {
+  return getFirstSuccessful<any>(
+    ['notifications/teacher/list'],
+    {
+      params: {
+        branch_id: branchId,
+        ...params
+      },
+      headers: {
+        'X-School-Code': schoolCode,
+        'X-Branch-Id': branchId,
+      },
+      suppressFallback404Log: false,
+    } as any
+  );
 }
 
 

@@ -539,7 +539,13 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     padding: 20,
     backgroundColor: '#FFFFFF',
-    elevation: 4,
+    ...Platform.select({
+
+      android: { elevation: 4 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -570,7 +576,13 @@ const styles = StyleSheet.create({
   },
   typeBtnActive: {
     backgroundColor: '#FFFFFF',
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,

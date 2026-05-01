@@ -17,6 +17,7 @@ import Icon from '@react-native-vector-icons/ionicons';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import type { RootStackParamList } from '../../navigation/AppNavigator';
+import { safeNavigate } from '../../utils/navigationHelpers';
 import Svg, { Path } from 'react-native-svg';
 import { getStudentAttendance, getStudentProfile, getStudentProfilePhotoDataUri, getStudentProfilePhotoUrl } from '../../services/studentService';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
@@ -49,21 +50,7 @@ export default function StudentDashboardScreen() {
     lastScrollY.current = currentScrollY;
   };
   const navigateRoot = (screen: keyof RootStackParamList, params?: any) => {
-    try {
-      let nav: any = navigation as any;
-      while (nav.getParent && nav.getParent()) {
-        const p = nav.getParent();
-        if (!p) break;
-        nav = p;
-      }
-      if (nav && nav.navigate) {
-        nav.navigate(screen as any, params);
-        return;
-      }
-    } catch (e) {
-      // fallback to current navigation
-    }
-    (navigation as any).navigate(screen as any, params);
+    safeNavigate(navigation as any, screen, params);
   };
   const [attendanceData, setAttendanceData] = useState({
     percentage: 0,

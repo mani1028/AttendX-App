@@ -129,7 +129,6 @@ const MENU_CONFIG: Record<string, RoleConfig> = {
     menu: [
       { title: 'Attendance Logs', route: 'TeacherAttendance', icon: '📋' },
       { title: 'Student Enrollment', route: 'StudentRegistration', icon: '👨‍🎓' },
-      { title: 'Manage Profiles', route: 'StudentList', icon: '📝' },
       { title: 'Attendance Verification', route: 'TeacherAttendance', icon: '✅' },
       { title: 'VitalScan AI', route: 'VitalScan', icon: '🔬' },
       { title: 'Homework Management', route: 'HomeworkManagement', icon: '📚' },
@@ -141,7 +140,6 @@ const MENU_CONFIG: Record<string, RoleConfig> = {
     pageTitles: {
       '/teacher-dashboard': 'Attendance Logs',
       '/teacher-dashboard/enroll': 'Student Enrollment',
-      '/teacher-dashboard/manage': 'Manage Profiles',
       '/teacher-dashboard/verify': 'Attendance Verification',
       '/teacher-dashboard/vitalscan': 'VitalScan AI',
       '/teacher-dashboard/homework-management': 'Homework Management',
@@ -218,6 +216,9 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
 
   const normalizedRole = normalizeRole(role);
   const config = MENU_CONFIG[normalizedRole] || MENU_CONFIG.teacher;
+  const effectiveRoleDisplay = normalizedRole === 'teacher' && isClassTeacher
+    ? 'Class Teacher'
+    : config.roleDisplay;
   
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -338,7 +339,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
       const details: Array<{ label: string; value: string }> = [];
       
       details.push({ label: 'Name', value: displayName });
-      details.push({ label: 'Role', value: config.roleDisplay });
+      details.push({ label: 'Role', value: effectiveRoleDisplay });
       if (schoolCode) details.push({ label: 'School Code', value: schoolCode });
       
       const userId = await AsyncStorage.getItem('user_id');
@@ -391,7 +392,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
     };
     
     buildProfileDetails();
-  }, [displayName, config.roleDisplay, role, schoolCode, isClassTeacher]);
+  }, [displayName, effectiveRoleDisplay, role, schoolCode, isClassTeacher]);
 
   const getInitials = (): string => {
     const name = displayName.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -501,7 +502,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
                 {!isCompact && (
                   <View style={styles.brandTextContainer}>
                     <Text style={styles.brandName} numberOfLines={1}>{displayName}</Text>
-                    <Text style={styles.brandRole}>{config.roleDisplay}</Text>
+                    <Text style={styles.brandRole}>{effectiveRoleDisplay}</Text>
                   </View>
                 )}
               </View>

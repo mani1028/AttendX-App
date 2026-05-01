@@ -862,7 +862,13 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 10,
-        elevation: 2,
+        ...Platform.select({
+
+          android: { elevation: 2 },
+
+          ios: {},
+
+        }),
         marginTop: 10,
     },
     cardTitle: {
@@ -996,7 +1002,13 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 10,
-        elevation: 2,
+        ...Platform.select({
+
+          android: { elevation: 2 },
+
+          ios: {},
+
+        }),
     },
     emptyHistoryState: {
         alignItems: 'center',
@@ -1034,7 +1046,13 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
-        elevation: 2,
+        ...Platform.select({
+
+          android: { elevation: 2 },
+
+          ios: {},
+
+        }),
     },
     illuIcon: {
         zIndex: 1,

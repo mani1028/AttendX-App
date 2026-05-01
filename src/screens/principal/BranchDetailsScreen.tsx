@@ -14,13 +14,13 @@ import {
   StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
-import { Dimensions } from 'react-native';
 import API from '../../services/api';
 import {
   getBranchTeachers,
@@ -1542,7 +1542,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -2278,7 +2284,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
   },
   viewAllLeavesText: {
     fontSize: 14,

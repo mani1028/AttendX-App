@@ -10,7 +10,8 @@ import {
   RefreshControl,
   Dimensions,
   Image,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,6 +40,8 @@ import type { RootStackParamList } from '../../navigation/AppNavigator';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import { safeNavigate } from '../../utils/navigationHelpers';
+import AvatarBubble from '../../components/common/AvatarBubble';
 import API from '../../services/api';
 import { 
   getAssignedClasses, 
@@ -339,8 +342,8 @@ export default function TeacherDashboardScreen() {
   const quickActions = [
     { label: 'Mark Attendance', icon: CalendarCheck2, color: '#3b82f6', route: 'TeacherAttendance' },
     { label: 'View Attendance', icon: Eye, color: '#06b6d4', route: 'TeacherViewAttendance' },
-    { label: 'Student Enrollment', icon: UserPlus, color: '#10b981', route: 'HMStudentRegistration' },
-    { label: 'Manage Profiles', icon: Users2, color: '#9f1239', route: 'TeacherStudentList' },
+    // Student Enrollment is a Class-Teacher only action; include only if effectiveIsClassTeacher
+    ...(effectiveIsClassTeacher ? [{ label: 'Student Enrollment', icon: UserPlus, color: '#10b981', route: 'HMStudentRegistration' }] : []),
     { label: 'Vital Scan AI', icon: Heart, color: '#ef4444', route: 'TeacherVitalScan' },
     { label: 'Marks Entry', icon: ClipboardEdit, color: '#eab308', route: 'TeacherMarksEntry' },
     { label: 'Homework', icon: BookOpen, color: '#06b6d4', route: 'TeacherHomeworkManagement' },
@@ -427,14 +430,27 @@ export default function TeacherDashboardScreen() {
       >
         <View style={[styles.navyHeader, { paddingTop: insets.top + 8 }]}> 
           <View style={styles.headerTop}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => safeGoBack(navigation, 'TeacherDashboard')}
-            >
-              <View style={styles.backIconCircle}>
-                <ImageIcon size={20} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />
-              </View>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity style={styles.profileContainer} onPress={() => safeNavigate(navigation as any, 'Profile')}>
+                {profilePhotoUrl && !profilePhotoError ? (
+                  <Image
+                    source={{ uri: profilePhotoUrl }}
+                    style={styles.profileImage}
+                    onError={() => setProfilePhotoError(true)}
+                  />
+                ) : (
+                  <AvatarBubble displayName={profile?.name || userName || 'User'} size={40} textSize={14} primaryColor={colors.accent} />
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.backButton, { marginLeft: 8 }]}
+                onPress={() => safeGoBack(navigation, 'TeacherDashboard')}
+              >
+                <View style={styles.backIconCircle}>
+                  <ImageIcon size={20} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />
+                </View>
+              </TouchableOpacity>
+            </View>
             <AppText weight="bold" style={styles.headerTitleCenter}>Teacher Dashboard</AppText>
             <TouchableOpacity
               style={styles.notificationBtn}
@@ -450,7 +466,12 @@ export default function TeacherDashboardScreen() {
           </View>
           <View style={styles.welcomeSection}>
             <AppText weight="bold" style={styles.hiText}>Hi {userName?.split(' ')[0] || profile?.name?.split(' ')[0] || 'Mahesh'} 👋</AppText>
-            <AppText weight="semiBold" style={styles.subText}>Here&apos;s what&apos;s happening today.</AppText>
+            <View style={styles.roleRow}>
+              <View style={[styles.roleBadge, effectiveIsClassTeacher ? styles.roleClass : styles.roleSubject]}>
+                <AppText weight="semiBold" style={styles.roleBadgeText}>{effectiveIsClassTeacher ? 'Class Teacher' : 'Teacher'}</AppText>
+              </View>
+              <AppText weight="semiBold" style={styles.subText}>Here&apos;s what&apos;s happening today.</AppText>
+            </View>
           </View>
         </View>
 
@@ -606,7 +627,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     marginBottom: 12,
-    elevation: 6,
+    ...Platform.select({
+
+      android: { elevation: 6 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18,
@@ -681,6 +708,26 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.6)',
     marginTop: 2,
   },
+  roleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  roleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  roleClass: {
+    backgroundColor: 'rgba(124,58,237,0.12)',
+  },
+  roleSubject: {
+    backgroundColor: 'rgba(59,130,246,0.12)',
+  },
+  roleBadgeText: {
+    fontSize: 11,
+    color: '#fff',
+  },
   cardsWrap: {
     marginTop: 0,
   },
@@ -707,7 +754,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06,
     shadowRadius: 10,
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
     alignItems: 'flex-start',
     flexDirection: 'row',
   },
@@ -785,7 +838,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
   },
   actionIconContainer: {
     width: 40,
@@ -841,7 +900,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
     shadowRadius: 12,
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
   },
   scheduleType: {
     fontSize: 15,

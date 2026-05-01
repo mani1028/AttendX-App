@@ -773,7 +773,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 3,
+    ...Platform.select({
+
+      android: { elevation: 3 },
+
+      ios: {},
+
+    }),
   },
   searchInput: {
     flex: 1,
@@ -793,7 +799,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 3,
+    ...Platform.select({
+
+      android: { elevation: 3 },
+
+      ios: {},
+
+    }),
   },
   filterButtonActive: {
     backgroundColor: '#3b82f6',
@@ -854,7 +866,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
   },
   statCard: {
     flex: 1,
@@ -891,7 +909,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 6,
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
   },
   subjectHeader: {
     flexDirection: 'row',

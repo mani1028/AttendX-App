@@ -928,7 +928,13 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    elevation: 10,
+    ...Platform.select({
+
+      android: { elevation: 10 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
@@ -977,7 +983,13 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 10,
     zIndex: 50,
-    elevation: 50,
+    ...Platform.select({
+
+      android: { elevation: 50 },
+
+      ios: {},
+
+    }),
     position: 'relative',
   },
   tab: {
@@ -989,7 +1001,13 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     backgroundColor: '#FFFFFF',
-    elevation: 4,
+    ...Platform.select({
+
+      android: { elevation: 4 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -1017,7 +1035,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 15,
-    elevation: 4,
+    ...Platform.select({
+
+      android: { elevation: 4 },
+
+      ios: {},
+
+    }),
     marginBottom: 20,
   },
   fieldRow: {
@@ -1089,7 +1113,13 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 28,
     alignItems: 'center',
-    elevation: 3,
+    ...Platform.select({
+
+      android: { elevation: 3 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -1125,7 +1155,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
     shadowRadius: 10,
-    elevation: 1,
+    ...Platform.select({
+
+      android: { elevation: 1 },
+
+      ios: {},
+
+    }),
   },
   actionIconLabel: {
     fontSize: 10,
@@ -1141,7 +1177,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 15,
-    elevation: 4,
+    ...Platform.select({
+
+      android: { elevation: 4 },
+
+      ios: {},
+
+    }),
   },
   listHeader: {
     flexDirection: 'row',

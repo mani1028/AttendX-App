@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AvatarBubble from './AvatarBubble';
 import AppText from './AppText';
+import { safeNavigate } from '../../utils/navigationHelpers';
 
 const Header = () => {
   const { userRole, userName } = useAuth();
@@ -14,41 +15,11 @@ const Header = () => {
   const { unreadCount } = useUnreadNotifications();
 
   const handleProfilePress = () => {
-    try {
-      let nav: any = navigation;
-      while (nav.getParent && nav.getParent()) {
-        const parent = nav.getParent();
-        if (!parent) {
-          break;
-        }
-        nav = parent;
-      }
-
-      if (nav && nav.navigate) {
-        nav.navigate('Profile');
-        return;
-      }
-    } catch (error) {}
-
-    navigation.navigate('Profile');
+    safeNavigate(navigation as any, 'Profile');
   };
 
   const handleNotificationsPress = () => {
-    try {
-      let nav: any = navigation;
-      while (nav.getParent && nav.getParent()) {
-        const p = nav.getParent();
-        if (!p) {
-          break;
-        }
-        nav = p;
-      }
-      if (nav && nav.navigate) {
-        nav.navigate('Notifications');
-        return;
-      }
-    } catch (e) {}
-    navigation.navigate('Notifications');
+    safeNavigate(navigation as any, 'Notifications');
   };
 
   const displayName = userName || 'User';

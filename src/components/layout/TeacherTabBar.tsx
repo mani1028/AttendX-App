@@ -142,7 +142,13 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
       },
       android: {
-        elevation: 8,
+        ...Platform.select({
+
+          android: { elevation: 8 },
+
+          ios: {},
+
+        }),
       },
     }),
   },

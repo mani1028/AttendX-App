@@ -524,7 +524,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
-    elevation: 3,
+    ...Platform.select({
+
+      android: { elevation: 3 },
+
+      ios: {},
+
+    }),
     marginTop: 10,
   },
   ledgerTitle: {
@@ -557,7 +563,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 4,
+    ...Platform.select({
+
+      android: { elevation: 4 },
+
+      ios: {},
+
+    }),
   },
   summaryIconContainer: {
     width: 56,
@@ -616,7 +628,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
-    elevation: 3,
+    ...Platform.select({
+
+      android: { elevation: 3 },
+
+      ios: {},
+
+    }),
   },
   detailsHeader: {
     flexDirection: 'row',
@@ -678,7 +696,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
-    elevation: 3,
+    ...Platform.select({
+
+      android: { elevation: 3 },
+
+      ios: {},
+
+    }),
   },
   historyHeader: {
     flexDirection: 'row',
