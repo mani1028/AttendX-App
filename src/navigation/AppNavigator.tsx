@@ -31,6 +31,8 @@ import TeacherTabBar from '../components/layout/TeacherTabBar';
 // ─── Auth Screens ───────────────────────────────────────────────────────────
 import LoginScreen from '../screens/auth/LoginScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import VerifyOtpScreen from '../screens/auth/VerifyOtpScreen';
+import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import RegisterSchoolScreen from '../screens/auth/RegisterSchoolScreen';
 
 // ─── Common Screens ─────────────────────────────────────────────────────────
@@ -274,9 +276,14 @@ const HMTabNavigator = () => (
   </Tab.Navigator>
 );
 
-const TeacherTabNavigator = () => {
+// Wrapper components for conditional Teacher Leaves screen
+const TeacherLeavesWrapper = React.memo(() => {
   const { isClassTeacher } = useAuth();
-  
+  return isClassTeacher ? <TeacherLeaveApprovalScreen /> : <TeacherLeaveRequestScreen />;
+});
+TeacherLeavesWrapper.displayName = 'TeacherLeavesWrapper';
+
+const TeacherTabNavigator = () => {
   return (
     <Tab.Navigator
       tabBar={(props) => <TeacherTabBar {...props} />}
@@ -290,7 +297,7 @@ const TeacherTabNavigator = () => {
       {/* Leaves tab: Show Leave Approval for Class Teachers, Leave Request for Subject Teachers */}
       <Tab.Screen 
         name="Leaves" 
-        component={isClassTeacher ? TeacherLeaveApprovalScreen : TeacherLeaveRequestScreen} 
+        component={TeacherLeavesWrapper} 
       />
       <Tab.Screen name="Marks" component={TeacherMarksEntryScreen} />
     </Tab.Navigator>
@@ -382,6 +389,8 @@ export default function AppNavigator() {
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+          <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
+          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
           <Stack.Screen name="RegisterSchool" component={RegisterSchoolScreen} />
           <Stack.Screen name="Pricing" component={PricingScreen} />
           <Stack.Screen name="Loading" component={LoadingScreen} />

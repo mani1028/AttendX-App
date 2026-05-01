@@ -286,7 +286,7 @@ const FormField: React.FC<{
 const PreviewField: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <View style={styles.previewField}>
     <AppText weight="semiBold" style={styles.previewFieldLabel}>{label}</AppText>
-    <AppText weight="medium" style={styles.previewFieldValue}>{value || '—'}</AppText>
+    <AppText weight="regular" style={styles.previewFieldValue}>{value || '—'}</AppText>
   </View>
 );
 

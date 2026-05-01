@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from "react-native";
 import { authService } from '../../api/authService';
-import AppInput from '../../components/common/AppInput';
+import { AppInput } from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import ScreenContainer from '../../components/ScreenContainer';
 import { formatErrorMessage } from '../../utils/helpers';

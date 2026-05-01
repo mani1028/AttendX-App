@@ -737,7 +737,7 @@ export default function BranchDetailsScreen() {
 
   const handleStudentClick = async (student: Student | StudentMarkSummary) => {
     // If it's a raw Student object, create a partial summary
-    if ('student_full_name' in student) {
+    if (student && 'student_full_name' in student) {
       const summary: StudentMarkSummary = {
         student_id: student.student_id,
         student_name: student.student_full_name,
@@ -869,7 +869,7 @@ export default function BranchDetailsScreen() {
               style={[styles.tab, activeTab === tab && styles.tabActive]}
               onPress={() => setActiveTab(tab as any)}
             >
-              <AppText style={[styles.tabText, activeTab === tab && styles.tabTextActive]} weight="medium">
+              <AppText style={[styles.tabText, activeTab === tab && styles.tabTextActive]} weight="regular">
                 {tab === 'teachers' && 'Teachers'}
                 {tab === 'students' && 'Students'}
                 {tab === 'attendance' && 'Attendance'}

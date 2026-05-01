@@ -1079,7 +1079,7 @@ export default function MarksEntryScreen() {
 
           <View style={styles.headerContent}>
             <AppText weight="bold" style={styles.headerGreeting}>Academic Grading</AppText>
-            <AppText weight="medium" style={styles.headerSubtext}>Enter and manage student marks for examinations</AppText>
+            <AppText weight="regular" style={styles.headerSubtext}>Enter and manage student marks for examinations</AppText>
           </View>
         </View>
 

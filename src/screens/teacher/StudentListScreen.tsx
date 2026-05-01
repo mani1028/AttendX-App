@@ -143,7 +143,7 @@ const StudentCard: React.FC<{
         </View>
         <View style={styles.studentDetails}>
           <AppText weight="bold" style={styles.studentName} numberOfLines={1}>{student.student_full_name}</AppText>
-          <AppText weight="medium" style={styles.studentClass}>Class {student.class_grade} • Section {student.section}</AppText>
+          <AppText weight="regular" style={styles.studentClass}>Class {student.class_grade} • Section {student.section}</AppText>
         </View>
       </View>
       

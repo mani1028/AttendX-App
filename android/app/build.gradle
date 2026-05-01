@@ -7,10 +7,11 @@ apply plugin: "com.facebook.react"
  */
 react {
     autolinkLibrariesWithApp()
+    hermesEnabled = false
 }
 
 def enableProguardInReleaseBuilds = true
-def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+def jscFlavor = 'org.webkit:android-jsc:+'
 
 android {
     ndkVersion rootProject.ext.ndkVersion

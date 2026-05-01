@@ -25,7 +25,6 @@ const config = {
     sourceExts: [...defaultConfig.resolver.sourceExts, 'cjs'],
     blockList: [
       /node_modules\/@giphy\/react-native-sdk\/.*/,
-      /node_modules\/@react-native-vector-icons\/.*/,
     ]
   },
 };

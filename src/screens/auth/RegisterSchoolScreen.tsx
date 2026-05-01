@@ -16,7 +16,7 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import API from '../../services/api';
 import AppButton from '../../components/common/AppButton';
-import AppInput from '../../components/common/AppInput';
+import { AppInput } from '../../components/common/AppInput';
 import ScreenContainer from '../../components/ScreenContainer';
 import { formatErrorMessage } from '../../utils/helpers';
 

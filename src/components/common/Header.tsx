@@ -155,15 +155,3 @@ const styles = StyleSheet.create({
 });
 
 export default Header;
-    alignItems: 'center',
-    gap: 12,
-  },
-  iconButton: {
-    padding: 4,
-  },
-  profileButton: {
-    padding: 2,
-  },
-});
-
-export default Header;
