@@ -98,7 +98,7 @@ const formatDateLabel = (value: string) => {
 export default function TeacherDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
-  const { userName, setTabBarVisible } = useAuth();
+  const { userName, setTabBarVisible, isClassTeacher: authIsClassTeacher } = useAuth();
   const isMounted = useRef(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -107,7 +107,12 @@ export default function TeacherDashboardScreen() {
   const [profilePhotoError, setProfilePhotoError] = useState(false);
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
   const [attendanceLoading, setAttendanceLoading] = useState(true);
+  const [assignedClasses, setAssignedClasses] = useState<any[]>([]);
+  const [classesLoading, setClassesLoading] = useState(true);
   const { unreadCount, refreshUnreadCount } = useUnreadNotifications();
+
+  // Determine effective class teacher status (from auth or profile)
+  const effectiveIsClassTeacher = profile?.is_class_teacher || authIsClassTeacher;
 
   const lastScrollY = useRef(0);
 
@@ -192,6 +197,17 @@ export default function TeacherDashboardScreen() {
 
         if (attendanceSchoolCode && branchId && employeeId) {
           try {
+            // Fetch assigned classes for the schedule section
+            const classes = await getAssignedClasses(attendanceSchoolCode, branchId, employeeId);
+            const resolvedAssigned = (Array.isArray(classes) && classes.length > 0)
+              ? classes
+              : (await teacherMock.getAssignedClassesMock());
+
+            if (isMounted.current) {
+              setAssignedClasses(resolvedAssigned);
+              setClassesLoading(false);
+            }
+
             // 1. Fetch Branch-wide stats for "Today's Attendance" section
             const branchStats = await getBranchStats(attendanceSchoolCode, branchId);
             
@@ -220,11 +236,6 @@ export default function TeacherDashboardScreen() {
               });
             } else {
               // 2. Fallback: Fetch Specific Class Attendance if branch stats are missing
-              const assignedClasses = await getAssignedClasses(attendanceSchoolCode, branchId, employeeId);
-              const resolvedAssigned = (Array.isArray(assignedClasses) && assignedClasses.length > 0)
-                ? assignedClasses
-                : (await teacherMock.getAssignedClassesMock());
-
               const activeClass = resolvedAssigned.find((item: any) => item?.class_grade && item?.section) || resolvedAssigned[0];
 
               if (activeClass?.class_grade && activeClass?.section) {
@@ -297,6 +308,7 @@ export default function TeacherDashboardScreen() {
         setLoading(false);
         setRefreshing(false);
         setAttendanceLoading(false);
+        setClassesLoading(false);
       }
     }
   }, [refreshUnreadCount]);
@@ -329,20 +341,35 @@ export default function TeacherDashboardScreen() {
   const quickActions = [
     { label: 'Mark Attendance', icon: CalendarCheck2, color: '#3b82f6', route: 'TeacherAttendance' },
     { label: 'View Attendance', icon: Eye, color: '#06b6d4', route: 'TeacherViewAttendance' },
-    { label: 'Attendance Gallery', icon: ImageIcon, color: '#8b5cf6', route: 'TeacherAttendanceGallery' },
-    { label: 'Student Enrollment', icon: UserPlus, color: '#10b981', route: 'TeacherRegisterPublic' },
+    { label: 'Student Enrollment', icon: UserPlus, color: '#10b981', route: 'HMStudentRegistration' },
     { label: 'Manage Profiles', icon: Users2, color: '#9f1239', route: 'TeacherStudentList' },
     { label: 'Vital Scan AI', icon: Heart, color: '#ef4444', route: 'TeacherVitalScan' },
     { label: 'Marks Entry', icon: ClipboardEdit, color: '#eab308', route: 'TeacherMarksEntry' },
     { label: 'Homework', icon: BookOpen, color: '#06b6d4', route: 'TeacherHomeworkManagement' },
     { label: 'Leave Request', icon: Clock, color: '#f59e0b', route: 'TeacherLeaveRequest' },
-    { label: 'Leave Approval', icon: FileEdit, color: '#7c3aed', route: 'TeacherLeaveApproval' },
+    // Class Teacher specific actions - only show for class teachers
+    ...(effectiveIsClassTeacher ? [
+      { label: 'Leave Approval', icon: FileEdit, color: '#7c3aed', route: 'TeacherLeaveApproval' },
+    ] : []),
   ];
 
-  const schedule = [
-    { title: 'Upcoming', class: 'Class 1 • Section A', status: 'Upcoming', statusColor: '#10b981', statusBg: '#f0fdf4' },
-    { title: 'Completed', class: 'Class 1 • Section A', status: 'Finished', statusColor: '#f59e0b', statusBg: '#fffbeb' },
-  ];
+  const schedule = assignedClasses.length > 0
+    ? assignedClasses.map((cls: any) => ({
+        title: cls.subject_name || (cls.is_class_teacher ? 'Class Teacher' : 'Subject Teacher'),
+        class: `Class ${cls.class_grade} • Section ${cls.section}`,
+        status: 'Today',
+        statusColor: '#3b82f6',
+        statusBg: '#eff6ff',
+      }))
+    : [
+        {
+          title: 'No Classes',
+          class: 'No assigned classes found',
+          status: 'N/A',
+          statusColor: '#64748b',
+          statusBg: '#f1f5f9',
+        },
+      ];
 
   const attendanceStats = attendanceSummary
     ? [
@@ -389,6 +416,7 @@ export default function TeacherDashboardScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
+
       <ScrollView
         style={styles.scrollView}
         onScroll={handleScroll}
@@ -399,23 +427,17 @@ export default function TeacherDashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
         }
       >
-        <View style={[styles.navyHeader, { paddingTop: insets.top + 16 }]}>
+        <View style={[styles.navyHeader, { paddingTop: insets.top + 8 }]}> 
           <View style={styles.headerTop}>
             <TouchableOpacity
-              style={styles.profileContainer}
-              onPress={() => navigation.navigate('Profile')}
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
             >
-              <Image
-                source={
-                  profilePhotoUrl && !profilePhotoError
-                    ? { uri: profilePhotoUrl }
-                    : { uri: 'https://avatar.iran.liara.run/public/31' }
-                }
-                style={styles.profileImage}
-                onError={() => setProfilePhotoError(true)}
-              />
+              <View style={styles.backIconCircle}>
+                <ImageIcon size={20} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />
+              </View>
             </TouchableOpacity>
-            <AppText weight="bold" style={styles.headerTitle}>Teacher Dashboard</AppText>
+            <AppText weight="bold" style={styles.headerTitleCenter}>Teacher Dashboard</AppText>
             <TouchableOpacity
               style={styles.notificationBtn}
               onPress={() => navigation.navigate('Notifications')}
@@ -428,7 +450,6 @@ export default function TeacherDashboardScreen() {
               )}
             </TouchableOpacity>
           </View>
-
           <View style={styles.welcomeSection}>
             <AppText weight="bold" style={styles.hiText}>Hi {userName?.split(' ')[0] || profile?.name?.split(' ')[0] || 'Mahesh'} 👋</AppText>
             <AppText weight="semiBold" style={styles.subText}>Here&apos;s what&apos;s happening today.</AppText>
@@ -515,22 +536,25 @@ export default function TeacherDashboardScreen() {
           <View style={styles.sectionBlock}>
             <View style={styles.sectionHeaderRow}>
               <AppText weight="bold" style={styles.sectionTitle}>Today&apos;s Schedule</AppText>
-              <TouchableOpacity onPress={() => {}}>
-                <AppText weight="bold" style={styles.viewAllBtn}>View All</AppText>
-              </TouchableOpacity>
             </View>
 
-            {schedule.map((item, index) => (
-              <View key={index} style={styles.scheduleCard}>
-                <View>
-                  <AppText weight="bold" style={styles.scheduleType}>{item.title}</AppText>
-                  <AppText weight="semiBold" style={styles.scheduleInfo}>{item.class}</AppText>
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: item.statusBg }]}> 
-                  <AppText weight="bold" style={[styles.statusLabel, { color: item.statusColor }]}>{item.status}</AppText>
-                </View>
+            {classesLoading ? (
+              <View style={styles.attendanceLoadingCard}>
+                <ActivityIndicator size="small" color="#001F3F" />
               </View>
-            ))}
+            ) : (
+              schedule.map((item, index) => (
+                <View key={index} style={styles.scheduleCard}>
+                  <View>
+                    <AppText weight="bold" style={styles.scheduleType}>{item.title}</AppText>
+                    <AppText weight="semiBold" style={styles.scheduleInfo}>{item.class}</AppText>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: item.statusBg }]}>
+                    <AppText weight="bold" style={[styles.statusLabel, { color: item.statusColor }]}>{item.status}</AppText>
+                  </View>
+                </View>
+              ))
+            )}
           </View>
         </View>
 
@@ -541,6 +565,31 @@ export default function TeacherDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginRight: 4,
+  },
+  backIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitleCenter: {
+    flex: 1,
+    textAlign: 'center',
+    color: '#FFFFFF',
+    fontSize: 16,
+    paddingHorizontal: 0,
+    fontWeight: 'bold',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
@@ -603,13 +652,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
   },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    color: '#FFFFFF',
-    fontSize: 16,
-    paddingHorizontal: 10,
-  },
+  // ...existing code...
   badge: {
     position: 'absolute',
     top: 8,

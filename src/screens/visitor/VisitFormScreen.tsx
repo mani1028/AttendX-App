@@ -19,6 +19,7 @@ import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { formatErrorMessage } from '../../utils/helpers';
 
 // Types
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'VisitForm'>;
@@ -233,7 +234,7 @@ export default function VisitFormScreen() {
       }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to submit visitor registration');
-      Alert.alert('Error', err.response?.data?.detail || 'Failed to submit visitor registration');
+      Alert.alert('Error', formatErrorMessage(err.response?.data?.detail) || 'Failed to submit visitor registration');
     } finally {
       setSubmitting(false);
     }

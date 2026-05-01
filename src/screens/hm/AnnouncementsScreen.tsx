@@ -28,6 +28,7 @@ import { colors } from "../../constants/theme";
 import AppText from "../../components/common/AppText";
 import { useAuth } from "../../context/AuthContext";
 import { HM_THEME as C } from "../../constants/hmTheme";
+import { formatErrorMessage } from "../../utils/helpers";
 
 
 type Announcement = {
@@ -138,7 +139,7 @@ const AnnouncementsScreen = () => {
 
       setAnnouncements(response.data.items || []);
     } catch (error: any) {
-      Alert.alert("Error", "Failed to load announcements");
+      Alert.alert("Error", formatErrorMessage(error?.response?.data?.detail || "Failed to load announcements"));
     } finally {
       setListLoading(false);
     }
@@ -189,8 +190,7 @@ const AnnouncementsScreen = () => {
     } catch (error: any) {
       Alert.alert(
         "Error",
-        error?.response?.data?.detail ||
-          "Failed to post announcement"
+        formatErrorMessage(error?.response?.data?.detail || "Failed to post announcement")
       );
     } finally {
       setLoading(false);
@@ -228,8 +228,7 @@ const AnnouncementsScreen = () => {
     } catch (error: any) {
       Alert.alert(
         "Error",
-        error?.response?.data?.detail ||
-          "Failed to resend announcement"
+        formatErrorMessage(error?.response?.data?.detail || "Failed to resend announcement")
       );
     } finally {
       setResendingId(null);
@@ -271,8 +270,7 @@ const AnnouncementsScreen = () => {
             } catch (error: any) {
               Alert.alert(
                 "Error",
-                error?.response?.data?.detail ||
-                  "Failed to delete announcement"
+                formatErrorMessage(error?.response?.data?.detail || "Failed to delete announcement")
               );
             }
           },

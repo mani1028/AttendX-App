@@ -34,6 +34,7 @@ import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { HM_THEME as C } from '../../constants/hmTheme';
+import { formatErrorMessage } from '../../utils/helpers';
 
 
 interface Expense {
@@ -150,8 +151,7 @@ const ExpenseManagement = () => {
       setExpenses(response.data || []);
     } catch (error: any) {
       console.error("Error fetching expenses:", error);
-      const errorMsg = error?.response?.data?.message || error?.message || "Failed to fetch expenses";
-      Alert.alert('Error', errorMsg);
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || "Failed to fetch expenses"));
     } finally {
       setLoading(false);
     }
@@ -207,8 +207,7 @@ const ExpenseManagement = () => {
       await fetchExpenses();
     } catch (error: any) {
       console.error("Error adding expense:", error);
-      const errorMsg = error?.response?.data?.message || error?.message || "Error adding expense";
-      Alert.alert('Error', errorMsg);
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || "Error adding expense"));
     } finally {
       setLoading(false);
     }
@@ -229,8 +228,7 @@ const ExpenseManagement = () => {
       await fetchExpenses();
     } catch (error: any) {
       console.error("Error deleting expense:", error);
-      const errorMsg = error?.response?.data?.message || error?.message || "Error deleting expense";
-      Alert.alert('Error', errorMsg);
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || "Error deleting expense"));
     } finally {
       setLoading(false);
     }

@@ -38,6 +38,7 @@ import {
   X
 } from 'lucide-react-native';
 import API from '../../services/api';
+import { formatErrorMessage } from '../../utils/helpers';
 import { colors } from '../../constants/theme';
 import HM_THEME from '../../constants/hmTheme';
 import AppButton from '../../components/common/AppButton';
@@ -875,7 +876,7 @@ export default function MarksEntryScreen() {
     } catch (err: any) {
       if (err?.response?.status === 401) return;
       if (isMounted.current) {
-        Alert.alert('Error', err?.response?.data?.detail || 'Failed to load students');
+        Alert.alert('Error', formatErrorMessage(err?.response?.data?.detail) || 'Failed to load students');
       }
     } finally {
       if (isMounted.current) setLoadingStudents(false);
@@ -963,7 +964,7 @@ export default function MarksEntryScreen() {
       return true;
     } catch (err: any) {
       if (err?.response?.status === 401) return false;
-      const errorMsg = err?.response?.data?.detail || 'Failed to save marks';
+      const errorMsg = formatErrorMessage(err?.response?.data?.detail) || 'Failed to save marks';
       if (!silent && isMounted.current) Alert.alert('Error', errorMsg);
       return false;
     } finally {
@@ -1002,7 +1003,7 @@ export default function MarksEntryScreen() {
     } catch (err: any) {
       if (err?.response?.status === 401) return;
       if (isMounted.current) {
-        Alert.alert('Error', err?.response?.data?.detail || 'Failed to save exam config');
+        Alert.alert('Error', formatErrorMessage(err?.response?.data?.detail) || 'Failed to save exam config');
       }
     } finally {
       if (isMounted.current) setSavingExamConfig(false);

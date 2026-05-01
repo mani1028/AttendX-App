@@ -14,6 +14,7 @@ import { authService } from '../../api/authService';
 import AppInput from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import ScreenContainer from '../../components/ScreenContainer';
+import { formatErrorMessage } from '../../utils/helpers';
 
 export default function ForgotPasswordScreen({ navigation }: any) {
   const [schoolId, setSchoolId] = useState('');
@@ -39,9 +40,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
       console.error('[ForgotPassword] Error requesting OTP:', error?.response?.data || error?.message);
       
       const errorMessage = 
-        error?.response?.data?.message || 
-        error?.response?.data?.detail || 
-        error?.response?.data?.error || 
+        formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.response?.data?.error) ||
         error?.message || 
         'Failed to send OTP. Please check your school code and email/employee ID.';
       

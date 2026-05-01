@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import API, { buildApiUrl } from './api';
 
 const PROFILE_ENDPOINTS = [
+  'auth/teacher-capability',
   'teacher/marks/teacher-context',
   'hm/dashboard/profile',
   'teacher/profile',
@@ -111,6 +112,7 @@ async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
         ...restConfig,
         params: {
           school_code: schoolCode,
+          school_id: schoolCode,
           teacher_id: teacherId,
           employee_id: teacherId,
           ...params
@@ -224,37 +226,6 @@ export async function getStudentsByClass(schoolCode: string, branchId: string, c
   }
 }
 
-export async function getTeacherGallery(schoolCode: string, branchId: string, teacherId: string): Promise<any[]> {
-  const endpoints = [
-    'manage/attendance/teacher/gallery',
-    'teacher/attendance/gallery/teacher'
-  ];
-  try {
-    const data = await getFirstSuccessful<any>(endpoints, {
-      params: { school_code: schoolCode, branch_id: branchId, teacher_id: teacherId },
-      headers: { 'X-School-Code': schoolCode }
-    });
-    return data.images || (Array.isArray(data) ? data : []);
-  } catch (err) {
-    return [];
-  }
-}
-
-export async function getStudentGallery(schoolCode: string, branchId: string, classGrade: string, section: string): Promise<any[]> {
-  const endpoints = [
-    'manage/attendance/student/gallery',
-    'teacher/attendance/gallery/student'
-  ];
-  try {
-    const data = await getFirstSuccessful<any>(endpoints, {
-      params: { school_code: schoolCode, branch_id: branchId, class_grade: classGrade, section: section },
-      headers: { 'X-School-Code': schoolCode }
-    });
-    return data.images || (Array.isArray(data) ? data : []);
-  } catch (err) {
-    return [];
-  }
-}
 
 export async function getTeacherProfilePhotoUrl(teacherId?: string, schoolCode?: string): Promise<string | null> {
   const resolvedTeacherId =
@@ -390,6 +361,15 @@ export async function getTeacherProfile(): Promise<any> {
       }
     }
 
+    const combinedAddress = [
+      raw.house_no,
+      raw.street_locality,
+      raw.village_town_city,
+      raw.district,
+      raw.state,
+      raw.pin_code
+    ].filter(v => toText(v).trim()).join(', ');
+
     return {
       ...raw,
       profile_photo_url: photoSource || toText(firstDefined(raw.profile_photo_url, root.profile_photo_url)),
@@ -410,7 +390,7 @@ export async function getTeacherProfile(): Promise<any> {
       experience_years: toText(firstDefined(raw.experience_years, raw.experience, storedUser?.experience_years)),
       blood_group: toText(firstDefined(raw.blood_group, storedUser?.blood_group)),
       aadhaar_number: toText(firstDefined(raw.aadhaar_number, storedUser?.aadhaar_number)),
-      address: toText(firstDefined(raw.address, storedUser?.address)),
+      address: toText(firstDefined(raw.address, combinedAddress, storedUser?.address)),
       gender: toText(firstDefined(raw.gender, storedUser?.gender)),
       nationality: toText(firstDefined(raw.nationality, storedUser?.nationality)),
       mother_tongue: toText(firstDefined(raw.mother_tongue, storedUser?.mother_tongue)),

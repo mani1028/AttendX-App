@@ -56,7 +56,6 @@ import TeacherStudentListScreen from '../screens/teacher/StudentListScreen';
 import TeacherSkinDiseaseScreen from '../screens/teacher/SkinDiseaseScreen';
 import TeacherVitalScanScreen from '../screens/teacher/VitalScanScreen';
 import TeacherViewAttendanceScreen from '../screens/teacher/ViewAttendanceScreen';
-import TeacherAttendanceGalleryScreen from '../screens/teacher/AttendanceGalleryScreen';
 import MarkAttendanceScreen from '../components/teacher/MarkAttendanceScreen';
 
 import TeacherHomeworkSubmissionsScreen from '../screens/teacher/HomeworkSubmissionsScreen';
@@ -143,7 +142,6 @@ export type RootStackParamList = {
   TeacherSkinDisease: undefined;
   TeacherVitalScan: undefined;
   TeacherViewAttendance: undefined;
-  TeacherAttendanceGallery: undefined;
   TeacherHomeworkSubmissions: { homeworkId: string; title: string };
   MarkAttendance: undefined;
   
@@ -276,20 +274,28 @@ const HMTabNavigator = () => (
   </Tab.Navigator>
 );
 
-const TeacherTabNavigator = () => (
-  <Tab.Navigator
-    tabBar={(props) => <TeacherTabBar {...props} />}
-    screenOptions={{
-      headerShown: false,
-    }}
-  >
-    <Tab.Screen name="Home" component={TeacherDashboardScreen} />
-    <Tab.Screen name="Homework" component={TeacherHomeworkManagementScreen} />
-    <Tab.Screen name="Scan" component={TeacherAttendanceScreen} />
-    <Tab.Screen name="Leaves" component={TeacherLeaveApprovalScreen} />
-    <Tab.Screen name="Marks" component={TeacherMarksEntryScreen} />
-  </Tab.Navigator>
-);
+const TeacherTabNavigator = () => {
+  const { isClassTeacher } = useAuth();
+  
+  return (
+    <Tab.Navigator
+      tabBar={(props) => <TeacherTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Tab.Screen name="Home" component={TeacherDashboardScreen} />
+      <Tab.Screen name="Homework" component={TeacherHomeworkManagementScreen} />
+      <Tab.Screen name="Scan" component={TeacherAttendanceScreen} />
+      {/* Leaves tab: Show Leave Approval for Class Teachers, Leave Request for Subject Teachers */}
+      <Tab.Screen 
+        name="Leaves" 
+        component={isClassTeacher ? TeacherLeaveApprovalScreen : TeacherLeaveRequestScreen} 
+      />
+      <Tab.Screen name="Marks" component={TeacherMarksEntryScreen} />
+    </Tab.Navigator>
+  );
+};
 
 const StudentTabNavigator = () => (
   <Tab.Navigator
@@ -414,7 +420,6 @@ export default function AppNavigator() {
           <Stack.Screen name="TeacherSkinDisease" component={TeacherSkinDiseaseScreen} options={{ headerShown: false }} />
           <Stack.Screen name="TeacherVitalScan" component={TeacherVitalScanScreen} options={{ headerShown: false }} />
           <Stack.Screen name="TeacherViewAttendance" component={TeacherViewAttendanceScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="TeacherAttendanceGallery" component={TeacherAttendanceGalleryScreen} options={{ headerShown: false }} />
           <Stack.Screen name="TeacherHomeworkSubmissions" component={TeacherHomeworkSubmissionsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} options={{ headerShown: false }} />
           

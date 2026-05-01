@@ -398,7 +398,7 @@ export default function StudentListScreen() {
       {/* FAB - Add Student (If allowed) */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => Alert.alert('Feature', 'Add student feature coming soon')}
+        onPress={() => navigation.navigate('HMStudentRegistration' as any)}
       >
         <UserPlus size={24} color="#fff" />
       </TouchableOpacity>

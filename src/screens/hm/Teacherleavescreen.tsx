@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
 import { HM_THEME as C } from '../../constants/hmTheme';
+import { formatErrorMessage } from '../../utils/helpers';
 
 const { width } = Dimensions.get('window');
 
@@ -87,9 +88,9 @@ export default function TeacherLeaveScreen({ navigation }: any) {
       const approved = data.filter((l: any) => l.status === 'APPROVED').length;
       const rejected = data.filter((l: any) => l.status === 'REJECTED').length;
       setStats({ pending, approved, rejected });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading leaves:', error);
-      Alert.alert('Error', 'Failed to load leave requests');
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || 'Failed to load leave requests'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -117,8 +118,8 @@ export default function TeacherLeaveScreen({ navigation }: any) {
       Alert.alert('Success', `Leave request ${status.toLowerCase()} successfully`);
       setSelectedLeave(null);
       loadLeaves(false);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update leave status');
+    } catch (error: any) {
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || 'Failed to update leave status'));
     } finally {
       setActionLoading(false);
     }

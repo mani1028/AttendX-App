@@ -610,6 +610,9 @@ export default function StudentRegistrationScreen() {
       if (!isValidMobile(form.mother_guardian_mobile)) errors.mother_guardian_mobile = 'Enter valid 10-digit number';
       if (!safeTrim(form.parent_guardian_email)) errors.parent_guardian_email = 'Parent email is required';
       else if (!isValidEmail(form.parent_guardian_email)) errors.parent_guardian_email = 'Enter valid email';
+    }
+
+    if (step === 3) {
       if (!safeTrim(form.house_no)) errors.house_no = 'House No is required';
       if (!safeTrim(form.street_locality)) errors.street_locality = 'Street is required';
       if (!safeTrim(form.village_town_city)) errors.village_town_city = 'City is required';
@@ -617,12 +620,15 @@ export default function StudentRegistrationScreen() {
       if (!safeTrim(form.district)) errors.district = 'District is required';
       if (!safeTrim(form.state)) errors.state = 'State is required';
       if (!isValidPin(form.pin_code)) errors.pin_code = 'Enter valid 6-digit pin code';
-    }
 
-    if (step === 3) {
       if (!safeTrim(form.emergency_contact_name)) errors.emergency_contact_name = 'Contact name is required';
       if (!isValidMobile(form.emergency_contact_number)) errors.emergency_contact_number = 'Enter valid 10-digit number';
       if (!safeTrim(form.mode_of_transport)) errors.mode_of_transport = 'Mode of transport is required';
+    }
+
+    if (step === 4) {
+      if (!photoFile) errors.photo = 'Student photograph is required';
+
       if (!safeTrim(form.password)) {
         errors.password = 'Password is required';
       } else if (!isStrongPassword(form.password)) {
@@ -634,10 +640,6 @@ export default function StudentRegistrationScreen() {
       if (form.password && form.confirm_password && form.password !== form.confirm_password) {
         errors.confirm_password = 'Passwords do not match';
       }
-    }
-
-    if (step === 4) {
-      if (!photoFile) errors.photo = 'Student photograph is required';
     }
 
     return errors;
@@ -754,7 +756,7 @@ export default function StudentRegistrationScreen() {
       formData.append('branch_id', branch);
       formData.append('student_photograph', studentPhotoBase64);
 
-      const skip = new Set(['branch_id', 'confirm_password', 'first_name', 'last_name']);
+      const skip = new Set(['branch_id', 'confirm_password']);
 
       Object.entries(form).forEach(([k, v]) => {
         if (skip.has(k)) return;
@@ -762,40 +764,15 @@ export default function StudentRegistrationScreen() {
         formData.append(k, v ?? '');
       });
 
-      const token = await getAuthToken();
-      const res = await fetch(API.defaults.baseURL + '/student/register', {
-        method: 'POST',
-        body: formData,
+      const res = await API.post('/student/register', formData, {
         headers: {
+          'Content-Type': 'multipart/form-data',
           'X-School-Code': code,
           'X-Branch-Id': branch,
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (!isMounted.current) return;
-        if (res.status === 401) return; // AuthContext handles this
-
-        if (data && data.detail) {
-          if (typeof data.detail === 'object' && !Array.isArray(data.detail)) {
-            setFieldErrors(prev => ({ ...prev, ...data.detail }));
-            const errorMsg = Object.entries(data.detail).map(([f, msg]) => `${f}: ${msg}`).join('\n');
-            throw new Error(errorMsg);
-          } else if (Array.isArray(data.detail)) {
-            const errorMsg = data.detail.map((e: any) => {
-              const field = (e.loc || []).slice(1).join('.');
-              return `${field}: ${e.msg}`;
-            }).join('\n');
-            throw new Error(errorMsg);
-          } else {
-            throw new Error(data.detail);
-          }
-        }
-        throw new Error('Registration failed. Please check all required fields.');
-      }
+      const data = res.data;
 
       if (!isMounted.current) return;
 
@@ -818,7 +795,24 @@ export default function StudentRegistrationScreen() {
       }, 3000);
     } catch (err: any) {
       if (isMounted.current) {
-        setServerError(`Submission Error: ${err.message}`);
+        const data = err.response?.data;
+        if (data && data.detail) {
+          if (typeof data.detail === 'object' && !Array.isArray(data.detail)) {
+            setFieldErrors(prev => ({ ...prev, ...data.detail }));
+            const errorMsg = Object.entries(data.detail).map(([f, msg]) => `${f}: ${msg}`).join('\n');
+            setServerError(errorMsg);
+          } else if (Array.isArray(data.detail)) {
+            const errorMsg = data.detail.map((e: any) => {
+              const field = (e.loc || []).slice(1).join('.');
+              return `${field}: ${e.msg}`;
+            }).join('\n');
+            setServerError(errorMsg);
+          } else {
+            setServerError(data.detail);
+          }
+        } else {
+          setServerError(`Submission Error: ${err.message}`);
+        }
       }
     } finally {
       if (isMounted.current) {
@@ -1134,7 +1128,7 @@ export default function StudentRegistrationScreen() {
             </View>
           )}
 
-          {/* Step 2: Parent & Address */}
+          {/* Step 2: Parent / Guardian Info */}
           {step === 2 && (
             <View>
               <View style={styles.sectionHeader}>
@@ -1217,8 +1211,13 @@ export default function StudentRegistrationScreen() {
                   onChangeText={(text) => handleChange('parent_guardian_email', text)}
                 />
               </FormField>
+            </View>
+          )}
 
-              <View style={[styles.sectionHeader, { marginTop: 20 }]}>
+          {/* Step 3: Contact & Address */}
+          {step === 3 && (
+            <View>
+              <View style={styles.sectionHeader}>
                 <BookOpen size={18} color="#001F3F" />
                 <AppText weight="bold" style={styles.sectionTitle}>Current Address</AppText>
               </View>
@@ -1294,13 +1293,8 @@ export default function StudentRegistrationScreen() {
                   onChangeText={(text) => handleChange('pin_code', text.replace(/\D/g, '').slice(0, 6))}
                 />
               </FormField>
-            </View>
-          )}
 
-          {/* Step 3: Health & Transport */}
-          {step === 3 && (
-            <View>
-              <View style={styles.sectionHeader}>
+              <View style={[styles.sectionHeader, { marginTop: 20 }]}>
                 <Heart size={18} color="#001F3F" />
                 <AppText weight="bold" style={styles.sectionTitle}>Health, Emergency & Transport</AppText>
               </View>
@@ -1386,6 +1380,35 @@ export default function StudentRegistrationScreen() {
                   onChangeText={(text) => handleChange('hostel_day_scholar', text)}
                 />
               </FormField>
+            </View>
+          )}
+
+          {/* Step 4: Photo & Password */}
+          {step === 4 && (
+            <View>
+              <View style={styles.sectionHeader}>
+                <Camera size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Student Photograph</AppText>
+              </View>
+
+              {fieldErrors.photo && <AppText style={styles.fieldError}>{fieldErrors.photo}</AppText>}
+
+              <TouchableOpacity style={styles.photoZone} onPress={handleImagePick}>
+                {photoPreview ? (
+                  <Image source={{ uri: photoPreview }} style={styles.photoPreview} />
+                ) : (
+                  <View style={styles.photoPlaceholder}>
+                    <Camera size={48} color="#CBD5E1" />
+                    <AppText weight="semiBold" style={styles.photoText}>Tap to add photo</AppText>
+                    <AppText style={styles.photoSubtext}>Camera or Gallery</AppText>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+                <Check size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Login Credentials</AppText>
+              </View>
 
               {/* Password Field with Show/Hide */}
               <FormField label="Password" required error={fieldErrors.password}>
@@ -1427,30 +1450,6 @@ export default function StudentRegistrationScreen() {
                   </TouchableOpacity>
                 </View>
               </FormField>
-            </View>
-          )}
-
-          {/* Step 4: Photo */}
-          {step === 4 && (
-            <View>
-              <View style={styles.sectionHeader}>
-                <Camera size={18} color="#001F3F" />
-                <AppText weight="bold" style={styles.sectionTitle}>Student Photograph</AppText>
-              </View>
-              
-              {fieldErrors.photo && <AppText style={styles.fieldError}>{fieldErrors.photo}</AppText>}
-
-              <TouchableOpacity style={styles.photoZone} onPress={handleImagePick}>
-                {photoPreview ? (
-                  <Image source={{ uri: photoPreview }} style={styles.photoPreview} />
-                ) : (
-                  <View style={styles.photoPlaceholder}>
-                    <Camera size={48} color="#CBD5E1" />
-                    <AppText weight="semiBold" style={styles.photoText}>Tap to add photo</AppText>
-                    <AppText style={styles.photoSubtext}>Camera or Gallery</AppText>
-                  </View>
-                )}
-              </TouchableOpacity>
             </View>
           )}
 

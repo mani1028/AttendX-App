@@ -53,6 +53,7 @@ import { colors } from '../../constants/theme';
 import { getStudentProfile, getStudentProfilePhotoDataUri, getStudentProfilePhotoUrl, getProfile as getStudentProfileDetails, sendOtp, verifyOtp, changePassword, updateStudentProfile } from '../../services/studentService';
 import { getTeacherProfile, getTeacherProfilePhotoDataUri, getTeacherProfilePhotoUrl, updateTeacherProfile } from '../../services/teacherService';
 import { buildApiUrl } from '../../services/api';
+import { formatErrorMessage } from '../../utils/helpers';
 
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
@@ -393,7 +394,7 @@ export default function ProfileScreen() {
       setTimeout(() => setPasswordChangeSuccess(''), 3000);
     } catch (err: any) {
       setPasswordChangeError(
-        err?.response?.data?.message || err?.message || 'Failed to send OTP. Please try again.'
+        formatErrorMessage(err?.response?.data?.detail || err?.response?.data?.message) || err?.message || 'Failed to send OTP. Please try again.'
       );
     } finally {
       setPasswordChangeLoading(false);
@@ -423,7 +424,7 @@ export default function ProfileScreen() {
       setTimeout(() => setPasswordChangeSuccess(''), 2000);
     } catch (err: any) {
       setPasswordChangeError(
-        err?.response?.data?.message || err?.message || 'Invalid OTP. Please try again.'
+        formatErrorMessage(err?.response?.data?.detail || err?.response?.data?.message) || err?.message || 'Invalid OTP. Please try again.'
       );
     } finally {
       setPasswordChangeLoading(false);
@@ -467,7 +468,7 @@ export default function ProfileScreen() {
       }, 2000);
     } catch (err: any) {
       setPasswordChangeError(
-        err?.response?.data?.message || err?.message || 'Failed to change password. Please try again.'
+        formatErrorMessage(err?.response?.data?.detail || err?.response?.data?.message) || err?.message || 'Failed to change password. Please try again.'
       );
     } finally {
       setPasswordChangeLoading(false);
@@ -513,7 +514,7 @@ export default function ProfileScreen() {
       Alert.alert('Success', `${editField.label} updated successfully`);
       setShowEditModal(false);
     } catch (error: any) {
-      Alert.alert('Error', error?.message || 'Failed to update profile');
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message) || 'Failed to update profile');
     } finally {
       setEditLoading(false);
     }

@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
+import { formatErrorMessage } from '../../utils/helpers';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
@@ -545,7 +546,7 @@ export default function HMRegistrationScreen() {
       setEmailVerified(false);
       showToast(res.data?.message || 'OTP sent successfully', 'success');
     } catch (err: any) {
-      showToast(err?.response?.data?.detail || 'Failed to send OTP', 'error');
+      showToast(formatErrorMessage(err?.response?.data?.detail) || 'Failed to send OTP', 'error');
     } finally {
       setOtpSending(false);
     }
@@ -568,7 +569,7 @@ export default function HMRegistrationScreen() {
       showToast('Email verified successfully', 'success');
     } catch (err: any) {
       setEmailVerified(false);
-      showToast(err?.response?.data?.detail || 'OTP verification failed', 'error');
+      showToast(formatErrorMessage(err?.response?.data?.detail) || 'OTP verification failed', 'error');
     } finally {
       setOtpVerifying(false);
     }
@@ -755,7 +756,7 @@ export default function HMRegistrationScreen() {
       
       setTimeout(() => navigation.goBack(), 2000);
     } catch (err: any) {
-      const errDetail = err?.response?.data?.detail || err?.message || 'Register failed';
+      const errDetail = formatErrorMessage(err?.response?.data?.detail) || err?.message || 'Register failed';
       if (errDetail.includes('already exists') || err?.response?.status === 409) {
         showToast(`❌ Branch ID "${trimmedBranchId}" already exists! Please enter another Branch ID.`, 'error');
       } else {

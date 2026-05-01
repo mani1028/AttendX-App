@@ -28,6 +28,7 @@ import { useAuth } from '../../context/AuthContext';
 import QRCode from 'react-native-qrcode-svg';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
+import { formatErrorMessage } from '../../utils/helpers';
 
 // Types
 interface Visitor {
@@ -407,7 +408,7 @@ export default function VisitorDashboardScreen() {
       fetchData();
       fetchStats();
     } catch (error) {
-      Alert.alert('Error', 'Failed to approve visitor');
+      Alert.alert('Error', formatErrorMessage(error) || 'Failed to approve visitor');
     }
   }, [fetchData, fetchStats]);
 
@@ -417,7 +418,7 @@ export default function VisitorDashboardScreen() {
       fetchData();
       fetchStats();
     } catch (error) {
-      Alert.alert('Error', 'Failed to reject visitor');
+      Alert.alert('Error', formatErrorMessage(error) || 'Failed to reject visitor');
     }
   }, [fetchData, fetchStats]);
 
@@ -427,7 +428,7 @@ export default function VisitorDashboardScreen() {
       fetchData();
       fetchStats();
     } catch (error) {
-      Alert.alert('Error', 'Failed to checkout visitor');
+      Alert.alert('Error', formatErrorMessage(error) || 'Failed to checkout visitor');
     }
   }, [fetchData, fetchStats]);
 
@@ -449,7 +450,7 @@ export default function VisitorDashboardScreen() {
       setQRData(qrData);
       setShowQRModal(true);
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.detail || 'Failed to load QR code');
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail) || 'Failed to load QR code');
     }
   }, []);
 

@@ -13,11 +13,13 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setSessionData } from '../../utils/authSession';
 import { useAuth } from '../../context/AuthContext';
+import { authService } from '../../api/authService';
 import { setAuthToken } from '../../services/api';
 import AppInput from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import ScreenContainer from '../../components/ScreenContainer';
 import { colors } from '../../constants/theme';
+import { formatErrorMessage } from '../../utils/helpers';
 
 type Props = {
   navigation: any;
@@ -32,7 +34,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   const getLoginErrorMessage = (error: any) => {
     const status = error?.response?.status;
-    const apiMessage = error?.response?.data?.detail || error?.response?.data?.message || error?.response?.data?.error;
+    const apiMessage = formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.response?.data?.error);
 
     if (status === 401 || status === 403 || status === 404) {
       return apiMessage || 'Invalid school ID, username or password';
@@ -59,7 +61,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       signIn(
         normalized.role,
         normalized.user?.name || username,
-        normalized.token || ''
+        normalized.token || '',
+        normalized.user?.isClassTeacher ?? false
       );
     } catch (err: any) {
       Alert.alert('Login Failed', getLoginErrorMessage(err));

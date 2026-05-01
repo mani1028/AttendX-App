@@ -34,6 +34,7 @@ import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { HM_THEME as C } from '../../constants/hmTheme';
+import { formatErrorMessage } from '../../utils/helpers';
 
 
 interface Fee {
@@ -133,8 +134,7 @@ const PaymentEntry = () => {
       setFees(response.data || []);
     } catch (error: any) {
       console.error("Error fetching fees:", error);
-      const errorMsg = error?.response?.data?.message || error?.message || "Failed to fetch fees";
-      Alert.alert('Error', errorMsg);
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || "Failed to fetch fees"));
     } finally {
       setLoading(false);
     }
@@ -221,8 +221,7 @@ const PaymentEntry = () => {
       await fetchFees();
     } catch (error: any) {
       console.error("Error adding payment:", error);
-      const errorMsg = error?.response?.data?.message || error?.message || "Error adding payment";
-      Alert.alert('Error', errorMsg);
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || "Error adding payment"));
     } finally {
       setLoading(false);
     }

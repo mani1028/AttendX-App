@@ -27,6 +27,7 @@ import { colors } from '../../constants/theme';
 import { HM_THEME as C } from '../../constants/hmTheme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { formatErrorMessage } from '../../utils/helpers';
 
 
 // Types
@@ -183,7 +184,7 @@ export default function ExamsPage() {
       setActiveTab('list');
       Alert.alert('Success', 'Exam created successfully');
     } catch (err: any) {
-      const detail = err?.response?.data?.detail || err?.message || 'Failed to create exam';
+      const detail = formatErrorMessage(err?.response?.data?.detail) || err?.message || 'Failed to create exam';
       setError(detail);
       Alert.alert('Error', detail);
     } finally {
@@ -201,7 +202,7 @@ export default function ExamsPage() {
       setSelectedExam(examId);
       setActiveTab('classwise');
     } catch (err: any) {
-      const detail = err?.response?.data?.detail || err?.message || 'Failed to load marks';
+      const detail = formatErrorMessage(err?.response?.data?.detail) || err?.message || 'Failed to load marks';
       setError(detail);
       Alert.alert('Error', detail);
     } finally {

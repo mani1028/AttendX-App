@@ -14,6 +14,7 @@ import { authService } from '../../api/authService';
 import AppInput from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import ScreenContainer from '../../components/ScreenContainer';
+import { formatErrorMessage } from '../../utils/helpers';
 
 export default function VerifyOtpScreen({ route, navigation }: any) {
   const { schoolId, identifier } = route.params;
@@ -59,9 +60,7 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
       console.error('[VerifyOtp] Error verifying OTP:', error?.response?.data || error?.message);
       
       const errorMessage = 
-        error?.response?.data?.message || 
-        error?.response?.data?.detail || 
-        error?.response?.data?.error || 
+        formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.response?.data?.error) ||
         error?.message || 
         'Invalid OTP. Please check and try again.';
       

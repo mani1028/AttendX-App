@@ -20,6 +20,7 @@ type LoginResponse = {
     full_name?: string;
     username?: string;
     name?: string;
+    is_class_teacher?: boolean;
   };
   data?: LoginResponse;
 };
@@ -34,6 +35,7 @@ export type NormalizedLoginResponse = {
     employeeId?: string;
     branchId?: string;
     name?: string;
+    isClassTeacher?: boolean;
   };
 };
 
@@ -87,6 +89,7 @@ function normalizeLoginResponse(data: LoginResponse, fallbackRole: AppRole): Nor
       employeeId: payload.user?.employee_id,
       branchId: payload.user?.branch_id,
       name,
+      isClassTeacher: payload.user?.is_class_teacher ?? false,
     },
   };
 }

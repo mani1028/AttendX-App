@@ -52,11 +52,13 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            manifestPlaceholders = [usesCleartextTraffic: "false"]
         }
     }
 }
@@ -74,9 +76,11 @@ configurations.all {
 }
 
 dependencies {
+    implementation project(':amplitude_analytics-react-native')
     implementation("com.facebook.react:react-android")
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
@@ -84,3 +88,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// apply plugin: "com.google.gms.google-services"

@@ -48,6 +48,7 @@ import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { formatErrorMessage } from '../../utils/helpers';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
 // Types
@@ -331,7 +332,7 @@ const SchoolFormModal: React.FC<{
       } else if (detail === 'Email already exists') {
         setErrors({ email: 'This email is already registered' });
       } else {
-        Alert.alert('Error', detail || 'Something went wrong');
+        Alert.alert('Error', formatErrorMessage(detail) || 'Something went wrong');
       }
     } finally {
       setSaving(false);
@@ -497,7 +498,7 @@ const SubscriptionModal: React.FC<{
       onSuccess();
       onClose();
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.detail || 'Update failed');
+      Alert.alert('Error', formatErrorMessage(err?.response?.data?.detail) || 'Update failed');
     } finally {
       setSaving(false);
     }
@@ -847,7 +848,7 @@ export default function AdminDashboardScreen() {
       fetchSchools();
       fetchStats();
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.detail || 'Delete failed');
+      Alert.alert('Error', formatErrorMessage(err?.response?.data?.detail) || 'Delete failed');
     } finally {
       setDeleting(false);
     }
@@ -858,7 +859,7 @@ export default function AdminDashboardScreen() {
       await adminService.resendCredentials(school.id);
       Alert.alert('Success', 'Credentials resent to the registered school email');
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.detail || 'Failed to resend credentials');
+      Alert.alert('Error', formatErrorMessage(err?.response?.data?.detail) || 'Failed to resend credentials');
     }
   };
 
@@ -867,7 +868,7 @@ export default function AdminDashboardScreen() {
       await adminService.sendReminder(school.id);
       Alert.alert('Success', `Reminder sent to ${school.email}`);
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.detail || 'Failed to send reminder');
+      Alert.alert('Error', formatErrorMessage(err?.response?.data?.detail) || 'Failed to send reminder');
     }
   };
 

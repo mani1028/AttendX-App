@@ -49,6 +49,7 @@ import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { HM_THEME as C } from '../../constants/hmTheme';
+import { formatErrorMessage } from '../../utils/helpers';
 
 
 const STEPS = ['Basics', 'Contact', 'Emergency', 'Employment', 'Preview'];
@@ -425,9 +426,9 @@ export default function TeacherPage() {
       setEmailVerified(false);
       if (err?.response?.status === 409) {
         setFieldErrors(prev => ({ ...prev, email_id: msg }));
-        Alert.alert('Error', msg);
+        Alert.alert('Error', formatErrorMessage(msg));
       }
-      setServerError(msg);
+      setServerError(formatErrorMessage(msg));
     } finally {
       setOtpSending(false);
     }
