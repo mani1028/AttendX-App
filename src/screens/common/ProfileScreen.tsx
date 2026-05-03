@@ -221,159 +221,169 @@ export default function ProfileScreen() {
   const [verifiedOtpToken, setVerifiedOtpToken] = useState('');
 
   const fetchProfileData = useCallback(async () => {
+    // Cache-first: show cached profile/photo quickly, then refresh in background
     try {
       const storedRole = (await AsyncStorage.getItem('userRole')) || (await AsyncStorage.getItem('role')) || 'student';
       const normalizedRole = String(storedRole).trim().toLowerCase();
       const roleBucket = normalizeRoleBucket(normalizedRole);
-      let freshData;
-      if (roleBucket === 'student') {
-        const studentId = (await AsyncStorage.getItem('student_id')) || (await AsyncStorage.getItem('studentId'));
-        const schoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode'));
-        if (studentId && schoolCode) {
-          try {
-              freshData = await withTimeout(getStudentProfileDetails(studentId, schoolCode), 5000);
-          } catch (e) {
-              try {
-                freshData = await withTimeout(getStudentProfile(), 5000);
-              } catch (e2) {
-                console.warn('Failed to fetch student profile:', e2);
-              }
-          }
-        } else {
-            try {
-              freshData = await withTimeout(getStudentProfile(), 5000);
-            } catch (e) {
-              console.warn('Failed to fetch student profile:', e);
-            }
-        }
-      } else {
-          try {
-            freshData = await withTimeout(getTeacherProfile(), 5000);
-          } catch (e) {
-            console.warn('Failed to fetch teacher profile:', e);
-          }
-      }
 
-      if (!isMounted.current) return;
+      const storedStudentId = (await AsyncStorage.getItem('student_id')) || (await AsyncStorage.getItem('studentId')) || '';
+      const storedTeacherId = (await AsyncStorage.getItem('teacher_id')) || '';
+      const storedEmployeeId = (await AsyncStorage.getItem('employee_id')) || '';
+      const storedSchoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
 
-      const storedUserRaw = await AsyncStorage.getItem('user');
-      const storedUser = storedUserRaw ? (() => {
+      const entityId = roleBucket === 'student' ? storedStudentId : (storedTeacherId || storedEmployeeId);
+      const profileCacheKey = entityId ? `profile_cache:${roleBucket}:${storedSchoolCode || 'unknown'}:${entityId}` : `profile_cache:${roleBucket}:${storedSchoolCode || 'unknown'}:anon`;
+      const photoCacheKey = getPhotoCacheKey(roleBucket, entityId, storedSchoolCode);
+
+      // Try to hydrate from cache immediately
+      const cachedProfileRaw = await AsyncStorage.getItem(profileCacheKey);
+      if (cachedProfileRaw && isMounted.current) {
         try {
-          return JSON.parse(storedUserRaw);
+          const parsed = JSON.parse(cachedProfileRaw);
+          setUserInfo(prev => ({ ...prev, ...parsed }));
         } catch {
-          return {};
+          // ignore parse errors
         }
-      })() : {};
-
-      const [storedEmail, storedPhone, storedBranchName, storedBranchId, storedSchoolName, storedSchoolCode, storedTeacherId, storedEmployeeId, storedStudentId] =
-        await AsyncStorage.multiGet([
-          'email',
-          'phone',
-          'branch_name',
-          'branch_id',
-          'school_name',
-          'school_code',
-          'teacher_id',
-          'employee_id',
-          'student_id',
-        ]).then(items => items.map(([, value]) => value || ''));
-
-      const profileSource = (freshData as any) || {};
-      const resolvedProfile = {
-        ...profileSource,
-        role: firstNonEmptyText(profileSource?.role, normalizedRole, 'student'),
-        name: firstNonEmptyText(profileSource?.name, profileSource?.full_name, profileSource?.teacher_full_name, profileSource?.student_full_name, userName, storedUser?.name),
-        email: firstNonEmptyText(profileSource?.email, profileSource?.email_id, profileSource?.email_address, storedEmail, storedUser?.email),
-        phone: firstNonEmptyText(profileSource?.phone, profileSource?.mobile, profileSource?.mobile_number, profileSource?.phone_number, storedPhone, storedUser?.phone),
-        branch_name: firstNonEmptyText(profileSource?.branch_name, profileSource?.branchName, profileSource?.branch, storedBranchName, storedUser?.branch_name),
-        branch_id: firstNonEmptyText(profileSource?.branch_id, profileSource?.branchId, storedBranchId, storedUser?.branch_id),
-        school_name: firstNonEmptyText(profileSource?.school_name, profileSource?.schoolName, profileSource?.school, storedSchoolName, storedUser?.school_name),
-        school_code: firstNonEmptyText(profileSource?.school_code, profileSource?.schoolCode, storedSchoolCode, storedUser?.school_code),
-        teacher_id: firstNonEmptyText(profileSource?.teacher_id, storedTeacherId, storedUser?.teacher_id),
-        employee_id: firstNonEmptyText(profileSource?.employee_id, storedEmployeeId, storedUser?.employee_id),
-        student_id: firstNonEmptyText(profileSource?.student_id, storedStudentId, storedUser?.student_id),
-        parent_guardian_email: firstNonEmptyText(profileSource?.parent_guardian_email, profileSource?.parent_email, profileSource?.guardian_email, profileSource?.father_email, profileSource?.mother_email, profileSource?.father_guardian_email, storedUser?.parent_guardian_email),
-        designation: firstNonEmptyText(profileSource?.designation, profileSource?.teacher_designation, storedUser?.designation),
-        department_subject: firstNonEmptyText(profileSource?.department_subject, profileSource?.department, profileSource?.subject, storedUser?.department_subject),
-        address: firstNonEmptyText(profileSource?.address, storedUser?.address),
-        blood_group: firstNonEmptyText(profileSource?.blood_group, profileSource?.blood_type, storedUser?.blood_group),
-        date_of_birth: firstNonEmptyText(profileSource?.date_of_birth, storedUser?.date_of_birth),
-        gender: firstNonEmptyText(profileSource?.gender, storedUser?.gender),
-        nationality: firstNonEmptyText(profileSource?.nationality, storedUser?.nationality),
-        mother_tongue: firstNonEmptyText(profileSource?.mother_tongue, storedUser?.mother_tongue),
-        religion: firstNonEmptyText(profileSource?.religion, storedUser?.religion),
-        aadhaar_number: firstNonEmptyText(profileSource?.aadhaar_number, storedUser?.aadhaar_number),
-        date_of_joining: firstNonEmptyText(profileSource?.date_of_joining, storedUser?.date_of_joining),
-        qualification: firstNonEmptyText(profileSource?.qualification, storedUser?.qualification),
-        experience_years: firstNonEmptyText(profileSource?.experience_years, profileSource?.experience, storedUser?.experience_years),
-        roll_number: firstNonEmptyText(profileSource?.roll_number, profileSource?.roll_no, profileSource?.rollNo, storedUser?.roll_number),
-        class_grade: firstNonEmptyText(profileSource?.class_grade, profileSource?.class, storedUser?.class_grade),
-        section: firstNonEmptyText(profileSource?.section, storedUser?.section),
-        emergency_contact_name: firstNonEmptyText(profileSource?.emergency_contact_name, storedUser?.emergency_contact_name),
-        emergency_contact_number: firstNonEmptyText(profileSource?.emergency_contact_number, storedUser?.emergency_contact_number),
-        father_guardian_name: firstNonEmptyText(profileSource?.father_guardian_name, profileSource?.father_name, profileSource?.fatherName, storedUser?.father_guardian_name),
-        father_guardian_mobile: firstNonEmptyText(profileSource?.father_guardian_mobile, profileSource?.father_mobile, profileSource?.father_phone, storedUser?.father_guardian_mobile),
-        mother_guardian_name: firstNonEmptyText(profileSource?.mother_guardian_name, profileSource?.mother_name, profileSource?.motherName, storedUser?.mother_guardian_name),
-        mother_guardian_mobile: firstNonEmptyText(profileSource?.mother_guardian_mobile, profileSource?.mother_mobile, profileSource?.mother_phone, storedUser?.mother_guardian_mobile),
-      };
-
-      setUserInfo(prev => ({
-        ...prev,
-        ...resolvedProfile,
-        role: resolvedProfile.role || prev.role || 'student',
-      }));
-
-      const entityId = roleBucket === 'student'
-        ? resolvedProfile.student_id
-        : (resolvedProfile.teacher_id || resolvedProfile.employee_id);
-      const schoolCode = resolvedProfile.school_code;
-      const photoCacheKey = getPhotoCacheKey(roleBucket, entityId, schoolCode);
+      }
 
       if (photoCacheKey) {
-        const scopedCachedPhoto = await AsyncStorage.getItem(photoCacheKey);
-        if (scopedCachedPhoto && isMounted.current) {
-          setProfilePhotoUrl(scopedCachedPhoto);
+        const cachedPhoto = await AsyncStorage.getItem(photoCacheKey);
+        if (cachedPhoto && isMounted.current) {
+          setProfilePhotoUrl(cachedPhoto);
           setProfilePhotoError(false);
         }
       } else {
-        const cachedProfilePhoto = await AsyncStorage.getItem('profile_photo_url');
-        if (cachedProfilePhoto && isMounted.current) {
-          setProfilePhotoUrl(cachedProfilePhoto);
+        const cachedPhoto = await AsyncStorage.getItem('profile_photo_url');
+        if (cachedPhoto && isMounted.current) {
+          setProfilePhotoUrl(cachedPhoto);
           setProfilePhotoError(false);
         }
       }
 
-      const directProfilePhoto = normalizePhotoUri(
-        profileSource?.profile_photo_url ||
-        (roleBucket === 'student' ? profileSource?.student_photograph : profileSource?.teacher_photograph)
-      );
+      // If we had cached profile, stop showing loader and refresh in background.
+      const hadCache = !!cachedProfileRaw;
+      if (hadCache && isMounted.current) setLoading(false);
 
-      let resolvedPhoto = directProfilePhoto;
-      if (!resolvedPhoto && entityId && freshData) {
+      const refresh = async () => {
+        let freshData: any = null;
+        try {
+          if (roleBucket === 'student') {
+            if (storedStudentId && storedSchoolCode) {
+              freshData = await withTimeout(getStudentProfileDetails(storedStudentId, storedSchoolCode), 5000);
+            }
+            if (!freshData) freshData = await withTimeout(getStudentProfile(), 5000);
+          } else {
+            freshData = await withTimeout(getTeacherProfile(), 5000);
+          }
+        } catch (e) {
+          console.warn('Failed to fetch profile:', e);
+        }
+
+        if (!isMounted.current) return;
+
+        const storedUserRaw = await AsyncStorage.getItem('user');
+        const storedUser = storedUserRaw ? (() => {
+          try { return JSON.parse(storedUserRaw); } catch { return {}; }
+        })() : {};
+
+        const [storedEmail, storedPhone, storedBranchName, storedBranchId, storedSchoolName, storedSchoolCodeFromStore, storedTeacherId2, storedEmployeeId2, storedStudentId2] =
+          await AsyncStorage.multiGet([
+            'email','phone','branch_name','branch_id','school_name','school_code','teacher_id','employee_id','student_id',
+          ]).then(items => items.map(([, value]) => value || ''));
+
+        const profileSource = (freshData as any) || {};
+        const resolvedProfile = {
+          ...profileSource,
+          role: firstNonEmptyText(profileSource?.role, normalizedRole, 'student'),
+          name: firstNonEmptyText(profileSource?.name, profileSource?.full_name, profileSource?.teacher_full_name, profileSource?.student_full_name, userName, storedUser?.name),
+          email: firstNonEmptyText(profileSource?.email, profileSource?.email_id, profileSource?.email_address, storedEmail, storedUser?.email),
+          phone: firstNonEmptyText(profileSource?.phone, profileSource?.mobile, profileSource?.mobile_number, profileSource?.phone_number, storedPhone, storedUser?.phone),
+          branch_name: firstNonEmptyText(profileSource?.branch_name, profileSource?.branchName, profileSource?.branch, storedBranchName, storedUser?.branch_name),
+          branch_id: firstNonEmptyText(profileSource?.branch_id, profileSource?.branchId, storedBranchId, storedUser?.branch_id),
+          school_name: firstNonEmptyText(profileSource?.school_name, profileSource?.schoolName, profileSource?.school, storedSchoolName, storedUser?.school_name),
+          school_code: firstNonEmptyText(profileSource?.school_code, profileSource?.schoolCode, storedSchoolCodeFromStore, storedUser?.school_code),
+          teacher_id: firstNonEmptyText(profileSource?.teacher_id, storedTeacherId2, storedUser?.teacher_id),
+          employee_id: firstNonEmptyText(profileSource?.employee_id, storedEmployeeId2, storedUser?.employee_id),
+          student_id: firstNonEmptyText(profileSource?.student_id, storedStudentId2, storedUser?.student_id),
+          parent_guardian_email: firstNonEmptyText(profileSource?.parent_guardian_email, profileSource?.parent_email, profileSource?.guardian_email, profileSource?.father_email, profileSource?.mother_email, profileSource?.father_guardian_email, storedUser?.parent_guardian_email),
+          designation: firstNonEmptyText(profileSource?.designation, profileSource?.teacher_designation, storedUser?.designation),
+          department_subject: firstNonEmptyText(profileSource?.department_subject, profileSource?.department, profileSource?.subject, storedUser?.department_subject),
+          address: firstNonEmptyText(profileSource?.address, storedUser?.address),
+          blood_group: firstNonEmptyText(profileSource?.blood_group, profileSource?.blood_type, storedUser?.blood_group),
+          date_of_birth: firstNonEmptyText(profileSource?.date_of_birth, storedUser?.date_of_birth),
+          gender: firstNonEmptyText(profileSource?.gender, storedUser?.gender),
+          nationality: firstNonEmptyText(profileSource?.nationality, storedUser?.nationality),
+          mother_tongue: firstNonEmptyText(profileSource?.mother_tongue, storedUser?.mother_tongue),
+          religion: firstNonEmptyText(profileSource?.religion, storedUser?.religion),
+          aadhaar_number: firstNonEmptyText(profileSource?.aadhaar_number, storedUser?.aadhaar_number),
+          date_of_joining: firstNonEmptyText(profileSource?.date_of_joining, storedUser?.date_of_joining),
+          qualification: firstNonEmptyText(profileSource?.qualification, storedUser?.qualification),
+          experience_years: firstNonEmptyText(profileSource?.experience_years, profileSource?.experience, storedUser?.experience_years),
+          roll_number: firstNonEmptyText(profileSource?.roll_number, profileSource?.roll_no, profileSource?.rollNo, storedUser?.roll_number),
+          class_grade: firstNonEmptyText(profileSource?.class_grade, profileSource?.class, storedUser?.class_grade),
+          section: firstNonEmptyText(profileSource?.section, storedUser?.section),
+          emergency_contact_name: firstNonEmptyText(profileSource?.emergency_contact_name, storedUser?.emergency_contact_name),
+          emergency_contact_number: firstNonEmptyText(profileSource?.emergency_contact_number, storedUser?.emergency_contact_number),
+          father_guardian_name: firstNonEmptyText(profileSource?.father_guardian_name, profileSource?.father_name, profileSource?.fatherName, storedUser?.father_guardian_name),
+          father_guardian_mobile: firstNonEmptyText(profileSource?.father_guardian_mobile, profileSource?.father_mobile, profileSource?.father_phone, storedUser?.father_guardian_mobile),
+          mother_guardian_name: firstNonEmptyText(profileSource?.mother_guardian_name, profileSource?.mother_name, profileSource?.motherName, storedUser?.mother_guardian_name),
+          mother_guardian_mobile: firstNonEmptyText(profileSource?.mother_guardian_mobile, profileSource?.mother_mobile, profileSource?.mother_phone, storedUser?.mother_guardian_mobile),
+        };
+
+        // Update UI and cache
+        if (isMounted.current) {
+          setUserInfo(prev => ({ ...prev, ...resolvedProfile, role: resolvedProfile.role || prev.role || 'student' }));
+        }
+
+        // Fetch or resolve photo
+        const directProfilePhoto = normalizePhotoUri(
+          profileSource?.profile_photo_url ||
+          (roleBucket === 'student' ? profileSource?.student_photograph : profileSource?.teacher_photograph)
+        );
+
+        let resolvedPhoto = directProfilePhoto;
+        if (!resolvedPhoto && entityId && freshData) {
           try {
             resolvedPhoto = roleBucket === 'student'
-              ? ((await withTimeout(Promise.resolve(getStudentProfilePhotoDataUri(entityId, schoolCode)))) || 
-                 (await withTimeout(Promise.resolve(getStudentProfilePhotoUrl(entityId, schoolCode)))))
-              : ((await withTimeout(Promise.resolve(getTeacherProfilePhotoDataUri(entityId, schoolCode)))) || 
-                 (await withTimeout(Promise.resolve(getTeacherProfilePhotoUrl(entityId, schoolCode)))));
+              ? ((await withTimeout(Promise.resolve(getStudentProfilePhotoDataUri(entityId, storedSchoolCode)))) ||
+                (await withTimeout(Promise.resolve(getStudentProfilePhotoUrl(entityId, resolvedProfile.school_code || storedSchoolCode)))))
+              : ((await withTimeout(Promise.resolve(getTeacherProfilePhotoDataUri(entityId, resolvedProfile.school_code || storedSchoolCode)))) ||
+                (await withTimeout(Promise.resolve(getTeacherProfilePhotoUrl(entityId, resolvedProfile.school_code || storedSchoolCode)))));
           } catch (photoError) {
             console.warn('Error fetching profile photo:', photoError);
-            // Continue without photo on error
           }
-      }
-
-      if (resolvedPhoto && isMounted.current) {
-        if (photoCacheKey) {
-          await AsyncStorage.setItem(photoCacheKey, resolvedPhoto);
-        } else {
-          await AsyncStorage.setItem('profile_photo_url', resolvedPhoto);
         }
-        setProfilePhotoUrl(resolvedPhoto);
-        setProfilePhotoError(false);
-      }
 
-      const savedSettings = await AsyncStorage.getItem('app_settings');
-      if (savedSettings && isMounted.current) setSettings(JSON.parse(savedSettings));
+        if (resolvedPhoto && isMounted.current) {
+          if (photoCacheKey) {
+            await AsyncStorage.setItem(photoCacheKey, resolvedPhoto);
+          } else {
+            await AsyncStorage.setItem('profile_photo_url', resolvedPhoto);
+          }
+          setProfilePhotoUrl(resolvedPhoto);
+          setProfilePhotoError(false);
+        }
+
+        // persist resolved profile to cache
+        try {
+          await AsyncStorage.setItem(profileCacheKey, JSON.stringify(resolvedProfile));
+        } catch (e) {
+          // ignore cache write errors
+        }
+
+        // persist app settings if present in profile
+        const savedSettings = await AsyncStorage.getItem('app_settings');
+        if (savedSettings && isMounted.current) setSettings(JSON.parse(savedSettings));
+      };
+
+      if (hadCache) {
+        // background refresh
+        void refresh();
+      } else {
+        // no cache — wait for fresh fetch so UI can render
+        await refresh();
+      }
 
     } catch (error: any) {
       console.error('Profile fetch error:', error);

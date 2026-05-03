@@ -125,15 +125,58 @@ export default function TeacherDashboardScreen() {
     extrapolate: 'clamp',
   });
 
+  const getTeacherDashboardCacheKey = (schoolCode: string, employeeId: string): string | null => {
+    if (!schoolCode || !employeeId) return null;
+    return `teacher_dashboard_cache:${schoolCode}:${employeeId}`;
+  };
+
   const fetchDashboardData = useCallback(async () => {
     try {
+      const schoolCode =
+        (await AsyncStorage.getItem('school_code')) ||
+        (await AsyncStorage.getItem('schoolCode')) ||
+        '';
+      const storedEmployeeId =
+        (await AsyncStorage.getItem('employee_id')) ||
+        (await AsyncStorage.getItem('employeeId')) ||
+        '';
+      const cacheKey = getTeacherDashboardCacheKey(schoolCode, storedEmployeeId);
+
+      if (cacheKey) {
+        try {
+          const cached = await AsyncStorage.getItem(cacheKey);
+          if (cached && isMounted.current) {
+            const parsed = JSON.parse(cached);
+
+            if (parsed.profile) {
+              setProfile(parsed.profile);
+            }
+            if (parsed.attendanceSummary) {
+              setAttendanceSummary(parsed.attendanceSummary);
+            }
+            if (Array.isArray(parsed.assignedClasses)) {
+              setAssignedClasses(parsed.assignedClasses);
+              setClassesLoading(false);
+            }
+            if (parsed.profilePhotoUrl) {
+              setProfilePhotoUrl(parsed.profilePhotoUrl);
+              setProfilePhotoError(false);
+            }
+
+            setLoading(false);
+          }
+        } catch (cacheError) {
+          console.warn('Failed to load teacher dashboard cache:', cacheError);
+        }
+      }
+
       const responseData = await getTeacherProfile();
       if (responseData && isMounted.current) {
         // Fetch capability details if possible
         let capability: TeacherCapability | null = null;
         try {
-          const schoolId = responseData.school_code || (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
-          const empId = responseData.employee_id || (await AsyncStorage.getItem('employee_id')) || '';
+          const schoolId = responseData.school_code || schoolCode;
+          const empId = responseData.employee_id || storedEmployeeId;
           if (schoolId && empId) {
             capability = await getTeacherCapability(schoolId, empId);
           }
@@ -166,6 +209,18 @@ export default function TeacherDashboardScreen() {
             setProfilePhotoUrl(cachedPhoto);
             setProfilePhotoError(false);
           }
+        }
+
+        if (cacheKey) {
+          await AsyncStorage.setItem(cacheKey, JSON.stringify({
+            profile: {
+              ...responseData,
+              is_class_teacher: capability?.is_class_teacher ?? false,
+            },
+            attendanceSummary: null,
+            assignedClasses: [],
+            profilePhotoUrl: resolvedPhoto,
+          }));
         }
 
         if (isMounted.current) {
@@ -205,6 +260,15 @@ export default function TeacherDashboardScreen() {
               setClassesLoading(false);
             }
 
+            if (cacheKey) {
+              const cachedValue = await AsyncStorage.getItem(cacheKey);
+              const cachedData = cachedValue ? JSON.parse(cachedValue) : {};
+              await AsyncStorage.setItem(cacheKey, JSON.stringify({
+                ...cachedData,
+                assignedClasses: resolvedAssigned,
+              }));
+            }
+
             // 1. Fetch Branch-wide stats for "Today's Attendance" section
             const branchStats = await getBranchStats(attendanceSchoolCode, branchId);
             
@@ -231,6 +295,32 @@ export default function TeacherDashboardScreen() {
                   students: studentStats,
                 }
               });
+
+              if (cacheKey) {
+                const cachedValue = await AsyncStorage.getItem(cacheKey);
+                const cachedData = cachedValue ? JSON.parse(cachedValue) : {};
+                await AsyncStorage.setItem(cacheKey, JSON.stringify({
+                  ...cachedData,
+                  attendanceSummary: {
+                    classGrade: 'All',
+                    section: 'Branch',
+                    date: new Date().toISOString().split('T')[0],
+                    present: studentStats.present || 0,
+                    absent: studentStats.absent || 0,
+                    half_day: studentStats.half_day || 0,
+                    total: studentStats.total || cards.total_students || 0,
+                    attendancePct: studentStats.attendance_pct || cards.today_attendance_pct || 0,
+                    total_teachers: cards.total_teachers,
+                    total_students: cards.total_students,
+                    total_classes: cards.total_classes,
+                    today_attendance_pct: cards.today_attendance_pct,
+                    today_breakdown: {
+                      teachers: teacherStats,
+                      students: studentStats,
+                    }
+                  },
+                }));
+              }
             } else {
               // 2. Fallback: Fetch Specific Class Attendance if branch stats are missing
               const activeClass = resolvedAssigned.find((item: any) => item?.class_grade && item?.section) || resolvedAssigned[0];
@@ -250,17 +340,28 @@ export default function TeacherDashboardScreen() {
                   const absent = Array.isArray(report?.absent) ? report.absent : [];
                   const total = present.length + absent.length;
                   const attendancePct = total > 0 ? Math.round((present.length / total) * 100) : 0;
+                  const attendanceSummaryData = {
+                    classGrade: String(activeClass.class_grade),
+                    section: String(activeClass.section),
+                    date: attendanceDate,
+                    present: present.length,
+                    absent: absent.length,
+                    half_day: 0,
+                    total,
+                    attendancePct,
+                  };
 
                   if (isMounted.current) {
-                    setAttendanceSummary({
-                      classGrade: String(activeClass.class_grade),
-                      section: String(activeClass.section),
-                      date: attendanceDate,
-                      present: present.length,
-                      absent: absent.length,
-                      total,
-                      attendancePct,
-                    });
+                    setAttendanceSummary(attendanceSummaryData);
+                  }
+
+                  if (cacheKey) {
+                    const cachedValue = await AsyncStorage.getItem(cacheKey);
+                    const cachedData = cachedValue ? JSON.parse(cachedValue) : {};
+                    await AsyncStorage.setItem(cacheKey, JSON.stringify({
+                      ...cachedData,
+                      attendanceSummary: attendanceSummaryData,
+                    }));
                   }
                 } catch (attendanceError) {
                   throw attendanceError; // Trigger outer fallback

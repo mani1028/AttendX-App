@@ -345,8 +345,20 @@ export default function VisitorDashboardScreen() {
   // Fetch data
   const fetchData = useCallback(async () => {
     setErrorMsg('');
+    const cacheKey = `visitor_list_${activeTab}_${dateFrom || 'all'}_${dateTo || 'all'}`;
+    let cacheLoaded = false;
     
     try {
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          setVisitors(parsed);
+          cacheLoaded = true;
+          setLoadingVisitors(false);
+        }
+      }
+
       // Build filters
       const filters: any = {};
       if (activeTab !== 'all') {
@@ -356,7 +368,9 @@ export default function VisitorDashboardScreen() {
       if (dateTo) filters.date_to = dateTo;
 
       const visitorsRes = await visitorApi.listVisitors(filters);
-      setVisitors(visitorsRes.data?.data || []);
+      const nextVisitors = visitorsRes.data?.data || [];
+      setVisitors(nextVisitors);
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(nextVisitors));
     } catch (error: any) {
       console.log('DEBUG 403 ERROR:', error.response?.data);
       console.error('Failed to fetch visitors:', error);
@@ -366,15 +380,26 @@ export default function VisitorDashboardScreen() {
                     'You do not have permission to view visitor data.';
       setErrorMsg(message);
     } finally {
-      setLoadingVisitors(false);
+      if (!cacheLoaded) {
+        setLoadingVisitors(false);
+      }
     }
   }, [activeTab, dateFrom, dateTo]);
 
   // Fetch stats
   const fetchStats = useCallback(async () => {
+    const cacheKey = 'visitor_stats_cache';
     try {
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        setStats(JSON.parse(cached));
+        setLoadingStats(false);
+      }
+
       const statsRes = await visitorApi.getVisitorStats();
-      setStats(statsRes.data?.data || {});
+      const nextStats = statsRes.data?.data || {};
+      setStats(nextStats);
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(nextStats));
     } catch (error) {
       console.error('Failed to fetch stats:', error);
     } finally {

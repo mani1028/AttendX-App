@@ -229,54 +229,71 @@ export default function StudentMarksScreen() {
 
   // Load stored credentials and cached data
   useEffect(() => {
+    let isMounted = true;
+
     const loadInitialData = async () => {
-      const code = await getSchoolCode();
-      const id = await getStudentId();
-      setSchoolCode(code);
-      setStudentId(id);
-
-      // Load cached exams and marks
       try {
-        const cachedExams = await AsyncStorage.getItem(`marks_exams_cache_${id}`);
-        if (cachedExams) {
-          const parsedExams = JSON.parse(cachedExams);
-          setExams(parsedExams);
-          if (parsedExams.length > 0) {
-            setExamId(String(parsedExams[0].exam_id));
-            setSelectedExamName(parsedExams[0].exam_name);
+        const [code, id] = await Promise.all([getSchoolCode(), getStudentId()]);
 
-            // Load cached marks for first exam
-            const cachedMarks = await AsyncStorage.getItem(`marks_data_cache_${id}_${parsedExams[0].exam_id}`);
-            if (cachedMarks) {
-              const { items: mItems, summary: mSummary } = JSON.parse(cachedMarks);
-              setItems(mItems);
-              setSummary(mSummary);
+        if (!isMounted) return;
+
+        setSchoolCode(code);
+        setStudentId(id);
+
+        let cachedExamId = '';
+        let hasCachedMarks = false;
+
+        if (id) {
+          const cachedExams = await AsyncStorage.getItem(`marks_exams_cache_${id}`);
+          if (cachedExams) {
+            const parsedExams = JSON.parse(cachedExams);
+            setExams(parsedExams);
+
+            if (parsedExams.length > 0) {
+              cachedExamId = String(parsedExams[0].exam_id);
+              setExamId(cachedExamId);
+              setSelectedExamName(parsedExams[0].exam_name);
+
+              const cachedMarks = await AsyncStorage.getItem(`marks_data_cache_${id}_${parsedExams[0].exam_id}`);
+              if (cachedMarks) {
+                const { items: mItems, summary: mSummary } = JSON.parse(cachedMarks);
+                setItems(mItems);
+                setSummary(mSummary);
+                hasCachedMarks = true;
+              }
             }
+          }
+        }
+
+        if (code && id) {
+          void loadExams(false, code, id, cachedExamId);
+
+          if (cachedExamId && !hasCachedMarks) {
+            void loadMarks(false, cachedExamId, id);
           }
         }
       } catch (e) {
         console.log('Failed to load cached marks');
       }
     };
+
     loadInitialData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Load exams when credentials are ready
-  useEffect(() => {
-    if (schoolCode && studentId) {
-      loadExams(exams.length === 0);
-    }
-  }, [schoolCode, studentId]);
+  const loadExams = async (
+    showLoading = true,
+    schoolCodeOverride?: string,
+    studentIdOverride?: string,
+    preferredExamId?: string,
+  ) => {
+    const activeSchoolCode = schoolCodeOverride || schoolCode;
+    const activeStudentId = studentIdOverride || studentId;
 
-  // Load marks when exam is selected
-  useEffect(() => {
-    if (schoolCode && studentId && examId) {
-      loadMarks(items.length === 0);
-    }
-  }, [schoolCode, studentId, examId]);
-
-  const loadExams = async (showLoading = true) => {
-    if (!schoolCode || !studentId) return;
+    if (!activeSchoolCode || !activeStudentId) return;
     
     if (showLoading) setLoadingExams(true);
     try {
@@ -284,11 +301,20 @@ export default function StudentMarksScreen() {
       setExams(nextExams);
 
       // Cache exams
-      await AsyncStorage.setItem(`marks_exams_cache_${studentId}`, JSON.stringify(nextExams));
+      await AsyncStorage.setItem(`marks_exams_cache_${activeStudentId}`, JSON.stringify(nextExams));
 
-      if (!examId && nextExams.length > 0) {
-        setExamId(String(nextExams[0].exam_id));
-        setSelectedExamName(nextExams[0].exam_name);
+      const resolvedExamId = preferredExamId || examId;
+      const resolvedExam =
+        nextExams.find((exam) => String(exam.exam_id) === String(resolvedExamId)) ||
+        nextExams[0];
+
+      if (resolvedExam) {
+        const nextExamId = String(resolvedExam.exam_id);
+        if (nextExamId !== examId) {
+          setExamId(nextExamId);
+          setSelectedExamName(resolvedExam.exam_name);
+          setSelectedSubjectIndex(0);
+        }
       }
     } catch (error) {
       console.error('Failed to load exams:', error);
@@ -297,21 +323,26 @@ export default function StudentMarksScreen() {
     }
   };
 
-  const loadMarks = async (showLoading = true) => {
-    if (!examId) return;
+  const loadMarks = async (
+    showLoading = true,
+    targetExamId: string = examId,
+    targetStudentId: string = studentId,
+  ) => {
+    if (!targetExamId) return;
     
     if (showLoading) setLoadingMarks(true);
     try {
-      const res = await getStudentMarks(examId);
+      const res = await getStudentMarks(targetExamId);
       const mItems = res.items || [];
       const mSummary = res.summary || null;
 
       setItems(mItems);
       setSummary(mSummary);
+      setSelectedSubjectIndex(0);
 
       // Cache marks for this specific exam
       await AsyncStorage.setItem(
-        `marks_data_cache_${studentId}_${examId}`,
+        `marks_data_cache_${targetStudentId}_${targetExamId}`,
         JSON.stringify({ items: mItems, summary: mSummary })
       );
     } catch (error) {
@@ -323,9 +354,14 @@ export default function StudentMarksScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadExams();
-    if (examId) await loadMarks();
-    setRefreshing(false);
+    try {
+      await Promise.all([
+        loadExams(false, schoolCode, studentId, examId),
+        examId ? loadMarks(false, examId, studentId) : Promise.resolve(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleExamSelect = (selectedExamId: string, examName: string) => {
@@ -480,6 +516,7 @@ export default function StudentMarksScreen() {
         visible={showExamModal}
         transparent
         animationType="slide"
+        onRequestClose={() => setShowExamModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -489,7 +526,14 @@ export default function StudentMarksScreen() {
                 <Icon name="x" size={24} color="#0f172a" />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalList}>
+            <View style={styles.modalScrollContainer}>
+              <ScrollView
+                style={styles.modalScrollView}
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={true}
+                persistentScrollbar={true}
+                bounces={true}
+              >
               {exams.map((exam) => (
                 <TouchableOpacity
                   key={exam.exam_id}
@@ -513,7 +557,8 @@ export default function StudentMarksScreen() {
                   )}
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+              </ScrollView>
+            </View>
           </View>
         </View>
       </Modal>
@@ -747,8 +792,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '70%',
-    paddingBottom: 30,
+    maxHeight: '90%',
+    minHeight: 420,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -757,14 +802,29 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1E293B',
   },
+  modalScrollContainer: {
+    flex: 1,
+    maxHeight: 600,
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
+  },
   modalList: {
-    padding: 20,
+    flexGrow: 0,
   },
   modalItem: {
     flexDirection: 'row',
@@ -784,6 +844,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1E293B',
     fontWeight: '500',
+    flex: 1,
   },
   modalItemTextSelected: {
     color: '#3B82F6',

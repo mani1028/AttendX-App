@@ -160,15 +160,29 @@ export default function AccountantDashboardScreen() {
       return;
     }
 
+    const cacheKey = `accountant_dashboard_summary_${schoolCode}`;
+
+    try {
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        setSummary(JSON.parse(cached));
+        setLoadingSummary(false);
+      }
+    } catch (cacheError) {
+      console.warn('Failed to load accountant dashboard cache:', cacheError);
+    }
+
     try {
       setLoadingSummary(true);
       const data = await getDashboardSummary(schoolCode);
-      setSummary({
+      const nextSummary = {
         total_fees_collected: toNumber(data.total_fees_collected),
         total_pending_fees: toNumber(data.total_pending_fees),
         total_expenses: toNumber(data.total_expenses),
         net_balance: toNumber(data.net_balance),
-      });
+      };
+      setSummary(nextSummary);
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(nextSummary));
     } catch (error) {
       console.error('Error fetching accountant dashboard summary:', error);
       setSummary(DEFAULT_SUMMARY);
