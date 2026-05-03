@@ -162,7 +162,7 @@ const StudentCard: React.FC<{
 export default function StudentListScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { setTabBarVisible } = useAuth();
+  const { setTabBarVisible, isClassTeacher: authIsClassTeacher } = useAuth();
   const isMounted = useRef(true);
   const lastScrollY = useRef(0);
 
@@ -177,6 +177,7 @@ export default function StudentListScreen() {
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [selectedSection, setSelectedSection] = useState<string>('');
   const [viewStudent, setViewStudent] = useState<Student | null>(null);
+  const [isClassTeacher, setIsClassTeacher] = useState<boolean>(authIsClassTeacher);
 
   // Load credentials
   useEffect(() => {
@@ -185,10 +186,15 @@ export default function StudentListScreen() {
       const code = await getSchoolCode();
       const bid = await getBranchId();
       const eid = await getEmployeeId();
+      const classTeacherStr = await AsyncStorage.getItem('is_class_teacher');
+
       if (isMounted.current) {
         setSchoolCode(code);
         setBranchId(bid);
         setEmployeeId(eid);
+        if (classTeacherStr !== null) {
+          setIsClassTeacher(classTeacherStr === 'true');
+        }
       }
     };
     load();
@@ -396,12 +402,14 @@ export default function StudentListScreen() {
       </ScrollView>
 
       {/* FAB - Add Student (If allowed) */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('HMStudentRegistration' as any)}
-      >
-        <UserPlus size={24} color="#fff" />
-      </TouchableOpacity>
+      {isClassTeacher && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => navigation.navigate('HMStudentRegistration' as any)}
+        >
+          <UserPlus size={24} color="#fff" />
+        </TouchableOpacity>
+      )}
 
       {/* Student Detail Modal */}
       <BottomSheetModal visible={!!viewStudent} onClose={() => setViewStudent(null)} sheetStyle={styles.modalContent}>

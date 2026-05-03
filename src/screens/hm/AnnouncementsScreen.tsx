@@ -35,7 +35,7 @@ type Announcement = {
   id: number;
   title: string;
   description: string;
-  type: string;
+  type?: string;
   event_date?: string;
   created_at?: string;
 };
@@ -48,6 +48,15 @@ const announcementTypes = [
   "announcement",
   "urgent",
 ];
+
+const DEFAULT_ANNOUNCEMENT_TYPE = "announcement";
+
+const getAnnouncementType = (type?: string) => {
+  const normalizedType = type?.toLowerCase();
+  return announcementTypes.includes(normalizedType || "")
+    ? normalizedType!
+    : DEFAULT_ANNOUNCEMENT_TYPE;
+};
 
 const getTypeColor = (type: string) => {
   const typeMap: any = {
@@ -137,7 +146,12 @@ const AnnouncementsScreen = () => {
         },
       });
 
-      setAnnouncements(response.data.items || []);
+      const normalizedAnnouncements = (response.data.items || []).map((item: Announcement) => ({
+        ...item,
+        type: getAnnouncementType(item?.type),
+      }));
+
+      setAnnouncements(normalizedAnnouncements);
     } catch (error: any) {
       Alert.alert("Error", formatErrorMessage(error?.response?.data?.detail || "Failed to load announcements"));
     } finally {
@@ -206,7 +220,7 @@ const AnnouncementsScreen = () => {
         {
           title: announcement.title,
           description: announcement.description,
-          notification_type: announcement.type,
+          notification_type: getAnnouncementType(announcement.type),
           event_date: announcement.event_date || "",
         },
         {
@@ -415,9 +429,8 @@ const AnnouncementsScreen = () => {
           <AppText style={styles.emptyText}>No announcements posted yet</AppText>
         ) : (
           announcements.map((announcement) => {
-            const typeColor = getTypeColor(
-              announcement.type
-            );
+            const safeType = getAnnouncementType(announcement.type);
+            const typeColor = getTypeColor(safeType);
 
             return (
               <View
@@ -434,7 +447,7 @@ const AnnouncementsScreen = () => {
                   ]}
                   weight="bold"
                 >
-                  {announcement.type.toUpperCase()}
+                  {safeType.toUpperCase()}
                 </AppText>
 
                 <AppText style={styles.title} weight="bold">

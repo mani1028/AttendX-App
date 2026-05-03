@@ -7,6 +7,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { AuthProvider } from './src/context/AuthContext';
 import { NotificationContextProvider } from './src/context/NotificationContext';
 import notificationService from './src/services/notificationService';
+import { offlineQueueSync } from './src/services/offlineQueueSync';
 
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
@@ -22,7 +23,23 @@ export default function App() {
       }
     };
 
+    // Initialize offline queue sync
+    const initializeOfflineSync = () => {
+      try {
+        offlineQueueSync.startMonitoring();
+        console.log('App: Offline sync initialized');
+      } catch (error) {
+        console.error('App: Failed to initialize offline sync:', error);
+      }
+    };
+
     initializeNotifications();
+    initializeOfflineSync();
+
+    // Cleanup on unmount
+    return () => {
+      offlineQueueSync.stopMonitoring();
+    };
   }, []);
 
   return (

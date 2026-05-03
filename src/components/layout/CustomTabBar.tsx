@@ -24,18 +24,9 @@ const FAB_SIZE = 60;
 
 const CustomTabBar = ({ state, navigation }: any) => {
   const insets = useSafeAreaInsets();
-  const { isTabBarVisible } = useAuth();
+  const { isTabBarVisible, tabBarTranslate } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
   const animation = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(slideAnim, {
-      toValue: isTabBarVisible ? 0 : 120,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [isTabBarVisible, slideAnim]);
 
   const toggleMenu = () => {
     const toValue = isExpanded ? 0 : 1;
@@ -46,6 +37,14 @@ const CustomTabBar = ({ state, navigation }: any) => {
     }).start();
     setIsExpanded(!isExpanded);
   };
+
+  const animatedOpacity = tabBarTranslate
+    ? tabBarTranslate.interpolate({
+        inputRange: [0, 120],
+        outputRange: [1, 0.92],
+        extrapolate: 'clamp',
+      })
+    : 1;
 
   const renderTab = (index: number, label: string) => {
     const isFocused = state.index === index;
@@ -152,11 +151,13 @@ const CustomTabBar = ({ state, navigation }: any) => {
 
   return (
     <Animated.View
+      pointerEvents={isTabBarVisible ? 'auto' : 'none'}
       style={[
         styles.container,
         {
           paddingBottom: insets.bottom,
-          transform: [{ translateY: slideAnim }],
+          transform: [{ translateY: tabBarTranslate || new Animated.Value(0) }],
+          opacity: animatedOpacity,
         },
       ]}
     >

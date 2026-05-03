@@ -24,6 +24,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import RNFS from 'react-native-fs';
 import {
   ChevronLeft,
+  ChevronDown,
   Camera as CameraIcon,
   Upload,
   UserCheck,
@@ -46,6 +47,7 @@ import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import CustomPickerModal from '../../components/common/CustomPickerModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -94,6 +96,14 @@ interface AttendanceResult {
 }
 
 // Helper functions
+const getTodayDateString = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const getSchoolCode = async (): Promise<string> => {
   const code = await AsyncStorage.getItem('school_code');
   return code || (await AsyncStorage.getItem('schoolCode')) || '';
@@ -115,7 +125,7 @@ const cleanBase64 = (base64: string): string => {
 };
 
 // Step Labels
-const stepLabels = ['Auth', 'Verified', 'Setup', 'Result'];
+const stepLabels = ['Teacher Auth', 'Verified', 'Student Setup', 'Review & Save'];
 
 // Status Badge Component
 const StatusBadge: React.FC<{ status: 'present' | 'absent' | 'changed' }> = ({ status }) => {
@@ -262,12 +272,13 @@ export default function TeacherAttendanceScreen() {
     branch_id: '',
     class_grade: '',
     section: '',
-    attendance_date: new Date().toISOString().split('T')[0],
+    attendance_date: getTodayDateString(),
     attendance_session: '1',
   });
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [dailySessions, setDailySessions] = useState<number>(1);
-  
+  const [pickerModal, setPickerModal] = useState<{ visible: boolean; title: string; options: { label: string; value: any }[]; selectedValue: any; onValueChange: (value: any) => void } | null>(null);
+
   // Class/Section options
   const [classOptions, setClassOptions] = useState<any[]>([]);
 
@@ -352,16 +363,22 @@ export default function TeacherAttendanceScreen() {
 
         if (cachedSession) {
           const sessionData = JSON.parse(cachedSession);
-          setTeacherData(sessionData.teacher_data);
-          setAssignedClasses(sessionData.assigned_classes);
+          setTeacherData(sessionData?.teacher_data || null);
+          setAssignedClasses(Array.isArray(sessionData?.assigned_classes) ? sessionData.assigned_classes.filter(Boolean) : []);
         }
 
         if (cachedAttendance) {
           const state = JSON.parse(cachedAttendance);
-          if (state.form) setForm(prev => ({ ...prev, ...state.form }));
-          if (state.studentImages) setStudentImages(state.studentImages);
-          if (state.result) setResult(state.result);
-          if (state.step) setStep(state.step);
+          if (state?.form) {
+            setForm(prev => ({
+              ...prev,
+              ...state.form,
+              attendance_date: getTodayDateString() // Always force today's date
+            }));
+          }
+          if (Array.isArray(state?.studentImages)) setStudentImages(state.studentImages.filter(Boolean));
+          if (state?.result) setResult(state.result);
+          if (state?.step) setStep(state.step);
         }
 
         if (code && bid) {
@@ -507,7 +524,7 @@ export default function TeacherAttendanceScreen() {
 
       if (!isMounted.current) return;
 
-      const assigned = data.assigned_classes || [];
+      const assigned = Array.isArray(data?.assigned_classes) ? data.assigned_classes.filter(Boolean) : [];
       setTeacherData(data);
       setAssignedClasses(assigned);
       
@@ -533,7 +550,7 @@ export default function TeacherAttendanceScreen() {
       setCameraActive(false); 
       setTeacherImage(null);
       setStudentImages([]);
-      setStep(2);
+      setStep(3);
       showToast('Identity verified!', `Welcome, ${data.teacher_full_name}`, '✅', '#22C55E');
     } catch (err: any) {
       if (err?.response?.status === 401) {
@@ -672,7 +689,7 @@ export default function TeacherAttendanceScreen() {
       branch_id: branchId,
       class_grade: '',
       section: '',
-      attendance_date: new Date().toISOString().split('T')[0],
+      attendance_date: getTodayDateString(),
       attendance_session: '1',
     });
     const cacheKey = `teacher_attendance_cache_${schoolCode}_${branchId}_${employeeId}`;
@@ -680,39 +697,50 @@ export default function TeacherAttendanceScreen() {
   };
 
   const assignedClassOptions = useMemo(() => {
-    return assignedClasses.map(item => ({
-      key: `${item.class_grade}__${item.section}`,
-      class_grade: item.class_grade,
-      section: item.section,
-      label: `Class ${item.class_grade} - Section ${item.section}`,
-    }));
+    if (!Array.isArray(assignedClasses)) return [];
+    return assignedClasses
+      .filter(item => item !== null && item !== undefined)
+      .map((item, idx) => ({
+        key: item?.class_grade && item?.section ? `${item.class_grade}__${item.section}` : `class-opt-${idx}`,
+        class_grade: item?.class_grade || '',
+        section: item?.section || '',
+        label: `Class ${item?.class_grade || '?'} - Section ${item?.section || '?'}`,
+      }));
   }, [assignedClasses]);
 
   const effectiveClassOptions = useMemo(() => {
-    if (assignedClasses.length > 0) {
-      const uniqueClasses = [...new Set(assignedClasses.map(c => c.class_grade))];
+    if (Array.isArray(assignedClasses) && assignedClasses.length > 0) {
+      const uniqueClasses = [...new Set(assignedClasses.filter(c => c && c.class_grade).map(c => c.class_grade))];
       return uniqueClasses.map(className => ({
         class_name: className,
-        sections: assignedClasses.filter(c => c.class_grade === className).map(c => c.section),
+        sections: assignedClasses.filter(c => c && c.class_grade === className).map(c => c.section).filter(Boolean),
       }));
     }
-    return classOptions;
+    return Array.isArray(classOptions) ? classOptions.filter(Boolean) : [];
   }, [assignedClasses, classOptions]);
 
   const effectiveSectionOptions = useMemo(() => {
-    if (assignedClasses.length > 0) {
-      return assignedClasses.filter(c => c.class_grade === form.class_grade).map(c => c.section);
+    if (Array.isArray(assignedClasses) && assignedClasses.length > 0) {
+      return assignedClasses
+        .filter(c => c && c.class_grade === form.class_grade)
+        .map(c => c.section)
+        .filter(Boolean);
     }
-    const currentCls = classOptions.find(
-      (c: any) => String(c.class_name).trim() === String(form.class_grade).trim()
+    const classOptionsArray = Array.isArray(classOptions) ? classOptions.filter(Boolean) : [];
+    const currentCls = classOptionsArray.find(
+      (c: any) => c && String(c.class_name || '').trim() === String(form.class_grade || '').trim()
     );
-    return currentCls?.sections || [];
+    return Array.isArray(currentCls?.sections) ? currentCls.sections.filter(Boolean) : [];
   }, [assignedClasses, classOptions, form.class_grade]);
 
   const manualRows = useMemo(() => {
-    const presentRows = (result?.present || []).map(s => ({ ...s, _defaultStatus: 'PRESENT' as const }));
-    const absentRows = (result?.absent || []).map(s => ({ ...s, _defaultStatus: 'ABSENT' as const }));
-    return [...presentRows, ...absentRows].filter(s => String(s.student_id || '').trim());
+    const presentRows = Array.isArray(result?.present)
+      ? result.present.filter(s => s !== null).map(s => ({ ...s, _defaultStatus: 'PRESENT' as const }))
+      : [];
+    const absentRows = Array.isArray(result?.absent)
+      ? result.absent.filter(s => s !== null).map(s => ({ ...s, _defaultStatus: 'ABSENT' as const }))
+      : [];
+    return [...presentRows, ...absentRows].filter(s => s && String(s.student_id || '').trim());
   }, [result]);
 
   const manualRowsWithState = useMemo(() => {
@@ -958,17 +986,19 @@ export default function TeacherAttendanceScreen() {
                   <AppText style={styles.label}>Select Assigned Class</AppText>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View style={styles.chipContainer}>
-                      {assignedClassOptions.map(opt => (
+                      {Array.isArray(assignedClassOptions) && assignedClassOptions.map(opt => (
                         <TouchableOpacity
-                          key={opt.key}
-                          style={[styles.chip, selectedClassKey === opt.key && styles.chipActive]}
+                          key={opt?.key || Math.random().toString()}
+                          style={[styles.chip, selectedClassKey === opt?.key && styles.chipActive]}
                           onPress={() => {
-                            setSelectedClassKey(opt.key);
-                            setForm(prev => ({ ...prev, class_grade: opt.class_grade, section: opt.section }));
+                            if (opt) {
+                              setSelectedClassKey(opt.key);
+                              setForm(prev => ({ ...prev, class_grade: opt.class_grade, section: opt.section }));
+                            }
                           }}
                         >
-                          <AppText style={[styles.chipText, selectedClassKey === opt.key && styles.chipTextActive]}>
-                            {opt.label}
+                          <AppText style={[styles.chipText, selectedClassKey === opt?.key && styles.chipTextActive]}>
+                            {opt?.label || 'Unknown'}
                           </AppText>
                         </TouchableOpacity>
                       ))}
@@ -990,68 +1020,62 @@ export default function TeacherAttendanceScreen() {
           <AppCard style={styles.mainCard}>
             <View style={styles.cardHeader}>
               <LayoutGrid size={20} color={HM_THEME.navy} />
-              <AppText style={styles.cardTitle}>Attendance Configuration</AppText>
+              <AppText style={styles.cardTitle}>Student Attendance Setup</AppText>
             </View>
 
             <View style={styles.cardBody}>
               <View style={styles.field}>
                 <AppText style={styles.label}>Class</AppText>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.chipContainer}>
-                    {effectiveClassOptions.map((c: any) => (
-                      <TouchableOpacity
-                        key={c.class_name}
-                        style={[styles.chip, form.class_grade === c.class_name && styles.chipActive]}
-                        onPress={() => handleClassChange(c.class_name)}
-                      >
-                        <AppText style={[styles.chipText, form.class_grade === c.class_name && styles.chipTextActive]}>
-                          Class {c.class_name}
-                        </AppText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
+                <TouchableOpacity
+                  style={styles.pickerTrigger}
+                  onPress={() => setPickerModal({
+                    visible: true,
+                    title: 'Select Class',
+                    options: effectiveClassOptions.map((c: any) => ({ label: `Class ${c.class_name}`, value: c.class_name })),
+                    selectedValue: form.class_grade,
+                    onValueChange: (v) => handleClassChange(v)
+                  })}
+                >
+                  <AppText style={styles.pickerTriggerText}>
+                    {form.class_grade ? `Class ${form.class_grade}` : 'Select Class'}
+                  </AppText>
+                  <ChevronDown size={20} color="#64748B" />
+                </TouchableOpacity>
               </View>
 
               {form.class_grade && (
                 <View style={styles.field}>
                   <AppText style={styles.label}>Section</AppText>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={styles.chipContainer}>
-                      {effectiveSectionOptions.map((sec: string) => (
-                        <TouchableOpacity
-                          key={sec}
-                          style={[styles.chip, form.section === sec && styles.chipActive]}
-                          onPress={() => handleSectionChange(sec)}
-                        >
-                          <AppText style={[styles.chipText, form.section === sec && styles.chipTextActive]}>
-                            Section {sec}
-                          </AppText>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </ScrollView>
+                  <TouchableOpacity
+                    style={styles.pickerTrigger}
+                    onPress={() => setPickerModal({
+                      visible: true,
+                      title: 'Select Section',
+                      options: effectiveSectionOptions.map((sec: string) => ({ label: `Section ${sec}`, value: sec })),
+                      selectedValue: form.section,
+                      onValueChange: (v) => handleSectionChange(v)
+                    })}
+                  >
+                    <AppText style={styles.pickerTriggerText}>
+                      {form.section ? `Section ${form.section}` : 'Select Section'}
+                    </AppText>
+                    <ChevronDown size={20} color="#64748B" />
+                  </TouchableOpacity>
                 </View>
               )}
 
               <View style={styles.field}>
                 <AppText style={styles.label}>Attendance Date</AppText>
-                <TouchableOpacity style={styles.dateSelector} onPress={() => setShowDatePicker(true)}>
+                <View style={[styles.dateSelector, { backgroundColor: '#F1F5F9', opacity: 0.8 }]}>
                   <Calendar size={16} color="#64748B" />
                   <AppText style={styles.dateSelectorText}>{form.attendance_date}</AppText>
-                </TouchableOpacity>
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={new Date(form.attendance_date)}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    maximumDate={new Date()}
-                    onChange={(event, date) => {
-                      setShowDatePicker(false);
-                      if (date) setForm(prev => ({ ...prev, attendance_date: date.toISOString().split('T')[0] }));
-                    }}
-                  />
-                )}
+                  <View style={{ marginLeft: 'auto', backgroundColor: '#E2E8F0', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                    <AppText style={{ fontSize: 10, color: '#64748B', fontWeight: 'bold' }}>TODAY</AppText>
+                  </View>
+                </View>
+                <AppText style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
+                  Attendance can only be marked for the current date.
+                </AppText>
               </View>
 
               <View style={styles.imageGridHeader}>
@@ -1080,15 +1104,17 @@ export default function TeacherAttendanceScreen() {
                 </View>
               )}
 
-              {studentImages.length > 0 && (
+              {Array.isArray(studentImages) && studentImages.length > 0 && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbScroll}>
                   {studentImages.map((img, idx) => (
-                    <View key={idx} style={styles.thumbWrapper}>
-                      <Image source={{ uri: img }} style={styles.thumbImg} />
-                      <TouchableOpacity style={styles.thumbRemove} onPress={() => removeStudentImage(idx)}>
-                        <XCircle size={18} color="#EF4444" fill="#fff" />
-                      </TouchableOpacity>
-                    </View>
+                    img && (
+                      <View key={idx} style={styles.thumbWrapper}>
+                        <Image source={{ uri: img }} style={styles.thumbImg} />
+                        <TouchableOpacity style={styles.thumbRemove} onPress={() => removeStudentImage(idx)}>
+                          <XCircle size={18} color="#EF4444" fill="#fff" />
+                        </TouchableOpacity>
+                      </View>
+                    )
                   ))}
                 </ScrollView>
               )}
@@ -1131,7 +1157,7 @@ export default function TeacherAttendanceScreen() {
             <AppCard style={styles.mainCard}>
               <View style={styles.cardHeader}>
                 <AlertCircle size={20} color="#F59E0B" />
-                <AppText style={styles.cardTitle}>Manual Review</AppText>
+                <AppText style={styles.cardTitle}>Attendance Results & Review</AppText>
               </View>
 
               <View style={styles.cardBody}>
@@ -1156,28 +1182,30 @@ export default function TeacherAttendanceScreen() {
                     <AppText style={[styles.tHead, { width: 80, textAlign: 'center' }]}>Status</AppText>
                   </View>
 
-                  {filteredManualRows.map((item, idx) => (
-                    <View key={item.student_id} style={styles.tRow}>
-                      <AppText style={[styles.tCell, { width: 40, color: '#94A3B8' }]}>{item.roll || idx + 1}</AppText>
-                      <View style={{ flex: 1 }}>
-                        <AppText style={styles.tCellName}>{item.name}</AppText>
-                        {item._changed && <AppText style={styles.changedText}>• Manually Edited</AppText>}
+                  {Array.isArray(filteredManualRows) && filteredManualRows.map((item, idx) => (
+                    item && (
+                      <View key={item.student_id || `row-${idx}`} style={styles.tRow}>
+                        <AppText style={[styles.tCell, { width: 40, color: '#94A3B8' }]}>{item.roll || idx + 1}</AppText>
+                        <View style={{ flex: 1 }}>
+                          <AppText style={styles.tCellName}>{item.name || 'Unknown Student'}</AppText>
+                          {item._changed && <AppText style={styles.changedText}>• Manually Edited</AppText>}
+                        </View>
+                        <View style={styles.statusToggle}>
+                          <TouchableOpacity
+                            style={[styles.toggleBtn, item._currentStatus === 'PRESENT' && styles.toggleBtnP]}
+                            onPress={() => setManualStatusById(prev => ({ ...prev, [item.student_id]: 'PRESENT' }))}
+                          >
+                            <AppText style={[styles.toggleText, item._currentStatus === 'PRESENT' && styles.toggleTextActive]}>P</AppText>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.toggleBtn, item._currentStatus === 'ABSENT' && styles.toggleBtnA]}
+                            onPress={() => setManualStatusById(prev => ({ ...prev, [item.student_id]: 'ABSENT' }))}
+                          >
+                            <AppText style={[styles.toggleText, item._currentStatus === 'ABSENT' && styles.toggleTextActive]}>A</AppText>
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                      <View style={styles.statusToggle}>
-                        <TouchableOpacity
-                          style={[styles.toggleBtn, item._currentStatus === 'PRESENT' && styles.toggleBtnP]}
-                          onPress={() => setManualStatusById(prev => ({ ...prev, [item.student_id]: 'PRESENT' }))}
-                        >
-                          <AppText style={[styles.toggleText, item._currentStatus === 'PRESENT' && styles.toggleTextActive]}>P</AppText>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.toggleBtn, item._currentStatus === 'ABSENT' && styles.toggleBtnA]}
-                          onPress={() => setManualStatusById(prev => ({ ...prev, [item.student_id]: 'ABSENT' }))}
-                        >
-                          <AppText style={[styles.toggleText, item._currentStatus === 'ABSENT' && styles.toggleTextActive]}>A</AppText>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+                    )
                   ))}
                 </View>
 
@@ -1220,6 +1248,8 @@ export default function TeacherAttendanceScreen() {
           </View>
         </View>
       </Modal>
+
+      {pickerModal && <CustomPickerModal {...pickerModal} onClose={() => setPickerModal(null)} />}
     </View>
   );
 }
@@ -1425,6 +1455,21 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  pickerTrigger: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F7F9FB',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 13,
+  },
+  pickerTriggerText: {
+    fontSize: 14,
+    color: '#1A202C',
+    fontWeight: '500',
   },
   input: {
     backgroundColor: '#F7F9FB',

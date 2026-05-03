@@ -23,11 +23,11 @@ import {
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
-import { colors } from '../../constants/theme';
 import { HM_THEME as C } from '../../constants/hmTheme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { formatErrorMessage } from '../../utils/helpers';
+import { safeGoBack } from '../../utils/navigationHelpers';
 
 
 // Types
@@ -35,6 +35,9 @@ interface Exam {
   exam_id: number;
   exam_name: string;
   academic_year: string;
+  class_grade?: string;
+  section?: string;
+  subject_name?: string;
   subject_count: number;
   total_max_marks?: number;
   creation_date: string;
@@ -67,6 +70,16 @@ interface MarksReport {
   students: StudentMarks[];
 }
 
+const getCurrentAcademicYearStart = () => {
+  const now = new Date();
+  return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+};
+
+const formatAcademicYear = (startYear: number) => {
+  const endYearShort = String((startYear + 1) % 100).padStart(2, '0');
+  return `${startYear}-${endYearShort}`;
+};
+
 export default function ExamsPage() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -81,8 +94,13 @@ export default function ExamsPage() {
   const [selectedExam, setSelectedExam] = useState<number | null>(null);
   const [marksReport, setMarksReport] = useState<MarksReport | null>(null);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState({ exam_name: '', academic_year: '' });
+  const [formData, setFormData] = useState({
+    exam_name: '',
+    academic_year: formatAcademicYear(getCurrentAcademicYearStart()),
+  });
   const [showClasswiseModal, setShowClasswiseModal] = useState(false);
+
+  const currentAcademicYearStart = getCurrentAcademicYearStart();
 
   // Load credentials from storage
   useEffect(() => {
@@ -126,11 +144,17 @@ export default function ExamsPage() {
     }
   };
 
-  const getHeaders = () => {
+  const buildHeaders = (code?: string, branch?: string) => {
     const headers: any = {};
-    if (schoolCode) headers['X-School-Code'] = schoolCode;
-    if (branchId) headers['X-Branch-Id'] = branchId;
+    const resolvedSchool = code || schoolCode;
+    const resolvedBranch = branch || branchId;
+    if (resolvedSchool) headers['X-School-Code'] = resolvedSchool;
+    if (resolvedBranch) headers['X-Branch-Id'] = resolvedBranch;
     return headers;
+  };
+
+  const getHeaders = () => {
+    return buildHeaders();
   };
 
   const loadExams = async (code?: string, branch?: string) => {
@@ -146,8 +170,8 @@ export default function ExamsPage() {
     setError('');
     
     try {
-      const res = await API.get('/hm/exams/list', { headers: getHeaders() });
-      const examsData = res.data?.items || [];
+      const res = await API.get('/hm/exams/list', { headers: buildHeaders(school, branchIdVal) });
+      const examsData = Array.isArray(res.data?.items) ? res.data.items.filter(Boolean) : [];
       const processedExams = examsData.map((exam: any) => ({
         ...exam,
         subject_count: exam.subject_count || 0,
@@ -170,7 +194,18 @@ export default function ExamsPage() {
 
   const createExam = async () => {
     if (!formData.exam_name.trim() || !formData.academic_year.trim()) {
-      Alert.alert('Error', 'All fields are required');
+      Alert.alert('Error', 'Exam name and academic year are required');
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}$/.test(formData.academic_year.trim())) {
+      Alert.alert('Error', 'Academic year must be in YYYY-YY format');
+      return;
+    }
+
+    const startYear = Number(formData.academic_year.slice(0, 4));
+    if (!Number.isFinite(startYear) || startYear < currentAcademicYearStart) {
+      Alert.alert('Error', 'Academic year can only be current year or future years');
       return;
     }
     
@@ -179,7 +214,10 @@ export default function ExamsPage() {
     
     try {
       await API.post('/hm/exams/create', formData, { headers: getHeaders() });
-      setFormData({ exam_name: '', academic_year: '' });
+      setFormData({
+        exam_name: '',
+        academic_year: formatAcademicYear(currentAcademicYearStart),
+      });
       await loadExams();
       setActiveTab('list');
       Alert.alert('Success', 'Exam created successfully');
@@ -241,6 +279,24 @@ export default function ExamsPage() {
           <AppText style={styles.infoLabel} weight="semiBold">Academic Year</AppText>
           <AppText style={styles.infoValue} weight="bold">{exam.academic_year}</AppText>
         </View>
+        {exam.class_grade ? (
+          <View style={styles.infoRow}>
+            <AppText style={styles.infoLabel} weight="semiBold">Class</AppText>
+            <AppText style={styles.infoValue} weight="bold">{exam.class_grade}</AppText>
+          </View>
+        ) : null}
+        {exam.section ? (
+          <View style={styles.infoRow}>
+            <AppText style={styles.infoLabel} weight="semiBold">Section</AppText>
+            <AppText style={styles.infoValue} weight="bold">{exam.section}</AppText>
+          </View>
+        ) : null}
+        {exam.subject_name ? (
+          <View style={styles.infoRow}>
+            <AppText style={styles.infoLabel} weight="semiBold">Subject</AppText>
+            <AppText style={styles.infoValue} weight="bold">{exam.subject_name}</AppText>
+          </View>
+        ) : null}
         <View style={styles.infoRow}>
           <AppText style={styles.infoLabel} weight="semiBold">Total Max Marks</AppText>
           <AppText style={styles.infoValue} weight="bold">{exam.total_max_marks || '—'}</AppText>
@@ -349,10 +405,10 @@ export default function ExamsPage() {
           <AppText style={styles.label} weight="bold">Academic Year</AppText>
           <TextInput
             style={styles.input}
-            placeholder="2024-25"
+            placeholder="2026-27"
             placeholderTextColor={C.textMuted}
             value={formData.academic_year}
-            onChangeText={(text) => setFormData({ ...formData, academic_year: text })}
+            onChangeText={(text) => setFormData(prev => ({ ...prev, academic_year: text }))}
           />
         </View>
         
@@ -385,8 +441,9 @@ export default function ExamsPage() {
     }
 
     // Group students by class and section
+    const studentsList = Array.isArray(marksReport.students) ? marksReport.students.filter(Boolean) : [];
     const groupedStudents: Record<string, StudentMarks[]> = {};
-    marksReport.students.forEach(student => {
+    studentsList.forEach(student => {
       const key = `${student.class_grade}-${student.section}`;
       if (!groupedStudents[key]) groupedStudents[key] = [];
       groupedStudents[key].push(student);
@@ -438,17 +495,26 @@ export default function ExamsPage() {
       <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       {/* Standardized Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top }]}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never))}
-        >
-          <ChevronLeft size={24} color="#fff" />
-        </TouchableOpacity>
-        <AppText style={styles.headerTitle} weight="bold">Exam Management</AppText>
-        <TouchableOpacity style={styles.refreshIconBtn} onPress={() => loadExams()}>
-          <RefreshCw size={20} color="#fff" />
-        </TouchableOpacity>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => safeGoBack(navigation, 'HMDashboard')}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <AppText weight="bold" style={styles.headerTitle}>Exam Management</AppText>
+          </View>
+          <TouchableOpacity style={styles.iconButton} onPress={() => loadExams()}>
+            <RefreshCw size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.headerContent}>
+          <AppText weight="bold" style={styles.headerGreeting}>Exams & Performance</AppText>
+          <AppText style={styles.headerSubtext}>Manage examinations and track student results</AppText>
+        </View>
       </View>
 
       {/* Error Message */}
@@ -502,30 +568,55 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    backgroundColor: C.navy,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    ...Platform.select({
+      android: { elevation: 10 },
+      ios: {},
+    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 12,
   },
-  backBtn: {
+  iconButton: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitleContainer: {
+    flex: 1,
     alignItems: 'center',
   },
   headerTitle: {
+    color: '#FFFFFF',
     fontSize: 18,
-    color: '#ffffff',
     textAlign: 'center',
-    flex: 1,
   },
-  refreshIconBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+  headerContent: {
+    marginTop: 24,
+  },
+  headerGreeting: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    letterSpacing: -0.5,
+  },
+  headerSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 4,
   },
   toolbar: {
     flexDirection: 'row',
@@ -717,6 +808,68 @@ const styles = StyleSheet.create({
   submitBtnText: {
     fontSize: 14,
     color: '#fff',
+  },
+  yearSelectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: C.bg,
+  },
+  yearSelectorTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  yearSelectorTitle: {
+    fontSize: 16,
+    color: C.text,
+  },
+  yearSelectorHint: {
+    fontSize: 11,
+    color: C.textMuted,
+  },
+  yearNextBtn: {
+    backgroundColor: C.primary,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  yearNextBtnText: {
+    fontSize: 12,
+    color: '#fff',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  choiceChip: {
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: C.bg,
+  },
+  choiceChipActive: {
+    backgroundColor: C.primary,
+    borderColor: C.primary,
+  },
+  choiceChipText: {
+    fontSize: 12,
+    color: C.text,
+  },
+  choiceChipTextActive: {
+    color: '#fff',
+  },
+  helperText: {
+    fontSize: 12,
+    color: C.textMuted,
+    paddingVertical: 10,
   },
   noData: {
     padding: 32,

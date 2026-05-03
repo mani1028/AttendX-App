@@ -10,22 +10,54 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   StatusBar,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Icon from '@react-native-vector-icons/ionicons';
+import { WebView } from 'react-native-webview';
+import RNFS from 'react-native-fs';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import type { RootStackParamList } from '../../navigation/AppNavigator';
 import { safeNavigate } from '../../utils/navigationHelpers';
 import Svg, { Path } from 'react-native-svg';
-import { getStudentAttendance, getStudentProfile, getStudentProfilePhotoDataUri, getStudentProfilePhotoUrl } from '../../services/studentService';
+import {
+  getStudentAttendance,
+  getStudentProfile,
+  getStudentProfilePhotoDataUri,
+  getStudentProfilePhotoUrl,
+  getQuestionPapers,
+  downloadQuestionPaper
+} from '../../services/studentService';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const getStudentPhotoCacheKey = (studentId: string, schoolCode: string): string | null => {
   if (!studentId) return null;
   return `profile_photo_url:student:${schoolCode || 'unknown'}:${studentId}`;
+};
+
+const arrayBufferToBase64 = (data: ArrayBuffer): string => {
+  const runtimeBuffer = (globalThis as any).Buffer;
+  if (runtimeBuffer?.from) {
+    return runtimeBuffer.from(data).toString('base64');
+  }
+
+  const bytes = new Uint8Array(data);
+  let binary = '';
+  const chunkSize = 0x8000;
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+
+  const btoaFn = (globalThis as any).btoa;
+  if (typeof btoaFn === 'function') {
+    return btoaFn(binary);
+  }
+
+  throw new Error('Base64 encoder is unavailable');
 };
 
 export default function StudentDashboardScreen() {
@@ -60,13 +92,22 @@ export default function StudentDashboardScreen() {
   });
 
   const [recentAttendance, setRecentAttendance] = useState<any[]>([]);
+  const [recentPapers, setRecentPapers] = useState<any[]>([]);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [profilePhotoError, setProfilePhotoError] = useState(false);
   const { unreadCount, refreshUnreadCount } = useUnreadNotifications();
 
+  // Viewer state
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewingPaperUrl, setViewingPaperUrl] = useState<string | null>(null);
+  const [viewingPaperTitle, setViewingPaperTitle] = useState('');
+  const [loadingViewer, setLoadingViewer] = useState(false);
+
   const fetchData = async () => {
     try {
       refreshUnreadCount();
+
+      // Fetch attendance
       const attendance = await getStudentAttendance();
       if (!isMounted.current) return;
       if (attendance) {
@@ -79,6 +120,24 @@ export default function StudentDashboardScreen() {
         if (attendance.items) {
           setRecentAttendance(attendance.items);
         }
+      }
+
+      // Fetch recent question papers
+      const papersRes = await getQuestionPapers();
+      if (isMounted.current && papersRes?.subjects) {
+        const allPapers: any[] = [];
+        papersRes.subjects.forEach((sub: any) => {
+          if (sub.papers) {
+            sub.papers.forEach((p: any) => {
+              allPapers.push({ ...p, subject_name: sub.subject_name });
+            });
+          }
+        });
+        // Sort by date and take top 3
+        const sortedPapers = allPapers.sort((a, b) =>
+          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        ).slice(0, 3);
+        setRecentPapers(sortedPapers);
       }
     } catch (error: any) {
       if (error?.response?.status !== 401) {
@@ -152,6 +211,22 @@ export default function StudentDashboardScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchData();
+  };
+
+  const handleViewPaper = async (paperId: string, title: string) => {
+    setLoadingViewer(true);
+    setViewingPaperTitle(title);
+    try {
+      const buffer = await downloadQuestionPaper(paperId);
+      const base64 = arrayBufferToBase64(buffer);
+      const dataUri = `data:application/pdf;base64,${base64}`;
+      setViewingPaperUrl(dataUri);
+      setViewerVisible(true);
+    } catch (error) {
+      console.error('Error viewing paper:', error);
+    } finally {
+      setLoadingViewer(false);
+    }
   };
 
   const stats = [
@@ -257,6 +332,40 @@ export default function StudentDashboardScreen() {
         <View style={styles.contentContainer}>
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
+              <AppText style={styles.sectionTitle}>Recent Question Papers</AppText>
+              <TouchableOpacity onPress={() => navigation.navigate('StudentQuestionPapers')}>
+                <AppText style={styles.viewAll}>View All</AppText>
+              </TouchableOpacity>
+            </View>
+            {recentPapers.length > 0 ? (
+              recentPapers.map((paper, index) => (
+                <View key={index} style={styles.paperCardRow}>
+                  <View style={[styles.activityIcon, { backgroundColor: '#eff6ff' }]}>
+                    <Icon name="document-text" size={20} color="#3b82f6" />
+                  </View>
+                  <View style={styles.activityInfo}>
+                    <AppText style={styles.activityTitle} numberOfLines={1}>{paper.title}</AppText>
+                    <AppText style={styles.activityDate}>
+                      {paper.subject_name} • {paper.exam_type}
+                    </AppText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.viewPaperBtn}
+                    onPress={() => handleViewPaper(paper.paper_id, paper.title)}
+                  >
+                    <AppText style={styles.viewPaperBtnText}>View</AppText>
+                  </TouchableOpacity>
+                </View>
+              ))
+            ) : (
+              <View style={styles.activityCard}>
+                 <AppText style={styles.activityDetail}>No recent papers found.</AppText>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
               <AppText style={styles.sectionTitle}>Quick Access</AppText>
               {/* <TouchableOpacity>
                 <AppText style={styles.viewAll}>View All</AppText>
@@ -316,6 +425,41 @@ export default function StudentDashboardScreen() {
 
         <View style={{ height: insets.bottom + 88 }} />
       </ScrollView>
+
+      {/* PDF Viewer Modal */}
+      <Modal
+        visible={viewerVisible}
+        animationType="slide"
+        onRequestClose={() => setViewerVisible(false)}
+      >
+        <View style={styles.viewerContainer}>
+          <View style={[styles.viewerHeader, { paddingTop: insets.top + 10 }]}>
+            <TouchableOpacity
+              onPress={() => setViewerVisible(false)}
+              style={styles.viewerCloseBtn}
+            >
+              <Icon name="close" size={24} color="#0f172a" />
+            </TouchableOpacity>
+            <AppText style={styles.viewerTitle} numberOfLines={1}>{viewingPaperTitle}</AppText>
+            <View style={{ width: 40 }} />
+          </View>
+          {viewingPaperUrl && (
+            <WebView
+              source={{ uri: viewingPaperUrl }}
+              style={{ flex: 1 }}
+              originWhitelist={['*']}
+              scalesPageToFit
+            />
+          )}
+        </View>
+      </Modal>
+
+      {loadingViewer && (
+        <View style={styles.loaderOverlay}>
+          <ActivityIndicator size="large" color="#3b82f6" />
+          <AppText style={styles.loaderText}>Opening paper...</AppText>
+        </View>
+      )}
     </View>
   );
 }
@@ -553,5 +697,67 @@ const styles = StyleSheet.create({
   activityDetail: {
     fontSize: 12,
     color: '#64748b',
+  },
+  paperCardRow: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  viewPaperBtn: {
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  viewPaperBtnText: {
+    color: '#3b82f6',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  viewerContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  viewerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  viewerCloseBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  loaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  loaderText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#3b82f6',
+    fontWeight: '600',
   },
 });

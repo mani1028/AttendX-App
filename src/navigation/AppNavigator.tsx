@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import {
@@ -21,7 +22,9 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import CustomTabBar from '../components/layout/CustomTabBar';
+import AccountantTabBar from '../components/layout/AccountantTabBar';
 import TeacherTabBar from '../components/layout/TeacherTabBar';
+import HMTabBar from '../components/layout/HMTabBar';
 
 // ─── Auth Screens ───────────────────────────────────────────────────────────
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -65,18 +68,22 @@ import StudentFeeScreen from '../screens/student/StudentFeeScreen';
 import StudentLeaveScreen from '../screens/student/LeaveScreen';
 import StudentQuestionPapersScreen from '../screens/student/QuestionPapersScreen';
 
-// ─── HM (Head Master) Screens ───────────────────────────────────────────────
-import HMDashboardScreen from '../screens/hm/HMDashboardScreen';
-import HMAttendanceScreen from '../screens/hm/AttendanceScreen';
-import HMStudentManagementScreen from '../screens/hm/StudentManagementScreen';
-import HMTeacherManagementScreen from '../screens/hm/TeacherManagementScreen';
-import HMExamsScreen from '../screens/hm/ExamsScreen';
-import HMAnnouncementsScreen from '../screens/hm/AnnouncementsScreen';
-import HMReportsScreen from '../screens/hm/ReportsScreen';
-import HMFeeManagementScreen from '../screens/hm/FeeManagementScreen';
-import HMExpenseScreen from '../screens/hm/ExpenseScreen';
-import HMSettingsScreen from '../screens/hm/SettingsScreen';
+import {
+  HMDashboardScreen,
+  AttendanceScreen as HMAttendanceScreen,
+  StudentManagementScreen as HMStudentManagementScreen,
+  TeacherManagementScreen as HMTeacherManagementScreen,
+  ExamsScreen as HMExamsScreen,
+  AnnouncementsScreen as HMAnnouncementsScreen,
+  ReportsScreen as HMReportsScreen,
+  FeeManagementScreen as HMFeeManagementScreen,
+  ExpenseScreen as HMExpenseScreen,
+  PaymentEntryScreen as HMPaymentEntryScreen,
+  SettingsScreen as HMSettingsScreen,
+  HMTeacherAssignmentsScreen
+} from '../screens/hm';
 import HMStudentRegistrationScreen from '../screens/teacher/StudentRegistrationScreen';
+import StudentAttendanceReportScreen from '../screens/hm/StudentAttendanceReport';
 
 // ─── Principal Screens ──────────────────────────────────────────────────────
 import PrincipalDashboardScreen from '../screens/principal/PrincipalDashboardScreen';
@@ -85,12 +92,10 @@ import PrincipalHMRegistrationScreen from '../screens/principal/HMRegistrationSc
 
 // ─── Accountant Screens ─────────────────────────────────────────────────────
 import AccountantDashboardScreen from '../screens/accountant/AccountantDashboardScreen';
-import AccountantPaymentEntryScreen from '../screens/accountant/PaymentEntryScreen';
+import AccountantProfileScreen from '../screens/accountant/AccountantProfileScreen';
 import AccountantPayrollScreen from '../screens/accountant/PayrollScreen';
-import AccountantFeeManagementScreen from '../screens/accountant/FeeManagementScreen';
-import AccountantExpenseScreen from '../screens/accountant/ExpenseScreen';
-import AccountantReportsScreen from '../screens/accountant/ReportsScreen';
 import AccountantSettingsScreen from '../screens/accountant/SettingsScreen';
+import SalariesManagement from '../screens/accountant/SalariesManagement';
 
 // ─── Visitor Screens ────────────────────────────────────────────────────────
 import VisitFormScreen from '../screens/visitor/VisitFormScreen';
@@ -154,6 +159,7 @@ export type RootStackParamList = {
   HMAttendance: undefined;
   HMStudentManagement: undefined;
   HMTeacherManagement: undefined;
+  TeacherAssignment: undefined;
   HMExams: undefined;
   HMAnnouncements: undefined;
   HMReports: undefined;
@@ -161,7 +167,8 @@ export type RootStackParamList = {
   HMExpense: undefined;
   HMSettings: undefined;
   HMStudentRegistration: undefined;
-  
+  StudentAttendanceReport: { studentId: string; studentName: string };
+
   // Principal
   PrincipalDashboard: undefined;
   PrincipalBranchDetails: { branchId: string; branchName: string; hmName: string; hmEmail: string; branchStatus: string };
@@ -169,8 +176,10 @@ export type RootStackParamList = {
   
   // Accountant
   AccountantDashboard: undefined;
+  AccountantProfile: undefined;
   AccountantPaymentEntry: undefined;
   AccountantPayroll: undefined;
+  AccountantSalaries: undefined;
   AccountantFeeManagement: undefined;
   AccountantExpense: undefined;
   AccountantReports: undefined;
@@ -242,30 +251,16 @@ const PrincipalTabNavigator = () => (
 
 const HMTabNavigator = () => (
   <Tab.Navigator
-    screenOptions={({ route }) => ({
+    tabBar={(props) => <HMTabBar {...props} />}
+    screenOptions={{
       headerShown: false,
-      tabBarIcon: ({ focused, color, size }) => {
-        const icons: Record<string, any> = {
-          Home: Home,
-          Teachers: Users,
-          Students: GraduationCap,
-          Attendance: CalendarCheck,
-          Fees: Wallet,
-          Visitors: LogIn,
-        };
-        const IconComponent = icons[route.name] ?? Home;
-        return <IconComponent size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
-      },
-      tabBarActiveTintColor: '#007AFF',
-      tabBarInactiveTintColor: 'gray',
-    })}
+    }}
   >
     <Tab.Screen name="Home" component={HMDashboardScreen} />
-    <Tab.Screen name="Teachers" component={HMTeacherManagementScreen} />
+    <Tab.Screen name="Staff" component={HMTeacherManagementScreen} />
+    <Tab.Screen name="TeacherAssignment" component={HMTeacherAssignmentsScreen} />
     <Tab.Screen name="Students" component={HMStudentManagementScreen} />
-    <Tab.Screen name="Attendance" component={HMAttendanceScreen} />
-    <Tab.Screen name="Fees" component={HMFeeManagementScreen} />
-    <Tab.Screen name="Visitors" component={VisitorDashboardScreen} />
+    <Tab.Screen name="Settings" component={HMSettingsScreen} />
   </Tab.Navigator>
 );
 
@@ -275,6 +270,24 @@ const TeacherLeavesWrapper = React.memo(() => {
   return isClassTeacher ? <TeacherLeaveApprovalScreen /> : <TeacherLeaveRequestScreen />;
 });
 TeacherLeavesWrapper.displayName = 'TeacherLeavesWrapper';
+// Wrapper component for Salaries screen with schoolCode
+const SalariesWrapper = React.memo(() => {
+  const [schoolCode, setSchoolCode] = useState('');
+
+  useEffect(() => {
+    const loadSchoolCode = async () => {
+      const code = await AsyncStorage.getItem('school_code') ||
+                   await AsyncStorage.getItem('schoolCode') ||
+                   await AsyncStorage.getItem('school_id') || '';
+      setSchoolCode(code);
+    };
+    loadSchoolCode();
+  }, []);
+
+  return <SalariesManagement schoolCode={schoolCode} />;
+});
+SalariesWrapper.displayName = 'SalariesWrapper';
+
 
 const TeacherTabNavigator = () => {
   return (
@@ -313,34 +326,22 @@ const StudentTabNavigator = () => (
   </Tab.Navigator>
 );
 
-const AccountantTabNavigator = () => (
-  <Tab.Navigator
-    screenOptions={({ route }) => ({
-      headerShown: false,
-      tabBarIcon: ({ focused, color, size }) => {
-        const icons: Record<string, any> = {
-          Dashboard: LayoutGrid,
-          Payments: CreditCard,
-          Payroll: Coins,
-          Fees: GraduationCap,
-          Expenses: TrendingDown,
-          Reports: BarChart3,
-        };
-        const IconComponent = icons[route.name] ?? LayoutGrid;
-        return <IconComponent size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
-      },
-      tabBarActiveTintColor: '#007AFF',
-      tabBarInactiveTintColor: 'gray',
-    })}
-  >
-    <Tab.Screen name="Dashboard" component={AccountantDashboardScreen} />
-    <Tab.Screen name="Payments" component={AccountantPaymentEntryScreen} />
-    <Tab.Screen name="Payroll" component={AccountantPayrollScreen} />
-    <Tab.Screen name="Fees" component={AccountantFeeManagementScreen} />
-    <Tab.Screen name="Expenses" component={AccountantExpenseScreen} />
-    <Tab.Screen name="Reports" component={AccountantReportsScreen} />
-  </Tab.Navigator>
-);
+const AccountantTabNavigator = () => {
+  return (
+    <Tab.Navigator
+      tabBar={(props) => <AccountantTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Tab.Screen name="Dashboard" component={AccountantDashboardScreen} />
+      <Tab.Screen name="Fees" component={HMFeeManagementScreen} />
+      <Tab.Screen name="Salaries" component={SalariesWrapper} />
+      <Tab.Screen name="Payroll" component={AccountantPayrollScreen} />
+      <Tab.Screen name="Expenses" component={HMExpenseScreen} />
+    </Tab.Navigator>
+  );
+};
 
 // ─── Role-based Tab Switcher ────────────────────────────────────────────────
 
@@ -437,6 +438,7 @@ export default function AppNavigator() {
           <Stack.Screen name="HMAttendance" component={HMAttendanceScreen} />
           <Stack.Screen name="HMStudentManagement" component={HMStudentManagementScreen} options={{ headerShown: false }} />
           <Stack.Screen name="HMTeacherManagement" component={HMTeacherManagementScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="TeacherAssignment" component={HMTeacherAssignmentsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="HMExams" component={HMExamsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="HMAnnouncements" component={HMAnnouncementsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="HMReports" component={HMReportsScreen} options={{ headerShown: false }} />
@@ -444,7 +446,8 @@ export default function AppNavigator() {
           <Stack.Screen name="HMExpense" component={HMExpenseScreen} options={{ headerShown: false }} />
           <Stack.Screen name="HMSettings" component={HMSettingsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="HMStudentRegistration" component={HMStudentRegistrationScreen} options={{ headerShown: false }} />
-          
+          <Stack.Screen name="StudentAttendanceReport" component={StudentAttendanceReportScreen} options={{ headerShown: false }} />
+
           {/* Principal Screens */}
           <Stack.Screen name="PrincipalDashboard" component={PrincipalDashboardScreen} />
           <Stack.Screen name="PrincipalBranchDetails" component={PrincipalBranchDetailsScreen} options={{ headerShown: false }} />
@@ -452,11 +455,12 @@ export default function AppNavigator() {
           
           {/* Accountant Screens */}
           <Stack.Screen name="AccountantDashboard" component={AccountantDashboardScreen} />
-          <Stack.Screen name="AccountantPaymentEntry" component={AccountantPaymentEntryScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="AccountantProfile" component={AccountantProfileScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="AccountantPaymentEntry" component={HMPaymentEntryScreen} options={{ headerShown: false }} />
           <Stack.Screen name="AccountantPayroll" component={AccountantPayrollScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="AccountantFeeManagement" component={AccountantFeeManagementScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="AccountantExpense" component={AccountantExpenseScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="AccountantReports" component={AccountantReportsScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="AccountantFeeManagement" component={HMFeeManagementScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="AccountantExpense" component={HMExpenseScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="AccountantReports" component={HMReportsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="AccountantSettings" component={AccountantSettingsScreen} options={{ headerShown: false }} />
           
           {/* Visitor Screens (Logged In) */}

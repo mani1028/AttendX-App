@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import {
   ChevronLeft,
+  ChevronRight,
   Filter,
   Settings,
   CheckCircle2,
@@ -46,6 +47,7 @@ import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
+import CustomPickerModal from '../../components/common/CustomPickerModal';
 
 // Types
 interface ClassItem {
@@ -62,6 +64,11 @@ interface ExamItem {
   exam_id: string;
   exam_name: string;
   academic_year: string;
+}
+
+interface PickerOption {
+  id: string;
+  name: string;
 }
 
 interface SubjectItem {
@@ -219,10 +226,6 @@ const FilterModal: React.FC<{
   selectedSection,
   selectedExam,
   selectedSubject,
-  loadingClasses,
-  loadingSections,
-  loadingExams,
-  loadingSubjects,
   onSelectClass,
   onSelectSection,
   onSelectExam,
@@ -230,224 +233,120 @@ const FilterModal: React.FC<{
   onApply,
   onClose,
 }) => {
-  const [showClassPicker, setShowClassPicker] = useState(false);
-  const [showSectionPicker, setShowSectionPicker] = useState(false);
-  const [showExamPicker, setShowExamPicker] = useState(false);
-  const [showSubjectPicker, setShowSubjectPicker] = useState(false);
-  const LIST_THRESHOLD = 8;
+  const [pickerModal, setPickerModal] = useState<{ visible: boolean; title: string; options: { label: string; value: any }[]; selectedValue: any; onValueChange: (value: any) => void } | null>(null);
+
+  const handleOptionSelect = (mode: 'class' | 'section' | 'exam' | 'subject', id: string) => {
+    if (mode === 'class') onSelectClass(id);
+    else if (mode === 'section') onSelectSection(id);
+    else if (mode === 'exam') onSelectExam(id);
+    else if (mode === 'subject') onSelectSubject(id);
+  };
+
+  const currentSelection = (type: 'class' | 'section' | 'exam' | 'subject') => {
+    if (type === 'class') return classes.find(c => c.class_id === selectedClass)?.class_name || 'Select Class';
+    if (type === 'section') return sections.find(s => s.section_id === selectedSection)?.section_name || 'Select Section';
+    if (type === 'exam') return exams.find(e => e.exam_id === selectedExam)?.exam_name || 'Select Exam';
+    if (type === 'subject') return subjects.find(s => s.subject_id === selectedSubject)?.subject_name || 'Select Subject';
+    return '';
+  };
 
   return (
-      <Modal visible={visible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-        <View style={styles.modalHeader}>
-          <AppText weight="bold" style={styles.modalTitle}>Filters</AppText>
-          <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-            <X size={20} color="#64748b" />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.modalBody}>
-          {/* Class Filter */}
-          <AppText weight="bold" style={styles.modalLabel}>Class</AppText>
-          {loadingClasses ? (
-            <ActivityIndicator size="small" color="#2563eb" />
-          ) : classes.length > LIST_THRESHOLD ? (
-            <TouchableOpacity style={styles.pickerButton} onPress={() => setShowClassPicker(true)}>
-              <AppText weight="semiBold" style={styles.pickerButtonText}>
-                {selectedClass ? (classes.find(c => c.class_id === selectedClass)?.class_name || 'Select Class') : 'Select Class'}
-              </AppText>
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <AppText weight="bold" style={styles.modalTitle}>Select Filters</AppText>
+            <TouchableOpacity onPress={onClose} style={styles.modalClose}>
+              <X size={20} color="#64748b" />
             </TouchableOpacity>
-          ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.chipContainer}>
-                {classes.map(cls => (
-                  <TouchableOpacity
-                    key={cls.class_id}
-                    style={[styles.chip, selectedClass === cls.class_id && styles.chipActive]}
-                    onPress={() => onSelectClass(cls.class_id)}
-                  >
-                    <AppText weight="semiBold" style={[styles.chipText, selectedClass === cls.class_id && styles.chipTextActive]}>
-                      {cls.class_name}
-                    </AppText>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-          )}
+          </View>
 
-          {/* Section Filter */}
-          {selectedClass && (
-            <>
-              <AppText weight="bold" style={[styles.modalLabel, { marginTop: 16 }]}>Section</AppText>
-              {loadingSections ? (
-                <ActivityIndicator size="small" color="#2563eb" />
-              ) : sections.length > LIST_THRESHOLD ? (
-                <TouchableOpacity style={styles.pickerButton} onPress={() => setShowSectionPicker(true)}>
-                  <AppText weight="semiBold" style={styles.pickerButtonText}>
-                    {selectedSection ? (sections.find(s => s.section_id === selectedSection)?.section_name || 'Select Section') : 'Select Section'}
-                  </AppText>
+          <ScrollView style={styles.modalBody}>
+            <View style={styles.filterGroup}>
+              <AppText weight="bold" style={styles.modalLabel}>Class</AppText>
+              <TouchableOpacity
+                style={styles.pickerSelector}
+                onPress={() => setPickerModal({
+                  visible: true,
+                  title: 'Select Class',
+                  options: classes.map(c => ({ label: c.class_name, value: c.class_id })),
+                  selectedValue: selectedClass,
+                  onValueChange: (v) => handleOptionSelect('class', v)
+                })}
+              >
+                <AppText style={styles.pickerSelectorText}>{currentSelection('class')}</AppText>
+                <ChevronRight size={18} color="#64748b" style={{ transform: [{ rotate: '90deg' }] }} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedClass && (
+              <View style={styles.filterGroup}>
+                <AppText weight="bold" style={styles.modalLabel}>Section</AppText>
+                <TouchableOpacity
+                  style={styles.pickerSelector}
+                  onPress={() => setPickerModal({
+                    visible: true,
+                    title: 'Select Section',
+                    options: sections.map(s => ({ label: s.section_name, value: s.section_id })),
+                    selectedValue: selectedSection,
+                    onValueChange: (v) => handleOptionSelect('section', v)
+                  })}
+                >
+                  <AppText style={styles.pickerSelectorText}>{currentSelection('section')}</AppText>
+                  <ChevronRight size={18} color="#64748b" style={{ transform: [{ rotate: '90deg' }] }} />
                 </TouchableOpacity>
-              ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.chipContainer}>
-                    {sections.map(sec => (
-                      <TouchableOpacity
-                        key={sec.section_id}
-                        style={[styles.chip, selectedSection === sec.section_id && styles.chipActive]}
-                        onPress={() => onSelectSection(sec.section_id)}
-                      >
-                        <AppText weight="semiBold" style={[styles.chipText, selectedSection === sec.section_id && styles.chipTextActive]}>
-                          {sec.section_name}
-                        </AppText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              )}
-            </>
-          )}
-
-          {/* Exam Filter */}
-          <AppText weight="bold" style={[styles.modalLabel, { marginTop: 16 }]}>Exam</AppText>
-          {loadingExams ? (
-            <ActivityIndicator size="small" color="#2563eb" />
-          ) : exams.length > LIST_THRESHOLD ? (
-            <TouchableOpacity style={styles.pickerButton} onPress={() => setShowExamPicker(true)}>
-              <AppText weight="semiBold" style={styles.pickerButtonText}>
-                {selectedExam ? (exams.find(e => e.exam_id === selectedExam)?.exam_name || 'Select Exam') : 'Select Exam'}
-              </AppText>
-            </TouchableOpacity>
-          ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.chipContainer}>
-                {exams.map(exam => (
-                  <TouchableOpacity
-                    key={exam.exam_id}
-                    style={[styles.chip, selectedExam === exam.exam_id && styles.chipActive]}
-                    onPress={() => onSelectExam(exam.exam_id)}
-                  >
-                    <AppText weight="semiBold" style={[styles.chipText, selectedExam === exam.exam_id && styles.chipTextActive]}>
-                      {exam.exam_name}
-                    </AppText>
-                  </TouchableOpacity>
-                ))}
               </View>
-            </ScrollView>
-          )}
+            )}
 
-          {/* Subject Filter */}
-          {selectedClass && (
-            <>
-              <AppText weight="bold" style={[styles.modalLabel, { marginTop: 16 }]}>Subject</AppText>
-              {loadingSubjects ? (
-                <ActivityIndicator size="small" color="#2563eb" />
-              ) : subjects.length > LIST_THRESHOLD ? (
-                <TouchableOpacity style={styles.pickerButton} onPress={() => setShowSubjectPicker(true)}>
-                  <AppText weight="semiBold" style={styles.pickerButtonText}>
-                    {selectedSubject ? (subjects.find(s => s.subject_id === selectedSubject)?.subject_name || 'Select Subject') : 'Select Subject'}
-                  </AppText>
+            <View style={styles.filterGroup}>
+              <AppText weight="bold" style={styles.modalLabel}>Exam</AppText>
+              <TouchableOpacity
+                style={styles.pickerSelector}
+                onPress={() => setPickerModal({
+                  visible: true,
+                  title: 'Select Exam',
+                  options: exams.map(e => ({ label: e.exam_name, value: e.exam_id })),
+                  selectedValue: selectedExam,
+                  onValueChange: (v) => handleOptionSelect('exam', v)
+                })}
+              >
+                <AppText style={styles.pickerSelectorText}>{currentSelection('exam')}</AppText>
+                <ChevronRight size={18} color="#64748b" style={{ transform: [{ rotate: '90deg' }] }} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedClass && (
+              <View style={styles.filterGroup}>
+                <AppText weight="bold" style={styles.modalLabel}>Subject</AppText>
+                <TouchableOpacity
+                  style={styles.pickerSelector}
+                  onPress={() => setPickerModal({
+                    visible: true,
+                    title: 'Select Subject',
+                    options: subjects.map(su => ({ label: su.subject_name, value: su.subject_id })),
+                    selectedValue: selectedSubject,
+                    onValueChange: (v) => handleOptionSelect('subject', v)
+                  })}
+                >
+                  <AppText style={styles.pickerSelectorText}>{currentSelection('subject')}</AppText>
+                  <ChevronRight size={18} color="#64748b" style={{ transform: [{ rotate: '90deg' }] }} />
                 </TouchableOpacity>
-              ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.chipContainer}>
-                    {subjects.map(subj => (
-                      <TouchableOpacity
-                        key={subj.subject_id}
-                        style={[styles.chip, selectedSubject === subj.subject_id && styles.chipActive]}
-                        onPress={() => onSelectSubject(subj.subject_id)}
-                      >
-                        <AppText weight="semiBold" style={[styles.chipText, selectedSubject === subj.subject_id && styles.chipTextActive]}>
-                          {subj.subject_name}
-                        </AppText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              )}
-            </>
-          )}
-        </ScrollView>
+              </View>
+            )}
+          </ScrollView>
 
           <View style={styles.modalFooter}>
-            <AppButton title="Apply Filters" onPress={onApply} />
+            <AppButton title="Apply Filters" onPress={onApply} disabled={!selectedClass || !selectedSection || !selectedExam || !selectedSubject} />
           </View>
         </View>
       </View>
 
-      {/* Picker modals for large lists */}
-      <Modal visible={showClassPicker} transparent animationType="fade">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowClassPicker(false)}>
-          <View style={[styles.modalContent, { maxHeight: '60%' }]}>
-            <View style={styles.modalHeader}>
-              <AppText weight="bold" style={styles.modalTitle}>Select Class</AppText>
-              <TouchableOpacity onPress={() => setShowClassPicker(false)} style={styles.modalClose}><X size={20} color="#64748b" /></TouchableOpacity>
-            </View>
-            <ScrollView style={{ padding: 20 }}>
-              {classes.map(c => (
-                <TouchableOpacity key={c.class_id} style={styles.pickerOption} onPress={() => { onSelectClass(c.class_id); setShowClassPicker(false); }}>
-                  <AppText style={styles.pickerOptionText}>{c.class_name}</AppText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      <Modal visible={showSectionPicker} transparent animationType="fade">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowSectionPicker(false)}>
-          <View style={[styles.modalContent, { maxHeight: '60%' }]}>
-            <View style={styles.modalHeader}>
-              <AppText weight="bold" style={styles.modalTitle}>Select Section</AppText>
-              <TouchableOpacity onPress={() => setShowSectionPicker(false)} style={styles.modalClose}><X size={20} color="#64748b" /></TouchableOpacity>
-            </View>
-            <ScrollView style={{ padding: 20 }}>
-              {sections.map(s => (
-                <TouchableOpacity key={s.section_id} style={styles.pickerOption} onPress={() => { onSelectSection(s.section_id); setShowSectionPicker(false); }}>
-                  <AppText style={styles.pickerOptionText}>{s.section_name}</AppText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      <Modal visible={showExamPicker} transparent animationType="fade">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowExamPicker(false)}>
-          <View style={[styles.modalContent, { maxHeight: '60%' }]}>
-            <View style={styles.modalHeader}>
-              <AppText weight="bold" style={styles.modalTitle}>Select Exam</AppText>
-              <TouchableOpacity onPress={() => setShowExamPicker(false)} style={styles.modalClose}><X size={20} color="#64748b" /></TouchableOpacity>
-            </View>
-            <ScrollView style={{ padding: 20 }}>
-              {exams.map(e => (
-                <TouchableOpacity key={e.exam_id} style={styles.pickerOption} onPress={() => { onSelectExam(e.exam_id); setShowExamPicker(false); }}>
-                  <AppText style={styles.pickerOptionText}>{e.exam_name}</AppText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      <Modal visible={showSubjectPicker} transparent animationType="fade">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowSubjectPicker(false)}>
-          <View style={[styles.modalContent, { maxHeight: '60%' }]}>
-            <View style={styles.modalHeader}>
-              <AppText weight="bold" style={styles.modalTitle}>Select Subject</AppText>
-              <TouchableOpacity onPress={() => setShowSubjectPicker(false)} style={styles.modalClose}><X size={20} color="#64748b" /></TouchableOpacity>
-            </View>
-            <ScrollView style={{ padding: 20 }}>
-              {subjects.map(su => (
-                <TouchableOpacity key={su.subject_id} style={styles.pickerOption} onPress={() => { onSelectSubject(su.subject_id); setShowSubjectPicker(false); }}>
-                  <AppText style={styles.pickerOptionText}>{su.subject_name}</AppText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
+      {pickerModal && (
+        <CustomPickerModal
+          {...pickerModal}
+          onClose={() => setPickerModal(null)}
+        />
+      )}
     </Modal>
   );
 };
@@ -606,21 +505,21 @@ export default function MarksEntryScreen() {
         const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           const data = JSON.parse(cached);
-          const assignments = data.assignments || [];
-          const teacherData = data.teacher_data || null;
+          const rawAssignments = Array.isArray(data?.assignments) ? data.assignments.filter(Boolean) : [];
+          const teacherData = data?.teacher_data || null;
           const canonicalId = String(teacherData?.teacher_id || teacherId).trim();
           const deptRaw = String(teacherData?.department_subject || '').trim();
-          const deptSubjects = Array.from(new Set(deptRaw.split(/[,/|]+/).map(s => s.trim()).filter(Boolean)));
+          const deptSubjects = Array.from(new Set(deptRaw.split(/[,/|]+/).map((s: any) => String(s || '').trim()).filter(Boolean)));
 
           if (isMounted.current) {
-            setTeacherAssignments(assignments);
+            setTeacherAssignments(rawAssignments);
             setTeacherSubjects(deptSubjects);
             setResolvedTeacherId(canonicalId);
 
             const uniqueClasses = Array.from(
               new Map(
-                assignments
-                  .filter((a: any) => a.class_id && a.class_name)
+                rawAssignments
+                  .filter((a: any) => a?.class_id && a?.class_name)
                   .map((a: any) => [String(a.class_name).trim().toLowerCase(), { class_id: String(a.class_id), class_name: a.class_name }])
               ).values()
             ) as ClassItem[];
@@ -640,23 +539,23 @@ export default function MarksEntryScreen() {
         
         if (!isMounted.current) return;
 
-        const assignments = res.data?.assignments || [];
+        const rawAssignments = Array.isArray(res.data?.assignments) ? res.data.assignments.filter(Boolean) : [];
         const teacherData = res.data?.teacher_data || null;
         const canonicalId = String(teacherData?.teacher_id || teacherId).trim();
         const deptRaw = String(teacherData?.department_subject || '').trim();
-        const deptSubjects = Array.from(new Set(deptRaw.split(/[,/|]+/).map(s => s.trim()).filter(Boolean)));
+        const deptSubjects = Array.from(new Set(deptRaw.split(/[,/|]+/).map((s: any) => String(s || '').trim()).filter(Boolean)));
 
-        setTeacherAssignments(assignments);
+        setTeacherAssignments(rawAssignments);
         setTeacherSubjects(deptSubjects);
         setResolvedTeacherId(canonicalId);
 
         const uniqueClasses = Array.from(
           new Map(
-            assignments
-              .filter(a => a.class_id && a.class_name)
-              .map(a => [String(a.class_name).trim().toLowerCase(), { class_id: String(a.class_id), class_name: a.class_name }])
+            rawAssignments
+              .filter((a: any) => a?.class_id && a?.class_name)
+              .map((a: any) => [String(a.class_name).trim().toLowerCase(), { class_id: String(a.class_id), class_name: a.class_name }])
           ).values()
-        );
+        ) as ClassItem[];
         setClasses(uniqueClasses);
 
         // Save to cache
@@ -687,8 +586,9 @@ export default function MarksEntryScreen() {
       try {
         const res = await API.get('/teacher/marks/exams', { headers: { 'x-school-code': schoolCode } });
         if (!isMounted.current) return;
+        const rawExams = Array.isArray(res.data?.exams) ? res.data.exams.filter(Boolean) : [];
         const uniqueExams = Array.from(
-          new Map((res.data?.exams || []).map((e: any) => [String(e.exam_id), e])).values()
+          new Map(rawExams.map((e: any) => [String(e?.exam_id), e])).values()
         );
         setExams(uniqueExams);
         await AsyncStorage.setItem(cacheKey, JSON.stringify(uniqueExams));
@@ -713,11 +613,12 @@ export default function MarksEntryScreen() {
       return;
     }
     setLoadingSections(true);
-    const sectionsData = teacherAssignments
-      .filter(a => String(a.class_id) === String(classId))
-      .map(a => ({ section_id: String(a.section_id), section_name: a.section_name }))
+    const assignmentsArray = Array.isArray(teacherAssignments) ? teacherAssignments.filter(Boolean) : [];
+    const sectionsData = assignmentsArray
+      .filter(a => String(a?.class_id) === String(classId))
+      .map(a => ({ section_id: String(a?.section_id), section_name: a?.section_name }))
       .filter(a => a.section_id && a.section_name);
-    const uniqueSections = Array.from(new Map(sectionsData.map(x => [String(x.section_id), x])).values());
+    const uniqueSections = Array.from(new Map(sectionsData.map(x => [String(x.section_id), x])).values()) as SectionItem[];
     setSections(uniqueSections);
     setSectionId('');
     if (isMounted.current) setLoadingSections(false);
@@ -731,15 +632,16 @@ export default function MarksEntryScreen() {
       return;
     }
     setLoadingSubjects(true);
-    const raw = teacherAssignments
-      .filter(a => String(a.class_id) === String(classId))
-      .filter(a => !sectionId || String(a.section_id) === String(sectionId))
-      .map(a => ({ subject_id: String(a.subject_id), subject_name: a.subject_name }))
+    const assignmentsArray = Array.isArray(teacherAssignments) ? teacherAssignments.filter(Boolean) : [];
+    const raw = assignmentsArray
+      .filter(a => String(a?.class_id) === String(classId))
+      .filter(a => !sectionId || String(a?.section_id) === String(sectionId))
+      .map(a => ({ subject_id: String(a?.subject_id), subject_name: a?.subject_name }))
       .filter(a => a.subject_id && a.subject_name);
     
-    const unique = Array.from(new Map(raw.map(x => [String(x.subject_id), x])).values());
-    const allowedSet = new Set(teacherSubjects.map(s => s.toLowerCase()));
-    setSubjects(allowedSet.size ? unique.filter(s => allowedSet.has(s.subject_name.toLowerCase())) : unique);
+    const unique = Array.from(new Map(raw.map(x => [String(x.subject_id), x])).values()) as SubjectItem[];
+    const allowedSet = new Set((Array.isArray(teacherSubjects) ? teacherSubjects : []).filter(Boolean).map(s => String(s || '').toLowerCase()));
+    setSubjects(allowedSet.size ? unique.filter(s => allowedSet.has(String(s.subject_name || '').toLowerCase())) : unique);
     setSubjectId('');
     if (isMounted.current) setLoadingSubjects(false);
   }, [classId, sectionId, teacherAssignments, teacherSubjects]);
@@ -771,7 +673,8 @@ export default function MarksEntryScreen() {
       try {
         const res = await API.get(`/teacher/marks/exam-subjects/${examId}`, { headers: { 'x-school-code': schoolCode } });
         if (!isMounted.current) return;
-        const found = (res.data?.exam_subjects || []).find((s: any) => s.subject_id === parseInt(subjectId));
+        const examSubjectsRaw = Array.isArray(res.data?.exam_subjects) ? res.data.exam_subjects.filter(Boolean) : [];
+        const found = examSubjectsRaw.find((s: any) => String(s?.subject_id) === String(subjectId));
         if (found) {
           setInputMaxMarks(found.max_marks?.toString() || '');
           setInputPassMarks(found.pass_marks?.toString() || '');
@@ -800,12 +703,6 @@ export default function MarksEntryScreen() {
       Alert.alert('Error', 'Please select Class, Section, Exam, and Subject');
       return;
     }
-    
-    if (!examSubjectId) {
-      Alert.alert('Error', 'Please save the exam configuration first');
-      setShowConfigModal(true);
-      return;
-    }
 
     const cacheKey = `marks_students_${examId}_${subjectId}_${classId}_${sectionId}_${schoolCode}`;
 
@@ -829,10 +726,11 @@ export default function MarksEntryScreen() {
 
       if (!isMounted.current) return;
 
-      let rows: StudentMark[] = (res.data?.students || []).map((s: any) => ({
+      const studentsRaw = Array.isArray(res.data?.students) ? res.data.students.filter(Boolean) : [];
+      let rows: StudentMark[] = studentsRaw.map((s: any) => ({
         ...s,
         isAbsent: false,
-        marks_obtained: s.marks_obtained === null || s.marks_obtained === undefined ? '' : String(s.marks_obtained),
+        marks_obtained: s?.marks_obtained === null || s?.marks_obtained === undefined ? '' : String(s.marks_obtained),
         hasExistingMarks: false,
         grade: '',
         status: '',
@@ -846,19 +744,25 @@ export default function MarksEntryScreen() {
         );
         if (isMounted.current) {
           const marksMap: Record<string, any> = {};
-          (marksRes.data?.marks || []).forEach((m: any) => { marksMap[m.student_id] = m; });
+          const marksRaw = Array.isArray(marksRes.data?.marks) ? marksRes.data.marks.filter(Boolean) : [];
+          marksRaw.forEach((m: any) => {
+            if (m?.student_id) marksMap[String(m.student_id)] = m;
+          });
 
-          rows = rows.map((s) => ({
-            ...s,
-            isAbsent: marksMap[s.student_id] ? Boolean(marksMap[s.student_id]?.is_absent) : false,
-            marks_obtained: marksMap[s.student_id]?.marks_obtained !== undefined && marksMap[s.student_id]?.marks_obtained !== null
-              ? String(marksMap[s.student_id]?.marks_obtained)
-              : '',
-            mark_id: marksMap[s.student_id]?.mark_id || null,
-            grade: marksMap[s.student_id]?.grade || '',
-            status: marksMap[s.student_id]?.status || '',
-            hasExistingMarks: !!marksMap[s.student_id],
-          }));
+          rows = rows.map((s) => {
+            const m = marksMap[String(s.student_id)];
+            return {
+              ...s,
+              isAbsent: m ? Boolean(m.is_absent) : false,
+              marks_obtained: m?.marks_obtained !== undefined && m?.marks_obtained !== null
+                ? String(m.marks_obtained)
+                : '',
+              mark_id: m?.mark_id || null,
+              grade: m?.grade || '',
+              status: m?.status || '',
+              hasExistingMarks: !!m,
+            };
+          });
         }
       } catch (e) {
         console.warn('Failed to fetch existing marks');
@@ -923,7 +827,31 @@ export default function MarksEntryScreen() {
       return false;
     }
     if (!examSubjectId) {
-      if (!silent) Alert.alert('Error', 'Please save the exam configuration first');
+      if (!silent) {
+        Alert.alert(
+          'Exam configuration missing',
+          'Exam configuration is not saved. Save default configuration (Total: 100, Pass: 33) and continue?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Save & Continue',
+              onPress: async () => {
+                try {
+                  if (!inputMaxMarks) setInputMaxMarks('100');
+                  if (!inputPassMarks) setInputPassMarks('33');
+                  await saveExamConfig();
+                  // Give state a moment to update then retry saving marks
+                  setTimeout(() => {
+                    saveMarks(silent);
+                  }, 300);
+                } catch (e) {
+                  // ignore - saveExamConfig handles alerts
+                }
+              },
+            },
+          ]
+        );
+      }
       return false;
     }
 
@@ -938,12 +866,17 @@ export default function MarksEntryScreen() {
       const promises = entries.map(student => {
         const formData = new FormData();
         formData.append('student_id', student.student_id);
-        formData.append('exam_id', Number(examId));
-        formData.append('subject_id', Number(subjectId));
-        formData.append('marks_obtained', student.isAbsent ? 0 : Number(student.marks_obtained));
+        formData.append('exam_id', String(examId));
+        formData.append('subject_id', String(subjectId));
+        formData.append('marks_obtained', student.isAbsent ? '0' : String(student.marks_obtained));
         formData.append('is_absent', student.isAbsent ? 'true' : 'false');
-        formData.append('teacher_id', resolvedTeacherId);
-        return API.post('/teacher/marks/enter', formData, { headers: { 'x-school-code': schoolCode } });
+        formData.append('teacher_id', String(resolvedTeacherId));
+        return API.post('/teacher/marks/enter', formData, {
+          headers: {
+            'x-school-code': schoolCode,
+            'Content-Type': 'multipart/form-data'
+          }
+        });
       });
 
       await Promise.all(promises);
@@ -986,19 +919,35 @@ export default function MarksEntryScreen() {
       return;
     }
 
+    // Basic client-side validation
+    const max = parseInt(String(inputMaxMarks || '').trim(), 10);
+    const pass = parseInt(String(inputPassMarks || '').trim(), 10);
+    if (Number.isNaN(max) || Number.isNaN(pass) || max <= 0 || pass < 0) {
+      Alert.alert('Error', 'Total Marks and Pass Marks must be valid positive numbers');
+      return;
+    }
+    if (pass > max) {
+      Alert.alert('Error', 'Pass Marks cannot be greater than Total Marks');
+      return;
+    }
+
     if (isMounted.current) setSavingExamConfig(true);
     try {
       const formData = new FormData();
-      formData.append('exam_id', Number(examId));
-      formData.append('subject_id', Number(subjectId));
-      formData.append('max_marks', Number(inputMaxMarks));
-      formData.append('pass_marks', Number(inputPassMarks));
-      const res = await API.post('/teacher/marks/exam-subject-config', formData, { headers: { 'x-school-code': schoolCode } });
+      formData.append('exam_id', String(examId));
+      formData.append('subject_id', String(subjectId));
+      formData.append('max_marks', String(max));
+      formData.append('pass_marks', String(pass));
+      const res = await API.post('/teacher/marks/exam-subject-config', formData, { headers: { 'x-school-code': schoolCode, 'Content-Type': 'multipart/form-data' } });
       if (isMounted.current) {
-        setExamSubjectId(res.data?.exam_subject_id);
+        // Handle various possible response shapes
+        const newId = res.data?.exam_subject_id || res.data?.id || res.data?.exam_subject?.id || true;
+        setExamSubjectId(newId);
         setIsEditMode(false);
         setShowConfigModal(false);
-        Alert.alert('Success', 'Exam configuration saved successfully');
+        Alert.alert('Success', 'Exam configuration saved successfully', [
+          { text: 'OK', onPress: () => loadStudents() }
+        ]);
       }
     } catch (err: any) {
       if (err?.response?.status === 401) return;
@@ -1048,6 +997,10 @@ export default function MarksEntryScreen() {
 
   const handleApplyFilters = () => {
     setShowFilterModal(false);
+    // Load students immediately after applying filters
+    setTimeout(() => {
+      loadStudents();
+    }, 50);
   };
 
   const totalSaved = students.filter(s => s.hasExistingMarks || s.marks_obtained !== '').length;
@@ -1823,58 +1776,72 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#94a3b8',
     textTransform: 'uppercase',
-    marginBottom: 12,
+    marginBottom: 8,
     letterSpacing: 0.5,
   },
-  chipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 20,
-  },
-  chip: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: '#f1f5f9',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  chipActive: {
-    backgroundColor: HM_THEME.navy,
-    borderColor: HM_THEME.navy,
-  },
-  chipText: {
-    fontSize: 14,
-    color: '#64748b',
-  },
-  chipTextActive: {
-    color: '#fff',
-  },
-  pickerButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+  filterGroup: {
     marginBottom: 16,
   },
-  pickerButtonText: {
-    fontSize: 14,
-    color: '#334155',
+  pickerSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 52,
+  },
+  pickerSelectorText: {
+    fontSize: 15,
+    color: '#0f172a',
+    fontWeight: '500',
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  pickerCard: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    color: '#0f172a',
+  },
+  pickerCloseBtn: {
+    padding: 4,
+  },
+  pickerListContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
   pickerOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
   pickerOptionText: {
-    fontSize: 15,
-    color: '#0f172a',
+    fontSize: 16,
+    color: '#334155',
   },
   modalFooter: {
     padding: 20,

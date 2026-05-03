@@ -2,12 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import API, { buildApiUrl } from './api';
 
 const PROFILE_ENDPOINTS = [
+  'profile/details',
   'teacher/profile',
   'teacher/marks/teacher-context',
   'teacher-dashboard/profile',
   'auth/teacher-capability',
-  'hm/dashboard/profile',
-  'profile/details'
+  'hm/dashboard/profile'
 ];
 
 const PROFILE_PHOTO_ENDPOINT = 'profile-photo/teacher';
@@ -103,12 +103,17 @@ function normalizeContentType(value: unknown): string {
 
 async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
   const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
+  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
   const teacherId = await AsyncStorage.getItem('teacher_id') || await AsyncStorage.getItem('teacherId') || await AsyncStorage.getItem('employee_id');
   const suppressLogs = config.suppressFallback404Log;
 
   for (const endpoint of endpoints) {
     try {
       const { params, ...restConfig } = config;
+      const defaultHeaders = {
+        'X-School-Code': schoolCode || undefined,
+        'X-Branch-Id': branchId || undefined,
+      };
       const response = await API.get<T>(endpoint, {
         ...restConfig,
         params: {
@@ -117,6 +122,10 @@ async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
           teacher_id: teacherId,
           employee_id: teacherId,
           ...params
+        },
+        headers: {
+          ...defaultHeaders,
+          ...(restConfig && restConfig.headers ? restConfig.headers : {}),
         }
       });
       if (__DEV__ && !suppressLogs && endpoint !== endpoints[0]) {
@@ -288,9 +297,14 @@ export async function getTeacherProfilePhotoDataUri(teacherId?: string, schoolCo
     '';
 
   try {
+    const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
     const response = await API.get<ArrayBuffer>(`${PROFILE_PHOTO_ENDPOINT}/${encodeURIComponent(resolvedTeacherId)}`, {
       params: resolvedSchoolCode ? { school_code: resolvedSchoolCode } : undefined,
       responseType: 'arraybuffer',
+      headers: {
+        'X-School-Code': resolvedSchoolCode || undefined,
+        'X-Branch-Id': branchId || undefined,
+      },
       ...FALLBACK_404_CONFIG,
     } as any);
 
@@ -387,13 +401,55 @@ export async function getTeacherProfile(): Promise<any> {
       raw.pin_code
     ].filter(v => toText(v).trim()).join(', ');
 
+    const teacherFullName = toText(firstDefined(
+      raw.teacher_full_name,
+      raw.full_name,
+      raw.teacher_name,
+      raw.name,
+      root.teacher_full_name,
+      root.full_name,
+      root.teacher_name,
+      root.name,
+      storedUser?.teacher_full_name,
+      storedUser?.full_name,
+      storedUser?.name,
+    ));
+
+    const emailId = toText(firstDefined(
+      raw.email_id,
+      raw.email,
+      raw.email_address,
+      raw.teacher_email,
+      root.email_id,
+      root.email,
+      storedEmail,
+      storedUser?.email_id,
+      storedUser?.email,
+    ));
+
+    const mobileNumber = toText(firstDefined(
+      raw.mobile_number,
+      raw.phone_number,
+      raw.mobile,
+      raw.phone,
+      raw.contact_number,
+      root.mobile_number,
+      root.phone,
+      storedPhone,
+      storedUser?.mobile_number,
+      storedUser?.phone,
+    ));
+
     return {
       ...raw,
       profile_photo_url: photoSource || toText(firstDefined(raw.profile_photo_url, root.profile_photo_url)),
       teacher_photograph: toText(firstDefined(raw.teacher_photograph, root.teacher_photograph)),
-      name: toText(firstDefined(raw.name, raw.full_name, raw.teacher_name, raw.teacher_full_name, root.name, root.teacher_name, storedUser?.name, storedUser?.full_name)),
-      email: toText(firstDefined(raw.email, raw.email_address, raw.email_id, raw.teacher_email, root.email, root.email_id, storedEmail, storedUser?.email)),
-      phone: toText(firstDefined(raw.phone, raw.mobile, raw.phone_number, raw.mobile_number, raw.contact_number, root.phone, root.mobile, storedPhone, storedUser?.phone)),
+      name: teacherFullName,
+      teacher_full_name: teacherFullName,
+      email: emailId,
+      email_id: emailId,
+      phone: mobileNumber,
+      mobile_number: mobileNumber,
       teacher_id: toText(firstDefined(raw.teacher_id, raw.teacherId, storedTeacherId, storedUser?.teacher_id, storedUser?.teacherId)),
       employee_id: toText(firstDefined(raw.employee_id, raw.employeeId, storedEmployeeId, storedUser?.employee_id, storedUser?.employeeId)),
       school_code: toText(firstDefined(raw.school_code, root.school_code, storedSchoolCode, storedUser?.school_code)),
@@ -496,6 +552,17 @@ export async function getTeacherAttendance(schoolCode: string, branchId: string,
 }
 
 export async function updateTeacherProfile(data: any): Promise<any> {
+  // Preferred API: PUT /hm/teachers/{teacher_id}
+  const teacherId = data?.teacher_id || data?.teacherId || data?.employee_id || data?.employeeId || await AsyncStorage.getItem('teacher_id') || await AsyncStorage.getItem('teacherId') || await AsyncStorage.getItem('employee_id');
+  if (teacherId) {
+    try {
+      const response = await API.put(`hm/teachers/${encodeURIComponent(teacherId)}`, data);
+      return response.data;
+    } catch (err) {
+      // continue to fallbacks
+    }
+  }
+
   return postFirstSuccessful(UPDATE_PROFILE_ENDPOINTS, data);
 }
 

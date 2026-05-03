@@ -163,7 +163,7 @@ const FeeManagement = () => {
       setLoading(true);
 
       const [studentRows, feeRows] = await Promise.all([
-        getSchoolStudents(),
+        getSchoolStudents(schoolCode),
         getAllFees(),
       ]);
 

@@ -99,8 +99,43 @@ class NotificationService {
           this.handleNotificationPress(data);
         }
       });
+
+      // Setup background notification handler (app in background or closed)
+      this.setupBackgroundHandler();
     } catch (error) {
       console.error('Failed to setup foreground handler:', error);
+    }
+  }
+
+  /**
+   * Setup background notification handler
+   * Called when app is in background or closed
+   */
+  private setupBackgroundHandler(): void {
+    try {
+      notifee.onBackgroundEvent(async ({ type, detail }) => {
+        console.log('[Background Notification]', type, detail);
+        
+        // Handle notification press while app is closed/background
+        if (type === 1) { // PRESS
+          const data = detail?.notification?.data as Record<string, string> | undefined;
+          console.log('[Background] Notification pressed:', data);
+          
+          // Store the press action for the app to handle when it opens
+          try {
+            await AsyncStorage.setItem(
+              'background_notification_action',
+              JSON.stringify({ data, timestamp: Date.now() })
+            );
+          } catch (e) {
+            console.error('Failed to store background notification action:', e);
+          }
+        }
+      });
+
+      console.log('Background notification handler setup complete');
+    } catch (error) {
+      console.error('Failed to setup background handler:', error);
     }
   }
 

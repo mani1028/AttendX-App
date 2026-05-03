@@ -19,6 +19,8 @@ import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
 import { HM_THEME as C } from '../../constants/hmTheme';
 import { formatErrorMessage } from '../../utils/helpers';
+import AppText from '../../components/common/AppText';
+import { safeGoBack } from '../../utils/navigationHelpers';
 
 const { width } = Dimensions.get('window');
 
@@ -51,7 +53,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   return (
     <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
       <Icon name={config.icon as any} size={12} color={config.text} style={{ marginRight: 4 }} />
-      <Text style={[styles.statusBadgeText, { color: config.text }]}>{config.label}</Text>
+      <AppText weight="bold" style={[styles.statusBadgeText, { color: config.text }]}>{config.label}</AppText>
     </View>
   );
 };
@@ -176,30 +178,23 @@ export default function TeacherLeaveScreen({ navigation }: any) {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Icon name="arrow-left" size={24} color="#FFF" />
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => safeGoBack(navigation, 'HMDashboard')}
+          >
+            <Icon name="arrow-left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Teacher Leaves</Text>
-          <TouchableOpacity style={styles.headerAction} activeOpacity={0.8}>
-            <Icon name="bell" size={18} color="#fff" />
-          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <AppText weight="bold" style={styles.headerTitle}>Teacher Leaves</AppText>
+          </View>
+          <View style={styles.headerSpacer} />
         </View>
 
-        <View style={styles.heroCard}>
-          <View>
-            <Text style={styles.heroCardLabel}>Teacher Leave Approvals</Text>
-            <Text style={styles.heroCardValue}>{totalLeaves} Total</Text>
-          </View>
-          <View style={styles.heroCardPills}>
-            <View style={[styles.heroPill, styles.pendingPill]}>
-              <Text style={[styles.heroPillText, { color: '#D97706' }]}>{stats.pending} Pending</Text>
-            </View>
-            <View style={[styles.heroPill, styles.approvedPill]}>
-              <Text style={[styles.heroPillText, { color: '#059669' }]}>{stats.approved} Approved</Text>
-            </View>
-          </View>
+        <View style={styles.headerContent}>
+          <AppText weight="bold" style={styles.headerGreeting}>Leave Approvals</AppText>
+          <AppText style={styles.headerSubtext}>{totalLeaves} total requests • {stats.pending} pending</AppText>
         </View>
       </View>
 
@@ -329,34 +324,61 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  header: {
+  headerStandard: {
     backgroundColor: C.navy,
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    ...Platform.select({
+      android: { elevation: 10 },
+      ios: {},
+    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    paddingBottom: 12,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFF',
-  },
-  headerAction: {
+  iconButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  headerContent: {
+    marginTop: 24,
+  },
+  headerGreeting: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  headerSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  headerSpacer: {
+    width: 40,
   },
   heroCard: {
     backgroundColor: '#FFF',

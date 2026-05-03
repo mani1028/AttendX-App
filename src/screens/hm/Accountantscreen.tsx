@@ -12,6 +12,7 @@ import {
   StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Platform,
 } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,13 +21,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, LayoutDashboard } from 'lucide-react-native';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { safeGoBack } from '../../utils/navigationHelpers';
 
-import SummaryCards from './SummaryCardsscreen';
+import SummaryCards from './SummaryCardsScreen';
 import FeeManagement from './FeeManagementScreen';
-import PaymentEntry from './PaymentEntryscreen';
+import PaymentEntry from './PaymentEntryScreen';
 import ExpenseManagement from './ExpenseScreen';
 import Reports from './ReportsScreen';
-import PendingStudents from './PendingStudentsscreen';
+import PendingStudents from './PendingStudentsScreen';
 
 import { HM_THEME as C } from '../../constants/hmTheme';
 
@@ -107,21 +109,24 @@ const AccountantDashboardScreen = () => {
       <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       {/* Standardized Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top }]}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() =>
-            navigation.canGoBack()
-              ? navigation.goBack()
-              : navigation.navigate('HMDashboard' as never)
-          }
-        >
-          <ChevronLeft size={24} color="#fff" />
-        </TouchableOpacity>
-        <AppText style={styles.headerTitle} weight="bold">
-          Accountant Module
-        </AppText>
-        <View style={styles.headerSpacer} />
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => safeGoBack(navigation, 'HMDashboard')}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <AppText weight="bold" style={styles.headerTitle}>Accountant Module</AppText>
+          </View>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        <View style={styles.headerContent}>
+          <AppText weight="bold" style={styles.headerGreeting}>Financial Overview</AppText>
+          <AppText style={styles.headerSubtext}>Manage school finances, fees, and reports</AppText>
+        </View>
       </View>
 
       <ScrollView
@@ -216,24 +221,57 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    backgroundColor: C.navy,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    ...Platform.select({
+      android: { elevation: 10 },
+      ios: {},
+    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 12,
   },
-  backBtn: {
+  iconButton: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 18,
-    color: '#ffffff',
-    textAlign: 'center',
+  headerTitleContainer: {
     flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  headerContent: {
+    marginTop: 24,
+  },
+  headerGreeting: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  headerSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 4,
   },
   headerSpacer: {
     width: 40,

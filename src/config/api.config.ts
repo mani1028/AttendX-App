@@ -3,9 +3,9 @@ import { Platform } from 'react-native';
 export const API_CONFIG = {
   // Development URLs
   dev: {
-    android: 'http://10.0.2.2:5000',  // Android Emulator
-    ios: 'http://localhost:5000',      // iOS Simulator
-    device: 'http://YOUR_IP:5000',     // Physical device (replace YOUR_IP)
+    android: 'https://attendex-api.vshiftx.com',  // Android Emulator
+    ios: 'https://attendex-api.vshiftx.com',      // iOS Simulator
+    device: 'https://attendex-api.vshiftx.com',   // Physical device
   },
   
   // Production URL
@@ -140,7 +140,9 @@ export const API_CONFIG = {
 };
 
 export const ENV = {
-  API_URL: API_CONFIG.production,
+  API_URL: __DEV__
+    ? (Platform.OS === 'android' ? API_CONFIG.dev.android : API_CONFIG.dev.ios)
+    : API_CONFIG.production,
   
   SOCKET_URL: 'https://socket.attendx.com',
   

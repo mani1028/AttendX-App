@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { Animated } from 'react-native';
 import {
   StyleSheet,
   View,
@@ -30,8 +31,7 @@ import {
   User,
   BookOpen,
   Clock,
-  Eye,
-  Image as ImageIcon
+  Eye
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
@@ -115,8 +115,15 @@ export default function TeacherDashboardScreen() {
 
   // Determine effective class teacher status (from auth or profile)
   const effectiveIsClassTeacher = profile?.is_class_teacher || authIsClassTeacher;
+  const teacherFirstName = (userName || profile?.name || 'Mahesh').split(' ')[0];
 
   const lastScrollY = useRef(0);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerTranslate = scrollY.interpolate({
+    inputRange: [0, 140],
+    outputRange: [0, -90],
+    extrapolate: 'clamp',
+  });
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -343,7 +350,10 @@ export default function TeacherDashboardScreen() {
     { label: 'Mark Attendance', icon: CalendarCheck2, color: '#3b82f6', route: 'TeacherAttendance' },
     { label: 'View Attendance', icon: Eye, color: '#06b6d4', route: 'TeacherViewAttendance' },
     // Student Enrollment is a Class-Teacher only action; include only if effectiveIsClassTeacher
-    ...(effectiveIsClassTeacher ? [{ label: 'Student Enrollment', icon: UserPlus, color: '#10b981', route: 'HMStudentRegistration' }] : []),
+    ...(effectiveIsClassTeacher ? [
+      { label: 'Student Enrollment', icon: UserPlus, color: '#10b981', route: 'HMStudentRegistration' },
+      { label: 'Manage Profiles', icon: Users, color: '#6366f1', route: 'TeacherStudentList' }
+    ] : []),
     { label: 'Vital Scan AI', icon: Heart, color: '#ef4444', route: 'TeacherVitalScan' },
     { label: 'Marks Entry', icon: ClipboardEdit, color: '#eab308', route: 'TeacherMarksEntry' },
     { label: 'Homework', icon: BookOpen, color: '#06b6d4', route: 'TeacherHomeworkManagement' },
@@ -354,14 +364,16 @@ export default function TeacherDashboardScreen() {
     ] : []),
   ];
 
-  const schedule = assignedClasses.length > 0
-    ? assignedClasses.map((cls: any) => ({
-        title: cls.subject_name || (cls.is_class_teacher ? 'Class Teacher' : 'Subject Teacher'),
-        class: `Class ${cls.class_grade} • Section ${cls.section}`,
-        status: 'Today',
-        statusColor: '#3b82f6',
-        statusBg: '#eff6ff',
-      }))
+  const schedule = Array.isArray(assignedClasses) && assignedClasses.length > 0
+    ? assignedClasses
+        .filter(cls => cls !== null && cls !== undefined)
+        .map((cls: any) => ({
+          title: cls.subject_name || (cls.is_class_teacher ? 'Class Teacher' : 'Subject Teacher'),
+          class: `Class ${cls.class_grade || '?'} • Section ${cls.section || '?'}`,
+          status: 'Today',
+          statusColor: '#3b82f6',
+          statusBg: '#eff6ff',
+        }))
     : [
         {
           title: 'No Classes',
@@ -376,28 +388,28 @@ export default function TeacherDashboardScreen() {
     ? [
         {
           label: 'Present',
-          value: String(attendanceSummary.present),
+          value: String(attendanceSummary.present ?? 0),
           sub: 'Today',
           icon: CheckCircle2,
           color: '#22c55e',
         },
         {
           label: 'Absent',
-          value: String(attendanceSummary.absent),
+          value: String(attendanceSummary.absent ?? 0),
           sub: 'Today',
           icon: X,
           color: '#ef4444',
         },
         {
           label: 'Attendance %',
-          value: `${attendanceSummary.attendancePct}%`,
+          value: `${attendanceSummary.attendancePct ?? 0}%`,
           sub: 'Current class',
           icon: Percent,
           color: '#3b82f6',
         },
         {
           label: 'Total Students',
-          value: String(attendanceSummary.total),
+          value: String(attendanceSummary.total ?? 0),
           sub: 'Today',
           icon: Users,
           color: '#8b5cf6',
@@ -418,9 +430,12 @@ export default function TeacherDashboardScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
 
-      <ScrollView
+      <Animated.ScrollView
         style={styles.scrollView}
-        onScroll={handleScroll}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true, listener: handleScroll }
+        )}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -428,30 +443,19 @@ export default function TeacherDashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
         }
       >
-        <View style={[styles.navyHeader, { paddingTop: insets.top + 8 }]}> 
+        <Animated.View style={[styles.navyHeader, { paddingTop: insets.top + 12, transform: [{ translateY: headerTranslate }] }]}> 
           <View style={styles.headerTop}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity style={styles.profileContainer} onPress={() => safeNavigate(navigation as any, 'Profile')}>
-                {profilePhotoUrl && !profilePhotoError ? (
-                  <Image
-                    source={{ uri: profilePhotoUrl }}
-                    style={styles.profileImage}
-                    onError={() => setProfilePhotoError(true)}
-                  />
-                ) : (
-                  <AvatarBubble displayName={profile?.name || userName || 'User'} size={40} textSize={14} primaryColor={colors.accent} />
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.backButton, { marginLeft: 8 }]}
-                onPress={() => safeGoBack(navigation, 'TeacherDashboard')}
-              >
-                <View style={styles.backIconCircle}>
-                  <ImageIcon size={20} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />
-                </View>
-              </TouchableOpacity>
-            </View>
-            <AppText weight="bold" style={styles.headerTitleCenter}>Teacher Dashboard</AppText>
+            <TouchableOpacity style={styles.profileContainer} onPress={() => safeNavigate(navigation as any, 'Profile')}>
+              {profilePhotoUrl && !profilePhotoError ? (
+                <Image
+                  source={{ uri: profilePhotoUrl }}
+                  style={styles.profileImage}
+                  onError={() => setProfilePhotoError(true)}
+                />
+              ) : (
+                <AvatarBubble displayName={profile?.name || userName || 'User'} size={40} textSize={14} primaryColor={colors.accent} />
+              )}
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.notificationBtn}
               onPress={() => navigation.navigate('Notifications')}
@@ -465,15 +469,15 @@ export default function TeacherDashboardScreen() {
             </TouchableOpacity>
           </View>
           <View style={styles.welcomeSection}>
-            <AppText weight="bold" style={styles.hiText}>Hi {userName?.split(' ')[0] || profile?.name?.split(' ')[0] || 'Mahesh'} 👋</AppText>
-            <View style={styles.roleRow}>
-              <View style={[styles.roleBadge, effectiveIsClassTeacher ? styles.roleClass : styles.roleSubject]}>
-                <AppText weight="semiBold" style={styles.roleBadgeText}>{effectiveIsClassTeacher ? 'Class Teacher' : 'Teacher'}</AppText>
+            {effectiveIsClassTeacher ? (
+              <View style={styles.roleBadge}>
+                <AppText weight="bold" style={styles.roleBadgeText}>Class Teacher</AppText>
               </View>
-              <AppText weight="semiBold" style={styles.subText}>Here&apos;s what&apos;s happening today.</AppText>
-            </View>
+            ) : null}
+            <AppText weight="bold" style={styles.hiText}>Hi {teacherFirstName} 👋</AppText>
+            <AppText weight="semiBold" style={styles.subText}>Here&apos;s what&apos;s happening today.</AppText>
           </View>
-        </View>
+        </Animated.View>
 
         <View style={styles.cardsWrap}>
           <View style={styles.sectionBlock}>
@@ -537,18 +541,21 @@ export default function TeacherDashboardScreen() {
           <View style={styles.sectionBlock}>
             <AppText weight="bold" style={styles.sectionTitle}>Quick Actions</AppText>
             <View style={styles.quickActionGrid}>
-              {quickActions.map((action, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.actionCard}
-                  onPress={() => action.route && navigation.navigate(action.route as any)}
-                >
-                  <View style={[styles.actionIconContainer, { backgroundColor: `${action.color}10` }]}>
-                    <action.icon size={24} color={action.color} strokeWidth={2} />
-                  </View>
-                  <AppText weight="bold" style={styles.actionLabel}>{action.label.replace(' ', '\n')}</AppText>
-                </TouchableOpacity>
-              ))}
+              {quickActions.map((action, index) => {
+                if (!action || !action.icon) return null;
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.actionCard}
+                    onPress={() => action.route && navigation.navigate(action.route as any)}
+                  >
+                    <View style={[styles.actionIconContainer, { backgroundColor: `${action.color || '#64748B'}10` }]}>
+                      <action.icon size={24} color={action.color || '#64748B'} strokeWidth={2} />
+                    </View>
+                    <AppText weight="bold" style={styles.actionLabel}>{(action.label || '').replace(' ', '\n')}</AppText>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 
@@ -578,7 +585,7 @@ export default function TeacherDashboardScreen() {
         </View>
 
         <View style={{ height: 120 }} />
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -593,22 +600,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
     marginRight: 4,
   },
-  backIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#3B82F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleCenter: {
-    flex: 1,
-    textAlign: 'center',
-    color: '#FFFFFF',
-    fontSize: 16,
-    paddingHorizontal: 0,
-    fontWeight: 'bold',
-  },
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
@@ -622,11 +613,13 @@ const styles = StyleSheet.create({
   },
   navyHeader: {
     backgroundColor: '#001F3F',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    marginBottom: 12,
+    borderBottomLeftRadius: 34,
+    borderBottomRightRadius: 34,
+    paddingHorizontal: 20,
+    paddingBottom: 22,
+    paddingTop: 6,
+    marginBottom: 18,
+    marginHorizontal: -16,
     ...Platform.select({
 
       android: { elevation: 6 },
@@ -651,12 +644,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 18,
   },
   profileContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     borderWidth: 2,
     borderColor: '#22c55e',
     padding: 2,
@@ -668,9 +661,9 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
   notificationBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: 'rgba(255,255,255,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -696,44 +689,40 @@ const styles = StyleSheet.create({
     fontSize: 8,
   },
   welcomeSection: {
-    marginBottom: 4,
-  },
-  hiText: {
-    fontSize: 20,
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
-  },
-  subText: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.6)',
-    marginTop: 2,
-  },
-  roleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    marginBottom: 8,
   },
   roleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(34,197,94,0.14)',
+    marginBottom: 8,
   },
-  roleClass: {
-    backgroundColor: 'rgba(124,58,237,0.12)',
+  hiText: {
+    fontSize: 24,
+    color: '#FFFFFF',
+    letterSpacing: -0.7,
+    lineHeight: 30,
   },
-  roleSubject: {
-    backgroundColor: 'rgba(59,130,246,0.12)',
+  subText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.72)',
+    marginTop: 4,
+    lineHeight: 18,
   },
   roleBadgeText: {
-    fontSize: 11,
-    color: '#fff',
+    fontSize: 10,
+    color: '#BBF7D0',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   cardsWrap: {
-    marginTop: 0,
+    marginTop: 2,
   },
   sectionBlock: {
-    marginTop: 4,
-    marginBottom: 10,
+    marginTop: 8,
+    marginBottom: 14,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -744,19 +733,19 @@ const styles = StyleSheet.create({
   statCard: {
     width: (SCREEN_WIDTH - 48) / 2,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     marginBottom: 8,
-    borderWidth: 0,
+    borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
     ...Platform.select({
 
-      android: { elevation: 2 },
+      android: { elevation: 3 },
 
       ios: {},
 
@@ -765,31 +754,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   statIconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
   statContent: {
     gap: 2,
     alignItems: 'flex-start',
   },
   statValue: {
-    fontSize: 26,
+    fontSize: 24,
     color: '#1E293B',
     letterSpacing: -0.5,
     fontWeight: 'bold',
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748B',
-    marginTop: 4,
+    marginTop: 6,
     fontWeight: '600',
   },
   statSub: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#94A3B8',
     marginTop: 2,
   },
@@ -805,15 +794,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 17,
     color: '#1E293B',
     letterSpacing: -0.5,
     marginBottom: 10,
   },
   sectionSubTitle: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748B',
-    marginTop: -4,
+    marginTop: -2,
+    lineHeight: 16,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -829,15 +819,15 @@ const styles = StyleSheet.create({
   actionCard: {
     width: (SCREEN_WIDTH - 68) / 4,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 12,
+    borderRadius: 18,
+    paddingVertical: 14,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
     ...Platform.select({
 
       android: { elevation: 2 },
@@ -847,18 +837,18 @@ const styles = StyleSheet.create({
     }),
   },
   actionIconContainer: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   actionLabel: {
-    fontSize: 8,
+    fontSize: 9,
     color: '#334155',
     textAlign: 'center',
-    lineHeight: 10,
+    lineHeight: 12,
     paddingHorizontal: 2,
   },
   viewAllBtn: {

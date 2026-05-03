@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
+import LinearGradient from 'react-native-linear-gradient';
 import Icon from '@react-native-vector-icons/feather';
 import { getQuestionPapers, getExamTypes, downloadQuestionPaper } from '../../services/studentService';
 import { colors } from '../../constants/colors';
@@ -127,11 +128,8 @@ const PaperCard: React.FC<{
   const [showActions, setShowActions] = useState(false);
 
   return (
-    <TouchableOpacity
+    <View
       style={styles.paperCard}
-      activeOpacity={0.9}
-      onLongPress={() => setShowActions(!showActions)}
-      onPress={() => setShowActions(!showActions)}
     >
       <View style={styles.paperCardHeader}>
         <View style={styles.paperTypeBadge}>
@@ -165,27 +163,30 @@ const PaperCard: React.FC<{
         </View>
       </View>
 
-      {showActions && (
-        <View style={styles.paperActions}>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => onView(paper.paper_id)}
+      <View style={styles.paperActions}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => onView(paper.paper_id)}
+        >
+          <LinearGradient
+            colors={['#3b82f6', '#2563eb']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.actionGradient}
           >
-            <View style={styles.actionGradient}>
-              <Icon name="eye" size={14} color="#fff" />
-              <Text style={styles.actionBtnText}>View</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionBtnOutline}
-            onPress={() => onDownload(paper.paper_id, paper.title)}
-          >
-            <Icon name="download" size={14} color="#3b82f6" />
-            <Text style={styles.actionBtnOutlineText}>Download</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </TouchableOpacity>
+            <Icon name="eye" size={14} color="#fff" />
+            <Text style={styles.actionBtnText}>View</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionBtnOutline}
+          onPress={() => onDownload(paper.paper_id, paper.title)}
+        >
+          <Icon name="download" size={14} color="#3b82f6" />
+          <Text style={styles.actionBtnOutlineText}>Download</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
 
@@ -375,9 +376,14 @@ const FilterModal: React.FC<{
           <Text style={styles.resetModalBtnText}>Reset</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.applyModalBtn} onPress={handleApply}>
-          <View style={styles.applyModalGradient}>
+          <LinearGradient
+            colors={['#3b82f6', '#2563eb']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.applyModalGradient}
+          >
             <Text style={styles.applyModalBtnText}>Apply Filters</Text>
-          </View>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </BottomSheetModal>

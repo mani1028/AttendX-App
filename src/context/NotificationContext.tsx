@@ -9,7 +9,7 @@ import { isJwtExpired } from '../utils/jwt';
 interface NotificationContextType {
   unreadCount: number;
   isLoading: boolean;
-  refreshUnreadCount: () => Promise<void>;
+  refreshUnreadCount: (force?: boolean) => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -20,20 +20,33 @@ let activeSubscribers = 0;
 let unreadCountInFlight: Promise<void> | null = null;
 let lastUnreadCountFetchAt = 0;
 let lastUnreadCount = 0;
+let consecutiveUnreadFailures = 0;
+let lastUnreadFailureAt = 0;
+let unreadFailureWarningLogged = false;
 
 const UNREAD_COUNT_MIN_INTERVAL_MS = 5000;
+const UNREAD_COUNT_FAILURE_COOLDOWN_MS = 60000;
 
 export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchUnreadCount = useCallback(async () => {
+  const fetchUnreadCount = useCallback(async (force: boolean = false) => {
     if (unreadCountInFlight) {
       return unreadCountInFlight;
     }
 
     const now = Date.now();
-    if (now - lastUnreadCountFetchAt < UNREAD_COUNT_MIN_INTERVAL_MS) {
+    if (!force && now - lastUnreadCountFetchAt < UNREAD_COUNT_MIN_INTERVAL_MS) {
+      setUnreadCount(lastUnreadCount);
+      return;
+    }
+
+    if (
+      !force &&
+      consecutiveUnreadFailures > 0 &&
+      now - lastUnreadFailureAt < UNREAD_COUNT_FAILURE_COOLDOWN_MS
+    ) {
       setUnreadCount(lastUnreadCount);
       return;
     }
@@ -64,8 +77,28 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
         return;
       }
 
+      // Skip notification polling for roles that don't support it
+      if (role.toLowerCase() === 'accountant') {
+        setUnreadCount(0);
+        return;
+      }
+
       const endpoint = `/notifications/${role.toLowerCase()}/list`;
-      const response = await API.get(endpoint);
+      let response;
+      let attempt = 0;
+      const maxAttempts = 2;
+      // simple retry on transient network errors
+      while (attempt < maxAttempts) {
+        try {
+          response = await API.get(endpoint);
+          break;
+        } catch (e) {
+          attempt += 1;
+          if (attempt >= maxAttempts) throw e;
+          // small backoff before retrying
+          await new Promise(res => setTimeout(res, 500 * attempt));
+        }
+      }
       const items = response.data?.items || response.data?.data || [];
 
       const readStatus = await AsyncStorage.getItem('read_notifications');
@@ -76,11 +109,23 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
       const unread = items.filter((item: any) => !readIds.includes(item.id)).length;
       lastUnreadCount = unread;
       lastUnreadCountFetchAt = Date.now();
+      consecutiveUnreadFailures = 0;
+      unreadFailureWarningLogged = false;
       setUnreadCount(unread);
       
       // Update app badge count
       await notificationService.updateBadgeCount(unread);
     } catch (err) {
+      consecutiveUnreadFailures += 1;
+      lastUnreadFailureAt = Date.now();
+
+      if (!unreadFailureWarningLogged) {
+        console.warn(
+          'Unread notification polling is temporarily backing off because the API is unreachable.',
+        );
+        unreadFailureWarningLogged = true;
+      }
+
       console.error('Error fetching unread count:', err);
       setUnreadCount(0);
     } finally {

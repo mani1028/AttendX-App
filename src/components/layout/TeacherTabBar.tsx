@@ -6,6 +6,7 @@ import {
   Text,
   Dimensions,
   Platform,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -19,11 +20,21 @@ import {
   UserCheck,
   ClipboardList
 } from 'lucide-react-native';
+import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { tabBarTranslate, isTabBarVisible } = useAuth();
+
+  const animatedOpacity = tabBarTranslate
+    ? tabBarTranslate.interpolate({
+        inputRange: [0, 120],
+        outputRange: [1, 0.92],
+        extrapolate: 'clamp',
+      })
+    : 1;
 
   const tabs = [
     { name: 'Home', label: 'Home', icon: Home },
@@ -34,7 +45,14 @@ const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
   ];
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom || 10 }]}>
+    <Animated.View
+      pointerEvents={isTabBarVisible ? 'auto' : 'none'}
+      style={[
+        styles.container,
+        { paddingBottom: insets.bottom || 10 },
+        tabBarTranslate ? { transform: [{ translateY: tabBarTranslate }], opacity: animatedOpacity } : null,
+      ]}
+    >
       <View style={styles.content}>
         {tabs.map((tab, index) => {
           const isFocused = state.index === index;
@@ -88,7 +106,7 @@ const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
           );
         })}
       </View>
-    </View>
+    </Animated.View>
   );
 };
 

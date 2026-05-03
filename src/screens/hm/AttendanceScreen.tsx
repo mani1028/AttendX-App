@@ -46,6 +46,7 @@ import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { HM_THEME as C } from '../../constants/hmTheme';
+import { safeGoBack } from '../../utils/navigationHelpers';
 
 // Local theme bridge
 
@@ -862,7 +863,8 @@ export default function HMAttendanceScreen() {
         params: { on_date: iso(date) },
       });
       if (isMounted.current) {
-        setTeachers(res.data?.items || []);
+        const items = Array.isArray(res.data?.items) ? res.data.items.filter(Boolean) : [];
+        setTeachers(items);
       }
     } catch (error: any) {
       if (!isMounted.current) return;
@@ -883,7 +885,8 @@ export default function HMAttendanceScreen() {
         params: { on_date: iso(date) },
       });
       if (isMounted.current) {
-        setClassItems(res.data?.items || []);
+        const items = Array.isArray(res.data?.items) ? res.data.items.filter(Boolean) : [];
+        setClassItems(items);
       }
     } catch (error: any) {
       if (!isMounted.current) return;
@@ -978,20 +981,29 @@ export default function HMAttendanceScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       {/* Standardized Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top }]}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
-        >
-          <ChevronLeft size={24} color="#fff" />
-        </TouchableOpacity>
-        <AppText style={styles.headerTitle} weight="bold">Attendance Management</AppText>
-        <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh}>
-          <RefreshCw size={20} color="#fff" />
-        </TouchableOpacity>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => safeGoBack(navigation, 'HMDashboard')}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <AppText weight="bold" style={styles.headerTitle}>Attendance Management</AppText>
+          </View>
+          <TouchableOpacity style={styles.iconButton} onPress={onRefresh}>
+            <RefreshCw size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.headerContent}>
+          <AppText weight="bold" style={styles.headerGreeting}>Attendance Hub</AppText>
+          <AppText style={styles.headerSubtext}>Monitor daily presence for staff and students</AppText>
+        </View>
       </View>
 
       {toast.visible && (
@@ -1239,31 +1251,55 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
+    backgroundColor: C.navy,
     paddingHorizontal: 20,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    ...Platform.select({
+      android: { elevation: 10 },
+      ios: {},
+    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 20,
-    borderRadius: 0,
+    paddingBottom: 12,
   },
-  backBtn: {
+  iconButton: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitleContainer: {
+    flex: 1,
     alignItems: 'center',
   },
   headerTitle: {
+    color: '#FFFFFF',
     fontSize: 18,
-    color: '#ffffff',
     textAlign: 'center',
-    flex: 1,
   },
-  refreshIconBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+  headerContent: {
+    marginTop: 24,
+  },
+  headerGreeting: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    letterSpacing: -0.5,
+  },
+  headerSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 4,
   },
   scrollView: {
     flex: 1,

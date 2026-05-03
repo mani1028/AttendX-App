@@ -32,7 +32,7 @@ const FEE_ENDPOINTS = [
 const PROFILE_ENDPOINTS = [
   'hm/students/directory',
   'manage/students',
-  'profile/details'
+  'student-dashboard/profile'
 ];
 const PROFILE_PHOTO_ENDPOINT = 'profile-photo/student';
 const QUESTION_PAPER_ENDPOINTS = [
@@ -174,11 +174,18 @@ function firstNonEmptyStringArray(...values: unknown[]): string[] {
  */
 async function getFirstSuccessful<T>(endpoints: string[], additionalParams: any = {}) {
   const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
+  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
   const studentId = await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('studentId');
   const perEndpointTimeoutMs = 15000;
 
   for (const endpoint of endpoints) {
     try {
+      const headers = {
+        'X-School-Code': schoolCode || undefined,
+        'X-Branch-Id': branchId || undefined,
+        ...(additionalParams && additionalParams.headers ? additionalParams.headers : {}),
+      };
+
       const response = await API.get<T>(endpoint, {
         timeout: perEndpointTimeoutMs,
         params: {
@@ -186,6 +193,7 @@ async function getFirstSuccessful<T>(endpoints: string[], additionalParams: any 
           student_id: studentId,
           ...additionalParams
         },
+        headers,
         ...FALLBACK_404_CONFIG,
       } as any);
 
@@ -230,6 +238,24 @@ export async function getStudentAttendance(params: any = {}): Promise<Attendance
     return { percentage, presentDays, absentDays, items: [] };
   } catch (error) {
     return { percentage: 0, presentDays: 0, absentDays: 0, items: [] };
+  }
+}
+
+/**
+ * Fetches attendance data for a specific month and year.
+ * Normalizes the items to include 'date' and 'status' fields.
+ */
+export async function getStudentAttendanceByMonth(month: string, year: string): Promise<any[]> {
+  try {
+    const res = await getStudentAttendance({ month, year });
+    const items = res.items || [];
+    return items.map((item: any) => ({
+      ...item,
+      date: item.date || item.attendance_date || item.day || '',
+      status: String(item.status || '').toUpperCase(),
+    }));
+  } catch (error) {
+    return [];
   }
 }
 
@@ -354,7 +380,7 @@ export async function getPaymentHistory(): Promise<any[]> {
 
       if (feeIds.length > 0) {
         const paymentGroups = await Promise.all(
-          feeIds.map(async feeId => {
+          feeIds.map(async (feeId: string) => {
             try {
               const paymentResponse = await API.get<any>(`accountant/payments/${feeId}`, {
                 params: { school_code: schoolCode },
@@ -460,9 +486,14 @@ export async function getStudentProfilePhotoDataUri(studentId?: string, schoolCo
     '';
 
   try {
+    const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
     const response = await API.get<ArrayBuffer>(`${PROFILE_PHOTO_ENDPOINT}/${encodeURIComponent(resolvedStudentId)}`, {
       params: resolvedSchoolCode ? { school_code: resolvedSchoolCode } : undefined,
       responseType: 'arraybuffer',
+      headers: {
+        'X-School-Code': resolvedSchoolCode || undefined,
+        'X-Branch-Id': branchId || undefined,
+      },
       ...FALLBACK_404_CONFIG,
     } as any);
 
@@ -537,22 +568,76 @@ export async function getStudentProfile(): Promise<any> {
       }
     }
 
+    const studentFullName = toText(firstDefined(
+      raw.student_full_name,
+      raw.full_name,
+      raw.student_name,
+      raw.name,
+      root.student_full_name,
+      root.full_name,
+      root.student_name,
+      root.name,
+      storedUser?.student_full_name,
+      storedUser?.full_name,
+      storedUser?.name,
+    ));
+
+    const parentGuardianEmail = toText(firstDefined(
+      raw.parent_guardian_email,
+      raw.parent_email,
+      raw.guardian_email,
+      raw.father_guardian_email,
+      raw.mother_email,
+      root.parent_guardian_email,
+      storedUser?.parent_guardian_email,
+      storedUser?.parent_email,
+      storedUser?.guardian_email,
+    ));
+
+    const fatherGuardianName = toText(firstDefined(
+      raw.father_guardian_name,
+      raw.father_name,
+      raw.guardian_name,
+      raw.father,
+      raw.parent_name,
+      storedUser?.father_guardian_name,
+      storedUser?.father_name,
+    ));
+
+    const bloodGroup = toText(firstDefined(
+      raw.blood_group,
+      raw.blood_type,
+      raw.bloodGroup,
+      storedUser?.blood_group,
+    ));
+
+    const rollNumber = toText(firstDefined(
+      raw.roll_number,
+      raw.roll_no,
+      raw.rollNo,
+      raw.roll,
+      storedUser?.roll_number,
+    ));
+
     return {
       ...raw,
       profile_photo_url: photoSource || toText(firstDefined(raw.profile_photo_url, root.profile_photo_url)),
       student_photograph: toText(firstDefined(raw.student_photograph, root.student_photograph)),
-      name: toText(firstDefined(raw.name, raw.full_name, raw.student_name, raw.student_full_name, storedUser?.name, storedUser?.full_name)),
+      name: studentFullName,
+      student_full_name: studentFullName,
       email: toText(firstDefined(raw.email, raw.email_address, storedUser?.email)),
       phone: toText(firstDefined(raw.phone, raw.mobile, raw.phone_number, storedUser?.phone)),
       student_id: toText(firstDefined(raw.student_id, raw.studentId, root.student_id, storedUser?.student_id, storedUser?.studentId)),
       class_grade: toText(firstDefined(raw.class_grade, raw.class_name, raw.student_class, storedUser?.class_grade, storedUser?.class_name)),
       section: toText(firstDefined(raw.section, raw.section_name, storedUser?.section)),
-      roll_number: toText(firstDefined(raw.roll_number, raw.rollNo, storedUser?.roll_number)),
+      roll_number: rollNumber,
       school_code: toText(firstDefined(raw.school_code, root.school_code, storedUser?.school_code)),
       school_name: toText(firstDefined(raw.school_name, raw.school, storedUser?.school_name)),
       branch_id: toText(firstDefined(raw.branch_id, storedUser?.branch_id)),
       branch_name: toText(firstDefined(raw.branch_name, storedUser?.branch_name)),
-      blood_group: toText(firstDefined(raw.blood_group, storedUser?.blood_group)),
+      blood_group: bloodGroup,
+      father_guardian_name: fatherGuardianName,
+      parent_guardian_email: parentGuardianEmail,
     };
   } catch (error) {
     try {
@@ -570,16 +655,23 @@ export async function getStudentProfile(): Promise<any> {
  */
 export async function getProfile(studentId: string, schoolCode: string): Promise<any> {
   try {
-    // Try profile/details first as it is more likely to be available in this environment
-    const response = await API.get('profile/details', {
-      params: { student_id: studentId, school_code: schoolCode }
+    // Try student-dashboard/profile as primary endpoint
+    const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+    const response = await API.get('student-dashboard/profile', {
+      params: { student_id: studentId, school_code: schoolCode },
+      headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId || undefined },
+      timeout: 15000,
     });
     return response.data;
   } catch (error) {
-    console.error('[Service] Failed to fetch profile (profile/details), trying fallback...', error);
+    console.error('[Service] Failed to fetch profile (student-dashboard/profile), trying fallback...', error);
     try {
-      const response = await API.get('student-dashboard/profile', {
-        params: { student_id: studentId, school_code: schoolCode }
+      // Fall back to hm/students/directory
+      const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+      const response = await API.get('hm/students/directory', {
+        params: { student_id: studentId, school_code: schoolCode },
+        headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId || undefined },
+        timeout: 15000,
       });
       return response.data;
     } catch (fallbackError) {
@@ -852,8 +944,16 @@ export async function changePassword(emailId: string, newPassword: string, otp: 
 }
 
 export async function updateStudentProfile(data: any): Promise<any> {
-  const endpoints = ['manage/students/update', 'profile/update', 'student-dashboard/profile/update'];
+  // Preferred API: PUT /manage/update with data_type=student
+  try {
+    const payload = { ...data, data_type: 'student' };
+    const response = await API.put('manage/update', payload);
+    return response.data;
+  } catch (err) {
+    // Fallbacks: existing endpoints (POST) kept for backward compatibility
+  }
 
+  const endpoints = ['manage/students/update', 'profile/update', 'student-dashboard/profile/update'];
   let lastError: any;
   for (const endpoint of endpoints) {
     try {

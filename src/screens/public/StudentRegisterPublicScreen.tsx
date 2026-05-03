@@ -578,41 +578,6 @@ export default function StudentRegisterPublicScreen() {
     setStep(s => Math.max(s - 1, 0));
   };
 
-  const getImageMimeType = (file: any): string => {
-    const explicitType = String(file?.type || '').trim().toLowerCase();
-    if (explicitType.startsWith('image/')) return explicitType;
-    const source = String(file?.fileName || file?.name || file?.uri || '').trim().toLowerCase();
-    if (source.endsWith('.png')) return 'image/png';
-    if (source.endsWith('.webp')) return 'image/webp';
-    if (source.endsWith('.gif')) return 'image/gif';
-    if (source.endsWith('.jpg') || source.endsWith('.jpeg')) return 'image/jpeg';
-    return 'image/jpeg';
-  };
-
-  const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-    const runtimeBuffer = (globalThis as any).Buffer;
-    if (runtimeBuffer?.from) return runtimeBuffer.from(buffer).toString('base64');
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    const chunkSize = 0x8000;
-    for (let index = 0; index < bytes.length; index += chunkSize) {
-      binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
-    }
-    const btoaFn = (globalThis as any).btoa;
-    if (typeof btoaFn === 'function') return btoaFn(binary);
-    throw new Error('Base64 encoder is unavailable');
-  };
-
-  const fileToBase64 = async (file: any): Promise<string> => {
-    if (String(file?.base64 || '').trim()) return `data:${getImageMimeType(file)};base64,${String(file.base64).replace(/\s+/g, '')}`;
-    if (!file?.uri) throw new Error('Missing image URI');
-    const response = await fetch(file.uri);
-    const blob = await response.blob();
-    const buffer = await blob.arrayBuffer();
-    const base64 = arrayBufferToBase64(buffer);
-    return `data:${getImageMimeType(file)};base64,${base64}`;
-  };
-
   const submit = async () => {
     if (!isPublicInvite) {
       setServerError('Invalid invite link.');
@@ -629,12 +594,17 @@ export default function StudentRegisterPublicScreen() {
     setServerSuccess('');
 
     try {
-      const studentPhotoBase64 = await fileToBase64(photoFile);
       const formData = new FormData();
 
       formData.append('school_code', publicSchoolCode);
       formData.append('branch_id', publicBranchId);
-      formData.append('student_photograph', studentPhotoBase64);
+
+      // Use standard FormData file object instead of base64
+      formData.append('student_photograph', {
+        uri: photoFile.uri,
+        type: photoFile.type || 'image/jpeg',
+        name: photoFile.fileName || 'student_photo.jpg',
+      } as any);
 
       const skip = new Set(['branch_id', 'confirm_password']);
       Object.entries(form).forEach(([k, v]) => {

@@ -16,7 +16,7 @@ import {
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, RefreshCw, Calendar as CalendarIcon, Users, User, Grid, TrendingUp, Home, GitBranch, AlertCircle, BarChart3, ClipboardList, Megaphone, Settings, FileDown } from 'lucide-react-native';
+import { Bell, RefreshCw, Calendar as CalendarIcon, Users, User, Grid, TrendingUp, Home, GitBranch, AlertCircle, BarChart3, ClipboardList, Megaphone, Settings } from 'lucide-react-native';
 import { Svg, Circle } from 'react-native-svg';
 import API from '../../services/api';
 import * as hmService from '../../services/hmService';
@@ -29,6 +29,11 @@ import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const QUICK_ACTION_COLUMNS = 4;
+const QUICK_ACTION_GRID_GAP = 12;
+const QUICK_ACTION_PANEL_HORIZONTAL = 16;
+const QUICK_ACTION_CARD_HORIZONTAL = 16;
+const QUICK_ACTION_ITEM_WIDTH = '24%';
 
 interface ClassData {
   class_id?: string;
@@ -204,14 +209,14 @@ const ClassChip = ({ label, percentage, present, total, onPress }: any) => {
 };
 
 const QUICK_ACTIONS = [
-  { label: 'Teachers', route: 'Teachers', icon: Users, bg: C.primary + '15', color: C.primary },
-  { label: 'Students', route: 'Students', icon: User, bg: C.successSoft, color: C.success },
-  { label: 'Attendance', route: 'Attendance', icon: CalendarIcon, bg: C.warningSoft, color: C.warning },
-  { label: 'Exams', route: 'HMExams', icon: ClipboardList, bg: 'rgba(124, 58, 237, 0.10)', color: '#7c3aed' },
-  { label: 'Reports', route: 'HMReports', icon: BarChart3, bg: 'rgba(14, 165, 233, 0.10)', color: '#0ea5e9' },
-  { label: 'Announcements', route: 'HMAnnouncements', icon: Megaphone, bg: 'rgba(236, 72, 153, 0.10)', color: '#ec4899' },
-  { label: 'Fees', route: 'HMFeeManagement', icon: FileDown, bg: 'rgba(249, 115, 22, 0.10)', color: '#f97316' },
-  { label: 'Settings', route: 'HMSettings', icon: Settings, bg: C.border + '80', color: C.text },
+  { label: 'Teachers', route: 'HMTeacherManagement', icon: Users, bg: 'rgba(37, 99, 235, 0.08)', color: '#2563eb' },
+  { label: 'Students', route: 'HMStudentManagement', icon: User, bg: 'rgba(34, 197, 94, 0.08)', color: '#22c55e' },
+  { label: 'Attendance', route: 'HMAttendance', icon: CalendarIcon, bg: 'rgba(249, 115, 22, 0.08)', color: '#f97316' },
+  { label: 'Exams', route: 'HMExams', icon: ClipboardList, bg: 'rgba(124, 58, 237, 0.08)', color: '#7c3aed' },
+  { label: 'Reports', route: 'HMReports', icon: BarChart3, bg: 'rgba(14, 165, 233, 0.08)', color: '#0ea5e9' },
+  { label: 'Notices', route: 'HMAnnouncements', icon: Megaphone, bg: 'rgba(236, 72, 153, 0.08)', color: '#ec4899' },
+  { label: 'Settings', route: 'HMSettings', icon: Settings, bg: 'rgba(100, 116, 139, 0.08)', color: '#64748b' },
+  { label: 'Profile', route: 'Profile', icon: User, bg: 'rgba(139, 92, 246, 0.08)', color: '#8b5cf6' },
 ] as const;
 
 export default function DashboardPage() {
@@ -412,9 +417,15 @@ export default function DashboardPage() {
       >
         <View style={[styles.heroHeader, { paddingTop: insets.top + 12 }]}>
           <View style={styles.heroTopRow}>
-            <View style={styles.profileAvatar}>
+            <TouchableOpacity
+              style={styles.profileAvatar}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('Profile')}
+              accessibilityRole="button"
+              accessibilityLabel="Open profile"
+            >
               <AppText style={styles.profileAvatarText} weight="bold">{userInitial}</AppText>
-            </View>
+            </TouchableOpacity>
             <View style={styles.heroActions}>
               <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
                 <Bell size={18} color="#fff" />
@@ -550,45 +561,6 @@ export default function DashboardPage() {
 
       {/* Main Grid */}
       <View style={styles.mainGrid}>
-        {/* Class-wise Attendance Bar Chart */}
-        <View style={styles.panel}>
-          <View style={styles.panelHead}>
-            <View>
-              <AppText style={styles.panelTitle} weight="bold">Class-wise Attendance Today</AppText>
-              <AppText style={styles.panelSub}>
-                {loading ? 'Loading…' : `${classes.length} sections · sorted by %`}
-              </AppText>
-            </View>
-          </View>
-
-          <View style={styles.barBody}>
-            {loading ? (
-              [1, 2, 3, 4, 5, 6].map(i => (
-                <View key={`bar-skeleton-${i}`} style={styles.skeletonBarRow}>
-                  <View style={[styles.skeletonBox, { width: 52, height: 12 }]} />
-                  <View style={[styles.skeletonBox, { flex: 1, height: 20 }]} />
-                  <View style={[styles.skeletonBox, { width: 36, height: 12 }]} />
-                </View>
-              ))
-            ) : !sortedClasses.length ? (
-              <View style={styles.emptyState}>
-                <AppText style={styles.emptyText}>No class data available.</AppText>
-              </View>
-            ) : (
-              sortedClasses.map((c, i) => (
-                <BarRow
-                  key={`${c.class_id ?? 'na'}-${c.section ?? c.label ?? 'sec'}-${i}`}
-                  label={c.label || ''}
-                  percentage={c.attendance_pct ?? 0}
-                  present={c.present ?? 0}
-                  total={c.students_total ?? 0}
-                  onPress={() => goToClassAttendance(c)}
-                />
-              ))
-            )}
-          </View>
-        </View>
-
         {/* Attendance Breakdown Rings */}
         <View style={styles.panel}>
           <View style={styles.panelHead}>
@@ -721,21 +693,8 @@ export default function DashboardPage() {
         </View>
       )}
 
-      {/* Bottom Bar */}
-      <View style={styles.bottomBar}>
-        <View style={styles.bottomItem}>
-          <Home size={13} color="#6366f1" />
-          <AppText style={styles.bottomText}>School: <AppText style={styles.bottomStrong} weight="bold">{schoolCode || '—'}</AppText></AppText>
-        </View>
-        <View style={styles.bottomItem}>
-          <GitBranch size={13} color="#6366f1" />
-          <AppText style={styles.bottomText}>Branch: <AppText style={styles.bottomStrong} weight="bold">{branchId || '—'}</AppText></AppText>
-        </View>
-        <View style={[styles.bottomItem, styles.liveIndicator]}>
-          <View style={styles.liveDot} />
-          <AppText style={styles.bottomText} weight="semiBold">Live</AppText>
-        </View>
-      </View>
+      {/* Bottom Spacer for Tab Bar */}
+      <View style={{ height: 90 }} />
       </ScrollView>
     </View>
   );
@@ -973,16 +932,16 @@ const styles = StyleSheet.create({
   },
   quickAccessPanel: {
     backgroundColor: C.card,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: C.border,
+    borderRadius: 24,
     marginHorizontal: 16,
-    marginBottom: 18,
+    marginBottom: 20,
     shadowColor: '#0f172a',
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.12)',
   },
   panel: {
     backgroundColor: C.card,
@@ -997,9 +956,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   panelHead: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   panelTitle: {
     fontSize: 14,
@@ -1014,25 +973,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     padding: 16,
-    gap: 12,
+    justifyContent: 'space-between',
+    rowGap: 16,
   },
   quickActionItem: {
-    width: '24%',
-    minWidth: 72,
+    width: QUICK_ACTION_ITEM_WIDTH,
     alignItems: 'center',
-    gap: 8,
   },
   quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 6,
   },
   quickActionLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: C.text,
     textAlign: 'center',
+    lineHeight: 14,
+    marginTop: 2,
   },
   barBody: {
     padding: 16,

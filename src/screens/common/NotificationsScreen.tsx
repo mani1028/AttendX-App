@@ -23,6 +23,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 import notificationService from '../../services/notificationService';
 import { safeJsonParse } from '../../utils/storage';
+import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
 interface Notification {
   id: string;
@@ -59,6 +60,7 @@ const getTypeStyles = (type: string) => {
 export default function NotificationsScreen() {
   const navigation = useNavigation();
   const { setTabBarVisible, userRole } = useAuth();
+  const { refreshUnreadCount } = useUnreadNotifications();
   const lastScrollY = useRef(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -151,6 +153,9 @@ export default function NotificationsScreen() {
         // Update badge count
         const unreadCount = Math.max(0, (notifications.length - readIds.length));
         await notificationService.updateBadgeCount(unreadCount);
+
+        // Refresh context count
+        await refreshUnreadCount(true);
       }
     } catch (err) {
       console.error('Failed to mark as read:', err);
@@ -165,6 +170,9 @@ export default function NotificationsScreen() {
       
       // Update badge count to 0
       await notificationService.updateBadgeCount(0);
+
+      // Refresh context count
+      await refreshUnreadCount(true);
     } catch (err) {
       console.error('Failed to mark all as read:', err);
     }

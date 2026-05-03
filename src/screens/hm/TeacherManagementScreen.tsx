@@ -12,6 +12,7 @@ import {
   Platform,
   Image,
   StatusBar,
+  useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -45,6 +46,7 @@ import {
 } from 'lucide-react-native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import API from '../../services/api';
+import * as hmService from '../../services/hmService';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
@@ -247,7 +249,7 @@ const Stepper = ({ currentStep }: { currentStep: number }) => (
                   <AppText style={[styles.stepNumber, isActive && styles.stepNumberActive]} weight="bold">{stepNumber}</AppText>
                 )}
               </View>
-              <AppText style={[styles.stepLabel, (isDone || isActive) && styles.stepLabelActive]} weight={isActive ? "bold" : "normal"} numberOfLines={1}>
+              <AppText style={[styles.stepLabel, (isDone || isActive) && styles.stepLabelActive]} weight={isActive ? "bold" : "regular"} numberOfLines={1}>
                 {label}
               </AppText>
             </View>
@@ -264,6 +266,8 @@ const Stepper = ({ currentStep }: { currentStep: number }) => (
 export default function TeacherPage() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isCompactScreen = width < 520;
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState('');
@@ -295,6 +299,7 @@ export default function TeacherPage() {
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   const ITEMS_PER_PAGE = 10;
 
@@ -355,8 +360,7 @@ export default function TeacherPage() {
     setListErr('');
 
     try {
-      const res = await API.get('/hm/teachers', { headers: getHeaders() });
-      const rows = Array.isArray(res.data?.items) ? res.data.items : [];
+      const rows = await hmService.getHMTeachers(getHeaders());
       setItems(rows);
     } catch (err: any) {
       setItems([]);
@@ -771,15 +775,17 @@ export default function TeacherPage() {
         { text: 'Cancel', style: 'cancel' },
         { text: 'Take Photo', onPress: () => {
           launchCamera({ mediaType: 'photo', quality: 0.9 }, (response) => {
-            if (response.assets && response.assets[0].uri) {
-              setFormData(prev => ({ ...prev, teacher_photograph: response.assets[0] }));
+            const asset = response.assets?.[0];
+            if (asset?.uri) {
+              setFormData(prev => ({ ...prev, teacher_photograph: asset }));
             }
           });
         } },
         { text: 'Choose from Gallery', onPress: () => {
           launchImageLibrary({ mediaType: 'photo', quality: 0.9 }, (response) => {
-            if (response.assets && response.assets[0].uri) {
-              setFormData(prev => ({ ...prev, teacher_photograph: response.assets[0] }));
+            const asset = response.assets?.[0];
+            if (asset?.uri) {
+              setFormData(prev => ({ ...prev, teacher_photograph: asset }));
             }
           });
         } },
@@ -820,8 +826,84 @@ export default function TeacherPage() {
     return list;
   }, [items, q, statusFilter, deptFilter]);
 
+  const summaryStats = useMemo(() => {
+    const active = items.filter(t => String(t.teacher_status || '').toUpperCase() === 'ACTIVE').length;
+    const inactive = items.filter(t => String(t.teacher_status || '').toUpperCase() === 'INACTIVE').length;
+    return {
+      total: items.length,
+      active,
+      inactive,
+      visible: filtered.length,
+    };
+  }, [items, filtered.length]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const visibleStart = filtered.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
+  const visibleEnd = Math.min(currentPage * ITEMS_PER_PAGE, filtered.length);
+
+  const renderTeacherCard = (teacher: Teacher, index: number) => (
+    <View key={teacher.teacher_id || index} style={styles.teacherCard}>
+      <View style={styles.teacherCardHeader}>
+        <View style={styles.teacherCellName}>
+          <View style={[styles.teacherAvatar, { backgroundColor: C.primary }]}>
+            <AppText style={styles.avatarText} weight="bold">
+              {teacher.teacher_full_name ? teacher.teacher_full_name.charAt(0).toUpperCase() : 'T'}
+            </AppText>
+          </View>
+          <View style={styles.teacherIdentity}>
+            <AppText style={styles.teacherName} weight="semiBold" numberOfLines={1}>{teacher.teacher_full_name || '—'}</AppText>
+            <AppText style={styles.teacherEmail} numberOfLines={1}>{teacher.email_id || '—'}</AppText>
+          </View>
+        </View>
+        <View style={[styles.statusPill, teacher.teacher_status === 'ACTIVE' ? styles.statusActive : styles.statusInactive]}>
+          {teacher.teacher_status === 'ACTIVE' ? (
+            <CheckCircle2 size={10} color={C.success} />
+          ) : (
+            <XCircle size={10} color={C.error} />
+          )}
+          <AppText style={[styles.statusText, teacher.teacher_status === 'ACTIVE' ? styles.statusActiveText : styles.statusInactiveText]} weight="bold">
+            {teacher.teacher_status || 'INACTIVE'}
+          </AppText>
+        </View>
+      </View>
+
+      <View style={styles.teacherMetaGrid}>
+        <View style={styles.teacherMetaItem}>
+          <AppText style={styles.teacherMetaLabel}>Emp ID</AppText>
+          <AppText style={styles.teacherMetaValue} numberOfLines={1}>{teacher.employee_id || '—'}</AppText>
+        </View>
+        <View style={styles.teacherMetaItem}>
+          <AppText style={styles.teacherMetaLabel}>Contact</AppText>
+          <AppText style={styles.teacherMetaValue} numberOfLines={1}>{teacher.mobile_number || '—'}</AppText>
+        </View>
+        <View style={styles.teacherMetaItem}>
+          <AppText style={styles.teacherMetaLabel}>Designation</AppText>
+          <AppText style={styles.teacherMetaValue} numberOfLines={1}>{teacher.designation || '—'}</AppText>
+        </View>
+        <View style={styles.teacherMetaItem}>
+          <AppText style={styles.teacherMetaLabel}>Department</AppText>
+          <AppText style={styles.teacherMetaValue} numberOfLines={1}>{teacher.department_subject || '—'}</AppText>
+        </View>
+      </View>
+
+      <View style={styles.teacherCardFooter}>
+        <View style={styles.teacherSubStack}>
+          <AppText style={styles.teacherSubText}>{teacher.gender || '—'}{teacher.age ? ` • ${teacher.age}y` : ''}</AppText>
+        </View>
+        <View style={styles.teacherCardActions}>
+          <TouchableOpacity style={[styles.cardActionBtn, styles.cardActionSecondary]} onPress={() => setViewTeacher(teacher)}>
+            <Eye size={14} color={C.primary} />
+            <AppText style={styles.cardActionSecondaryText} weight="semiBold">View Profile</AppText>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.cardActionBtn, styles.cardActionPrimary]} onPress={() => openEditTeacher(teacher)}>
+            <Edit2 size={14} color="#fff" />
+            <AppText style={styles.cardActionPrimaryText} weight="semiBold">Edit Details</AppText>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
 
   const renderTeacherItem = (teacher: Teacher, index: number) => (
     <View key={teacher.teacher_id || index} style={styles.teacherRow}>
@@ -943,7 +1025,18 @@ export default function TeacherPage() {
       <View style={[styles.headerStandard, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
+          onPress={() => {
+            try {
+              if (navigation.canGoBack?.()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('HMDashboard' as never);
+              }
+            } catch (err) {
+              // Fallback to dashboard if navigation fails
+              navigation.navigate('HMDashboard' as never);
+            }
+          }}
         >
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
@@ -963,12 +1056,15 @@ export default function TeacherPage() {
       >
         {/* Sub Header */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerCopy}>
+            <AppText style={styles.kicker} weight="semiBold">Staff Profile Management</AppText>
             <AppText style={styles.title} weight="bold">
-              {activeTab === 'list' ? 'Staff Directory' : 'Register Teacher'}{' '}
-              <AppText style={styles.titleSub} weight="regular">
-                {activeTab === 'list' ? `${filtered.length} records` : `Step ${step + 1} of ${STEPS.length}`}
-              </AppText>
+              {activeTab === 'list' ? 'Staff Directory' : 'Register Teacher'}
+            </AppText>
+            <AppText style={styles.titleSub} weight="regular">
+              {activeTab === 'list'
+                ? 'Review, filter, and update staff profiles from a single workspace.'
+                : `Step ${step + 1} of ${STEPS.length} • guided onboarding`}
             </AppText>
           </View>
           <View style={styles.headerActions}>
@@ -1001,6 +1097,23 @@ export default function TeacherPage() {
             )}
           </View>
         </View>
+
+        {activeTab === 'list' && (
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryCard}>
+              <AppText style={styles.summaryValue} weight="bold">{summaryStats.total}</AppText>
+              <AppText style={styles.summaryLabel}>Total Staff</AppText>
+            </View>
+            <View style={styles.summaryCard}>
+              <AppText style={styles.summaryValue} weight="bold">{summaryStats.active}</AppText>
+              <AppText style={styles.summaryLabel}>Active</AppText>
+            </View>
+            <View style={styles.summaryCard}>
+              <AppText style={styles.summaryValue} weight="bold">{summaryStats.inactive}</AppText>
+              <AppText style={styles.summaryLabel}>Inactive</AppText>
+            </View>
+          </View>
+        )}
 
         {/* Tabs */}
         <View style={styles.tabs}>
@@ -1311,6 +1424,15 @@ export default function TeacherPage() {
         {activeTab === 'list' && (
           <View style={styles.tableContainer}>
             <View style={styles.filterBar}>
+              <View style={styles.filterHeader}>
+                <View>
+                  <AppText style={styles.filterTitle} weight="bold">Directory Filters</AppText>
+                  <AppText style={styles.filterSubtitle}>Showing {summaryStats.visible} matching profiles</AppText>
+                </View>
+                <View style={styles.filterBadge}>
+                  <AppText style={styles.filterBadgeText} weight="semiBold">{visibleStart === 0 ? '0' : `${visibleStart}-${visibleEnd}`}/{filtered.length}</AppText>
+                </View>
+              </View>
               <View style={styles.searchInput}>
                 <Search size={14} color={C.muted} />
                 <TextInput
@@ -1326,7 +1448,7 @@ export default function TeacherPage() {
                   </TouchableOpacity>
                 ) : null}
               </View>
-              <View style={styles.filterGroup}>
+              <View style={[styles.filterGroup, isCompactScreen && styles.filterGroupStack]}>
                 <View style={styles.pickerSmall}>
                   <Picker
                     selectedValue={statusFilter}
@@ -1351,11 +1473,11 @@ export default function TeacherPage() {
                     ))}
                   </Picker>
                 </View>
-                <TouchableOpacity style={styles.filterBtn} onPress={loadTeachers}>
+                <TouchableOpacity style={[styles.filterBtn, isCompactScreen && styles.filterBtnFullWidth]} onPress={loadTeachers}>
                   <RefreshCw size={14} color={C.text} />
                   <AppText style={styles.filterBtnText} weight="semiBold">Refresh</AppText>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.exportBtn} onPress={handleExport}>
+                <TouchableOpacity style={[styles.exportBtn, isCompactScreen && styles.filterBtnFullWidth]} onPress={handleExport}>
                   <Download size={14} color="#fff" />
                   <AppText style={styles.exportBtnText} weight="semiBold">Export</AppText>
                 </TouchableOpacity>
@@ -1368,25 +1490,15 @@ export default function TeacherPage() {
               </View>
             ) : null}
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.table}>
-                <View style={styles.tableHeader}>
-                  <AppText style={[styles.headerCell, styles.cellName]} weight="bold">Teacher</AppText>
-                  <AppText style={[styles.headerCell, styles.cellEmpId]} weight="bold">Emp ID</AppText>
-                  <AppText style={[styles.headerCell, styles.cellContact]} weight="bold">Contact</AppText>
-                  <AppText style={[styles.headerCell, styles.cellDesignation]} weight="bold">Designation</AppText>
-                  <AppText style={[styles.headerCell, styles.cellDept]} weight="bold">Department</AppText>
-                  <AppText style={[styles.headerCell, styles.cellStatus]} weight="bold">Status</AppText>
-                  <AppText style={[styles.headerCell, styles.cellActions]} weight="bold">Actions</AppText>
-                </View>
-
+            {isCompactScreen ? (
+              <View style={styles.mobileList}>
                 {listLoading ? (
                   <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={C.primary} />
                     <AppText style={styles.loadingText}>Loading teachers...</AppText>
                   </View>
                 ) : paginated.length > 0 ? (
-                  paginated.map((teacher, idx) => renderTeacherItem(teacher, idx))
+                  paginated.map((teacher, idx) => renderTeacherCard(teacher, idx))
                 ) : (
                   <View style={styles.emptyState}>
                     <Users size={48} color={C.muted} />
@@ -1395,11 +1507,40 @@ export default function TeacherPage() {
                   </View>
                 )}
               </View>
-            </ScrollView>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.table}>
+                  <View style={styles.tableHeader}>
+                    <AppText style={[styles.headerCell, styles.cellName]} weight="bold">Teacher</AppText>
+                    <AppText style={[styles.headerCell, styles.cellEmpId]} weight="bold">Emp ID</AppText>
+                    <AppText style={[styles.headerCell, styles.cellContact]} weight="bold">Contact</AppText>
+                    <AppText style={[styles.headerCell, styles.cellDesignation]} weight="bold">Designation</AppText>
+                    <AppText style={[styles.headerCell, styles.cellDept]} weight="bold">Department</AppText>
+                    <AppText style={[styles.headerCell, styles.cellStatus]} weight="bold">Status</AppText>
+                    <AppText style={[styles.headerCell, styles.cellActions]} weight="bold">Actions</AppText>
+                  </View>
+
+                  {listLoading ? (
+                    <View style={styles.loadingContainer}>
+                      <ActivityIndicator size="large" color={C.primary} />
+                      <AppText style={styles.loadingText}>Loading teachers...</AppText>
+                    </View>
+                  ) : paginated.length > 0 ? (
+                    paginated.map((teacher, idx) => renderTeacherItem(teacher, idx))
+                  ) : (
+                    <View style={styles.emptyState}>
+                      <Users size={48} color={C.muted} />
+                      <AppText style={styles.emptyTitle} weight="bold">No teachers found</AppText>
+                      <AppText style={styles.emptyText}>Try adjusting your search or filters</AppText>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+            )}
 
             <View style={styles.tableFooter}>
               <AppText style={styles.footerText}>
-                Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
+                Showing {visibleStart}–{visibleEnd} of {filtered.length}
               </AppText>
               <View style={styles.pagination}>
                 <TouchableOpacity
@@ -1417,7 +1558,7 @@ export default function TeacherPage() {
                       style={[styles.pageBtn, currentPage === p && styles.pageBtnActive]}
                       onPress={() => setCurrentPage(p)}
                     >
-                      <AppText style={[styles.pageBtnText, currentPage === p && styles.pageBtnTextActive]} weight={currentPage === p ? "bold" : "normal"}>{p}</AppText>
+                      <AppText style={[styles.pageBtnText, currentPage === p && styles.pageBtnTextActive]} weight={currentPage === p ? "bold" : "regular"}>{p}</AppText>
                     </TouchableOpacity>
                   );
                 })}
@@ -1466,14 +1607,114 @@ export default function TeacherPage() {
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalBody}>
-              <View style={styles.detailGrid}>
-                {viewTeacher && Object.entries(viewTeacher).map(([key, value]) => (
-                  <View key={key} style={styles.detailItem}>
-                    <AppText style={styles.detailLabel} weight="bold">{key.replace(/_/g, ' ').toUpperCase()}</AppText>
-                    <AppText style={styles.detailValue} weight="semiBold">{value || '—'}</AppText>
+              {viewTeacher && (
+                <View style={styles.profileSheet}>
+                  <View style={styles.profileHeaderCard}>
+                    <View style={[styles.teacherAvatar, styles.profileAvatarLarge, { backgroundColor: C.primary }]}>
+                      <AppText style={styles.profileAvatarText} weight="bold">
+                        {viewTeacher.teacher_full_name ? viewTeacher.teacher_full_name.charAt(0).toUpperCase() : 'T'}
+                      </AppText>
+                    </View>
+                    <View style={styles.profileHeaderMeta}>
+                      <AppText style={styles.profileName} weight="bold" numberOfLines={1}>{viewTeacher.teacher_full_name || '—'}</AppText>
+                      <AppText style={styles.profileRole} weight="semiBold" numberOfLines={1}>{viewTeacher.designation || 'Staff Member'}</AppText>
+                      <AppText style={styles.profileSubText} numberOfLines={1}>{viewTeacher.department_subject || '—'}</AppText>
+                      <View style={[styles.statusPill, viewTeacher.teacher_status === 'ACTIVE' ? styles.statusActive : styles.statusInactive]}>
+                        {viewTeacher.teacher_status === 'ACTIVE' ? (
+                          <CheckCircle2 size={10} color={C.success} />
+                        ) : (
+                          <XCircle size={10} color={C.error} />
+                        )}
+                        <AppText style={[styles.statusText, viewTeacher.teacher_status === 'ACTIVE' ? styles.statusActiveText : styles.statusInactiveText]} weight="bold">
+                          {viewTeacher.teacher_status || 'INACTIVE'}
+                        </AppText>
+                      </View>
+                    </View>
                   </View>
-                ))}
-              </View>
+
+                  {
+                    // build sections array so we can control visibility and layout responsively
+                    (() => {
+                      const sections = [
+                        {
+                          title: 'Profile Overview',
+                          fields: [
+                            ['Employee ID', viewTeacher.employee_id],
+                            ['Teacher ID', viewTeacher.teacher_id],
+                            ['Designation', viewTeacher.designation],
+                            ['Department', viewTeacher.department_subject],
+                            ['Employment Type', viewTeacher.employment_type],
+                            ['Qualification', viewTeacher.qualification],
+                          ],
+                        },
+                        {
+                          title: 'Contact & Personal',
+                          fields: [
+                            ['Mobile', viewTeacher.mobile_number],
+                            ['Alternate Mobile', viewTeacher.alternate_mobile_number],
+                            ['Email', viewTeacher.email_id],
+                            ['Gender', viewTeacher.gender],
+                            ['Age', viewTeacher.age ? `${viewTeacher.age} years` : '—'],
+                            ['Date of Birth', viewTeacher.date_of_birth],
+                          ],
+                        },
+                        {
+                          title: 'Address',
+                          fields: [
+                            ['House No', viewTeacher.house_no],
+                            ['Street', viewTeacher.street_locality],
+                            ['City', viewTeacher.village_town_city],
+                            ['Mandal/Taluk', viewTeacher.mandal_taluk],
+                            ['District', viewTeacher.district],
+                            ['State', viewTeacher.state],
+                            ['Pin Code', viewTeacher.pin_code],
+                          ],
+                        },
+                        {
+                          title: 'Emergency Contact',
+                          fields: [
+                            ['Contact Name', viewTeacher.emergency_contact_name],
+                            ['Relationship', viewTeacher.emergency_contact_relationship],
+                            ['Contact Number', viewTeacher.emergency_contact_number],
+                          ],
+                        },
+                      ];
+
+                      const visibleSections = sections.filter((s, idx) => detailsExpanded || idx < 2);
+                      const hiddenCount = sections.length - visibleSections.length;
+                      const columnCount = width < 420 ? 1 : 2;
+
+                      return (
+                        <>
+                          {visibleSections.map((section, sIdx) => {
+                            const visible = section.fields.filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '');
+                            if (visible.length === 0) return null;
+                            return (
+                              <View key={section.title} style={styles.detailSection}>
+                                <AppText style={styles.detailSectionTitle} weight="bold">{section.title}</AppText>
+                                <View style={styles.detailGrid}>
+                                  {visible.map(([label, value]) => (
+                                    <View key={label} style={[styles.detailItem, { width: columnCount === 1 ? '100%' : '48%' }]}>
+                                      <AppText style={styles.detailLabel} weight="bold">{label}</AppText>
+                                      <AppText style={styles.detailValue} weight="semiBold">{value}</AppText>
+                                    </View>
+                                  ))}
+                                </View>
+                              </View>
+                            );
+                          })}
+
+                          {hiddenCount > 0 && (
+                            <TouchableOpacity onPress={() => setDetailsExpanded(!detailsExpanded)} style={{ alignSelf: 'center', marginTop: 8 }}>
+                              <AppText style={{ color: C.primary }} weight="bold">{detailsExpanded ? 'Show less' : `Show more (${hiddenCount})`}</AppText>
+                            </TouchableOpacity>
+                          )}
+                        </>
+                      );
+                    })()
+                  }
+                </View>
+              )}
             </ScrollView>
           </View>
         </View>
@@ -1491,7 +1732,8 @@ export default function TeacherPage() {
             </View>
             <ScrollView style={styles.modalBody}>
               <View style={styles.formGrid}>
-                {editForm && [
+                {editForm && (() => {
+                  const editFields: Array<[string, string, 'text' | 'number' | 'date' | 'select', string[]?]> = [
                   ['teacher_full_name', 'Full Name', 'text'],
                   ['gender', 'Gender', 'select', GENDER_OPTIONS],
                   ['date_of_birth', 'Date of Birth', 'date'],
@@ -1500,8 +1742,10 @@ export default function TeacherPage() {
                   ['designation', 'Designation', 'text'],
                   ['department_subject', 'Department', 'text'],
                   ['teacher_status', 'Status', 'select', STATUS_OPTIONS],
-                ].map(([name, label, type, options]) => {
-                  const value = editForm[name];
+                  ];
+
+                  return editFields.map(([name, label, type, options]) => {
+                  const value = editForm?.[name];
                   if (type === 'select' && options) {
                     return (
                       <View key={name} style={styles.formGroup}>
@@ -1513,7 +1757,7 @@ export default function TeacherPage() {
                             style={styles.picker}
                             dropdownIconColor={C.muted}
                           >
-                            {options.map(opt => (
+                            {options.map((opt: string) => (
                               <Picker.Item key={opt} label={opt} value={opt} color={C.text} />
                             ))}
                           </Picker>
@@ -1532,7 +1776,8 @@ export default function TeacherPage() {
                       />
                     </View>
                   );
-                })}
+                  });
+                })()}
               </View>
             </ScrollView>
             <View style={styles.modalFooter}>
@@ -1546,22 +1791,6 @@ export default function TeacherPage() {
           </View>
         </View>
       </Modal>
-
-      {/* School Info Footer */}
-      <View style={styles.footer}>
-        <View style={styles.footerItem}>
-          <Home size={12} color={C.primary} />
-          <AppText style={styles.footerText}>School: <AppText style={styles.footerStrong} weight="bold">{schoolCode || '—'}</AppText></AppText>
-        </View>
-        <View style={styles.footerItem}>
-          <GitBranch size={12} color={C.primary} />
-          <AppText style={styles.footerText}>Branch: <AppText style={styles.footerStrong} weight="bold">{branchId || '—'}</AppText></AppText>
-        </View>
-        <View style={styles.footerItem}>
-          <Shield size={12} color={C.primary} />
-          <AppText style={styles.footerText}>Role: <AppText style={styles.footerStrong} weight="bold">Head Master</AppText></AppText>
-        </View>
-      </View>
     </View>
   );
 }
@@ -1589,18 +1818,89 @@ const styles = StyleSheet.create({
   },
   container: { flex: 1, backgroundColor: C.bg },
   scrollView: { flex: 1 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingBottom: 12 },
-  title: { fontSize: 20, color: C.text },
-  titleSub: { fontSize: 12, color: C.muted },
-  headerActions: { flexDirection: 'row', gap: 8 },
-  primaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 16,
+    paddingBottom: 12,
+  },
+  headerCopy: { flex: 1, gap: 4 },
+  kicker: {
+    fontSize: 11,
+    color: C.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  title: { fontSize: 22, color: C.text, lineHeight: 28 },
+  titleSub: { fontSize: 12, color: C.muted, lineHeight: 18, maxWidth: 320 },
+  headerActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  primaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: C.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
   primaryBtnText: { color: '#fff', fontSize: 13 },
-  secondaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.card, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border },
+  secondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: C.card,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
   secondaryBtnText: { color: C.text, fontSize: 13 },
-  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: C.border, marginHorizontal: 16 },
-  tab: { paddingVertical: 10, paddingHorizontal: 16, marginRight: 8 },
-  activeTab: { borderBottomWidth: 2, borderBottomColor: C.primary },
-  tabText: { fontSize: 14, color: C.muted },
+  summaryRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+    justifyContent: 'space-between',
+  },
+  summaryRowStacked: {
+    flexDirection: 'column',
+  },
+  summaryCard: {
+    width: '32%',
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    ...Platform.select({
+      android: { elevation: 1 },
+      ios: {
+        shadowColor: '#0f172a',
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
+  },
+  summaryValue: { fontSize: 20, color: C.text },
+  summaryLabel: { fontSize: 11, color: C.muted, marginTop: 2 },
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 4,
+  },
+  tab: { flex: 1, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  activeTab: { backgroundColor: C.primarySoft, borderBottomWidth: 0 },
+  tabText: { fontSize: 13, color: C.muted, textAlign: 'center' },
   activeTabText: { color: C.primary },
   errorBox: { margin: 16, padding: 12, backgroundColor: C.errorSoft, borderRadius: 8, borderWidth: 1, borderColor: C.error },
   errorBoxText: { color: C.error, fontSize: 13 },
@@ -1711,16 +2011,40 @@ const styles = StyleSheet.create({
   previewItem: { width: '50%', padding: 10, borderBottomWidth: 1, borderBottomColor: C.border, borderRightWidth: 1, borderRightColor: C.border },
   previewLabel: { fontSize: 10, color: C.muted, textTransform: 'uppercase' },
   previewValue: { fontSize: 12, color: C.text, marginTop: 2 },
-  tableContainer: { backgroundColor: C.card, margin: 16, borderRadius: 12, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
-  filterBar: { padding: 12, borderBottomWidth: 1, borderBottomColor: C.border, gap: 12 },
-  searchInput: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: C.border, borderRadius: 8, paddingHorizontal: 12, height: 40, backgroundColor: C.bg },
+  tableContainer: {
+    backgroundColor: C.card,
+    margin: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+    overflow: 'hidden',
+    ...Platform.select({
+      android: { elevation: 2 },
+      ios: {
+        shadowColor: '#0f172a',
+        shadowOpacity: 0.06,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 6 },
+      },
+    }),
+  },
+  filterBar: { padding: 14, borderBottomWidth: 1, borderBottomColor: C.border, gap: 12 },
+  filterHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  filterTitle: { fontSize: 15, color: C.text },
+  filterSubtitle: { fontSize: 12, color: C.muted, marginTop: 2 },
+  filterBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: C.primarySoft, borderWidth: 1, borderColor: C.primaryBorder },
+  filterBadgeText: { fontSize: 11, color: C.primary },
+  searchInput: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingHorizontal: 12, height: 46, backgroundColor: C.bg },
   searchField: { flex: 1, fontSize: 14, color: C.text },
   filterGroup: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.card },
+  filterGroupStack: { flexDirection: 'column' },
+  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.card },
+  filterBtnFullWidth: { width: '100%', justifyContent: 'center' },
   filterBtnText: { fontSize: 12, color: C.text },
-  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: C.success },
+  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, backgroundColor: C.success },
   exportBtnText: { fontSize: 12, color: '#fff' },
   table: { minWidth: 800 },
+  mobileList: { padding: 16, gap: 12 },
   tableHeader: { flexDirection: 'row', backgroundColor: C.bg, paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.border },
   headerCell: { fontSize: 11, color: C.muted, textTransform: 'uppercase' },
   cellName: { width: '22%' },
@@ -1730,12 +2054,12 @@ const styles = StyleSheet.create({
   cellDept: { width: '15%' },
   cellStatus: { width: '10%' },
   cellActions: { width: '10%' },
-  teacherRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.border, alignItems: 'center' },
+  teacherRow: { flexDirection: 'row', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.border, alignItems: 'center', backgroundColor: C.card },
   teacherCellName: { width: '22%', flexDirection: 'row', alignItems: 'center', gap: 10 },
-  teacherAvatar: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  teacherAvatar: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
   avatarText: { color: '#fff', fontSize: 13 },
   teacherName: { fontSize: 14, color: C.text },
-  teacherEmail: { fontSize: 11, color: C.muted },
+  teacherEmail: { fontSize: 11, color: C.muted, marginTop: 2 },
   teacherCellEmpId: { width: '10%' },
   teacherCellContact: { width: '15%' },
   teacherCellDesignation: { width: '15%' },
@@ -1744,8 +2068,8 @@ const styles = StyleSheet.create({
   teacherCellActions: { width: '10%', flexDirection: 'row', gap: 8 },
   teacherText: { fontSize: 13, color: C.text },
   teacherSubText: { fontSize: 11, color: C.muted, marginTop: 2 },
-  iconBtn: { padding: 6, borderRadius: 6 },
-  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' },
+  iconBtn: { padding: 8, borderRadius: 8, backgroundColor: C.bg, borderWidth: 1, borderColor: C.border },
+  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 999, alignSelf: 'flex-start', borderWidth: 1 },
   statusActive: { backgroundColor: C.successSoft },
   statusInactive: { backgroundColor: C.errorSoft },
   statusText: { fontSize: 10 },
@@ -1754,22 +2078,88 @@ const styles = StyleSheet.create({
   tableFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.bg },
   footerText: { fontSize: 12, color: C.muted },
   pagination: { flexDirection: 'row', gap: 6 },
-  pageBtn: { width: 32, height: 32, borderRadius: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
+  pageBtn: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border, backgroundColor: C.card },
   pageBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
   pageBtnDisabled: { opacity: 0.5 },
   pageBtnText: { fontSize: 12, color: C.muted },
   pageBtnTextActive: { color: '#fff' },
-  loadingContainer: { padding: 48, alignItems: 'center' },
+  loadingContainer: { padding: 48, alignItems: 'center', backgroundColor: C.card },
   loadingText: { marginTop: 12, color: C.muted },
-  emptyState: { alignItems: 'center', padding: 48 },
+  emptyState: { alignItems: 'center', padding: 48, backgroundColor: C.card },
   emptyTitle: { fontSize: 16, color: C.text, marginTop: 12 },
   emptyText: { fontSize: 13, color: C.muted, marginTop: 4 },
+  teacherCard: {
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
+    ...Platform.select({
+      android: { elevation: 1 },
+      ios: {
+        shadowColor: '#0f172a',
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
+  },
+  teacherCardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
+  teacherIdentity: { flex: 1, minWidth: 0 },
+  teacherMetaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  teacherMetaItem: {
+    width: '48%',
+    backgroundColor: C.bg,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  teacherMetaLabel: { fontSize: 10, color: C.muted, textTransform: 'uppercase', marginBottom: 3 },
+  teacherMetaValue: { fontSize: 13, color: C.text },
+  teacherCardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  teacherSubStack: { flex: 1, minWidth: 0 },
+  teacherCardActions: { flexDirection: 'row', gap: 8 },
+  cardActionBtn: {
+    minHeight: 34,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  cardActionSecondary: { backgroundColor: C.bg, borderWidth: 1, borderColor: C.border },
+  cardActionPrimary: { backgroundColor: C.primary },
+  cardActionSecondaryText: { fontSize: 12, color: C.primary },
+  cardActionPrimaryText: { fontSize: 12, color: '#fff' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 16 },
-  modalContent: { backgroundColor: C.card, borderRadius: 12, width: '90%', maxHeight: '80%', borderWidth: 1, borderColor: C.border },
+  modalContent: { backgroundColor: C.card, borderRadius: 12, width: '90%', maxHeight: '90%', borderWidth: 1, borderColor: C.border },
   modalLarge: { width: '95%', maxWidth: 800 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: C.border },
   modalTitle: { fontSize: 16, color: C.text },
   modalBody: { padding: 16 },
+  profileSheet: { gap: 16 },
+  profileHeaderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.bg,
+  },
+  profileAvatarLarge: { width: 62, height: 62, borderRadius: 18 },
+  profileAvatarText: { color: '#fff', fontSize: 22 },
+  profileHeaderMeta: { flex: 1, minWidth: 0, gap: 2 },
+  profileName: { fontSize: 18, color: C.text },
+  profileRole: { fontSize: 13, color: C.primary },
+  profileSubText: { fontSize: 12, color: C.muted },
+  detailSection: { gap: 10 },
+  detailSectionTitle: { fontSize: 13, color: C.text },
   modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, padding: 16, borderTopWidth: 1, borderTopColor: C.border },
   saveBtn: { backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   saveBtnText: { color: '#fff', fontSize: 14 },

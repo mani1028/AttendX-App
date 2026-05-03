@@ -35,7 +35,7 @@ import {
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+import HM_THEME from '../../constants/hmTheme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import { safeGoBack } from '../../utils/navigationHelpers';
@@ -409,16 +409,16 @@ export default function StudentRegistrationScreen() {
 
         if (!isMounted.current) return;
 
-        const items = Array.isArray(res.data?.items) ? res.data.items : [];
+        const items = Array.isArray(res.data?.items) ? res.data.items.filter(Boolean) : [];
         const formattedItems: ClassOption[] = items.map((item: any) => ({
-          class_name: String(item.class_name).trim(),
-          sections: Array.isArray(item.sections) ? item.sections.map((s: any) => String(s).trim()) : [],
+          class_name: String(item?.class_name || '').trim(),
+          sections: Array.isArray(item?.sections) ? item.sections.filter(Boolean).map((s: any) => String(s).trim()) : [],
         }));
         setClassOptions(formattedItems);
 
         if (formattedItems.length > 0 && safeTrim(form.class_grade)) {
           const cur = formattedItems.find(c => c.class_name.toLowerCase() === safeTrim(form.class_grade).toLowerCase());
-          setSectionOptions(cur?.sections || []);
+          setSectionOptions(Array.isArray(cur?.sections) ? cur.sections : []);
         } else {
           setSectionOptions([]);
         }
@@ -661,56 +661,6 @@ export default function StudentRegistrationScreen() {
     setStep(s => Math.max(s - 1, 0));
   };
 
-  const getImageMimeType = (file: any): string => {
-    const explicitType = String(file?.type || '').trim().toLowerCase();
-    if (explicitType.startsWith('image/')) return explicitType;
-
-    const source = String(file?.fileName || file?.name || file?.uri || '').trim().toLowerCase();
-    if (source.endsWith('.png')) return 'image/png';
-    if (source.endsWith('.webp')) return 'image/webp';
-    if (source.endsWith('.gif')) return 'image/gif';
-    if (source.endsWith('.jpg') || source.endsWith('.jpeg')) return 'image/jpeg';
-
-    return 'image/jpeg';
-  };
-
-  const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-    const runtimeBuffer = (globalThis as any).Buffer;
-    if (runtimeBuffer?.from) {
-      return runtimeBuffer.from(buffer).toString('base64');
-    }
-
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    const chunkSize = 0x8000;
-    for (let index = 0; index < bytes.length; index += chunkSize) {
-      binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
-    }
-
-    const btoaFn = (globalThis as any).btoa;
-    if (typeof btoaFn === 'function') {
-      return btoaFn(binary);
-    }
-
-    throw new Error('Base64 encoder is unavailable');
-  };
-
-  const fileToBase64 = async (file: any): Promise<string> => {
-    if (String(file?.base64 || '').trim()) {
-      return `data:${getImageMimeType(file)};base64,${String(file.base64).replace(/\s+/g, '')}`;
-    }
-
-    if (!file?.uri) {
-      throw new Error('Missing image URI');
-    }
-
-    const response = await fetch(file.uri);
-    const blob = await response.blob();
-    const buffer = await (blob as any).arrayBuffer();
-    const base64 = arrayBufferToBase64(buffer);
-    return `data:${getImageMimeType(file)};base64,${base64}`;
-  };
-
   const copyRegistrationLink = async () => {
     const origin = Platform.OS === 'ios' ? 'attendx://' : 'attendx://';
     const sc = safeTrim(loggedSchoolCode);
@@ -750,19 +700,67 @@ export default function StudentRegistrationScreen() {
     setServerSuccess('');
 
     try {
-      const studentPhotoBase64 = await fileToBase64(photoFile);
       const formData = new FormData();
 
       formData.append('school_code', code);
       formData.append('branch_id', branch);
-      formData.append('student_photograph', studentPhotoBase64);
+
+      // Use standard FormData file object instead of base64
+      formData.append('student_photograph', {
+        uri: photoFile.uri,
+        type: photoFile.type || 'image/jpeg',
+        name: photoFile.fileName || 'student_photo.jpg',
+      } as any);
 
       const skip = new Set(['branch_id', 'confirm_password']);
 
+      const sanitizeValue = (key: string, value: any): string => {
+        const v = String(value ?? '').trim();
+        if (!v) return '';
+
+        // Field-specific normalization
+        if (key === 'father_guardian_mobile' || key === 'mother_guardian_mobile' || key === 'emergency_contact_number') {
+          return v.replace(/\D/g, '').slice(0, 10);
+        }
+
+        if (key === 'aadhaar_number') {
+          return v.replace(/\D/g, '').slice(0, 12);
+        }
+
+        if (key === 'pin_code') {
+          return v.replace(/\D/g, '').slice(0, 6);
+        }
+
+        if (key === 'section') {
+          return v.toUpperCase().replace(/[^A-Z]/g, '');
+        }
+
+        if (key === 'academic_year') {
+          // Normalize to YYYY-YY if possible
+          const digits = v.replace(/[^0-9]/g, '');
+          if (digits.length >= 6) {
+            const y1 = digits.slice(0, 4);
+            const y2 = digits.slice(4, 6);
+            return `${y1}-${y2}`;
+          }
+          return v;
+        }
+
+        if (key === 'date_of_birth' || key === 'date_of_admission') {
+          // Keep ISO format YYYY-MM-DD when possible
+          const d = new Date(v);
+          if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+        }
+
+        return v;
+      };
+
+      // Only append non-empty, sanitized values
       Object.entries(form).forEach(([k, v]) => {
         if (skip.has(k)) return;
-        if (k === 'date_of_admission' && !safeTrim(v)) return;
-        formData.append(k, v ?? '');
+        const val = sanitizeValue(k, v);
+        if (!val) return;
+        formData.append(k, val);
       });
 
       const res = await API.post('/student/register', formData, {
@@ -827,7 +825,7 @@ export default function StudentRegistrationScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
 
       <ScrollView
         contentContainerStyle={styles.contentContainer}
@@ -844,7 +842,9 @@ export default function StudentRegistrationScreen() {
             >
               <ChevronLeft size={24} color="#FFFFFF" />
             </TouchableOpacity>
-            <AppText weight="bold" style={styles.heroTitle}>Registration</AppText>
+            <View style={styles.headerTitleContainer}>
+              <AppText weight="bold" style={styles.heroTitle}>Registration</AppText>
+            </View>
             <TouchableOpacity
               style={styles.iconButton}
               onPress={copyRegistrationLink}
@@ -1028,7 +1028,7 @@ export default function StudentRegistrationScreen() {
               <FormField label="Class" required error={fieldErrors.class_grade}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.chipContainer}>
-                    {classOptions.map(cls => (
+                    {Array.isArray(classOptions) && classOptions.filter(Boolean).map(cls => (
                       <TouchableOpacity
                         key={cls.class_name}
                         style={[styles.chip, form.class_grade === cls.class_name && styles.chipActive]}
@@ -1639,16 +1639,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
+    backgroundColor: HM_THEME.navy,
     paddingHorizontal: 20,
-    paddingBottom: 60,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    ...Platform.select({
+      android: { elevation: 10 },
+      ios: {},
+    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 12,
   },
   iconButton: {
     width: 40,
@@ -1658,20 +1667,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
   heroTitle: {
     color: '#FFFFFF',
     fontSize: 18,
+    fontWeight: '700',
   },
   heroContent: {
-    marginTop: 20,
+    marginTop: 24,
   },
   heroGreeting: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   heroSubtext: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
+    fontSize: 14,
     marginTop: 4,
   },
   contentContainer: {
@@ -1736,7 +1752,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#059669',
   },
   stepActive: {
-    backgroundColor: '#001F3F',
+    backgroundColor: HM_THEME.navy,
   },
   stepNumber: {
     color: '#64748B',
@@ -1746,13 +1762,13 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
   stepLabel: {
-    fontSize: 8,
+    fontSize: 9,
     color: '#64748B',
     marginTop: 6,
     textAlign: 'center',
   },
   stepLabelActive: {
-    color: '#001F3F',
+    color: HM_THEME.navy,
   },
   stepLabelCompleted: {
     color: '#059669',
@@ -1779,7 +1795,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    color: '#001F3F',
+    color: HM_THEME.navy,
   },
   formGroup: {
     marginBottom: 20,
@@ -1825,8 +1841,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   genderBtnActive: {
-    backgroundColor: '#001F3F',
-    borderColor: '#001F3F',
+    backgroundColor: HM_THEME.navy,
+    borderColor: HM_THEME.navy,
   },
   genderText: {
     color: '#64748B',
@@ -1863,8 +1879,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   chipActive: {
-    backgroundColor: '#001F3F',
-    borderColor: '#001F3F',
+    backgroundColor: HM_THEME.navy,
+    borderColor: HM_THEME.navy,
   },
   chipText: {
     fontSize: 14,
@@ -1939,7 +1955,7 @@ const styles = StyleSheet.create({
   },
   photoText: {
     fontSize: 15,
-    color: '#001F3F',
+    color: HM_THEME.navy,
     marginTop: 12,
   },
   photoSubtext: {
@@ -1978,7 +1994,7 @@ const styles = StyleSheet.create({
   },
   previewName: {
     fontSize: 18,
-    color: '#001F3F',
+    color: HM_THEME.navy,
   },
   previewMeta: {
     fontSize: 12,
@@ -2014,7 +2030,7 @@ const styles = StyleSheet.create({
   },
   previewCardTitle: {
     fontSize: 12,
-    color: '#001F3F',
+    color: HM_THEME.navy,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -2060,6 +2076,7 @@ const styles = StyleSheet.create({
   navBtn: {
     flex: 1,
     height: 50,
+    backgroundColor: HM_THEME.navy,
   },
   footer: {
     marginTop: 16,
@@ -2096,7 +2113,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    color: '#001F3F',
+    color: HM_THEME.navy,
     marginBottom: 12,
   },
   modalMessage: {

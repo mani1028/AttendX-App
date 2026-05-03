@@ -4,22 +4,18 @@ import {
   StyleSheet,
   ScrollView,
   StatusBar,
-  Platform,
-  TouchableOpacity,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { ChevronLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../constants/theme';
 import { HM_THEME } from '../../constants/hmTheme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import AccountantPageHeader from '../../components/layout/AccountantPageHeader';
 
 export default function ExpenseScreen() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
 
@@ -45,19 +41,7 @@ export default function ExpenseScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
 
-      {/* Standardized Navy Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <ChevronLeft size={24} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>Expense Tracking</AppText>
-        </View>
-        <View style={{ width: 40 }} />
-      </View>
+      <AccountantPageHeader title="Expense Tracking" onBackPress={() => navigation.goBack()} />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -79,33 +63,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg,
-  },
-  headerStandard: {
-    backgroundColor: HM_THEME.navy,
-    paddingBottom: 40,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 20,
   },
   content: {
     padding: 20,

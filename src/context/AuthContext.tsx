@@ -1,6 +1,7 @@
 // src/context/AuthContext.tsx
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { Animated } from 'react-native';
 import { InteractionManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStoredRole, performLogout } from '../utils/authSession';
@@ -20,6 +21,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isTabBarVisible: boolean;
   setTabBarVisible: (visible: boolean) => void;
+  tabBarTranslate?: Animated.Value;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,7 +33,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userName, setUserName] = useState<string | null>(null);
   const [isClassTeacher, setIsClassTeacher] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isTabBarVisible, setTabBarVisible] = useState(true);
+  const [isTabBarVisible, setIsTabBarVisible] = useState(true);
+  const tabBarTranslate = useRef(new Animated.Value(0)).current;
+  const tabBarVisibleRef = useRef(true);
+
+  // centralised setter that also animates the shared translate value
+  const setTabBarVisible = useCallback((visible: boolean) => {
+    if (tabBarVisibleRef.current === visible) {
+      return;
+    }
+    tabBarVisibleRef.current = visible;
+    setIsTabBarVisible(visible);
+    Animated.timing(tabBarTranslate, {
+      toValue: visible ? 0 : 120,
+      duration: 260,
+      useNativeDriver: true,
+    }).start();
+  }, [tabBarTranslate]);
 
   const refreshAuth = async () => {
     try {
@@ -124,7 +142,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       refreshAuth,
       logout,
       isTabBarVisible,
-      setTabBarVisible
+      setTabBarVisible,
+      tabBarTranslate,
     }}>
       {children}
     </AuthContext.Provider>

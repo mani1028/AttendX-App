@@ -77,6 +77,10 @@ export type RootStackParamList = AuthStackParamList & CommonStackParamList & {
   HMExpense: undefined;
   HMSettings: undefined;
   HMStudentRegistration: undefined;
+  StudentAttendanceReport: {
+    studentId: string;
+    studentName: string;
+  };
   // Principal Screens
   PrincipalDashboard: undefined;
   PrincipalBranchDetails: undefined;

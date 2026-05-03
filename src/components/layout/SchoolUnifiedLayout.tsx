@@ -94,10 +94,10 @@ const MENU_CONFIG: Record<string, RoleConfig> = {
     label: 'HM Panel',
     roleDisplay: 'Head Master',
     menu: [
-      { title: 'Dashboard', route: 'HMDashboard', icon: '📊' },
-      { title: 'Staff', route: 'TeacherManagement', icon: '👨‍🏫' },
-      { title: 'Students', route: 'StudentManagement', icon: '👨‍🎓' },
-      { title: 'Attendance', route: 'HMAttendance', icon: '📅' },
+    { title: 'Dashboard', route: 'HMDashboard', icon: '📊' },
+    { title: 'Staff', route: 'HMTeacherManagement', icon: '👨‍🏫' },
+    { title: 'Students', route: 'HMStudentManagement', icon: '👨‍🎓' },
+    { title: 'Attendance', route: 'HMAttendance', icon: '📅' },
       { title: 'Calendar', route: 'HMAttendance', icon: '📆' },
       { title: 'Teacher Leaves', route: 'TeacherLeaves', icon: '📋' },
       { title: 'Exams', route: 'Exams', icon: '📝' },
@@ -216,10 +216,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
 
   const normalizedRole = normalizeRole(role);
   const config = MENU_CONFIG[normalizedRole] || MENU_CONFIG.teacher;
-  const effectiveRoleDisplay = normalizedRole === 'teacher' && isClassTeacher
-    ? 'Class Teacher'
-    : config.roleDisplay;
-  
+
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [openProfile, setOpenProfile] = useState(false);
@@ -231,6 +228,10 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   const [userRole, setUserRole] = useState(role);
   const [profileDetails, setProfileDetails] = useState<Array<{ label: string; value: string }>>([]);
   const [isClassTeacher, setIsClassTeacher] = useState(false);
+
+  const effectiveRoleDisplay = normalizedRole === 'teacher' && isClassTeacher
+    ? 'Class Teacher'
+    : config.roleDisplay;
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogMessage, setDialogMessage] = useState('');
   const [dialogType, setDialogType] = useState<'info' | 'confirm' | 'success' | 'error'>('info');
@@ -596,9 +597,21 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
                     </View>
                   ))}
                 </ScrollView>
-                <TouchableOpacity style={styles.profileLogout} onPress={handleLogout}>
-                  <Text style={styles.profileLogoutText}>Sign Out</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.profileView}
+                    onPress={() => {
+                      setOpenProfile(false);
+                      // Navigate to global Profile screen
+                      // useNavigation is available in this component
+                      navigation.navigate('Profile' as never);
+                    }}
+                  >
+                    <Text style={styles.profileViewText}>View Profile</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.profileLogout} onPress={handleLogout}>
+                    <Text style={styles.profileLogoutText}>Sign Out</Text>
+                  </TouchableOpacity>
               </View>
             </TouchableOpacity>
           )}
@@ -940,6 +953,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  profileView: {
+    marginHorizontal: 12,
+    marginTop: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: theme.primary,
+    alignItems: 'center',
+  },
+  profileViewText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
   },
   content: {
     flex: 1,

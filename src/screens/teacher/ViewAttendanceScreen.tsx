@@ -18,7 +18,6 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Picker } from '@react-native-picker/picker';
 import RNFS from 'react-native-fs';
 import RNShare from 'react-native-share';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,6 +42,7 @@ import AppButton from '../../components/common/AppButton';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
+import CustomPickerModal from '../../components/common/CustomPickerModal';
 import type { RootStackParamList } from '../../navigation/AppNavigator';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -309,7 +309,7 @@ const ImageModal: React.FC<{
                 <Image source={{ uri: images[activeIndex] }} style={styles.imageModalMain} />
                 {images.length > 1 && (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageModalThumbs}>
-                    {images.map((img, idx) => (
+                    {images.filter(Boolean).map((img, idx) => (
                       <TouchableOpacity
                         key={idx}
                         style={[styles.imageModalThumb, activeIndex === idx && styles.imageModalThumbActive]}
@@ -351,22 +351,22 @@ export default function ViewAttendanceScreen() {
   const [selSection, setSelSection] = useState<string>('');
   const [selSectionOptions, setSelSectionOptions] = useState<string[]>([]);
   const [loadingClasses, setLoadingClasses] = useState<boolean>(false);
-  const [pickerMode, setPickerMode] = useState<'class' | 'section' | null>(null);
-  
-  // View
+
+  // Attendance Data
   const [viewDate, setViewDate] = useState<string>(today);
-  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
-  const [students, setStudents] = useState<Student[] | null>(null);
-  const [totalDays, setTotalDays] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [students, setStudents] = useState<Student[] | null>(null);
+  const [totalDays, setTotalDays] = useState<number>(1);
   const [viewedInfo, setViewedInfo] = useState<ViewedInfo | null>(null);
-  
-  // Export
+
+  // UI States
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+  const [pickerMode, setPickerMode] = useState<'class' | 'section' | null>(null);
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
   const [exporting, setExporting] = useState<boolean>(false);
-  
-  // Images
+
+  // Image Viewer States
   const [showTeacherImage, setShowTeacherImage] = useState<boolean>(false);
   const [teacherImages, setTeacherImages] = useState<string[]>([]);
   const [loadingTeacherImage, setLoadingTeacherImage] = useState<boolean>(false);
@@ -394,10 +394,11 @@ export default function ViewAttendanceScreen() {
       const res = await API.get('/hm/classes', {
         headers: { 'X-School-Code': code, 'X-Branch-Id': bid },
       });
-      const items = res.data?.items || [];
-      setClassItems(items);
-      const uniqueClasses: string[] = Array.from(new Set<string>(items.map((i: ClassItem) => String(i.class_grade))));
-      setClassOptions(uniqueClasses);
+      const items = res.data?.items;
+      const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
+      setClassItems(safeItems);
+      const uniqueClasses: string[] = Array.from(new Set<string>(safeItems.map((i: ClassItem) => String(i.class_grade || ''))));
+      setClassOptions(uniqueClasses.filter(Boolean));
     } catch (error) {
       console.error('Error loading classes:', error);
     } finally {
@@ -412,8 +413,9 @@ export default function ViewAttendanceScreen() {
       setSelSectionOptions([]);
       return;
     }
-    const sections = [...new Set(classItems.filter(i => i.class_grade === value).map(i => i.section))];
-    setSelSectionOptions(sections);
+    const safeItems = Array.isArray(classItems) ? classItems : [];
+    const sections = [...new Set(safeItems.filter(i => i && i.class_grade === value).map(i => i.section))];
+    setSelSectionOptions(sections.filter(Boolean));
   };
 
   const fetchOneDay = async (cls: string, sec: string, dt: string) => {
@@ -425,13 +427,13 @@ export default function ViewAttendanceScreen() {
       section: sec.toLowerCase(),
     });
     const data = res.data;
-    const norm = (arr: any[]) => (arr || []).map(s => ({
+    const norm = (arr: any[]) => (Array.isArray(arr) ? arr : []).filter(Boolean).map(s => ({
       id: String(s.student_id || s.id || ''),
       name: s.student_full_name || s.name || s.student_name || '—',
       roll: String(s.roll_number || s.roll || s.roll_no || '—'),
     }));
-    const present = norm(data.present || []);
-    const absent = norm(data.absent || []);
+    const present = norm(data?.present);
+    const absent = norm(data?.absent);
     return {
       presentIds: new Set(present.map(s => s.id)),
       allStudents: [...present, ...absent],
@@ -456,18 +458,22 @@ export default function ViewAttendanceScreen() {
     try {
       const { presentIds, allStudents } = await fetchOneDay(selClass, selSection, viewDate);
       
-      allStudents.forEach(s => {
-        if (s.id && !studentMap.has(s.id)) {
-          studentMap.set(s.id, { id: s.id, name: s.name, roll: s.roll, presentDays: 0 });
-        }
-      });
+      if (Array.isArray(allStudents)) {
+        allStudents.forEach(s => {
+          if (s && s.id && !studentMap.has(s.id)) {
+            studentMap.set(s.id, { id: s.id, name: s.name, roll: s.roll, presentDays: 0 });
+          }
+        });
+      }
       
-      presentIds.forEach(id => {
-        if (studentMap.has(id)) {
-          const student = studentMap.get(id)!;
-          student.presentDays++;
-        }
-      });
+      if (presentIds instanceof Set) {
+        presentIds.forEach(id => {
+          if (id && studentMap.has(id)) {
+            const student = studentMap.get(id)!;
+            student.presentDays++;
+          }
+        });
+      }
 
       const sorted = [...studentMap.values()].sort((a, b) => {
         const ra = Number(a.roll) || 0;
@@ -560,14 +566,14 @@ export default function ViewAttendanceScreen() {
         },
       });
       
-      const images = response.data?.images || [];
-      if (images.length === 0) {
+      const images = response.data?.images;
+      if (!Array.isArray(images) || images.length === 0) {
         Alert.alert('No Image', `No teacher verification image found for ${viewDate}`);
       } else {
-        const imageUrls = images.map((img: any) => {
-          const path = img.path || img.filename || img;
-          return API.getUri() + `/media/${path}`;
-        });
+        const imageUrls = images.filter(Boolean).map((img: any) => {
+          const path = img.path || img.filename || (typeof img === 'string' ? img : '');
+          return path ? API.getUri() + `/media/${path}` : null;
+        }).filter(Boolean) as string[];
         setTeacherImages(imageUrls);
       }
     } catch (error) {
@@ -598,14 +604,14 @@ export default function ViewAttendanceScreen() {
         },
       });
       
-      const images = response.data?.images || [];
-      if (images.length === 0) {
+      const images = response.data?.images;
+      if (!Array.isArray(images) || images.length === 0) {
         Alert.alert('No Images', `No student images found for ${viewDate}`);
       } else {
-        const imageUrls = images.map((img: any) => {
-          const path = typeof img === 'string' ? img : img.path;
-          return API.getUri() + `/media/${path}`;
-        });
+        const imageUrls = images.filter(Boolean).map((img: any) => {
+          const path = typeof img === 'string' ? img : (img.path || '');
+          return path ? API.getUri() + `/media/${path}` : null;
+        }).filter(Boolean) as string[];
         setStudentImages(imageUrls);
       }
     } catch (error) {
@@ -627,8 +633,8 @@ export default function ViewAttendanceScreen() {
     lastScrollY.current = currentScrollY;
   };
 
-  const totalStudents = students?.length ?? 0;
-  const totalPresent = students?.reduce((sum, s) => sum + s.presentDays, 0) ?? 0;
+  const totalStudents = Array.isArray(students) ? students.length : 0;
+  const totalPresent = Array.isArray(students) ? students.reduce((sum, s) => sum + (s?.presentDays || 0), 0) : 0;
   const totalAbsent = totalStudents * totalDays - totalPresent;
   const overallPct = totalStudents > 0 && totalDays > 0
     ? Math.round((totalPresent / (totalStudents * totalDays)) * 100)
@@ -661,27 +667,6 @@ export default function ViewAttendanceScreen() {
           <AppText style={styles.headerSubtext}>Review and export student attendance logs</AppText>
         </View>
       </View>
-
-      {/* Tab Switcher */}
-      <View style={styles.tabWrapper}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'attendance' && styles.activeTab]}
-          onPress={() => setActiveTab('attendance')}
-        >
-          <AppText weight="bold" style={[styles.tabText, activeTab === 'attendance' && styles.activeTabText]}>
-            Daily Logs
-          </AppText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'overview' && styles.activeTab]}
-          onPress={() => setActiveTab('overview')}
-        >
-          <AppText weight="bold" style={[styles.tabText, activeTab === 'overview' && styles.activeTabText]}>
-            Overview
-          </AppText>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         onScroll={handleScroll}
@@ -819,8 +804,8 @@ export default function ViewAttendanceScreen() {
                   <AppText style={styles.listHeaderText}>Student Details</AppText>
                   <AppText style={styles.listHeaderCount}>{students.length} Total</AppText>
                 </View>
-                {students.map((student, idx) => (
-                  <StudentCard key={student.id} student={student} index={idx} />
+                {students.filter(Boolean).map((student, idx) => (
+                  <StudentCard key={student.id || idx} student={student} index={idx} />
                 ))}
               </View>
             )}
@@ -852,38 +837,74 @@ export default function ViewAttendanceScreen() {
             </View>
 
             <View style={styles.pickerShell}>
-              <Picker
-                selectedValue={pickerMode === 'class' ? selClass : selSection}
-                onValueChange={(value) => {
-                  const nextValue = String(value);
-                  if (pickerMode === 'class') {
-                    handleClassChange(nextValue);
-                  } else {
-                    setSelSection(nextValue);
-                  }
-                }}
-                style={styles.picker}
-              >
-                <Picker.Item label="--Select Class--" value="" />
-                {pickerMode === 'class'
-                  ? classOptions.map((item) => (
-                      <Picker.Item key={item} label={`Class ${item}`} value={item} />
-                    ))
-                  : [
-                      <Picker.Item key="placeholder" label="--Select Section--" value="" />,
-                      ...selSectionOptions.map((item) => (
-                        <Picker.Item key={item} label={`Section ${item}`} value={item} />
+              <ScrollView style={{ maxHeight: 350 }}>
+                {pickerMode === 'class' ? (
+                  <>
+                    {!Array.isArray(classOptions) || classOptions.length === 0 ? (
+                      <View style={{ padding: 20, alignItems: 'center' }}>
+                        <AppText style={{ color: '#64748B' }}>No classes available</AppText>
+                      </View>
+                    ) : (
+                      classOptions.filter(Boolean).map((item) => (
+                        <TouchableOpacity
+                          key={item}
+                          style={[
+                            styles.pickerOption,
+                            selClass === item && styles.pickerOptionActive
+                          ]}
+                          onPress={() => {
+                            handleClassChange(item);
+                            setPickerMode(null);
+                          }}
+                        >
+                          <AppText style={[
+                            styles.pickerOptionText,
+                            selClass === item && styles.pickerOptionTextActive
+                          ]}>
+                            Class {item}
+                          </AppText>
+                          {selClass === item && <CheckCircle2 size={18} color="#001F3F" />}
+                        </TouchableOpacity>
                       ))
-                    ]}
-              </Picker>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {!Array.isArray(selSectionOptions) || selSectionOptions.length === 0 ? (
+                      <View style={{ padding: 20, alignItems: 'center' }}>
+                        <AppText style={{ color: '#64748B' }}>No sections available</AppText>
+                      </View>
+                    ) : (
+                      selSectionOptions.filter(Boolean).map((item) => (
+                        <TouchableOpacity
+                          key={item}
+                          style={[
+                            styles.pickerOption,
+                            selSection === item && styles.pickerOptionActive
+                          ]}
+                          onPress={() => {
+                            setSelSection(item);
+                            setPickerMode(null);
+                          }}
+                        >
+                          <AppText style={[
+                            styles.pickerOptionText,
+                            selSection === item && styles.pickerOptionTextActive
+                          ]}>
+                            Section {item}
+                          </AppText>
+                          {selSection === item && <CheckCircle2 size={18} color="#001F3F" />}
+                        </TouchableOpacity>
+                      ))
+                    )}
+                  </>
+                )}
+              </ScrollView>
             </View>
 
             <View style={styles.pickerActions}>
-              <TouchableOpacity style={styles.pickerCancelBtn} onPress={() => setPickerMode(null)}>
-                <AppText style={styles.pickerCancelText}>Cancel</AppText>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.pickerDoneBtn} onPress={() => setPickerMode(null)}>
-                <AppText style={styles.pickerDoneText}>Done</AppText>
+              <TouchableOpacity style={[styles.pickerCancelBtn, { flex: 1 }]} onPress={() => setPickerMode(null)}>
+                <AppText style={styles.pickerCancelText}>Close</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -1518,8 +1539,26 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     backgroundColor: '#F8FAFC',
   },
-  picker: {
-    width: '100%',
+  pickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  pickerOptionActive: {
+    backgroundColor: '#F1F5F9',
+  },
+  pickerOptionText: {
+    fontSize: 15,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  pickerOptionTextActive: {
+    color: '#001F3F',
+    fontWeight: '700',
   },
   pickerActions: {
     flexDirection: 'row',

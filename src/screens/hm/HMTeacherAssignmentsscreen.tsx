@@ -2,13 +2,14 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View, ScrollView, TouchableOpacity, TextInput,
   Modal, ActivityIndicator, StyleSheet, Alert, StatusBar, Platform,
-  NativeSyntheticEvent, NativeScrollEvent,
+  NativeSyntheticEvent, NativeScrollEvent, Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import {
   ChevronLeft,
+  Bell,
   RefreshCw,
   School,
   GitBranch,
@@ -19,9 +20,14 @@ import {
   CheckCircle2,
   X,
   AlertTriangle,
-  Home
+  Home,
+  Users,
+  Award,
+  LogOut,
+  Settings
 } from 'lucide-react-native';
 import API from '../../services/api';
+import * as hmService from '../../services/hmService';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
@@ -51,6 +57,7 @@ export default function HMTeacherAssignmentsScreen() {
   const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
@@ -119,6 +126,7 @@ export default function HMTeacherAssignmentsScreen() {
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = event.nativeEvent.contentOffset.y;
     const deltaY = y - lastScrollY.current;
+    scrollY.setValue(y);
     if (y > 100 && deltaY > 10) {
       setTabBarVisible(false);
     } else if (deltaY < -10 || y < 10) {
@@ -140,13 +148,17 @@ export default function HMTeacherAssignmentsScreen() {
     setLoading(true);
     clearMessage();
     try {
-      const [classesRes, teachersRes] = await Promise.all([
-        API.get('/hm/classes', { headers }),
-        API.get('/hm/teachers', { headers }),
-      ]);
+      const classesRes = await API.get('/hm/classes', { headers });
+      
+      let teacherItems: any[] = [];
+      try {
+        teacherItems = await hmService.getHMTeachers(headers);
+      } catch (teacherErr: any) {
+        console.warn('Failed to load teachers:', teacherErr?.message);
+        // Continue without teachers - show empty state in picker
+      }
 
       const classItems = classesRes.data?.items || [];
-      const teacherItems = teachersRes.data?.items || [];
       const grouped: Record<string, string[]> = {};
 
       classItems.forEach((item: any) => {
@@ -311,31 +323,40 @@ export default function HMTeacherAssignmentsScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy} />
-      <View style={[styles.navHeader, { paddingTop: insets.top }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
-        >
-          <ChevronLeft size={24} color="#fff" />
-        </TouchableOpacity>
-        <AppText style={styles.navTitle} weight="bold">Teacher Assignments</AppText>
-        <TouchableOpacity style={styles.refreshBtn} onPress={loadMeta} disabled={isBusy}>
-          <RefreshCw size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
 
-      <ScrollView
+      <Animated.ScrollView
         style={styles.page}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={styles.pageContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
+        <Animated.View
+          style={[
+            styles.navHeader,
+            { paddingTop: insets.top + 8 },
+            {
+              transform: [{ translateY: scrollY.interpolate({ inputRange: [0, 140], outputRange: [0, -100], extrapolate: 'clamp' }) }],
+              opacity: scrollY.interpolate({ inputRange: [0, 140], outputRange: [1, 0.92], extrapolate: 'clamp' }),
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
+          >
+            <ChevronLeft size={22} color="#fff" />
+          </TouchableOpacity>
+          <AppText style={styles.navTitle} weight="bold">Teacher Assignment</AppText>
+          <TouchableOpacity style={styles.notificationBtn} onPress={() => Alert.alert('Notifications', 'No notifications yet')}>
+            <Bell size={20} color="#fff" />
+          </TouchableOpacity>
+        </Animated.View>
 
         {/* Header (Section Title) */}
         <View style={styles.header}>
           <View>
-            <AppText style={styles.title} weight="bold">Management</AppText>
-            <AppText style={styles.subtitle}>Assign class teachers and subject teachers</AppText>
+            <AppText style={styles.title} weight="bold">Teacher Assignment Management</AppText>
+            <AppText style={styles.subtitle}>Assign class teachers and subject teachers for each class-section</AppText>
           </View>
         </View>
 
@@ -376,39 +397,42 @@ export default function HMTeacherAssignmentsScreen() {
           {/* Class Selection */}
           <View style={styles.panel}>
             <View style={styles.panelHead}>
-              <AppText style={styles.panelTitle} weight="bold">Select Class</AppText>
-              <AppText style={styles.panelSub}>Tap a class then choose a section</AppText>
+              <AppText style={styles.panelTitle} weight="bold">Classes & Sections</AppText>
+              <AppText style={styles.panelSub}>Select class first, then choose section</AppText>
             </View>
             <View style={styles.panelBody}>
               {classNames.length === 0 ? (
                 <AppText style={{ color: C.text3, textAlign: 'center', padding: 20 }}>No classes found</AppText>
               ) : (
-                <View style={styles.classGrid}>
-                  {classNames.map(cls => (
-                    <TouchableOpacity
-                      key={cls}
-                      style={[styles.classCard, selectedClass === cls && styles.classCardActive]}
-                      onPress={() => {
-                        setSelectedClass(cls);
-                        const secs = classesMap[cls] || [];
-                        setSelectedSection(secs[0] || '');
-                      }}
-                    >
-                      <AppText style={[styles.className, selectedClass === cls && { color: C.primary }]} weight="bold">
-                        Class {cls}
-                      </AppText>
-                      <AppText style={styles.classMeta}>
-                        {(classesMap[cls] || []).length} section(s)
-                      </AppText>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                <>
+                  <AppText style={styles.sectionTitleSmall} weight="bold">Classes</AppText>
+                  <View style={styles.classGrid}>
+                    {classNames.map(cls => (
+                      <TouchableOpacity
+                        key={cls}
+                        style={[styles.classCard, selectedClass === cls && styles.classCardActive]}
+                        onPress={() => {
+                          setSelectedClass(cls);
+                          const secs = classesMap[cls] || [];
+                          setSelectedSection(secs[0] || '');
+                        }}
+                      >
+                        <AppText style={[styles.className, selectedClass === cls && { color: C.primary }]} weight="bold">
+                          Class {cls}
+                        </AppText>
+                        <AppText style={styles.classMeta}>
+                          {(classesMap[cls] || []).length} section(s)
+                        </AppText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
               )}
 
               {/* Section Selection */}
               {selectedClass && classesMap[selectedClass]?.length > 0 ? (
                 <View style={styles.sectionWrap}>
-                  <AppText style={styles.sectionTitle} weight="bold">SECTIONS</AppText>
+                  <AppText style={styles.sectionTitleSmall} weight="bold">Section</AppText>
                   <View style={styles.sectionList}>
                     {(classesMap[selectedClass] || []).map(sec => (
                       <TouchableOpacity
@@ -431,7 +455,8 @@ export default function HMTeacherAssignmentsScreen() {
           {selectedClass && selectedSection ? (
             <View style={styles.panel}>
               <View style={styles.panelHead}>
-                <AppText style={styles.panelTitle} weight="bold">Class {selectedClass} — Section {selectedSection}</AppText>
+                <AppText style={styles.panelTitle} weight="bold">Assignment Workspace</AppText>
+                <AppText style={styles.panelSub}>Class {selectedClass} — Section {selectedSection}</AppText>
               </View>
               <View style={styles.panelBody}>
 
@@ -490,13 +515,13 @@ export default function HMTeacherAssignmentsScreen() {
                     </View>
 
                     {/* Subject Teachers Card */}
-                    <View style={[styles.card, { marginTop: 12 }]}>
+                    <View style={[styles.card]}>
                       <View style={styles.cardHead}>
                         <View style={{ flex: 1 }}>
                           <AppText style={styles.cardTitle} weight="bold">
                             <BookOpen size={14} color={C.text} /> Subject Teachers
                           </AppText>
-                          <AppText style={styles.cardSub}>Assign teachers to each subject</AppText>
+                          <AppText style={styles.cardSub}>Save only subject-teacher mappings from this container</AppText>
                         </View>
                         <TouchableOpacity
                           style={styles.btnOutline}
@@ -508,7 +533,7 @@ export default function HMTeacherAssignmentsScreen() {
                           }}
                         >
                           <Plus size={16} color={C.text2} />
-                          <AppText style={styles.btnOutlineText} weight="bold">Add Subject</AppText>
+                          <AppText style={styles.btnOutlineText} weight="bold">Add</AppText>
                         </TouchableOpacity>
                       </View>
                       <View style={styles.cardBody}>
@@ -559,28 +584,35 @@ export default function HMTeacherAssignmentsScreen() {
           )}
         </>
       )}
+      </Animated.ScrollView>
 
       {/* ── Teacher Picker Modal ──────────────────────────────────────────── */}
       <Modal visible={teacherPickerVisible} transparent animationType="slide">
         <View style={styles.overlay}>
-          <View style={[styles.modal, { maxHeight: '80%' }]}>
+          <View style={[styles.modal, styles.pickerModal]}>
             <View style={styles.modalHead}>
               <AppText style={styles.modalTitle} weight="bold">Select Teacher</AppText>
               <TouchableOpacity onPress={() => setTeacherPickerVisible(false)}>
                 <X size={22} color={C.text} />
               </TouchableOpacity>
             </View>
-            <ScrollView>
-              {teachers.map(teacher => (
-                <TouchableOpacity
-                  key={String(teacher.teacher_id)}
-                  style={styles.pickerOption}
-                  onPress={() => onPickTeacher(teacher)}
-                >
-                  <AppText style={styles.pickerOptionText}>{teacherLabel(teacher)}</AppText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            {teachers && teachers.length > 0 ? (
+              <ScrollView style={styles.pickerScrollView}>
+                {teachers.map(teacher => (
+                  <TouchableOpacity
+                    key={String(teacher.teacher_id)}
+                    style={styles.pickerOption}
+                    onPress={() => onPickTeacher(teacher)}
+                  >
+                    <AppText style={styles.pickerOptionText}>{teacherLabel(teacher)}</AppText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <View style={styles.emptyPickerList}>
+                <AppText style={styles.emptyPickerText}>No teachers available</AppText>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -672,7 +704,6 @@ export default function HMTeacherAssignmentsScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
     </View>
   );
 }
@@ -688,25 +719,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    marginBottom: 12,
+    ...Platform.select({
+      android: { elevation: 4 },
+      ios: {},
+    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
   },
   backButton: {
-    padding: 8,
-    width: 40,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   navTitle: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     flex: 1,
     textAlign: 'center',
   },
-  refreshBtn: {
-    padding: 8,
-    width: 40,
-    alignItems: 'flex-end',
+  notificationBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
-  page: { flex: 1, backgroundColor: C.bg, padding: 16 },
+  page: { flex: 1, backgroundColor: C.bg },
+  pageContent: { paddingHorizontal: 16, paddingBottom: 120 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
   title: { fontSize: 20, color: C.text },
   subtitle: { fontSize: 13, color: C.text2, marginTop: 4 },
@@ -730,18 +780,19 @@ const styles = StyleSheet.create({
   className: { fontSize: 15, color: C.text },
   classMeta: { fontSize: 11, color: C.text2, marginTop: 4 },
 
-  sectionWrap: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.borderSoft },
+  sectionWrap: { marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.borderSoft },
+  sectionTitleSmall: { fontSize: 12, color: C.text2, marginBottom: 8, letterSpacing: 0.3 },
   sectionTitle: { fontSize: 11, color: C.text2, marginBottom: 8, letterSpacing: 0.5 },
   sectionList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   sectionBtn: { minWidth: 46, height: 38, borderRadius: 10, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.white, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12 },
   sectionBtnActive: { borderColor: C.primary, backgroundColor: C.primary },
   sectionBtnText: { color: C.text2 },
 
-  card: { borderWidth: 1, borderColor: C.border, borderRadius: 14, overflow: 'hidden' },
-  cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: C.borderSoft, backgroundColor: C.sidebar },
+  card: { borderWidth: 1, borderColor: C.border, borderRadius: 14, overflow: 'hidden', marginBottom: 12 },
+  cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: C.borderSoft, backgroundColor: C.sidebar },
   cardTitle: { fontSize: 14, color: C.text, flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardSub: { fontSize: 11, color: C.text2, marginTop: 2 },
-  cardBody: { padding: 12 },
+  cardBody: { padding: 14 },
 
   label: { fontSize: 12, color: C.text2, marginBottom: 6 },
   picker: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44, borderWidth: 1.5, borderColor: C.border, borderRadius: 10, paddingHorizontal: 12, backgroundColor: C.white, marginBottom: 8 },
@@ -772,6 +823,41 @@ const styles = StyleSheet.create({
   modalBody: { padding: 16 },
   modalFoot: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, padding: 14, borderTopWidth: 1, borderTopColor: C.borderSoft, flexWrap: 'wrap' },
 
+  pickerModal: { maxHeight: '80%', minHeight: 200, flex: 0, flexDirection: 'column' },
+  pickerScrollView: { flex: 1 },
   pickerOption: { padding: 14, borderBottomWidth: 1, borderBottomColor: C.borderSoft },
   pickerOptionText: { fontSize: 14, color: C.text },
+  emptyPickerList: { padding: 20, justifyContent: 'center', alignItems: 'center', minHeight: 100 },
+  emptyPickerText: { fontSize: 14, color: C.text2 },
+
+  footerTabs: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: C.white,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    paddingTop: 8,
+  },
+  footerTab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    gap: 4,
+  },
+  footerTabActive: {
+    backgroundColor: C.primarySoft,
+  },
+  footerTabText: {
+    fontSize: 11,
+    color: C.text2,
+  },
+  footerTabTextActive: {
+    color: C.primary,
+  },
 });

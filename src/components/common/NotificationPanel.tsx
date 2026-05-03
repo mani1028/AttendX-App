@@ -18,6 +18,7 @@ import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import BottomSheetModal from './BottomSheetModal';
 import { safeJsonParse } from '../../utils/storage';
+import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
 interface Notification {
   id: string;
@@ -37,6 +38,7 @@ const isNotificationNew = (id: string, readIds: string[]): boolean => {
 
 export default function NotificationPanel({ type = 'student', isHM = false }) {
   const navigation = useNavigation();
+  const { refreshUnreadCount } = useUnreadNotifications();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [readIds, setReadIds] = useState<string[]>([]);
   const [visible, setVisible] = useState(false);
@@ -138,6 +140,7 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
             const newReadIds = [...readIds, item.id];
             setReadIds(newReadIds);
             await AsyncStorage.setItem('read_notifications', JSON.stringify(newReadIds));
+            await refreshUnreadCount(true);
           }
         }}
       >

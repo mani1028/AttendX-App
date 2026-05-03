@@ -1,4 +1,3 @@
-import axios from 'axios';
 import API, { buildApiUrl } from './client';
 import { AppRole } from '../constants/roles';
 import { normalizeBackendRole } from '../utils/roleMapper';
@@ -7,6 +6,7 @@ type LoginResponse = {
   status?: string;
   token?: string;
   access_token?: string;
+  accessToken?: string;
   role?: string;
   user_role?: string;
   school_code?: string;
@@ -19,6 +19,7 @@ type LoginResponse = {
     branch_id?: string;
     full_name?: string;
     username?: string;
+    user_name?: string;
     name?: string;
     is_class_teacher?: boolean;
   };
@@ -27,6 +28,7 @@ type LoginResponse = {
 
 export type NormalizedLoginResponse = {
   token?: string;
+  accessToken?: string;
   role: AppRole;
   schoolCode?: string;
   user?: {
@@ -38,6 +40,49 @@ export type NormalizedLoginResponse = {
     isClassTeacher?: boolean;
   };
 };
+
+function pickTokenValue(...values: Array<string | undefined | null>) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+async function postCleanJson<TResponse>(url: string, payload: unknown, headers: Record<string, string>) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const rawText = await response.text();
+  let data: any = null;
+
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      data = rawText;
+    }
+  }
+
+  if (!response.ok) {
+    const error: any = new Error(`Request failed with status ${response.status}`);
+    error.response = {
+      status: response.status,
+      data,
+    };
+    throw error;
+  }
+
+  return {
+    status: response.status,
+    data: data as TResponse,
+  };
+}
 
 async function postWithFallback<TPayload>(endpoints: string[], payload: TPayload, useCleanInstance = false) {
   let lastError: unknown;
@@ -59,7 +104,7 @@ async function postWithFallback<TPayload>(endpoints: string[], payload: TPayload
         }
 
         console.log(`[authService] Attempting clean post to: ${url}`, { headers });
-        const res = await axios.post(url, payload, { headers, timeout: 30000 });
+        const res = await postCleanJson(url, payload, headers);
         console.log(`[authService] Clean post success: ${endpoint}`);
         return res;
       }
@@ -83,11 +128,16 @@ async function postWithFallback<TPayload>(endpoints: string[], payload: TPayload
 function normalizeLoginResponse(data: LoginResponse, fallbackRole: AppRole): NormalizedLoginResponse {
   const payload = data.data ?? data;
   const role = normalizeBackendRole(payload.role ?? payload.user_role) ?? fallbackRole;
-  const token = payload.token ?? payload.access_token;
-  const name = payload.user?.name ?? payload.user?.full_name ?? payload.user?.username;
+  const token = pickTokenValue(payload.token, payload.access_token, payload.accessToken);
+  const name =
+    payload.user?.name ??
+    payload.user?.full_name ??
+    payload.user?.username ??
+    payload.user?.user_name;
 
   return {
     token,
+    accessToken: token,
     role,
     schoolCode: payload.school_code ?? payload.schoolCode ?? payload.school_id,
     user: {

@@ -210,19 +210,19 @@ export default function LeaveApprovalScreen() {
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
-  
+
   // Filters
   const [classId, setClassId] = useState<string>('');
   const [sectionId, setSectionId] = useState<string>('');
   const [status, setStatus] = useState<string>('PENDING');
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
-  
+
   // Classes/Sections
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [sections, setSections] = useState<SectionItem[]>([]);
   const [loadingClassesSections, setLoadingClassesSections] = useState<boolean>(false);
 
-  // Load credentials
+  // Load credentials with defensive rehydration
   useEffect(() => {
     const loadCredentials = async () => {
       try {
@@ -232,9 +232,9 @@ export default function LeaveApprovalScreen() {
 
         if (!isMounted.current) return;
 
-        setSchoolCode(code);
-        setTeacherId(tid);
-        setBranchId(bid);
+        setSchoolCode(code || '');
+        setTeacherId(tid || '');
+        setBranchId(bid || '');
       } catch (err) {
         console.error('Failed to load credentials:', err);
       }
@@ -255,7 +255,7 @@ export default function LeaveApprovalScreen() {
     lastScrollY.current = currentScrollY;
   };
 
-  // Resolve teacher ID
+  // Resolve teacher ID with fallback protection
   useEffect(() => {
     const resolveTeacherId = async () => {
       if (!schoolCode || !teacherId) return;
@@ -267,17 +267,17 @@ export default function LeaveApprovalScreen() {
 
         if (!isMounted.current) return;
 
-        const canonicalTeacherId = String(res.data?.teacher_data?.teacher_id || teacherId).trim();
+        const canonicalTeacherId = String(res.data?.teacher_data?.teacher_id || teacherId || '').trim();
         setResolvedTeacherId(canonicalTeacherId);
       } catch (err: any) {
         if (!isMounted.current) return;
-        setResolvedTeacherId(teacherId);
+        setResolvedTeacherId(teacherId || '');
       }
     };
     resolveTeacherId();
   }, [schoolCode, teacherId]);
 
-  // Fetch classes and sections
+  // Fetch classes and sections with defensive mapping
   useEffect(() => {
     const fetchClassesSections = async () => {
       if (!schoolCode || !branchId) return;
@@ -289,8 +289,11 @@ export default function LeaveApprovalScreen() {
 
         if (!isMounted.current) return;
 
-        setClasses(res.data?.classes || []);
-        setSections(res.data?.sections || []);
+        const fetchedClasses = Array.isArray(res.data?.classes) ? res.data.classes.filter(Boolean) : [];
+        const fetchedSections = Array.isArray(res.data?.sections) ? res.data.sections.filter(Boolean) : [];
+
+        setClasses(fetchedClasses);
+        setSections(fetchedSections);
       } catch (e: any) {
         console.error('Failed to load classes/sections:', e);
         if (isMounted.current && e?.response?.status !== 401) {
@@ -305,7 +308,7 @@ export default function LeaveApprovalScreen() {
     fetchClassesSections();
   }, [schoolCode, branchId]);
 
-  // Load leave requests
+  // Load leave requests with defensive mapping
   const loadRequests = useCallback(async () => {
     if (!schoolCode || !resolvedTeacherId) return;
     setLoading(true);
@@ -322,7 +325,9 @@ export default function LeaveApprovalScreen() {
       const res = await API.post('/manage/teacher/leave-requests', body);
 
       if (!isMounted.current) return;
-      setItems(res.data?.items || []);
+
+      const requests = Array.isArray(res.data?.items) ? res.data.items.filter(Boolean) : [];
+      setItems(requests);
     } catch (e: any) {
       if (!isMounted.current) return;
 
@@ -411,7 +416,9 @@ export default function LeaveApprovalScreen() {
             >
               <ChevronLeft size={24} color="#FFFFFF" />
             </TouchableOpacity>
-            <AppText weight="bold" style={styles.headerTitle}>Leave Approvals</AppText>
+            <View style={styles.headerTitleContainer}>
+              <AppText weight="bold" style={styles.headerTitle}>Leave Approvals</AppText>
+            </View>
             <TouchableOpacity
               style={styles.iconButton}
               onPress={() => (navigation as any).navigate('Notifications')}
@@ -574,14 +581,11 @@ const styles = StyleSheet.create({
     backgroundColor: HM_THEME.navy,
     paddingHorizontal: 20,
     paddingBottom: 40,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
     ...Platform.select({
-
       android: { elevation: 10 },
-
       ios: {},
-
     }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -602,10 +606,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
   headerTitle: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
+    textAlign: 'center',
   },
   headerContent: {
     marginTop: 24,

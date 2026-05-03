@@ -31,6 +31,7 @@ import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { HM_THEME as C } from '../../constants/hmTheme';
+import { safeGoBack } from '../../utils/navigationHelpers';
 
 
 export default function HMSettingsPage() {
@@ -168,15 +169,24 @@ export default function HMSettingsPage() {
       <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       {/* Standardized Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top }]}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never))}
-        >
-          <ChevronLeft size={24} color="#fff" />
-        </TouchableOpacity>
-        <AppText style={styles.headerTitle} weight="bold">Settings</AppText>
-        <View style={{ width: 40 }} />
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => safeGoBack(navigation, 'HMDashboard')}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <AppText weight="bold" style={styles.headerTitle}>System Settings</AppText>
+          </View>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        <View style={styles.headerContent}>
+          <AppText weight="bold" style={styles.headerGreeting}>Configurations</AppText>
+          <AppText style={styles.headerSubtext}>Adjust system-wide preferences and notifications</AppText>
+        </View>
       </View>
 
       <ScrollView
@@ -385,24 +395,58 @@ export default function HMSettingsPage() {
 
 const styles = StyleSheet.create({
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingBottom: 16,
-    paddingHorizontal: 16,
+    backgroundColor: C.navy,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    ...Platform.select({
+      android: { elevation: 10 },
+      ios: {},
+    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 12,
   },
-  backBtn: {
+  iconButton: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 18,
-    color: '#ffffff',
-    textAlign: 'center',
+  headerTitleContainer: {
     flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  headerContent: {
+    marginTop: 24,
+  },
+  headerGreeting: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    letterSpacing: -0.5,
+  },
+  headerSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  headerSpacer: {
+    width: 40,
   },
   container: {
     flex: 1,

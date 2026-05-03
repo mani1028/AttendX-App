@@ -1,23 +1,23 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  RefreshControl,
   TextInput,
   Alert,
   Platform,
   StatusBar,
+  Animated,
   NativeSyntheticEvent,
   NativeScrollEvent,
-  Dimensions,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft, Calendar, FileText, Clock, CheckCircle2, XCircle } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import API from '../../services/api';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
@@ -25,8 +25,6 @@ import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 import HM_THEME from '../../constants/hmTheme';
-
-const { width } = Dimensions.get('window');
 
 // Types
 interface LeaveRequest {
@@ -56,14 +54,6 @@ const getBranchId = async (): Promise<string> => {
   return id || (await AsyncStorage.getItem('branchId')) || '';
 };
 
-const getTodayDate = (): string => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
 const isValidYear = (dateString: string): boolean => {
   if (!dateString) return true;
   const date = new Date(dateString);
@@ -78,18 +68,18 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 
   let bgColor = '#FEF3C7';
   let textColor = '#B45309';
-  let icon = <Clock size={12} color="#B45309" />;
+  let icon = <Clock size={14} color="#B45309" />;
   let label = 'Pending';
 
   if (upperStatus === 'APPROVED') {
     bgColor = '#DCFCE7';
     textColor = '#15803D';
-    icon = <CheckCircle2 size={12} color="#15803D" />;
+    icon = <CheckCircle2 size={14} color="#15803D" />;
     label = 'Approved';
   } else if (upperStatus === 'REJECTED') {
     bgColor = '#FEE2E2';
     textColor = '#B91C1C';
-    icon = <XCircle size={12} color="#B91C1C" />;
+    icon = <XCircle size={14} color="#B91C1C" />;
     label = 'Rejected';
   }
 
@@ -146,6 +136,7 @@ export default function LeaveRequestScreen() {
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
+  const scrollY = useRef(new Animated.Value(0)).current;
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [teacherId, setTeacherId] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
@@ -160,15 +151,12 @@ export default function LeaveRequestScreen() {
   // UI states
   const isMounted = useRef(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [history, setHistory] = useState<LeaveRequest[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
   
   // Date picker states
   const [showFromDatePicker, setShowFromDatePicker] = useState<boolean>(false);
   const [showToDatePicker, setShowToDatePicker] = useState<boolean>(false);
-
-  const minDate = getTodayDate();
 
   useEffect(() => {
     isMounted.current = true;
@@ -193,6 +181,8 @@ export default function LeaveRequestScreen() {
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
     const deltaY = currentScrollY - lastScrollY.current;
+    // drive animated value for header
+    if (typeof scrollY.setValue === 'function') scrollY.setValue(currentScrollY);
     if (currentScrollY > 100 && deltaY > 10) {
       setTabBarVisible(false);
     } else if (deltaY < -10) {
@@ -231,9 +221,38 @@ export default function LeaveRequestScreen() {
   const hasDuplicateLeave = (newFromDate: string, newToDate: string): boolean => {
     return history.some((leave) => {
       const status = (leave.status || '').toUpperCase();
-      if (status === 'REJECTED') return false;
+      if (status !== 'PENDING' && status !== 'APPROVED') return false;
       return leave.from_date === newFromDate && leave.to_date === newToDate;
     });
+  };
+
+  const resetForm = () => {
+    setFromDate(null);
+    setToDate(null);
+    setReason('');
+    setLeaveType('one-day');
+  };
+
+  const handleDateChange = (
+    event: DateTimePickerEvent,
+    selectedDate: Date | undefined,
+    setDate: React.Dispatch<React.SetStateAction<Date | null>>,
+    isFromDate: boolean = false
+  ) => {
+    if (Platform.OS === 'android') {
+      setShowFromDatePicker(false);
+      setShowToDatePicker(false);
+    }
+
+    if (event.type === 'dismissed' || !selectedDate) {
+      return;
+    }
+
+    setDate(selectedDate);
+
+    if (isFromDate && toDate && selectedDate > toDate) {
+      setToDate(null);
+    }
   };
 
   const loadHistory = async () => {
@@ -272,9 +291,7 @@ export default function LeaveRequestScreen() {
   };
 
   const refreshAll = async () => {
-    setRefreshing(true);
     await loadHistory();
-    setRefreshing(false);
   };
 
   const formatDateToYMD = (date: Date): string => {
@@ -291,8 +308,8 @@ export default function LeaveRequestScreen() {
       Alert.alert('Error', 'Please select a "To Date"');
       return;
     }
-    if (leaveType === 'multiple' && toDate && toDate <= fromDate) {
-      Alert.alert('Error', 'Multiple days leave request must be more than 1 day');
+    if (leaveType === 'multiple' && toDate && toDate < fromDate) {
+      Alert.alert('Error', 'To Date must be on or after From Date');
       return;
     }
     if (!isValidYear(formatDateToYMD(fromDate)) || !isValidYear(formatDateToYMD(finalToDate))) {
@@ -300,7 +317,7 @@ export default function LeaveRequestScreen() {
       return;
     }
     if (hasDuplicateLeave(formatDateToYMD(fromDate), formatDateToYMD(finalToDate))) {
-      Alert.alert('Duplicate Request', 'A leave request already exists for these dates.');
+      Alert.alert('Duplicate Request', 'An active leave request already exists for these dates.');
       return;
     }
     if (!reason.trim()) {
@@ -324,13 +341,10 @@ export default function LeaveRequestScreen() {
         reason: reason.trim(),
       });
 
-      Alert.alert('Success', 'Leave request submitted successfully');
-
       if (isMounted.current) {
-        setFromDate(null);
-        setToDate(null);
-        setReason('');
-        setLeaveType('one-day');
+        Alert.alert('Success', 'Leave request submitted successfully', [
+          { text: 'OK', onPress: resetForm },
+        ]);
         loadHistory();
       }
     } catch (error: any) {
@@ -347,15 +361,44 @@ export default function LeaveRequestScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
 
-      {/* Navy Hero Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 20, paddingBottom: 60 }]}>
+      {/* Navy Hero Header - animates on scroll */}
+      <Animated.View
+        style={[
+          styles.headerStandard,
+          { paddingTop: insets.top + 16, paddingBottom: 24 },
+          {
+            transform: [
+              {
+                translateY: scrollY.interpolate({
+                  inputRange: [0, 120],
+                  outputRange: [0, -80],
+                  extrapolate: 'clamp',
+                }),
+              },
+              {
+                scale: scrollY.interpolate({
+                  inputRange: [0, 120],
+                  outputRange: [1, 0.98],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
+            opacity: scrollY.interpolate({
+              inputRange: [0, 120],
+              outputRange: [1, 0.95],
+              extrapolate: 'clamp',
+            }),
+          },
+        ]}
+      >
         <View style={styles.headerTop}>
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('TeacherDashboard')}
+            activeOpacity={0.7}
           >
             <ChevronLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
@@ -367,14 +410,16 @@ export default function LeaveRequestScreen() {
           <AppText weight="bold" style={styles.heroGreeting}>Request Time Off</AppText>
           <AppText style={styles.heroSubtext}>Submit and track your leave applications</AppText>
         </View>
-      </View>
+      </Animated.View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: 20 }]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor={HM_THEME.navy} />}
+        overScrollMode="never"
+        bounces={true}
+        // Make sure keyboard handling / inertia still works
       >
         {/* Form Card */}
         <AppCard style={styles.mainCard}>
@@ -439,8 +484,7 @@ export default function LeaveRequestScreen() {
             title={submitting ? 'Submitting...' : 'Submit Application'}
             onPress={handleSubmit}
             disabled={submitting}
-            style={styles.submitButton}
-            textStyle={styles.submitButtonText}
+            style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
           />
         </AppCard>
 
@@ -456,8 +500,11 @@ export default function LeaveRequestScreen() {
           <View style={styles.loaderContainer}><Loader /></View>
         ) : history.length === 0 ? (
           <View style={styles.emptyState}>
-            <FileText size={48} color="#cbd5e1" />
-            <AppText weight="semiBold" style={styles.emptyStateText}>No history found</AppText>
+            <View style={styles.emptyStateIconContainer}>
+              <FileText size={42} color="#94a3b8" />
+            </View>
+            <AppText weight="bold" style={styles.emptyStateTitle}>No Applications Yet</AppText>
+            <AppText style={styles.emptyStateSubtext}>Your leave requests will appear here</AppText>
           </View>
         ) : (
           <View style={styles.historyList}>
@@ -472,21 +519,21 @@ export default function LeaveRequestScreen() {
             value={fromDate || new Date()}
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(e, d) => { setShowFromDatePicker(false); if(d) setFromDate(d); }}
+            onChange={(e, d) => handleDateChange(e, d, setFromDate, true)}
             minimumDate={new Date()}
           />
         )}
         {showToDatePicker && (
           <DateTimePicker
-            value={toDate || new Date()}
+            value={toDate || fromDate || new Date()}
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(e, d) => { setShowToDatePicker(false); if(d) setToDate(d); }}
+            onChange={(e, d) => handleDateChange(e, d, setToDate)}
             minimumDate={fromDate || new Date()}
           />
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -500,11 +547,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
+    position: 'relative',
+    zIndex: 1,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 20,
   },
   iconButton: {
     width: 40,
@@ -519,11 +569,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   heroContent: {
-    marginTop: 25,
+    marginBottom: 10,
   },
   heroGreeting: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 28,
   },
   heroSubtext: {
     color: 'rgba(255,255,255,0.7)',
@@ -533,23 +583,23 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 100,
+    paddingTop: 20,
   },
   mainCard: {
-    marginTop: -30,
-    borderRadius: 30,
+    marginTop: 0,
+    borderRadius: 24,
     padding: 20,
     backgroundColor: '#FFFFFF',
+    marginBottom: 20,
     ...Platform.select({
-
       android: { elevation: 4 },
-
-      ios: {},
-
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
     }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -598,10 +648,12 @@ const styles = StyleSheet.create({
   formRow: {
     flexDirection: 'row',
     gap: 15,
+    flexWrap: 'wrap',
   },
   inputGroup: {
     flex: 1,
     marginBottom: 16,
+    minWidth: Platform.OS === 'ios' ? 150 : 140,
   },
   inputLabel: {
     fontSize: 13,
@@ -616,8 +668,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 48,
+    paddingHorizontal: 16,
+    height: 52,
+    minHeight: 52,
   },
   dateValue: {
     fontSize: 14,
@@ -645,8 +698,8 @@ const styles = StyleSheet.create({
     height: 52,
     marginTop: 10,
   },
-  submitButtonText: {
-    fontSize: 16,
+  submitButtonDisabled: {
+    opacity: 0.7,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -667,11 +720,20 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   historyCard: {
-    borderRadius: 30,
+    borderRadius: 20,
     padding: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#F1F5F9',
+    ...Platform.select({
+      android: { elevation: 2 },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+      },
+    }),
   },
   historyHeader: {
     flexDirection: 'row',
@@ -716,14 +778,15 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 20,
   },
   badgeText: {
-    fontSize: 11,
+    fontSize: 12,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   loaderContainer: {
     padding: 40,
@@ -734,9 +797,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyStateText: {
-    marginTop: 10,
+  emptyStateIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    color: '#334155',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
     color: '#94A3B8',
     fontSize: 14,
+    textAlign: 'center',
   },
 });
