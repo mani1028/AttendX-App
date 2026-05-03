@@ -17,6 +17,12 @@ import NotificationPanel from '../common/NotificationPanel';
 import CalendarView from '../common/CalendarView';
 import { colors } from '../../constants/colors';
 
+// Utility function for photo cache key generation
+const getPhotoCacheKey = (roleBucket: 'student' | 'teacher', id: string, schoolCode: string): string | null => {
+  if (!id) return null;
+  return `profile_photo_url:${roleBucket}:${schoolCode || 'unknown'}:${id}`;
+};
+
 // Types
 interface MenuItem {
   title: string;
@@ -88,10 +94,10 @@ const MENU_CONFIG: Record<string, RoleConfig> = {
     label: 'HM Panel',
     roleDisplay: 'Head Master',
     menu: [
-      { title: 'Dashboard', route: 'HMDashboard', icon: '📊' },
-      { title: 'Staff', route: 'TeacherManagement', icon: '👨‍🏫' },
-      { title: 'Students', route: 'StudentManagement', icon: '👨‍🎓' },
-      { title: 'Attendance', route: 'HMAttendance', icon: '📅' },
+    { title: 'Dashboard', route: 'HMDashboard', icon: '📊' },
+    { title: 'Staff', route: 'HMTeacherManagement', icon: '👨‍🏫' },
+    { title: 'Students', route: 'HMStudentManagement', icon: '👨‍🎓' },
+    { title: 'Attendance', route: 'HMAttendance', icon: '📅' },
       { title: 'Calendar', route: 'HMAttendance', icon: '📆' },
       { title: 'Teacher Leaves', route: 'TeacherLeaves', icon: '📋' },
       { title: 'Exams', route: 'Exams', icon: '📝' },
@@ -123,7 +129,6 @@ const MENU_CONFIG: Record<string, RoleConfig> = {
     menu: [
       { title: 'Attendance Logs', route: 'TeacherAttendance', icon: '📋' },
       { title: 'Student Enrollment', route: 'StudentRegistration', icon: '👨‍🎓' },
-      { title: 'Manage Profiles', route: 'StudentList', icon: '📝' },
       { title: 'Attendance Verification', route: 'TeacherAttendance', icon: '✅' },
       { title: 'VitalScan AI', route: 'VitalScan', icon: '🔬' },
       { title: 'Homework Management', route: 'HomeworkManagement', icon: '📚' },
@@ -135,7 +140,6 @@ const MENU_CONFIG: Record<string, RoleConfig> = {
     pageTitles: {
       '/teacher-dashboard': 'Attendance Logs',
       '/teacher-dashboard/enroll': 'Student Enrollment',
-      '/teacher-dashboard/manage': 'Manage Profiles',
       '/teacher-dashboard/verify': 'Attendance Verification',
       '/teacher-dashboard/vitalscan': 'VitalScan AI',
       '/teacher-dashboard/homework-management': 'Homework Management',
@@ -197,8 +201,22 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   const navigation = useNavigation();
   const route = useRoute();
   
-  const config = MENU_CONFIG[role] || MENU_CONFIG.hm;
-  
+  // Normalize role values coming from backend or storage (e.g. "class_teacher", "Class Teacher")
+  const normalizeRole = (r: string) => {
+    if (!r) return 'teacher';
+    const v = String(r).trim().toLowerCase();
+    if (v === 'class_teacher' || v === 'class teacher' || v === 'classteacher' || v === 'class-teacher') return 'teacher';
+    if (v === 'hm' || v === 'headmaster' || v === 'head_master') return 'hm';
+    if (v === 'admin' || v === 'administrator') return 'admin';
+    if (v === 'principal') return 'principal';
+    if (v === 'accountant') return 'accountant';
+    if (v === 'student') return 'student';
+    return v;
+  };
+
+  const normalizedRole = normalizeRole(role);
+  const config = MENU_CONFIG[normalizedRole] || MENU_CONFIG.teacher;
+
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [openProfile, setOpenProfile] = useState(false);
@@ -210,6 +228,10 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   const [userRole, setUserRole] = useState(role);
   const [profileDetails, setProfileDetails] = useState<Array<{ label: string; value: string }>>([]);
   const [isClassTeacher, setIsClassTeacher] = useState(false);
+
+  const effectiveRoleDisplay = normalizedRole === 'teacher' && isClassTeacher
+    ? 'Class Teacher'
+    : config.roleDisplay;
   const [dialogVisible, setDialogVisible] = useState(false);
   const [dialogMessage, setDialogMessage] = useState('');
   const [dialogType, setDialogType] = useState<'info' | 'confirm' | 'success' | 'error'>('info');
@@ -254,12 +276,29 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
         } else {
           setDisplayName(name || config.label);
         }
-        
-        // Load profile photo
-        const photoUrl = await AsyncStorage.getItem('profile_photo_url');
-        if (photoUrl) {
-          setProfilePhotoUrl(photoUrl);
-          setProfilePhotoError(false);
+
+        const roleBucket = role === 'student' ? 'student' : 'teacher';
+        const storedStudentId = await AsyncStorage.getItem('student_id');
+        const storedTeacherId = await AsyncStorage.getItem('teacher_id');
+        const storedEmployeeId = await AsyncStorage.getItem('employee_id');
+        const entityId = roleBucket === 'student'
+          ? (storedStudentId || '')
+          : (storedTeacherId || storedEmployeeId || '');
+        const scopedPhotoKey = getPhotoCacheKey(roleBucket, entityId, code || '');
+
+        if (scopedPhotoKey) {
+          const scopedPhotoUrl = await AsyncStorage.getItem(scopedPhotoKey);
+          if (scopedPhotoUrl) {
+            setProfilePhotoUrl(scopedPhotoUrl);
+            setProfilePhotoError(false);
+          }
+        } else {
+          // Backward compatibility for older cached installs.
+          const photoUrl = await AsyncStorage.getItem('profile_photo_url');
+          if (photoUrl) {
+            setProfilePhotoUrl(photoUrl);
+            setProfilePhotoError(false);
+          }
         }
       } catch (error) {
         console.error('Failed to load user data:', error);
@@ -301,7 +340,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
       const details: Array<{ label: string; value: string }> = [];
       
       details.push({ label: 'Name', value: displayName });
-      details.push({ label: 'Role', value: config.roleDisplay });
+      details.push({ label: 'Role', value: effectiveRoleDisplay });
       if (schoolCode) details.push({ label: 'School Code', value: schoolCode });
       
       const userId = await AsyncStorage.getItem('user_id');
@@ -354,7 +393,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
     };
     
     buildProfileDetails();
-  }, [displayName, config.roleDisplay, role, schoolCode, isClassTeacher]);
+  }, [displayName, effectiveRoleDisplay, role, schoolCode, isClassTeacher]);
 
   const getInitials = (): string => {
     const name = displayName.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -392,10 +431,10 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   };
 
   const isCompact = isTablet || !sidebarExpanded;
-  const showCalendarForRole = role === 'student' || role === 'teacher';
+  const showCalendarForRole = normalizedRole === 'student' || normalizedRole === 'teacher';
   
   // Filter menu items for non-class teachers
-  const visibleMenuItems = (role === 'teacher' && !isClassTeacher)
+  const visibleMenuItems = (normalizedRole === 'teacher' && !isClassTeacher)
     ? config.menu.filter(item =>
         ['Attendance Logs', 'Attendance Verification', 'Homework Management', 'Marks Entry', 'VitalScan AI', 'Question Papers'].includes(item.title)
       )
@@ -464,7 +503,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
                 {!isCompact && (
                   <View style={styles.brandTextContainer}>
                     <Text style={styles.brandName} numberOfLines={1}>{displayName}</Text>
-                    <Text style={styles.brandRole}>{config.roleDisplay}</Text>
+                    <Text style={styles.brandRole}>{effectiveRoleDisplay}</Text>
                   </View>
                 )}
               </View>
@@ -558,9 +597,21 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
                     </View>
                   ))}
                 </ScrollView>
-                <TouchableOpacity style={styles.profileLogout} onPress={handleLogout}>
-                  <Text style={styles.profileLogoutText}>Sign Out</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.profileView}
+                    onPress={() => {
+                      setOpenProfile(false);
+                      // Navigate to global Profile screen
+                      // useNavigation is available in this component
+                      navigation.navigate('Profile' as never);
+                    }}
+                  >
+                    <Text style={styles.profileViewText}>View Profile</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.profileLogout} onPress={handleLogout}>
+                    <Text style={styles.profileLogoutText}>Sign Out</Text>
+                  </TouchableOpacity>
               </View>
             </TouchableOpacity>
           )}
@@ -902,6 +953,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  profileView: {
+    marginHorizontal: 12,
+    marginTop: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: theme.primary,
+    alignItems: 'center',
+  },
+  profileViewText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
   },
   content: {
     flex: 1,

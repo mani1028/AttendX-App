@@ -12,7 +12,8 @@ import {
   ExpenseScreen,
   SettingsScreen,
   AnnouncementsScreen,
-  DataExportScreen
+  DataExportScreen,
+  HMTeacherAssignmentsScreen
 } from '../screens/hm';
 
 const Stack = createNativeStackNavigator();
@@ -20,9 +21,10 @@ const Stack = createNativeStackNavigator();
 export default function HMStack() {
   return (
     <Stack.Navigator>
-      <Stack.Screen name="HMDashboard" component={HMDashboardScreen} options={{ title: 'HM Home' }} />
+      <Stack.Screen name="HMDashboard" component={HMDashboardScreen} options={{ title: 'HM Home', headerShown: false }} />
       <Stack.Screen name="TeacherManagement" component={TeacherManagementScreen} options={{ title: 'Manage Teachers' }} />
       <Stack.Screen name="StudentManagement" component={StudentManagementScreen} options={{ title: 'Manage Students' }} />
+      <Stack.Screen name="TeacherAssignment" component={HMTeacherAssignmentsScreen} options={{ title: 'Teacher Assignment', headerShown: false }} />
       <Stack.Screen name="Attendance" component={AttendanceScreen} options={{ title: 'Attendance' }} />
       <Stack.Screen name="FeeManagement" component={FeeManagementScreen} options={{ title: 'Fee Management' }} />
       <Stack.Screen name="Reports" component={ReportsScreen} options={{ title: 'Reports' }} />

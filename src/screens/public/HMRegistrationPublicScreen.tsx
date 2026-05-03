@@ -654,7 +654,11 @@ export default function HMRegistrationPublicScreen() {
       );
       
       resetForm();
-      setTimeout(() => navigation.goBack(), 2000);
+      if (navigation.canGoBack()) {
+        setTimeout(() => navigation.goBack(), 2000);
+      } else {
+        setTimeout(() => (navigation as any).navigate('RegisterSchool'), 2000);
+      }
     } catch (err: any) {
       showToast(err.message || 'Registration failed', 'error');
     } finally {
@@ -669,7 +673,13 @@ export default function HMRegistrationPublicScreen() {
       <View style={styles.errorContainer}>
         <Text style={styles.errorTitle}>Invalid Invite Link</Text>
         <Text style={styles.errorDescription}>School code or branch ID missing.</Text>
-        <AppButton title="Go Back" onPress={() => navigation.goBack()} />
+        <AppButton title="Go Back" onPress={() => {
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            (navigation as any).navigate('RegisterSchool');
+          }
+        }} />
       </View>
     );
   }

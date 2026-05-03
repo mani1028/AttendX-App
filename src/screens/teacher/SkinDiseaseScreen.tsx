@@ -15,12 +15,14 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
+import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 
 // Types
@@ -32,6 +34,7 @@ interface PredictionResult {
 }
 
 export default function SkinDiseaseScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
@@ -237,18 +240,23 @@ export default function SkinDiseaseScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-      {/* Standardized Navy Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <ChevronLeft size={24} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Skin Analysis</Text>
+      {/* Navy Hero Header */}
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <AppText weight="bold" style={styles.heroTitle}>Skin Analysis</AppText>
+          <View style={{ width: 40 }} />
         </View>
-        <View style={{ width: 40 }} />
+
+        <View style={styles.heroContent}>
+          <AppText weight="bold" style={styles.heroGreeting}>Health Check</AppText>
+          <AppText style={styles.heroSubtext}>AI-powered detection of dermatological conditions</AppText>
+        </View>
       </View>
 
       <ScrollView
@@ -417,68 +425,69 @@ export default function SkinDiseaseScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#F8FAFC',
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
-    paddingHorizontal: 16,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  backButton: {
+  iconButton: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 20,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+  },
+  heroContent: {
+    marginTop: 20,
+  },
+  heroGreeting: {
+    color: '#FFFFFF',
+    fontSize: 22,
+  },
+  heroSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 4,
   },
   mainContent: {
     flex: 1,
   },
   contentContainer: {
-    padding: 20,
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  header: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#ffffff',
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#94a3b8',
-    textAlign: 'center',
-    marginTop: 8,
-  },
   card: {
-    padding: 20,
+    marginTop: -20,
+    padding: 24,
     marginBottom: 20,
-    backgroundColor: '#1e293b',
-    borderColor: '#334155',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
   },
   imageSelector: {
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#0f172a',
+    backgroundColor: '#F1F5F9',
     minHeight: 200,
   },
   placeholderContainer: {
@@ -492,12 +501,12 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 16,
-    color: '#94a3b8',
+    color: '#64748B',
     fontWeight: '500',
   },
   placeholderSubtext: {
     fontSize: 12,
-    color: '#64748b',
+    color: '#94A3B8',
     marginTop: 4,
   },
   previewImage: {
@@ -516,32 +525,39 @@ const styles = StyleSheet.create({
   },
   analyzeBtn: {
     flex: 2,
+    backgroundColor: '#001F3F',
   },
   loadingCard: {
     padding: 30,
     alignItems: 'center',
-    backgroundColor: '#1e293b',
-    borderColor: '#334155',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     marginBottom: 20,
   },
   loadingText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#ffffff',
+    color: '#0F172A',
     marginTop: 16,
   },
   loadingSubtext: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748B',
     marginTop: 8,
     textAlign: 'center',
   },
   resultCard: {
-    padding: 20,
-    backgroundColor: '#1e293b',
-    borderColor: '#10b981',
+    padding: 24,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#10B981',
     borderWidth: 1,
+    borderRadius: 24,
     marginBottom: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
   resultHeader: {
     flexDirection: 'row',
@@ -550,7 +566,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#334155',
+    borderBottomColor: '#F1F5F9',
   },
   resultIcon: {
     fontSize: 28,
@@ -558,7 +574,7 @@ const styles = StyleSheet.create({
   resultTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#10b981',
+    color: '#10B981',
   },
   resultSection: {
     marginBottom: 16,
@@ -567,20 +583,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
-    color: '#94a3b8',
+    color: '#64748B',
     marginBottom: 8,
   },
   diseaseName: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#ffffff',
+    color: '#0F172A',
   },
   confidenceContainer: {
     gap: 8,
   },
   confidenceBar: {
     height: 8,
-    backgroundColor: '#334155',
+    backgroundColor: '#F1F5F9',
     borderRadius: 4,
     overflow: 'hidden',
   },
@@ -594,7 +610,7 @@ const styles = StyleSheet.create({
   },
   descriptionText: {
     fontSize: 14,
-    color: '#cbd5e1',
+    color: '#475569',
     lineHeight: 20,
   },
   precautionItem: {
@@ -604,18 +620,18 @@ const styles = StyleSheet.create({
   },
   precautionBullet: {
     fontSize: 14,
-    color: '#10b981',
+    color: '#10B981',
     marginRight: 8,
   },
   precautionText: {
     flex: 1,
     fontSize: 14,
-    color: '#cbd5e1',
+    color: '#475569',
     lineHeight: 20,
   },
   disclaimer: {
     flexDirection: 'row',
-    backgroundColor: '#fef3c7',
+    backgroundColor: '#FEF3C7',
     padding: 12,
     borderRadius: 10,
     marginTop: 16,
@@ -628,7 +644,7 @@ const styles = StyleSheet.create({
   disclaimerText: {
     flex: 1,
     fontSize: 12,
-    color: '#92400e',
+    color: '#92400E',
     lineHeight: 16,
   },
   resetBtn: {
@@ -640,8 +656,13 @@ const styles = StyleSheet.create({
   infoCard: {
     padding: 16,
     alignItems: 'center',
-    backgroundColor: '#1e293b',
-    borderColor: '#334155',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   infoIcon: {
     fontSize: 28,
@@ -650,12 +671,12 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#ffffff',
+    color: '#0F172A',
     marginBottom: 4,
   },
   infoText: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748B',
     textAlign: 'center',
   },
 });

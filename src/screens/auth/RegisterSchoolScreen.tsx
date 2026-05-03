@@ -13,11 +13,12 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 import API from '../../services/api';
 import AppButton from '../../components/common/AppButton';
-import AppInput from '../../components/common/AppInput';
+import { AppInput } from '../../components/common/AppInput';
 import ScreenContainer from '../../components/ScreenContainer';
+import { formatErrorMessage } from '../../utils/helpers';
 
 // Types
 interface FormData {
@@ -143,7 +144,7 @@ export default function RegisterSchoolScreen() {
       setOtpSent(true);
       Alert.alert('Success', 'OTP sent to your email');
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.detail || 'Failed to send OTP');
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail) || 'Failed to send OTP');
     } finally { setOtpSending(false); }
   };
 
@@ -187,7 +188,7 @@ export default function RegisterSchoolScreen() {
       setSuccessId(response.data.school_code);
       setShowPaymentModal(false);
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.detail || 'Registration failed');
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail) || 'Registration failed');
     } finally { setIsCreatingSchool(false); }
   };
 

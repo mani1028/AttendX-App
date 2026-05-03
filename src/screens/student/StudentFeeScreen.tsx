@@ -11,11 +11,17 @@ import {
   Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Modal,
+  Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
+import { Buffer } from 'buffer';
 import Icon from '@react-native-vector-icons/feather';
 import API from '../../services/api';
-import { getStudentFee, getPaymentHistory } from '../../services/studentService';
+import { getStudentFee, getPaymentHistory, downloadReceipt } from '../../services/studentService';
 import colors from '../../constants/colors';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
@@ -62,14 +68,18 @@ const SummaryCard: React.FC<{
 );
 
 export default function StudentFeeScreen({ navigation }: any) {
+  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const [fees, setFees] = useState<Fee[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
   const [studentId, setStudentId] = useState<string>('');
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState<boolean>(false);
 
   const lastScrollY = useRef(0);
 
@@ -155,6 +165,30 @@ export default function StudentFeeScreen({ navigation }: any) {
     setRefreshing(false);
   }, [studentId]);
 
+  const handleDownloadReceipt = async (paymentId: string, receiptNo: string) => {
+    try {
+      setDownloading(paymentId);
+      const data = await downloadReceipt(paymentId);
+
+      const fileName = `Receipt_${receiptNo || paymentId}.pdf`;
+      const filePath = `${RNFS.CachesDirectoryPath}/${fileName}`;
+
+      const base64Data = Buffer.from(data).toString('base64');
+      await RNFS.writeFile(filePath, base64Data, 'base64');
+
+      await Share.open({
+        url: `file://${filePath}`,
+        type: 'application/pdf',
+        title: 'Payment Receipt',
+      });
+    } catch (error: any) {
+      console.error('Download error:', error);
+      Alert.alert('Error', 'Failed to download receipt. Please try again later.');
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   const totalFee = fees.reduce((sum, f) => sum + f.total_fee, 0);
   const totalPaid = fees.reduce((sum, f) => sum + f.paid_amount, 0);
   const totalDue = fees.reduce((sum, f) => sum + f.due_amount, 0);
@@ -227,7 +261,14 @@ export default function StudentFeeScreen({ navigation }: any) {
         </View>
       ) : (
         payments.map((item, index) => (
-          <View key={item.id || index} style={styles.historyItem}>
+          <TouchableOpacity
+            key={item.id || index}
+            style={styles.historyItem}
+            onPress={() => {
+              setSelectedPayment(item);
+              setShowDetailModal(true);
+            }}
+          >
             <View style={styles.historyIconContainer}>
               <Icon name="database" size={20} color="#22c55e" />
             </View>
@@ -241,14 +282,26 @@ export default function StudentFeeScreen({ navigation }: any) {
               </AppText>
               <Icon name="chevron-right" size={18} color="#94A3B8" />
             </View>
-          </View>
+          </TouchableOpacity>
         ))
       )}
 
-      <TouchableOpacity style={styles.downloadButton}>
-        <Icon name="download" size={18} color="#3b82f6" />
-        <AppText style={styles.downloadButtonText}>Download Receipt</AppText>
-      </TouchableOpacity>
+      {payments.length > 0 && (
+        <TouchableOpacity
+          style={styles.downloadButton}
+          onPress={() => handleDownloadReceipt(payments[0].id, payments[0].receipt_no || '')}
+          disabled={!!downloading}
+        >
+          {downloading === payments[0].id ? (
+            <ActivityIndicator size="small" color="#3b82f6" />
+          ) : (
+            <Icon name="download" size={18} color="#3b82f6" />
+          )}
+          <AppText style={styles.downloadButtonText}>
+            {downloading === payments[0].id ? 'Downloading...' : 'Download Latest Receipt'}
+          </AppText>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -264,8 +317,11 @@ export default function StudentFeeScreen({ navigation }: any) {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
       
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs')}
+        >
           <Icon name="arrow-left" size={24} color="#fff" />
         </TouchableOpacity>
         <AppText style={styles.headerTitle}>Fee & Payments</AppText>
@@ -342,6 +398,83 @@ export default function StudentFeeScreen({ navigation }: any) {
         {/* Dynamic Content */}
         {activeTab === 'overview' ? renderOverview() : renderHistory()}
       </ScrollView>
+
+      {/* Payment Detail Modal */}
+      <Modal
+        visible={showDetailModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDetailModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <AppText style={styles.modalTitle}>Payment Details</AppText>
+              <TouchableOpacity onPress={() => setShowDetailModal(false)}>
+                <Icon name="x" size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {selectedPayment && (
+              <ScrollView style={styles.modalBody}>
+                <View style={styles.receiptContainer}>
+                  <Icon name="check-circle" size={48} color="#10b981" />
+                  <AppText style={styles.receiptAmount}>{formatCurrency(selectedPayment.amount)}</AppText>
+                  <AppText style={styles.receiptStatus}>Payment Successful</AppText>
+                </View>
+
+                <View style={styles.detailList}>
+                  <View style={styles.modalDetailRow}>
+                    <AppText style={styles.modalDetailLabel}>Receipt No</AppText>
+                    <AppText style={styles.modalDetailValue}>{selectedPayment.receipt_no || 'REC-' + selectedPayment.id.slice(-6).toUpperCase()}</AppText>
+                  </View>
+                  <View style={styles.modalDetailRow}>
+                    <AppText style={styles.modalDetailLabel}>Transaction ID</AppText>
+                    <AppText style={styles.modalDetailValue}>{selectedPayment.transaction_id || 'TXN' + Math.random().toString(36).substr(2, 9).toUpperCase()}</AppText>
+                  </View>
+                  <View style={styles.modalDetailRow}>
+                    <AppText style={styles.modalDetailLabel}>Payment Date</AppText>
+                    <AppText style={styles.modalDetailValue}>
+                      {new Date(selectedPayment.date).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </AppText>
+                  </View>
+                  <View style={styles.modalDetailRow}>
+                    <AppText style={styles.modalDetailLabel}>Payment Method</AppText>
+                    <AppText style={styles.modalDetailValue}>{selectedPayment.method || 'CASH'}</AppText>
+                  </View>
+                  <View style={styles.modalDetailRow}>
+                    <AppText style={styles.modalDetailLabel}>Status</AppText>
+                    <View style={[styles.statusBadge, { backgroundColor: '#dcfce7' }]}>
+                      <AppText style={[styles.statusText, { color: '#15803d' }]}>SUCCESS</AppText>
+                    </View>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.downloadButton, { marginTop: 20 }]}
+                  onPress={() => handleDownloadReceipt(selectedPayment.id, selectedPayment.receipt_no || '')}
+                  disabled={!!downloading}
+                >
+                  {downloading === selectedPayment.id ? (
+                    <ActivityIndicator size="small" color="#3b82f6" />
+                  ) : (
+                    <Icon name="download" size={18} color="#3b82f6" />
+                  )}
+                  <AppText style={styles.downloadButtonText}>
+                    {downloading === selectedPayment.id ? 'Downloading...' : 'Download Receipt PDF'}
+                  </AppText>
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -353,8 +486,6 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#001F3F',
-    height: 100,
-    paddingTop: Platform.OS === 'ios' ? 40 : 10,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -393,7 +524,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
-    elevation: 3,
+    ...Platform.select({
+
+      android: { elevation: 3 },
+
+      ios: {},
+
+    }),
+    marginTop: 10,
   },
   ledgerTitle: {
     fontSize: 14,
@@ -425,7 +563,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 4,
+    ...Platform.select({
+
+      android: { elevation: 4 },
+
+      ios: {},
+
+    }),
   },
   summaryIconContainer: {
     width: 56,
@@ -484,7 +628,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
-    elevation: 3,
+    ...Platform.select({
+
+      android: { elevation: 3 },
+
+      ios: {},
+
+    }),
   },
   detailsHeader: {
     flexDirection: 'row',
@@ -546,7 +696,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
-    elevation: 3,
+    ...Platform.select({
+
+      android: { elevation: 3 },
+
+      ios: {},
+
+    }),
   },
   historyHeader: {
     flexDirection: 'row',
@@ -631,5 +787,77 @@ const styles = StyleSheet.create({
   emptyHistoryText: {
     color: '#94A3B8',
     fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    width: '100%',
+    maxHeight: '80%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  receiptContainer: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  receiptAmount: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginTop: 10,
+  },
+  receiptStatus: {
+    fontSize: 14,
+    color: '#10b981',
+    fontWeight: '600',
+    marginTop: 5,
+  },
+  detailList: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+  },
+  modalDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  modalDetailLabel: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  modalDetailValue: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'right',
+    marginLeft: 10,
   },
 });

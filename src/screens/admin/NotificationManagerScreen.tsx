@@ -1,14 +1,43 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { ChevronLeft } from 'lucide-react-native';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
-import Header from '../../components/common/Header';
 
 export default function NotificationManagerScreen() {
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
+
+  const handleBackPress = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate('AdminDashboard' as never);
+  };
+
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <AppText style={styles.title}>Notification Manager</AppText>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+
+      {/* Standardized Header */}
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20, paddingBottom: 60 }]}>
+        <TouchableOpacity style={styles.backBtn} onPress={handleBackPress}>
+          <ChevronLeft size={24} color="#fff" />
+        </TouchableOpacity>
+        <View style={styles.headerTitleContainer}>
+          <AppText style={styles.headerTitle}>Notification Manager</AppText>
+        </View>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.contentContainer, { marginTop: -30 }]}
+      >
         <AppText style={styles.subtitle}>Manage system-wide notifications and announcements.</AppText>
 
         <View style={styles.placeholder}>
@@ -24,19 +53,41 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
-  content: {
-    padding: 20,
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    marginBottom: 8,
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  contentContainer: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
   },
   subtitle: {
     fontSize: 16,
     color: colors.textMuted,
     marginBottom: 24,
+    textAlign: 'center',
   },
   placeholder: {
     padding: 40,

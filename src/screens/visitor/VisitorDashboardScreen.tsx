@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/feather';
 import { Bell } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -25,8 +26,9 @@ import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 import QRCode from 'react-native-qrcode-svg';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
+import { formatErrorMessage } from '../../utils/helpers';
 
 // Types
 interface Visitor {
@@ -269,6 +271,7 @@ const FilterModal: React.FC<{
                   value={localDateFrom ? new Date(localDateFrom) : new Date()}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  maximumDate={new Date()}
                   onChange={(event, date) => {
                     setShowFromPicker(false);
                     if (date) setLocalDateFrom(date.toISOString().split('T')[0]);
@@ -287,6 +290,7 @@ const FilterModal: React.FC<{
                   value={localDateTo ? new Date(localDateTo) : new Date()}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  maximumDate={new Date()}
                   onChange={(event, date) => {
                     setShowToPicker(false);
                     if (date) setLocalDateTo(date.toISOString().split('T')[0]);
@@ -308,6 +312,7 @@ const FilterModal: React.FC<{
 
 export default function VisitorDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
   const { userName } = useAuth();
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -340,8 +345,20 @@ export default function VisitorDashboardScreen() {
   // Fetch data
   const fetchData = useCallback(async () => {
     setErrorMsg('');
+    const cacheKey = `visitor_list_${activeTab}_${dateFrom || 'all'}_${dateTo || 'all'}`;
+    let cacheLoaded = false;
     
     try {
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          setVisitors(parsed);
+          cacheLoaded = true;
+          setLoadingVisitors(false);
+        }
+      }
+
       // Build filters
       const filters: any = {};
       if (activeTab !== 'all') {
@@ -351,7 +368,9 @@ export default function VisitorDashboardScreen() {
       if (dateTo) filters.date_to = dateTo;
 
       const visitorsRes = await visitorApi.listVisitors(filters);
-      setVisitors(visitorsRes.data?.data || []);
+      const nextVisitors = visitorsRes.data?.data || [];
+      setVisitors(nextVisitors);
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(nextVisitors));
     } catch (error: any) {
       console.log('DEBUG 403 ERROR:', error.response?.data);
       console.error('Failed to fetch visitors:', error);
@@ -361,15 +380,26 @@ export default function VisitorDashboardScreen() {
                     'You do not have permission to view visitor data.';
       setErrorMsg(message);
     } finally {
-      setLoadingVisitors(false);
+      if (!cacheLoaded) {
+        setLoadingVisitors(false);
+      }
     }
   }, [activeTab, dateFrom, dateTo]);
 
   // Fetch stats
   const fetchStats = useCallback(async () => {
+    const cacheKey = 'visitor_stats_cache';
     try {
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        setStats(JSON.parse(cached));
+        setLoadingStats(false);
+      }
+
       const statsRes = await visitorApi.getVisitorStats();
-      setStats(statsRes.data?.data || {});
+      const nextStats = statsRes.data?.data || {};
+      setStats(nextStats);
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(nextStats));
     } catch (error) {
       console.error('Failed to fetch stats:', error);
     } finally {
@@ -403,7 +433,7 @@ export default function VisitorDashboardScreen() {
       fetchData();
       fetchStats();
     } catch (error) {
-      Alert.alert('Error', 'Failed to approve visitor');
+      Alert.alert('Error', formatErrorMessage(error) || 'Failed to approve visitor');
     }
   }, [fetchData, fetchStats]);
 
@@ -413,7 +443,7 @@ export default function VisitorDashboardScreen() {
       fetchData();
       fetchStats();
     } catch (error) {
-      Alert.alert('Error', 'Failed to reject visitor');
+      Alert.alert('Error', formatErrorMessage(error) || 'Failed to reject visitor');
     }
   }, [fetchData, fetchStats]);
 
@@ -423,7 +453,7 @@ export default function VisitorDashboardScreen() {
       fetchData();
       fetchStats();
     } catch (error) {
-      Alert.alert('Error', 'Failed to checkout visitor');
+      Alert.alert('Error', formatErrorMessage(error) || 'Failed to checkout visitor');
     }
   }, [fetchData, fetchStats]);
 
@@ -445,7 +475,7 @@ export default function VisitorDashboardScreen() {
       setQRData(qrData);
       setShowQRModal(true);
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.detail || 'Failed to load QR code');
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail) || 'Failed to load QR code');
     }
   }, []);
 
@@ -481,9 +511,10 @@ export default function VisitorDashboardScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
       {/* Standardized Navy Header */}
-      <View style={styles.headerStandard}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+        <View style={{ width: 40 }} />
         <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>Visitor Dashboard</AppText>
+          <AppText style={styles.headerTitle}>Visitor Portal</AppText>
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
@@ -643,6 +674,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 24,
+    marginTop: 20,
+    backgroundColor: colors.surface,
+    padding: 20,
+    borderRadius: 20,
+    // Shadow
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   welcomeTitle: {
     fontSize: 20,
@@ -992,8 +1039,6 @@ const styles = StyleSheet.create({
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',

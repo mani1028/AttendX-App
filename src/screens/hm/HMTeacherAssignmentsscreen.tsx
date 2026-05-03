@@ -2,35 +2,38 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View, ScrollView, TouchableOpacity, TextInput,
   Modal, ActivityIndicator, StyleSheet, Alert, StatusBar, Platform,
-  NativeSyntheticEvent, NativeScrollEvent,
+  NativeSyntheticEvent, NativeScrollEvent, Animated,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import Icon from '@react-native-vector-icons/feather';
+import {
+  ChevronLeft,
+  Bell,
+  RefreshCw,
+  School,
+  GitBranch,
+  User,
+  BookOpen,
+  Plus,
+  ChevronDown,
+  CheckCircle2,
+  X,
+  AlertTriangle,
+  Home,
+  Users,
+  Award,
+  LogOut,
+  Settings
+} from 'lucide-react-native';
 import API from '../../services/api';
+import * as hmService from '../../services/hmService';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { HM_THEME as C } from '../../constants/hmTheme';
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
-const C = {
-  primary: colors.primary,
-  primarySoft: colors.primary + '15',
-  success: colors.success,
-  successSoft: colors.successSoft,
-  danger: colors.error,
-  dangerSoft: colors.errorSoft,
-  warning: colors.warning,
-  warningSoft: colors.warningSoft,
-  bg: colors.bg,
-  white: colors.surface,
-  text: colors.textPrimary,
-  text2: colors.textPrimary + 'CC',
-  text3: colors.textMuted,
-  border: colors.border,
-  borderSoft: colors.border + '60',
-  sidebar: colors.surface,
-};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 async function getSchoolCode() {
@@ -51,8 +54,10 @@ function teacherLabel(t: any) {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function HMTeacherAssignmentsScreen() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
@@ -121,6 +126,7 @@ export default function HMTeacherAssignmentsScreen() {
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = event.nativeEvent.contentOffset.y;
     const deltaY = y - lastScrollY.current;
+    scrollY.setValue(y);
     if (y > 100 && deltaY > 10) {
       setTabBarVisible(false);
     } else if (deltaY < -10 || y < 10) {
@@ -142,13 +148,17 @@ export default function HMTeacherAssignmentsScreen() {
     setLoading(true);
     clearMessage();
     try {
-      const [classesRes, teachersRes] = await Promise.all([
-        API.get('/hm/classes', { headers }),
-        API.get('/hm/teachers', { headers }),
-      ]);
+      const classesRes = await API.get('/hm/classes', { headers });
+      
+      let teacherItems: any[] = [];
+      try {
+        teacherItems = await hmService.getHMTeachers(headers);
+      } catch (teacherErr: any) {
+        console.warn('Failed to load teachers:', teacherErr?.message);
+        // Continue without teachers - show empty state in picker
+      }
 
       const classItems = classesRes.data?.items || [];
-      const teacherItems = teachersRes.data?.items || [];
       const grouped: Record<string, string[]> = {};
 
       classItems.forEach((item: any) => {
@@ -312,32 +322,41 @@ export default function HMTeacherAssignmentsScreen() {
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
-      <View style={styles.navHeader}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Icon name="arrow-left" size={24} color="#fff" />
-        </TouchableOpacity>
-        <AppText style={styles.navTitle}>Teacher Assignments</AppText>
-        <TouchableOpacity style={styles.refreshBtn} onPress={loadMeta} disabled={isBusy}>
-          <Icon name="refresh-cw" size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
-      <ScrollView
+      <Animated.ScrollView
         style={styles.page}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={styles.pageContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
+        <Animated.View
+          style={[
+            styles.navHeader,
+            { paddingTop: insets.top + 8 },
+            {
+              transform: [{ translateY: scrollY.interpolate({ inputRange: [0, 140], outputRange: [0, -100], extrapolate: 'clamp' }) }],
+              opacity: scrollY.interpolate({ inputRange: [0, 140], outputRange: [1, 0.92], extrapolate: 'clamp' }),
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
+          >
+            <ChevronLeft size={22} color="#fff" />
+          </TouchableOpacity>
+          <AppText style={styles.navTitle} weight="bold">Teacher Assignment</AppText>
+          <TouchableOpacity style={styles.notificationBtn} onPress={() => Alert.alert('Notifications', 'No notifications yet')}>
+            <Bell size={20} color="#fff" />
+          </TouchableOpacity>
+        </Animated.View>
 
         {/* Header (Section Title) */}
         <View style={styles.header}>
           <View>
-            <AppText style={styles.title}>Management</AppText>
-            <AppText style={styles.subtitle}>Assign class teachers and subject teachers</AppText>
+            <AppText style={styles.title} weight="bold">Teacher Assignment Management</AppText>
+            <AppText style={styles.subtitle}>Assign class teachers and subject teachers for each class-section</AppText>
           </View>
         </View>
 
@@ -346,18 +365,18 @@ export default function HMTeacherAssignmentsScreen() {
         <View style={styles.infoBar}>
           {schoolCode ? (
             <View style={styles.infoItem}>
-              <Icon name="school-outline" size={14} color={C.primary} />
-      <AppText style={styles.infoText}>School: <AppText style={styles.infoBold}>{schoolCode}</AppText></AppText>
-    </View>
-  ) : null}
-  {branchId ? (
-    <View style={styles.infoItem}>
-      <Icon name="git-branch" size={14} color={C.primary} />
-      <AppText style={styles.infoText}>Branch: <AppText style={styles.infoBold}>{branchId}</AppText></AppText>
-    </View>
-  ) : null}
-</View>
-) : null}
+              <School size={14} color={C.primary} />
+              <AppText style={styles.infoText}>School: <AppText style={styles.infoBold} weight="bold">{schoolCode}</AppText></AppText>
+            </View>
+          ) : null}
+          {branchId ? (
+            <View style={styles.infoItem}>
+              <GitBranch size={14} color={C.primary} />
+              <AppText style={styles.infoText}>Branch: <AppText style={styles.infoBold} weight="bold">{branchId}</AppText></AppText>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
 
 {/* Message */}
 {message.text ? (
@@ -365,7 +384,7 @@ export default function HMTeacherAssignmentsScreen() {
   backgroundColor: message.type === 'success' ? C.successSoft : message.type === 'error' ? C.dangerSoft : C.warningSoft,
   borderColor: message.type === 'success' ? C.success + '40' : message.type === 'error' ? C.danger + '40' : C.warning + '40',
 }]}>
-  <AppText style={{ color: message.type === 'success' ? C.success : message.type === 'error' ? C.danger : C.warning, fontWeight: '700' }}>
+  <AppText style={{ color: message.type === 'success' ? C.success : message.type === 'error' ? C.danger : C.warning }} weight="bold">
     {message.text}
   </AppText>
 </View>
@@ -378,39 +397,42 @@ export default function HMTeacherAssignmentsScreen() {
           {/* Class Selection */}
           <View style={styles.panel}>
             <View style={styles.panelHead}>
-              <AppText style={styles.panelTitle}>Select Class</AppText>
-              <AppText style={styles.panelSub}>Tap a class then choose a section</AppText>
+              <AppText style={styles.panelTitle} weight="bold">Classes & Sections</AppText>
+              <AppText style={styles.panelSub}>Select class first, then choose section</AppText>
             </View>
             <View style={styles.panelBody}>
               {classNames.length === 0 ? (
                 <AppText style={{ color: C.text3, textAlign: 'center', padding: 20 }}>No classes found</AppText>
               ) : (
-                <View style={styles.classGrid}>
-                  {classNames.map(cls => (
-                    <TouchableOpacity
-                      key={cls}
-                      style={[styles.classCard, selectedClass === cls && styles.classCardActive]}
-                      onPress={() => {
-                        setSelectedClass(cls);
-                        const secs = classesMap[cls] || [];
-                        setSelectedSection(secs[0] || '');
-                      }}
-                    >
-                      <AppText style={[styles.className, selectedClass === cls && { color: C.primary }]}>
-                        Class {cls}
-                      </AppText>
-                      <AppText style={styles.classMeta}>
-                        {(classesMap[cls] || []).length} section(s)
-                      </AppText>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                <>
+                  <AppText style={styles.sectionTitleSmall} weight="bold">Classes</AppText>
+                  <View style={styles.classGrid}>
+                    {classNames.map(cls => (
+                      <TouchableOpacity
+                        key={cls}
+                        style={[styles.classCard, selectedClass === cls && styles.classCardActive]}
+                        onPress={() => {
+                          setSelectedClass(cls);
+                          const secs = classesMap[cls] || [];
+                          setSelectedSection(secs[0] || '');
+                        }}
+                      >
+                        <AppText style={[styles.className, selectedClass === cls && { color: C.primary }]} weight="bold">
+                          Class {cls}
+                        </AppText>
+                        <AppText style={styles.classMeta}>
+                          {(classesMap[cls] || []).length} section(s)
+                        </AppText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
               )}
 
               {/* Section Selection */}
               {selectedClass && classesMap[selectedClass]?.length > 0 ? (
                 <View style={styles.sectionWrap}>
-                  <AppText style={styles.sectionTitle}>SECTIONS</AppText>
+                  <AppText style={styles.sectionTitleSmall} weight="bold">Section</AppText>
                   <View style={styles.sectionList}>
                     {(classesMap[selectedClass] || []).map(sec => (
                       <TouchableOpacity
@@ -418,7 +440,7 @@ export default function HMTeacherAssignmentsScreen() {
                         style={[styles.sectionBtn, selectedSection === sec && styles.sectionBtnActive]}
                         onPress={() => setSelectedSection(sec)}
                       >
-                        <AppText style={[styles.sectionBtnText, selectedSection === sec && { color: C.white }]}>
+                        <AppText style={[styles.sectionBtnText, selectedSection === sec && { color: C.white }]} weight="bold">
                           {sec}
                         </AppText>
                       </TouchableOpacity>
@@ -433,7 +455,8 @@ export default function HMTeacherAssignmentsScreen() {
           {selectedClass && selectedSection ? (
             <View style={styles.panel}>
               <View style={styles.panelHead}>
-                <AppText style={styles.panelTitle}>Class {selectedClass} — Section {selectedSection}</AppText>
+                <AppText style={styles.panelTitle} weight="bold">Assignment Workspace</AppText>
+                <AppText style={styles.panelSub}>Class {selectedClass} — Section {selectedSection}</AppText>
               </View>
               <View style={styles.panelBody}>
 
@@ -445,14 +468,14 @@ export default function HMTeacherAssignmentsScreen() {
                     <View style={styles.card}>
                       <View style={styles.cardHead}>
                         <View>
-                          <AppText style={styles.cardTitle}>
-                            <Icon name="user" size={14} /> Class Teacher
+                          <AppText style={styles.cardTitle} weight="bold">
+                            <User size={14} color={C.text} /> Class Teacher
                           </AppText>
                           <AppText style={styles.cardSub}>Assign the class teacher for this section</AppText>
                         </View>
                       </View>
                       <View style={styles.cardBody}>
-                        <AppText style={styles.label}>Select Teacher</AppText>
+                        <AppText style={styles.label} weight="bold">Select Teacher</AppText>
                         <TouchableOpacity
                           style={styles.picker}
                           onPress={() => openTeacherPicker('class')}
@@ -461,20 +484,20 @@ export default function HMTeacherAssignmentsScreen() {
                           <AppText style={{ color: classTeacherId ? C.text : C.text3, fontSize: 14 }}>
                             {classTeacherId ? getTeacherName(classTeacherId) : 'Select Teacher'}
                           </AppText>
-                          <Icon name="chevron-down" size={16} color={C.text3} />
+                          <ChevronDown size={16} color={C.text3} />
                         </TouchableOpacity>
 
                         {currentClassTeacher ? (
                           <View style={styles.currentBadge}>
-                            <Icon name="check-circle" size={14} color={C.success} />
-                            <AppText style={styles.currentBadgeText}>
+                            <CheckCircle2 size={14} color={C.success} />
+                            <AppText style={styles.currentBadgeText} weight="bold">
                               Current: {teacherLabel(currentClassTeacher)}
                             </AppText>
                           </View>
                         ) : null}
 
                         <View style={styles.noteBox}>
-                          <AppText style={styles.noteText}>
+                          <AppText style={styles.noteText} weight="bold">
                             If the selected teacher is already a class teacher for another section, you will get a warning.
                           </AppText>
                         </View>
@@ -486,19 +509,19 @@ export default function HMTeacherAssignmentsScreen() {
                         >
                           {classTeacherSaving
                             ? <ActivityIndicator color="#fff" size="small" />
-                            : <AppText style={styles.btnPrimaryText}>Save Class Teacher</AppText>}
+                            : <AppText style={styles.btnPrimaryText} weight="bold">Save Class Teacher</AppText>}
                         </TouchableOpacity>
                       </View>
                     </View>
 
                     {/* Subject Teachers Card */}
-                    <View style={[styles.card, { marginTop: 12 }]}>
+                    <View style={[styles.card]}>
                       <View style={styles.cardHead}>
                         <View style={{ flex: 1 }}>
-                          <AppText style={styles.cardTitle}>
-                            <Icon name="book" size={14} /> Subject Teachers
+                          <AppText style={styles.cardTitle} weight="bold">
+                            <BookOpen size={14} color={C.text} /> Subject Teachers
                           </AppText>
-                          <AppText style={styles.cardSub}>Assign teachers to each subject</AppText>
+                          <AppText style={styles.cardSub}>Save only subject-teacher mappings from this container</AppText>
                         </View>
                         <TouchableOpacity
                           style={styles.btnOutline}
@@ -509,8 +532,8 @@ export default function HMTeacherAssignmentsScreen() {
                             setSubjectModalOpen(true);
                           }}
                         >
-                          <Icon name="plus" size={16} color={C.text2} />
-                          <AppText style={styles.btnOutlineText}>Add Subject</AppText>
+                          <Plus size={16} color={C.text2} />
+                          <AppText style={styles.btnOutlineText} weight="bold">Add</AppText>
                         </TouchableOpacity>
                       </View>
                       <View style={styles.cardBody}>
@@ -522,7 +545,7 @@ export default function HMTeacherAssignmentsScreen() {
                           <>
                             {subjects.map(subject => (
                               <View key={subject} style={styles.subjectRow}>
-                                <AppText style={styles.subjectName}>{subject}</AppText>
+                                <AppText style={styles.subjectName} weight="bold">{subject}</AppText>
                                 <TouchableOpacity
                                   style={styles.picker}
                                   onPress={() => openTeacherPicker(subject)}
@@ -531,7 +554,7 @@ export default function HMTeacherAssignmentsScreen() {
                                   <AppText style={{ color: subjectTeacherMap[subject] ? C.text : C.text3, fontSize: 13, flex: 1 }}>
                                     {subjectTeacherMap[subject] ? getTeacherName(subjectTeacherMap[subject]) : 'Select Teacher'}
                                   </AppText>
-                                  <Icon name="chevron-down" size={16} color={C.text3} />
+                                  <ChevronDown size={16} color={C.text3} />
                                 </TouchableOpacity>
                               </View>
                             ))}
@@ -542,7 +565,7 @@ export default function HMTeacherAssignmentsScreen() {
                             >
                               {subjectTeacherSaving
                                 ? <ActivityIndicator color="#fff" size="small" />
-                                : <AppText style={styles.btnPrimaryText}>Save Subject Teachers</AppText>}
+                                : <AppText style={styles.btnPrimaryText} weight="bold">Save Subject Teachers</AppText>}
                             </TouchableOpacity>
                           </>
                         )}
@@ -554,35 +577,42 @@ export default function HMTeacherAssignmentsScreen() {
             </View>
           ) : (
             <View style={styles.emptyState}>
-              <Icon name="home" size={40} color={C.text3} />
-              <AppText style={styles.emptyTitle}>Select a class and section</AppText>
+              <Home size={40} color={C.text3} />
+              <AppText style={styles.emptyTitle} weight="bold">Select a class and section</AppText>
               <AppText style={{ color: C.text3, fontSize: 13 }}>to manage teacher assignments</AppText>
             </View>
           )}
         </>
       )}
+      </Animated.ScrollView>
 
       {/* ── Teacher Picker Modal ──────────────────────────────────────────── */}
       <Modal visible={teacherPickerVisible} transparent animationType="slide">
         <View style={styles.overlay}>
-          <View style={[styles.modal, { maxHeight: '80%' }]}>
+          <View style={[styles.modal, styles.pickerModal]}>
             <View style={styles.modalHead}>
-              <AppText style={styles.modalTitle}>Select Teacher</AppText>
+              <AppText style={styles.modalTitle} weight="bold">Select Teacher</AppText>
               <TouchableOpacity onPress={() => setTeacherPickerVisible(false)}>
-                <Icon name="x" size={22} color={C.text} />
+                <X size={22} color={C.text} />
               </TouchableOpacity>
             </View>
-            <ScrollView>
-              {teachers.map(teacher => (
-                <TouchableOpacity
-                  key={String(teacher.teacher_id)}
-                  style={styles.pickerOption}
-                  onPress={() => onPickTeacher(teacher)}
-                >
-                  <AppText style={styles.pickerOptionText}>{teacherLabel(teacher)}</AppText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            {teachers && teachers.length > 0 ? (
+              <ScrollView style={styles.pickerScrollView}>
+                {teachers.map(teacher => (
+                  <TouchableOpacity
+                    key={String(teacher.teacher_id)}
+                    style={styles.pickerOption}
+                    onPress={() => onPickTeacher(teacher)}
+                  >
+                    <AppText style={styles.pickerOptionText}>{teacherLabel(teacher)}</AppText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <View style={styles.emptyPickerList}>
+                <AppText style={styles.emptyPickerText}>No teachers available</AppText>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -592,15 +622,15 @@ export default function HMTeacherAssignmentsScreen() {
         <View style={styles.overlay}>
           <View style={styles.modal}>
             <View style={styles.modalHead}>
-              <AppText style={styles.modalTitle}>
-                <Icon name="book" size={16} /> Add Subject
+              <AppText style={styles.modalTitle} weight="bold">
+                <BookOpen size={16} color={C.text} /> Add Subject
               </AppText>
               <TouchableOpacity onPress={() => setSubjectModalOpen(false)}>
-                <Icon name="x" size={22} color={C.text} />
+                <X size={22} color={C.text} />
               </TouchableOpacity>
             </View>
             <View style={styles.modalBody}>
-              <AppText style={styles.label}>Subject Name</AppText>
+              <AppText style={styles.label} weight="bold">Subject Name</AppText>
               <TextInput
                 style={styles.input}
                 value={subjectModalNewSubject}
@@ -614,14 +644,14 @@ export default function HMTeacherAssignmentsScreen() {
             </View>
             <View style={styles.modalFoot}>
               <TouchableOpacity style={styles.btnOutline} onPress={() => setSubjectModalOpen(false)}>
-                <AppText style={styles.btnOutlineText}>Cancel</AppText>
+                <AppText style={styles.btnOutlineText} weight="bold">Cancel</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.btnPrimary, !subjectModalNewSubject.trim() && styles.btnDisabled]}
                 onPress={handleCreateSubject}
                 disabled={!subjectModalNewSubject.trim() || subjectTeacherSaving}
               >
-                <AppText style={styles.btnPrimaryText}>Add Subject</AppText>
+                <AppText style={styles.btnPrimaryText} weight="bold">Add Subject</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -633,18 +663,18 @@ export default function HMTeacherAssignmentsScreen() {
         <View style={styles.overlay}>
           <View style={styles.modal}>
             <View style={styles.modalHead}>
-              <Icon name="alert-triangle" size={20} color={C.warning} />
-              <AppText style={[styles.modalTitle, { marginLeft: 6 }]}>Class Teacher Already Assigned</AppText>
+              <AlertTriangle size={20} color={C.warning} />
+              <AppText style={[styles.modalTitle, { marginLeft: 6 }]} weight="bold">Class Teacher Already Assigned</AppText>
             </View>
             <View style={styles.modalBody}>
               <AppText style={{ color: C.text2, lineHeight: 22 }}>
-                <AppText style={{ fontWeight: '700', color: C.text }}>{overrideConflict?.teacher_name}</AppText> is already
+                <AppText style={{ color: C.text }} weight="bold">{overrideConflict?.teacher_name}</AppText> is already
                 assigned as class teacher for{' '}
-                <AppText style={{ fontWeight: '700', color: C.text }}>
+                <AppText style={{ color: C.text }} weight="bold">
                   Class {overrideConflict?.current_class_grade} — Section {overrideConflict?.current_section}
                 </AppText>.{'\n\n'}
                 Choose how to continue for{' '}
-                <AppText style={{ fontWeight: '700', color: C.text }}>
+                <AppText style={{ color: C.text }} weight="bold">
                   Class {selectedClass} — Section {selectedSection}
                 </AppText>.
               </AppText>
@@ -654,30 +684,27 @@ export default function HMTeacherAssignmentsScreen() {
                 style={styles.btnOutline}
                 onPress={() => { setOverrideOpen(false); setOverrideConflict(null); }}
               >
-                <AppText style={styles.btnOutlineText}>Cancel</AppText>
+                <AppText style={styles.btnOutlineText} weight="bold">Cancel</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.btnOutline}
                 onPress={() => saveClassTeacher('keep_both')}
                 disabled={classTeacherSaving}
               >
-                <AppText style={styles.btnOutlineText}>Assign Both</AppText>
+                <AppText style={styles.btnOutlineText} weight="bold">Assign Both</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.btnPrimary}
                 onPress={() => saveClassTeacher('move')}
                 disabled={classTeacherSaving}
               >
-                <AppText style={styles.btnPrimaryText}>Move</AppText>
+                <AppText style={styles.btnPrimaryText} weight="bold">Move</AppText>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </ScrollView>
     </View>
-  );
-}
   );
 }
 
@@ -689,95 +716,148 @@ const styles = StyleSheet.create({
   },
   navHeader: {
     backgroundColor: '#001F3F',
-    height: Platform.OS === 'ios' ? 100 : 70,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 40 : 0,
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    marginBottom: 12,
+    ...Platform.select({
+      android: { elevation: 4 },
+      ios: {},
+    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
   },
   backButton: {
-    padding: 8,
-    width: 40,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   navTitle: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 16,
     flex: 1,
     textAlign: 'center',
   },
-  refreshBtn: {
-    padding: 8,
-    width: 40,
-    alignItems: 'flex-end',
+  notificationBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
-  page: { flex: 1, backgroundColor: C.bg, padding: 16 },
+  page: { flex: 1, backgroundColor: C.bg },
+  pageContent: { paddingHorizontal: 16, paddingBottom: 120 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  title: { fontSize: 20, fontWeight: '800', color: C.text },
+  title: { fontSize: 20, color: C.text },
   subtitle: { fontSize: 13, color: C.text2, marginTop: 4 },
 
   infoBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 12, marginBottom: 12 },
   infoItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   infoText: { fontSize: 12, color: C.text2 },
-  infoBold: { fontWeight: '700', color: C.text },
+  infoBold: { color: C.text },
 
   messageBanner: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12 },
 
   panel: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, overflow: 'hidden', marginBottom: 12 },
   panelHead: { padding: 12, borderBottomWidth: 1, borderBottomColor: C.borderSoft, backgroundColor: C.sidebar },
-  panelTitle: { fontSize: 15, fontWeight: '800', color: C.text },
+  panelTitle: { fontSize: 15, color: C.text },
   panelSub: { fontSize: 12, color: C.text2, marginTop: 2 },
   panelBody: { padding: 12 },
 
   classGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   classCard: { width: '47%', borderWidth: 1.5, borderColor: C.border, borderRadius: 14, padding: 12, backgroundColor: C.white },
   classCardActive: { borderColor: C.primary, backgroundColor: C.primarySoft },
-  className: { fontSize: 15, fontWeight: '800', color: C.text },
+  className: { fontSize: 15, color: C.text },
   classMeta: { fontSize: 11, color: C.text2, marginTop: 4 },
 
-  sectionWrap: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.borderSoft },
-  sectionTitle: { fontSize: 11, fontWeight: '800', color: C.text2, marginBottom: 8, letterSpacing: 0.5 },
+  sectionWrap: { marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.borderSoft },
+  sectionTitleSmall: { fontSize: 12, color: C.text2, marginBottom: 8, letterSpacing: 0.3 },
+  sectionTitle: { fontSize: 11, color: C.text2, marginBottom: 8, letterSpacing: 0.5 },
   sectionList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   sectionBtn: { minWidth: 46, height: 38, borderRadius: 10, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.white, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12 },
   sectionBtnActive: { borderColor: C.primary, backgroundColor: C.primary },
-  sectionBtnText: { fontWeight: '800', color: C.text2 },
+  sectionBtnText: { color: C.text2 },
 
-  card: { borderWidth: 1, borderColor: C.border, borderRadius: 14, overflow: 'hidden' },
-  cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: C.borderSoft, backgroundColor: C.sidebar },
-  cardTitle: { fontSize: 14, fontWeight: '800', color: C.text },
+  card: { borderWidth: 1, borderColor: C.border, borderRadius: 14, overflow: 'hidden', marginBottom: 12 },
+  cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: C.borderSoft, backgroundColor: C.sidebar },
+  cardTitle: { fontSize: 14, color: C.text, flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardSub: { fontSize: 11, color: C.text2, marginTop: 2 },
-  cardBody: { padding: 12 },
+  cardBody: { padding: 14 },
 
-  label: { fontSize: 12, fontWeight: '800', color: C.text2, marginBottom: 6 },
+  label: { fontSize: 12, color: C.text2, marginBottom: 6 },
   picker: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44, borderWidth: 1.5, borderColor: C.border, borderRadius: 10, paddingHorizontal: 12, backgroundColor: C.white, marginBottom: 8 },
   input: { height: 44, borderWidth: 1.5, borderColor: C.border, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: C.text, backgroundColor: C.white },
 
   currentBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: C.successSoft, alignSelf: 'flex-start', marginBottom: 8 },
-  currentBadgeText: { fontSize: 12, fontWeight: '700', color: C.success },
+  currentBadgeText: { fontSize: 12, color: C.success },
 
   noteBox: { backgroundColor: C.warningSoft, borderRadius: 12, padding: 10, marginBottom: 12 },
-  noteText: { fontSize: 12, fontWeight: '700', color: C.warning },
+  noteText: { fontSize: 12, color: C.warning },
 
   subjectRow: { marginBottom: 12 },
-  subjectName: { fontSize: 13, fontWeight: '800', color: C.text, marginBottom: 6 },
+  subjectName: { fontSize: 13, color: C.text, marginBottom: 6 },
 
   emptyState: { alignItems: 'center', justifyContent: 'center', padding: 40, gap: 8 },
-  emptyTitle: { fontWeight: '800', color: C.text, fontSize: 15 },
+  emptyTitle: { color: C.text, fontSize: 15 },
 
   btnPrimary: { backgroundColor: C.primary, borderRadius: 10, height: 42, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, flexDirection: 'row', gap: 6 },
-  btnPrimaryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  btnPrimaryText: { color: '#fff', fontSize: 14 },
   btnOutline: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 42, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.white },
-  btnOutlineText: { color: C.text2, fontWeight: '700', fontSize: 13 },
+  btnOutlineText: { color: C.text2, fontSize: 13 },
   btnDisabled: { opacity: 0.5 },
 
   overlay: { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)', justifyContent: 'center', alignItems: 'center', padding: 16 },
   modal: { width: '100%', backgroundColor: C.white, borderRadius: 18, overflow: 'hidden' },
   modalHead: { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: C.borderSoft, backgroundColor: C.sidebar },
-  modalTitle: { fontSize: 15, fontWeight: '800', color: C.text, flex: 1 },
+  modalTitle: { fontSize: 15, color: C.text, flex: 1 },
   modalBody: { padding: 16 },
   modalFoot: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, padding: 14, borderTopWidth: 1, borderTopColor: C.borderSoft, flexWrap: 'wrap' },
 
+  pickerModal: { maxHeight: '80%', minHeight: 200, flex: 0, flexDirection: 'column' },
+  pickerScrollView: { flex: 1 },
   pickerOption: { padding: 14, borderBottomWidth: 1, borderBottomColor: C.borderSoft },
   pickerOptionText: { fontSize: 14, color: C.text },
+  emptyPickerList: { padding: 20, justifyContent: 'center', alignItems: 'center', minHeight: 100 },
+  emptyPickerText: { fontSize: 14, color: C.text2 },
+
+  footerTabs: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: C.white,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    paddingTop: 8,
+  },
+  footerTab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    gap: 4,
+  },
+  footerTabActive: {
+    backgroundColor: C.primarySoft,
+  },
+  footerTabText: {
+    fontSize: 11,
+    color: C.text2,
+  },
+  footerTabTextActive: {
+    color: C.primary,
+  },
 });

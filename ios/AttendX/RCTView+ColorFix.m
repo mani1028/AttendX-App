@@ -11,11 +11,6 @@
 - (void)setColor:(id)color { (void)color; }
 - (void)setTitle:(id)title { (void)title; }
 - (void)setHide:(id)hide { (void)hide; }
-- (void)setPointerEvents:(id)pointerEvents { (void)pointerEvents; }
-- (void)setAdjustsFontSizeToFit:(id)adjusts { (void)adjusts; }
-- (void)setMinimumFontScale:(id)scale { (void)scale; }
-- (void)setNumberOfLines:(id)lines { (void)lines; }
-- (void)setSelectionColor:(id)color { (void)color; }
 - (void)setLargeTitleFontWeight:(id)fontWeight { (void)fontWeight; }
 
 @end

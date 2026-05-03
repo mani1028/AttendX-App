@@ -16,10 +16,12 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import {
   ChevronLeft,
+  ChevronRight,
   Filter,
   Settings,
   CheckCircle2,
@@ -32,15 +34,20 @@ import {
   BookOpen,
   User,
   LayoutGrid,
-  ClipboardList
+  ClipboardList,
+  Clock,
+  X
 } from 'lucide-react-native';
 import API from '../../services/api';
+import { formatErrorMessage } from '../../utils/helpers';
 import { colors } from '../../constants/theme';
+import HM_THEME from '../../constants/hmTheme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
+import CustomPickerModal from '../../components/common/CustomPickerModal';
 
 // Types
 interface ClassItem {
@@ -57,6 +64,11 @@ interface ExamItem {
   exam_id: string;
   exam_name: string;
   academic_year: string;
+}
+
+interface PickerOption {
+  id: string;
+  name: string;
 }
 
 interface SubjectItem {
@@ -107,9 +119,9 @@ const GradeBadge: React.FC<{ grade: string }> = ({ grade }) => {
   if (!grade) return null;
   return (
     <View style={[styles.gradeBadge, isFail ? styles.gradeBadgeFail : styles.gradeBadgePass]}>
-      <Text style={[styles.gradeText, isFail ? styles.gradeTextFail : styles.gradeTextPass]}>
+      <AppText weight="bold" style={[styles.gradeText, isFail ? styles.gradeTextFail : styles.gradeTextPass]}>
         {grade}
-      </Text>
+      </AppText>
     </View>
   );
 };
@@ -117,7 +129,7 @@ const GradeBadge: React.FC<{ grade: string }> = ({ grade }) => {
 // Roll Tag Component
 const RollTag: React.FC<{ roll: string }> = ({ roll }) => (
   <View style={styles.rollTag}>
-    <Text style={styles.rollTagText}>#{roll}</Text>
+    <AppText weight="bold" style={styles.rollTagText}>#{roll}</AppText>
   </View>
 );
 
@@ -135,9 +147,9 @@ const StudentRow: React.FC<{
       <View style={styles.studentInfoCol}>
         <View style={styles.studentMainInfo}>
           <RollTag roll={student.roll_number} />
-          <Text style={styles.studentName} numberOfLines={1}>{student.student_full_name}</Text>
+          <AppText weight="bold" style={styles.studentName} numberOfLines={1}>{student.student_full_name}</AppText>
         </View>
-        <Text style={styles.studentId}>ID: {student.student_id}</Text>
+        <AppText weight="semiBold" style={styles.studentId}>ID: {student.student_id}</AppText>
       </View>
 
       <View style={styles.actionCol}>
@@ -146,13 +158,13 @@ const StudentRow: React.FC<{
             style={[styles.toggleBtn, !student.isAbsent && styles.toggleBtnActive]}
             onPress={() => onAbsentToggle(student.student_id, false)}
           >
-            <Text style={[styles.toggleText, !student.isAbsent && styles.toggleTextActive]}>P</Text>
+            <AppText weight="bold" style={[styles.toggleText, !student.isAbsent && styles.toggleTextActive]}>P</AppText>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.toggleBtn, student.isAbsent && styles.toggleBtnAbsentActive]}
             onPress={() => onAbsentToggle(student.student_id, true)}
           >
-            <Text style={[styles.toggleText, student.isAbsent && styles.toggleTextAbsentActive]}>A</Text>
+            <AppText weight="bold" style={[styles.toggleText, student.isAbsent && styles.toggleTextAbsentActive]}>A</AppText>
           </TouchableOpacity>
         </View>
 
@@ -214,132 +226,130 @@ const FilterModal: React.FC<{
   selectedSection,
   selectedExam,
   selectedSubject,
-  loadingClasses,
-  loadingSections,
-  loadingExams,
-  loadingSubjects,
   onSelectClass,
   onSelectSection,
   onSelectExam,
   onSelectSubject,
   onApply,
   onClose,
-}) => (
-  <Modal visible={visible} transparent animationType="slide">
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalContent}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Filters</Text>
-          <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-            <Text style={styles.modalCloseText}>✕</Text>
-          </TouchableOpacity>
-        </View>
+}) => {
+  const [pickerModal, setPickerModal] = useState<{ visible: boolean; title: string; options: { label: string; value: any }[]; selectedValue: any; onValueChange: (value: any) => void } | null>(null);
 
-        <ScrollView style={styles.modalBody}>
-          {/* Class Filter */}
-          <Text style={styles.modalLabel}>Class</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.chipContainer}>
-              {loadingClasses ? (
-                <ActivityIndicator size="small" color="#2563eb" />
-              ) : (
-                classes.map(cls => (
-                  <TouchableOpacity
-                    key={cls.class_id}
-                    style={[styles.chip, selectedClass === cls.class_id && styles.chipActive]}
-                    onPress={() => onSelectClass(cls.class_id)}
-                  >
-                    <Text style={[styles.chipText, selectedClass === cls.class_id && styles.chipTextActive]}>
-                      {cls.class_name}
-                    </Text>
-                  </TouchableOpacity>
-                ))
-              )}
+  const handleOptionSelect = (mode: 'class' | 'section' | 'exam' | 'subject', id: string) => {
+    if (mode === 'class') onSelectClass(id);
+    else if (mode === 'section') onSelectSection(id);
+    else if (mode === 'exam') onSelectExam(id);
+    else if (mode === 'subject') onSelectSubject(id);
+  };
+
+  const currentSelection = (type: 'class' | 'section' | 'exam' | 'subject') => {
+    if (type === 'class') return classes.find(c => c.class_id === selectedClass)?.class_name || 'Select Class';
+    if (type === 'section') return sections.find(s => s.section_id === selectedSection)?.section_name || 'Select Section';
+    if (type === 'exam') return exams.find(e => e.exam_id === selectedExam)?.exam_name || 'Select Exam';
+    if (type === 'subject') return subjects.find(s => s.subject_id === selectedSubject)?.subject_name || 'Select Subject';
+    return '';
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <AppText weight="bold" style={styles.modalTitle}>Select Filters</AppText>
+            <TouchableOpacity onPress={onClose} style={styles.modalClose}>
+              <X size={20} color="#64748b" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalBody}>
+            <View style={styles.filterGroup}>
+              <AppText weight="bold" style={styles.modalLabel}>Class</AppText>
+              <TouchableOpacity
+                style={styles.pickerSelector}
+                onPress={() => setPickerModal({
+                  visible: true,
+                  title: 'Select Class',
+                  options: classes.map(c => ({ label: c.class_name, value: c.class_id })),
+                  selectedValue: selectedClass,
+                  onValueChange: (v) => handleOptionSelect('class', v)
+                })}
+              >
+                <AppText style={styles.pickerSelectorText}>{currentSelection('class')}</AppText>
+                <ChevronRight size={18} color="#64748b" style={{ transform: [{ rotate: '90deg' }] }} />
+              </TouchableOpacity>
             </View>
+
+            {selectedClass && (
+              <View style={styles.filterGroup}>
+                <AppText weight="bold" style={styles.modalLabel}>Section</AppText>
+                <TouchableOpacity
+                  style={styles.pickerSelector}
+                  onPress={() => setPickerModal({
+                    visible: true,
+                    title: 'Select Section',
+                    options: sections.map(s => ({ label: s.section_name, value: s.section_id })),
+                    selectedValue: selectedSection,
+                    onValueChange: (v) => handleOptionSelect('section', v)
+                  })}
+                >
+                  <AppText style={styles.pickerSelectorText}>{currentSelection('section')}</AppText>
+                  <ChevronRight size={18} color="#64748b" style={{ transform: [{ rotate: '90deg' }] }} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <View style={styles.filterGroup}>
+              <AppText weight="bold" style={styles.modalLabel}>Exam</AppText>
+              <TouchableOpacity
+                style={styles.pickerSelector}
+                onPress={() => setPickerModal({
+                  visible: true,
+                  title: 'Select Exam',
+                  options: exams.map(e => ({ label: e.exam_name, value: e.exam_id })),
+                  selectedValue: selectedExam,
+                  onValueChange: (v) => handleOptionSelect('exam', v)
+                })}
+              >
+                <AppText style={styles.pickerSelectorText}>{currentSelection('exam')}</AppText>
+                <ChevronRight size={18} color="#64748b" style={{ transform: [{ rotate: '90deg' }] }} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedClass && (
+              <View style={styles.filterGroup}>
+                <AppText weight="bold" style={styles.modalLabel}>Subject</AppText>
+                <TouchableOpacity
+                  style={styles.pickerSelector}
+                  onPress={() => setPickerModal({
+                    visible: true,
+                    title: 'Select Subject',
+                    options: subjects.map(su => ({ label: su.subject_name, value: su.subject_id })),
+                    selectedValue: selectedSubject,
+                    onValueChange: (v) => handleOptionSelect('subject', v)
+                  })}
+                >
+                  <AppText style={styles.pickerSelectorText}>{currentSelection('subject')}</AppText>
+                  <ChevronRight size={18} color="#64748b" style={{ transform: [{ rotate: '90deg' }] }} />
+                </TouchableOpacity>
+              </View>
+            )}
           </ScrollView>
 
-          {/* Section Filter */}
-          {selectedClass && (
-            <>
-              <Text style={[styles.modalLabel, { marginTop: 16 }]}>Section</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.chipContainer}>
-                  {loadingSections ? (
-                    <ActivityIndicator size="small" color="#2563eb" />
-                  ) : (
-                    sections.map(sec => (
-                      <TouchableOpacity
-                        key={sec.section_id}
-                        style={[styles.chip, selectedSection === sec.section_id && styles.chipActive]}
-                        onPress={() => onSelectSection(sec.section_id)}
-                      >
-                        <Text style={[styles.chipText, selectedSection === sec.section_id && styles.chipTextActive]}>
-                          {sec.section_name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))
-                  )}
-                </View>
-              </ScrollView>
-            </>
-          )}
-
-          {/* Exam Filter */}
-          <Text style={[styles.modalLabel, { marginTop: 16 }]}>Exam</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.chipContainer}>
-              {loadingExams ? (
-                <ActivityIndicator size="small" color="#2563eb" />
-              ) : (
-                exams.map(exam => (
-                  <TouchableOpacity
-                    key={exam.exam_id}
-                    style={[styles.chip, selectedExam === exam.exam_id && styles.chipActive]}
-                    onPress={() => onSelectExam(exam.exam_id)}
-                  >
-                    <Text style={[styles.chipText, selectedExam === exam.exam_id && styles.chipTextActive]}>
-                      {exam.exam_name}
-                    </Text>
-                  </TouchableOpacity>
-                ))
-              )}
-            </View>
-          </ScrollView>
-
-          {/* Subject Filter */}
-          {selectedClass && (
-            <>
-              <Text style={[styles.modalLabel, { marginTop: 16 }]}>Subject</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.chipContainer}>
-                  {loadingSubjects ? (
-                    <ActivityIndicator size="small" color="#2563eb" />
-                  ) : (
-                    subjects.map(subj => (
-                      <TouchableOpacity
-                        key={subj.subject_id}
-                        style={[styles.chip, selectedSubject === subj.subject_id && styles.chipActive]}
-                        onPress={() => onSelectSubject(subj.subject_id)}
-                      >
-                        <Text style={[styles.chipText, selectedSubject === subj.subject_id && styles.chipTextActive]}>
-                          {subj.subject_name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))
-                  )}
-                </View>
-              </ScrollView>
-            </>
-          )}
-        </ScrollView>
-
-        <View style={styles.modalFooter}>
-          <AppButton title="Apply Filters" onPress={onApply} />
+          <View style={styles.modalFooter}>
+            <AppButton title="Apply Filters" onPress={onApply} disabled={!selectedClass || !selectedSection || !selectedExam || !selectedSubject} />
+          </View>
         </View>
       </View>
-    </View>
-  </Modal>
-);
+
+      {pickerModal && (
+        <CustomPickerModal
+          {...pickerModal}
+          onClose={() => setPickerModal(null)}
+        />
+      )}
+    </Modal>
+  );
+};
 
 // Exam Config Modal
 const ExamConfigModal: React.FC<{
@@ -356,14 +366,14 @@ const ExamConfigModal: React.FC<{
     <View style={styles.modalOverlay}>
       <View style={styles.configModalContent}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Exam Configuration</Text>
+          <AppText weight="bold" style={styles.modalTitle}>Exam Configuration</AppText>
           <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-            <Text style={styles.modalCloseText}>✕</Text>
+            <X size={20} color="#64748b" />
           </TouchableOpacity>
         </View>
 
         <View style={styles.configModalBody}>
-          <Text style={styles.modalLabel}>Total Marks</Text>
+          <AppText weight="bold" style={styles.modalLabel}>Total Marks</AppText>
           <TextInput
             style={styles.configInput}
             placeholder="Enter total marks"
@@ -372,7 +382,7 @@ const ExamConfigModal: React.FC<{
             onChangeText={onMaxMarksChange}
           />
 
-          <Text style={[styles.modalLabel, { marginTop: 16 }]}>Pass Marks</Text>
+          <AppText weight="bold" style={[styles.modalLabel, { marginTop: 16 }]}>Pass Marks</AppText>
           <TextInput
             style={styles.configInput}
             placeholder="Enter pass marks"
@@ -392,6 +402,7 @@ const ExamConfigModal: React.FC<{
 );
 
 export default function MarksEntryScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
@@ -494,21 +505,21 @@ export default function MarksEntryScreen() {
         const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           const data = JSON.parse(cached);
-          const assignments = data.assignments || [];
-          const teacherData = data.teacher_data || null;
+          const rawAssignments = Array.isArray(data?.assignments) ? data.assignments.filter(Boolean) : [];
+          const teacherData = data?.teacher_data || null;
           const canonicalId = String(teacherData?.teacher_id || teacherId).trim();
           const deptRaw = String(teacherData?.department_subject || '').trim();
-          const deptSubjects = Array.from(new Set(deptRaw.split(/[,/|]+/).map(s => s.trim()).filter(Boolean)));
+          const deptSubjects = Array.from(new Set(deptRaw.split(/[,/|]+/).map((s: any) => String(s || '').trim()).filter(Boolean)));
 
           if (isMounted.current) {
-            setTeacherAssignments(assignments);
+            setTeacherAssignments(rawAssignments);
             setTeacherSubjects(deptSubjects);
             setResolvedTeacherId(canonicalId);
 
             const uniqueClasses = Array.from(
               new Map(
-                assignments
-                  .filter((a: any) => a.class_id && a.class_name)
+                rawAssignments
+                  .filter((a: any) => a?.class_id && a?.class_name)
                   .map((a: any) => [String(a.class_name).trim().toLowerCase(), { class_id: String(a.class_id), class_name: a.class_name }])
               ).values()
             ) as ClassItem[];
@@ -528,23 +539,23 @@ export default function MarksEntryScreen() {
         
         if (!isMounted.current) return;
 
-        const assignments = res.data?.assignments || [];
+        const rawAssignments = Array.isArray(res.data?.assignments) ? res.data.assignments.filter(Boolean) : [];
         const teacherData = res.data?.teacher_data || null;
         const canonicalId = String(teacherData?.teacher_id || teacherId).trim();
         const deptRaw = String(teacherData?.department_subject || '').trim();
-        const deptSubjects = Array.from(new Set(deptRaw.split(/[,/|]+/).map(s => s.trim()).filter(Boolean)));
+        const deptSubjects = Array.from(new Set(deptRaw.split(/[,/|]+/).map((s: any) => String(s || '').trim()).filter(Boolean)));
 
-        setTeacherAssignments(assignments);
+        setTeacherAssignments(rawAssignments);
         setTeacherSubjects(deptSubjects);
         setResolvedTeacherId(canonicalId);
 
         const uniqueClasses = Array.from(
           new Map(
-            assignments
-              .filter(a => a.class_id && a.class_name)
-              .map(a => [String(a.class_name).trim().toLowerCase(), { class_id: String(a.class_id), class_name: a.class_name }])
+            rawAssignments
+              .filter((a: any) => a?.class_id && a?.class_name)
+              .map((a: any) => [String(a.class_name).trim().toLowerCase(), { class_id: String(a.class_id), class_name: a.class_name }])
           ).values()
-        );
+        ) as ClassItem[];
         setClasses(uniqueClasses);
 
         // Save to cache
@@ -575,8 +586,9 @@ export default function MarksEntryScreen() {
       try {
         const res = await API.get('/teacher/marks/exams', { headers: { 'x-school-code': schoolCode } });
         if (!isMounted.current) return;
+        const rawExams = Array.isArray(res.data?.exams) ? res.data.exams.filter(Boolean) : [];
         const uniqueExams = Array.from(
-          new Map((res.data?.exams || []).map((e: any) => [String(e.exam_id), e])).values()
+          new Map(rawExams.map((e: any) => [String(e?.exam_id), e])).values()
         );
         setExams(uniqueExams);
         await AsyncStorage.setItem(cacheKey, JSON.stringify(uniqueExams));
@@ -601,11 +613,12 @@ export default function MarksEntryScreen() {
       return;
     }
     setLoadingSections(true);
-    const sectionsData = teacherAssignments
-      .filter(a => String(a.class_id) === String(classId))
-      .map(a => ({ section_id: String(a.section_id), section_name: a.section_name }))
+    const assignmentsArray = Array.isArray(teacherAssignments) ? teacherAssignments.filter(Boolean) : [];
+    const sectionsData = assignmentsArray
+      .filter(a => String(a?.class_id) === String(classId))
+      .map(a => ({ section_id: String(a?.section_id), section_name: a?.section_name }))
       .filter(a => a.section_id && a.section_name);
-    const uniqueSections = Array.from(new Map(sectionsData.map(x => [String(x.section_id), x])).values());
+    const uniqueSections = Array.from(new Map(sectionsData.map(x => [String(x.section_id), x])).values()) as SectionItem[];
     setSections(uniqueSections);
     setSectionId('');
     if (isMounted.current) setLoadingSections(false);
@@ -619,15 +632,16 @@ export default function MarksEntryScreen() {
       return;
     }
     setLoadingSubjects(true);
-    const raw = teacherAssignments
-      .filter(a => String(a.class_id) === String(classId))
-      .filter(a => !sectionId || String(a.section_id) === String(sectionId))
-      .map(a => ({ subject_id: String(a.subject_id), subject_name: a.subject_name }))
+    const assignmentsArray = Array.isArray(teacherAssignments) ? teacherAssignments.filter(Boolean) : [];
+    const raw = assignmentsArray
+      .filter(a => String(a?.class_id) === String(classId))
+      .filter(a => !sectionId || String(a?.section_id) === String(sectionId))
+      .map(a => ({ subject_id: String(a?.subject_id), subject_name: a?.subject_name }))
       .filter(a => a.subject_id && a.subject_name);
     
-    const unique = Array.from(new Map(raw.map(x => [String(x.subject_id), x])).values());
-    const allowedSet = new Set(teacherSubjects.map(s => s.toLowerCase()));
-    setSubjects(allowedSet.size ? unique.filter(s => allowedSet.has(s.subject_name.toLowerCase())) : unique);
+    const unique = Array.from(new Map(raw.map(x => [String(x.subject_id), x])).values()) as SubjectItem[];
+    const allowedSet = new Set((Array.isArray(teacherSubjects) ? teacherSubjects : []).filter(Boolean).map(s => String(s || '').toLowerCase()));
+    setSubjects(allowedSet.size ? unique.filter(s => allowedSet.has(String(s.subject_name || '').toLowerCase())) : unique);
     setSubjectId('');
     if (isMounted.current) setLoadingSubjects(false);
   }, [classId, sectionId, teacherAssignments, teacherSubjects]);
@@ -659,7 +673,8 @@ export default function MarksEntryScreen() {
       try {
         const res = await API.get(`/teacher/marks/exam-subjects/${examId}`, { headers: { 'x-school-code': schoolCode } });
         if (!isMounted.current) return;
-        const found = (res.data?.exam_subjects || []).find((s: any) => s.subject_id === parseInt(subjectId));
+        const examSubjectsRaw = Array.isArray(res.data?.exam_subjects) ? res.data.exam_subjects.filter(Boolean) : [];
+        const found = examSubjectsRaw.find((s: any) => String(s?.subject_id) === String(subjectId));
         if (found) {
           setInputMaxMarks(found.max_marks?.toString() || '');
           setInputPassMarks(found.pass_marks?.toString() || '');
@@ -688,12 +703,6 @@ export default function MarksEntryScreen() {
       Alert.alert('Error', 'Please select Class, Section, Exam, and Subject');
       return;
     }
-    
-    if (!examSubjectId) {
-      Alert.alert('Error', 'Please save the exam configuration first');
-      setShowConfigModal(true);
-      return;
-    }
 
     const cacheKey = `marks_students_${examId}_${subjectId}_${classId}_${sectionId}_${schoolCode}`;
 
@@ -717,10 +726,11 @@ export default function MarksEntryScreen() {
 
       if (!isMounted.current) return;
 
-      let rows: StudentMark[] = (res.data?.students || []).map((s: any) => ({
+      const studentsRaw = Array.isArray(res.data?.students) ? res.data.students.filter(Boolean) : [];
+      let rows: StudentMark[] = studentsRaw.map((s: any) => ({
         ...s,
         isAbsent: false,
-        marks_obtained: s.marks_obtained === null || s.marks_obtained === undefined ? '' : String(s.marks_obtained),
+        marks_obtained: s?.marks_obtained === null || s?.marks_obtained === undefined ? '' : String(s.marks_obtained),
         hasExistingMarks: false,
         grade: '',
         status: '',
@@ -734,19 +744,25 @@ export default function MarksEntryScreen() {
         );
         if (isMounted.current) {
           const marksMap: Record<string, any> = {};
-          (marksRes.data?.marks || []).forEach((m: any) => { marksMap[m.student_id] = m; });
+          const marksRaw = Array.isArray(marksRes.data?.marks) ? marksRes.data.marks.filter(Boolean) : [];
+          marksRaw.forEach((m: any) => {
+            if (m?.student_id) marksMap[String(m.student_id)] = m;
+          });
 
-          rows = rows.map((s) => ({
-            ...s,
-            isAbsent: marksMap[s.student_id] ? Boolean(marksMap[s.student_id]?.is_absent) : false,
-            marks_obtained: marksMap[s.student_id]?.marks_obtained !== undefined && marksMap[s.student_id]?.marks_obtained !== null
-              ? String(marksMap[s.student_id]?.marks_obtained)
-              : '',
-            mark_id: marksMap[s.student_id]?.mark_id || null,
-            grade: marksMap[s.student_id]?.grade || '',
-            status: marksMap[s.student_id]?.status || '',
-            hasExistingMarks: !!marksMap[s.student_id],
-          }));
+          rows = rows.map((s) => {
+            const m = marksMap[String(s.student_id)];
+            return {
+              ...s,
+              isAbsent: m ? Boolean(m.is_absent) : false,
+              marks_obtained: m?.marks_obtained !== undefined && m?.marks_obtained !== null
+                ? String(m.marks_obtained)
+                : '',
+              mark_id: m?.mark_id || null,
+              grade: m?.grade || '',
+              status: m?.status || '',
+              hasExistingMarks: !!m,
+            };
+          });
         }
       } catch (e) {
         console.warn('Failed to fetch existing marks');
@@ -764,7 +780,7 @@ export default function MarksEntryScreen() {
     } catch (err: any) {
       if (err?.response?.status === 401) return;
       if (isMounted.current) {
-        Alert.alert('Error', err?.response?.data?.detail || 'Failed to load students');
+        Alert.alert('Error', formatErrorMessage(err?.response?.data?.detail) || 'Failed to load students');
       }
     } finally {
       if (isMounted.current) setLoadingStudents(false);
@@ -811,7 +827,31 @@ export default function MarksEntryScreen() {
       return false;
     }
     if (!examSubjectId) {
-      if (!silent) Alert.alert('Error', 'Please save the exam configuration first');
+      if (!silent) {
+        Alert.alert(
+          'Exam configuration missing',
+          'Exam configuration is not saved. Save default configuration (Total: 100, Pass: 33) and continue?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Save & Continue',
+              onPress: async () => {
+                try {
+                  if (!inputMaxMarks) setInputMaxMarks('100');
+                  if (!inputPassMarks) setInputPassMarks('33');
+                  await saveExamConfig();
+                  // Give state a moment to update then retry saving marks
+                  setTimeout(() => {
+                    saveMarks(silent);
+                  }, 300);
+                } catch (e) {
+                  // ignore - saveExamConfig handles alerts
+                }
+              },
+            },
+          ]
+        );
+      }
       return false;
     }
 
@@ -826,12 +866,17 @@ export default function MarksEntryScreen() {
       const promises = entries.map(student => {
         const formData = new FormData();
         formData.append('student_id', student.student_id);
-        formData.append('exam_id', Number(examId));
-        formData.append('subject_id', Number(subjectId));
-        formData.append('marks_obtained', student.isAbsent ? 0 : Number(student.marks_obtained));
+        formData.append('exam_id', String(examId));
+        formData.append('subject_id', String(subjectId));
+        formData.append('marks_obtained', student.isAbsent ? '0' : String(student.marks_obtained));
         formData.append('is_absent', student.isAbsent ? 'true' : 'false');
-        formData.append('teacher_id', resolvedTeacherId);
-        return API.post('/teacher/marks/enter', formData, { headers: { 'x-school-code': schoolCode } });
+        formData.append('teacher_id', String(resolvedTeacherId));
+        return API.post('/teacher/marks/enter', formData, {
+          headers: {
+            'x-school-code': schoolCode,
+            'Content-Type': 'multipart/form-data'
+          }
+        });
       });
 
       await Promise.all(promises);
@@ -852,7 +897,7 @@ export default function MarksEntryScreen() {
       return true;
     } catch (err: any) {
       if (err?.response?.status === 401) return false;
-      const errorMsg = err?.response?.data?.detail || 'Failed to save marks';
+      const errorMsg = formatErrorMessage(err?.response?.data?.detail) || 'Failed to save marks';
       if (!silent && isMounted.current) Alert.alert('Error', errorMsg);
       return false;
     } finally {
@@ -874,24 +919,40 @@ export default function MarksEntryScreen() {
       return;
     }
 
+    // Basic client-side validation
+    const max = parseInt(String(inputMaxMarks || '').trim(), 10);
+    const pass = parseInt(String(inputPassMarks || '').trim(), 10);
+    if (Number.isNaN(max) || Number.isNaN(pass) || max <= 0 || pass < 0) {
+      Alert.alert('Error', 'Total Marks and Pass Marks must be valid positive numbers');
+      return;
+    }
+    if (pass > max) {
+      Alert.alert('Error', 'Pass Marks cannot be greater than Total Marks');
+      return;
+    }
+
     if (isMounted.current) setSavingExamConfig(true);
     try {
       const formData = new FormData();
-      formData.append('exam_id', Number(examId));
-      formData.append('subject_id', Number(subjectId));
-      formData.append('max_marks', Number(inputMaxMarks));
-      formData.append('pass_marks', Number(inputPassMarks));
-      const res = await API.post('/teacher/marks/exam-subject-config', formData, { headers: { 'x-school-code': schoolCode } });
+      formData.append('exam_id', String(examId));
+      formData.append('subject_id', String(subjectId));
+      formData.append('max_marks', String(max));
+      formData.append('pass_marks', String(pass));
+      const res = await API.post('/teacher/marks/exam-subject-config', formData, { headers: { 'x-school-code': schoolCode, 'Content-Type': 'multipart/form-data' } });
       if (isMounted.current) {
-        setExamSubjectId(res.data?.exam_subject_id);
+        // Handle various possible response shapes
+        const newId = res.data?.exam_subject_id || res.data?.id || res.data?.exam_subject?.id || true;
+        setExamSubjectId(newId);
         setIsEditMode(false);
         setShowConfigModal(false);
-        Alert.alert('Success', 'Exam configuration saved successfully');
+        Alert.alert('Success', 'Exam configuration saved successfully', [
+          { text: 'OK', onPress: () => loadStudents() }
+        ]);
       }
     } catch (err: any) {
       if (err?.response?.status === 401) return;
       if (isMounted.current) {
-        Alert.alert('Error', err?.response?.data?.detail || 'Failed to save exam config');
+        Alert.alert('Error', formatErrorMessage(err?.response?.data?.detail) || 'Failed to save exam config');
       }
     } finally {
       if (isMounted.current) setSavingExamConfig(false);
@@ -936,6 +997,10 @@ export default function MarksEntryScreen() {
 
   const handleApplyFilters = () => {
     setShowFilterModal(false);
+    // Load students immediately after applying filters
+    setTimeout(() => {
+      loadStudents();
+    }, 50);
   };
 
   const totalSaved = students.filter(s => s.hasExistingMarks || s.marks_obtained !== '').length;
@@ -944,39 +1009,38 @@ export default function MarksEntryScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
-
-      {/* Navy Hero Header */}
-      <View style={styles.heroHeader}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => navigation.goBack()}
-          >
-            <ChevronLeft size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.heroTitle}>Marks Entry</Text>
-          <View style={{ width: 40 }} />
-        </View>
-
-        <View style={styles.heroContent}>
-          <Text style={styles.heroGreeting}>Academic Grading</Text>
-          <Text style={styles.heroSubtext}>Enter and manage student marks for examinations</Text>
-        </View>
-      </View>
+      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#001F3F" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={HM_THEME.navy} />}
       >
+        {/* Navy Standard Header */}
+        <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('TeacherDashboard')}
+            >
+              <ChevronLeft size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <AppText weight="bold" style={styles.headerTitle}>Marks Entry</AppText>
+            <View style={{ width: 40 }} />
+          </View>
+
+          <View style={styles.headerContent}>
+            <AppText weight="bold" style={styles.headerGreeting}>Academic Grading</AppText>
+            <AppText weight="regular" style={styles.headerSubtext}>Enter and manage student marks for examinations</AppText>
+          </View>
+        </View>
 
         {/* Filter Card */}
         <AppCard style={styles.mainCard}>
           <View style={styles.cardHeader}>
-            <Filter size={20} color="#001F3F" />
-            <Text style={styles.cardTitle}>Selection Filters</Text>
+            <Filter size={20} color={HM_THEME.navy} />
+            <AppText weight="bold" style={styles.cardTitle}>Selection Filters</AppText>
           </View>
 
           <View style={styles.cardBody}>
@@ -984,26 +1048,26 @@ export default function MarksEntryScreen() {
             <View style={styles.selectedFilters}>
               {classId ? (
                 <View style={styles.filterTag}>
-                  <LayoutGrid size={12} color="#001F3F" />
-                  <Text style={styles.filterTagText}>Class {classes.find(c => c.class_id === classId)?.class_name}</Text>
+                  <LayoutGrid size={12} color={HM_THEME.navy} />
+                  <AppText weight="semiBold" style={styles.filterTagText}>Class {classes.find(c => c.class_id === classId)?.class_name}</AppText>
                 </View>
               ) : null}
               {sectionId ? (
                 <View style={styles.filterTag}>
-                  <BookOpen size={12} color="#001F3F" />
-                  <Text style={styles.filterTagText}>Sec {sections.find(s => s.section_id === sectionId)?.section_name}</Text>
+                  <BookOpen size={12} color={HM_THEME.navy} />
+                  <AppText weight="semiBold" style={styles.filterTagText}>Sec {sections.find(s => s.section_id === sectionId)?.section_name}</AppText>
                 </View>
               ) : null}
               {examId ? (
                 <View style={styles.filterTag}>
-                  <ClipboardList size={12} color="#001F3F" />
-                  <Text style={styles.filterTagText}>{exams.find(e => e.exam_id === examId)?.exam_name}</Text>
+                  <ClipboardList size={12} color={HM_THEME.navy} />
+                  <AppText weight="semiBold" style={styles.filterTagText}>{exams.find(e => e.exam_id === examId)?.exam_name}</AppText>
                 </View>
               ) : null}
               {subjectId ? (
                 <View style={styles.filterTag}>
-                  <BookOpen size={12} color="#001F3F" />
-                  <Text style={styles.filterTagText}>{subjects.find(s => s.subject_id === subjectId)?.subject_name}</Text>
+                  <BookOpen size={12} color={HM_THEME.navy} />
+                  <AppText weight="semiBold" style={styles.filterTagText}>{subjects.find(s => s.subject_id === subjectId)?.subject_name}</AppText>
                 </View>
               ) : null}
             </View>
@@ -1022,13 +1086,13 @@ export default function MarksEntryScreen() {
           <AppCard style={styles.configCard}>
             <View style={styles.configHeader}>
               <View style={styles.configTitleRow}>
-                <Settings size={18} color="#001F3F" />
-                <Text style={styles.configTitle}>Exam Rules</Text>
+                <Settings size={18} color={HM_THEME.navy} />
+                <AppText weight="bold" style={styles.configTitle}>Exam Rules</AppText>
               </View>
               {examSubjectId && !isEditMode && (
                 <View style={styles.savedBadge}>
                   <CheckCircle2 size={12} color="#15803d" />
-                  <Text style={styles.savedBadgeText}>Set</Text>
+                  <AppText weight="bold" style={styles.savedBadgeText}>Set</AppText>
                 </View>
               )}
             </View>
@@ -1037,7 +1101,7 @@ export default function MarksEntryScreen() {
               <View style={styles.configForm}>
                 <View style={styles.configRow}>
                   <View style={styles.configInputGroup}>
-                    <Text style={styles.configLabel}>Total Marks</Text>
+                    <AppText weight="semiBold" style={styles.configLabel}>Total Marks</AppText>
                     <TextInput
                       style={styles.configInput}
                       placeholder="e.g. 100"
@@ -1047,7 +1111,7 @@ export default function MarksEntryScreen() {
                     />
                   </View>
                   <View style={styles.configInputGroup}>
-                    <Text style={styles.configLabel}>Pass Marks</Text>
+                    <AppText weight="semiBold" style={styles.configLabel}>Pass Marks</AppText>
                     <TextInput
                       style={styles.configInput}
                       placeholder="e.g. 33"
@@ -1067,12 +1131,12 @@ export default function MarksEntryScreen() {
             ) : (
               <View style={styles.configDisplay}>
                 <View style={styles.configItem}>
-                  <Text style={styles.configItemLabel}>Total</Text>
-                  <Text style={styles.configItemValue}>{inputMaxMarks}</Text>
+                  <AppText weight="bold" style={styles.configItemLabel}>Total</AppText>
+                  <AppText weight="bold" style={styles.configItemValue}>{inputMaxMarks}</AppText>
                 </View>
                 <View style={styles.configItem}>
-                  <Text style={styles.configItemLabel}>Pass</Text>
-                  <Text style={styles.configItemValue}>{inputPassMarks}</Text>
+                  <AppText weight="bold" style={styles.configItemLabel}>Pass</AppText>
+                  <AppText weight="bold" style={styles.configItemValue}>{inputPassMarks}</AppText>
                 </View>
                 <TouchableOpacity style={styles.editConfigBtn} onPress={() => setIsEditMode(true)}>
                   <RefreshCw size={16} color="#64748b" />
@@ -1088,15 +1152,15 @@ export default function MarksEntryScreen() {
             <View style={styles.statsRow}>
               <View style={[styles.statChip, styles.statSaved]}>
                 <CheckCircle2 size={12} color="#15803d" />
-                <Text style={styles.statText}>{totalSaved} Saved</Text>
+                <AppText weight="bold" style={styles.statText}>{totalSaved} Saved</AppText>
               </View>
               <View style={[styles.statChip, styles.statPending]}>
                 <AlertCircle size={12} color="#b45309" />
-                <Text style={styles.statText}>{totalPending} Pending</Text>
+                <AppText weight="bold" style={styles.statText}>{totalPending} Pending</AppText>
               </View>
               <View style={[styles.statChip, styles.statAbsent]}>
                 <XCircle size={12} color="#b91c1c" />
-                <Text style={styles.statText}>{totalAbsent} Absent</Text>
+                <AppText weight="bold" style={styles.statText}>{totalAbsent} Absent</AppText>
               </View>
             </View>
 
@@ -1113,20 +1177,20 @@ export default function MarksEntryScreen() {
                 onPress={() => setAutoSave(!autoSave)}
               >
                 <Clock size={16} color={autoSave ? '#fff' : '#64748b'} />
-                <Text style={[styles.autoSaveText, autoSave && styles.autoSaveTextActive]}>
+                <AppText weight="bold" style={[styles.autoSaveText, autoSave && styles.autoSaveTextActive]}>
                   {autoSave ? 'Auto ON' : 'Auto OFF'}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             </View>
 
             <View style={styles.secondaryActions}>
               <TouchableOpacity style={styles.secondaryBtn} onPress={() => loadStudents(true)}>
-                <RefreshCw size={16} color="#001F3F" />
-                <Text style={styles.secondaryBtnText}>Refresh</Text>
+                <RefreshCw size={16} color={HM_THEME.navy} />
+                <AppText weight="semiBold" style={styles.secondaryBtnText}>Refresh</AppText>
               </TouchableOpacity>
               <TouchableOpacity style={styles.secondaryBtn} onPress={exportToCSV}>
-                <Download size={16} color="#001F3F" />
-                <Text style={styles.secondaryBtnText}>Export</Text>
+                <Download size={16} color={HM_THEME.navy} />
+                <AppText weight="semiBold" style={styles.secondaryBtnText}>Export</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -1138,10 +1202,10 @@ export default function MarksEntryScreen() {
         ) : students.length === 0 ? (
           <AppCard style={styles.emptyCard}>
             <Search size={48} color="#cbd5e1" />
-            <Text style={styles.emptyTitle}>Ready to grade?</Text>
-            <Text style={styles.emptyText}>
+            <AppText weight="bold" style={styles.emptyTitle}>Ready to grade?</AppText>
+            <AppText weight="regular" style={styles.emptyText}>
               Configure filters and exam rules above to load the student list.
-            </Text>
+            </AppText>
             <AppButton
               title="Select Filters"
               type="secondary"
@@ -1151,7 +1215,7 @@ export default function MarksEntryScreen() {
           </AppCard>
         ) : (
           <View style={styles.listWrapper}>
-            <Text style={styles.listTitle}>Student List ({students.length})</Text>
+            <AppText weight="bold" style={styles.listTitle}>Student List ({students.length})</AppText>
             {students.map(student => (
               <StudentRow
                 key={student.student_id}
@@ -1196,18 +1260,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  heroHeader: {
-    backgroundColor: '#001F3F',
-    height: 180,
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+  headerStandard: {
+    backgroundColor: HM_THEME.navy,
     paddingHorizontal: 20,
+    paddingBottom: 60,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
+    ...Platform.select({
+
+      android: { elevation: 10 },
+
+      ios: {},
+
+    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: Platform.OS === 'ios' ? 0 : 10,
   },
   iconButton: {
     width: 40,
@@ -1217,38 +1292,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  heroTitle: {
+  headerTitle: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '700',
   },
-  heroContent: {
+  headerContent: {
     marginTop: 20,
   },
-  heroGreeting: {
+  headerGreeting: {
     color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 28,
+    letterSpacing: -0.5,
   },
-  heroSubtext: {
+  headerSubtext: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
+    fontSize: 15,
     marginTop: 4,
   },
   scrollContent: {
-    paddingHorizontal: 16,
     paddingBottom: 100,
   },
   mainCard: {
     marginTop: -30,
-    borderRadius: 20,
+    marginHorizontal: 16,
+    borderRadius: 30,
     backgroundColor: '#fff',
-    borderWidth: 0,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(241, 245, 249, 0.8)',
+    ...Platform.select({
+
+      android: { elevation: 8 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 12,
     marginBottom: 16,
     overflow: 'hidden',
   },
@@ -1263,7 +1344,6 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#0F172A',
   },
   cardBody: {
@@ -1288,22 +1368,28 @@ const styles = StyleSheet.create({
   },
   filterTagText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#001F3F',
+    color: HM_THEME.navy,
   },
   primaryButton: {
-    backgroundColor: '#001F3F',
+    backgroundColor: HM_THEME.navy,
     borderRadius: 12,
     height: 48,
   },
   configCard: {
-    borderRadius: 20,
+    marginHorizontal: 16,
+    borderRadius: 30,
     backgroundColor: '#fff',
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#F1F5F9',
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
     shadowOpacity: 0.05,
   },
   configHeader: {
@@ -1319,7 +1405,6 @@ const styles = StyleSheet.create({
   },
   configTitle: {
     fontSize: 15,
-    fontWeight: '700',
     color: '#0F172A',
   },
   savedBadge: {
@@ -1333,7 +1418,6 @@ const styles = StyleSheet.create({
   },
   savedBadgeText: {
     fontSize: 11,
-    fontWeight: '800',
     color: '#15803d',
     textTransform: 'uppercase',
   },
@@ -1350,7 +1434,6 @@ const styles = StyleSheet.create({
   },
   configLabel: {
     fontSize: 12,
-    fontWeight: '600',
     color: '#64748b',
   },
   configInput: {
@@ -1378,15 +1461,13 @@ const styles = StyleSheet.create({
   },
   configItemLabel: {
     fontSize: 10,
-    fontWeight: '700',
     color: '#94a3b8',
     textTransform: 'uppercase',
     marginBottom: 2,
   },
   configItemValue: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#001F3F',
+    color: HM_THEME.navy,
   },
   editConfigBtn: {
     width: 44,
@@ -1397,6 +1478,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionBar: {
+    marginHorizontal: 16,
     marginBottom: 20,
     gap: 12,
   },
@@ -1428,7 +1510,6 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 11,
-    fontWeight: '700',
     color: '#334155',
   },
   buttonRow: {
@@ -1452,7 +1533,6 @@ const styles = StyleSheet.create({
   },
   autoSaveText: {
     fontSize: 13,
-    fontWeight: '700',
     color: '#64748b',
   },
   autoSaveTextActive: {
@@ -1470,17 +1550,16 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#001F3F',
+    color: HM_THEME.navy,
   },
   emptyCard: {
+    marginHorizontal: 16,
     padding: 40,
     alignItems: 'center',
     borderRadius: 20,
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#0f172a',
     marginTop: 16,
     marginBottom: 4,
@@ -1492,11 +1571,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   listWrapper: {
+    marginHorizontal: 16,
     gap: 12,
   },
   listTitle: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#0f172a',
     marginBottom: 4,
     marginLeft: 4,
@@ -1504,13 +1583,21 @@ const styles = StyleSheet.create({
   studentRow: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 30,
+    padding: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#f1f5f9',
-    elevation: 1,
-    shadowOpacity: 0.02,
+    borderColor: 'rgba(241, 245, 249, 0.8)',
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
   studentRowAbsent: {
     backgroundColor: '#fef2f2',
@@ -1532,24 +1619,21 @@ const styles = StyleSheet.create({
   studentName: {
     flex: 1,
     fontSize: 14,
-    fontWeight: '700',
     color: '#0f172a',
   },
   studentId: {
     fontSize: 11,
     color: '#94a3b8',
-    fontWeight: '600',
     marginLeft: 4,
   },
   rollTag: {
-    backgroundColor: '#001F3F',
+    backgroundColor: HM_THEME.navy,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
   },
   rollTagText: {
     fontSize: 10,
-    fontWeight: '800',
     color: '#fff',
   },
   actionCol: {
@@ -1579,7 +1663,6 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 13,
-    fontWeight: '800',
     color: '#94a3b8',
   },
   toggleTextActive: {
@@ -1599,7 +1682,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     textAlign: 'center',
     fontSize: 15,
-    fontWeight: '700',
     color: '#0f172a',
   },
   marksInputDisabled: {
@@ -1625,7 +1707,6 @@ const styles = StyleSheet.create({
   },
   gradeText: {
     fontSize: 12,
-    fontWeight: '900',
   },
   gradeTextPass: {
     color: '#15803d',
@@ -1649,8 +1730,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    maxHeight: '85%',
+    maxHeight: '90%',
     paddingBottom: 40,
+    width: '100%',
+  },
+  configModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingBottom: 40,
+    width: '100%',
+  },
+  configModalBody: {
+    padding: 20,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1662,7 +1754,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '800',
     color: '#0f172a',
   },
   modalClose: {
@@ -1683,37 +1774,74 @@ const styles = StyleSheet.create({
   },
   modalLabel: {
     fontSize: 13,
-    fontWeight: '700',
     color: '#94a3b8',
     textTransform: 'uppercase',
-    marginBottom: 12,
+    marginBottom: 8,
     letterSpacing: 0.5,
   },
-  chipContainer: {
+  filterGroup: {
+    marginBottom: 16,
+  },
+  pickerSelector: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 20,
-  },
-  chip: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: '#f1f5f9',
-    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1.5,
     borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 52,
   },
-  chipActive: {
-    backgroundColor: '#001F3F',
-    borderColor: '#001F3F',
+  pickerSelectorText: {
+    fontSize: 15,
+    color: '#0f172a',
+    fontWeight: '500',
   },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748b',
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'center',
+    padding: 20,
   },
-  chipTextActive: {
-    color: '#fff',
+  pickerCard: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    color: '#0f172a',
+  },
+  pickerCloseBtn: {
+    padding: 4,
+  },
+  pickerListContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  pickerOption: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  pickerOptionText: {
+    fontSize: 16,
+    color: '#334155',
   },
   modalFooter: {
     padding: 20,

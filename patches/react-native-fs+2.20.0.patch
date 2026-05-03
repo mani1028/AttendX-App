@@ -1,0 +1,16 @@
+diff --git a/node_modules/react-native-fs/FS.common.js b/node_modules/react-native-fs/FS.common.js
+index 62b7ba7..096981d 100755
+--- a/node_modules/react-native-fs/FS.common.js
++++ b/node_modules/react-native-fs/FS.common.js
+@@ -9,9 +9,9 @@
+ 
+ var RNFSManager = require('react-native').NativeModules.RNFSManager;
+ 
+-var NativeEventEmitter = require('react-native').NativeEventEmitter;
++var DeviceEventEmitter = require('react-native').DeviceEventEmitter;
+ 
+-var RNFS_NativeEventEmitter = new NativeEventEmitter(RNFSManager);
++var RNFS_NativeEventEmitter = DeviceEventEmitter;
+ 
+ var base64 = require('base-64');
+ var utf8 = require('utf8');

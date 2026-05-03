@@ -11,9 +11,10 @@ import {
   ScrollView,
 } from "react-native";
 import { authService } from '../../api/authService';
-import AppInput from '../../components/common/AppInput';
+import { AppInput } from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import ScreenContainer from '../../components/ScreenContainer';
+import { formatErrorMessage } from '../../utils/helpers';
 
 export default function VerifyOtpScreen({ route, navigation }: any) {
   const { schoolId, identifier } = route.params;
@@ -28,6 +29,8 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
 
     try {
       setLoading(true);
+      console.log('[VerifyOtp] Verifying OTP with:', { schoolId, identifier });
+      
       const res = await authService.verifyOtp(schoolId, identifier, otp);
 
       const resetToken =
@@ -42,17 +45,26 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
         '';
 
       if (!resetToken) {
+        console.error('[VerifyOtp] No reset token found in response:', res?.data);
         Alert.alert('Error', 'Unable to verify OTP. Please try again.');
         return;
       }
 
+      console.log('[VerifyOtp] OTP verified successfully');
       navigation.navigate('ResetPassword', {
         schoolId,
         identifier,
         resetToken,
       });
-    } catch {
-      Alert.alert('Error', 'Invalid OTP');
+    } catch (error: any) {
+      console.error('[VerifyOtp] Error verifying OTP:', error?.response?.data || error?.message);
+      
+      const errorMessage = 
+        formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.response?.data?.error) ||
+        error?.message || 
+        'Invalid OTP. Please check and try again.';
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }

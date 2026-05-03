@@ -5,7 +5,7 @@ import {
   StyleSheet,
   Animated,
   Text,
-  Dimensions,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
@@ -17,27 +17,16 @@ import {
   Plus,
   CreditCard,
   FileText,
-  User,
-  ClipboardCheck
 } from 'lucide-react-native';
 
 const TAB_BAR_HEIGHT = 70;
 const FAB_SIZE = 60;
 
-const CustomTabBar = ({ state, descriptors, navigation }: any) => {
+const CustomTabBar = ({ state, navigation }: any) => {
   const insets = useSafeAreaInsets();
-  const { isTabBarVisible } = useAuth();
+  const { isTabBarVisible, tabBarTranslate } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
   const animation = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(slideAnim, {
-      toValue: isTabBarVisible ? 0 : 120,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [isTabBarVisible]);
 
   const toggleMenu = () => {
     const toValue = isExpanded ? 0 : 1;
@@ -49,7 +38,15 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
     setIsExpanded(!isExpanded);
   };
 
-  const renderTab = (index: number, label: string, iconName: string) => {
+  const animatedOpacity = tabBarTranslate
+    ? tabBarTranslate.interpolate({
+        inputRange: [0, 120],
+        outputRange: [1, 0.92],
+        extrapolate: 'clamp',
+      })
+    : 1;
+
+  const renderTab = (index: number, label: string) => {
     const isFocused = state.index === index;
 
     const onPress = () => {
@@ -62,14 +59,16 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
       if (!isFocused && !event.defaultPrevented) {
         navigation.navigate(state.routes[index].name);
       }
-      if (isExpanded) toggleMenu();
+      if (isExpanded) {
+        toggleMenu();
+      }
     };
 
     const icons: Record<string, any> = {
-      'Home': Home,
+      Home: Home,
       'Home Work': BookOpen,
-      'Leave': CalendarCheck,
-      'Marks': GraduationCap,
+      Leave: CalendarCheck,
+      Marks: GraduationCap,
     };
     const IconComponent = icons[label] ?? Home;
 
@@ -85,7 +84,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
           color={isFocused ? '#3498db' : '#8e8e93'}
           strokeWidth={isFocused ? 2.5 : 2}
         />
-        <Text style={[styles.tabLabel, { color: isFocused ? '#3498db' : '#8e8e93' }]}>
+        <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
           {label}
         </Text>
       </TouchableOpacity>
@@ -152,27 +151,28 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
 
   return (
     <Animated.View
+      pointerEvents={isTabBarVisible ? 'auto' : 'none'}
       style={[
         styles.container,
         {
           paddingBottom: insets.bottom,
-          transform: [{ translateY: slideAnim }]
-        }
+          transform: [{ translateY: tabBarTranslate || new Animated.Value(0) }],
+          opacity: animatedOpacity,
+        },
       ]}
     >
       <View style={styles.subMenuContainer}>
         {renderSubMenu(4, CreditCard, -70, -40)}
         {renderSubMenu(5, FileText, 70, -40)}
-        {renderSubMenu(0, User, 0, -100, 'Profile')}
       </View>
 
       <View style={styles.backgroundContainer}>
         <View style={styles.curvedBar}>
-          {renderTab(0, 'Home', 'home')}
-          {renderTab(1, 'Home Work', 'book')}
+          {renderTab(0, 'Home')}
+          {renderTab(1, 'Home Work')}
           <View style={styles.tabItem} />
-          {renderTab(2, 'Leave', 'alert-circle')}
-          {renderTab(3, 'Marks', 'school')}
+          {renderTab(2, 'Leave')}
+          {renderTab(3, 'Marks')}
         </View>
       </View>
 
@@ -220,7 +220,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 15,
-    elevation: 10,
+    ...Platform.select({
+
+      android: { elevation: 10 },
+
+      ios: {},
+
+    }),
   },
   curvedBar: {
     flexDirection: 'row',
@@ -237,6 +243,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 4,
     fontWeight: '600',
+    color: '#8e8e93',
+  },
+  tabLabelActive: {
+    color: '#3498db',
   },
   fabContainer: {
     position: 'absolute',
@@ -252,7 +262,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 4,
     borderColor: '#fff',
-    elevation: 5,
+    ...Platform.select({
+
+      android: { elevation: 5 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -280,7 +296,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563EB',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
+    ...Platform.select({
+
+      android: { elevation: 5 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,

@@ -16,14 +16,16 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Camera, useCameraDevice } from 'react-native-vision-camera';
+import { Camera } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
+import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 
 // Types
@@ -76,11 +78,13 @@ const Toast: React.FC<{
 };
 
 export default function VitalScanScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
-  const cameraRef = useRef<Camera>(null);
-  const device = useCameraDevice('back');
+  const cameraRef = useRef<any>(null);
+  // const device = useCameraDevice('back');
+  const device = null;
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [cameraActive, setCameraActive] = useState<boolean>(false);
 
@@ -191,7 +195,7 @@ export default function VitalScanScreen() {
   // Request camera permission
   useEffect(() => {
     Camera.requestCameraPermission().then(permission => {
-      setHasPermission(permission === 'authorized');
+      setHasPermission(permission === 'granted');
     });
   }, []);
 
@@ -380,20 +384,6 @@ export default function VitalScanScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-      {/* Standardized Navy Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <ChevronLeft size={24} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>VitalScan AI</Text>
-        </View>
-        <View style={{ width: 40 }} />
-      </View>
-
       {/* Toast */}
       <Toast
         visible={toast.visible}
@@ -464,13 +454,16 @@ export default function VitalScanScreen() {
       {/* Camera View */}
       {cameraActive && hasPermission && (
         <View style={styles.cameraContainer}>
-          <Camera
+          {/* <Camera
             ref={cameraRef}
             style={styles.camera}
             device={device!}
             isActive={cameraActive}
             photo={true}
-          />
+          /> */}
+          <View style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center'}}>
+            <Text style={{color: '#fff', fontSize: 16}}>Camera disabled for debugging</Text>
+          </View>
           <View style={styles.cameraOverlay}>
             <Text style={styles.cameraStep}>
               {scanType === 'eye' ? 'Vision Scan' : teethSteps[images.length] || 'Done'}
@@ -498,6 +491,25 @@ export default function VitalScanScreen() {
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
+        {/* Navy Hero Header */}
+        <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
+            >
+              <ChevronLeft size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <AppText weight="bold" style={styles.headerTitle}>VitalScan AI</AppText>
+            <View style={{ width: 44 }} />
+          </View>
+
+          <View style={styles.heroContent}>
+            <AppText weight="bold" style={styles.heroGreeting}>Health Diagnostics</AppText>
+            <AppText weight="semiBold" style={styles.heroSubtext}>AI-powered vital scanning for student wellness</AppText>
+          </View>
+        </View>
+
         {/* Header Actions Row */}
         <View style={styles.topActionsRow}>
           <TouchableOpacity style={styles.newBtn} onPress={startNewStudent}>
@@ -756,36 +768,55 @@ export default function VitalScanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: '#F8FAFC',
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
   },
-  headerTitleContainer: {
-    flex: 1,
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: '#ffffff',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 20,
+  heroContent: {
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+  heroGreeting: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '800',
+  },
+  heroSubtext: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 13,
+    marginTop: 6,
+    lineHeight: 18,
   },
   contentContainer: {
-    padding: 16,
     paddingBottom: 40,
   },
   topActionsRow: {
@@ -793,10 +824,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginBottom: 20,
+    marginTop: -20, // Negative margin to overlap with header
+    marginHorizontal: 16,
   },
   toast: {
     position: 'absolute',
-    top: 60,
+    top: Platform.OS === 'ios' ? 60 : 40,
     right: 16,
     left: 16,
     backgroundColor: '#fff',
@@ -829,13 +862,7 @@ const styles = StyleSheet.create({
     color: '#4a5568',
     marginTop: 2,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    marginBottom: 20,
-    flexWrap: 'wrap',
-  },
+  // Removed duplicate header style
   logoBox: {
     width: 48,
     height: 48,
@@ -896,8 +923,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   card: {
-    marginBottom: 16,
+    marginBottom: 20,
+    marginHorizontal: 16,
+    borderRadius: 24,
     overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1082,8 +1116,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   resultsCard: {
-    marginBottom: 16,
+    marginBottom: 20,
+    marginHorizontal: 16,
+    borderRadius: 24,
     overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
   },
   resultBadge: {
     marginLeft: 'auto',

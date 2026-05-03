@@ -1,6 +1,8 @@
 // src/context/AuthContext.tsx
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { Animated } from 'react-native';
+import { InteractionManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStoredRole, performLogout } from '../utils/authSession';
 import { setAuthToken } from '../services/api';
@@ -11,13 +13,15 @@ interface AuthContextType {
   userRole: string | null;
   userToken: string | null;
   userName: string | null;
+  isClassTeacher: boolean;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
-  signIn: (role: string, name: string, token: string) => Promise<void>;
+  signIn: (role: string, name: string, token: string, isClassTeacher?: boolean) => Promise<void>;
   refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
   isTabBarVisible: boolean;
   setTabBarVisible: (visible: boolean) => void;
+  tabBarTranslate?: Animated.Value;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,37 +31,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userToken, setUserToken] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [isClassTeacher, setIsClassTeacher] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isTabBarVisible, setTabBarVisible] = useState(true);
+  const [isTabBarVisible, setIsTabBarVisible] = useState(true);
+  const tabBarTranslate = useRef(new Animated.Value(0)).current;
+  const tabBarVisibleRef = useRef(true);
+
+  // centralised setter that also animates the shared translate value
+  const setTabBarVisible = useCallback((visible: boolean) => {
+    if (tabBarVisibleRef.current === visible) {
+      return;
+    }
+    tabBarVisibleRef.current = visible;
+    setIsTabBarVisible(visible);
+    Animated.timing(tabBarTranslate, {
+      toValue: visible ? 0 : 120,
+      duration: 260,
+      useNativeDriver: true,
+    }).start();
+  }, [tabBarTranslate]);
 
   const refreshAuth = async () => {
     try {
       const role = await getStoredRole();
       const token = await AsyncStorage.getItem('token');
       const name = await AsyncStorage.getItem('user_name');
+      const classTeacher = await AsyncStorage.getItem('is_class_teacher');
 
       if (token) {
         setAuthToken(token);
         setUserToken(token);
         setUserRole(role || null);
         setUserName(name || null);
+        setIsClassTeacher(classTeacher === 'true');
       } else {
         setUserToken(null);
         setUserRole(null);
         setUserName(null);
+        setIsClassTeacher(false);
       }
     } catch (error) {
       console.error('Refresh auth error:', error);
       setUserRole(null);
       setUserToken(null);
       setUserName(null);
+      setIsClassTeacher(false);
     }
   };
 
-  const signIn = async (role: string, name: string, token: string) => {
+  const signIn = async (role: string, name: string, token: string, isClassTeacher: boolean = false) => {
     setUserToken(token);
     setUserRole(role);
     setUserName(name);
+    setIsClassTeacher(isClassTeacher);
+    // Persist is_class_teacher to AsyncStorage
+    await AsyncStorage.setItem('is_class_teacher', String(isClassTeacher));
   };
 
   const logout = async () => {
@@ -66,6 +94,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserRole(null);
       setUserToken(null);
       setUserName(null);
+      setIsClassTeacher(false);
+      await AsyncStorage.removeItem('is_class_teacher');
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -78,13 +108,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     eventEmitter.on('auth-change', handleAuthChange);
 
     const handleLogout = () => {
-      // Use a small delay to ensure any pending events/renders finish
-      // before clearing auth state which triggers navigation resets
-      setTimeout(() => {
-        setUserRole(null);
-        setUserToken(null);
-        setUserName(null);
-      }, 10);
+      // Use InteractionManager and a delay to ensure any pending events/renders
+      // finish before clearing auth state which triggers navigation resets.
+      // This prevents "React Native native module communication failure"
+      // during rapid navigation transitions (especially on 401 errors).
+      InteractionManager.runAfterInteractions(() => {
+        setTimeout(() => {
+          setUserRole(null);
+          setUserToken(null);
+          setUserName(null);
+          setIsClassTeacher(false);
+        }, 500);
+      });
     };
 
     eventEmitter.on('app-logout', handleLogout);
@@ -100,13 +135,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       userRole,
       userToken,
       userName,
+      isClassTeacher,
       isLoading,
       setIsLoading,
       signIn,
       refreshAuth,
       logout,
       isTabBarVisible,
-      setTabBarVisible
+      setTabBarVisible,
+      tabBarTranslate,
     }}>
       {children}
     </AuthContext.Provider>

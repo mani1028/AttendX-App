@@ -4,11 +4,11 @@ import { useAuth } from '../context/AuthContext';
 import MainStack from './MainStack';
 
 export default function MainTabs() {
-  const { session } = useAuth();
+  const { userRole } = useAuth();
 
-  if (!session) {
+  if (!userRole) {
     return null;
   }
 
-  return <MainStack role={session.role} />;
+  return <MainStack role={userRole as any} />;
 }

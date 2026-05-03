@@ -1,52 +1,133 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  StyleSheet,
-  View,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  StatusBar,
-  Platform,
+  ActivityIndicator,
   Dimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NavigationProp, useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  BarChart3,
   Bell,
-  RefreshCw,
   Calendar,
-  DollarSign,
+  CircleDollarSign,
+  Clock,
   CreditCard,
   TrendingUp,
-  FileText,
-  User,
-  Search,
-  UserPlus,
   Users,
-  HeartPulse,
-  ClipboardCheck,
-  FileEdit,
-  CheckSquare,
+  Wallet,
 } from 'lucide-react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
-import API from '../../services/api';
 import AppText from '../../components/common/AppText';
-import AppCard from '../../components/common/AppCard';
 import { colors } from '../../constants/theme';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
+import { HM_THEME } from '../../constants/hmTheme';
+import { getDashboardSummary } from '../../services/accountantService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+type DashboardSummary = {
+  total_fees_collected: number;
+  total_pending_fees: number;
+  total_expenses: number;
+  net_balance: number;
+};
+
+const DEFAULT_SUMMARY: DashboardSummary = {
+  total_fees_collected: 0,
+  total_pending_fees: 0,
+  total_expenses: 0,
+  net_balance: 0,
+};
+
+const HORIZONTAL_PADDING = 16;
+const CARD_GAP = 12;
+const QUICK_CARD_GAP = 10;
+const STAT_CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
+const QUICK_CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - QUICK_CARD_GAP * 3) / 4;
+
+/**
+ * Safe date formatting without relying on Intl API
+ * Works around React Native Intl limitations
+ */
+const formatDateSafe = (date: Date | string): string => {
+  try {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '—';
+    
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[d.getMonth()];
+    const day = d.getDate();
+    
+    return `${month} ${day}`;
+  } catch {
+    return '—';
+  }
+};
+
+function toNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function formatCurrency(value: number): string {
+  return `₹${value.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatCompactCurrency(value: number): string {
+  const absoluteValue = Math.abs(value);
+  const prefix = value < 0 ? '-' : '';
+
+  if (absoluteValue >= 10000000) {
+    return `${prefix}₹${(absoluteValue / 10000000).toFixed(1)}Cr`;
+  }
+  if (absoluteValue >= 100000) {
+    return `${prefix}₹${(absoluteValue / 100000).toFixed(1)}L`;
+  }
+  if (absoluteValue >= 1000) {
+    return `${prefix}₹${(absoluteValue / 1000).toFixed(1)}K`;
+  }
+
+  return formatCurrency(value);
+}
+
+function getInitials(name?: string | null): string {
+  const initials = (name || 'Accountant')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase() || '')
+    .join('');
+  return initials || 'A';
+}
+
 export default function AccountantDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
   const { userName, setTabBarVisible } = useAuth();
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(false);
   const { unreadCount } = useUnreadNotifications();
-
+  const initials = getInitials(userName);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingSummary, setLoadingSummary] = useState(true);
+  const [schoolCode, setSchoolCode] = useState('');
+  const [summary, setSummary] = useState<DashboardSummary>(DEFAULT_SUMMARY);
   const lastScrollY = useRef(0);
 
   useEffect(() => {
@@ -54,18 +135,71 @@ export default function AccountantDashboardScreen() {
     return () => setTabBarVisible(true);
   }, [setTabBarVisible]);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    // Add data fetching logic here in the future
-    setTimeout(() => setRefreshing(false), 1000);
+  useEffect(() => {
+    const loadSchoolCode = async () => {
+      try {
+        const code =
+          (await AsyncStorage.getItem('school_code')) ||
+          (await AsyncStorage.getItem('schoolCode')) ||
+          (await AsyncStorage.getItem('school_id')) ||
+          (await AsyncStorage.getItem('schoolId')) ||
+          '';
+        setSchoolCode(code);
+      } catch (error) {
+        console.error('Error loading school code:', error);
+        setSchoolCode('');
+      }
+    };
+
+    loadSchoolCode();
   }, []);
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Morning';
-    if (hour < 17) return 'Afternoon';
-    return 'Evening';
-  };
+  const fetchSummary = useCallback(async () => {
+    if (!schoolCode) {
+      setLoadingSummary(false);
+      return;
+    }
+
+    const cacheKey = `accountant_dashboard_summary_${schoolCode}`;
+
+    try {
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        setSummary(JSON.parse(cached));
+        setLoadingSummary(false);
+      }
+    } catch (cacheError) {
+      console.warn('Failed to load accountant dashboard cache:', cacheError);
+    }
+
+    try {
+      setLoadingSummary(true);
+      const data = await getDashboardSummary(schoolCode);
+      const nextSummary = {
+        total_fees_collected: toNumber(data.total_fees_collected),
+        total_pending_fees: toNumber(data.total_pending_fees),
+        total_expenses: toNumber(data.total_expenses),
+        net_balance: toNumber(data.net_balance),
+      };
+      setSummary(nextSummary);
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(nextSummary));
+    } catch (error) {
+      console.error('Error fetching accountant dashboard summary:', error);
+      setSummary(DEFAULT_SUMMARY);
+    } finally {
+      setLoadingSummary(false);
+    }
+  }, [schoolCode]);
+
+  useEffect(() => {
+    fetchSummary();
+  }, [fetchSummary]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchSummary();
+    setRefreshing(false);
+  }, [fetchSummary]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
@@ -77,127 +211,226 @@ export default function AccountantDashboardScreen() {
     lastScrollY.current = currentScrollY;
   };
 
+  const collectionRate = summary.total_fees_collected + summary.total_pending_fees > 0
+    ? (summary.total_fees_collected / (summary.total_fees_collected + summary.total_pending_fees)) * 100
+    : 0;
+  const safeCollectionRate = Math.max(0, Math.min(100, collectionRate));
+  const contentBottomPadding = Math.max(insets.bottom + 120, 140);
+
+  const summaryCards = [
+    {
+      label: 'Total Fees Collected',
+      value: summary.total_fees_collected,
+      icon: CircleDollarSign,
+      iconColor: '#2563eb',
+      tint: 'rgba(37, 99, 235, 0.10)',
+    },
+    {
+      label: 'Pending Fees',
+      value: summary.total_pending_fees,
+      icon: Clock,
+      iconColor: '#f97316',
+      tint: 'rgba(249, 115, 22, 0.10)',
+    },
+    {
+      label: 'Total Expenses',
+      value: summary.total_expenses,
+      icon: TrendingUp,
+      iconColor: '#a855f7',
+      tint: 'rgba(168, 85, 247, 0.10)',
+    },
+    {
+      label: 'Net Balance',
+      value: summary.net_balance,
+      icon: Wallet,
+      iconColor: '#16a34a',
+      tint: 'rgba(22, 163, 74, 0.10)',
+    },
+  ];
+
+  const quickActions = [
+    { label: 'Collections', icon: CreditCard, route: 'AccountantPaymentEntry', color: '#2563eb', tint: 'rgba(37, 99, 235, 0.10)' },
+    { label: 'Reports & Trends', icon: BarChart3, route: 'AccountantReports', color: '#a855f7', tint: 'rgba(168, 85, 247, 0.10)' },
+    { label: 'Pending Dues', icon: Clock, route: 'AccountantFeeManagement', color: '#f97316', tint: 'rgba(249, 115, 22, 0.10)' },
+    { label: 'Fees', icon: CircleDollarSign, route: 'AccountantFeeManagement', color: '#16a34a', tint: 'rgba(22, 163, 74, 0.10)' },
+    { label: 'Expense Ledger', icon: TrendingUp, route: 'AccountantExpense', color: '#ef4444', tint: 'rgba(239, 68, 68, 0.10)' },
+    { label: 'Payroll', icon: Users, route: 'AccountantPayroll', color: '#0ea5e9', tint: 'rgba(14, 165, 233, 0.10)' },
+    { label: 'Notifications', icon: Bell, route: 'Notifications', color: '#64748b', tint: 'rgba(100, 116, 139, 0.10)' },
+    { label: 'Salaries', icon: Wallet, route: 'Salaries', color: '#ca8a04', tint: 'rgba(202, 138, 4, 0.10)', isTab: true },
+  ];
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
 
-      {/* Standardized Navy Header */}
-      <View style={styles.headerStandard}>
-        <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>Accountant Dashboard</AppText>
-        </View>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
+      <View style={[styles.hero, { paddingTop: insets.top + 14 }]}> 
+        <View style={styles.heroGlowOne} />
+        <View style={styles.heroGlowTwo} />
+
+        <View style={styles.heroRow}>
+          <TouchableOpacity
+            style={styles.avatarWrap}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('AccountantProfile')}
+            accessibilityLabel="Open profile"
+          >
+            <View style={styles.avatarRing}>
+              <View style={styles.avatar}>
+                <AppText style={styles.avatarText} weight="bold">{initials}</AppText>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('Notifications')}
+            accessibilityLabel="Notifications"
+          >
             <Bell size={20} color="#fff" />
             {unreadCount > 0 && (
               <View style={styles.badge}>
-                <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+                <AppText style={styles.badgeText} weight="bold">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </AppText>
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
-            <RefreshCw size={20} color="#fff" />
-          </TouchableOpacity>
         </View>
+
+        <AppText style={styles.heroKicker} weight="semiBold">Accountant Portal</AppText>
+        <AppText style={styles.heroTitle} weight="bold">Hello, {userName?.split(' ')[0] || 'Accountant'} 👋</AppText>
+        <AppText style={styles.heroSub}>Here&apos;s what&apos;s happening today.</AppText>
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: contentBottomPadding }]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+          />
         }
       >
-        {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <View>
-            <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Accountant'}!</AppText>
-            <AppText style={styles.welcomeSub}>Manage fees and school finances today.</AppText>
+        <View style={styles.statsGrid}>
+          {summaryCards.map((card, index) => {
+            const IconComponent = card.icon;
+            return (
+              <View key={card.label} style={[styles.statCard, { width: STAT_CARD_WIDTH }]}>
+                <View style={[styles.statIconWrap, { backgroundColor: card.tint }]}>
+                  <IconComponent size={18} color={card.iconColor} />
+                </View>
+                <AppText style={styles.statValue} weight="bold">
+                  {loadingSummary ? '—' : formatCompactCurrency(card.value)}
+                </AppText>
+                <AppText style={styles.statLabel} weight="semiBold" numberOfLines={2}>
+                  {card.label}
+                </AppText>
+                {index === 0 && (
+                  <View style={styles.rateRow}>
+                    <View style={styles.rateTrack}>
+                        <View style={[styles.rateFill, { width: `${safeCollectionRate}%` }]} />
+                    </View>
+                    <AppText style={styles.rateText} weight="semiBold">
+                        {safeCollectionRate.toFixed(0)}% collected
+                    </AppText>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+
+        <View style={styles.sectionRow}>
+          <AppText style={styles.sectionTitle} weight="bold">Quick Access</AppText>
+          <TouchableOpacity onPress={() => navigation.navigate('AccountantReports')}>
+            <AppText style={styles.viewAll}>View All</AppText>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.quickGrid}>
+          {quickActions.map(action => {
+            const IconComponent = action.icon;
+            return (
+              <TouchableOpacity
+                key={action.label}
+                style={[styles.quickCard, { width: QUICK_CARD_WIDTH }]}
+                activeOpacity={0.78}
+                onPress={() => {
+                  if (action.route === 'Salaries') {
+                    navigation.navigate('Salaries' as never);
+                  } else {
+                    navigation.navigate(action.route as keyof RootStackParamList);
+                  }
+                }}
+              >
+                <View style={[styles.quickIconWrap, { backgroundColor: action.tint }]}>
+                  <IconComponent size={18} color={action.color} />
+                </View>
+                <AppText style={styles.quickLabel} weight="semiBold" numberOfLines={2}>
+                  {action.label}
+                </AppText>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={styles.summaryPanel}>
+          <View style={styles.sectionRow}>
+            <AppText style={styles.sectionTitle} weight="bold">Finance Snapshot</AppText>
+            {loadingSummary ? (
+              <View style={styles.syncChip}>
+                <ActivityIndicator size="small" color="#2563eb" />
+                <AppText style={styles.syncChipText} weight="semiBold">Syncing</AppText>
+              </View>
+            ) : (
+              <View style={styles.syncChip}>
+                <Calendar size={14} color="#2563eb" />
+                <AppText style={styles.syncChipText} weight="semiBold">
+                  {formatDateSafe(new Date())}
+                </AppText>
+              </View>
+            )}
           </View>
-          <View style={styles.dateBadge}>
-            <Calendar size={12} color={colors.textMuted} />
-            <AppText style={styles.dateText}>
-              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+
+          <View style={styles.snapshotItem}>
+            <View>
+              <AppText style={styles.snapshotLabel} weight="semiBold">Pending dues exposure</AppText>
+              <AppText style={styles.snapshotHint}>Students with unpaid or partial fees</AppText>
+            </View>
+            <AppText style={styles.snapshotValue} weight="bold">
+              {formatCompactCurrency(summary.total_pending_fees)}
+            </AppText>
+          </View>
+
+          <View style={styles.snapshotItem}>
+            <View>
+              <AppText style={styles.snapshotLabel} weight="semiBold">Collection rate</AppText>
+              <AppText style={styles.snapshotHint}>Today&apos;s summary against outstanding dues</AppText>
+            </View>
+            <AppText style={styles.snapshotValue} weight="bold">
+              {safeCollectionRate.toFixed(1)}%
+            </AppText>
+          </View>
+
+          <View style={styles.snapshotItem}>
+            <View>
+              <AppText style={styles.snapshotLabel} weight="semiBold">Net balance</AppText>
+              <AppText style={styles.snapshotHint}>Overall funds after expenses</AppText>
+            </View>
+            <AppText
+              style={[
+                styles.snapshotValue,
+                summary.net_balance < 0 ? styles.negativeValue : styles.positiveValue,
+              ]}
+              weight="bold"
+            >
+              {formatCompactCurrency(summary.net_balance)}
             </AppText>
           </View>
         </View>
-
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { borderLeftColor: colors.primary }]}>
-            <DollarSign size={20} color={colors.primary} style={{ marginBottom: 4 }} />
-            <AppText style={styles.statValue}>₹0</AppText>
-            <AppText style={styles.statTitle}>Collected Today</AppText>
-          </View>
-          <View style={[styles.statCard, { borderLeftColor: colors.success }]}>
-            <TrendingUp size={20} color={colors.success} style={{ marginBottom: 4 }} />
-            <AppText style={styles.statValue}>0%</AppText>
-            <AppText style={styles.statTitle}>Collection Rate</AppText>
-          </View>
-        </View>
-
-        {/* Quick Actions */}
-        <AppText style={styles.sectionTitle}>Quick Actions</AppText>
-        <View style={styles.actionGrid}>
-          <TouchableOpacity style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
-              <ClipboardCheck size={22} color="#3B82F6" />
-            </View>
-            <AppText style={styles.actionLabel}>Mark{"\n"}Attendance</AppText>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: 'rgba(34, 197, 94, 0.1)' }]}>
-              <UserPlus size={22} color="#22C55E" />
-            </View>
-            <AppText style={styles.actionLabel}>Student{"\n"}Enrollment</AppText>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: 'rgba(168, 85, 247, 0.1)' }]}>
-              <Users size={22} color="#A855F7" />
-            </View>
-            <AppText style={styles.actionLabel}>Manage{"\n"}Profiles</AppText>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-              <HeartPulse size={22} color="#EF4444" />
-            </View>
-            <AppText style={styles.actionLabel}>Vital Scan{"\n"}AI</AppText>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: 'rgba(249, 115, 22, 0.1)' }]}>
-              <CheckSquare size={22} color="#F97316" />
-            </View>
-            <AppText style={styles.actionLabel}>Leave{"\n"}Approval</AppText>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: 'rgba(20, 184, 166, 0.1)' }]}>
-              <FileEdit size={22} color="#14B8A6" />
-            </View>
-            <AppText style={styles.actionLabel}>Question{"\n"}Paper</AppText>
-          </TouchableOpacity>
-        </View>
-
-        <AppCard style={styles.card}>
-          <AppText style={styles.cardTitle}>Recent Transactions</AppText>
-          <View style={styles.emptyState}>
-            <FileText size={40} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 12 }} />
-            <AppText style={styles.emptyText}>No recent transactions found.</AppText>
-          </View>
-        </AppCard>
-
-        <AppCard style={styles.card}>
-          <AppText style={styles.cardTitle}>Pending Dues</AppText>
-          <View style={styles.emptyState}>
-            <User size={40} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 12 }} />
-            <AppText style={styles.emptyText}>No pending dues to display.</AppText>
-          </View>
-        </AppCard>
       </ScrollView>
     </View>
   );
@@ -206,42 +439,85 @@ export default function AccountantDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.background,
   },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 40,
+  hero: {
+    backgroundColor: HM_THEME.navy,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 34,
+    borderBottomRightRadius: 34,
+    marginBottom: 12,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.18,
+        shadowRadius: 18,
+      },
+      android: { elevation: 6 },
+    }),
   },
-  headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+  heroGlowOne: {
+    position: 'absolute',
+    top: -42,
+    right: -54,
+    width: 176,
+    height: 176,
+    borderRadius: 88,
+    backgroundColor: 'rgba(148, 163, 184, 0.12)',
+  },
+  heroGlowTwo: {
+    position: 'absolute',
+    bottom: -28,
+    left: -22,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(96, 165, 250, 0.16)',
+  },
+  heroRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  headerIcons: {
+  avatarWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
-  refreshIconBtn: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
+  avatarRing: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 2,
+    borderColor: '#2dd4bf',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 18,
+    justifyContent: 'center',
+  },
+  avatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#2f6bff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: '#fff',
+    fontSize: 15,
+    letterSpacing: 0.3,
+  },
+  iconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
   },
   badge: {
     position: 'absolute',
@@ -250,147 +526,211 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: colors.error,
-    borderWidth: 1.5,
-    borderColor: '#001F3F',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#ef4444',
     paddingHorizontal: 2,
+    borderWidth: 1.5,
+    borderColor: HM_THEME.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   badgeText: {
     color: '#fff',
     fontSize: 8,
-    fontWeight: '800',
-    textAlign: 'center',
+    lineHeight: 10,
   },
-  welcomeSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 24,
-    marginTop: 8,
+  heroKicker: {
+    color: '#dbeafe',
+    fontSize: 14,
+    marginBottom: 4,
+    letterSpacing: 0.2,
   },
-  welcomeTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.textPrimary,
+  heroTitle: {
+    color: '#fff',
+    fontSize: 34,
+    lineHeight: 40,
+    marginBottom: 2,
   },
-  welcomeSub: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 2,
+  heroSub: {
+    color: '#bfdbfe',
+    fontSize: 15,
   },
-  dateBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  dateText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
+  contentContainer: {
+    paddingHorizontal: HORIZONTAL_PADDING,
+    paddingTop: 8,
+    paddingBottom: 48,
   },
   statsGrid: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: CARD_GAP,
+    marginBottom: 18,
   },
   statCard: {
-    flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderLeftWidth: 4,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  statTitle: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginTop: 4,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginBottom: 20,
-    marginTop: 8,
-  },
-  actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 24,
-  },
-  actionCard: {
-    width: (SCREEN_WIDTH - 32 - 36) / 4,
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    paddingVertical: 16,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    marginBottom: 8,
-    // Shadow
+    borderColor: 'rgba(148, 163, 184, 0.18)',
+    padding: 14,
+    minHeight: 136,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
+        shadowColor: '#0f172a',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 18,
       },
-      android: {
-        elevation: 3,
-      },
+      android: { elevation: 3 },
     }),
   },
-  actionIcon: {
-    width: 48,
-    height: 48,
+  statIconWrap: {
+    width: 42,
+    height: 42,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  actionLabel: {
+  statValue: {
+    fontSize: 24,
+    color: '#0f172a',
+    marginBottom: 4,
+    letterSpacing: -0.6,
+  },
+  statLabel: {
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 18,
+  },
+  rateRow: {
+    marginTop: 10,
+  },
+  rateTrack: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+    overflow: 'hidden',
+  },
+  rateFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#2563eb',
+  },
+  rateText: {
+    marginTop: 6,
     fontSize: 11,
-    fontWeight: '700',
+    color: '#64748b',
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  sectionTitle: {
+    fontSize: 19,
+    color: '#0f172a',
+  },
+  viewAll: {
+    color: '#2563eb',
+    fontSize: 14,
+  },
+  quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: QUICK_CARD_GAP,
+    marginBottom: 18,
+  },
+  quickCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.14)',
+    minHeight: 104,
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0f172a',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.06,
+        shadowRadius: 14,
+      },
+      android: { elevation: 2 },
+    }),
+  },
+  quickIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 9,
+  },
+  quickLabel: {
+    fontSize: 11,
+    lineHeight: 15,
     color: '#334155',
     textAlign: 'center',
-    lineHeight: 14,
   },
-  card: {
-    padding: 16,
-    marginBottom: 12,
+  summaryPanel: {
     backgroundColor: colors.surface,
-    borderColor: colors.border,
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.14)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0f172a',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.07,
+        shadowRadius: 18,
+      },
+      android: { elevation: 3 },
+    }),
   },
-  cardTitle: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  emptyState: {
+  syncChip: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 24,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(37, 99, 235, 0.10)',
   },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: 13,
+  syncChipText: {
+    fontSize: 11,
+    color: '#2563eb',
+  },
+  snapshotItem: {
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(148, 163, 184, 0.14)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  snapshotLabel: {
+    fontSize: 14,
+    color: '#0f172a',
+    marginBottom: 3,
+  },
+  snapshotHint: {
+    fontSize: 11,
+    color: '#64748b',
+  },
+  snapshotValue: {
+    fontSize: 16,
+    color: '#0f172a',
+    marginLeft: 12,
+  },
+  positiveValue: {
+    color: '#16a34a',
+  },
+  negativeValue: {
+    color: '#dc2626',
   },
 });

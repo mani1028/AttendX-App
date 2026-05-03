@@ -1,529 +1,542 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  ActivityIndicator,
-  StatusBar,
-  Dimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-  Platform,
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    ActivityIndicator,
+    RefreshControl,
+    Dimensions,
+    StatusBar,
+    Alert,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
-import { Picker } from '@react-native-picker/picker';
-import { ChevronLeft, Calendar, Filter, User, School, CheckCircle2, XCircle, Clock, MinusCircle, Bell } from 'lucide-react-native';
-import { useAuth } from '../../context/AuthContext';
-import { getStudentAttendance } from '../../services/studentService';
-import AppText from '../../components/common/AppText';
-import AppCard from '../../components/common/AppCard';
-import { colors } from '../../constants/theme';
+import { Calendar } from 'react-native-calendars';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getStudentAttendanceByMonth } from '../../services/studentService';
+import Icon from '@react-native-vector-icons/feather';
 
 const { width } = Dimensions.get('window');
 
-interface AttendanceRecord {
-  attendance_id: string;
-  attendance_date: string;
-  status: string;
-  class_name?: string;
-  section_name?: string;
-  marked_by?: string;
+interface AttendanceData {
+    date: string;
+    status: 'PRESENT' | 'ABSENT' | 'LATE' | 'LEAVE' | 'HOLIDAY';
 }
 
-interface AttendanceSummary {
-  total_days: number;
-  present_days: number;
-  half_day_count: number;
-  absent_days: number;
-  late_days: number;
-  attendance_percentage: number;
+interface MonthlyStats {
+    total: number;
+    present: number;
+    absent: number;
+    late: number;
+    leave: number;
+    percentage: string;
 }
 
-const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const s = status?.toUpperCase() || '';
-  if (s === 'PRESENT') {
+export default function StudentAttendanceScreen({ navigation }: any) {
+    const insets = useSafeAreaInsets();
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [attendance, setAttendance] = useState<AttendanceData[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [stats, setStats] = useState<MonthlyStats>({
+        total: 0,
+        present: 0,
+        absent: 0,
+        late: 0,
+        leave: 0,
+        percentage: '0'
+    });
+
+    const isMounted = useRef(true);
+
+    const loadAttendance = useCallback(async (month: Date, showLoader = true) => {
+        if (showLoader) setLoading(true);
+        try {
+            const monthStr = (month.getMonth() + 1).toString().padStart(2, '0');
+            const yearStr = month.getFullYear().toString();
+
+            const data = await getStudentAttendanceByMonth(monthStr, yearStr);
+            if (!isMounted.current) return;
+            setAttendance(data);
+            calculateStats(data);
+        } catch (error: any) {
+            if (error?.response?.status !== 401) {
+                console.error('Failed to load attendance:', error);
+                Alert.alert('Error', 'Failed to load attendance data');
+            }
+        } finally {
+            if (isMounted.current) {
+                setLoading(false);
+                setRefreshing(false);
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        isMounted.current = true;
+        loadAttendance(currentMonth);
+        return () => {
+            isMounted.current = false;
+        };
+    }, [currentMonth, loadAttendance]);
+
+    const calculateStats = (data: AttendanceData[]) => {
+        const stats = data.reduce((acc, curr) => {
+            if (curr.status === 'PRESENT') acc.present++;
+            else if (curr.status === 'ABSENT') acc.absent++;
+            else if (curr.status === 'LATE') acc.late++;
+            else if (curr.status === 'LEAVE') acc.leave++;
+            return acc;
+        }, { present: 0, absent: 0, late: 0, leave: 0 });
+
+        const total = stats.present + stats.absent + stats.late + stats.leave;
+        const percentage = total > 0 ? ((stats.present + stats.late) / total * 100).toFixed(1) : '0';
+
+        setStats({
+            total,
+            ...stats,
+            percentage
+        });
+    };
+
+    const markedDates = useMemo(() => {
+        const marked: any = {};
+        attendance.forEach(item => {
+            let color = '#E2E8F0';
+            let textColor = '#64748B';
+
+            switch (item.status) {
+                case 'PRESENT':
+                    color = '#DCFCE7';
+                    textColor = '#166534';
+                    break;
+                case 'ABSENT':
+                    color = '#FEE2E2';
+                    textColor = '#991B1B';
+                    break;
+                case 'LATE':
+                    color = '#FEF3C7';
+                    textColor = '#92400E';
+                    break;
+                case 'LEAVE':
+                    color = '#DBEAFE';
+                    textColor = '#1E40AF';
+                    break;
+                case 'HOLIDAY':
+                    color = '#F1F5F9';
+                    textColor = '#475569';
+                    break;
+            }
+
+            marked[item.date] = {
+                customStyles: {
+                    container: {
+                        backgroundColor: color,
+                        borderRadius: 8,
+                        elevation: 1,
+                    },
+                    text: {
+                        color: textColor,
+                        fontWeight: 'bold',
+                    }
+                }
+            };
+        });
+
+        // Highlight selected date
+        if (marked[selectedDate]) {
+            marked[selectedDate].customStyles.container.borderWidth = 2;
+            marked[selectedDate].customStyles.container.borderColor = '#3B82F6';
+        } else {
+            marked[selectedDate] = {
+                customStyles: {
+                    container: {
+                        borderWidth: 2,
+                        borderColor: '#3B82F6',
+                        borderRadius: 8,
+                    },
+                    text: {
+                        color: '#3B82F6',
+                        fontWeight: 'bold',
+                    }
+                }
+            };
+        }
+
+        return marked;
+    }, [attendance, selectedDate]);
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        loadAttendance(currentMonth, false);
+    };
+
+    const handleMonthChange = (monthData: any) => {
+        const newDate = new Date(monthData.year, monthData.month - 1);
+        setCurrentMonth(newDate);
+    };
+
+    const getStatusText = (date: string) => {
+        const record = attendance.find(a => a.date === date);
+        return record ? record.status : 'NO RECORD';
+    };
+
     return (
-      <View style={[styles.badge, { backgroundColor: '#dcfce7' }]}>
-        <CheckCircle2 size={12} color="#15803d" />
-        <AppText style={[styles.badgeText, { color: '#15803d' }]}>PRESENT</AppText>
-      </View>
-    );
-  }
-  if (s === 'LATE' || s === 'HALF_DAY') {
-    return (
-      <View style={[styles.badge, { backgroundColor: '#fef3c7' }]}>
-        <Clock size={12} color="#b45309" />
-        <AppText style={[styles.badgeText, { color: '#b45309' }]}>{s === 'LATE' ? 'LATE' : 'HALF DAY'}</AppText>
-      </View>
-    );
-  }
-  return (
-    <View style={[styles.badge, { backgroundColor: '#fee2e2' }]}>
-      <XCircle size={12} color="#b91c1c" />
-      <AppText style={[styles.badgeText, { color: '#b91c1c' }]}>ABSENT</AppText>
-    </View>
-  );
-};
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-const StatCard = ({ label, value, color = colors.textPrimary }: { label: string; value: string | number; color?: string }) => (
-  <View style={styles.statCard}>
-    <AppText style={styles.statLabel}>{label}</AppText>
-    <AppText style={[styles.statValue, { color }]}>{value}</AppText>
-  </View>
-);
-
-export default function StudentAttendanceScreen() {
-  const navigation = useNavigation();
-  const { userName, setTabBarVisible } = useAuth();
-
-  const lastScrollY = useRef(0);
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
-      setTabBarVisible(false);
-    } else if (currentScrollY < lastScrollY.current - 10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
-  const [month, setMonth] = useState<string>('');
-  const [year, setYear] = useState<string>(new Date().getFullYear().toString());
-  const [items, setItems] = useState<AttendanceRecord[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [summary, setSummary] = useState<AttendanceSummary>({
-    total_days: 0,
-    present_days: 0,
-    half_day_count: 0,
-    absent_days: 0,
-    late_days: 0,
-    attendance_percentage: 0,
-  });
-
-  const months = [
-    { label: 'All Months', value: '' },
-    { label: 'January', value: '1' },
-    { label: 'February', value: '2' },
-    { label: 'March', value: '3' },
-    { label: 'April', value: '4' },
-    { label: 'May', value: '5' },
-    { label: 'June', value: '6' },
-    { label: 'July', value: '7' },
-    { label: 'August', value: '8' },
-    { label: 'September', value: '9' },
-    { label: 'October', value: '10' },
-    { label: 'November', value: '11' },
-    { label: 'December', value: '12' },
-  ];
-
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, i) => ({
-    label: String(currentYear - i),
-    value: String(currentYear - i),
-  }));
-
-  const fetchAttendance = async (showLoading = true) => {
-    if (showLoading) setLoading(true);
-    try {
-      const params: any = {};
-      if (month) params.month = month;
-      if (year) params.year = year;
-
-      const res = await getStudentAttendance(params);
-      setItems(res.items || []);
-      setSummary({
-        total_days: res.presentDays + res.absentDays,
-        present_days: res.presentDays,
-        half_day_count: 0, // Fallback as service doesn't specifically extract half_days yet
-        absent_days: res.absentDays,
-        late_days: 0,
-        attendance_percentage: res.percentage,
-      });
-    } catch (error) {
-      console.error('Failed to fetch attendance:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAttendance();
-  }, [month, year]);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchAttendance(false);
-  };
-
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
-
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft size={24} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>Attendance</AppText>
-        </View>
-        <TouchableOpacity
-          style={styles.notificationIcon}
-          onPress={() => navigation.navigate('Notifications')}
-        >
-          <Bell size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-      >
-        <View style={styles.mainCard}>
-          <View style={styles.statsScroll}>
-            <StatCard label="Total" value={summary.total_days} />
-            <StatCard label="Present" value={summary.present_days} color="#15803d" />
-            <StatCard label="Absent" value={summary.absent_days} color="#b91c1c" />
-            <StatCard label="Half Day" value={summary.half_day_count || 0} color="#b45309" />
-          </View>
-
-          <View style={styles.attendancePctCard}>
-            <View>
-              <AppText style={styles.pctLabel}>Overall Attendance</AppText>
-              <AppText style={styles.pctValue}>{summary.attendance_percentage}%</AppText>
-            </View>
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${summary.attendance_percentage}%` }]} />
-              </View>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.filterSection}>
-          <AppText style={styles.sectionTitle}>Filter by Date</AppText>
-          <View style={styles.pickerRow}>
-            <View style={styles.pickerWrapper}>
-              <Picker
-                selectedValue={month}
-                onValueChange={(val) => setMonth(val)}
-                style={styles.picker}
-                mode="dropdown"
-              >
-                {months.map((m) => (
-                  <Picker.Item key={m.value} label={m.label} value={m.value} />
-                ))}
-              </Picker>
-            </View>
-            <View style={styles.pickerWrapper}>
-              <Picker
-                selectedValue={year}
-                onValueChange={(val) => setYear(val)}
-                style={styles.picker}
-                mode="dropdown"
-              >
-                {years.map((y) => (
-                  <Picker.Item key={y.value} label={y.label} value={y.value} />
-                ))}
-              </Picker>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.recordsSection}>
-          <View style={styles.recordsHeader}>
-            <AppText style={styles.sectionTitle}>Attendance Records</AppText>
-            <AppText style={styles.recordCount}>{items.length} Records</AppText>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 40 }} />
-          ) : items.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Calendar size={48} color="#cbd5e1" />
-              <AppText style={styles.emptyText}>No records found for this period</AppText>
-            </View>
-          ) : (
-            items.map((record, index) => (
-              <AppCard key={record.attendance_id || index} style={styles.recordCard}>
-                <View style={styles.recordDateBox}>
-                  <View style={styles.dateHeader}>
-                    <AppText style={styles.dateMonth}>
-                      {new Date(record.attendance_date).toLocaleDateString('en-US', { month: 'short' })}
-                    </AppText>
-                  </View>
-                  <View style={styles.dateBody}>
-                    <AppText style={styles.dateDay}>{new Date(record.attendance_date).getDate()}</AppText>
-                  </View>
+            {/* Header */}
+            <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+                <TouchableOpacity
+                    style={styles.backButton}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Icon name="arrow-left" size={24} color="#FFF" />
+                </TouchableOpacity>
+                <View style={styles.headerTitleContainer}>
+                    <Text style={styles.headerTitle}>Attendance History</Text>
                 </View>
-                <View style={styles.recordInfo}>
-                  <AppText style={styles.recordTitle}>
-                    {record.class_name && record.class_name.length <= 2 ? `Class ${record.class_name}` : (record.class_name || 'Class Attendance')}
-                  </AppText>
-                  <AppText style={styles.recordSub}>
-                    {new Date(record.attendance_date).toLocaleDateString('en-US', { weekday: 'long' })}
-                  </AppText>
+                <TouchableOpacity
+                    style={styles.headerRight}
+                    onPress={onRefresh}
+                >
+                    <Icon name="refresh-cw" size={20} color="#FFF" />
+                </TouchableOpacity>
+            </View>
+
+            <ScrollView
+                style={styles.scrollView}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3B82F6" />
+                }
+            >
+                {/* Overall Stats Card */}
+                <View style={styles.statsOverview}>
+                    <View style={styles.percentageCircle}>
+                        <Text style={styles.percentageValue}>{stats.percentage}%</Text>
+                        <Text style={styles.percentageLabel}>Overall</Text>
+                    </View>
+                    <View style={styles.statsDivider} />
+                    <View style={styles.statsRight}>
+                        <View style={styles.statRow}>
+                            <View style={[styles.statDot, { backgroundColor: '#22C55E' }]} />
+                            <Text style={styles.statLabel}>Present:</Text>
+                            <Text style={styles.statValue}>{stats.present + stats.late}</Text>
+                        </View>
+                        <View style={styles.statRow}>
+                            <View style={[styles.statDot, { backgroundColor: '#EF4444' }]} />
+                            <Text style={styles.statLabel}>Absent:</Text>
+                            <Text style={styles.statValue}>{stats.absent}</Text>
+                        </View>
+                        <View style={styles.statRow}>
+                            <View style={[styles.statDot, { backgroundColor: '#3B82F6' }]} />
+                            <Text style={styles.statLabel}>On Leave:</Text>
+                            <Text style={styles.statValue}>{stats.leave}</Text>
+                        </View>
+                    </View>
                 </View>
-                <StatusBadge status={record.status} />
-              </AppCard>
-            ))
-          )}
+
+                {/* Calendar Card */}
+                <View style={styles.calendarCard}>
+                    <Calendar
+                        current={selectedDate}
+                        onDayPress={day => setSelectedDate(day.dateString)}
+                        onMonthChange={handleMonthChange}
+                        markingType={'custom'}
+                        markedDates={markedDates}
+                        theme={{
+                            backgroundColor: '#ffffff',
+                            calendarBackground: '#ffffff',
+                            textSectionTitleColor: '#64748B',
+                            selectedDayBackgroundColor: '#3B82F6',
+                            selectedDayTextColor: '#ffffff',
+                            todayTextColor: '#3B82F6',
+                            dayTextColor: '#1E293B',
+                            textDisabledColor: '#CBD5E1',
+                            dotColor: '#3B82F6',
+                            selectedDotColor: '#ffffff',
+                            arrowColor: '#3B82F6',
+                            monthTextColor: '#1E293B',
+                            textDayFontWeight: '500',
+                            textMonthFontWeight: '700',
+                            textDayHeaderFontWeight: '600',
+                            textDayFontSize: 14,
+                            textMonthFontSize: 16,
+                            textDayHeaderFontSize: 12,
+                        }}
+                    />
+                </View>
+
+                {/* Selected Date Details */}
+                <View style={styles.detailsCard}>
+                    <View style={styles.detailsHeader}>
+                        <Text style={styles.detailsTitle}>Daily Summary</Text>
+                        <Text style={styles.detailsDate}>
+                            {new Date(selectedDate).toLocaleDateString('en-US', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric'
+                            })}
+                        </Text>
+                    </View>
+
+                    <View style={styles.statusBox}>
+                        <View style={styles.statusInfo}>
+                            <Text style={styles.statusLabel}>Attendance Status</Text>
+                            <Text style={[styles.statusValue, {
+                                color: getStatusText(selectedDate) === 'PRESENT' ? '#22C55E' :
+                                       getStatusText(selectedDate) === 'ABSENT' ? '#EF4444' :
+                                       getStatusText(selectedDate) === 'LATE' ? '#F59E0B' :
+                                       getStatusText(selectedDate) === 'LEAVE' ? '#3B82F6' : '#64748B'
+                            }]}>
+                                {getStatusText(selectedDate)}
+                            </Text>
+                        </View>
+                        <View style={[styles.statusIndicator, {
+                            backgroundColor: getStatusText(selectedDate) === 'PRESENT' ? '#22C55E' :
+                                            getStatusText(selectedDate) === 'ABSENT' ? '#EF4444' :
+                                            getStatusText(selectedDate) === 'LATE' ? '#F59E0B' :
+                                            getStatusText(selectedDate) === 'LEAVE' ? '#3B82F6' : '#64748B'
+                        }]} />
+                    </View>
+                </View>
+
+                <View style={styles.legendCard}>
+                    <Text style={styles.legendTitle}>LEGEND</Text>
+                    <View style={styles.legendGrid}>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: '#DCFCE7' }]} />
+                            <Text style={styles.legendText}>Present</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: '#FEE2E2' }]} />
+                            <Text style={styles.legendText}>Absent</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: '#FEF3C7' }]} />
+                            <Text style={styles.legendText}>Late</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: '#DBEAFE' }]} />
+                            <Text style={styles.legendText}>Leave</Text>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={{ height: 40 }} />
+            </ScrollView>
+
+            {loading && !refreshing && (
+                <View style={styles.loaderOverlay}>
+                    <ActivityIndicator size="large" color="#3B82F6" />
+                </View>
+            )}
         </View>
-        <View style={{ height: 100 }} />
-      </ScrollView>
-    </View>
-  );
+    );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  header: {
-    backgroundColor: '#001F3F',
-    height: Platform.OS === 'ios' ? 70 : 55,
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 35 : 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  notificationIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 40,
-    paddingTop: 16,
-    paddingHorizontal: 12,
-  },
-  mainCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  statsScroll: {
-    flexDirection: 'row',
-    marginBottom: 12,
-    justifyContent: 'space-between',
-  },
-  statCard: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    padding: 10,
-    flex: 1,
-    marginRight: 6,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  statLabel: {
-    fontSize: 9,
-    color: '#64748b',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  attendancePctCard: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    padding: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  pctLabel: {
-    fontSize: 10,
-    color: '#64748b',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  pctValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#2563eb',
-  },
-  progressContainer: {
-    flex: 1,
-    marginLeft: 15,
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#2563eb',
-  },
-  filterSection: {
-    marginTop: 20,
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 10,
-  },
-  pickerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  pickerWrapper: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    overflow: 'hidden',
-    height: 44,
-    justifyContent: 'center',
-  },
-  picker: {
-    height: 44,
-    width: '100%',
-  },
-  recordsSection: {
-    marginTop: 10,
-  },
-  recordsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  recordCount: {
-    fontSize: 12,
-    color: '#64748b',
-    fontWeight: '600',
-  },
-  recordCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    marginBottom: 10,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  recordDateBox: {
-    width: 52,
-    height: 58,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    marginRight: 15,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  dateHeader: {
-    backgroundColor: '#001F3F',
-    width: '100%',
-    paddingVertical: 3,
-    alignItems: 'center',
-  },
-  dateBody: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dateDay: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  dateMonth: {
-    fontSize: 9,
-    color: '#fff',
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  recordInfo: {
-    flex: 1,
-  },
-  recordTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  recordSub: {
-    fontSize: 11,
-    color: '#64748b',
-    marginTop: 1,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    gap: 4,
-  },
-  badgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    padding: 30,
-    marginTop: 10,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: '#94a3b8',
-    marginTop: 8,
-    textAlign: 'center',
-  },
+    container: {
+        flex: 1,
+        backgroundColor: '#F8FAFC',
+    },
+    header: {
+        backgroundColor: '#001F3F',
+        paddingHorizontal: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    backButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+    },
+    headerTitleContainer: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
+    },
+    headerRight: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'flex-end',
+    },
+    scrollView: {
+        flex: 1,
+        paddingHorizontal: 20,
+        marginTop: 10,
+    },
+    statsOverview: {
+        flexDirection: 'row',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        padding: 20,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 5,
+        marginBottom: 20,
+    },
+    percentageCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        borderWidth: 6,
+        borderColor: '#3B82F6',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    percentageValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#1E293B',
+    },
+    percentageLabel: {
+        fontSize: 10,
+        color: '#64748B',
+    },
+    statsDivider: {
+        width: 1,
+        height: 60,
+        backgroundColor: '#E2E8F0',
+        marginHorizontal: 25,
+    },
+    statsRight: {
+        flex: 1,
+        gap: 8,
+    },
+    statRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    statDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: 8,
+    },
+    statLabel: {
+        fontSize: 13,
+        color: '#64748B',
+        flex: 1,
+    },
+    statValue: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#1E293B',
+    },
+    calendarCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        padding: 10,
+        marginBottom: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 3,
+    },
+    detailsCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 3,
+    },
+    detailsHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+        paddingBottom: 10,
+    },
+    detailsTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#1E293B',
+    },
+    detailsDate: {
+        fontSize: 13,
+        color: '#64748B',
+    },
+    statusBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F8FAFC',
+        padding: 15,
+        borderRadius: 15,
+    },
+    statusInfo: {
+        flex: 1,
+    },
+    statusLabel: {
+        fontSize: 12,
+        color: '#64748B',
+        marginBottom: 4,
+    },
+    statusValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    statusIndicator: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+    },
+    legendCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 20,
+    },
+    legendTitle: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#94A3B8',
+        letterSpacing: 1,
+        marginBottom: 15,
+    },
+    legendGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 15,
+    },
+    legendItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: '45%',
+    },
+    legendDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 4,
+        marginRight: 8,
+    },
+    legendText: {
+        fontSize: 13,
+        color: '#475569',
+    },
+    loaderOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255, 255, 255, 0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+    },
 });

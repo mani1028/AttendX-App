@@ -8,14 +8,17 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { ChevronLeft, Calendar, Users, CheckCircle2, XCircle } from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import ClassSelector from '../../components/teacher/ClassSelector';
+import AppText from '../../components/common/AppText';
 
 interface Student {
   id: string;
@@ -61,8 +64,6 @@ export default function MarkAttendanceScreen() {
     if (!classInfo) return;
     setLoading(true);
     try {
-      // In a real app, fetch students from API
-      // For demo, use mock data
       const mockStudents: Student[] = Array.from({ length: classInfo.students }, (_, i) => ({
         id: `${i + 1}`,
         rollNo: `${100 + i}`,
@@ -102,6 +103,7 @@ export default function MarkAttendanceScreen() {
 
   const presentCount = dateFiltered.filter(s => s.present).length;
   const absentCount = dateFiltered.filter(s => !s.present).length;
+  const totalCount = dateFiltered.length;
 
   const toggleAttendance = (studentId: string) => {
     setAttendanceData(prev =>
@@ -116,7 +118,6 @@ export default function MarkAttendanceScreen() {
   const handleSaveAttendance = async () => {
     setLoading(true);
     try {
-      // In a real app, save to API
       await new Promise<void>(resolve => setTimeout(resolve, 1000));
       Alert.alert('Success', 'Attendance saved successfully');
       await fetchStudents();
@@ -138,18 +139,25 @@ export default function MarkAttendanceScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setShowClassSelector(true)} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
+          <ChevronLeft size={24} color="#001F3F" />
         </TouchableOpacity>
-        <Text style={styles.title}>Student Attendance - {classInfo?.name}</Text>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <AppText style={styles.headerTitle}>Mark Attendance</AppText>
+          <AppText style={styles.headerSubtitle}>{classInfo?.name}</AppText>
+        </View>
       </View>
 
       {/* Date Picker */}
-      <View style={styles.dateFilter}>
-        <Text style={styles.dateLabel}>📅</Text>
-        <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
-          <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
+      <View style={styles.dateSection}>
+        <TouchableOpacity style={styles.dateSelector} onPress={() => setShowDatePicker(true)}>
+          <Calendar size={20} color="#001F3F" />
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <AppText style={styles.dateSelectorLabel}>Select Date</AppText>
+            <AppText style={styles.dateSelectorValue}>{formatDate(selectedDate)}</AppText>
+          </View>
         </TouchableOpacity>
         {showDatePicker && (
           <DateTimePicker
@@ -164,20 +172,20 @@ export default function MarkAttendanceScreen() {
         )}
       </View>
 
-      {/* Summary Cards */}
-      <View style={styles.summaryCards}>
-        <AppCard style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Date</Text>
-          <Text style={styles.summaryValue}>{formatDate(selectedDate)}</Text>
-        </AppCard>
-        <AppCard style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Present</Text>
-          <Text style={[styles.summaryValue, { color: '#10b981' }]}>{presentCount}</Text>
-        </AppCard>
-        <AppCard style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Absent</Text>
-          <Text style={[styles.summaryValue, { color: '#ef4444' }]}>{absentCount}</Text>
-        </AppCard>
+      {/* Summary Stats */}
+      <View style={styles.statsContainer}>
+        <View style={[styles.statCard, { backgroundColor: '#F0F9FF', borderLeftColor: '#0284C7' }]}>
+          <AppText style={styles.statValue}>{totalCount}</AppText>
+          <AppText style={styles.statLabel}>Total</AppText>
+        </View>
+        <View style={[styles.statCard, { backgroundColor: '#F0FDF4', borderLeftColor: '#16A34A' }]}>
+          <AppText style={[styles.statValue, { color: '#16A34A' }]}>{presentCount}</AppText>
+          <AppText style={styles.statLabel}>Present</AppText>
+        </View>
+        <View style={[styles.statCard, { backgroundColor: '#FEF2F2', borderLeftColor: '#DC2626' }]}>
+          <AppText style={[styles.statValue, { color: '#DC2626' }]}>{absentCount}</AppText>
+          <AppText style={styles.statLabel}>Absent</AppText>
+        </View>
       </View>
 
       {/* Filter Tabs */}
@@ -188,57 +196,56 @@ export default function MarkAttendanceScreen() {
             style={[styles.filterTab, filter === tab && styles.filterTabActive]}
             onPress={() => setFilter(tab)}
           >
-            <Text style={[styles.filterTabText, filter === tab && styles.filterTabTextActive]}>
+            <AppText style={[styles.filterTabText, filter === tab && styles.filterTabTextActive]}>
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         ))}
       </View>
 
       {/* Student List */}
       {loading ? (
-        <ActivityIndicator size="large" style={styles.loader} />
+        <ActivityIndicator size="large" style={styles.loader} color="#001F3F" />
+      ) : filteredStudents.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Users size={48} color="#CBD5E1" />
+          <AppText style={styles.emptyStateText}>No students found</AppText>
+        </View>
       ) : (
-        <View style={styles.table}>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderText, styles.colRoll]}>Roll No</Text>
-            <Text style={[styles.tableHeaderText, styles.colName]}>Name</Text>
-            <Text style={[styles.tableHeaderText, styles.colStatus]}>Status</Text>
-            <Text style={[styles.tableHeaderText, styles.colAction]}>Action</Text>
-          </View>
-          {filteredStudents.map((student, idx) => (
-            <View key={student.id} style={styles.tableRow}>
-              <Text style={[styles.tableCell, styles.colRoll]}>{student.rollNo}</Text>
-              <Text style={[styles.tableCell, styles.colName]}>{student.name}</Text>
-              <Text style={[styles.tableCell, styles.colStatus]}>
-                <View style={[styles.statusBadge, student.present ? styles.statusPresent : styles.statusAbsent]}>
-                  <Text style={student.present ? styles.statusTextPresent : styles.statusTextAbsent}>
-                    {student.present ? 'Present' : 'Absent'}
-                  </Text>
-                </View>
-              </Text>
-              <Text style={[styles.tableCell, styles.colAction]}>
-                <TouchableOpacity
-                  style={[styles.actionButton, student.present ? styles.btnAbsent : styles.btnPresent]}
-                  onPress={() => toggleAttendance(student.id)}
-                >
-                  <Text style={styles.actionButtonText}>
-                    {student.present ? 'Mark Absent' : 'Mark Present'}
-                  </Text>
-                </TouchableOpacity>
-              </Text>
+        <View style={styles.studentList}>
+          {filteredStudents.map((student) => (
+            <View key={student.id} style={styles.studentCard}>
+              <View style={styles.studentInfo}>
+                <AppText style={styles.studentName}>{student.name}</AppText>
+                <AppText style={styles.studentRoll}>Roll: {student.rollNo}</AppText>
+              </View>
+              <TouchableOpacity
+                style={[styles.attendanceToggle, student.present && styles.togglePresent]}
+                onPress={() => toggleAttendance(student.id)}
+              >
+                {student.present ? (
+                  <CheckCircle2 size={20} color="#16A34A" />
+                ) : (
+                  <XCircle size={20} color="#DC2626" />
+                )}
+                <AppText style={[styles.toggleLabel, student.present && styles.toggleLabelPresent]}>
+                  {student.present ? 'Present' : 'Absent'}
+                </AppText>
+              </TouchableOpacity>
             </View>
           ))}
         </View>
       )}
 
       {/* Save Button */}
-      <AppButton
-        title={loading ? 'Saving...' : 'Save Attendance'}
-        onPress={handleSaveAttendance}
-        disabled={loading}
-        style={styles.saveButton}
-      />
+      {!loading && (
+        <AppButton
+          title="Save Attendance"
+          onPress={handleSaveAttendance}
+          disabled={loading}
+          style={styles.saveButton}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -246,176 +253,202 @@ export default function MarkAttendanceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: '#F0F4F8',
   },
   contentContainer: {
-    padding: 16,
     paddingBottom: 40,
   },
   header: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ECEFF1',
   },
   backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  backButtonText: {
-    fontSize: 13,
-    color: '#475569',
-  },
-  title: {
-    fontSize: 18,
+  headerTitle: {
+    fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
-    flex: 1,
+    color: '#0F172A',
   },
-  dateFilter: {
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  dateSection: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  dateSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    shadowOpacity: 0.06,
+    ...Platform.select({
+      android: { elevation: 2 },
+      ios: {},
+    }),
+  },
+  dateSelectorLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  dateSelectorValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 2,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     gap: 10,
   },
-  dateLabel: {
-    fontSize: 16,
-  },
-  dateButton: {
+  statCard: {
     flex: 1,
-  },
-  dateText: {
-    fontSize: 14,
-    color: '#0f172a',
-  },
-  summaryCards: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  summaryCard: {
-    flex: 1,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderLeftWidth: 5,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowOpacity: 0.04,
+    ...Platform.select({
+      android: { elevation: 1 },
+      ios: {},
+    }),
   },
-  summaryLabel: {
-    fontSize: 11,
-    color: '#64748b',
-    marginBottom: 4,
-  },
-  summaryValue: {
+  statValue: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#0f172a',
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  statLabel: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 4,
+    fontWeight: '600',
   },
   filterTabs: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    marginBottom: 16,
-    overflow: 'hidden',
+    justifyContent: 'space-around',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
   },
   filterTab: {
     flex: 1,
     paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
   },
   filterTabActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#001F3F',
+    borderColor: '#001F3F',
   },
   filterTabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#64748b',
+    color: '#64748B',
   },
   filterTabTextActive: {
-    color: '#fff',
+    color: '#FFFFFF',
   },
   loader: {
-    marginVertical: 40,
+    marginVertical: 60,
   },
-  table: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 20,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#f8fafc',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  tableHeaderText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748b',
-    textTransform: 'uppercase',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+  emptyState: {
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 12,
   },
-  tableCell: {
-    fontSize: 13,
-    color: '#0f172a',
-  },
-  colRoll: { width: 70 },
-  colName: { flex: 2 },
-  colStatus: { width: 80 },
-  colAction: { width: 100 },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-  },
-  statusPresent: {
-    backgroundColor: '#dcfce7',
-  },
-  statusAbsent: {
-    backgroundColor: '#fee2e2',
-  },
-  statusTextPresent: {
-    fontSize: 11,
+  emptyStateText: {
+    fontSize: 14,
+    color: '#94A3B8',
     fontWeight: '600',
-    color: '#15803d',
   },
-  statusTextAbsent: {
-    fontSize: 11,
+  studentList: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 10,
+  },
+  studentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    elevation: 2,
+    shadowOpacity: 0.06,
+  },
+  studentInfo: {
+    flex: 1,
+  },
+  studentName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  studentRoll: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  attendanceToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  togglePresent: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBEF63',
+  },
+  toggleLabel: {
+    fontSize: 12,
     fontWeight: '600',
-    color: '#b91c1c',
+    color: '#DC2626',
   },
-  actionButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  btnPresent: {
-    backgroundColor: '#dcfce7',
-  },
-  btnAbsent: {
-    backgroundColor: '#fee2e2',
-  },
-  actionButtonText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#0f172a',
+  toggleLabelPresent: {
+    color: '#16A34A',
   },
   saveButton: {
-    marginTop: 8,
+    marginHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 12,
   },
 });

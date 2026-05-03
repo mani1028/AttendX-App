@@ -6,6 +6,7 @@ import {
   Text,
   Dimensions,
   Platform,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -19,11 +20,21 @@ import {
   UserCheck,
   ClipboardList
 } from 'lucide-react-native';
+import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { tabBarTranslate, isTabBarVisible } = useAuth();
+
+  const animatedOpacity = tabBarTranslate
+    ? tabBarTranslate.interpolate({
+        inputRange: [0, 120],
+        outputRange: [1, 0.92],
+        extrapolate: 'clamp',
+      })
+    : 1;
 
   const tabs = [
     { name: 'Home', label: 'Home', icon: Home },
@@ -34,7 +45,14 @@ const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
   ];
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom || 10 }]}>
+    <Animated.View
+      pointerEvents={isTabBarVisible ? 'auto' : 'none'}
+      style={[
+        styles.container,
+        { paddingBottom: insets.bottom || 10 },
+        tabBarTranslate ? { transform: [{ translateY: tabBarTranslate }], opacity: animatedOpacity } : null,
+      ]}
+    >
       <View style={styles.content}>
         {tabs.map((tab, index) => {
           const isFocused = state.index === index;
@@ -78,23 +96,23 @@ const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
             >
               <IconComponent
                 size={24}
-                color={isFocused ? '#3b82f6' : '#94a3b8'}
+                color={isFocused ? '#FFFFFF' : '#94a3b8'}
                 strokeWidth={isFocused ? 2.5 : 2}
               />
-              <Text style={[styles.tabLabel, { color: isFocused ? '#3b82f6' : '#94a3b8' }]}>
+              <Text style={[styles.tabLabel, { color: isFocused ? '#FFFFFF' : '#94a3b8' }]}> 
                 {tab.label}
               </Text>
             </TouchableOpacity>
           );
         })}
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#001A3D',
+    backgroundColor: '#001F3F',
     position: 'absolute',
     bottom: 0,
     width: '100%',
@@ -126,10 +144,10 @@ const styles = StyleSheet.create({
     marginTop: -30,
   },
   centerButton: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#001A3D',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#001F3F',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
@@ -142,14 +160,20 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
       },
       android: {
-        elevation: 8,
+        ...Platform.select({
+
+          android: { elevation: 8 },
+
+          ios: {},
+
+        }),
       },
     }),
   },
   centerIconWrapper: {
     width: '100%',
     height: '100%',
-    borderRadius: 30,
+    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
   },

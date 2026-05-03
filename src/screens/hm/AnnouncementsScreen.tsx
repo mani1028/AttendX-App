@@ -14,38 +14,28 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ChevronLeft,
+  RefreshCw,
+  Send,
+  Trash2,
+} from 'lucide-react-native';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import API from "../../services/api";
 import { colors } from "../../constants/theme";
 import AppText from "../../components/common/AppText";
-import Icon from "@react-native-vector-icons/feather";
 import { useAuth } from "../../context/AuthContext";
+import { HM_THEME as C } from "../../constants/hmTheme";
+import { formatErrorMessage } from "../../utils/helpers";
 
-// Local theme bridge
-const C = {
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  textMuted: colors.textMuted,
-  primary: colors.primary,
-  primarySoft: colors.primary + '20',
-  success: colors.success,
-  successSoft: colors.successSoft,
-  error: colors.error,
-  errorSoft: colors.errorSoft,
-  warning: colors.warning,
-  warningSoft: colors.warningSoft,
-  info: colors.info || '#0ea5e9',
-  infoSoft: (colors.info || '#0ea5e9') + '20',
-};
 
 type Announcement = {
   id: number;
   title: string;
   description: string;
-  type: string;
+  type?: string;
   event_date?: string;
   created_at?: string;
 };
@@ -58,6 +48,15 @@ const announcementTypes = [
   "announcement",
   "urgent",
 ];
+
+const DEFAULT_ANNOUNCEMENT_TYPE = "announcement";
+
+const getAnnouncementType = (type?: string) => {
+  const normalizedType = type?.toLowerCase();
+  return announcementTypes.includes(normalizedType || "")
+    ? normalizedType!
+    : DEFAULT_ANNOUNCEMENT_TYPE;
+};
 
 const getTypeColor = (type: string) => {
   const typeMap: any = {
@@ -73,6 +72,7 @@ const getTypeColor = (type: string) => {
 };
 
 const AnnouncementsScreen = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
@@ -146,9 +146,14 @@ const AnnouncementsScreen = () => {
         },
       });
 
-      setAnnouncements(response.data.items || []);
+      const normalizedAnnouncements = (response.data.items || []).map((item: Announcement) => ({
+        ...item,
+        type: getAnnouncementType(item?.type),
+      }));
+
+      setAnnouncements(normalizedAnnouncements);
     } catch (error: any) {
-      Alert.alert("Error", "Failed to load announcements");
+      Alert.alert("Error", formatErrorMessage(error?.response?.data?.detail || "Failed to load announcements"));
     } finally {
       setListLoading(false);
     }
@@ -199,8 +204,7 @@ const AnnouncementsScreen = () => {
     } catch (error: any) {
       Alert.alert(
         "Error",
-        error?.response?.data?.detail ||
-          "Failed to post announcement"
+        formatErrorMessage(error?.response?.data?.detail || "Failed to post announcement")
       );
     } finally {
       setLoading(false);
@@ -216,7 +220,7 @@ const AnnouncementsScreen = () => {
         {
           title: announcement.title,
           description: announcement.description,
-          notification_type: announcement.type,
+          notification_type: getAnnouncementType(announcement.type),
           event_date: announcement.event_date || "",
         },
         {
@@ -238,8 +242,7 @@ const AnnouncementsScreen = () => {
     } catch (error: any) {
       Alert.alert(
         "Error",
-        error?.response?.data?.detail ||
-          "Failed to resend announcement"
+        formatErrorMessage(error?.response?.data?.detail || "Failed to resend announcement")
       );
     } finally {
       setResendingId(null);
@@ -281,8 +284,7 @@ const AnnouncementsScreen = () => {
             } catch (error: any) {
               Alert.alert(
                 "Error",
-                error?.response?.data?.detail ||
-                  "Failed to delete announcement"
+                formatErrorMessage(error?.response?.data?.detail || "Failed to delete announcement")
               );
             }
           },
@@ -306,13 +308,16 @@ const AnnouncementsScreen = () => {
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
       {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color="#fff" />
+      <View style={[styles.headerStandard, { paddingTop: insets.top }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
+        >
+          <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
-        <AppText style={styles.headerTitle}>Announcements</AppText>
+        <AppText style={styles.headerTitle} weight="bold">Announcements</AppText>
         <TouchableOpacity style={styles.refreshIconBtn} onPress={() => fetchAnnouncements()}>
-          <Icon name="refresh-cw" size={20} color="#fff" />
+          <RefreshCw size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -325,11 +330,11 @@ const AnnouncementsScreen = () => {
           {/* Form Section */}
 
       <View style={styles.card}>
-        <AppText style={styles.sectionTitle}>
+        <AppText style={styles.sectionTitle} weight="bold">
           Post New Announcement
         </AppText>
 
-        <AppText style={styles.label}>Announcement Title *</AppText>
+        <AppText style={styles.label} weight="semiBold">Announcement Title *</AppText>
         <TextInput
           style={styles.input}
           placeholder="Annual Sports Day 2025"
@@ -340,7 +345,7 @@ const AnnouncementsScreen = () => {
           }
         />
 
-        <AppText style={styles.label}>Description *</AppText>
+        <AppText style={styles.label} weight="semiBold">Description *</AppText>
         <TextInput
           style={[styles.input, styles.textArea]}
           multiline
@@ -352,7 +357,7 @@ const AnnouncementsScreen = () => {
           }
         />
 
-        <AppText style={styles.label}>Type</AppText>
+        <AppText style={styles.label} weight="semiBold">Type</AppText>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.typeRow}>
@@ -374,6 +379,7 @@ const AnnouncementsScreen = () => {
                     formData.notification_type === type &&
                       styles.activeTypeText,
                   ]}
+                  weight="semiBold"
                 >
                   {type}
                 </AppText>
@@ -382,7 +388,7 @@ const AnnouncementsScreen = () => {
           </View>
         </ScrollView>
 
-        <AppText style={styles.label}>
+        <AppText style={styles.label} weight="semiBold">
           Event Date (Optional)
         </AppText>
         <TextInput
@@ -403,7 +409,7 @@ const AnnouncementsScreen = () => {
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <AppText style={styles.submitText}>
+            <AppText style={styles.submitText} weight="bold">
               Post Announcement
             </AppText>
           )}
@@ -413,7 +419,7 @@ const AnnouncementsScreen = () => {
       {/* History Section */}
 
       <View style={styles.card}>
-        <AppText style={styles.sectionTitle}>
+        <AppText style={styles.sectionTitle} weight="bold">
           Announcement History
         </AppText>
 
@@ -423,9 +429,8 @@ const AnnouncementsScreen = () => {
           <AppText style={styles.emptyText}>No announcements posted yet</AppText>
         ) : (
           announcements.map((announcement) => {
-            const typeColor = getTypeColor(
-              announcement.type
-            );
+            const safeType = getAnnouncementType(announcement.type);
+            const typeColor = getTypeColor(safeType);
 
             return (
               <View
@@ -440,11 +445,12 @@ const AnnouncementsScreen = () => {
                       color: typeColor.color,
                     },
                   ]}
+                  weight="bold"
                 >
-                  {announcement.type.toUpperCase()}
+                  {safeType.toUpperCase()}
                 </AppText>
 
-                <AppText style={styles.title}>
+                <AppText style={styles.title} weight="bold">
                   {announcement.title}
                 </AppText>
 
@@ -479,8 +485,8 @@ const AnnouncementsScreen = () => {
                       <ActivityIndicator color="#fff" size="small" />
                     ) : (
                       <>
-                        <Icon name="send" size={14} color="#fff" style={{marginRight: 6}} />
-                        <AppText style={styles.buttonText}>
+                        <Send size={14} color="#fff" style={{marginRight: 6}} />
+                        <AppText style={styles.buttonText} weight="bold">
                           Resend
                         </AppText>
                       </>
@@ -493,8 +499,8 @@ const AnnouncementsScreen = () => {
                       handleDelete(announcement.id)
                     }
                   >
-                    <Icon name="trash-2" size={14} color="#fff" style={{marginRight: 6}} />
-                    <AppText style={styles.buttonText}>
+                    <Trash2 size={14} color="#fff" style={{marginRight: 6}} />
+                    <AppText style={styles.buttonText} weight="bold">
                       Delete
                     </AppText>
                   </TouchableOpacity>
@@ -519,12 +525,12 @@ const styles = StyleSheet.create({
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderRadius: 0,
   },
   backBtn: {
     width: 40,
@@ -534,7 +540,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#ffffff',
     textAlign: 'center',
     flex: 1,
@@ -563,13 +568,11 @@ const styles = StyleSheet.create({
 
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "700",
     marginBottom: 16,
     color: C.text,
   },
 
   label: {
-    fontWeight: "600",
     marginBottom: 8,
     marginTop: 10,
     color: C.text,
@@ -613,7 +616,6 @@ const styles = StyleSheet.create({
   typeText: {
     color: C.textMuted,
     fontSize: 13,
-    fontWeight: "600",
   },
 
   activeTypeText: {
@@ -630,7 +632,6 @@ const styles = StyleSheet.create({
 
   submitText: {
     color: "#fff",
-    fontWeight: "700",
     fontSize: 16,
   },
 
@@ -649,13 +650,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
     fontSize: 11,
-    fontWeight: "800",
     marginBottom: 10,
   },
 
   title: {
     fontSize: 17,
-    fontWeight: "700",
     color: C.text,
   },
 
@@ -700,7 +699,6 @@ const styles = StyleSheet.create({
 
   buttonText: {
     color: "#fff",
-    fontWeight: "700",
     fontSize: 13,
   },
 

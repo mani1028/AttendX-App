@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { colors } from '../../constants/colors';
 import AppCard from '../common/AppCard';
@@ -182,7 +183,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 2,
+    ...Platform.select({
+      android: { elevation: 2 },
+      ios: {},
+    }),
     position: 'relative',
     overflow: 'hidden',
   },

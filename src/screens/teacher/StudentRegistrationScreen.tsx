@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -11,15 +10,39 @@ import {
   Image,
   ActivityIndicator,
   Platform,
+  StatusBar,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  ChevronLeft,
+  Copy,
+  Check,
+  User,
+  BookOpen,
+  Users,
+  Heart,
+  Camera,
+  Eye,
+  EyeOff,
+  ChevronRight,
+  PlusCircle,
+  Calendar,
+  X
+} from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+import HM_THEME from '../../constants/hmTheme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
+import { safeGoBack } from '../../utils/navigationHelpers';
 import Loader from '../../components/common/Loader';
+import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 // Types
 interface ClassOption {
@@ -174,7 +197,14 @@ const isValidDateOfBirth = (dobString: string): { valid: boolean; error: string 
   return { valid: true, error: null };
 };
 
-const STEPS = ['Basic Info', 'Academics', 'Parent & Address', 'Health & Transport', 'Photo', 'Preview'];
+const STEPS = [
+  'Personal Info',
+  'Academic Details',
+  'Guardian Info',
+  'Contact Info',
+  'Upload Photo',
+  'Review & Submit'
+];
 
 const INITIAL_FORM: FormData = {
   branch_id: '',
@@ -246,12 +276,14 @@ const PasswordStrength: React.FC<{ password: string }> = ({ password }) => {
 
 const PasswordRule: React.FC<{ valid: boolean; children: React.ReactNode }> = ({ valid, children }) => (
   <View style={styles.passwordRule}>
-    <Text style={[styles.passwordRuleIcon, valid && styles.passwordRuleIconValid]}>
-      {valid ? '✓' : '○'}
-    </Text>
-    <Text style={[styles.passwordRuleText, valid && styles.passwordRuleTextValid]}>
+    {valid ? (
+      <Check size={12} color="#059669" />
+    ) : (
+      <View style={styles.passwordRuleDot} />
+    )}
+    <AppText style={[styles.passwordRuleText, valid && styles.passwordRuleTextValid]}>
       {children}
-    </Text>
+    </AppText>
   </View>
 );
 
@@ -263,24 +295,28 @@ const FormField: React.FC<{
   children: React.ReactNode;
 }> = ({ label, required, error, children }) => (
   <View style={styles.formGroup}>
-    <Text style={styles.formLabel}>
+    <AppText weight="semiBold" style={styles.formLabel}>
       {label}
-      {required && <Text style={styles.requiredStar}> *</Text>}
-    </Text>
+      {required && <AppText style={styles.requiredStar}> *</AppText>}
+    </AppText>
     {children}
-    {error && <Text style={styles.fieldError}>{error}</Text>}
+    {error && <AppText style={styles.fieldError}>{error}</AppText>}
   </View>
 );
 
 // Preview Field Component
 const PreviewField: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <View style={styles.previewField}>
-    <Text style={styles.previewFieldLabel}>{label}</Text>
-    <Text style={styles.previewFieldValue}>{value || '—'}</Text>
+    <AppText weight="semiBold" style={styles.previewFieldLabel}>{label}</AppText>
+    <AppText weight="regular" style={styles.previewFieldValue}>{value || '—'}</AppText>
   </View>
 );
 
 export default function StudentRegistrationScreen() {
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
+  const { setTabBarVisible } = useAuth();
+  const lastScrollY = useRef(0);
   const [loggedSchoolCode, setLoggedSchoolCode] = useState<string>('');
   const [defaultBranchId, setDefaultBranchId] = useState<string>('');
   const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
@@ -300,10 +336,23 @@ export default function StudentRegistrationScreen() {
 
   useEffect(() => {
     isMounted.current = true;
+    setTabBarVisible(true);
     return () => {
       isMounted.current = false;
+      setTabBarVisible(true);
     };
   }, []);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
+    if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
+    }
+    lastScrollY.current = currentScrollY;
+  };
 
   // NEW: Show/hide password states
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -360,16 +409,16 @@ export default function StudentRegistrationScreen() {
 
         if (!isMounted.current) return;
 
-        const items = Array.isArray(res.data?.items) ? res.data.items : [];
+        const items = Array.isArray(res.data?.items) ? res.data.items.filter(Boolean) : [];
         const formattedItems: ClassOption[] = items.map((item: any) => ({
-          class_name: String(item.class_name).trim(),
-          sections: Array.isArray(item.sections) ? item.sections.map((s: any) => String(s).trim()) : [],
+          class_name: String(item?.class_name || '').trim(),
+          sections: Array.isArray(item?.sections) ? item.sections.filter(Boolean).map((s: any) => String(s).trim()) : [],
         }));
         setClassOptions(formattedItems);
 
         if (formattedItems.length > 0 && safeTrim(form.class_grade)) {
           const cur = formattedItems.find(c => c.class_name.toLowerCase() === safeTrim(form.class_grade).toLowerCase());
-          setSectionOptions(cur?.sections || []);
+          setSectionOptions(Array.isArray(cur?.sections) ? cur.sections : []);
         } else {
           setSectionOptions([]);
         }
@@ -562,6 +611,9 @@ export default function StudentRegistrationScreen() {
       if (!isValidMobile(form.mother_guardian_mobile)) errors.mother_guardian_mobile = 'Enter valid 10-digit number';
       if (!safeTrim(form.parent_guardian_email)) errors.parent_guardian_email = 'Parent email is required';
       else if (!isValidEmail(form.parent_guardian_email)) errors.parent_guardian_email = 'Enter valid email';
+    }
+
+    if (step === 3) {
       if (!safeTrim(form.house_no)) errors.house_no = 'House No is required';
       if (!safeTrim(form.street_locality)) errors.street_locality = 'Street is required';
       if (!safeTrim(form.village_town_city)) errors.village_town_city = 'City is required';
@@ -569,12 +621,15 @@ export default function StudentRegistrationScreen() {
       if (!safeTrim(form.district)) errors.district = 'District is required';
       if (!safeTrim(form.state)) errors.state = 'State is required';
       if (!isValidPin(form.pin_code)) errors.pin_code = 'Enter valid 6-digit pin code';
-    }
 
-    if (step === 3) {
       if (!safeTrim(form.emergency_contact_name)) errors.emergency_contact_name = 'Contact name is required';
       if (!isValidMobile(form.emergency_contact_number)) errors.emergency_contact_number = 'Enter valid 10-digit number';
       if (!safeTrim(form.mode_of_transport)) errors.mode_of_transport = 'Mode of transport is required';
+    }
+
+    if (step === 4) {
+      if (!photoFile) errors.photo = 'Student photograph is required';
+
       if (!safeTrim(form.password)) {
         errors.password = 'Password is required';
       } else if (!isStrongPassword(form.password)) {
@@ -586,10 +641,6 @@ export default function StudentRegistrationScreen() {
       if (form.password && form.confirm_password && form.password !== form.confirm_password) {
         errors.confirm_password = 'Passwords do not match';
       }
-    }
-
-    if (step === 4) {
-      if (!photoFile) errors.photo = 'Student photograph is required';
     }
 
     return errors;
@@ -608,18 +659,6 @@ export default function StudentRegistrationScreen() {
   const prevStep = () => {
     setFieldErrors({});
     setStep(s => Math.max(s - 1, 0));
-  };
-
-  const fileToBase64 = (file: any): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = String(reader.result || '');
-        resolve(result.includes(',') ? result.split(',')[1] : result);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
   };
 
   const copyRegistrationLink = async () => {
@@ -661,55 +700,78 @@ export default function StudentRegistrationScreen() {
     setServerSuccess('');
 
     try {
-      const studentPhotoBase64 = await fileToBase64(photoFile);
       const formData = new FormData();
 
       formData.append('school_code', code);
       formData.append('branch_id', branch);
-      formData.append('student_photograph', studentPhotoBase64);
 
-      const skip = new Set(['branch_id', 'confirm_password', 'first_name', 'last_name']);
+      // Use standard FormData file object instead of base64
+      formData.append('student_photograph', {
+        uri: photoFile.uri,
+        type: photoFile.type || 'image/jpeg',
+        name: photoFile.fileName || 'student_photo.jpg',
+      } as any);
 
+      const skip = new Set(['branch_id', 'confirm_password']);
+
+      const sanitizeValue = (key: string, value: any): string => {
+        const v = String(value ?? '').trim();
+        if (!v) return '';
+
+        // Field-specific normalization
+        if (key === 'father_guardian_mobile' || key === 'mother_guardian_mobile' || key === 'emergency_contact_number') {
+          return v.replace(/\D/g, '').slice(0, 10);
+        }
+
+        if (key === 'aadhaar_number') {
+          return v.replace(/\D/g, '').slice(0, 12);
+        }
+
+        if (key === 'pin_code') {
+          return v.replace(/\D/g, '').slice(0, 6);
+        }
+
+        if (key === 'section') {
+          return v.toUpperCase().replace(/[^A-Z]/g, '');
+        }
+
+        if (key === 'academic_year') {
+          // Normalize to YYYY-YY if possible
+          const digits = v.replace(/[^0-9]/g, '');
+          if (digits.length >= 6) {
+            const y1 = digits.slice(0, 4);
+            const y2 = digits.slice(4, 6);
+            return `${y1}-${y2}`;
+          }
+          return v;
+        }
+
+        if (key === 'date_of_birth' || key === 'date_of_admission') {
+          // Keep ISO format YYYY-MM-DD when possible
+          const d = new Date(v);
+          if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+        }
+
+        return v;
+      };
+
+      // Only append non-empty, sanitized values
       Object.entries(form).forEach(([k, v]) => {
         if (skip.has(k)) return;
-        if (k === 'date_of_admission' && !safeTrim(v)) return;
-        formData.append(k, v ?? '');
+        const val = sanitizeValue(k, v);
+        if (!val) return;
+        formData.append(k, val);
       });
 
-      const token = await getAuthToken();
-      const res = await fetch(API.defaults.baseURL + '/student/register', {
-        method: 'POST',
-        body: formData,
+      const res = await API.post('/student/register', formData, {
         headers: {
+          'Content-Type': 'multipart/form-data',
           'X-School-Code': code,
           'X-Branch-Id': branch,
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (!isMounted.current) return;
-        if (res.status === 401) return; // AuthContext handles this
-
-        if (data && data.detail) {
-          if (typeof data.detail === 'object' && !Array.isArray(data.detail)) {
-            setFieldErrors(prev => ({ ...prev, ...data.detail }));
-            const errorMsg = Object.entries(data.detail).map(([f, msg]) => `${f}: ${msg}`).join('\n');
-            throw new Error(errorMsg);
-          } else if (Array.isArray(data.detail)) {
-            const errorMsg = data.detail.map((e: any) => {
-              const field = (e.loc || []).slice(1).join('.');
-              return `${field}: ${e.msg}`;
-            }).join('\n');
-            throw new Error(errorMsg);
-          } else {
-            throw new Error(data.detail);
-          }
-        }
-        throw new Error('Registration failed. Please check all required fields.');
-      }
+      const data = res.data;
 
       if (!isMounted.current) return;
 
@@ -732,7 +794,24 @@ export default function StudentRegistrationScreen() {
       }, 3000);
     } catch (err: any) {
       if (isMounted.current) {
-        setServerError(`Submission Error: ${err.message}`);
+        const data = err.response?.data;
+        if (data && data.detail) {
+          if (typeof data.detail === 'object' && !Array.isArray(data.detail)) {
+            setFieldErrors(prev => ({ ...prev, ...data.detail }));
+            const errorMsg = Object.entries(data.detail).map(([f, msg]) => `${f}: ${msg}`).join('\n');
+            setServerError(errorMsg);
+          } else if (Array.isArray(data.detail)) {
+            const errorMsg = data.detail.map((e: any) => {
+              const field = (e.loc || []).slice(1).join('.');
+              return `${field}: ${e.msg}`;
+            }).join('\n');
+            setServerError(errorMsg);
+          } else {
+            setServerError(data.detail);
+          }
+        } else {
+          setServerError(`Submission Error: ${err.message}`);
+        }
       }
     } finally {
       if (isMounted.current) {
@@ -746,28 +825,50 @@ export default function StudentRegistrationScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.contentContainer}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>📝 Student Registration</Text>
-          <Text style={styles.subtitle}>
-            {step === totalSteps - 1 ? 'Preview & Confirm' : `Step ${step + 1} of ${totalSteps} — ${STEPS[step]}`}
-          </Text>
-        </View>
+      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
 
-        {/* Copy Registration Link Button */}
-        <TouchableOpacity style={styles.copyLinkBtn} onPress={copyRegistrationLink}>
-          <Text style={styles.copyLinkBtnText}>🔗 Copy Registration Link</Text>
-        </TouchableOpacity>
+      <ScrollView
+        contentContainerStyle={styles.contentContainer}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Navy Hero Header */}
+        <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => safeGoBack(navigation, 'TeacherDashboard')}
+            >
+              <ChevronLeft size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <AppText weight="bold" style={styles.heroTitle}>Registration</AppText>
+            </View>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={copyRegistrationLink}
+            >
+              <Copy size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.heroContent}>
+            <AppText weight="bold" style={styles.heroGreeting}>Student Enrollment</AppText>
+            <AppText style={styles.heroSubtext}>
+              {step === totalSteps - 1 ? 'Preview & Confirm' : `Step ${step + 1} of ${totalSteps} — ${STEPS[step]}`}
+            </AppText>
+          </View>
+        </View>
 
         {serverError && (
           <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{serverError}</Text>
+            <AppText style={styles.errorText}>{serverError}</AppText>
           </View>
         )}
         {serverSuccess && (
           <View style={styles.successBox}>
-            <Text style={styles.successText}>{serverSuccess}</Text>
+            <AppText style={styles.successText}>{serverSuccess}</AppText>
           </View>
         )}
 
@@ -776,11 +877,11 @@ export default function StudentRegistrationScreen() {
           {STEPS.map((label, i) => (
             <TouchableOpacity key={label} style={styles.stepItem} onPress={() => setStep(i)}>
               <View style={[styles.stepCircle, step > i && styles.stepCompleted, step === i && styles.stepActive]}>
-                {step > i ? <Text style={styles.stepIcon}>✓</Text> : <Text style={styles.stepNumber}>{i + 1}</Text>}
+                {step > i ? <Check size={14} color="#FFF" /> : <AppText weight="bold" style={[styles.stepNumber, step === i && styles.stepNumberActive]}>{i + 1}</AppText>}
               </View>
-              <Text style={[styles.stepLabel, step === i && styles.stepLabelActive, step > i && styles.stepLabelCompleted]}>
+              <AppText weight={step === i ? "bold" : "regular"} style={[styles.stepLabel, step === i && styles.stepLabelActive, step > i && styles.stepLabelCompleted]}>
                 {label}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           ))}
         </View>
@@ -790,12 +891,16 @@ export default function StudentRegistrationScreen() {
           {/* Step 0: Basic Info */}
           {step === 0 && (
             <View>
-              <Text style={styles.sectionTitle}>Personal Details</Text>
+              <View style={styles.sectionHeader}>
+                <User size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Personal Details</AppText>
+              </View>
               
               <FormField label="First Name" required error={fieldErrors.first_name}>
                 <TextInput
                   style={[styles.input, fieldErrors.first_name && styles.inputError]}
                   placeholder="Enter first name"
+                  placeholderTextColor="#94A3B8"
                   value={form.first_name}
                   onChangeText={(text) => handleChange('first_name', text)}
                 />
@@ -805,6 +910,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.last_name && styles.inputError]}
                   placeholder="Enter last name"
+                  placeholderTextColor="#94A3B8"
                   value={form.last_name}
                   onChangeText={(text) => handleChange('last_name', text)}
                 />
@@ -818,7 +924,7 @@ export default function StudentRegistrationScreen() {
                       style={[styles.genderBtn, form.gender === g && styles.genderBtnActive]}
                       onPress={() => handleChange('gender', g)}
                     >
-                      <Text style={[styles.genderText, form.gender === g && styles.genderTextActive]}>{g}</Text>
+                      <AppText weight="semiBold" style={[styles.genderText, form.gender === g && styles.genderTextActive]}>{g}</AppText>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -828,6 +934,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="e.g. O+"
+                  placeholderTextColor="#94A3B8"
                   value={form.blood_group}
                   onChangeText={(text) => handleChange('blood_group', text)}
                 />
@@ -835,13 +942,15 @@ export default function StudentRegistrationScreen() {
 
               <FormField label="Date of Birth" required error={fieldErrors.date_of_birth}>
                 <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDOBPicker(true)}>
-                  <Text style={styles.dateText}>{form.date_of_birth || 'Select date'}</Text>
+                  <Calendar size={18} color="#64748B" />
+                  <AppText style={styles.dateText}>{form.date_of_birth || 'Select date'}</AppText>
                 </TouchableOpacity>
                 {showDOBPicker && (
                   <DateTimePicker
                     value={form.date_of_birth ? new Date(form.date_of_birth) : new Date()}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    maximumDate={new Date()}
                     onChange={(event, date) => {
                       if (date) handleDOBChange(date);
                       setShowDOBPicker(false);
@@ -858,6 +967,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.nationality && styles.inputError]}
                   placeholder="Nationality"
+                  placeholderTextColor="#94A3B8"
                   value={form.nationality}
                   onChangeText={(text) => handleChange('nationality', text)}
                 />
@@ -867,6 +977,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mother_tongue && styles.inputError]}
                   placeholder="e.g. Telugu"
+                  placeholderTextColor="#94A3B8"
                   value={form.mother_tongue}
                   onChangeText={(text) => handleChange('mother_tongue', text)}
                 />
@@ -876,6 +987,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.religion && styles.inputError]}
                   placeholder="e.g. Hindu"
+                  placeholderTextColor="#94A3B8"
                   value={form.religion}
                   onChangeText={(text) => handleChange('religion', text)}
                 />
@@ -885,6 +997,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="e.g. OBC"
+                  placeholderTextColor="#94A3B8"
                   value={form.caste_category}
                   onChangeText={(text) => handleChange('caste_category', text)}
                 />
@@ -894,6 +1007,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.aadhaar_number && styles.inputError]}
                   placeholder="12-digit Aadhaar"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="numeric"
                   maxLength={12}
                   value={form.aadhaar_number}
@@ -906,20 +1020,23 @@ export default function StudentRegistrationScreen() {
           {/* Step 1: Academics */}
           {step === 1 && (
             <View>
-              <Text style={styles.sectionTitle}>Academic Details</Text>
+              <View style={styles.sectionHeader}>
+                <BookOpen size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Academic Details</AppText>
+              </View>
 
               <FormField label="Class" required error={fieldErrors.class_grade}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.chipContainer}>
-                    {classOptions.map(cls => (
+                    {Array.isArray(classOptions) && classOptions.filter(Boolean).map(cls => (
                       <TouchableOpacity
                         key={cls.class_name}
                         style={[styles.chip, form.class_grade === cls.class_name && styles.chipActive]}
                         onPress={() => handleClassChange(cls.class_name)}
                       >
-                        <Text style={[styles.chipText, form.class_grade === cls.class_name && styles.chipTextActive]}>
+                        <AppText weight="semiBold" style={[styles.chipText, form.class_grade === cls.class_name && styles.chipTextActive]}>
                           Class {cls.class_name}
-                        </Text>
+                        </AppText>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -931,6 +1048,7 @@ export default function StudentRegistrationScreen() {
                   <TextInput
                     style={[styles.input, styles.sectionInput, fieldErrors.section && styles.inputError]}
                     placeholder="Enter section (A, B, C...)"
+                    placeholderTextColor="#94A3B8"
                     value={form.section}
                     onChangeText={handleSectionChange}
                     autoCapitalize="characters"
@@ -943,6 +1061,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.admission_number && styles.inputError]}
                   placeholder="e.g. ADM2024001"
+                  placeholderTextColor="#94A3B8"
                   value={form.admission_number}
                   onChangeText={(text) => handleChange('admission_number', text)}
                 />
@@ -952,6 +1071,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.academic_year && styles.inputError]}
                   placeholder="e.g. 2024-25"
+                  placeholderTextColor="#94A3B8"
                   value={form.academic_year}
                   onChangeText={handleAcademicYearChange}
                   maxLength={7}
@@ -962,6 +1082,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Default: ENGLISH"
+                  placeholderTextColor="#94A3B8"
                   value={form.medium_of_instruction}
                   onChangeText={(text) => handleChange('medium_of_instruction', text)}
                 />
@@ -969,13 +1090,15 @@ export default function StudentRegistrationScreen() {
 
               <FormField label="Date of Admission">
                 <TouchableOpacity style={styles.dateBtn} onPress={() => setShowAdmissionDatePicker(true)}>
-                  <Text style={styles.dateText}>{form.date_of_admission || 'Select date'}</Text>
+                  <Calendar size={18} color="#64748B" />
+                  <AppText style={styles.dateText}>{form.date_of_admission || 'Select date'}</AppText>
                 </TouchableOpacity>
                 {showAdmissionDatePicker && (
                   <DateTimePicker
                     value={form.date_of_admission ? new Date(form.date_of_admission) : new Date()}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    maximumDate={new Date()}
                     onChange={(event, date) => {
                       if (date) handleChange('date_of_admission', date.toISOString().split('T')[0]);
                       setShowAdmissionDatePicker(false);
@@ -988,6 +1111,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Enter previous school name"
+                  placeholderTextColor="#94A3B8"
                   value={form.previous_school_name}
                   onChangeText={(text) => handleChange('previous_school_name', text)}
                 />
@@ -997,6 +1121,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="TC Number"
+                  placeholderTextColor="#94A3B8"
                   value={form.transfer_certificate_number}
                   onChangeText={(text) => handleChange('transfer_certificate_number', text)}
                 />
@@ -1004,15 +1129,19 @@ export default function StudentRegistrationScreen() {
             </View>
           )}
 
-          {/* Step 2: Parent & Address */}
+          {/* Step 2: Parent / Guardian Info */}
           {step === 2 && (
             <View>
-              <Text style={styles.sectionTitle}>Parent / Guardian Details</Text>
+              <View style={styles.sectionHeader}>
+                <Users size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Parent / Guardian Details</AppText>
+              </View>
 
               <FormField label="Father / Guardian Name" required error={fieldErrors.father_guardian_name}>
                 <TextInput
                   style={[styles.input, fieldErrors.father_guardian_name && styles.inputError]}
                   placeholder="Full name"
+                  placeholderTextColor="#94A3B8"
                   value={form.father_guardian_name}
                   onChangeText={(text) => handleChange('father_guardian_name', text)}
                 />
@@ -1022,6 +1151,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.father_guardian_mobile && styles.inputError]}
                   placeholder="10-digit mobile"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="phone-pad"
                   maxLength={10}
                   value={form.father_guardian_mobile}
@@ -1033,6 +1163,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Occupation"
+                  placeholderTextColor="#94A3B8"
                   value={form.father_guardian_occupation}
                   onChangeText={(text) => handleChange('father_guardian_occupation', text)}
                 />
@@ -1042,6 +1173,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mother_guardian_name && styles.inputError]}
                   placeholder="Full name"
+                  placeholderTextColor="#94A3B8"
                   value={form.mother_guardian_name}
                   onChangeText={(text) => handleChange('mother_guardian_name', text)}
                 />
@@ -1051,6 +1183,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mother_guardian_mobile && styles.inputError]}
                   placeholder="10-digit mobile"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="phone-pad"
                   maxLength={10}
                   value={form.mother_guardian_mobile}
@@ -1062,6 +1195,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Occupation"
+                  placeholderTextColor="#94A3B8"
                   value={form.mother_guardian_occupation}
                   onChangeText={(text) => handleChange('mother_guardian_occupation', text)}
                 />
@@ -1071,19 +1205,29 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.parent_guardian_email && styles.inputError]}
                   placeholder="email@example.com"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   value={form.parent_guardian_email}
                   onChangeText={(text) => handleChange('parent_guardian_email', text)}
                 />
               </FormField>
+            </View>
+          )}
 
-              <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Current Address</Text>
+          {/* Step 3: Contact & Address */}
+          {step === 3 && (
+            <View>
+              <View style={styles.sectionHeader}>
+                <BookOpen size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Current Address</AppText>
+              </View>
 
               <FormField label="House No." required error={fieldErrors.house_no}>
                 <TextInput
                   style={[styles.input, fieldErrors.house_no && styles.inputError]}
                   placeholder="e.g. 12-3A"
+                  placeholderTextColor="#94A3B8"
                   value={form.house_no}
                   onChangeText={(text) => handleChange('house_no', text)}
                 />
@@ -1093,6 +1237,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.street_locality && styles.inputError]}
                   placeholder="Street or locality"
+                  placeholderTextColor="#94A3B8"
                   value={form.street_locality}
                   onChangeText={(text) => handleChange('street_locality', text)}
                 />
@@ -1102,6 +1247,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.village_town_city && styles.inputError]}
                   placeholder="City or village"
+                  placeholderTextColor="#94A3B8"
                   value={form.village_town_city}
                   onChangeText={(text) => handleChange('village_town_city', text)}
                 />
@@ -1111,6 +1257,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mandal_taluk && styles.inputError]}
                   placeholder="Mandal or Taluk"
+                  placeholderTextColor="#94A3B8"
                   value={form.mandal_taluk}
                   onChangeText={(text) => handleChange('mandal_taluk', text)}
                 />
@@ -1120,6 +1267,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.district && styles.inputError]}
                   placeholder="District"
+                  placeholderTextColor="#94A3B8"
                   value={form.district}
                   onChangeText={(text) => handleChange('district', text)}
                 />
@@ -1129,6 +1277,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.state && styles.inputError]}
                   placeholder="State"
+                  placeholderTextColor="#94A3B8"
                   value={form.state}
                   onChangeText={(text) => handleChange('state', text)}
                 />
@@ -1138,24 +1287,24 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.pin_code && styles.inputError]}
                   placeholder="6-digit PIN"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="numeric"
                   maxLength={6}
                   value={form.pin_code}
                   onChangeText={(text) => handleChange('pin_code', text.replace(/\D/g, '').slice(0, 6))}
                 />
               </FormField>
-            </View>
-          )}
 
-          {/* Step 3: Health & Transport */}
-          {step === 3 && (
-            <View>
-              <Text style={styles.sectionTitle}>Health, Emergency & Transport</Text>
+              <View style={[styles.sectionHeader, { marginTop: 20 }]}>
+                <Heart size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Health, Emergency & Transport</AppText>
+              </View>
 
               <FormField label="Allergies Details">
                 <TextInput
                   style={styles.input}
                   placeholder="Any allergies"
+                  placeholderTextColor="#94A3B8"
                   value={form.allergies_details}
                   onChangeText={(text) => handleChange('allergies_details', text)}
                 />
@@ -1165,6 +1314,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Any medical conditions"
+                  placeholderTextColor="#94A3B8"
                   value={form.medical_conditions}
                   onChangeText={(text) => handleChange('medical_conditions', text)}
                 />
@@ -1174,6 +1324,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.emergency_contact_name && styles.inputError]}
                   placeholder="Contact person name"
+                  placeholderTextColor="#94A3B8"
                   value={form.emergency_contact_name}
                   onChangeText={(text) => handleChange('emergency_contact_name', text)}
                 />
@@ -1183,6 +1334,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.emergency_contact_number && styles.inputError]}
                   placeholder="10-digit number"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="phone-pad"
                   maxLength={10}
                   value={form.emergency_contact_number}
@@ -1194,6 +1346,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Hospital or doctor name"
+                  placeholderTextColor="#94A3B8"
                   value={form.nearest_hospital_doctor}
                   onChangeText={(text) => handleChange('nearest_hospital_doctor', text)}
                 />
@@ -1203,6 +1356,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mode_of_transport && styles.inputError]}
                   placeholder="e.g. Bus, Private"
+                  placeholderTextColor="#94A3B8"
                   value={form.mode_of_transport}
                   onChangeText={(text) => handleChange('mode_of_transport', text)}
                 />
@@ -1212,6 +1366,7 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Bus route or vehicle no."
+                  placeholderTextColor="#94A3B8"
                   value={form.bus_route_vehicle_number}
                   onChangeText={(text) => handleChange('bus_route_vehicle_number', text)}
                 />
@@ -1221,10 +1376,40 @@ export default function StudentRegistrationScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Hostel or Day Scholar"
+                  placeholderTextColor="#94A3B8"
                   value={form.hostel_day_scholar}
                   onChangeText={(text) => handleChange('hostel_day_scholar', text)}
                 />
               </FormField>
+            </View>
+          )}
+
+          {/* Step 4: Photo & Password */}
+          {step === 4 && (
+            <View>
+              <View style={styles.sectionHeader}>
+                <Camera size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Student Photograph</AppText>
+              </View>
+
+              {fieldErrors.photo && <AppText style={styles.fieldError}>{fieldErrors.photo}</AppText>}
+
+              <TouchableOpacity style={styles.photoZone} onPress={handleImagePick}>
+                {photoPreview ? (
+                  <Image source={{ uri: photoPreview }} style={styles.photoPreview} />
+                ) : (
+                  <View style={styles.photoPlaceholder}>
+                    <Camera size={48} color="#CBD5E1" />
+                    <AppText weight="semiBold" style={styles.photoText}>Tap to add photo</AppText>
+                    <AppText style={styles.photoSubtext}>Camera or Gallery</AppText>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+                <Check size={18} color="#001F3F" />
+                <AppText weight="bold" style={styles.sectionTitle}>Login Credentials</AppText>
+              </View>
 
               {/* Password Field with Show/Hide */}
               <FormField label="Password" required error={fieldErrors.password}>
@@ -1241,7 +1426,7 @@ export default function StudentRegistrationScreen() {
                     style={styles.eyeButton} 
                     onPress={() => setShowPassword(!showPassword)}
                   >
-                    <Text style={styles.eyeButtonText}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                    {showPassword ? <EyeOff size={20} color="#64748B" /> : <Eye size={20} color="#64748B" />}
                   </TouchableOpacity>
                 </View>
                 {form.password && <PasswordStrength password={form.password} />}
@@ -1262,31 +1447,10 @@ export default function StudentRegistrationScreen() {
                     style={styles.eyeButton} 
                     onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
-                    <Text style={styles.eyeButtonText}>{showConfirmPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                    {showConfirmPassword ? <EyeOff size={20} color="#64748B" /> : <Eye size={20} color="#64748B" />}
                   </TouchableOpacity>
                 </View>
               </FormField>
-            </View>
-          )}
-
-          {/* Step 4: Photo */}
-          {step === 4 && (
-            <View>
-              <Text style={styles.sectionTitle}>Student Photograph</Text>
-              
-              {fieldErrors.photo && <Text style={styles.fieldError}>{fieldErrors.photo}</Text>}
-
-              <TouchableOpacity style={styles.photoZone} onPress={handleImagePick}>
-                {photoPreview ? (
-                  <Image source={{ uri: photoPreview }} style={styles.photoPreview} />
-                ) : (
-                  <View style={styles.photoPlaceholder}>
-                    <Text style={styles.photoIcon}>📷</Text>
-                    <Text style={styles.photoText}>Tap to add photo</Text>
-                    <Text style={styles.photoSubtext}>Camera or Gallery</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
             </View>
           )}
 
@@ -1299,19 +1463,19 @@ export default function StudentRegistrationScreen() {
                   <Image source={{ uri: photoPreview }} style={styles.previewPhoto} />
                 ) : (
                   <View style={styles.previewPhotoPlaceholder}>
-                    <Text style={styles.previewPhotoText}>No Photo</Text>
+                    <AppText style={styles.previewPhotoText}>No Photo</AppText>
                   </View>
                 )}
-                <View>
-                  <Text style={styles.previewName}>{form.student_full_name || '—'}</Text>
-                  <Text style={styles.previewMeta}>
-                    Class {form.class_grade || '—'} | Section {form.section || '—'} | {form.academic_year || '—'}
-                  </Text>
-                  <Text style={styles.previewMeta}>
-                    Admission No: {form.admission_number || '—'} | Roll: {form.roll_number || '—'}
-                  </Text>
+                <View style={{ flex: 1 }}>
+                  <AppText weight="bold" style={styles.previewName}>{form.student_full_name || '—'}</AppText>
+                  <AppText style={styles.previewMeta}>
+                    Class {form.class_grade || '—'} | Section {form.section || '—'}
+                  </AppText>
+                  <AppText style={styles.previewMeta}>
+                    {form.academic_year || '—'} | Admission: {form.admission_number || '—'}
+                  </AppText>
                   <View style={styles.previewBadge}>
-                    <Text style={styles.previewBadgeText}>{form.student_status}</Text>
+                    <AppText weight="bold" style={styles.previewBadgeText}>{form.student_status}</AppText>
                   </View>
                 </View>
               </View>
@@ -1319,7 +1483,7 @@ export default function StudentRegistrationScreen() {
               {/* Personal Details */}
               <View style={styles.previewCard}>
                 <View style={styles.previewCardHeader}>
-                  <Text style={styles.previewCardTitle}>📋 Personal Details</Text>
+                  <AppText weight="bold" style={styles.previewCardTitle}>Personal Details</AppText>
                 </View>
                 <View style={styles.previewGrid}>
                   <PreviewField label="First Name" value={form.first_name} />
@@ -1331,8 +1495,8 @@ export default function StudentRegistrationScreen() {
                   <PreviewField label="Nationality" value={form.nationality} />
                   <PreviewField label="Mother Tongue" value={form.mother_tongue} />
                   <PreviewField label="Religion" value={form.religion} />
-                  <PreviewField label="Caste Category" value={form.caste_category} />
-                  <PreviewField label="Aadhaar Number" value={form.aadhaar_number || '—'} />
+                  <PreviewField label="Caste" value={form.caste_category} />
+                  <PreviewField label="Aadhaar" value={form.aadhaar_number || '—'} />
                   <PreviewField label="Status" value={form.student_status} />
                 </View>
               </View>
@@ -1340,7 +1504,7 @@ export default function StudentRegistrationScreen() {
               {/* Academic Details */}
               <View style={styles.previewCard}>
                 <View style={styles.previewCardHeader}>
-                  <Text style={styles.previewCardTitle}>🎓 Academic Details</Text>
+                  <AppText weight="bold" style={styles.previewCardTitle}>Academic Details</AppText>
                 </View>
                 <View style={styles.previewGrid}>
                   <PreviewField label="Class" value={form.class_grade} />
@@ -1358,7 +1522,7 @@ export default function StudentRegistrationScreen() {
               {/* Parent Details */}
               <View style={styles.previewCard}>
                 <View style={styles.previewCardHeader}>
-                  <Text style={styles.previewCardTitle}>👨‍👩‍👧 Parent / Guardian Details</Text>
+                  <AppText weight="bold" style={styles.previewCardTitle}>Parent / Guardian Details</AppText>
                 </View>
                 <View style={styles.previewGrid}>
                   <PreviewField label="Father Name" value={form.father_guardian_name} />
@@ -1374,7 +1538,7 @@ export default function StudentRegistrationScreen() {
               {/* Address */}
               <View style={styles.previewCard}>
                 <View style={styles.previewCardHeader}>
-                  <Text style={styles.previewCardTitle}>🏠 Address</Text>
+                  <AppText weight="bold" style={styles.previewCardTitle}>Address</AppText>
                 </View>
                 <View style={styles.previewGrid}>
                   <PreviewField label="House No." value={form.house_no} />
@@ -1390,7 +1554,7 @@ export default function StudentRegistrationScreen() {
               {/* Health & Transport */}
               <View style={styles.previewCard}>
                 <View style={styles.previewCardHeader}>
-                  <Text style={styles.previewCardTitle}>🏥 Health & Transport</Text>
+                  <AppText weight="bold" style={styles.previewCardTitle}>Health & Transport</AppText>
                 </View>
                 <View style={styles.previewGrid}>
                   <PreviewField label="Allergies" value={form.allergies_details} />
@@ -1405,9 +1569,9 @@ export default function StudentRegistrationScreen() {
               </View>
 
               <View style={styles.previewFooter}>
-                <Text style={styles.previewFooterText}>
+                <AppText weight="semiBold" style={styles.previewFooterText}>
                   Please review all details carefully before submitting.
-                </Text>
+                </AppText>
               </View>
             </View>
           )}
@@ -1415,7 +1579,7 @@ export default function StudentRegistrationScreen() {
           {/* Navigation Buttons */}
           <View style={styles.navButtons}>
             <AppButton
-              title="← Back"
+              title="Back"
               onPress={prevStep}
               disabled={step === 0 || loading}
               type="secondary"
@@ -1423,14 +1587,14 @@ export default function StudentRegistrationScreen() {
             />
             {isLastStep ? (
               <AppButton
-                title={loading ? 'Registering...' : '✓ Confirm & Register'}
+                title={loading ? 'Registering...' : 'Confirm'}
                 onPress={submit}
                 disabled={loading}
                 style={styles.navBtn}
               />
             ) : (
               <AppButton
-                title="Next →"
+                title="Next"
                 onPress={nextStep}
                 disabled={loading}
                 style={styles.navBtn}
@@ -1441,9 +1605,8 @@ export default function StudentRegistrationScreen() {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>🏫 School: {loggedSchoolCode || '—'}</Text>
-          <Text style={styles.footerText}>🏢 Branch: {defaultBranchId || '—'}</Text>
-          <Text style={styles.footerText}>👑 Role: Head Master</Text>
+          <AppText style={styles.footerText}>School: {loggedSchoolCode || '—'}</AppText>
+          <AppText style={styles.footerText}>Branch: {defaultBranchId || '—'}</AppText>
         </View>
       </ScrollView>
 
@@ -1451,17 +1614,17 @@ export default function StudentRegistrationScreen() {
       <Modal visible={showRollNumberModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>✅ Registration Complete</Text>
-            <Text style={styles.modalMessage}>
+            <AppText weight="bold" style={styles.modalTitle}>Registration Complete</AppText>
+            <AppText style={styles.modalMessage}>
               Your student details were saved successfully and a roll number has been assigned.
-            </Text>
+            </AppText>
             <View style={styles.rollNumberDisplay}>
-              <Text style={styles.rollNumberLabel}>Assigned Roll Number</Text>
-              <Text style={styles.rollNumberValue}>{generatedRollNumber || '—'}</Text>
+              <AppText weight="semiBold" style={styles.rollNumberLabel}>Assigned Roll Number</AppText>
+              <AppText weight="bold" style={styles.rollNumberValue}>{generatedRollNumber || '—'}</AppText>
             </View>
-            <Text style={styles.modalNote}>
+            <AppText style={styles.modalNote}>
               Copy this roll number or note it down for records.
-            </Text>
+            </AppText>
             <AppButton title="OK" onPress={() => setShowRollNumberModal(false)} />
           </View>
         </View>
@@ -1473,43 +1636,70 @@ export default function StudentRegistrationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f2f7',
+    backgroundColor: '#F8FAFC',
   },
-  contentContainer: {
-    padding: 16,
+  headerStandard: {
+    backgroundColor: HM_THEME.navy,
+    paddingHorizontal: 20,
     paddingBottom: 40,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    ...Platform.select({
+      android: { elevation: 10 },
+      ios: {},
+    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
   },
-  header: {
-    marginBottom: 12,
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
   },
-  title: {
-    fontSize: 20,
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  heroContent: {
+    marginTop: 24,
+  },
+  heroGreeting: {
+    color: '#FFFFFF',
+    fontSize: 28,
     fontWeight: '800',
-    color: '#0d1b2a',
+    letterSpacing: -0.5,
   },
-  subtitle: {
-    fontSize: 13,
-    color: '#4a5568',
+  heroSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
     marginTop: 4,
   },
-  copyLinkBtn: {
-    backgroundColor: '#dbeafe',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-    marginBottom: 16,
-  },
-  copyLinkBtnText: {
-    color: '#2563eb',
-    fontWeight: '600',
-    fontSize: 13,
+  contentContainer: {
+    paddingBottom: 40,
   },
   errorBox: {
     backgroundColor: '#fee2e2',
     padding: 12,
+    marginHorizontal: 16,
     borderRadius: 10,
     marginBottom: 16,
+    marginTop: 16,
     borderWidth: 1,
     borderColor: '#fecaca',
   },
@@ -1520,8 +1710,10 @@ const styles = StyleSheet.create({
   successBox: {
     backgroundColor: '#d1fae5',
     padding: 12,
+    marginHorizontal: 16,
     borderRadius: 10,
     marginBottom: 16,
+    marginTop: 16,
     borderWidth: 1,
     borderColor: '#a7f3d0',
   },
@@ -1532,18 +1724,27 @@ const styles = StyleSheet.create({
   stepperContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: -30,
     marginBottom: 20,
-    flexWrap: 'wrap',
+    marginHorizontal: 20,
+    padding: 20,
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
   },
   stepItem: {
     alignItems: 'center',
     flex: 1,
   },
   stepCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#e4e9f2',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1551,71 +1752,77 @@ const styles = StyleSheet.create({
     backgroundColor: '#059669',
   },
   stepActive: {
-    backgroundColor: '#2563eb',
-  },
-  stepIcon: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
+    backgroundColor: HM_THEME.navy,
   },
   stepNumber: {
-    color: '#4a5568',
-    fontSize: 12,
-    fontWeight: 'bold',
+    color: '#64748B',
+    fontSize: 11,
+  },
+  stepNumberActive: {
+    color: '#FFF',
   },
   stepLabel: {
     fontSize: 9,
-    color: '#4a5568',
-    marginTop: 4,
+    color: '#64748B',
+    marginTop: 6,
     textAlign: 'center',
   },
   stepLabelActive: {
-    color: '#2563eb',
-    fontWeight: 'bold',
+    color: HM_THEME.navy,
   },
   stepLabelCompleted: {
     color: '#059669',
   },
   formCard: {
-    padding: 16,
-    marginBottom: 16,
+    padding: 24,
+    marginBottom: 20,
+    marginHorizontal: 16,
+    borderRadius: 24,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0d1b2a',
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     marginBottom: 16,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: '#F1F5F9',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    color: HM_THEME.navy,
   },
   formGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   formLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#4a5568',
-    marginBottom: 6,
+    fontSize: 13,
+    color: '#64748B',
+    marginBottom: 8,
   },
   requiredStar: {
-    color: '#dc2626',
+    color: '#EF4444',
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: '#e4e9f2',
-    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
     padding: 12,
     fontSize: 14,
-    backgroundColor: '#f8fafc',
-    color: '#0d1b2a',
+    backgroundColor: '#F8FAFC',
+    color: '#0F172A',
   },
   inputError: {
-    borderColor: '#dc2626',
+    borderColor: '#EF4444',
   },
   disabledInput: {
-    backgroundColor: '#f1f5f9',
-    color: '#94a3b8',
+    backgroundColor: '#F1F5F9',
+    color: '#94A3B8',
   },
   sectionInput: {
     textTransform: 'uppercase',
@@ -1626,89 +1833,93 @@ const styles = StyleSheet.create({
   },
   genderBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#e4e9f2',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
+    backgroundColor: '#F8FAFC',
   },
   genderBtnActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: HM_THEME.navy,
+    borderColor: HM_THEME.navy,
   },
   genderText: {
-    color: '#4a5568',
-    fontWeight: '600',
+    color: '#64748B',
+    fontSize: 14,
   },
   genderTextActive: {
-    color: '#fff',
+    color: '#FFF',
   },
   dateBtn: {
-    borderWidth: 1.5,
-    borderColor: '#e4e9f2',
-    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
     padding: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F8FAFC',
   },
   dateText: {
     fontSize: 14,
-    color: '#0d1b2a',
+    color: '#0F172A',
   },
   chipContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
   },
   chip: {
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: '#E2E8F0',
   },
   chipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: HM_THEME.navy,
+    borderColor: HM_THEME.navy,
   },
   chipText: {
     fontSize: 14,
-    color: '#4a5568',
+    color: '#64748B',
   },
   chipTextActive: {
-    color: '#fff',
+    color: '#FFF',
   },
   fieldError: {
     fontSize: 11,
-    color: '#dc2626',
+    color: '#EF4444',
     marginTop: 4,
   },
   passwordStrength: {
-    marginTop: 8,
-    padding: 10,
-    backgroundColor: '#f0f2f7',
-    borderRadius: 8,
+    marginTop: 10,
+    padding: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   passwordRule: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     marginBottom: 4,
   },
-  passwordRuleIcon: {
-    fontSize: 12,
-    color: '#94a3b8',
-  },
-  passwordRuleIconValid: {
-    color: '#059669',
+  passwordRuleDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#CBD5E1',
   },
   passwordRuleText: {
     fontSize: 11,
-    color: '#4a5568',
+    color: '#64748B',
   },
   passwordRuleTextValid: {
     color: '#059669',
-    fontWeight: '600',
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -1724,107 +1935,104 @@ const styles = StyleSheet.create({
     right: 12,
     padding: 8,
   },
-  eyeButtonText: {
-    fontSize: 18,
-  },
   photoZone: {
     borderWidth: 2,
-    borderColor: '#e4e9f2',
+    borderColor: '#E2E8F0',
     borderStyle: 'dashed',
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 24,
+    padding: 30,
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F8FAFC',
   },
   photoPreview: {
-    width: 150,
-    height: 150,
-    borderRadius: 12,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     resizeMode: 'cover',
   },
   photoPlaceholder: {
     alignItems: 'center',
   },
-  photoIcon: {
-    fontSize: 48,
-    marginBottom: 8,
-  },
   photoText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4a5568',
+    fontSize: 15,
+    color: HM_THEME.navy,
+    marginTop: 12,
   },
   photoSubtext: {
-    fontSize: 11,
-    color: '#94a3b8',
+    fontSize: 12,
+    color: '#94A3B8',
     marginTop: 4,
   },
   previewHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 16,
     marginBottom: 20,
     padding: 16,
-    backgroundColor: '#f0f2f7',
-    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   previewPhoto: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     resizeMode: 'cover',
   },
   previewPhotoPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    backgroundColor: '#e4e9f2',
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
   previewPhotoText: {
-    fontSize: 11,
-    color: '#94a3b8',
+    fontSize: 10,
+    color: '#64748B',
   },
   previewName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0d1b2a',
+    fontSize: 18,
+    color: HM_THEME.navy,
   },
   previewMeta: {
     fontSize: 12,
-    color: '#4a5568',
+    color: '#64748B',
     marginTop: 2,
   },
   previewBadge: {
     marginTop: 6,
-    backgroundColor: '#dbeafe',
-    paddingHorizontal: 8,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 10,
     paddingVertical: 2,
     borderRadius: 12,
     alignSelf: 'flex-start',
   },
   previewBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#2563eb',
+    color: '#166534',
+    textTransform: 'uppercase',
   },
   previewCard: {
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
-    borderRadius: 12,
+    borderColor: '#E2E8F0',
+    borderRadius: 24,
     overflow: 'hidden',
+    backgroundColor: '#FFF',
   },
   previewCardHeader: {
     padding: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F8FAFC',
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: '#E2E8F0',
   },
   previewCardTitle: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#2563eb',
+    color: HM_THEME.navy,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   previewGrid: {
     flexDirection: 'row',
@@ -1832,105 +2040,115 @@ const styles = StyleSheet.create({
   },
   previewField: {
     width: '50%',
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    padding: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F1F5F9',
   },
   previewFieldLabel: {
     fontSize: 10,
-    fontWeight: '600',
-    color: '#94a3b8',
+    color: '#94A3B8',
     textTransform: 'uppercase',
     marginBottom: 4,
   },
   previewFieldValue: {
     fontSize: 13,
-    fontWeight: '500',
-    color: '#0d1b2a',
+    color: '#0F172A',
   },
   previewFooter: {
-    marginTop: 12,
+    marginTop: 10,
     padding: 12,
-    backgroundColor: '#f0fdf4',
-    borderRadius: 10,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
   },
   previewFooterText: {
     fontSize: 12,
-    color: '#059669',
+    color: '#166534',
     textAlign: 'center',
   },
   navButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 24,
     gap: 12,
   },
   navBtn: {
     flex: 1,
+    height: 50,
+    backgroundColor: HM_THEME.navy,
   },
   footer: {
     marginTop: 16,
-    padding: 12,
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    backgroundColor: '#FFF',
+    borderRadius: 24,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   footerText: {
     fontSize: 11,
-    color: '#4a5568',
+    color: '#94A3B8',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 30,
     width: '100%',
     maxWidth: 400,
     alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#059669',
+    fontSize: 20,
+    color: HM_THEME.navy,
     marginBottom: 12,
   },
   modalMessage: {
     fontSize: 14,
-    color: '#4a5568',
+    color: '#64748B',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    lineHeight: 20,
   },
   rollNumberDisplay: {
-    backgroundColor: '#dbeafe',
-    padding: 20,
-    borderRadius: 12,
+    backgroundColor: '#F0F9FF',
+    padding: 24,
+    borderRadius: 24,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
     width: '100%',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
   },
   rollNumberLabel: {
     fontSize: 12,
-    color: '#64748b',
-    marginBottom: 8,
+    color: '#0369A1',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   rollNumberValue: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#2563eb',
-    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    fontSize: 36,
+    color: '#0284C7',
+    letterSpacing: 2,
   },
   modalNote: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#94A3B8',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
 });

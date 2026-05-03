@@ -11,13 +11,15 @@ import {
   ScrollView,
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authService } from '../../api/authService';
+import { setSessionData } from '../../utils/authSession';
 import { useAuth } from '../../context/AuthContext';
+import { authService } from '../../api/authService';
 import { setAuthToken } from '../../services/api';
-import AppInput from '../../components/common/AppInput';
+import { AppInput } from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import ScreenContainer from '../../components/ScreenContainer';
 import { colors } from '../../constants/theme';
+import { formatErrorMessage } from '../../utils/helpers';
 
 type Props = {
   navigation: any;
@@ -30,6 +32,17 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const getLoginErrorMessage = (error: any) => {
+    const status = error?.response?.status;
+    const apiMessage = formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.response?.data?.error);
+
+    if (status === 401 || status === 403 || status === 404) {
+      return apiMessage || 'Invalid school ID, username or password';
+    }
+
+    return apiMessage || error?.message || 'Login failed. Please try again.';
+  };
+
   const handleLogin = async () => {
     if (!schoolId || !username || !password) {
       Alert.alert('Required', 'Please enter school code, username and password');
@@ -41,27 +54,18 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       const schoolCode = schoolId.trim();
       const normalized = await authService.login(schoolCode, username.trim(), password);
 
-      const toStore: [string, string][] = [
-        ['token', normalized.token || ''],
-        ['role', normalized.role],
-        ['school_code', schoolCode],
-        ['user_name', normalized.user?.name || username],
-      ];
+      // Use the helper to ensure consistent storage
+      await setSessionData(normalized);
 
-      if (normalized.user?.userId) toStore.push(['user_id', String(normalized.user.userId)]);
-      if (normalized.user?.branchId) toStore.push(['branch_id', String(normalized.user.branchId)]);
-      if (normalized.user?.employeeId) toStore.push(['employee_id', String(normalized.user.employeeId)]);
-      if (normalized.user?.studentId) toStore.push(['student_id', String(normalized.user.studentId)]);
-
-      await AsyncStorage.multiSet(toStore);
       setAuthToken(normalized.token || '');
       signIn(
         normalized.role,
         normalized.user?.name || username,
-        normalized.token || ''
+        normalized.token || '',
+        normalized.user?.isClassTeacher ?? false
       );
     } catch (err: any) {
-      Alert.alert("Login Failed", err.message || "Invalid credentials");
+      Alert.alert('Login Failed', getLoginErrorMessage(err));
     } finally {
       setLoading(false);
     }

@@ -14,12 +14,13 @@ import {
   StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
-import { Dimensions } from 'react-native';
 import API from '../../services/api';
 import {
   getBranchTeachers,
@@ -32,12 +33,12 @@ import {
   getTeacherAttendance,
   getStudentExamsData
 } from '../../services/principalService';
-import { colors } from '../../constants/colors';
+import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
-import Icon from '@react-native-vector-icons/feather';
+import { ChevronLeft } from 'lucide-react-native';
 import AppText from '../../components/common/AppText';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -383,6 +384,7 @@ const PassFailChart: React.FC<{ passed: number; failed: number; title: string }>
 };
 
 export default function BranchDetailsScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute();
   const { branchId, branchName, hmName, hmEmail, branchStatus } = route.params as any;
@@ -735,7 +737,7 @@ export default function BranchDetailsScreen() {
 
   const handleStudentClick = async (student: Student | StudentMarkSummary) => {
     // If it's a raw Student object, create a partial summary
-    if ('student_full_name' in student) {
+    if (student && 'student_full_name' in student) {
       const summary: StudentMarkSummary = {
         student_id: student.student_id,
         student_name: student.student_full_name,
@@ -827,19 +829,21 @@ export default function BranchDetailsScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20, paddingBottom: 40 }]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backBtn}
         >
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
-        <AppText style={styles.title} weight="bold">{branchName || 'Branch Details'}</AppText>
+        <View style={styles.headerTitleContainer}>
+          <AppText style={styles.headerTitle}>{branchName || 'Branch Details'}</AppText>
+        </View>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[styles.contentContainer, { marginTop: -20 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -865,7 +869,7 @@ export default function BranchDetailsScreen() {
               style={[styles.tab, activeTab === tab && styles.tabActive]}
               onPress={() => setActiveTab(tab as any)}
             >
-              <AppText style={[styles.tabText, activeTab === tab && styles.tabTextActive]} weight="medium">
+              <AppText style={[styles.tabText, activeTab === tab && styles.tabTextActive]} weight="regular">
                 {tab === 'teachers' && 'Teachers'}
                 {tab === 'students' && 'Students'}
                 {tab === 'attendance' && 'Attendance'}
@@ -1011,6 +1015,7 @@ export default function BranchDetailsScreen() {
                     value={new Date(attendanceDate)}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    maximumDate={new Date()}
                     onChange={(event, date) => {
                       setShowDatePicker(false);
                       if (date) handleAttendanceDateChange(date);
@@ -1483,36 +1488,37 @@ export default function BranchDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bg,
   },
   contentContainer: {
     padding: 16,
     paddingBottom: 40,
   },
-  header: {
+  headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 20,
-    paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   backBtn: {
     width: 40,
     height: 40,
-    alignItems: 'center',
     justifyContent: 'center',
-  },
-  backBtnText: {
-    fontSize: 18,
-    color: '#ffffff',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
-    textAlign: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
   },
   subtitle: {
     fontSize: 12,
@@ -1536,7 +1542,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -2272,7 +2284,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
   },
   viewAllLeavesText: {
     fontSize: 14,

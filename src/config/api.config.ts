@@ -3,9 +3,9 @@ import { Platform } from 'react-native';
 export const API_CONFIG = {
   // Development URLs
   dev: {
-    android: 'http://10.0.2.2:5000',  // Android Emulator
-    ios: 'http://localhost:5000',      // iOS Simulator
-    device: 'http://YOUR_IP:5000',     // Physical device (replace YOUR_IP)
+    android: 'https://attendex-api.vshiftx.com',  // Android Emulator
+    ios: 'https://attendex-api.vshiftx.com',      // iOS Simulator
+    device: 'https://attendex-api.vshiftx.com',   // Physical device
   },
   
   // Production URL
@@ -21,6 +21,7 @@ export const API_CONFIG = {
       logout: 'auth/logout',
       forgotPassword: 'auth/forgot-password',
       resetPassword: 'auth/reset-password',
+      teacherCapability: 'auth/teacher-capability',
     },
     admin: {
       schools: 'admin/schools',
@@ -44,14 +45,40 @@ export const API_CONFIG = {
       teacherAssignments: 'hm/teacher-assignments/details',
     },
     teacher: {
+      // Registration & Auth
       register: 'teacher/register',
       sendOtp: 'teacher/register/send-otp',
       verifyOtp: 'teacher/register/verify-otp',
+      
+      // Context & Classes
       context: 'teacher/marks/teacher-context',
       classes: 'teacher/marks/classes',
       exams: 'teacher/marks/exams',
+      
+      // Student Registration Requests (Class Teacher only)
+      studentRegistrationRequests: 'teacher/student-registration-requests',
+      approveStudentRegistration: 'teacher/student-registration-requests/{id}/accept',
+      rejectStudentRegistration: 'teacher/student-registration-requests/{id}/reject',
+      
+      // Attendance
+      markAttendance: 'teacher/mark-attendance',
+      videoAttendance: 'teacher/video-attendance',
+      attendanceHistory: 'teacher/attendance-history',
+      selfAttendance: 'teacher/self-attendance',
+      
+      // Academics
+      createHomework: 'teacher/homework/create',
+      marksEntry: 'teacher/marks/entry',
       enterMarks: 'teacher/marks/enter',
       marksBulk: 'teacher/marks/bulk',
+      uploadQuestionPapers: 'teacher/question-papers/upload',
+      
+      // Leave Management
+      applyLeave: 'teacher/leave/apply',
+      approveStudentLeave: 'teacher/student-leave/approve',
+      
+      // AI Tools
+      skinPrediction: 'teacher/skin-prediction',
     },
     principal: {
       registerHm: 'principal/register-hm',
@@ -70,7 +97,10 @@ export const API_CONFIG = {
       profile: 'manage/students',
       profilePhoto: 'profile-photo/student',
       questionPapers: 'student/question-papers',
+      questionPaperDownload: 'student/question-papers/{paper_id}/download',
       examTypes: 'student/question-papers/exam-types',
+      schoolHolidays: 'student/school-holidays',
+      registerRequest: 'student/register-request',
       register: 'student/register',
     },
     manage: {
@@ -95,23 +125,26 @@ export const API_CONFIG = {
     vitalscan: {
       predictSkin: 'vitalscan/predict/skin',
       predictGemini: 'vitalscan/predict',
+      process: 'vitalscan/process',
     },
     payment: {
       createOrder: 'payment/create-order',
       createOrderByPlan: 'payment/create-order-by-plan',
       verify: 'payment/verify',
     },
+    notifications: {
+      listTeacher: 'notifications/teacher/list',
+      listStudent: 'notifications/student/list',
+    },
   },
 };
 
 export const ENV = {
-  API_URL: __DEV__ 
+  API_URL: __DEV__
     ? (Platform.OS === 'android' ? API_CONFIG.dev.android : API_CONFIG.dev.ios)
     : API_CONFIG.production,
   
-  SOCKET_URL: __DEV__
-    ? (Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000')
-    : 'https://socket.attendx.com',
+  SOCKET_URL: 'https://socket.attendx.com',
   
   APP_NAME: 'AttendX',
   APP_VERSION: '1.0.0',

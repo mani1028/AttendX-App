@@ -14,35 +14,30 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Icon from '@react-native-vector-icons/feather';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ChevronLeft,
+  RefreshCw,
+  Plus,
+  BarChart2,
+} from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
-import { colors } from '../../constants/theme';
+import { HM_THEME as C } from '../../constants/hmTheme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { formatErrorMessage } from '../../utils/helpers';
+import { safeGoBack } from '../../utils/navigationHelpers';
 
-// Local theme bridge
-const C = {
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  textMuted: colors.textMuted,
-  primary: colors.primary,
-  primarySoft: colors.accentSoft + '20',
-  success: colors.success,
-  successSoft: colors.successSoft,
-  error: colors.error,
-  errorSoft: colors.errorSoft,
-  warning: colors.warning,
-  warningSoft: colors.warningSoft,
-};
 
 // Types
 interface Exam {
   exam_id: number;
   exam_name: string;
   academic_year: string;
+  class_grade?: string;
+  section?: string;
+  subject_name?: string;
   subject_count: number;
   total_max_marks?: number;
   creation_date: string;
@@ -75,7 +70,18 @@ interface MarksReport {
   students: StudentMarks[];
 }
 
+const getCurrentAcademicYearStart = () => {
+  const now = new Date();
+  return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+};
+
+const formatAcademicYear = (startYear: number) => {
+  const endYearShort = String((startYear + 1) % 100).padStart(2, '0');
+  return `${startYear}-${endYearShort}`;
+};
+
 export default function ExamsPage() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
@@ -88,8 +94,13 @@ export default function ExamsPage() {
   const [selectedExam, setSelectedExam] = useState<number | null>(null);
   const [marksReport, setMarksReport] = useState<MarksReport | null>(null);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState({ exam_name: '', academic_year: '' });
+  const [formData, setFormData] = useState({
+    exam_name: '',
+    academic_year: formatAcademicYear(getCurrentAcademicYearStart()),
+  });
   const [showClasswiseModal, setShowClasswiseModal] = useState(false);
+
+  const currentAcademicYearStart = getCurrentAcademicYearStart();
 
   // Load credentials from storage
   useEffect(() => {
@@ -133,11 +144,17 @@ export default function ExamsPage() {
     }
   };
 
-  const getHeaders = () => {
+  const buildHeaders = (code?: string, branch?: string) => {
     const headers: any = {};
-    if (schoolCode) headers['X-School-Code'] = schoolCode;
-    if (branchId) headers['X-Branch-Id'] = branchId;
+    const resolvedSchool = code || schoolCode;
+    const resolvedBranch = branch || branchId;
+    if (resolvedSchool) headers['X-School-Code'] = resolvedSchool;
+    if (resolvedBranch) headers['X-Branch-Id'] = resolvedBranch;
     return headers;
+  };
+
+  const getHeaders = () => {
+    return buildHeaders();
   };
 
   const loadExams = async (code?: string, branch?: string) => {
@@ -153,8 +170,8 @@ export default function ExamsPage() {
     setError('');
     
     try {
-      const res = await API.get('/hm/exams/list', { headers: getHeaders() });
-      const examsData = res.data?.items || [];
+      const res = await API.get('/hm/exams/list', { headers: buildHeaders(school, branchIdVal) });
+      const examsData = Array.isArray(res.data?.items) ? res.data.items.filter(Boolean) : [];
       const processedExams = examsData.map((exam: any) => ({
         ...exam,
         subject_count: exam.subject_count || 0,
@@ -177,7 +194,18 @@ export default function ExamsPage() {
 
   const createExam = async () => {
     if (!formData.exam_name.trim() || !formData.academic_year.trim()) {
-      Alert.alert('Error', 'All fields are required');
+      Alert.alert('Error', 'Exam name and academic year are required');
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}$/.test(formData.academic_year.trim())) {
+      Alert.alert('Error', 'Academic year must be in YYYY-YY format');
+      return;
+    }
+
+    const startYear = Number(formData.academic_year.slice(0, 4));
+    if (!Number.isFinite(startYear) || startYear < currentAcademicYearStart) {
+      Alert.alert('Error', 'Academic year can only be current year or future years');
       return;
     }
     
@@ -186,12 +214,15 @@ export default function ExamsPage() {
     
     try {
       await API.post('/hm/exams/create', formData, { headers: getHeaders() });
-      setFormData({ exam_name: '', academic_year: '' });
+      setFormData({
+        exam_name: '',
+        academic_year: formatAcademicYear(currentAcademicYearStart),
+      });
       await loadExams();
       setActiveTab('list');
       Alert.alert('Success', 'Exam created successfully');
     } catch (err: any) {
-      const detail = err?.response?.data?.detail || err?.message || 'Failed to create exam';
+      const detail = formatErrorMessage(err?.response?.data?.detail) || err?.message || 'Failed to create exam';
       setError(detail);
       Alert.alert('Error', detail);
     } finally {
@@ -209,7 +240,7 @@ export default function ExamsPage() {
       setSelectedExam(examId);
       setActiveTab('classwise');
     } catch (err: any) {
-      const detail = err?.response?.data?.detail || err?.message || 'Failed to load marks';
+      const detail = formatErrorMessage(err?.response?.data?.detail) || err?.message || 'Failed to load marks';
       setError(detail);
       Alert.alert('Error', detail);
     } finally {
@@ -235,26 +266,44 @@ export default function ExamsPage() {
       onPress={() => viewClasswisePerformance(exam.exam_id)}
     >
       <View style={styles.examCardHead}>
-        <AppText style={styles.examName}>{exam.exam_name}</AppText>
+        <AppText style={styles.examName} weight="bold">{exam.exam_name}</AppText>
         <View style={styles.badgeGroup}>
           <View style={styles.badge}>
-            <AppText style={styles.badgeText}>{exam.subject_count} Subjects</AppText>
+            <AppText style={styles.badgeText} weight="bold">{exam.subject_count} Subjects</AppText>
           </View>
         </View>
       </View>
       
       <View style={styles.examInfo}>
         <View style={styles.infoRow}>
-          <AppText style={styles.infoLabel}>Academic Year</AppText>
-          <AppText style={styles.infoValue}>{exam.academic_year}</AppText>
+          <AppText style={styles.infoLabel} weight="semiBold">Academic Year</AppText>
+          <AppText style={styles.infoValue} weight="bold">{exam.academic_year}</AppText>
+        </View>
+        {exam.class_grade ? (
+          <View style={styles.infoRow}>
+            <AppText style={styles.infoLabel} weight="semiBold">Class</AppText>
+            <AppText style={styles.infoValue} weight="bold">{exam.class_grade}</AppText>
+          </View>
+        ) : null}
+        {exam.section ? (
+          <View style={styles.infoRow}>
+            <AppText style={styles.infoLabel} weight="semiBold">Section</AppText>
+            <AppText style={styles.infoValue} weight="bold">{exam.section}</AppText>
+          </View>
+        ) : null}
+        {exam.subject_name ? (
+          <View style={styles.infoRow}>
+            <AppText style={styles.infoLabel} weight="semiBold">Subject</AppText>
+            <AppText style={styles.infoValue} weight="bold">{exam.subject_name}</AppText>
+          </View>
+        ) : null}
+        <View style={styles.infoRow}>
+          <AppText style={styles.infoLabel} weight="semiBold">Total Max Marks</AppText>
+          <AppText style={styles.infoValue} weight="bold">{exam.total_max_marks || '—'}</AppText>
         </View>
         <View style={styles.infoRow}>
-          <AppText style={styles.infoLabel}>Total Max Marks</AppText>
-          <AppText style={styles.infoValue}>{exam.total_max_marks || '—'}</AppText>
-        </View>
-        <View style={styles.infoRow}>
-          <AppText style={styles.infoLabel}>Created</AppText>
-          <AppText style={styles.infoValue}>{new Date(exam.creation_date).toLocaleDateString()}</AppText>
+          <AppText style={styles.infoLabel} weight="semiBold">Created</AppText>
+          <AppText style={styles.infoValue} weight="bold">{new Date(exam.creation_date).toLocaleDateString()}</AppText>
         </View>
       </View>
       
@@ -262,8 +311,8 @@ export default function ExamsPage() {
         style={styles.actionBtnSecondary}
         onPress={() => viewClasswisePerformance(exam.exam_id)}
       >
-        <Icon name="bar-chart-2" size={14} color={C.primary} />
-        <AppText style={styles.actionBtnSecondaryText}>📊 Class-wise Performance</AppText>
+        <BarChart2 size={14} color={C.primary} />
+        <AppText style={styles.actionBtnSecondaryText} weight="bold">📊 Class-wise Performance</AppText>
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -271,7 +320,7 @@ export default function ExamsPage() {
   const renderStudentRow = (student: StudentMarks, index: number) => (
     <View key={student.student_id} style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlt]}>
       <View style={styles.tableCellName}>
-        <AppText style={styles.studentName}>{student.student_name}</AppText>
+        <AppText style={styles.studentName} weight="semiBold">{student.student_name}</AppText>
         <AppText style={styles.rollNumber}>Roll: {student.roll_number}</AppText>
       </View>
       <View style={styles.tableCellClass}>
@@ -281,11 +330,11 @@ export default function ExamsPage() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {student.subjects.map((subject, idx) => (
             <View key={idx} style={styles.subjectChip}>
-              <AppText style={styles.subjectName}>{subject.subject_name}</AppText>
+              <AppText style={styles.subjectName} weight="semiBold">{subject.subject_name}</AppText>
               <AppText style={styles.subjectMarks}>
                 {subject.marks_obtained}/{subject.max_marks}
               </AppText>
-              <AppText style={[styles.subjectGrade, { color: getGradeColor(subject.grade) }]}>
+              <AppText style={[styles.subjectGrade, { color: getGradeColor(subject.grade) }]} weight="bold">
                 {subject.grade}
               </AppText>
             </View>
@@ -293,13 +342,13 @@ export default function ExamsPage() {
         </ScrollView>
       </View>
       <View style={styles.tableCellTotal}>
-        <AppText style={styles.totalMarks}>
+        <AppText style={styles.totalMarks} weight="semiBold">
           {student.total_marks}/{student.total_max_marks}
         </AppText>
-        <AppText style={[styles.percentage, { color: getGradeColor(student.overall_grade) }]}>
+        <AppText style={[styles.percentage, { color: getGradeColor(student.overall_grade) }]} weight="bold">
           {student.overall_percentage}%
         </AppText>
-        <AppText style={[styles.grade, { color: getGradeColor(student.overall_grade) }]}>
+        <AppText style={[styles.grade, { color: getGradeColor(student.overall_grade) }]} weight="bold">
           Grade: {student.overall_grade}
         </AppText>
       </View>
@@ -339,10 +388,10 @@ export default function ExamsPage() {
       scrollEventThrottle={16}
     >
       <View style={styles.formPanel}>
-        <AppText style={styles.formTitle}>Create New Exam</AppText>
+        <AppText style={styles.formTitle} weight="bold">Create New Exam</AppText>
         
         <View style={styles.formGroup}>
-          <AppText style={styles.label}>Exam Name</AppText>
+          <AppText style={styles.label} weight="bold">Exam Name</AppText>
           <TextInput
             style={styles.input}
             placeholder="Mid Term, Final, etc."
@@ -353,13 +402,13 @@ export default function ExamsPage() {
         </View>
         
         <View style={styles.formGroup}>
-          <AppText style={styles.label}>Academic Year</AppText>
+          <AppText style={styles.label} weight="bold">Academic Year</AppText>
           <TextInput
             style={styles.input}
-            placeholder="2024-25"
+            placeholder="2026-27"
             placeholderTextColor={C.textMuted}
             value={formData.academic_year}
-            onChangeText={(text) => setFormData({ ...formData, academic_year: text })}
+            onChangeText={(text) => setFormData(prev => ({ ...prev, academic_year: text }))}
           />
         </View>
         
@@ -372,8 +421,8 @@ export default function ExamsPage() {
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <>
-              <Icon name="plus" size={14} color="#fff" />
-              <AppText style={styles.submitBtnText}>Create Exam</AppText>
+              <Plus size={14} color="#fff" />
+              <AppText style={styles.submitBtnText} weight="bold">Create Exam</AppText>
             </>
           )}
         </TouchableOpacity>
@@ -392,8 +441,9 @@ export default function ExamsPage() {
     }
 
     // Group students by class and section
+    const studentsList = Array.isArray(marksReport.students) ? marksReport.students.filter(Boolean) : [];
     const groupedStudents: Record<string, StudentMarks[]> = {};
-    marksReport.students.forEach(student => {
+    studentsList.forEach(student => {
       const key = `${student.class_grade}-${student.section}`;
       if (!groupedStudents[key]) groupedStudents[key] = [];
       groupedStudents[key].push(student);
@@ -406,7 +456,7 @@ export default function ExamsPage() {
         scrollEventThrottle={16}
       >
         <View style={styles.infoPanel}>
-          <AppText style={styles.infoTitle}>{marksReport.exam_name}</AppText>
+          <AppText style={styles.infoTitle} weight="bold">{marksReport.exam_name}</AppText>
           <AppText style={styles.infoSubtitle}>Academic Year: {marksReport.academic_year}</AppText>
         </View>
 
@@ -415,7 +465,7 @@ export default function ExamsPage() {
           return (
             <View key={classSection} style={styles.classSectionContainer}>
               <View style={styles.classSectionHeader}>
-                <AppText style={styles.classSectionTitle}>
+                <AppText style={styles.classSectionTitle} weight="bold">
                   Class {classGrade} - Section {section}
                 </AppText>
                 <AppText style={styles.studentCount}>{students.length} Students</AppText>
@@ -424,10 +474,10 @@ export default function ExamsPage() {
               <View style={styles.tableContainer}>
                 {/* Table Header */}
                 <View style={styles.tableHeader}>
-                  <AppText style={[styles.headerCell, styles.headerCellName]}>Student</AppText>
-                  <AppText style={[styles.headerCell, styles.headerCellClass]}>Class</AppText>
-                  <AppText style={[styles.headerCell, styles.headerCellSubjects]}>Subjects</AppText>
-                  <AppText style={[styles.headerCell, styles.headerCellTotal]}>Total/Grade</AppText>
+                  <AppText style={[styles.headerCell, styles.headerCellName]} weight="bold">Student</AppText>
+                  <AppText style={[styles.headerCell, styles.headerCellClass]} weight="bold">Class</AppText>
+                  <AppText style={[styles.headerCell, styles.headerCellSubjects]} weight="bold">Subjects</AppText>
+                  <AppText style={[styles.headerCell, styles.headerCellTotal]} weight="bold">Total/Grade</AppText>
                 </View>
 
                 {/* Table Rows */}
@@ -442,17 +492,29 @@ export default function ExamsPage() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color="#fff" />
-        </TouchableOpacity>
-        <AppText style={styles.headerTitle}>Exam Management</AppText>
-        <TouchableOpacity style={styles.refreshIconBtn} onPress={() => loadExams()}>
-          <Icon name="refresh-cw" size={20} color="#fff" />
-        </TouchableOpacity>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => safeGoBack(navigation, 'HMDashboard')}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <AppText weight="bold" style={styles.headerTitle}>Exam Management</AppText>
+          </View>
+          <TouchableOpacity style={styles.iconButton} onPress={() => loadExams()}>
+            <RefreshCw size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.headerContent}>
+          <AppText weight="bold" style={styles.headerGreeting}>Exams & Performance</AppText>
+          <AppText style={styles.headerSubtext}>Manage examinations and track student results</AppText>
+        </View>
       </View>
 
       {/* Error Message */}
@@ -468,7 +530,7 @@ export default function ExamsPage() {
           style={[styles.tab, activeTab === 'list' && styles.activeTab]}
           onPress={() => setActiveTab('list')}
         >
-          <AppText style={[styles.tabText, activeTab === 'list' && styles.activeTabText]}>
+          <AppText style={[styles.tabText, activeTab === 'list' && styles.activeTabText]} weight="semiBold">
             📋 All Exams
           </AppText>
         </TouchableOpacity>
@@ -476,7 +538,7 @@ export default function ExamsPage() {
           style={[styles.tab, activeTab === 'add' && styles.activeTab]}
           onPress={() => setActiveTab('add')}
         >
-          <AppText style={[styles.tabText, activeTab === 'add' && styles.activeTabText]}>
+          <AppText style={[styles.tabText, activeTab === 'add' && styles.activeTabText]} weight="semiBold">
             ➕ Create Exam
           </AppText>
         </TouchableOpacity>
@@ -485,7 +547,7 @@ export default function ExamsPage() {
             style={[styles.tab, activeTab === 'classwise' && styles.activeTab]}
             onPress={() => setActiveTab('classwise')}
           >
-            <AppText style={[styles.tabText, activeTab === 'classwise' && styles.activeTabText]}>
+            <AppText style={[styles.tabText, activeTab === 'classwise' && styles.activeTabText]} weight="semiBold">
               📈 Class-wise Performance
             </AppText>
           </TouchableOpacity>
@@ -506,32 +568,55 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
+    backgroundColor: C.navy,
     paddingHorizontal: 20,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    ...Platform.select({
+      android: { elevation: 10 },
+      ios: {},
+    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 12,
   },
-  backBtn: {
+  iconButton: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitleContainer: {
+    flex: 1,
     alignItems: 'center',
   },
   headerTitle: {
+    color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
     textAlign: 'center',
-    flex: 1,
   },
-  refreshIconBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+  headerContent: {
+    marginTop: 24,
+  },
+  headerGreeting: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    letterSpacing: -0.5,
+  },
+  headerSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 4,
   },
   toolbar: {
     flexDirection: 'row',
@@ -550,7 +635,6 @@ const styles = StyleSheet.create({
   },
   refreshBtnText: {
     fontSize: 12,
-    fontWeight: '600',
     color: C.text,
   },
   addBtn: {
@@ -566,7 +650,6 @@ const styles = StyleSheet.create({
   },
   addBtnText: {
     fontSize: 12,
-    fontWeight: '600',
     color: '#fff',
   },
   errorContainer: {
@@ -580,7 +663,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
-    fontWeight: '600',
     color: C.error,
   },
   tabContainer: {
@@ -601,7 +683,6 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 14,
-    fontWeight: '600',
     color: C.textMuted,
   },
   activeTabText: {
@@ -631,7 +712,6 @@ const styles = StyleSheet.create({
   },
   examName: {
     fontSize: 15,
-    fontWeight: '700',
     color: C.text,
     flex: 1,
   },
@@ -647,7 +727,6 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 12,
-    fontWeight: '800',
     color: C.primary,
     textTransform: 'uppercase',
   },
@@ -662,12 +741,10 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 12,
-    fontWeight: '600',
     color: C.textMuted,
   },
   infoValue: {
     fontSize: 12,
-    fontWeight: '700',
     color: C.text,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
@@ -684,7 +761,6 @@ const styles = StyleSheet.create({
   },
   actionBtnSecondaryText: {
     fontSize: 12,
-    fontWeight: '700',
     color: C.primary,
   },
   formPanel: {
@@ -697,7 +773,6 @@ const styles = StyleSheet.create({
   },
   formTitle: {
     fontSize: 16,
-    fontWeight: '700',
     marginBottom: 20,
     color: C.text,
   },
@@ -706,7 +781,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     color: C.textMuted,
@@ -733,8 +807,69 @@ const styles = StyleSheet.create({
   },
   submitBtnText: {
     fontSize: 14,
-    fontWeight: '700',
     color: '#fff',
+  },
+  yearSelectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: C.bg,
+  },
+  yearSelectorTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  yearSelectorTitle: {
+    fontSize: 16,
+    color: C.text,
+  },
+  yearSelectorHint: {
+    fontSize: 11,
+    color: C.textMuted,
+  },
+  yearNextBtn: {
+    backgroundColor: C.primary,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  yearNextBtnText: {
+    fontSize: 12,
+    color: '#fff',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  choiceChip: {
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: C.bg,
+  },
+  choiceChipActive: {
+    backgroundColor: C.primary,
+    borderColor: C.primary,
+  },
+  choiceChipText: {
+    fontSize: 12,
+    color: C.text,
+  },
+  choiceChipTextActive: {
+    color: '#fff',
+  },
+  helperText: {
+    fontSize: 12,
+    color: C.textMuted,
+    paddingVertical: 10,
   },
   noData: {
     padding: 32,
@@ -756,7 +891,6 @@ const styles = StyleSheet.create({
   },
   infoTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: C.text,
     marginBottom: 8,
   },
@@ -776,7 +910,6 @@ const styles = StyleSheet.create({
   },
   classSectionTitle: {
     fontSize: 16,
-    fontWeight: '700',
     color: C.text,
   },
   studentCount: {
@@ -799,7 +932,6 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   headerCell: {
-    fontWeight: '700',
     fontSize: 12,
     color: C.text,
   },
@@ -830,7 +962,6 @@ const styles = StyleSheet.create({
   },
   studentName: {
     fontSize: 13,
-    fontWeight: '600',
     color: C.text,
   },
   rollNumber: {
@@ -859,7 +990,6 @@ const styles = StyleSheet.create({
   },
   subjectName: {
     fontSize: 11,
-    fontWeight: '600',
     color: C.text,
   },
   subjectMarks: {
@@ -869,7 +999,6 @@ const styles = StyleSheet.create({
   },
   subjectGrade: {
     fontSize: 10,
-    fontWeight: '700',
     marginTop: 2,
   },
   tableCellTotal: {
@@ -878,17 +1007,14 @@ const styles = StyleSheet.create({
   },
   totalMarks: {
     fontSize: 12,
-    fontWeight: '600',
     color: C.text,
   },
   percentage: {
     fontSize: 11,
-    fontWeight: '700',
     marginTop: 2,
   },
   grade: {
     fontSize: 11,
-    fontWeight: '700',
     marginTop: 2,
   },
 });

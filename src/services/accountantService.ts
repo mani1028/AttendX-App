@@ -31,6 +31,19 @@ export interface PaymentRecord {
   method: PaymentMethod;
   paid_at?: string;
   created_at?: string;
+  receipt_no?: string;
+  transaction_id?: string;
+}
+
+export interface ExpenseRecord {
+  id: string;
+  title: string;
+  amount: number;
+  category: string;
+  date: string;
+  description?: string;
+  created_at?: string;
+  created_by?: string;
 }
 
 interface CreateFeePayload {
@@ -44,6 +57,49 @@ interface AddPaymentPayload {
   fee_id: string;
   amount: number;
   method: PaymentMethod;
+}
+
+export interface DashboardSummary {
+  total_fees_collected: number;
+  total_pending_fees: number;
+  total_expenses: number;
+  net_balance: number;
+}
+
+function pickRecord(data: unknown, keys: string[]): Record<string, any> {
+  const root = asRecord(data);
+
+  if (keys.length === 0) {
+    return root;
+  }
+
+  for (const key of keys) {
+    const nested = root[key];
+    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+      return nested as Record<string, any>;
+    }
+  }
+
+  return root;
+}
+
+function normalizeDashboardSummary(data: unknown): DashboardSummary {
+  const payload = pickRecord(data, ['summary', 'dashboard', 'data', 'stats', 'result']);
+
+  return {
+    total_fees_collected: toNumber(
+      payload.total_fees_collected ?? payload.fees_collected ?? payload.totalFeesCollected ?? payload.collected,
+    ),
+    total_pending_fees: toNumber(
+      payload.total_pending_fees ?? payload.pending_fees ?? payload.totalPendingFees ?? payload.pending,
+    ),
+    total_expenses: toNumber(
+      payload.total_expenses ?? payload.expenses ?? payload.totalExpenses,
+    ),
+    net_balance: toNumber(
+      payload.net_balance ?? payload.balance ?? payload.netBalance,
+    ),
+  };
 }
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -106,6 +162,8 @@ function normalizePayment(item: unknown): PaymentRecord {
     method,
     paid_at: toText(row.paid_at ?? row.date, ''),
     created_at: toText(row.created_at, ''),
+    receipt_no: toText(row.receipt_no ?? row.receipt_number, ''),
+    transaction_id: toText(row.transaction_id ?? row.txn_id ?? row.reference_id, ''),
   };
 }
 
@@ -122,8 +180,10 @@ function pickList(data: unknown, keys: string[]): any[] {
   return [];
 }
 
-export async function getSchoolStudents(): Promise<StudentDirectoryItem[]> {
-  const response = await API.get<any>('manage/students');
+export async function getSchoolStudents(schoolCode?: string): Promise<StudentDirectoryItem[]> {
+  const response = await API.get<any>('manage/students', {
+    params: schoolCode ? { school_code: schoolCode } : undefined,
+  });
   const rows = pickList(response.data, ['students', 'data']);
   return rows.map((row: any) => {
     const item = asRecord(row);
@@ -160,6 +220,13 @@ export async function getAllFees(): Promise<FeeRecord[]> {
   return rows.map(normalizeFee);
 }
 
+export async function getDashboardSummary(schoolCode?: string): Promise<DashboardSummary> {
+  const response = await API.get<any>('accountant/dashboard', {
+    params: schoolCode ? { school_code: schoolCode } : undefined,
+  });
+  return normalizeDashboardSummary(response.data);
+}
+
 export async function getFeesByStudent(studentId: string): Promise<FeeRecord[]> {
   const response = await API.get<any>(`accountant/fees/${encodeURIComponent(studentId)}`);
   const rows = pickList(response.data, ['fees', 'history', 'data']);
@@ -189,5 +256,67 @@ export async function getPendingStudentsReport(): Promise<any[]> {
 
 export async function sendFeeAlerts(): Promise<any> {
   const response = await API.post('accountant/notifications/send-fee-alerts');
+  return response.data;
+}
+
+export async function downloadReceipt(paymentId: string): Promise<ArrayBuffer> {
+  const response = await API.get<ArrayBuffer>(`accountant/receipts/${encodeURIComponent(paymentId)}/download`, {
+    responseType: 'arraybuffer',
+  });
+  return response.data;
+}
+
+// ============ EXPENSE MANAGEMENT ============
+
+export async function getAllExpenses(): Promise<ExpenseRecord[]> {
+  const response = await API.get<any>('accountant/expenses');
+  const rows = pickList(response.data, ['expenses', 'data']);
+  return rows.map((row: any) => {
+    const item = asRecord(row);
+    return {
+      id: toText(item.id),
+      title: toText(item.title, ''),
+      amount: toNumber(item.amount),
+      category: toText(item.category, ''),
+      date: toText(item.date, ''),
+      description: toText(item.description, ''),
+      created_at: toText(item.created_at, ''),
+      created_by: toText(item.created_by, ''),
+    };
+  });
+}
+
+export async function addExpense(payload: {
+  title: string;
+  amount: number;
+  category: string;
+  date: string;
+  description?: string;
+}): Promise<any> {
+  const body = {
+    ...payload,
+    amount: Number(payload.amount),
+  };
+  const response = await API.post('accountant/expenses', body);
+  return response.data;
+}
+
+export async function updateExpense(expenseId: string, payload: Partial<{
+  title: string;
+  amount: number;
+  category: string;
+  date: string;
+  description?: string;
+}>): Promise<any> {
+  const body = {
+    ...payload,
+    amount: payload.amount ? Number(payload.amount) : undefined,
+  };
+  const response = await API.put(`accountant/expenses/${encodeURIComponent(expenseId)}`, body);
+  return response.data;
+}
+
+export async function deleteExpense(expenseId: string): Promise<any> {
+  const response = await API.delete(`accountant/expenses/${encodeURIComponent(expenseId)}`);
   return response.data;
 }

@@ -1,18 +1,9 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Platform,
-  StatusBar,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from 'react-native';
+import { Buffer } from 'buffer';
+import { View, TouchableOpacity, StatusBar, ScrollView, Alert, StyleSheet, Platform, ActivityIndicator, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import Icon from '@react-native-vector-icons/feather';
+import { ChevronLeft, BarChart3, PenSquare, ClipboardList } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
@@ -21,20 +12,8 @@ import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { HM_THEME as C } from '../../constants/hmTheme';
 
-const C = {
-  primary: colors.primary,
-  primarySoft: colors.primary + '15',
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  textMuted: colors.textMuted,
-  success: colors.success,
-  successSoft: colors.successSoft,
-  error: colors.error,
-  errorSoft: colors.errorSoft,
-};
 
 interface ClassSectionPair {
   class_grade?: string;
@@ -49,6 +28,7 @@ interface Exam {
 
 export default function HMDataExportPage() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState('');
@@ -297,25 +277,31 @@ export default function HMDataExportPage() {
     }
   };
 
-  const downloadAndShareFile = async (blob: any, filename: string) => {
+  const downloadAndShareFile = async (data: any, filename: string) => {
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = async () => {
-        const base64Data = (reader.result as string).split(',')[1];
-        const fileUri = `${RNFS.CachesDirectoryPath}/${filename}`;
-        
-        await RNFS.writeFile(fileUri, base64Data, 'base64');
+      const base64Data = Buffer.from(data).toString('base64');
+      const filePath = `${RNFS.CachesDirectoryPath}/${filename}`;
 
-        await Share.open({
-          url: `file://${fileUri}`,
-          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          filename: filename,
-        });
-      };
-    } catch (error) {
-      console.error('Error saving/sharing file:', error);
-      Alert.alert('Error', 'Failed to save or share file');
+      await RNFS.writeFile(filePath, base64Data, 'base64');
+
+      const fileUri = Platform.OS === 'android'
+        ? `file://${filePath}`
+        : filePath;
+
+      await Share.open({
+        url: fileUri,
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        filename: filename,
+        failOnCancel: false,
+      });
+
+      // Clean up file after sharing
+      setTimeout(() => RNFS.unlink(filePath).catch(() => {}), 5000);
+    } catch (error: any) {
+      if (error?.message !== 'User did not share') {
+        console.error('Error saving/sharing file:', error);
+        Alert.alert('Error', 'Failed to save or share file');
+      }
     }
   };
 
@@ -349,21 +335,8 @@ export default function HMDataExportPage() {
       const response = await API.get("/hm/export/attendance-only", {
         headers,
         params,
-        responseType: "blob",
+        responseType: "arraybuffer",
       });
-
-      const contentType = String(response?.headers?.["content-type"] || "").toLowerCase();
-      if (contentType.includes("application/json")) {
-        const textPayload = await response.data.text();
-        let detail = "Export failed. Please try again.";
-        try {
-          const parsed = JSON.parse(textPayload || "{}");
-          detail = parsed?.detail || parsed?.message || detail;
-        } catch {
-          if (textPayload) detail = textPayload;
-        }
-        throw new Error(detail);
-      }
 
       const filename = `attendance_export_${start_date}_to_${end_date}.xlsx`;
       await downloadAndShareFile(response.data, filename);
@@ -413,24 +386,10 @@ export default function HMDataExportPage() {
       const response = await API.get("/hm/export/marks-only", {
         headers,
         params,
-        responseType: "blob",
+        responseType: "arraybuffer",
       });
 
-      const contentType = String(response?.headers?.["content-type"] || "").toLowerCase();
-      if (contentType.includes("application/json")) {
-        const textPayload = await response.data.text();
-        let detail = "Export failed. Please try again.";
-        try {
-          const parsed = JSON.parse(textPayload || "{}");
-          detail = parsed?.detail || parsed?.message || detail;
-        } catch {
-          if (textPayload) detail = textPayload;
-        }
-        throw new Error(detail);
-      }
-
       const selectedExamObj = examsList.find(e => e.exam_id.toString() === selectedExam);
-      
       const filename = `marks_export_${selectedExamObj?.exam_name || "marks"}_${classGrade || "all"}_${section || "all"}.xlsx`;
       await downloadAndShareFile(response.data, filename);
 
@@ -489,24 +448,10 @@ export default function HMDataExportPage() {
       const response = await API.get("/hm/export/combined-with-attendance", {
         headers,
         params,
-        responseType: "blob",
+        responseType: "arraybuffer",
       });
 
-      const contentType = String(response?.headers?.["content-type"] || "").toLowerCase();
-      if (contentType.includes("application/json")) {
-        const textPayload = await response.data.text();
-        let detail = "Export failed. Please try again.";
-        try {
-          const parsed = JSON.parse(textPayload || "{}");
-          detail = parsed?.detail || parsed?.message || detail;
-        } catch {
-          if (textPayload) detail = textPayload;
-        }
-        throw new Error(detail);
-      }
-
       const selectedExamObj = examsList.find(e => e.exam_id.toString() === selectedExam);
-      
       const filename = `combined_export_${selectedExamObj?.exam_name || "marks"}_${start_date}_to_${end_date}.xlsx`;
       await downloadAndShareFile(response.data, filename);
 
@@ -544,7 +489,7 @@ export default function HMDataExportPage() {
     <>
       <View style={styles.grid}>
         <View style={styles.field}>
-          <AppText style={styles.label}>Period</AppText>
+          <AppText style={styles.label} weight="bold">Period</AppText>
           <View style={styles.selectWrapper}>
             {["weekly", "monthly", "3months", "6months", "year", "custom"].map((period) => (
               <TouchableOpacity
@@ -552,7 +497,7 @@ export default function HMDataExportPage() {
                 style={[styles.periodOption, attendancePeriod === period && styles.periodOptionSelected]}
                 onPress={() => setAttendancePeriod(period as any)}
               >
-                <AppText style={[styles.periodOptionText, attendancePeriod === period && styles.periodOptionTextSelected]}>
+                <AppText style={[styles.periodOptionText, attendancePeriod === period && styles.periodOptionTextSelected]} weight="semiBold">
                   {period.charAt(0).toUpperCase() + period.slice(1)}
                 </AppText>
               </TouchableOpacity>
@@ -562,30 +507,30 @@ export default function HMDataExportPage() {
 
         {attendancePeriod !== "custom" ? (
           <View style={styles.field}>
-            <AppText style={styles.label}>End Date (Anchor Date)</AppText>
+            <AppText style={styles.label} weight="bold">End Date (Anchor Date)</AppText>
             {renderDatePicker("anchor", attendanceAnchorDate, setAttendanceAnchorDate)}
           </View>
         ) : (
           <>
             <View style={styles.field}>
-              <AppText style={styles.label}>Start Date</AppText>
+              <AppText style={styles.label} weight="bold">Start Date</AppText>
               {renderDatePicker("start", attendanceStartDate, setAttendanceStartDate)}
             </View>
             <View style={styles.field}>
-              <AppText style={styles.label}>End Date</AppText>
+              <AppText style={styles.label} weight="bold">End Date</AppText>
               {renderDatePicker("end", attendanceEndDate, setAttendanceEndDate)}
             </View>
           </>
         )}
 
         <View style={styles.field}>
-          <AppText style={styles.label}>Class (Optional)</AppText>
+          <AppText style={styles.label} weight="bold">Class (Optional)</AppText>
           <View style={styles.selectWrapper}>
             <TouchableOpacity
               style={[styles.classOption, !classGrade && styles.classOptionSelected]}
               onPress={() => setClassGrade("")}
             >
-              <AppText style={[styles.classOptionText, !classGrade && styles.classOptionTextSelected]}>All Classes</AppText>
+              <AppText style={[styles.classOptionText, !classGrade && styles.classOptionTextSelected]} weight="semiBold">All Classes</AppText>
             </TouchableOpacity>
             {classOptions.map((cls) => (
               <TouchableOpacity
@@ -593,20 +538,20 @@ export default function HMDataExportPage() {
                 style={[styles.classOption, classGrade === cls && styles.classOptionSelected]}
                 onPress={() => setClassGrade(cls)}
               >
-                <AppText style={[styles.classOptionText, classGrade === cls && styles.classOptionTextSelected]}>{cls}</AppText>
+                <AppText style={[styles.classOptionText, classGrade === cls && styles.classOptionTextSelected]} weight="semiBold">{cls}</AppText>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
         <View style={styles.field}>
-          <AppText style={styles.label}>Section (Optional)</AppText>
+          <AppText style={styles.label} weight="bold">Section (Optional)</AppText>
           <View style={styles.selectWrapper}>
             <TouchableOpacity
               style={[styles.classOption, !section && styles.classOptionSelected]}
               onPress={() => setSection("")}
             >
-              <AppText style={[styles.classOptionText, !section && styles.classOptionTextSelected]}>All Sections</AppText>
+              <AppText style={[styles.classOptionText, !section && styles.classOptionTextSelected]} weight="semiBold">All Sections</AppText>
             </TouchableOpacity>
             {sectionOptions.map((sec) => (
               <TouchableOpacity
@@ -614,7 +559,7 @@ export default function HMDataExportPage() {
                 style={[styles.classOption, section === sec && styles.classOptionSelected]}
                 onPress={() => setSection(sec)}
               >
-                <AppText style={[styles.classOptionText, section === sec && styles.classOptionTextSelected]}>{sec}</AppText>
+                <AppText style={[styles.classOptionText, section === sec && styles.classOptionTextSelected]} weight="semiBold">{sec}</AppText>
               </TouchableOpacity>
             ))}
           </View>
@@ -623,12 +568,12 @@ export default function HMDataExportPage() {
 
       <View style={styles.actions}>
         <TouchableOpacity style={styles.exportButton} onPress={onExportAttendance} disabled={exporting}>
-          <AppText style={styles.exportButtonText}>
+          <AppText style={styles.exportButtonText} weight="bold">
             {exporting ? "Preparing Excel..." : "Download Attendance Excel"}
           </AppText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={resetFilters} disabled={exporting}>
-          <AppText style={styles.secondaryButtonText}>Reset Filters</AppText>
+          <AppText style={styles.secondaryButtonText} weight="semiBold">Reset Filters</AppText>
         </TouchableOpacity>
       </View>
 
@@ -643,13 +588,13 @@ export default function HMDataExportPage() {
     <>
       <View style={styles.marksGrid}>
         <View style={styles.field}>
-          <AppText style={styles.label}>Select Exam</AppText>
+          <AppText style={styles.label} weight="bold">Select Exam</AppText>
           <View style={styles.selectWrapper}>
             <TouchableOpacity
               style={[styles.classOption, !selectedExam && styles.classOptionSelected]}
               onPress={() => setSelectedExam("")}
             >
-              <AppText style={[styles.classOptionText, !selectedExam && styles.classOptionTextSelected]}>-- Select Exam --</AppText>
+              <AppText style={[styles.classOptionText, !selectedExam && styles.classOptionTextSelected]} weight="semiBold">-- Select Exam --</AppText>
             </TouchableOpacity>
             {examsList.map((exam) => (
               <TouchableOpacity
@@ -657,7 +602,7 @@ export default function HMDataExportPage() {
                 style={[styles.classOption, selectedExam === exam.exam_id.toString() && styles.classOptionSelected]}
                 onPress={() => setSelectedExam(exam.exam_id.toString())}
               >
-                <AppText style={[styles.classOptionText, selectedExam === exam.exam_id.toString() && styles.classOptionTextSelected]}>
+                <AppText style={[styles.classOptionText, selectedExam === exam.exam_id.toString() && styles.classOptionTextSelected]} weight="semiBold">
                   {exam.exam_name} ({exam.academic_year})
                 </AppText>
               </TouchableOpacity>
@@ -666,13 +611,13 @@ export default function HMDataExportPage() {
         </View>
 
         <View style={styles.field}>
-          <AppText style={styles.label}>Class (Optional)</AppText>
+          <AppText style={styles.label} weight="bold">Class (Optional)</AppText>
           <View style={styles.selectWrapper}>
             <TouchableOpacity
               style={[styles.classOption, !classGrade && styles.classOptionSelected]}
               onPress={() => setClassGrade("")}
             >
-              <AppText style={[styles.classOptionText, !classGrade && styles.classOptionTextSelected]}>All Classes</AppText>
+              <AppText style={[styles.classOptionText, !classGrade && styles.classOptionTextSelected]} weight="semiBold">All Classes</AppText>
             </TouchableOpacity>
             {classOptions.map((cls) => (
               <TouchableOpacity
@@ -680,20 +625,20 @@ export default function HMDataExportPage() {
                 style={[styles.classOption, classGrade === cls && styles.classOptionSelected]}
                 onPress={() => setClassGrade(cls)}
               >
-                <AppText style={[styles.classOptionText, classGrade === cls && styles.classOptionTextSelected]}>{cls}</AppText>
+                <AppText style={[styles.classOptionText, classGrade === cls && styles.classOptionTextSelected]} weight="semiBold">{cls}</AppText>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
         <View style={styles.field}>
-          <AppText style={styles.label}>Section (Optional)</AppText>
+          <AppText style={styles.label} weight="bold">Section (Optional)</AppText>
           <View style={styles.selectWrapper}>
             <TouchableOpacity
               style={[styles.classOption, !section && styles.classOptionSelected]}
               onPress={() => setSection("")}
             >
-              <AppText style={[styles.classOptionText, !section && styles.classOptionTextSelected]}>All Sections</AppText>
+              <AppText style={[styles.classOptionText, !section && styles.classOptionTextSelected]} weight="semiBold">All Sections</AppText>
             </TouchableOpacity>
             {sectionOptions.map((sec) => (
               <TouchableOpacity
@@ -701,7 +646,7 @@ export default function HMDataExportPage() {
                 style={[styles.classOption, section === sec && styles.classOptionSelected]}
                 onPress={() => setSection(sec)}
               >
-                <AppText style={[styles.classOptionText, section === sec && styles.classOptionTextSelected]}>{sec}</AppText>
+                <AppText style={[styles.classOptionText, section === sec && styles.classOptionTextSelected]} weight="semiBold">{sec}</AppText>
               </TouchableOpacity>
             ))}
           </View>
@@ -710,12 +655,12 @@ export default function HMDataExportPage() {
 
       <View style={styles.actions}>
         <TouchableOpacity style={styles.exportButton} onPress={onExportMarks} disabled={exporting || !selectedExam}>
-          <AppText style={styles.exportButtonText}>
+          <AppText style={styles.exportButtonText} weight="bold">
             {exporting ? "Preparing Excel..." : "Download Marks Excel"}
           </AppText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={resetFilters} disabled={exporting}>
-          <AppText style={styles.secondaryButtonText}>Reset Filters</AppText>
+          <AppText style={styles.secondaryButtonText} weight="semiBold">Reset Filters</AppText>
         </TouchableOpacity>
       </View>
 
@@ -729,13 +674,13 @@ export default function HMDataExportPage() {
     <>
       <View style={styles.grid}>
         <View style={styles.field}>
-          <AppText style={styles.label}>Select Exam</AppText>
+          <AppText style={styles.label} weight="bold">Select Exam</AppText>
           <View style={styles.selectWrapper}>
             <TouchableOpacity
               style={[styles.classOption, !selectedExam && styles.classOptionSelected]}
               onPress={() => setSelectedExam("")}
             >
-              <AppText style={[styles.classOptionText, !selectedExam && styles.classOptionTextSelected]}>-- Select Exam --</AppText>
+              <AppText style={[styles.classOptionText, !selectedExam && styles.classOptionTextSelected]} weight="semiBold">-- Select Exam --</AppText>
             </TouchableOpacity>
             {examsList.map((exam) => (
               <TouchableOpacity
@@ -743,7 +688,7 @@ export default function HMDataExportPage() {
                 style={[styles.classOption, selectedExam === exam.exam_id.toString() && styles.classOptionSelected]}
                 onPress={() => setSelectedExam(exam.exam_id.toString())}
               >
-                <AppText style={[styles.classOptionText, selectedExam === exam.exam_id.toString() && styles.classOptionTextSelected]}>
+                <AppText style={[styles.classOptionText, selectedExam === exam.exam_id.toString() && styles.classOptionTextSelected]} weight="semiBold">
                   {exam.exam_name} ({exam.academic_year})
                 </AppText>
               </TouchableOpacity>
@@ -752,7 +697,7 @@ export default function HMDataExportPage() {
         </View>
 
         <View style={styles.field}>
-          <AppText style={styles.label}>Attendance Period</AppText>
+          <AppText style={styles.label} weight="bold">Attendance Period</AppText>
           <View style={styles.selectWrapper}>
             {["weekly", "monthly", "custom"].map((period) => (
               <TouchableOpacity
@@ -760,7 +705,7 @@ export default function HMDataExportPage() {
                 style={[styles.periodOption, combinedPeriod === period && styles.periodOptionSelected]}
                 onPress={() => setCombinedPeriod(period as any)}
               >
-                <AppText style={[styles.periodOptionText, combinedPeriod === period && styles.periodOptionTextSelected]}>
+                <AppText style={[styles.periodOptionText, combinedPeriod === period && styles.periodOptionTextSelected]} weight="semiBold">
                   {period.charAt(0).toUpperCase() + period.slice(1)}
                 </AppText>
               </TouchableOpacity>
@@ -770,7 +715,7 @@ export default function HMDataExportPage() {
 
         {combinedPeriod !== "custom" ? (
           <View style={styles.field}>
-            <AppText style={styles.label}>End Date (Anchor Date)</AppText>
+            <AppText style={styles.label} weight="bold">End Date (Anchor Date)</AppText>
             <TouchableOpacity 
               style={styles.dateInput} 
               onPress={() => {
@@ -784,7 +729,7 @@ export default function HMDataExportPage() {
         ) : (
           <>
             <View style={styles.field}>
-              <AppText style={styles.label}>Start Date</AppText>
+              <AppText style={styles.label} weight="bold">Start Date</AppText>
               <TouchableOpacity 
                 style={styles.dateInput} 
                 onPress={() => {
@@ -796,7 +741,7 @@ export default function HMDataExportPage() {
               </TouchableOpacity>
             </View>
             <View style={styles.field}>
-              <AppText style={styles.label}>End Date</AppText>
+              <AppText style={styles.label} weight="bold">End Date</AppText>
               <TouchableOpacity 
                 style={styles.dateInput} 
                 onPress={() => {
@@ -811,13 +756,13 @@ export default function HMDataExportPage() {
         )}
 
         <View style={styles.field}>
-          <AppText style={styles.label}>Class (Optional)</AppText>
+          <AppText style={styles.label} weight="bold">Class (Optional)</AppText>
           <View style={styles.selectWrapper}>
             <TouchableOpacity
               style={[styles.classOption, !classGrade && styles.classOptionSelected]}
               onPress={() => setClassGrade("")}
             >
-              <AppText style={[styles.classOptionText, !classGrade && styles.classOptionTextSelected]}>All Classes</AppText>
+              <AppText style={[styles.classOptionText, !classGrade && styles.classOptionTextSelected]} weight="semiBold">All Classes</AppText>
             </TouchableOpacity>
             {classOptions.map((cls) => (
               <TouchableOpacity
@@ -825,20 +770,20 @@ export default function HMDataExportPage() {
                 style={[styles.classOption, classGrade === cls && styles.classOptionSelected]}
                 onPress={() => setClassGrade(cls)}
               >
-                <AppText style={[styles.classOptionText, classGrade === cls && styles.classOptionTextSelected]}>{cls}</AppText>
+                <AppText style={[styles.classOptionText, classGrade === cls && styles.classOptionTextSelected]} weight="semiBold">{cls}</AppText>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
         <View style={styles.field}>
-          <AppText style={styles.label}>Section (Optional)</AppText>
+          <AppText style={styles.label} weight="bold">Section (Optional)</AppText>
           <View style={styles.selectWrapper}>
             <TouchableOpacity
               style={[styles.classOption, !section && styles.classOptionSelected]}
               onPress={() => setSection("")}
             >
-              <AppText style={[styles.classOptionText, !section && styles.classOptionTextSelected]}>All Sections</AppText>
+              <AppText style={[styles.classOptionText, !section && styles.classOptionTextSelected]} weight="semiBold">All Sections</AppText>
             </TouchableOpacity>
             {sectionOptions.map((sec) => (
               <TouchableOpacity
@@ -846,7 +791,7 @@ export default function HMDataExportPage() {
                 style={[styles.classOption, section === sec && styles.classOptionSelected]}
                 onPress={() => setSection(sec)}
               >
-                <AppText style={[styles.classOptionText, section === sec && styles.classOptionTextSelected]}>{sec}</AppText>
+                <AppText style={[styles.classOptionText, section === sec && styles.classOptionTextSelected]} weight="semiBold">{sec}</AppText>
               </TouchableOpacity>
             ))}
           </View>
@@ -855,12 +800,12 @@ export default function HMDataExportPage() {
 
       <View style={styles.actions}>
         <TouchableOpacity style={styles.exportButton} onPress={onExportCombined} disabled={exporting || !selectedExam}>
-          <AppText style={styles.exportButtonText}>
+          <AppText style={styles.exportButtonText} weight="bold">
             {exporting ? "Preparing Excel..." : "Download Combined Excel"}
           </AppText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={resetFilters} disabled={exporting}>
-          <AppText style={styles.secondaryButtonText}>Reset Filters</AppText>
+          <AppText style={styles.secondaryButtonText} weight="semiBold">Reset Filters</AppText>
         </TouchableOpacity>
       </View>
 
@@ -872,12 +817,15 @@ export default function HMDataExportPage() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color="#fff" />
+      <View style={[styles.headerStandard, { paddingTop: insets.top }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('HMDashboard' as never)}
+        >
+          <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} weight="bold">Data Export</AppText>
         <View style={{ width: 40 }} />
@@ -890,30 +838,39 @@ export default function HMDataExportPage() {
       >
         <View style={styles.card}>
           <View style={styles.header}>
-            <AppText style={styles.title}>Data Export Center</AppText>
-          <AppText style={styles.subtitle}>
-            Export attendance, marks, or combined data with advanced filtering options
-          </AppText>
-        </View>
+            <AppText style={styles.title} weight="bold">Data Export Center</AppText>
+            <AppText style={styles.subtitle}>
+              Export attendance, marks, or combined data with advanced filtering options
+            </AppText>
+          </View>
 
-        <View style={styles.tabsContainer}>
+          <View style={styles.tabsContainer}>
           <TouchableOpacity 
             style={[styles.tab, activeTab === "attendance" && styles.activeTab]} 
             onPress={() => { setActiveTab("attendance"); resetFilters(); }}
           >
-            <AppText style={[styles.tabText, activeTab === "attendance" && styles.activeTabText]}>📊 Attendance Only</AppText>
+            <View style={styles.tabContent}>
+              <BarChart3 size={16} color={activeTab === "attendance" ? C.primary : C.textMuted} />
+              <AppText weight="semiBold" style={[styles.tabText, activeTab === "attendance" && styles.activeTabText]}>Attendance Only</AppText>
+            </View>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.tab, activeTab === "marks" && styles.activeTab]} 
             onPress={() => { setActiveTab("marks"); resetFilters(); }}
           >
-            <AppText style={[styles.tabText, activeTab === "marks" && styles.activeTabText]}>📝 Marks Only</AppText>
+            <View style={styles.tabContent}>
+              <PenSquare size={16} color={activeTab === "marks" ? C.primary : C.textMuted} />
+              <AppText weight="semiBold" style={[styles.tabText, activeTab === "marks" && styles.activeTabText]}>Marks Only</AppText>
+            </View>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.tab, activeTab === "combined" && styles.activeTab]} 
             onPress={() => { setActiveTab("combined"); resetFilters(); }}
           >
-            <AppText style={[styles.tabText, activeTab === "combined" && styles.activeTabText]}>📋 Marks & Attendance</AppText>
+            <View style={styles.tabContent}>
+              <ClipboardList size={16} color={activeTab === "combined" ? C.primary : C.textMuted} />
+              <AppText weight="semiBold" style={[styles.tabText, activeTab === "combined" && styles.activeTabText]}>Marks & Attendance</AppText>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -924,6 +881,8 @@ export default function HMDataExportPage() {
 
           {message ? <View style={styles.messageContainer}><AppText style={styles.messageText}>{message}</AppText></View> : null}
           {error ? <View style={styles.errorContainer}><AppText style={styles.errorText}>{error}</AppText></View> : null}
+        </View>
+
         </View>
       </ScrollView>
 
@@ -939,9 +898,19 @@ export default function HMDataExportPage() {
           }
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          maximumDate={new Date()}
           onChange={(event, selectedDate) => {
-            setShowAttendanceDatePicker(false);
-            setShowCombinedDatePicker(false);
+            if (Platform.OS === 'android') {
+              setShowAttendanceDatePicker(false);
+              setShowCombinedDatePicker(false);
+            }
+
+            if (event.type === 'dismissed') {
+              setShowAttendanceDatePicker(false);
+              setShowCombinedDatePicker(false);
+              return;
+            }
+
             if (selectedDate) {
               const dateStr = selectedDate.toISOString().slice(0, 10);
               if (showAttendanceDatePicker) {
@@ -953,6 +922,13 @@ export default function HMDataExportPage() {
                 else if (datePickerMode === "end") setCombinedEndDate(dateStr);
                 else setCombinedAnchorDate(dateStr);
               }
+            }
+
+            if (Platform.OS === 'ios') {
+              // On iOS we keep it open until user finishes
+            } else {
+              setShowAttendanceDatePicker(false);
+              setShowCombinedDatePicker(false);
             }
           }}
         />
@@ -974,8 +950,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    backgroundColor: C.navy,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -1016,7 +991,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: '700',
     color: C.primary,
   },
   subtitle: {
@@ -1033,16 +1007,20 @@ const styles = StyleSheet.create({
   },
   tab: {
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
+  },
+  tabContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   activeTab: {
     borderBottomColor: C.primary,
   },
   tabText: {
     fontSize: 14,
-    fontWeight: '600',
     color: C.textMuted,
   },
   activeTabText: {
@@ -1062,7 +1040,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    fontWeight: '700',
     color: C.text,
   },
   selectWrapper: {
@@ -1135,7 +1112,6 @@ const styles = StyleSheet.create({
   },
   exportButtonText: {
     fontSize: 14,
-    fontWeight: '700',
     color: '#ffffff',
   },
   secondaryButton: {
@@ -1150,7 +1126,6 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     fontSize: 14,
-    fontWeight: '600',
     color: C.text,
   },
   hint: {
@@ -1171,7 +1146,6 @@ const styles = StyleSheet.create({
   messageText: {
     color: C.success,
     fontSize: 13,
-    fontWeight: '500',
   },
   errorContainer: {
     marginTop: 16,
@@ -1184,7 +1158,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: C.error,
     fontSize: 13,
-    fontWeight: '500',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFill,
@@ -1196,7 +1169,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    fontWeight: '600',
     color: '#ffffff',
   },
 });

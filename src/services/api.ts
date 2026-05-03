@@ -1,21 +1,20 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 import eventEmitter from '../utils/eventEmitter';
+import { ENV } from '../config/api.config';
+import { isOnline, initializeNetworkListener } from '../hooks/useNetworkState';
+import { requestQueueManager } from './requestQueueManager';
 
 /* ================= BASE URL ================= */
 
 const getBaseUrl = (): string => {
-  // Toggle this flag to route development builds to the deployed API.
-  const useLiveServer = true;
-
-  if (__DEV__ && !useLiveServer) {
-    if (Platform.OS === 'android') {
-      return 'http://10.0.2.2:5000/api/'; // Android emulator
-    }
-    return 'http://localhost:5000/api/'; // iOS simulator / default local
+  const baseUrl = ENV.API_URL.replace(/\/$/, '');
+  // If the provided ENV.API_URL already contains an /api segment at the end,
+  // avoid appending another /api to prevent double /api/api paths.
+  if (baseUrl.toLowerCase().endsWith('/api')) {
+    return `${baseUrl}/`;
   }
-  return 'https://attendex-api.vshiftx.com/api/'; // Live server URL
+  return `${baseUrl}/api/`;
 };
 
 const API_BASE = getBaseUrl();
@@ -63,7 +62,11 @@ API.interceptors.request.use(async config => {
   if (rawSchoolCode && rawSchoolCode !== 'null') {
     config.headers['X-School-Code'] = rawSchoolCode;
     // Automatically inject school_code into query params if not already present
-    config.params = { school_code: rawSchoolCode, ...config.params };
+    // Avoid double injection for multipart/form-data where it's usually in the body
+    const isMultipart = config.headers?.['Content-Type'] === 'multipart/form-data';
+    if (!isMultipart) {
+      config.params = { school_code: rawSchoolCode, ...config.params };
+    }
   }
 
   const rawStudentId = (await AsyncStorage.getItem('student_id')) || (await AsyncStorage.getItem('studentId'));
@@ -88,19 +91,41 @@ API.interceptors.response.use(
     if (__DEV__) {
       console.log(`[API Response] ${res.status} ${res.config.url}`);
     }
+    
+    // Cache successful GET responses
+    if (res.config.method === 'get' && res.status === 200) {
+      requestQueueManager.setCacheResponse(
+        res.config.method,
+        res.config.url || '',
+        res.data,
+        (res.config as any)?.cacheTTL || 5 * 60 * 1000 // Default 5 min cache
+      );
+    }
+    
     return res;
   },
   err => {
     const suppressFallback404Log = Boolean((err.config as any)?.suppressFallback404Log);
-    if (suppressFallback404Log && err.response?.status === 404) {
+    if (suppressFallback404Log && (err.response?.status === 404 || err.response?.status === 405)) {
       return Promise.reject(err);
     }
 
     if (err.response) {
       // Handle 401 Unauthorized globally
       if (err.response.status === 401) {
-        console.warn('[API] 401 Unauthorized detected. Emitting logout.');
-        eventEmitter.emit('app-logout');
+        // Skip global logout for login requests to allow LoginScreen to handle errors
+        const isLoginRequest = err.config?.url?.includes('/login') || err.config?.url?.includes('/auth/login');
+        if (!isLoginRequest) {
+          console.warn('[API] 401 Unauthorized detected. Emitting logout.');
+          eventEmitter.emit('app-logout');
+        } else {
+          console.log('[API] 401 Unauthorized on login request. Skipping global logout.');
+        }
+      }
+
+      // Suppress 405 errors during fallback attempts (they are expected)
+      if ((err.response.status === 405 || err.response.status === 404) && suppressFallback404Log) {
+        return Promise.reject(err);
       }
 
       // The server responded with a status code outside the 2xx range
@@ -111,16 +136,25 @@ API.interceptors.response.use(
       });
     } else if (err.request) {
       // The request was made but no response was received
+      // Queue non-GET requests for retry when offline
+      if (err.config?.method !== 'get' && !isOnline()) {
+        requestQueueManager.addToQueue(
+          err.config?.method?.toUpperCase() || 'POST',
+          err.config?.url || '',
+          err.config?.data,
+          err.config?.params
+        ).catch(e => console.error('Failed to queue offline request:', e));
+        
+        console.log('[Offline] Request queued for retry:', err.config?.url);
+      }
+      
       console.error('[API No Response]:', {
         url: err.config?.url,
         method: err.config?.method,
         code: err.code,
         message: err.message,
         timeout: err.config?.timeout,
-        responseSnippet: err.request?._response,
-        readyState: err.request?.readyState,
-        status: err.request?.status,
-        withCredentials: err.request?.withCredentials,
+        isOnline: isOnline(),
       });
     } else {
       // Something happened in setting up the request
@@ -129,6 +163,9 @@ API.interceptors.response.use(
     return Promise.reject(err);
   },
 );
+
+/* ================= INITIALIZE NETWORK LISTENER ================= */
+initializeNetworkListener();
 
 export const buildApiUrl = (path: string) => {
   const base = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;

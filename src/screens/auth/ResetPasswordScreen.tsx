@@ -11,9 +11,10 @@ import {
   ScrollView,
 } from "react-native";
 import { authService } from '../../api/authService';
-import AppInput from '../../components/common/AppInput';
+import { AppInput } from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import ScreenContainer from '../../components/ScreenContainer';
+import { formatErrorMessage } from '../../utils/helpers';
 
 export default function ResetPasswordScreen({ route, navigation }: any) {
   const { schoolId, identifier, resetToken } = route.params;
@@ -33,11 +34,21 @@ export default function ResetPasswordScreen({ route, navigation }: any) {
 
     try {
       setLoading(true);
+      console.log('[ResetPassword] Resetting password for:', { schoolId, identifier });
+      
       await authService.resetPassword(schoolId, identifier, resetToken, password);
+      
+      console.log('[ResetPassword] Password reset successfully');
       Alert.alert('Success', 'Password reset successfully');
       navigation.replace('Login');
     } catch (error: any) {
-      const errorMsg = error?.response?.data?.message || error?.message || 'Reset failed';
+      console.error('[ResetPassword] Error resetting password:', error?.response?.data || error?.message);
+      
+      const errorMsg = 
+        formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.response?.data?.error) ||
+        error?.message || 
+        'Failed to reset password. Please try again.';
+      
       Alert.alert('Error', errorMsg);
     } finally {
       setLoading(false);

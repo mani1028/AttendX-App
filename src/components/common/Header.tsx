@@ -4,19 +4,22 @@ import { Shield, Bell } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../constants/theme';
 import { useNavigation } from '@react-navigation/native';
+import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AvatarBubble from './AvatarBubble';
 import AppText from './AppText';
+import { safeNavigate } from '../../utils/navigationHelpers';
 
 const Header = () => {
   const { userRole, userName } = useAuth();
   const navigation = useNavigation<any>();
+  const { unreadCount } = useUnreadNotifications();
 
   const handleProfilePress = () => {
-    navigation.navigate('Profile');
+    safeNavigate(navigation as any, 'Profile');
   };
 
   const handleNotificationsPress = () => {
-    navigation.navigate('Notifications');
+    safeNavigate(navigation as any, 'Notifications');
   };
 
   const displayName = userName || 'User';
@@ -39,14 +42,20 @@ const Header = () => {
           style={styles.iconButton}
           onPress={handleNotificationsPress}
         >
-          <Bell size={22} color={colors.textPrimary} />
+          <View style={styles.bellContainer}>
+            <Bell size={22} color={colors.textPrimary} />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </View>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.profileButton}
-          onPress={handleProfilePress}
-        >
+        <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
           <AvatarBubble
-            displayName={displayName}
+            displayName={userName || 'User'}
             size={34}
             textSize={12}
             primaryColor={colors.accent}
@@ -106,6 +115,33 @@ const styles = StyleSheet.create({
   },
   profileButton: {
     padding: 2,
+  },
+  bellContainer: {
+    position: 'relative',
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+    paddingHorizontal: 4,
   },
 });
 

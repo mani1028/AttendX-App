@@ -951,8 +951,8 @@
     "android": {
       "sourceDir": "/Users/visys/AttendX/android",
       "appName": "app",
-      "packageName": "com.attendx",
-      "applicationId": "com.attendx",
+      "packageName": "com.visys.attendx",
+      "applicationId": "com.visys.attendx",
       "mainActivity": ".MainActivity",
       "assets": []
     }

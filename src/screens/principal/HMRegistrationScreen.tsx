@@ -12,11 +12,13 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/colors';
+import { formatErrorMessage } from '../../utils/helpers';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
@@ -357,6 +359,7 @@ const Toast: React.FC<{
 
 export default function HMRegistrationScreen() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [activeStep, setActiveStep] = useState<number>(0);
@@ -543,7 +546,7 @@ export default function HMRegistrationScreen() {
       setEmailVerified(false);
       showToast(res.data?.message || 'OTP sent successfully', 'success');
     } catch (err: any) {
-      showToast(err?.response?.data?.detail || 'Failed to send OTP', 'error');
+      showToast(formatErrorMessage(err?.response?.data?.detail) || 'Failed to send OTP', 'error');
     } finally {
       setOtpSending(false);
     }
@@ -566,7 +569,7 @@ export default function HMRegistrationScreen() {
       showToast('Email verified successfully', 'success');
     } catch (err: any) {
       setEmailVerified(false);
-      showToast(err?.response?.data?.detail || 'OTP verification failed', 'error');
+      showToast(formatErrorMessage(err?.response?.data?.detail) || 'OTP verification failed', 'error');
     } finally {
       setOtpVerifying(false);
     }
@@ -618,7 +621,11 @@ export default function HMRegistrationScreen() {
   };
 
   const handleCancel = () => {
-    navigation.goBack();
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      (navigation as any).navigate('PrincipalDashboard');
+    }
   };
 
   const copyInviteLink = async () => {
@@ -753,7 +760,7 @@ export default function HMRegistrationScreen() {
       
       setTimeout(() => navigation.goBack(), 2000);
     } catch (err: any) {
-      const errDetail = err?.response?.data?.detail || err?.message || 'Register failed';
+      const errDetail = formatErrorMessage(err?.response?.data?.detail) || err?.message || 'Register failed';
       if (errDetail.includes('already exists') || err?.response?.status === 409) {
         showToast(`❌ Branch ID "${trimmedBranchId}" already exists! Please enter another Branch ID.`, 'error');
       } else {
@@ -771,8 +778,14 @@ export default function HMRegistrationScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
       {/* Standardized Navy Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+        <TouchableOpacity style={styles.backButton} onPress={() => {
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            (navigation as any).navigate('PrincipalDashboard');
+          }
+        }}>
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
@@ -788,7 +801,10 @@ export default function HMRegistrationScreen() {
         onClose={() => setToast(prev => ({ ...prev, visible: false }))}
       />
 
-      <ScrollView contentContainerStyle={styles.contentContainer}>
+      <ScrollView
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Step Indicator Sub-header */}
         <View style={styles.header}>
           <Text style={styles.subtitle}>
@@ -917,9 +933,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
+  headerStandard: {
+    backgroundColor: '#001F3F',
+    paddingBottom: 60,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  backButton: {
+    padding: 8,
+    marginLeft: -8,
+  },
   contentContainer: {
     padding: 16,
     paddingBottom: 40,
+    marginTop: -30,
   },
   header: {
     marginBottom: 20,

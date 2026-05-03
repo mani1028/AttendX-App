@@ -10,7 +10,7 @@ type Props = {
 export default function Loader({ text = 'Loading...' }: Props) {
 	return (
 		<View style={styles.container}>
-			<ActivityIndicator size="large" color="#10b981" />
+			<ActivityIndicator size="large" color="#001F3F" />
 			<AppText style={styles.text}>{text}</AppText>
 		</View>
 	);

@@ -15,6 +15,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import {
@@ -46,7 +47,8 @@ import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
+import { formatErrorMessage } from '../../utils/helpers';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
 // Types
@@ -221,10 +223,6 @@ const SchoolCard: React.FC<{
       )}
 
       <View style={styles.cardActions}>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => onEdit(school)}>
-          <Edit2 size={12} color={colors.textMuted} />
-          <AppText style={styles.actionBtnText}>Edit</AppText>
-        </TouchableOpacity>
         <TouchableOpacity style={styles.actionBtn} onPress={() => onSubscription(school)}>
           <CreditCard size={12} color={colors.textMuted} />
           <AppText style={styles.actionBtnText}>Sub</AppText>
@@ -334,7 +332,7 @@ const SchoolFormModal: React.FC<{
       } else if (detail === 'Email already exists') {
         setErrors({ email: 'This email is already registered' });
       } else {
-        Alert.alert('Error', detail || 'Something went wrong');
+        Alert.alert('Error', formatErrorMessage(detail) || 'Something went wrong');
       }
     } finally {
       setSaving(false);
@@ -500,7 +498,7 @@ const SubscriptionModal: React.FC<{
       onSuccess();
       onClose();
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.detail || 'Update failed');
+      Alert.alert('Error', formatErrorMessage(err?.response?.data?.detail) || 'Update failed');
     } finally {
       setSaving(false);
     }
@@ -738,6 +736,7 @@ const DeleteConfirmModal: React.FC<{
 );
 
 export default function AdminDashboardScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName, setTabBarVisible } = useAuth();
   const [schools, setSchools] = useState<School[]>([]);
@@ -764,19 +763,26 @@ export default function AdminDashboardScreen() {
   const fetchSchools = async (isRefresh = false) => {
     const role = await AsyncStorage.getItem('userRole') || 'admin';
     const cacheKey = `admin_schools_cache_${role}`;
+    let cacheLoaded = false;
 
     if (!isRefresh) {
       try {
         const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           setSchools(JSON.parse(cached));
+          cacheLoaded = true;
         }
       } catch (e) {
         console.warn('Failed to load schools cache', e);
       }
     }
 
-    setLoading(true);
+    if (isRefresh) {
+      setLoading(false);
+    } else if (!cacheLoaded) {
+      setLoading(true);
+    }
+
     try {
       const data = await adminService.getAllSchools();
       setSchools(data);
@@ -791,7 +797,9 @@ export default function AdminDashboardScreen() {
         Alert.alert('Error', 'Failed to load schools');
       }
     } finally {
-      setLoading(false);
+      if (!isRefresh || !cacheLoaded) {
+        setLoading(false);
+      }
     }
   };
 
@@ -849,7 +857,7 @@ export default function AdminDashboardScreen() {
       fetchSchools();
       fetchStats();
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.detail || 'Delete failed');
+      Alert.alert('Error', formatErrorMessage(err?.response?.data?.detail) || 'Delete failed');
     } finally {
       setDeleting(false);
     }
@@ -860,7 +868,7 @@ export default function AdminDashboardScreen() {
       await adminService.resendCredentials(school.id);
       Alert.alert('Success', 'Credentials resent to the registered school email');
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.detail || 'Failed to resend credentials');
+      Alert.alert('Error', formatErrorMessage(err?.response?.data?.detail) || 'Failed to resend credentials');
     }
   };
 
@@ -869,7 +877,7 @@ export default function AdminDashboardScreen() {
       await adminService.sendReminder(school.id);
       Alert.alert('Success', `Reminder sent to ${school.email}`);
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.detail || 'Failed to send reminder');
+      Alert.alert('Error', formatErrorMessage(err?.response?.data?.detail) || 'Failed to send reminder');
     }
   };
 
@@ -933,10 +941,11 @@ export default function AdminDashboardScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-      {/* Standardized Header */}
-      <View style={styles.headerStandard}>
+      {/* Standardized Header - Now Fixed outside ScrollView */}
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+        <View style={{ width: 40 }} />
         <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>Admin Dashboard</AppText>
+          <AppText style={styles.headerTitle}>Admin Portal</AppText>
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
@@ -954,7 +963,8 @@ export default function AdminDashboardScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.contentContainer}
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.contentContainer]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
@@ -1134,8 +1144,6 @@ const styles = StyleSheet.create({
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',

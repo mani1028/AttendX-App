@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -16,6 +15,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
   Filter,
@@ -28,13 +28,17 @@ import {
   RefreshCw,
   Search,
   ChevronRight,
-  Info
+  Info,
+  Bell
 } from 'lucide-react-native';
 import API from '../../services/api';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
+import AppText from '../../components/common/AppText';
+import BottomSheetModal from '../../components/common/BottomSheetModal';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
+import HM_THEME from '../../constants/hmTheme';
 
 const { width } = Dimensions.get('window');
 
@@ -111,9 +115,9 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   return (
     <View style={[styles.badge, { backgroundColor: bgColor }]}>
       {icon}
-      <Text style={[styles.badgeText, { color: textColor }]}>
+      <AppText weight="bold" style={[styles.badgeText, { color: textColor }]}>
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 };
@@ -132,8 +136,8 @@ const LeaveRequestCard: React.FC<{
             <User size={20} color="#64748b" />
           </View>
           <View>
-            <Text style={styles.studentName}>{request.student_full_name}</Text>
-            <Text style={styles.rollNumber}>Roll No: {request.roll_number}</Text>
+            <AppText weight="bold" style={styles.studentName}>{request.student_full_name}</AppText>
+            <AppText style={styles.rollNumber}>Roll No: {request.roll_number}</AppText>
           </View>
         </View>
         <StatusBadge status={request.status} />
@@ -145,19 +149,19 @@ const LeaveRequestCard: React.FC<{
         <View style={styles.detailGrid}>
           <View style={styles.detailItem}>
             <BookOpen size={14} color="#94a3b8" />
-            <Text style={styles.detailValue}>{request.class_grade} - {request.section}</Text>
+            <AppText weight="semiBold" style={styles.detailValue}>{request.class_grade} - {request.section}</AppText>
           </View>
           <View style={styles.detailItem}>
             <Calendar size={14} color="#94a3b8" />
-            <Text style={styles.detailValue}>
+            <AppText weight="semiBold" style={styles.detailValue}>
               {formatDate(request.from_date)} {request.from_date !== request.to_date ? `to ${formatDate(request.to_date)}` : ''}
-            </Text>
+            </AppText>
           </View>
         </View>
 
         <View style={styles.reasonBox}>
           <Info size={14} color="#64748b" style={{ marginTop: 2 }} />
-          <Text style={styles.reasonText}>{request.reason}</Text>
+          <AppText style={styles.reasonText}>{request.reason}</AppText>
         </View>
       </View>
 
@@ -168,14 +172,14 @@ const LeaveRequestCard: React.FC<{
             onPress={() => onReject(request.leave_id)}
           >
             <XCircle size={16} color="#B91C1C" />
-            <Text style={styles.rejectBtnText}>Reject</Text>
+            <AppText weight="bold" style={styles.rejectBtnText}>Reject</AppText>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, styles.approveBtn]}
             onPress={() => onApprove(request.leave_id)}
           >
             <CheckCircle2 size={16} color="#FFFFFF" />
-            <Text style={styles.approveBtnText}>Approve</Text>
+            <AppText weight="bold" style={styles.approveBtnText}>Approve</AppText>
           </TouchableOpacity>
         </View>
       )}
@@ -184,6 +188,7 @@ const LeaveRequestCard: React.FC<{
 };
 
 export default function LeaveApprovalScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
@@ -205,19 +210,19 @@ export default function LeaveApprovalScreen() {
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
-  
+
   // Filters
   const [classId, setClassId] = useState<string>('');
   const [sectionId, setSectionId] = useState<string>('');
   const [status, setStatus] = useState<string>('PENDING');
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
-  
+
   // Classes/Sections
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [sections, setSections] = useState<SectionItem[]>([]);
   const [loadingClassesSections, setLoadingClassesSections] = useState<boolean>(false);
 
-  // Load credentials
+  // Load credentials with defensive rehydration
   useEffect(() => {
     const loadCredentials = async () => {
       try {
@@ -227,9 +232,9 @@ export default function LeaveApprovalScreen() {
 
         if (!isMounted.current) return;
 
-        setSchoolCode(code);
-        setTeacherId(tid);
-        setBranchId(bid);
+        setSchoolCode(code || '');
+        setTeacherId(tid || '');
+        setBranchId(bid || '');
       } catch (err) {
         console.error('Failed to load credentials:', err);
       }
@@ -250,7 +255,7 @@ export default function LeaveApprovalScreen() {
     lastScrollY.current = currentScrollY;
   };
 
-  // Resolve teacher ID
+  // Resolve teacher ID with fallback protection
   useEffect(() => {
     const resolveTeacherId = async () => {
       if (!schoolCode || !teacherId) return;
@@ -262,17 +267,17 @@ export default function LeaveApprovalScreen() {
 
         if (!isMounted.current) return;
 
-        const canonicalTeacherId = String(res.data?.teacher_data?.teacher_id || teacherId).trim();
+        const canonicalTeacherId = String(res.data?.teacher_data?.teacher_id || teacherId || '').trim();
         setResolvedTeacherId(canonicalTeacherId);
       } catch (err: any) {
         if (!isMounted.current) return;
-        setResolvedTeacherId(teacherId);
+        setResolvedTeacherId(teacherId || '');
       }
     };
     resolveTeacherId();
   }, [schoolCode, teacherId]);
 
-  // Fetch classes and sections
+  // Fetch classes and sections with defensive mapping
   useEffect(() => {
     const fetchClassesSections = async () => {
       if (!schoolCode || !branchId) return;
@@ -284,8 +289,11 @@ export default function LeaveApprovalScreen() {
 
         if (!isMounted.current) return;
 
-        setClasses(res.data?.classes || []);
-        setSections(res.data?.sections || []);
+        const fetchedClasses = Array.isArray(res.data?.classes) ? res.data.classes.filter(Boolean) : [];
+        const fetchedSections = Array.isArray(res.data?.sections) ? res.data.sections.filter(Boolean) : [];
+
+        setClasses(fetchedClasses);
+        setSections(fetchedSections);
       } catch (e: any) {
         console.error('Failed to load classes/sections:', e);
         if (isMounted.current && e?.response?.status !== 401) {
@@ -300,7 +308,7 @@ export default function LeaveApprovalScreen() {
     fetchClassesSections();
   }, [schoolCode, branchId]);
 
-  // Load leave requests
+  // Load leave requests with defensive mapping
   const loadRequests = useCallback(async () => {
     if (!schoolCode || !resolvedTeacherId) return;
     setLoading(true);
@@ -317,7 +325,9 @@ export default function LeaveApprovalScreen() {
       const res = await API.post('/manage/teacher/leave-requests', body);
 
       if (!isMounted.current) return;
-      setItems(res.data?.items || []);
+
+      const requests = Array.isArray(res.data?.items) ? res.data.items.filter(Boolean) : [];
+      setItems(requests);
     } catch (e: any) {
       if (!isMounted.current) return;
 
@@ -388,56 +398,58 @@ export default function LeaveApprovalScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
-
-      {/* Navy Hero Header */}
-      <View style={styles.heroHeader}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => navigation.goBack()}
-          >
-            <ChevronLeft size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.heroTitle}>Leave Approvals</Text>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={onRefresh}
-          >
-            <RefreshCw size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.heroContent}>
-          <Text style={styles.heroGreeting}>Student Leaves</Text>
-          <Text style={styles.heroSubtext}>Review and manage pending leave applications</Text>
-        </View>
-      </View>
+      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#001F3F" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={HM_THEME.navy} />}
       >
+        {/* Navy Standard Header */}
+        <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
+            >
+              <ChevronLeft size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <AppText weight="bold" style={styles.headerTitle}>Leave Approvals</AppText>
+            </View>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => (navigation as any).navigate('Notifications')}
+            >
+              <Bell size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.headerContent}>
+            <AppText weight="bold" style={styles.headerGreeting}>Student Leaves</AppText>
+            <AppText style={styles.headerSubtext}>Review and manage pending leave applications</AppText>
+          </View>
+        </View>
+
         {/* Filter Selection Card */}
         <AppCard style={styles.filterCard}>
           <View style={styles.filterHeader}>
             <View style={styles.filterTitleContainer}>
-              <Filter size={18} color="#001F3F" />
-              <Text style={styles.filterTitle}>Filters</Text>
+              <Filter size={18} color={HM_THEME.navy} />
+              <AppText weight="bold" style={styles.filterTitle}>Filters</AppText>
             </View>
             {(classId || sectionId || status !== 'PENDING') && (
               <TouchableOpacity onPress={resetFilters}>
-                <Text style={styles.resetText}>Reset All</Text>
+                <AppText weight="semiBold" style={styles.resetText}>Reset All</AppText>
               </TouchableOpacity>
             )}
           </View>
 
           <View style={styles.filterGrid}>
             <View style={styles.filterItem}>
-              <Text style={styles.filterLabel}>Status</Text>
+              <AppText weight="semiBold" style={styles.filterLabel}>Status</AppText>
               <View style={styles.statusToggle}>
                 {['PENDING', 'APPROVED', 'REJECTED'].map((s) => (
                   <TouchableOpacity
@@ -445,9 +457,9 @@ export default function LeaveApprovalScreen() {
                     style={[styles.statusBtn, status === s && styles.statusBtnActive]}
                     onPress={() => setStatus(s)}
                   >
-                    <Text style={[styles.statusBtnText, status === s && styles.statusBtnTextActive]}>
+                    <AppText weight="semiBold" style={[styles.statusBtnText, status === s && styles.statusBtnTextActive]}>
                       {s.charAt(0) + s.slice(1).toLowerCase()}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -458,10 +470,10 @@ export default function LeaveApprovalScreen() {
               onPress={() => setShowFilterModal(true)}
             >
               <Search size={16} color="#64748B" />
-              <Text style={styles.advancedFilterText}>
+              <AppText weight="semiBold" style={styles.advancedFilterText}>
                 {classId ? `Class ${classes.find(c => c.id === classId)?.name || classId}` : 'All Classes'}
                 {sectionId ? ` • Sec ${sections.find(s => s.id === sectionId)?.name || sectionId}` : ' • All Sections'}
-              </Text>
+              </AppText>
               <ChevronRight size={16} color="#94A3B8" />
             </TouchableOpacity>
           </View>
@@ -469,9 +481,9 @@ export default function LeaveApprovalScreen() {
 
         {/* Requests List */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
+          <AppText weight="bold" style={styles.sectionTitle}>
             {status.charAt(0) + status.slice(1).toLowerCase()} Requests ({items.length})
-          </Text>
+          </AppText>
         </View>
 
         {loading ? (
@@ -479,7 +491,7 @@ export default function LeaveApprovalScreen() {
         ) : items.length === 0 ? (
           <View style={styles.emptyState}>
             <Calendar size={48} color="#cbd5e1" />
-            <Text style={styles.emptyStateText}>No requests found matching your filters</Text>
+            <AppText weight="semiBold" style={styles.emptyStateText}>No requests found matching your filters</AppText>
           </View>
         ) : (
           <View style={styles.requestsList}>
@@ -496,70 +508,66 @@ export default function LeaveApprovalScreen() {
       </ScrollView>
 
       {/* Filter Modal */}
-      <Modal visible={showFilterModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Class & Section</Text>
-              <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.modalClose}>
-                <XCircle size={24} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody}>
-              <Text style={styles.modalLabel}>Class</Text>
-              <View style={styles.chipContainer}>
-                <TouchableOpacity
-                  style={[styles.chip, !classId && styles.chipActive]}
-                  onPress={() => setClassId('')}
-                >
-                  <Text style={[styles.chipText, !classId && styles.chipTextActive]}>All Classes</Text>
-                </TouchableOpacity>
-                {classes.map((cls) => (
-                  <TouchableOpacity
-                    key={cls.id}
-                    style={[styles.chip, classId === cls.id && styles.chipActive]}
-                    onPress={() => setClassId(cls.id)}
-                  >
-                    <Text style={[styles.chipText, classId === cls.id && styles.chipTextActive]}>
-                      {cls.name || cls.class_grade}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={[styles.modalLabel, { marginTop: 20 }]}>Section</Text>
-              <View style={styles.chipContainer}>
-                <TouchableOpacity
-                  style={[styles.chip, !sectionId && styles.chipActive]}
-                  onPress={() => setSectionId('')}
-                >
-                  <Text style={[styles.chipText, !sectionId && styles.chipTextActive]}>All Sections</Text>
-                </TouchableOpacity>
-                {sections.map((sec) => (
-                  <TouchableOpacity
-                    key={sec.id}
-                    style={[styles.chip, sectionId === sec.id && styles.chipActive]}
-                    onPress={() => setSectionId(sec.id)}
-                  >
-                    <Text style={[styles.chipText, sectionId === sec.id && styles.chipTextActive]}>
-                      {sec.name || sec.section}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <AppButton
-                title="Apply Filters"
-                onPress={() => setShowFilterModal(false)}
-                style={styles.modalApplyBtn}
-              />
-            </View>
-          </View>
+      <BottomSheetModal visible={showFilterModal} onClose={() => setShowFilterModal(false)} sheetStyle={styles.modalContent}>
+        <View style={styles.modalHeader}>
+          <AppText weight="bold" style={styles.modalTitle}>Select Class & Section</AppText>
+          <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.modalClose}>
+            <XCircle size={24} color="#64748B" />
+          </TouchableOpacity>
         </View>
-      </Modal>
+
+        <ScrollView style={styles.modalBody}>
+          <AppText weight="bold" style={styles.modalLabel}>Class</AppText>
+          <View style={styles.chipContainer}>
+            <TouchableOpacity
+              style={[styles.chip, !classId && styles.chipActive]}
+              onPress={() => setClassId('')}
+            >
+              <AppText weight="semiBold" style={[styles.chipText, !classId && styles.chipTextActive]}>All Classes</AppText>
+            </TouchableOpacity>
+            {classes.map((cls) => (
+              <TouchableOpacity
+                key={cls.id}
+                style={[styles.chip, classId === cls.id && styles.chipActive]}
+                onPress={() => setClassId(cls.id)}
+              >
+                <AppText weight="semiBold" style={[styles.chipText, classId === cls.id && styles.chipTextActive]}>
+                  {cls.name || cls.class_grade}
+                </AppText>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <AppText weight="bold" style={[styles.modalLabel, { marginTop: 20 }]}>Section</AppText>
+          <View style={styles.chipContainer}>
+            <TouchableOpacity
+              style={[styles.chip, !sectionId && styles.chipActive]}
+              onPress={() => setSectionId('')}
+            >
+              <AppText weight="semiBold" style={[styles.chipText, !sectionId && styles.chipTextActive]}>All Sections</AppText>
+            </TouchableOpacity>
+            {sections.map((sec) => (
+              <TouchableOpacity
+                key={sec.id}
+                style={[styles.chip, sectionId === sec.id && styles.chipActive]}
+                onPress={() => setSectionId(sec.id)}
+              >
+                <AppText weight="semiBold" style={[styles.chipText, sectionId === sec.id && styles.chipTextActive]}>
+                  {sec.name || sec.section}
+                </AppText>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
+        <View style={styles.modalFooter}>
+          <AppButton
+            title="Apply Filters"
+            onPress={() => setShowFilterModal(false)}
+            style={styles.modalApplyBtn}
+          />
+        </View>
+      </BottomSheetModal>
     </View>
   );
 }
@@ -569,59 +577,79 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  heroHeader: {
-    backgroundColor: '#001F3F',
-    height: 200,
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+  headerStandard: {
+    backgroundColor: HM_THEME.navy,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    ...Platform.select({
+      android: { elevation: 10 },
+      ios: {},
+    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 12,
   },
   iconButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  heroTitle: {
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
+    textAlign: 'center',
   },
-  heroContent: {
-    marginTop: 25,
+  headerContent: {
+    marginTop: 24,
   },
-  heroGreeting: {
+  headerGreeting: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '800',
+    letterSpacing: -0.5,
   },
-  heroSubtext: {
+  headerSubtext: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 14,
     marginTop: 4,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
   filterCard: {
-    marginTop: -40,
-    borderRadius: 20,
-    padding: 16,
+    marginTop: -20,
+    borderRadius: 30,
+    padding: 18,
+    marginHorizontal: 16,
     backgroundColor: '#FFFFFF',
-    elevation: 4,
+    ...Platform.select({
+
+      android: { elevation: 6 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
   },
   filterHeader: {
     flexDirection: 'row',
@@ -636,13 +664,11 @@ const styles = StyleSheet.create({
   },
   filterTitle: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#0F172A',
   },
   resetText: {
     fontSize: 14,
     color: '#2563EB',
-    fontWeight: '600',
   },
   filterGrid: {
     gap: 12,
@@ -652,7 +678,6 @@ const styles = StyleSheet.create({
   },
   filterLabel: {
     fontSize: 13,
-    fontWeight: '600',
     color: '#64748B',
   },
   statusToggle: {
@@ -669,7 +694,13 @@ const styles = StyleSheet.create({
   },
   statusBtnActive: {
     backgroundColor: '#FFFFFF',
-    elevation: 2,
+    ...Platform.select({
+
+      android: { elevation: 2 },
+
+      ios: {},
+
+    }),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -677,11 +708,10 @@ const styles = StyleSheet.create({
   },
   statusBtnText: {
     fontSize: 13,
-    fontWeight: '600',
     color: '#64748B',
   },
   statusBtnTextActive: {
-    color: '#001F3F',
+    color: HM_THEME.navy,
   },
   advancedFilterBtn: {
     flexDirection: 'row',
@@ -698,26 +728,36 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: '#334155',
-    fontWeight: '500',
   },
   sectionHeader: {
     marginTop: 24,
     marginBottom: 12,
+    marginHorizontal: 20,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#0F172A',
   },
   requestsList: {
     gap: 12,
+    paddingHorizontal: 16,
   },
   requestCard: {
-    padding: 16,
-    borderRadius: 16,
+    padding: 20,
+    borderRadius: 28,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    ...Platform.select({
+
+      android: { elevation: 4 },
+
+      ios: {},
+
+    }),
   },
   cardHeader: {
     flexDirection: 'row',
@@ -740,7 +780,6 @@ const styles = StyleSheet.create({
   },
   studentName: {
     fontSize: 16,
-    fontWeight: '700',
     color: '#0F172A',
   },
   rollNumber: {
@@ -769,7 +808,6 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: 13,
     color: '#475569',
-    fontWeight: '600',
   },
   reasonBox: {
     flexDirection: 'row',
@@ -801,7 +839,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   approveBtn: {
-    backgroundColor: '#001F3F',
+    backgroundColor: HM_THEME.navy,
   },
   rejectBtn: {
     backgroundColor: '#FFFFFF',
@@ -810,12 +848,10 @@ const styles = StyleSheet.create({
   },
   approveBtnText: {
     color: '#FFFFFF',
-    fontWeight: '700',
     fontSize: 14,
   },
   rejectBtnText: {
     color: '#B91C1C',
-    fontWeight: '700',
     fontSize: 14,
   },
   badge: {
@@ -828,7 +864,6 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 11,
-    fontWeight: '700',
     textTransform: 'uppercase',
   },
   loaderContainer: {
@@ -844,7 +879,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: '#94A3B8',
     fontSize: 14,
-    fontWeight: '500',
     textAlign: 'center',
   },
   modalOverlay: {
@@ -854,8 +888,8 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     maxHeight: '80%',
     paddingBottom: Platform.OS === 'ios' ? 40 : 20,
   },
@@ -869,7 +903,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
     color: '#0F172A',
   },
   modalClose: {
@@ -880,7 +913,6 @@ const styles = StyleSheet.create({
   },
   modalLabel: {
     fontSize: 14,
-    fontWeight: '700',
     color: '#64748B',
     marginBottom: 12,
     textTransform: 'uppercase',
@@ -900,13 +932,12 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   chipActive: {
-    backgroundColor: '#001F3F',
-    borderColor: '#001F3F',
+    backgroundColor: HM_THEME.navy,
+    borderColor: HM_THEME.navy,
   },
   chipText: {
     fontSize: 14,
     color: '#64748B',
-    fontWeight: '600',
   },
   chipTextActive: {
     color: '#FFFFFF',
@@ -916,7 +947,7 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   modalApplyBtn: {
-    backgroundColor: '#001F3F',
+    backgroundColor: HM_THEME.navy,
     height: 52,
     borderRadius: 12,
   },

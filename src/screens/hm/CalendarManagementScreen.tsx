@@ -16,30 +16,27 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from '@react-native-vector-icons/feather';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Calendar,
+  Trash2,
+  Edit2,
+  X,
+  Check,
+  ClipboardList,
+} from 'lucide-react-native';
 import API, { buildApiUrl } from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { HM_THEME as C } from '../../constants/hmTheme';
 
 // Local theme bridge
-const C = {
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  textMuted: colors.textMuted,
-  primary: colors.primary,
-  primarySoft: colors.primary + '20',
-  success: colors.success,
-  successSoft: colors.successSoft,
-  error: colors.error,
-  errorSoft: colors.errorSoft,
-  warning: colors.warning,
-  warningSoft: colors.warningSoft,
-};
 
 const COLORS = {
   holiday: '#ef4444', // red-500
@@ -83,6 +80,7 @@ interface FormData {
 
 export default function CalendarManagement() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
 
@@ -424,14 +422,14 @@ export default function CalendarManagement() {
       >
         {date && (
           <>
-            <AppText style={styles.dayNumber}>{date.getDate()}</AppText>
+            <AppText style={styles.dayNumber} weight="semiBold">{date.getDate()}</AppText>
             {dayEvents.map((evt) => (
               <View key={evt.event_id} style={styles.eventContainer}>
                 <TouchableOpacity
                   style={[styles.eventName, { backgroundColor: COLORS[evt.event_type as keyof typeof COLORS] || C.primary }]}
                   onPress={() => handleEditEvent(evt)}
                 >
-                  <AppText style={styles.eventText} numberOfLines={1}>
+                  <AppText style={styles.eventText} numberOfLines={1} weight="semiBold">
                     {evt.title}
                   </AppText>
                 </TouchableOpacity>
@@ -439,7 +437,7 @@ export default function CalendarManagement() {
                   onPress={() => handleDeleteEvent(evt.event_id || evt.id || '')}
                   style={styles.deleteIcon}
                 >
-                  <Icon name="trash-2" size={12} color={C.error} />
+                  <Trash2 size={12} color={C.error} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -462,11 +460,11 @@ export default function CalendarManagement() {
         <View style={styles.holidayItemContent}>
           <View style={styles.checkboxContainer}>
             <View style={[styles.checkbox, selectedHolidays[holidayKey] && styles.checkboxChecked]}>
-              {selectedHolidays[holidayKey] && <Icon name="check" size={14} color="#fff" />}
+              {selectedHolidays[holidayKey] && <Check size={14} color="#fff" />}
             </View>
           </View>
-          <AppText style={styles.holidayLabel}>{holiday.title}</AppText>
-          <AppText style={styles.holidayMonth}>{holiday.month}</AppText>
+          <AppText style={styles.holidayLabel} weight="regular">{holiday.title}</AppText>
+          <AppText style={styles.holidayMonth} weight="regular">{holiday.month}</AppText>
         </View>
       </TouchableOpacity>
     );
@@ -476,8 +474,8 @@ export default function CalendarManagement() {
     <View style={[styles.holidayItemCard, { borderLeftColor: COLORS[event.event_type as keyof typeof COLORS] || C.primary }]}>
       <View style={styles.eventListItemContent}>
         <View style={styles.eventInfo}>
-          <AppText style={styles.holidayName}>{event.title}</AppText>
-          <AppText style={styles.holidayDate}>
+          <AppText style={styles.holidayName} weight="semiBold">{event.title}</AppText>
+          <AppText style={styles.holidayDate} weight="regular">
             {new Date(event.event_date).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
@@ -487,10 +485,10 @@ export default function CalendarManagement() {
         </View>
         <View style={styles.eventActions}>
           <TouchableOpacity onPress={() => handleEditEvent(event)} style={styles.actionButton}>
-            <Icon name="edit-2" size={16} color={C.primary} />
+            <Edit2 size={16} color={C.primary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => handleDeleteEvent(event.event_id || event.id || '')} style={styles.actionButton}>
-            <Icon name="trash-2" size={16} color={C.error} />
+            <Trash2 size={16} color={C.error} />
           </TouchableOpacity>
         </View>
       </View>
@@ -499,15 +497,22 @@ export default function CalendarManagement() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
-      <View style={styles.navHeader}>
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
+      {/* Standardized Header */}
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          onPress={() =>
+            navigation.canGoBack()
+              ? navigation.goBack()
+              : navigation.navigate('HMDashboard' as never)
+          }
         >
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
-        <AppText style={styles.navTitle}>Calendar Management</AppText>
+        <AppText style={styles.headerTitle} weight="bold">
+          Calendar Management
+        </AppText>
         <View style={{ width: 40 }} />
       </View>
 
@@ -518,17 +523,17 @@ export default function CalendarManagement() {
       >
         <View style={styles.header}>
           <View>
-            <AppText style={styles.title}>Calendar Planning</AppText>
-            <AppText style={styles.subtitle}>Plan holidays, festivals, and events for the year</AppText>
+            <AppText style={styles.title} weight="bold">Calendar Planning</AppText>
+            <AppText style={styles.subtitle} weight="regular">Plan holidays, festivals, and events for the year</AppText>
           </View>
           <View style={styles.headerButtons}>
             <TouchableOpacity style={styles.addBtn} onPress={() => setShowHolidaysModal(true)}>
-              <Icon name="calendar" size={18} color="#fff" />
-              <AppText style={styles.addBtnText}>Public Holidays</AppText>
+              <Calendar size={18} color="#fff" />
+              <AppText style={styles.addBtnText} weight="semiBold">Public Holidays</AppText>
             </TouchableOpacity>
             <TouchableOpacity style={styles.addBtn} onPress={() => handleAddEvent(new Date())}>
-              <Icon name="plus" size={18} color="#fff" />
-              <AppText style={styles.addBtnText}>Add Event</AppText>
+              <Plus size={18} color="#fff" />
+              <AppText style={styles.addBtnText} weight="semiBold">Add Event</AppText>
             </TouchableOpacity>
           </View>
         </View>
@@ -536,17 +541,17 @@ export default function CalendarManagement() {
       <View style={styles.calendarContainer}>
         <View style={styles.calendarHeader}>
           <TouchableOpacity style={styles.navBtn} onPress={handlePrevMonth}>
-            <Icon name="chevron-left" size={20} color={C.text} />
+            <ChevronLeft size={20} color={C.text} />
           </TouchableOpacity>
-          <AppText style={styles.monthYear}>{monthName}</AppText>
+          <AppText style={styles.monthYear} weight="bold">{monthName}</AppText>
           <TouchableOpacity style={styles.navBtn} onPress={handleNextMonth}>
-            <Icon name="chevron-right" size={20} color={C.text} />
+            <ChevronRight size={20} color={C.text} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.weekdaysRow}>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <AppText key={day} style={styles.weekday}>{day}</AppText>
+            <AppText key={day} style={styles.weekday} weight="bold">{day}</AppText>
           ))}
         </View>
 
@@ -561,14 +566,14 @@ export default function CalendarManagement() {
 
       <View style={styles.bottomSection}>
         <TouchableOpacity style={styles.holidaysListBtn} onPress={() => setShowHolidaysList(!showHolidaysList)}>
-          <AppText style={styles.holidaysListBtnText}>📋 {showHolidaysList ? 'Hide' : 'Show'} Holidays List</AppText>
+          <AppText style={styles.holidaysListBtnText} weight="semiBold">📋 {showHolidaysList ? 'Hide' : 'Show'} Holidays List</AppText>
         </TouchableOpacity>
 
         {showHolidaysList && (
           <View style={styles.holidaysSidebar}>
-            <AppText style={styles.sidebarTitle}>📅 Created Holidays</AppText>
+            <AppText style={styles.sidebarTitle} weight="bold">📅 Created Holidays</AppText>
             {events.length === 0 ? (
-              <AppText style={styles.noHolidaysText}>No holidays added yet</AppText>
+              <AppText style={styles.noHolidaysText} weight="regular">No holidays added yet</AppText>
             ) : (
               <>
                 <FlatList
@@ -579,10 +584,10 @@ export default function CalendarManagement() {
                 />
                 <View style={styles.shareButtons}>
                   <TouchableOpacity style={styles.shareBtn} onPress={() => Alert.alert('Success', '✅ Holidays are now visible to all Teachers!')}>
-                    <AppText style={styles.shareBtnText}>👨‍🏫 Share to Teachers</AppText>
+                    <AppText style={styles.shareBtnText} weight="semiBold">👨‍🏫 Share to Teachers</AppText>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.shareBtn} onPress={() => Alert.alert('Success', '✅ Holidays are now visible to all Students!')}>
-                    <AppText style={styles.shareBtnText}>👨‍🎓 Share to Students</AppText>
+                    <AppText style={styles.shareBtnText} weight="semiBold">👨‍🎓 Share to Students</AppText>
                   </TouchableOpacity>
                 </View>
               </>
@@ -601,16 +606,16 @@ export default function CalendarManagement() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <AppText style={styles.modalTitle}>{editingEvent ? 'Edit Event' : 'Add Event'}</AppText>
+              <AppText style={styles.modalTitle} weight="bold">{editingEvent ? 'Edit Event' : 'Add Event'}</AppText>
               <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Icon name="x" size={20} color={C.text} />
+                <X size={20} color={C.text} />
               </TouchableOpacity>
             </View>
 
-            {error ? <AppText style={styles.errorText}>{error}</AppText> : null}
+            {error ? <AppText style={styles.errorText} weight="regular">{error}</AppText> : null}
 
             <View style={styles.formGroup}>
-              <AppText style={styles.label}>Event Title *</AppText>
+              <AppText style={styles.label} weight="semiBold">Event Title *</AppText>
               <TextInput
                 style={styles.input}
                 placeholder="e.g., Summer Vacation, Diwali Festival"
@@ -621,9 +626,9 @@ export default function CalendarManagement() {
             </View>
 
             <View style={styles.formGroup}>
-              <AppText style={styles.label}>Date *</AppText>
+              <AppText style={styles.label} weight="semiBold">Date *</AppText>
               <TouchableOpacity style={styles.dateInput} onPress={() => setShowDatePicker(true)}>
-                <AppText style={{ color: C.text }}>{formData.date || 'Select Date'}</AppText>
+                <AppText style={{ color: C.text }} weight="regular">{formData.date || 'Select Date'}</AppText>
               </TouchableOpacity>
               {showDatePicker && (
                 <DateTimePicker
@@ -641,7 +646,7 @@ export default function CalendarManagement() {
             </View>
 
             <View style={styles.formGroup}>
-              <AppText style={styles.label}>Event Type</AppText>
+              <AppText style={styles.label} weight="semiBold">Event Type</AppText>
               <View style={styles.selectWrapper}>
                 {['holiday', 'festival', 'exam', 'event'].map((type) => (
                   <TouchableOpacity
@@ -649,7 +654,7 @@ export default function CalendarManagement() {
                     style={[styles.typeOption, formData.type === type && styles.typeOptionSelected]}
                     onPress={() => setFormData({ ...formData, type })}
                   >
-                    <AppText style={[styles.typeOptionText, formData.type === type && styles.typeOptionTextSelected]}>
+                    <AppText style={[styles.typeOptionText, formData.type === type && styles.typeOptionTextSelected]} weight="regular">
                       {type.charAt(0).toUpperCase() + type.slice(1)}
                     </AppText>
                   </TouchableOpacity>
@@ -658,7 +663,7 @@ export default function CalendarManagement() {
             </View>
 
             <View style={styles.formGroup}>
-              <AppText style={styles.label}>Color</AppText>
+              <AppText style={styles.label} weight="semiBold">Color</AppText>
               <View style={styles.colorPicker}>
                 {COLOR_OPTIONS.map((color) => (
                   <TouchableOpacity
@@ -675,7 +680,7 @@ export default function CalendarManagement() {
             </View>
 
             <View style={styles.formGroup}>
-              <AppText style={styles.label}>Description</AppText>
+              <AppText style={styles.label} weight="semiBold">Description</AppText>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Additional details about this event..."
@@ -689,10 +694,10 @@ export default function CalendarManagement() {
 
             <View style={styles.buttonGroup}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowModal(false)}>
-                <AppText style={styles.cancelBtnText}>Cancel</AppText>
+                <AppText style={styles.cancelBtnText} weight="semiBold">Cancel</AppText>
               </TouchableOpacity>
               <TouchableOpacity style={styles.submitBtn} onPress={handleSaveEvent} disabled={loading}>
-                <AppText style={styles.submitBtnText}>
+                <AppText style={styles.submitBtnText} weight="bold">
                   {loading ? 'Saving...' : editingEvent ? 'Update Event' : 'Add Event'}
                 </AppText>
               </TouchableOpacity>
@@ -711,26 +716,26 @@ export default function CalendarManagement() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, styles.holidaysModalContent]}>
             <View style={styles.modalHeader}>
-              <AppText style={styles.modalTitle}>🎉 Add School Holidays</AppText>
+              <AppText style={styles.modalTitle} weight="bold">🎉 Add School Holidays</AppText>
               <TouchableOpacity onPress={() => setShowHolidaysModal(false)}>
-                <Icon name="x" size={20} color={C.text} />
+                <X size={20} color={C.text} />
               </TouchableOpacity>
             </View>
 
-            <AppText style={styles.holidaysModalText}>
+            <AppText style={styles.holidaysModalText} weight="regular">
               Select holidays to add to your school calendar. You can include or exclude any holidays based on your school's academic calendar.
             </AppText>
-            <AppText style={styles.holidaysModalSubtext}>
+            <AppText style={styles.holidaysModalSubtext} weight="regular">
               ✓ Check the holidays your school observes • ✗ Uncheck those that don't apply to your school
             </AppText>
 
             <View style={styles.googleApiSection}>
-              <AppText style={styles.googleApiTitle}>🌍 Public Holidays (via Nager.Date API)</AppText>
-              <AppText style={styles.googleApiSubtext}>Free holiday data - no API key required</AppText>
+              <AppText style={styles.googleApiTitle} weight="bold">🌍 Public Holidays (via Nager.Date API)</AppText>
+              <AppText style={styles.googleApiSubtext} weight="regular">Free holiday data - no API key required</AppText>
               
               <View style={styles.googleApiRow}>
                 <View style={{ flex: 1 }}>
-                  <AppText style={styles.smallLabel}>Select Country</AppText>
+                  <AppText style={styles.smallLabel} weight="semiBold">Select Country</AppText>
                   <View style={styles.selectWrapper}>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                       {supportedCountries.map((country) => (
@@ -742,7 +747,7 @@ export default function CalendarManagement() {
                             AsyncStorage.setItem('selected_country', country);
                           }}
                         >
-                          <AppText style={[styles.countryOptionText, selectedCountry === country && styles.countryOptionTextSelected]}>
+                          <AppText style={[styles.countryOptionText, selectedCountry === country && styles.countryOptionTextSelected]} weight="regular">
                             {country}
                           </AppText>
                         </TouchableOpacity>
@@ -755,16 +760,16 @@ export default function CalendarManagement() {
                   onPress={() => autoFetchHolidays(selectedCountry, true)}
                   disabled={fetchingGoogleHolidays}
                 >
-                  <AppText style={styles.fetchBtnText}>
+                  <AppText style={styles.fetchBtnText} weight="semiBold">
                     {fetchingGoogleHolidays ? 'Fetching...' : '🔄 Fetch'}
                   </AppText>
                 </TouchableOpacity>
               </View>
 
-              {error ? <AppText style={styles.apiErrorText}>{error}</AppText> : null}
+              {error ? <AppText style={styles.apiErrorText} weight="regular">{error}</AppText> : null}
               
               {googleHolidays.length > 0 && (
-                <AppText style={styles.successText}>
+                <AppText style={styles.successText} weight="semiBold">
                   ✅ {googleHolidays.length} holidays available ({Object.values(selectedHolidays).filter(Boolean).length} selected)
                 </AppText>
               )}
@@ -772,7 +777,7 @@ export default function CalendarManagement() {
 
             {googleHolidays.length > 0 && (
               <>
-                <AppText style={styles.availableHolidaysTitle}>📌 Available Holidays ({googleHolidays.length})</AppText>
+                <AppText style={styles.availableHolidaysTitle} weight="bold">📌 Available Holidays ({googleHolidays.length})</AppText>
                 <FlatList
                   data={googleHolidays}
                   renderItem={renderHolidayItem}
@@ -784,21 +789,21 @@ export default function CalendarManagement() {
             )}
 
             {googleHolidays.length === 0 && (
-              <AppText style={styles.noHolidaysText}>
+              <AppText style={styles.noHolidaysText} weight="regular">
                 🔄 Click "Fetch" above to load the complete holiday list for your school calendar year
               </AppText>
             )}
 
             <View style={styles.buttonGroup}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowHolidaysModal(false)}>
-                <AppText style={styles.cancelBtnText}>Cancel</AppText>
+                <AppText style={styles.cancelBtnText} weight="semiBold">Cancel</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.submitBtn}
                 onPress={handleAddPublicHolidays}
                 disabled={loading || googleHolidays.length === 0}
               >
-                <AppText style={styles.submitBtnText}>
+                <AppText style={styles.submitBtnText} weight="bold">
                   {loading ? 'Adding...' : 'Add Selected'}
                 </AppText>
               </TouchableOpacity>
@@ -807,6 +812,7 @@ export default function CalendarManagement() {
         </View>
       </Modal>
       </ScrollView>
+    </View>
   );
 }
 
@@ -815,71 +821,85 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  navHeader: {
-    backgroundColor: '#001F3F',
-    height: Platform.OS === 'ios' ? 100 : 70,
+  headerStandard: {
+    backgroundColor: C.navy,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 40 : 0,
   },
-  backButton: {
-    padding: 8,
+  backBtn: {
     width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  navTitle: {
-    color: '#fff',
+  headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    flex: 1,
+    color: '#ffffff',
     textAlign: 'center',
+    flex: 1,
   },
   content: {
     flex: 1,
   },
   header: {
-    padding: 20,
+    padding: 18,
+    margin: 16,
+    borderRadius: 20,
+    backgroundColor: C.card,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     flexWrap: 'wrap',
+    gap: 12,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 18,
     color: C.text,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: C.textMuted,
     marginTop: 4,
   },
   headerButtons: {
     flexDirection: 'row',
     gap: 12,
+    flexWrap: 'wrap',
   },
   addBtn: {
     flexDirection: 'row',
     backgroundColor: C.primary,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     gap: 8,
   },
   addBtnText: {
     color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
+    fontSize: 12,
   },
   calendarContainer: {
     backgroundColor: C.card,
-    margin: 16,
-    borderRadius: 12,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
     borderColor: C.border,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
   calendarHeader: {
     flexDirection: 'row',
@@ -890,11 +910,10 @@ const styles = StyleSheet.create({
   navBtn: {
     padding: 8,
     backgroundColor: C.primarySoft,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   monthYear: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 18,
     color: C.text,
   },
   weekdaysRow: {
@@ -905,7 +924,6 @@ const styles = StyleSheet.create({
   weekday: {
     flex: 1,
     textAlign: 'center',
-    fontWeight: '700',
     fontSize: 12,
     color: C.textMuted,
   },
@@ -914,17 +932,17 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 8,
     margin: 2,
+    backgroundColor: '#fff',
   },
   otherMonthCell: {
     backgroundColor: C.bg,
     opacity: 0.5,
   },
   dayNumber: {
-    fontWeight: '600',
-    fontSize: 14,
+    fontSize: 12,
     color: C.text,
     marginBottom: 4,
   },
@@ -937,41 +955,44 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 4,
     paddingVertical: 2,
-    borderRadius: 3,
+    borderRadius: 4,
     marginRight: 2,
   },
   eventText: {
     fontSize: 10,
-    fontWeight: '500',
     color: '#fff',
   },
   deleteIcon: {
     padding: 2,
   },
   bottomSection: {
-    margin: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
   },
   holidaysListBtn: {
     backgroundColor: C.success,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     marginBottom: 12,
   },
   holidaysListBtnText: {
     color: '#fff',
-    fontWeight: '600',
   },
   holidaysSidebar: {
     backgroundColor: C.card,
-    borderRadius: 12,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
     borderColor: C.border,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
   sidebarTitle: {
     fontSize: 16,
-    fontWeight: '700',
     marginBottom: 12,
     color: C.text,
   },
@@ -981,7 +1002,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 6,
+    borderRadius: 14,
     borderLeftWidth: 3,
   },
   eventListItemContent: {
@@ -993,7 +1014,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   holidayName: {
-    fontWeight: '600',
     color: C.text,
     marginBottom: 4,
   },
@@ -1012,17 +1032,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginTop: 12,
+    flexWrap: 'wrap',
   },
   shareBtn: {
     flex: 1,
     backgroundColor: C.success,
     padding: 8,
-    borderRadius: 6,
+    borderRadius: 12,
     alignItems: 'center',
   },
   shareBtnText: {
     color: '#fff',
-    fontWeight: '600',
     fontSize: 12,
   },
   modalOverlay: {
@@ -1049,7 +1069,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '700',
     color: C.text,
   },
   errorText: {
@@ -1061,13 +1080,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    fontWeight: '600',
     marginBottom: 8,
     color: C.text,
     fontSize: 14,
   },
   smallLabel: {
-    fontWeight: '600',
     marginBottom: 8,
     color: C.text,
     fontSize: 12,
@@ -1113,7 +1130,6 @@ const styles = StyleSheet.create({
   },
   typeOptionTextSelected: {
     color: '#fff',
-    fontWeight: '600',
   },
   colorPicker: {
     flexDirection: 'row',
@@ -1144,7 +1160,6 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: {
     color: C.textMuted,
-    fontWeight: '600',
   },
   submitBtn: {
     flex: 2,
@@ -1155,7 +1170,6 @@ const styles = StyleSheet.create({
   },
   submitBtnText: {
     color: '#fff',
-    fontWeight: '700',
   },
   holidaysModalText: {
     fontSize: 14,
@@ -1178,7 +1192,6 @@ const styles = StyleSheet.create({
   },
   googleApiTitle: {
     fontSize: 14,
-    fontWeight: '700',
     color: C.text,
     marginBottom: 4,
   },
@@ -1211,7 +1224,6 @@ const styles = StyleSheet.create({
   },
   countryOptionTextSelected: {
     color: C.primary,
-    fontWeight: '700',
   },
   fetchBtn: {
     backgroundColor: C.primary,
@@ -1222,7 +1234,6 @@ const styles = StyleSheet.create({
   fetchBtnText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: '600',
   },
   apiErrorText: {
     color: C.error,
@@ -1232,12 +1243,10 @@ const styles = StyleSheet.create({
   successText: {
     color: C.success,
     fontSize: 12,
-    fontWeight: '600',
     marginTop: 8,
   },
   availableHolidaysTitle: {
     fontSize: 14,
-    fontWeight: '700',
     color: C.text,
     marginBottom: 12,
   },

@@ -1,11 +1,12 @@
 buildscript {
     ext {
-        buildToolsVersion = "36.0.0"
+        buildToolsVersion = "35.0.0"
         minSdkVersion = 24
-        compileSdkVersion = 36
-        targetSdkVersion = 36
+        compileSdkVersion = 35
+        targetSdkVersion = 35
         ndkVersion = "27.1.12297006"
         kotlinVersion = "1.9.24"
+        gradlePluginVersion = "8.7.3"
     }
     repositories {
         google()
@@ -15,6 +16,7 @@ buildscript {
         classpath("com.android.tools.build:gradle")
         classpath("com.facebook.react:react-native-gradle-plugin")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
+        classpath("com.google.gms:google-services:4.4.2")
     }
 }
 
@@ -24,6 +26,18 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // Local React Native Android artifacts (includes hermes-engine AARs)
+        maven {
+            url = uri("../node_modules/react-native/android")
+        }
+        // Hermes prebuilt AARs (fallback to local SDK if not available on mavenCentral)
+        maven {
+            url = uri("../node_modules/react-native/sdks/hermes-engine/android")
+        }
+        // Local Android JSC AARs for the JSC fallback runtime
+        maven {
+            url = uri("../node_modules/jsc-android/dist")
+        }
         maven {
             url = uri("../node_modules/@react-native-async-storage/async-storage/android/local_repo")
         }

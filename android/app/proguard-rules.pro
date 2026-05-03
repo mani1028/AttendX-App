@@ -8,3 +8,33 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+
+# Jitsi SDK
+-keep class org.jitsi.** { *; }
+-keep interface org.jitsi.** { *; }
+-dontwarn org.jitsi.**
+
+# Keep BuildConfig
+-keep class **.BuildConfig { *; }
+-keep class **.R { *; }
+-keep class **.R$* { *; }
+
+# Keep Dropbox SDK
+-keep class com.dropbox.** { *; }
+-dontwarn com.dropbox.**
+
+# Giphy SDK & Kotlin Parcelize Fix
+-keep class kotlinx.parcelize.** { *; }
+-keep class com.giphy.sdk.** { *; }
+-dontwarn kotlinx.parcelize.**
+-keep @kotlinx.parcelize.Parcelize class * { *; }
+-keep class * implements android.os.Parcelable {
+    public static final ** CREATOR;
+}
+
+# React Native & Common Libraries
+-keep class com.facebook.react.** { *; }
+-dontwarn com.facebook.react.**
+-keep class com.visys.attendx.** { *; }
+-dontwarn com.facebook.common.internal.**
+

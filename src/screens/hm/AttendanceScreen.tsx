@@ -19,7 +19,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
-import Icon from '@react-native-vector-icons/feather';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ChevronLeft,
+  RefreshCw,
+  Calendar,
+  Search,
+  Filter,
+  Download,
+  User,
+  Users,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ArrowRight,
+  ChevronRight,
+  X,
+  BookOpen,
+  Users2
+} from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
@@ -27,22 +45,10 @@ import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { HM_THEME as C } from '../../constants/hmTheme';
+import { safeGoBack } from '../../utils/navigationHelpers';
 
 // Local theme bridge
-const C = {
-  bg: colors.bg,
-  card: colors.surface,
-  border: colors.border,
-  text: colors.textPrimary,
-  muted: colors.textMuted,
-  primary: colors.primary,
-  success: colors.success,
-  successSoft: colors.successSoft,
-  error: colors.error,
-  errorSoft: colors.errorSoft,
-  warning: colors.warning,
-  warningSoft: colors.warningSoft,
-};
 
 // Types
 interface Teacher {
@@ -121,24 +127,34 @@ const classColor = (grade: string): string => {
 
 // Status Badge Component
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const isPresent = status === 'PRESENT';
+  const isHalfDay = status === 'HALF_DAY' || status === 'LATE';
+
   const getStyle = () => {
-    if (status === 'PRESENT') return styles.badgePresent;
-    if (status === 'HALF_DAY' || status === 'LATE') return styles.badgeHalfDay;
+    if (isPresent) return styles.badgePresent;
+    if (isHalfDay) return styles.badgeHalfDay;
     return styles.badgeAbsent;
   };
   const getTextStyle = () => {
-    if (status === 'PRESENT') return styles.badgePresentText;
-    if (status === 'HALF_DAY' || status === 'LATE') return styles.badgeHalfDayText;
+    if (isPresent) return styles.badgePresentText;
+    if (isHalfDay) return styles.badgeHalfDayText;
     return styles.badgeAbsentText;
   };
   const getText = () => {
-    if (status === 'PRESENT') return 'PRESENT';
-    if (status === 'HALF_DAY' || status === 'LATE') return 'HALF DAY';
+    if (isPresent) return 'PRESENT';
+    if (isHalfDay) return 'HALF DAY';
     return 'ABSENT';
   };
+  const getIcon = () => {
+    if (isPresent) return <CheckCircle2 size={12} color={C.success} />;
+    if (isHalfDay) return <Clock size={12} color={C.warning} />;
+    return <XCircle size={12} color={C.error} />;
+  };
+
   return (
     <View style={[styles.badge, getStyle()]}>
-      <AppText style={[styles.badgeText, getTextStyle()]}>{getText()}</AppText>
+      {getIcon()}
+      <AppText style={[styles.badgeText, getTextStyle()]} weight="bold">{getText()}</AppText>
     </View>
   );
 };
@@ -286,7 +302,7 @@ const ExportModal: React.FC<{
 
       let response;
       if (type === 'teachers') {
-        response = await API.get('/hm/teachers/export', {
+        response = await API.get('hm/teachers/export', {
           headers,
           params: { start_date: from, end_date: to, file_format: 'csv' },
         });
@@ -299,7 +315,7 @@ const ExportModal: React.FC<{
             }
           });
         });
-        response = await API.get('/hm/students/export', {
+        response = await API.get('hm/students/export', {
           headers,
           params: {
             start_date: from,
@@ -313,8 +329,10 @@ const ExportModal: React.FC<{
       const content = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
       await RNFS.writeFile(filePath, content, 'utf8');
 
+      const fileUri = Platform.OS === 'android' ? `content://com.visys.attendx.fileprovider/internal_files/${fileName}` : `file://${filePath}`;
+
       await Share.open({
-        url: `file://${filePath}`,
+        url: fileUri,
         type: 'text/csv',
         filename: fileName,
         title: 'Export Attendance',
@@ -354,7 +372,7 @@ const ExportModal: React.FC<{
               Export {type === 'teachers' ? 'Teacher' : 'Student'} Attendance
             </AppText>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <AppText style={styles.modalCloseText}>✕</AppText>
+              <X size={20} color={C.muted} />
             </TouchableOpacity>
           </View>
 
@@ -362,10 +380,12 @@ const ExportModal: React.FC<{
             <AppText style={styles.modalLabel} weight="semiBold">Date Range</AppText>
             <View style={styles.dateRangeRow}>
               <TouchableOpacity style={styles.dateBtn} onPress={() => setShowStartPicker(true)}>
+                <Calendar size={14} color={C.primary} style={{ marginRight: 6 }} />
                 <AppText style={styles.dateText}>{iso(startDate)}</AppText>
               </TouchableOpacity>
-              <AppText style={styles.dateArrow}>→</AppText>
+              <ArrowRight size={16} color={C.muted} />
               <TouchableOpacity style={styles.dateBtn} onPress={() => setShowEndPicker(true)}>
+                <Calendar size={14} color={C.primary} style={{ marginRight: 6 }} />
                 <AppText style={styles.dateText}>{iso(endDate)}</AppText>
               </TouchableOpacity>
             </View>
@@ -374,6 +394,7 @@ const ExportModal: React.FC<{
                 value={startDate}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                maximumDate={new Date()}
                 onChange={(event, date) => {
                   setShowStartPicker(false);
                   if (date) {
@@ -388,6 +409,7 @@ const ExportModal: React.FC<{
                 value={endDate}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                maximumDate={new Date()}
                 onChange={(event, date) => {
                   setShowEndPicker(false);
                   if (date) setEndDate(date);
@@ -436,7 +458,9 @@ const ExportModal: React.FC<{
                             style={[styles.sectionRow, isSelected && styles.sectionRowSelected]}
                             onPress={() => toggleSection(grade, sec.section)}
                           >
-                            <View style={[styles.checkboxSmall, isSelected && styles.checkboxSmallChecked]} />
+                            <View style={[styles.checkboxSmall, isSelected && styles.checkboxSmallChecked]}>
+                              {isSelected && <CheckCircle2 size={12} color="#fff" />}
+                            </View>
                             <AppText style={styles.sectionText}>Section {sec.section}</AppText>
                             <AppText style={styles.sectionCount}>{sec.students_total || 0} students</AppText>
                           </TouchableOpacity>
@@ -511,10 +535,9 @@ const StudentsView: React.FC<{
 
   const loadStudents = useCallback(async (sec: SectionGroup) => {
     if (!sec) return;
-    setLoading(true);
+    setLoadingPrefix(true);
     try {
-      const res = await API.get('/hm/students', {
-        headers,
+      const res = await API.get('hm/students', {
         params: {
           class_grade: sec.class_grade,
           section: sec.section,
@@ -579,7 +602,7 @@ const StudentsView: React.FC<{
   if (!selectedSection) {
     return (
       <View style={styles.emptyPanel}>
-        <AppText style={styles.emptyIcon}>📚</AppText>
+        <BookOpen size={48} color={C.muted} style={{ marginBottom: 12 }} />
         <AppText style={styles.emptyTitle} weight="bold">Select a class section</AppText>
         <AppText style={styles.emptyText}>Choose from the left panel</AppText>
       </View>
@@ -672,16 +695,17 @@ const StudentsView: React.FC<{
         {/* Search & Filter */}
         <View style={styles.searchFilterBar}>
           <View style={styles.searchContainer}>
+            <Search size={18} color={C.muted} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search by name, roll no, admission no..."
+              placeholder="Search by name, roll no..."
               placeholderTextColor={C.muted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
-                <AppText style={styles.clearBtnText}>✕</AppText>
+                <X size={14} color={C.muted} />
               </TouchableOpacity>
             )}
           </View>
@@ -707,7 +731,7 @@ const StudentsView: React.FC<{
           <Loader />
         ) : filteredStudents.length === 0 ? (
           <View style={styles.emptyPanel}>
-            <AppText style={styles.emptyIcon}>👥</AppText>
+            <Users2 size={48} color={C.muted} style={{ marginBottom: 12 }} />
             <AppText style={styles.emptyTitle} weight="bold">No students found</AppText>
             <AppText style={styles.emptyText}>Try adjusting your search</AppText>
           </View>
@@ -761,6 +785,7 @@ const StudentsView: React.FC<{
 };
 
 export default function HMAttendanceScreen() {
+  const insets = useSafeAreaInsets();
   const route = useRoute<any>();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
@@ -774,6 +799,7 @@ export default function HMAttendanceScreen() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [page, setPage] = useState<number>(1);
   
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState<boolean>(false);
   
@@ -833,12 +859,12 @@ export default function HMAttendanceScreen() {
     if (!schoolCode || !branchId) return;
     setLoadingTeachers(true);
     try {
-      const res = await API.get('/hm/teachers/attendance', {
-        headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId },
+      const res = await API.get('hm/teachers/attendance', {
         params: { on_date: iso(date) },
       });
       if (isMounted.current) {
-        setTeachers(res.data?.items || []);
+        const items = Array.isArray(res.data?.items) ? res.data.items.filter(Boolean) : [];
+        setTeachers(items);
       }
     } catch (error: any) {
       if (!isMounted.current) return;
@@ -855,12 +881,12 @@ export default function HMAttendanceScreen() {
     if (!schoolCode || !branchId) return;
     setLoadingClasses(true);
     try {
-      const res = await API.get('/hm/classes', {
-        headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId },
+      const res = await API.get('hm/classes', {
         params: { on_date: iso(date) },
       });
       if (isMounted.current) {
-        setClassItems(res.data?.items || []);
+        const items = Array.isArray(res.data?.items) ? res.data.items.filter(Boolean) : [];
+        setClassItems(items);
       }
     } catch (error: any) {
       if (!isMounted.current) return;
@@ -877,8 +903,7 @@ export default function HMAttendanceScreen() {
     if (!schoolCode || !branchId) return;
     setLoadingStatement(true);
     try {
-      const res = await API.get('/hm/attendance/statements', {
-        headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId },
+      const res = await API.get('hm/attendance/statements', {
         params: { scope: stmtScope, on_date: iso(date) },
       });
       if (isMounted.current) {
@@ -936,28 +961,49 @@ export default function HMAttendanceScreen() {
     'X-Branch-Id': branchId,
   }), [schoolCode, branchId]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, view, date]);
+
   const onRefresh = useCallback(async () => {
-    if (view === 'teachers') {
-      await loadTeachers();
-    } else {
-      await loadClasses();
+    setRefreshing(true);
+    try {
+      if (view === 'teachers') {
+        await loadTeachers();
+      } else {
+        await loadClasses();
+      }
+      await loadStatement();
+    } finally {
+      setRefreshing(false);
     }
-    await loadStatement();
   }, [view, loadTeachers, loadClasses, loadStatement]);
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" backgroundColor={C.navy} />
 
       {/* Standardized Header */}
-      <View style={styles.headerStandard}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color="#fff" />
-        </TouchableOpacity>
-        <AppText style={styles.headerTitle}>Attendance Management</AppText>
-        <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh}>
-          <Icon name="refresh-cw" size={20} color="#fff" />
-        </TouchableOpacity>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => safeGoBack(navigation, 'HMDashboard')}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <AppText weight="bold" style={styles.headerTitle}>Attendance Management</AppText>
+          </View>
+          <TouchableOpacity style={styles.iconButton} onPress={onRefresh}>
+            <RefreshCw size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.headerContent}>
+          <AppText weight="bold" style={styles.headerGreeting}>Attendance Hub</AppText>
+          <AppText style={styles.headerSubtext}>Monitor daily presence for staff and students</AppText>
+        </View>
       </View>
 
       {toast.visible && (
@@ -971,10 +1017,10 @@ export default function HMAttendanceScreen() {
         contentContainerStyle={styles.contentContainer}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={C.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
       >
         <View style={styles.subHeader}>
-          <AppText style={styles.subHeaderText}>
+          <AppText style={styles.subHeaderText} weight="semiBold">
             {view === 'teachers' ? `${filteredTeachers.length} teachers tracked` : `${classItems.length} classes tracked`}
           </AppText>
         </View>
@@ -985,24 +1031,34 @@ export default function HMAttendanceScreen() {
               style={[styles.toggleBtn, view === 'teachers' && styles.toggleBtnActive]}
               onPress={() => setView('teachers')}
             >
-              <AppText style={[styles.toggleText, view === 'teachers' && styles.toggleTextActive]} weight="semiBold">👨‍🏫 Teachers</AppText>
+              <View style={styles.toggleRow}>
+                <Users size={14} color={view === 'teachers' ? '#fff' : C.muted} />
+                <AppText style={[styles.toggleText, view === 'teachers' && styles.toggleTextActive]} weight="semiBold"> Teachers</AppText>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.toggleBtn, view === 'students' && styles.toggleBtnActive]}
               onPress={() => setView('students')}
             >
-              <AppText style={[styles.toggleText, view === 'students' && styles.toggleTextActive]} weight="semiBold">👨‍🎓 Students</AppText>
+              <View style={styles.toggleRow}>
+                <Users2 size={14} color={view === 'students' ? '#fff' : C.muted} />
+                <AppText style={[styles.toggleText, view === 'students' && styles.toggleTextActive]} weight="semiBold"> Students</AppText>
+              </View>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
-            <AppText style={styles.dateText}>📅 {iso(date)}</AppText>
+            <View style={styles.toggleRow}>
+              <Calendar size={14} color={C.primary} />
+              <AppText style={styles.dateText}> {iso(date)}</AppText>
+            </View>
           </TouchableOpacity>
           {showDatePicker && (
             <DateTimePicker
               value={date}
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              maximumDate={new Date()}
               onChange={(event, selectedDate) => {
                 setShowDatePicker(false);
                 if (selectedDate) setDate(selectedDate);
@@ -1027,12 +1083,17 @@ export default function HMAttendanceScreen() {
 
           <View style={styles.sectionActions}>
             <TouchableOpacity style={styles.exportBtn} onPress={() => setShowTeacherExport(true)}>
-              <AppText style={styles.exportBtnText} weight="semiBold">📤 Export Teachers</AppText>
+              <View style={styles.toggleRow}>
+                <Download size={14} color={C.primary} />
+                <AppText style={styles.exportBtnText} weight="semiBold"> Teachers</AppText>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.exportBtn} onPress={() => setShowExport(true)}>
-              <AppText style={styles.exportBtnText} weight="semiBold">📤 Export Students</AppText>
+              <View style={styles.toggleRow}>
+                <Download size={14} color={C.primary} />
+                <AppText style={styles.exportBtnText} weight="semiBold"> Students</AppText>
+              </View>
             </TouchableOpacity>
-            <AppButton title="🔄 Refresh" onPress={onRefresh} type="secondary" />
           </View>
         </View>
 
@@ -1080,7 +1141,7 @@ export default function HMAttendanceScreen() {
                 />
                 {search.length > 0 && (
                   <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
-                    <AppText style={styles.clearBtnText}>✕</AppText>
+                    <X size={18} color={C.muted} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -1105,7 +1166,7 @@ export default function HMAttendanceScreen() {
               <Loader />
             ) : paginatedTeachers.length === 0 ? (
               <AppCard style={styles.emptyCard}>
-                <AppText style={styles.emptyIcon}>👨‍🏫</AppText>
+                <Users size={48} color={C.muted} style={{ marginBottom: 12 }} />
                 <AppText style={styles.emptyTitle} weight="bold">No teachers found</AppText>
                 <AppText style={styles.emptyText}>Try adjusting your search or filters</AppText>
               </AppCard>
@@ -1121,15 +1182,15 @@ export default function HMAttendanceScreen() {
                       onPress={() => setPage(p => Math.max(1, p - 1))}
                       disabled={page === 1}
                     >
-                      <AppText style={styles.pageBtnText}>◀</AppText>
+                      <ChevronLeft size={20} color={C.text} />
                     </TouchableOpacity>
-                    <AppText style={styles.pageInfo}>Page {page} of {totalPages}</AppText>
+                    <AppText style={styles.pageInfo} weight="semiBold">Page {page} of {totalPages}</AppText>
                     <TouchableOpacity
                       style={[styles.pageBtn, page === totalPages && styles.pageBtnDisabled]}
                       onPress={() => setPage(p => Math.min(totalPages, p + 1))}
                       disabled={page === totalPages}
                     >
-                      <AppText style={styles.pageBtnText}>▶</AppText>
+                      <ChevronRight size={20} color={C.text} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -1143,7 +1204,7 @@ export default function HMAttendanceScreen() {
             <Loader />
           ) : classItems.length === 0 ? (
             <AppCard style={styles.emptyCard}>
-              <AppText style={styles.emptyIcon}>👨‍🎓</AppText>
+              <BookOpen size={48} color={C.muted} style={{ marginBottom: 12 }} />
               <AppText style={styles.emptyTitle} weight="bold">No classes available</AppText>
               <AppText style={styles.emptyText}>No class data found for this date</AppText>
             </AppCard>
@@ -1190,32 +1251,55 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
+    backgroundColor: C.navy,
     paddingHorizontal: 20,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    ...Platform.select({
+      android: { elevation: 10 },
+      ios: {},
+    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 12,
   },
-  backBtn: {
+  iconButton: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitleContainer: {
+    flex: 1,
     alignItems: 'center',
   },
   headerTitle: {
+    color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
     textAlign: 'center',
-    flex: 1,
   },
-  refreshIconBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+  headerContent: {
+    marginTop: 24,
+  },
+  headerGreeting: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    letterSpacing: -0.5,
+  },
+  headerSubtext: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 4,
   },
   scrollView: {
     flex: 1,
@@ -1227,11 +1311,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
     marginBottom: 16,
+    marginTop: 10,
+    marginHorizontal: 16,
+    borderRadius: 12,
   },
   subHeaderText: {
     fontSize: 14,
     color: '#64748b',
-    fontWeight: '600',
   },
   contentContainer: {
     paddingBottom: 40,
@@ -1273,6 +1359,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   toggleGroup: {
     flexDirection: 'row',
@@ -1515,6 +1606,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   badgePresent: {
     backgroundColor: C.successSoft,
