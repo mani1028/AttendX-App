@@ -60,6 +60,11 @@ const arrayBufferToBase64 = (data: ArrayBuffer): string => {
   throw new Error('Base64 encoder is unavailable');
 };
 
+const getStudentDashboardCacheKey = (schoolCode: string, studentId: string): string | null => {
+  if (!schoolCode || !studentId) return null;
+  return `student_dashboard_cache:${schoolCode}:${studentId}`;
+};
+
 export default function StudentDashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -104,27 +109,60 @@ export default function StudentDashboardScreen() {
   const [loadingViewer, setLoadingViewer] = useState(false);
 
   const fetchData = async () => {
+    let cacheUsed = false;
+
     try {
       refreshUnreadCount();
 
-      // Fetch attendance
-      const attendance = await getStudentAttendance();
+      const studentId = (await AsyncStorage.getItem('student_id')) || (await AsyncStorage.getItem('studentId')) || '';
+      const schoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
+      const cacheKey = getStudentDashboardCacheKey(schoolCode, studentId);
+
+      if (cacheKey) {
+        try {
+          const cached = await AsyncStorage.getItem(cacheKey);
+          if (cached && isMounted.current) {
+            const parsed = JSON.parse(cached);
+            if (parsed.attendanceData) setAttendanceData(parsed.attendanceData);
+            if (Array.isArray(parsed.recentAttendance)) setRecentAttendance(parsed.recentAttendance);
+            if (Array.isArray(parsed.recentPapers)) setRecentPapers(parsed.recentPapers);
+            cacheUsed = true;
+            setLoading(false);
+          }
+        } catch (cacheError) {
+          console.warn('Failed to load student dashboard cache:', cacheError);
+        }
+      }
+
+      const [attendance, papersRes] = await Promise.all([
+        getStudentAttendance(),
+        getQuestionPapers(),
+      ]);
+
       if (!isMounted.current) return;
+
       if (attendance) {
-        setAttendanceData({
+        const attendanceData = {
           percentage: attendance.percentage || 0,
           presentDays: attendance.presentDays || 0,
           absentDays: attendance.absentDays || 0,
           totalDays: (attendance.presentDays || 0) + (attendance.absentDays || 0),
-        });
+        };
+        setAttendanceData(attendanceData);
         if (attendance.items) {
           setRecentAttendance(attendance.items);
         }
+
+        if (cacheKey) {
+          await AsyncStorage.setItem(cacheKey, JSON.stringify({
+            attendanceData,
+            recentAttendance: attendance.items || [],
+            recentPapers: [],
+          }));
+        }
       }
 
-      // Fetch recent question papers
-      const papersRes = await getQuestionPapers();
-      if (isMounted.current && papersRes?.subjects) {
+      if (papersRes?.subjects) {
         const allPapers: any[] = [];
         papersRes.subjects.forEach((sub: any) => {
           if (sub.papers) {
@@ -133,11 +171,19 @@ export default function StudentDashboardScreen() {
             });
           }
         });
-        // Sort by date and take top 3
         const sortedPapers = allPapers.sort((a, b) =>
           new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-        ).slice(0, 3);
+        );
         setRecentPapers(sortedPapers);
+
+        if (cacheKey) {
+          const cachedValue = await AsyncStorage.getItem(cacheKey);
+          const cachedData = cachedValue ? JSON.parse(cachedValue) : {};
+          await AsyncStorage.setItem(cacheKey, JSON.stringify({
+            ...cachedData,
+            recentPapers: sortedPapers,
+          }));
+        }
       }
     } catch (error: any) {
       if (error?.response?.status !== 401) {
@@ -146,7 +192,9 @@ export default function StudentDashboardScreen() {
       // Keep defaults on error
     } finally {
       if (isMounted.current) {
-        setLoading(false);
+        if (!cacheUsed) {
+          setLoading(false);
+        }
         setRefreshing(false);
       }
     }
@@ -263,7 +311,7 @@ export default function StudentDashboardScreen() {
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 180 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -297,18 +345,14 @@ export default function StudentDashboardScreen() {
             </View>
           </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.statsGrid}
-          >
+          <View style={styles.statsGrid}>
             {stats.map((stat, i) => (
               <View key={`stat-${i}`} style={styles.statCard}>
                 <AppText style={styles.statLabel}>{stat.label}</AppText>
                 <AppText style={styles.statValue}>{stat.value}</AppText>
               </View>
             ))}
-          </ScrollView>
+          </View>
 
           <View style={styles.attendancePctCard}>
             <View>
@@ -423,7 +467,7 @@ export default function StudentDashboardScreen() {
           </View>
         </View>
 
-        <View style={{ height: insets.bottom + 88 }} />
+        <View style={{ height: insets.bottom + 140 }} />
       </ScrollView>
 
       {/* PDF Viewer Modal */}
@@ -539,16 +583,17 @@ const styles = StyleSheet.create({
   statsGrid: {
     marginTop: 8,
     flexDirection: 'row',
-    gap: 12,
-    paddingRight: 24,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   statCard: {
     backgroundColor: '#fff',
     borderRadius: 20,
     paddingVertical: 16,
     paddingHorizontal: 14,
-    width: 152,
+    width: '48%',
     minHeight: 84,
+    marginBottom: 12,
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.07,

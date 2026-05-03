@@ -763,19 +763,26 @@ export default function AdminDashboardScreen() {
   const fetchSchools = async (isRefresh = false) => {
     const role = await AsyncStorage.getItem('userRole') || 'admin';
     const cacheKey = `admin_schools_cache_${role}`;
+    let cacheLoaded = false;
 
     if (!isRefresh) {
       try {
         const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           setSchools(JSON.parse(cached));
+          cacheLoaded = true;
         }
       } catch (e) {
         console.warn('Failed to load schools cache', e);
       }
     }
 
-    setLoading(true);
+    if (isRefresh) {
+      setLoading(false);
+    } else if (!cacheLoaded) {
+      setLoading(true);
+    }
+
     try {
       const data = await adminService.getAllSchools();
       setSchools(data);
@@ -790,7 +797,9 @@ export default function AdminDashboardScreen() {
         Alert.alert('Error', 'Failed to load schools');
       }
     } finally {
-      setLoading(false);
+      if (!isRefresh || !cacheLoaded) {
+        setLoading(false);
+      }
     }
   };
 
