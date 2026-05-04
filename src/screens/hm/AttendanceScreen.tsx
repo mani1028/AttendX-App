@@ -13,6 +13,7 @@ import {
   StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  useWindowDimensions,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -500,11 +501,16 @@ const ExportModal: React.FC<{
 // Students View Component
 const StudentsView: React.FC<{
   classItems: ClassItem[];
+  selectedSection: SectionGroup | null;
+  onSelectedSectionChange: (section: SectionGroup | null) => void;
   headers: Record<string, string>;
   date: Date;
   preselectedSection: { class_grade: string; section: string } | null;
   onPreselectedApplied: () => void;
-}> = ({ classItems, headers, date, preselectedSection, onPreselectedApplied }) => {
+}> = ({ classItems, selectedSection, onSelectedSectionChange, headers, date, preselectedSection, onPreselectedApplied }) => {
+  const { width } = useWindowDimensions();
+  const isCompactScreen = width < 768;
+
   const groups = useMemo(() => {
     const map: Record<string, SectionGroup[]> = {};
     classItems.forEach((c) => {
@@ -519,7 +525,6 @@ const StudentsView: React.FC<{
     });
   }, [classItems]);
 
-  const [selectedSection, setSelectedSection] = useState<SectionGroup | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -535,7 +540,7 @@ const StudentsView: React.FC<{
 
   const loadStudents = useCallback(async (sec: SectionGroup) => {
     if (!sec) return;
-    setLoadingPrefix(true);
+    setLoading(true);
     try {
       const res = await API.get('hm/students', {
         params: {
@@ -566,18 +571,18 @@ const StudentsView: React.FC<{
       if (groupMatch) {
         const [grade, secs] = groupMatch;
         const secMatch = secs.find(sec => sec.section === targetSection);
-        if (secMatch) setSelectedSection(secMatch);
+        if (secMatch) onSelectedSectionChange(secMatch);
       }
       onPreselectedApplied();
     }
-  }, [preselectedSection, groups]);
+  }, [preselectedSection, groups, onSelectedSectionChange, onPreselectedApplied]);
 
   useEffect(() => {
     if (groups.length && !selectedSection) {
       const [grade, secs] = groups[0];
-      if (secs.length) setSelectedSection(secs[0]);
+      if (secs.length) onSelectedSectionChange(secs[0]);
     }
-  }, [groups]);
+  }, [groups, selectedSection, onSelectedSectionChange]);
 
   useEffect(() => {
     if (selectedSection) loadStudents(selectedSection);
@@ -605,6 +610,111 @@ const StudentsView: React.FC<{
         <BookOpen size={48} color={C.muted} style={{ marginBottom: 12 }} />
         <AppText style={styles.emptyTitle} weight="bold">Select a class section</AppText>
         <AppText style={styles.emptyText}>Choose from the left panel</AppText>
+      </View>
+    );
+  }
+
+  if (isCompactScreen) {
+    return (
+      <View style={styles.compactStack}>
+        <AppCard style={styles.mobilePanel}>
+          <View style={styles.panelHeader}>
+            <View>
+              <AppText style={styles.panelTitle} weight="bold">
+                Class {selectedSection.class_grade} - Section {selectedSection.section}
+              </AppText>
+              <AppText style={styles.panelSubtitle}>{iso(date)}</AppText>
+            </View>
+            <View style={[styles.statChip, styles.statSuccess]}>
+              <AppText style={styles.statValue} weight="bold">{attendancePct}%</AppText>
+              <AppText style={styles.statLabel}>Rate</AppText>
+            </View>
+          </View>
+
+          <View style={styles.statsRow}>
+            <View style={[styles.statChip, styles.statTotal]}>
+              <AppText style={styles.statValue} weight="bold">{students.length}</AppText>
+              <AppText style={styles.statLabel}>Total</AppText>
+            </View>
+            <View style={[styles.statChip, styles.statPresent]}>
+              <AppText style={styles.statValue} weight="bold">{presentCount}</AppText>
+              <AppText style={styles.statLabel}>Present</AppText>
+            </View>
+            <View style={[styles.statChip, styles.statHalf]}>
+              <AppText style={styles.statValue} weight="bold">{halfDayCount}</AppText>
+              <AppText style={styles.statLabel}>Half</AppText>
+            </View>
+            <View style={[styles.statChip, styles.statAbsent]}>
+              <AppText style={styles.statValue} weight="bold">{absentCount}</AppText>
+              <AppText style={styles.statLabel}>Absent</AppText>
+            </View>
+          </View>
+        </AppCard>
+
+        <AppCard style={styles.mobilePanel}>
+          <View style={styles.searchFilterBar}>
+            <View style={styles.searchContainer}>
+              <Search size={18} color={C.muted} style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search by name, roll no..."
+                placeholderTextColor={C.muted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
+                  <X size={14} color={C.muted} />
+                </TouchableOpacity>
+              )}
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.filterChips}>
+                {['', 'PRESENT', 'HALF_DAY', 'ABSENT'].map(status => (
+                  <TouchableOpacity
+                    key={status || 'all'}
+                    style={[styles.filterChip, statusFilter === status && styles.filterChipActive]}
+                    onPress={() => setStatusFilter(status)}
+                  >
+                    <AppText style={[styles.filterChipText, statusFilter === status && styles.filterChipTextActive]} weight="semiBold">
+                      {status || 'All'}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+
+          {loading ? (
+            <Loader />
+          ) : filteredStudents.length === 0 ? (
+            <View style={styles.emptyPanel}>
+              <Users2 size={48} color={C.muted} style={{ marginBottom: 12 }} />
+              <AppText style={styles.emptyTitle} weight="bold">No students found</AppText>
+              <AppText style={styles.emptyText}>Try adjusting your search</AppText>
+            </View>
+          ) : (
+            <View style={styles.mobileStudentList}>
+              {filteredStudents.map((student, idx) => (
+                <View key={student.student_id} style={styles.mobileStudentCard}>
+                  <View style={[styles.studentAvatar, { backgroundColor: classColor(selectedSection.class_grade) }]}>
+                    <AppText style={styles.studentAvatarText} weight="bold">
+                      {(student.student_full_name || '?').charAt(0).toUpperCase()}
+                    </AppText>
+                  </View>
+                  <View style={styles.mobileStudentInfo}>
+                    <AppText style={styles.studentNameText} weight="bold">{student.student_full_name || '—'}</AppText>
+                    <AppText style={styles.classSubtitle}>#{idx + 1} • Roll {student.roll_number || '—'}</AppText>
+                    <AppText style={styles.classSubtitle}>{student.admission_number || '—'}</AppText>
+                  </View>
+                  <View style={styles.inlineBadge}>
+                    <StatusBadge status={student.status || 'ABSENT'} />
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </AppCard>
       </View>
     );
   }
@@ -806,6 +916,9 @@ export default function HMAttendanceScreen() {
   const [classItems, setClassItems] = useState<ClassItem[]>([]);
   const [loadingClasses, setLoadingClasses] = useState<boolean>(false);
   const [preselectedSection, setPreselectedSection] = useState<{ class_grade: string; section: string } | null>(null);
+  const [selectedSection, setSelectedSection] = useState<SectionGroup | null>(null);
+  const [showClassDropdown, setShowClassDropdown] = useState(false);
+  const [showSectionDropdown, setShowSectionDropdown] = useState(false);
 
   const [stmtScope, setStmtScope] = useState<'weekly' | 'monthly'>('weekly');
   const [statement, setStatement] = useState<AttendanceStatement | null>(null);
@@ -818,6 +931,44 @@ export default function HMAttendanceScreen() {
   const isMounted = useRef(true);
 
   const ITEMS_PER_PAGE = 12;
+
+  const studentGroups = useMemo(() => {
+    const map: Record<string, SectionGroup[]> = {};
+    classItems.forEach((c) => {
+      const grade = String(c.class_grade);
+      if (!map[grade]) map[grade] = [];
+      map[grade].push({ class_grade: grade, section: c.section, students_total: c.students_total, present: c.present });
+    });
+    return Object.entries(map).sort((a, b) => {
+      const na = parseInt(a[0], 10);
+      const nb = parseInt(b[0], 10);
+      return (isNaN(na) ? 999 : na) - (isNaN(nb) ? 999 : nb);
+    });
+  }, [classItems]);
+
+  const availableSections = useMemo(() => {
+    if (!selectedSection) return [] as SectionGroup[];
+    return studentGroups.find(([grade]) => grade === selectedSection.class_grade)?.[1] || [];
+  }, [studentGroups, selectedSection]);
+
+  useEffect(() => {
+    if (studentGroups.length && !selectedSection) {
+      setSelectedSection(studentGroups[0][1][0] || null);
+    }
+  }, [studentGroups, selectedSection]);
+
+  useEffect(() => {
+    if (preselectedSection && studentGroups.length) {
+      const matchedGroup = studentGroups.find(([grade]) => grade === String(preselectedSection.class_grade).trim());
+      const matchedSection = matchedGroup?.[1].find(sec => sec.section === String(preselectedSection.section).trim()) || null;
+      if (matchedSection) {
+        setSelectedSection(matchedSection);
+      }
+    }
+  }, [preselectedSection, studentGroups]);
+
+  const selectedClassLabel = selectedSection ? `Class ${selectedSection.class_grade}` : 'Select class';
+  const selectedSectionLabel = selectedSection ? `Section ${selectedSection.section}` : 'Select section';
 
   const showToast = useCallback((msg: string, type: string = 'success') => {
     setToast({ visible: true, message: msg, type });
@@ -1005,6 +1156,19 @@ export default function HMAttendanceScreen() {
           <AppText style={styles.headerSubtext}>Monitor daily presence for staff and students</AppText>
         </View>
       </View>
+
+      {view === 'students' && (
+        <View style={styles.fixedPickerBar}>
+          <TouchableOpacity style={styles.pickerPill} onPress={() => setShowClassDropdown(true)} activeOpacity={0.85}>
+            <AppText style={styles.pickerLabel}>Class</AppText>
+            <AppText style={styles.pickerValue} weight="bold">{selectedClassLabel}</AppText>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.pickerPill} onPress={() => setShowSectionDropdown(true)} activeOpacity={0.85}>
+            <AppText style={styles.pickerLabel}>Section</AppText>
+            <AppText style={styles.pickerValue} weight="bold">{selectedSectionLabel}</AppText>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {toast.visible && (
         <View style={[styles.toast, toast.type === 'error' ? styles.toastError : styles.toastSuccess]}>
@@ -1211,6 +1375,8 @@ export default function HMAttendanceScreen() {
           ) : (
             <StudentsView
               classItems={classItems}
+              selectedSection={selectedSection}
+              onSelectedSectionChange={setSelectedSection}
               headers={headers}
               date={date}
               preselectedSection={preselectedSection}
@@ -1241,6 +1407,63 @@ export default function HMAttendanceScreen() {
         showToast={showToast}
         headers={headers}
       />
+
+      <Modal visible={showClassDropdown} transparent animationType="fade" onRequestClose={() => setShowClassDropdown(false)}>
+        <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowClassDropdown(false)}>
+          <View style={styles.pickerSheet}>
+            <AppText style={styles.pickerSheetTitle} weight="bold">Select Class</AppText>
+            <ScrollView>
+              {studentGroups.map(([grade, sections]) => (
+                <TouchableOpacity
+                  key={grade}
+                  style={styles.pickerRow}
+                  onPress={() => {
+                    setSelectedSection(sections[0] || null);
+                    setShowClassDropdown(false);
+                  }}
+                >
+                  <View>
+                    <AppText style={styles.pickerRowTitle} weight="semiBold">Class {grade}</AppText>
+                    <AppText style={styles.pickerRowSubtitle}>{sections.length} section{sections.length !== 1 ? 's' : ''}</AppText>
+                  </View>
+                  <ChevronRight size={18} color={C.muted} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showSectionDropdown} transparent animationType="fade" onRequestClose={() => setShowSectionDropdown(false)}>
+        <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowSectionDropdown(false)}>
+          <View style={styles.pickerSheet}>
+            <AppText style={styles.pickerSheetTitle} weight="bold">Select Section</AppText>
+            <ScrollView>
+              {availableSections.map(section => {
+                const presentPct = section.students_total ? Math.round(((section.present || 0) / section.students_total) * 100) : 0;
+                return (
+                  <TouchableOpacity
+                    key={`${section.class_grade}-${section.section}`}
+                    style={styles.pickerRow}
+                    onPress={() => {
+                      setSelectedSection(section);
+                      setShowSectionDropdown(false);
+                    }}
+                  >
+                    <View>
+                      <AppText style={styles.pickerRowTitle} weight="semiBold">Section {section.section}</AppText>
+                      <AppText style={styles.pickerRowSubtitle}>{section.students_total || 0} students</AppText>
+                    </View>
+                    <View style={[styles.pickerPct, presentPct > 75 ? styles.sectionPctHigh : styles.sectionPctLow]}>
+                      <AppText style={styles.sectionPctText} weight="bold">{presentPct}%</AppText>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -1321,6 +1544,71 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 40,
+  },
+  fixedPickerBar: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 8,
+    backgroundColor: C.bg,
+  },
+  pickerPill: {
+    flex: 1,
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  pickerLabel: {
+    fontSize: 11,
+    color: C.muted,
+    marginBottom: 4,
+  },
+  pickerValue: {
+    fontSize: 14,
+    color: C.text,
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'flex-end',
+    padding: 16,
+  },
+  pickerSheet: {
+    backgroundColor: C.card,
+    borderRadius: 20,
+    padding: 16,
+    maxHeight: '70%',
+  },
+  pickerSheetTitle: {
+    fontSize: 16,
+    color: C.text,
+    marginBottom: 12,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  pickerRowTitle: {
+    fontSize: 14,
+    color: C.text,
+  },
+  pickerRowSubtitle: {
+    fontSize: 11,
+    color: C.muted,
+    marginTop: 2,
+  },
+  pickerPct: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
   },
   toast: {
     position: 'absolute',
@@ -1685,6 +1973,26 @@ const styles = StyleSheet.create({
     borderColor: C.border,
     overflow: 'hidden',
     minHeight: 500,
+  },
+  compactStack: {
+    gap: 12,
+  },
+  mobilePanel: {
+    padding: 0,
+    overflow: 'hidden',
+  },
+  compactGroupRail: {
+    gap: 12,
+    padding: 16,
+  },
+  compactGroupCard: {
+    minWidth: 280,
+    maxWidth: 320,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: C.card,
   },
   sidebar: {
     width: 260,
@@ -2126,5 +2434,35 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: C.border,
+  },
+  mobileStudentList: {
+    gap: 12,
+    padding: 12,
+  },
+  mobileStudentCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 12,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 12,
+    ...Platform.select({
+      android: { elevation: 1 },
+      ios: {
+        shadowColor: '#001F3F',
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+      },
+    }),
+  },
+  mobileStudentInfo: {
+    flex: 1,
+  },
+  inlineBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
   },
 });
