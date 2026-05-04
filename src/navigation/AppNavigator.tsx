@@ -53,6 +53,8 @@ import TeacherHomeworkManagementScreen from '../screens/teacher/HomeworkManageme
 import TeacherLeaveRequestScreen from '../screens/teacher/LeaveRequestScreen';
 import TeacherLeaveApprovalScreen from '../screens/teacher/LeaveApprovalScreen';
 import TeacherStudentListScreen from '../screens/teacher/StudentListScreen';
+
+import StudentRegistrationRequestsScreen from '../screens/teacher/StudentRegistrationRequestsScreen';
 import TeacherSkinDiseaseScreen from '../screens/teacher/SkinDiseaseScreen';
 import TeacherVitalScanScreen from '../screens/teacher/VitalScanScreen';
 import TeacherViewAttendanceScreen from '../screens/teacher/ViewAttendanceScreen';
@@ -66,6 +68,7 @@ import StudentMarksScreen from '../screens/student/StudentMarksScreen';
 import StudentHomeworkScreen from '../screens/student/HomeworkScreen';
 import StudentFeeScreen from '../screens/student/StudentFeeScreen';
 import StudentLeaveScreen from '../screens/student/LeaveScreen';
+
 import StudentQuestionPapersScreen from '../screens/student/QuestionPapersScreen';
 
 import {
@@ -417,6 +420,7 @@ export default function AppNavigator() {
           <Stack.Screen name="TeacherAttendance" component={TeacherAttendanceScreen} />
           <Stack.Screen name="TeacherMarksEntry" component={TeacherMarksEntryScreen} />
           <Stack.Screen name="TeacherHomeworkManagement" component={TeacherHomeworkManagementScreen} />
+          <Stack.Screen name="StudentRegistrationRequests" component={StudentRegistrationRequestsScreen} />
           <Stack.Screen name="TeacherLeaveRequest" component={TeacherLeaveRequestScreen} options={{ headerShown: false }} />
           <Stack.Screen name="TeacherLeaveApproval" component={TeacherLeaveApprovalScreen} options={{ headerShown: false }} />
           <Stack.Screen name="TeacherStudentList" component={TeacherStudentListScreen} options={{ headerShown: false }} />
