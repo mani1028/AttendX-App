@@ -14,5 +14,7 @@ export { default as PaymentEntryScreen } from './PaymentEntryScreen';
 export { default as SummaryCardsScreen } from './SummaryCardsScreen';
 export { default as TeacherLeaveScreen } from './TeacherLeaveScreen';
 export { default as PendingStudentsScreen } from './PendingStudentsScreen';
-export { default as CalendarManagementScreen } from './CalendarManagementScreen';
+export { default as CalendarManagementScreen } from './CalendarManagement';
 export { default as HMTeacherAssignmentsScreen } from './HMTeacherAssignmentsScreen';
+// src/screens/hm/index.ts
+export { default as CalendarManagement } from './CalendarManagement';

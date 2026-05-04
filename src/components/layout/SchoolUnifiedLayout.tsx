@@ -1,3 +1,5 @@
+// src/components/layout/SchoolUnifiedLayout.tsx
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
@@ -46,7 +48,7 @@ const MENU_CONFIG: Record<string, RoleConfig> = {
       { title: 'Schools', route: 'AdminDashboard', icon: '🏫' },
     ],
     pageTitles: {
-      '/admin-dashboard': 'School Dashboard',
+      'AdminDashboard': 'School Dashboard',
     },
   },
 
@@ -55,23 +57,23 @@ const MENU_CONFIG: Record<string, RoleConfig> = {
     roleDisplay: 'Accountant',
     menu: [
       { title: 'Overview', route: 'AccountantDashboard', icon: '📊' },
-      { title: 'Fees', route: 'FeeManagement', icon: '💰' },
-      { title: 'Collections', route: 'PaymentEntry', icon: '💳' },
-      { title: 'Expenses', route: 'Expense', icon: '📉' },
-      { title: 'Reports', route: 'Reports', icon: '📈' },
-      { title: 'Payroll', route: 'Payroll', icon: '👥' },
-      { title: 'Pending Dues', route: 'PendingStudents', icon: '⏰' },
-      { title: 'Settings', route: 'Settings', icon: '⚙️' },
+      { title: 'Fees', route: 'HMFeeManagement', icon: '💰' },
+      { title: 'Collections', route: 'AccountantPaymentEntry', icon: '💳' },
+      { title: 'Expenses', route: 'HMExpense', icon: '📉' },
+      { title: 'Reports', route: 'HMReports', icon: '📈' },
+      { title: 'Payroll', route: 'AccountantPayroll', icon: '👥' },
+      { title: 'Salaries', route: 'AccountantSalaries', icon: '💰' },
+      { title: 'Settings', route: 'AccountantSettings', icon: '⚙️' },
     ],
     pageTitles: {
-      '/accountant-dashboard': 'Finance Workspace - Overview',
-      '/accountant/fees': 'Fee Management',
-      '/accountant/collections': 'Collection Entry',
-      '/accountant/expenses': 'Expense Ledger',
-      '/accountant/reports': 'Reports & Trends',
-      '/accountant/payroll': 'Payroll Management',
-      '/accountant/pending': 'Pending Due Tracking',
-      '/accountant/settings': 'Fee Notifications',
+      'AccountantDashboard': 'Finance Workspace - Overview',
+      'HMFeeManagement': 'Fee Management',
+      'AccountantPaymentEntry': 'Collection Entry',
+      'HMExpense': 'Expense Ledger',
+      'HMReports': 'Reports & Trends',
+      'AccountantPayroll': 'Payroll Management',
+      'AccountantSalaries': 'Salaries Management',
+      'AccountantSettings': 'Fee Notifications',
     },
   },
 
@@ -81,12 +83,12 @@ const MENU_CONFIG: Record<string, RoleConfig> = {
     menu: [
       { title: 'Dashboard', route: 'PrincipalDashboard', icon: '📊' },
       { title: 'Branches', route: 'PrincipalDashboard', icon: '🏢' },
-      { title: 'Add Branch', route: 'PrincipalDashboard', icon: '➕' },
+      { title: 'Add Branch', route: 'PrincipalHMRegistration', icon: '➕' },
     ],
     pageTitles: {
-      '/principal-dashboard': 'Dashboard Overview',
-      '/principal/branches': 'Branches',
-      '/principal/add-branch': 'Add Branch',
+      'PrincipalDashboard': 'Dashboard Overview',
+      'PrincipalBranchDetails': 'Branches',
+      'PrincipalHMRegistration': 'Add Branch',
     },
   },
 
@@ -94,32 +96,30 @@ const MENU_CONFIG: Record<string, RoleConfig> = {
     label: 'HM Panel',
     roleDisplay: 'Head Master',
     menu: [
-    { title: 'Dashboard', route: 'HMDashboard', icon: '📊' },
-    { title: 'Staff', route: 'HMTeacherManagement', icon: '👨‍🏫' },
-    { title: 'Students', route: 'HMStudentManagement', icon: '👨‍🎓' },
-    { title: 'Attendance', route: 'HMAttendance', icon: '📅' },
-      { title: 'Calendar', route: 'HMAttendance', icon: '📆' },
-      { title: 'Teacher Leaves', route: 'TeacherLeaves', icon: '📋' },
-      { title: 'Exams', route: 'Exams', icon: '📝' },
-      { title: 'Data Export', route: 'DataExport', icon: '📎' },
-      { title: 'Teacher Assignments', route: 'TeacherAssignments', icon: '👥' },
-      { title: 'Announcements', route: 'Announcements', icon: '📢' },
+      { title: 'Dashboard', route: 'HMDashboard', icon: '📊' },
+      { title: 'Staff', route: 'HMTeacherManagement', icon: '👨‍🏫' },
+      { title: 'Students', route: 'HMStudentManagement', icon: '👨‍🎓' },
+      { title: 'Attendance', route: 'HMAttendance', icon: '📅' },
+      { title: 'Calendar', route: 'CalendarManagement', icon: '📆' },
+      { title: 'Teacher Leaves', route: 'TeacherLeaveApproval', icon: '📋' },
+      { title: 'Exams', route: 'HMExams', icon: '📝' },
+      { title: 'Teacher Assignments', route: 'TeacherAssignment', icon: '👥' },
+      { title: 'Announcements', route: 'HMAnnouncements', icon: '📢' },
       { title: 'Visitors', route: 'VisitorDashboard', icon: '👥' },
-      { title: 'Settings', route: 'Settings', icon: '⚙️' },
+      { title: 'Settings', route: 'HMSettings', icon: '⚙️' },
     ],
     pageTitles: {
-      '/hm-dashboard': 'HM Dashboard',
-      '/hm/teachers': 'Staff Management',
-      '/hm/students': 'Student Management',
-      '/hm/attendance': 'Attendance Records',
-      '/hm/calendar': 'Calendar Management',
-      '/hm/teacher-leaves': 'Teacher Leave Requests',
-      '/hm/settings': 'HM Settings',
-      '/hm/exams': 'Exam Management',
-      '/hm/data-export': 'Data Export',
-      '/hm/teacher-assignments': 'Teacher Assignments',
-      '/hm/announcements': 'Announcements Manager',
-      '/hm/visitors': 'Visitor Management',
+      'HMDashboard': 'HM Dashboard',
+      'HMTeacherManagement': 'Staff Management',
+      'HMStudentManagement': 'Student Management',
+      'HMAttendance': 'Attendance Records',
+      'CalendarManagement': 'Calendar Management',
+      'TeacherLeaveApproval': 'Teacher Leave Requests',
+      'HMExams': 'Exam Management',
+      'TeacherAssignment': 'Teacher Assignments',
+      'HMAnnouncements': 'Announcements Manager',
+      'VisitorDashboard': 'Visitor Management',
+      'HMSettings': 'HM Settings',
     },
   },
 
@@ -127,26 +127,32 @@ const MENU_CONFIG: Record<string, RoleConfig> = {
     label: 'Teacher Panel',
     roleDisplay: 'Teacher',
     menu: [
-      { title: 'Attendance Logs', route: 'TeacherAttendance', icon: '📋' },
-      { title: 'Student Enrollment', route: 'StudentRegistration', icon: '👨‍🎓' },
-      { title: 'Attendance Verification', route: 'TeacherAttendance', icon: '✅' },
-      { title: 'VitalScan AI', route: 'VitalScan', icon: '🔬' },
-      { title: 'Homework Management', route: 'HomeworkManagement', icon: '📚' },
-      { title: 'Leave Approval', route: 'LeaveApproval', icon: '📋' },
-      { title: 'Leave Request', route: 'LeaveRequest', icon: '📅' },
-      { title: 'Marks Entry', route: 'MarksEntry', icon: '📝' },
-      { title: 'Question Papers', route: 'QuestionPapers', icon: '📄' },
+      { title: 'Dashboard', route: 'TeacherDashboard', icon: '📊' },
+      { title: 'Attendance', route: 'TeacherAttendance', icon: '📋' },
+      { title: 'Attendance Verification', route: 'MarkAttendance', icon: '✅' },
+      { title: 'View Attendance', route: 'TeacherViewAttendance', icon: '👀' },
+      { title: 'VitalScan AI', route: 'TeacherVitalScan', icon: '🔬' },
+      { title: 'Skin Disease', route: 'TeacherSkinDisease', icon: '🩺' },
+      { title: 'Homework', route: 'TeacherHomeworkManagement', icon: '📚' },
+      { title: 'Leave Request', route: 'TeacherLeaveRequest', icon: '📅' },
+      { title: 'Leave Approval', route: 'TeacherLeaveApproval', icon: '📋' },
+      { title: 'Marks Entry', route: 'TeacherMarksEntry', icon: '📝' },
+      { title: 'Student List', route: 'TeacherStudentList', icon: '👨‍🎓' },
+      { title: 'Student Registration', route: 'StudentRegistrationRequests', icon: '📝' },
     ],
     pageTitles: {
-      '/teacher-dashboard': 'Attendance Logs',
-      '/teacher-dashboard/enroll': 'Student Enrollment',
-      '/teacher-dashboard/verify': 'Attendance Verification',
-      '/teacher-dashboard/vitalscan': 'VitalScan AI',
-      '/teacher-dashboard/homework-management': 'Homework Management',
-      '/teacher-dashboard/leave-approval': 'Leave Approval',
-      '/teacher-dashboard/leave': 'Leave Request',
-      '/teacher-dashboard/marks-entry': 'Marks Entry',
-      '/teacher-dashboard/question-papers': 'Question Papers',
+      'TeacherDashboard': 'Teacher Dashboard',
+      'TeacherAttendance': 'Attendance Logs',
+      'MarkAttendance': 'Mark Attendance',
+      'TeacherViewAttendance': 'View Attendance',
+      'TeacherVitalScan': 'VitalScan AI',
+      'TeacherSkinDisease': 'Skin Disease Detection',
+      'TeacherHomeworkManagement': 'Homework Management',
+      'TeacherLeaveRequest': 'Leave Request',
+      'TeacherLeaveApproval': 'Leave Approval',
+      'TeacherMarksEntry': 'Marks Entry',
+      'TeacherStudentList': 'Student List',
+      'StudentRegistrationRequests': 'Student Registration Requests',
     },
   },
 
@@ -154,25 +160,27 @@ const MENU_CONFIG: Record<string, RoleConfig> = {
     label: 'Student Panel',
     roleDisplay: 'Student',
     menu: [
+      { title: 'Dashboard', route: 'StudentDashboard', icon: '📊' },
       { title: 'Attendance', route: 'StudentAttendance', icon: '📅' },
       { title: 'Homework', route: 'StudentHomework', icon: '📚' },
       { title: 'Leave', route: 'StudentLeave', icon: '📋' },
       { title: 'Marks', route: 'StudentMarks', icon: '📝' },
-      { title: 'Fees & Payments', route: 'StudentFee', icon: '💰' },
+      { title: 'Fees', route: 'StudentFee', icon: '💰' },
       { title: 'Question Papers', route: 'StudentQuestionPapers', icon: '📄' },
     ],
     pageTitles: {
-      '/student-dashboard/attendance': 'Attendance Records',
-      '/student-dashboard/homework': 'Homework',
-      '/student-dashboard/leave': 'Leave Requests',
-      '/student-dashboard/marks': 'Marks & Results',
-      '/student-dashboard/fees': 'Fees & Payments',
-      '/student-dashboard/question-papers': 'Question Papers',
+      'StudentDashboard': 'Student Dashboard',
+      'StudentAttendance': 'Attendance Records',
+      'StudentHomework': 'Homework',
+      'StudentLeave': 'Leave Requests',
+      'StudentMarks': 'Marks & Results',
+      'StudentFee': 'Fees & Payments',
+      'StudentQuestionPapers': 'Question Papers',
     },
   },
 };
 
-// Theme colors (matches web version)
+// Theme colors
 const theme = {
   bg: '#020617',
   sidebar: '#050d1a',
@@ -201,7 +209,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   const navigation = useNavigation();
   const route = useRoute();
   
-  // Normalize role values coming from backend or storage (e.g. "class_teacher", "Class Teacher")
+  // Normalize role values
   const normalizeRole = (r: string) => {
     if (!r) return 'teacher';
     const v = String(r).trim().toLowerCase();
@@ -293,7 +301,6 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
             setProfilePhotoError(false);
           }
         } else {
-          // Backward compatibility for older cached installs.
           const photoUrl = await AsyncStorage.getItem('profile_photo_url');
           if (photoUrl) {
             setProfilePhotoUrl(photoUrl);
@@ -436,7 +443,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   // Filter menu items for non-class teachers
   const visibleMenuItems = (normalizedRole === 'teacher' && !isClassTeacher)
     ? config.menu.filter(item =>
-        ['Attendance Logs', 'Attendance Verification', 'Homework Management', 'Marks Entry', 'VitalScan AI', 'Question Papers'].includes(item.title)
+        ['Dashboard', 'Attendance', 'Attendance Verification', 'View Attendance', 'Homework', 'Leave Request', 'Marks Entry', 'VitalScan AI', 'Skin Disease'].includes(item.title)
       )
     : config.menu;
 
@@ -484,7 +491,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
 
       {/* Main Layout */}
       <View style={styles.layoutContainer}>
-        {/* Desktop Sidebar */}
+        {/* Desktop Sidebar - Only for web platform */}
         {Platform.OS === 'web' && (
           <View
             style={[
@@ -597,21 +604,18 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
                     </View>
                   ))}
                 </ScrollView>
-                  <TouchableOpacity
-                    style={styles.profileView}
-                    onPress={() => {
-                      setOpenProfile(false);
-                      // Navigate to global Profile screen
-                      // useNavigation is available in this component
-                      navigation.navigate('Profile' as never);
-                    }}
-                  >
-                    <Text style={styles.profileViewText}>View Profile</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.profileLogout} onPress={handleLogout}>
-                    <Text style={styles.profileLogoutText}>Sign Out</Text>
-                  </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.profileView}
+                  onPress={() => {
+                    setOpenProfile(false);
+                    navigation.navigate('Profile' as never);
+                  }}
+                >
+                  <Text style={styles.profileViewText}>View Profile</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.profileLogout} onPress={handleLogout}>
+                  <Text style={styles.profileLogoutText}>Sign Out</Text>
+                </TouchableOpacity>
               </View>
             </TouchableOpacity>
           )}

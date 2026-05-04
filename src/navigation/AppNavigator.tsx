@@ -71,6 +71,7 @@ import StudentLeaveScreen from '../screens/student/LeaveScreen';
 
 import StudentQuestionPapersScreen from '../screens/student/QuestionPapersScreen';
 
+// Add the import for CalendarManagement at the top with other HM imports
 import {
   HMDashboardScreen,
   AttendanceScreen as HMAttendanceScreen,
@@ -83,7 +84,8 @@ import {
   ExpenseScreen as HMExpenseScreen,
   PaymentEntryScreen as HMPaymentEntryScreen,
   SettingsScreen as HMSettingsScreen,
-  HMTeacherAssignmentsScreen
+  HMTeacherAssignmentsScreen,
+  CalendarManagement // Add this line
 } from '../screens/hm';
 import HMStudentRegistrationScreen from '../screens/teacher/StudentRegistrationScreen';
 import StudentAttendanceReportScreen from '../screens/hm/StudentAttendanceReport';
@@ -120,21 +122,21 @@ export type RootStackParamList = {
   ResetPassword: undefined;
   RegisterSchool: undefined;
   Pricing: undefined;
-  
+
   // Main Tabs
   MainTabs: undefined;
-  
+
   // Common
   Notifications: undefined;
   Loading: undefined;
 
   // Admin
-    Profile: undefined;
+  Profile: undefined;
   AdminDashboard: undefined;
   NotificationManager: undefined;
   SchoolDetails: undefined;
   AdminSettings: undefined;
-  
+
   // Teacher
   TeacherDashboard: undefined;
   TeacherAttendance: undefined;
@@ -147,7 +149,7 @@ export type RootStackParamList = {
   TeacherVitalScan: undefined;
   TeacherViewAttendance: undefined;
   MarkAttendance: undefined;
-  
+
   // Student
   StudentDashboard: undefined;
   StudentAttendance: undefined;
@@ -156,7 +158,8 @@ export type RootStackParamList = {
   StudentFee: undefined;
   StudentLeave: undefined;
   StudentQuestionPapers: undefined;
-  
+
+  // In the HM section of RootStackParamList (around line 120-130)
   // HM
   HMDashboard: undefined;
   HMAttendance: undefined;
@@ -171,12 +174,13 @@ export type RootStackParamList = {
   HMSettings: undefined;
   HMStudentRegistration: undefined;
   StudentAttendanceReport: { studentId: string; studentName: string };
+  CalendarManagement: undefined; // Add this line
 
   // Principal
   PrincipalDashboard: undefined;
   PrincipalBranchDetails: { branchId: string; branchName: string; hmName: string; hmEmail: string; branchStatus: string };
   PrincipalHMRegistration: undefined;
-  
+
   // Accountant
   AccountantDashboard: undefined;
   AccountantProfile: undefined;
@@ -187,12 +191,12 @@ export type RootStackParamList = {
   AccountantExpense: undefined;
   AccountantReports: undefined;
   AccountantSettings: undefined;
-  
+
   // Visitor
   VisitForm: { token: string };
   VisitSuccess: { visitor_no: string };
   VisitorDashboard: undefined;
-  
+
   // Public
   HMRegistrationPublic: { school_code: string; branch_id: string };
   StudentRegisterPublic: { school_code: string; branch_id: string };
@@ -280,8 +284,8 @@ const SalariesWrapper = React.memo(() => {
   useEffect(() => {
     const loadSchoolCode = async () => {
       const code = await AsyncStorage.getItem('school_code') ||
-                   await AsyncStorage.getItem('schoolCode') ||
-                   await AsyncStorage.getItem('school_id') || '';
+        await AsyncStorage.getItem('schoolCode') ||
+        await AsyncStorage.getItem('school_id') || '';
       setSchoolCode(code);
     };
     loadSchoolCode();
@@ -304,9 +308,9 @@ const TeacherTabNavigator = () => {
       <Tab.Screen name="Homework" component={TeacherHomeworkManagementScreen} />
       <Tab.Screen name="Scan" component={TeacherAttendanceScreen} />
       {/* Leaves tab: Show Leave Approval for Class Teachers, Leave Request for Subject Teachers */}
-      <Tab.Screen 
-        name="Leaves" 
-        component={TeacherLeavesWrapper} 
+      <Tab.Screen
+        name="Leaves"
+        component={TeacherLeavesWrapper}
       />
       <Tab.Screen name="Marks" component={TeacherMarksEntryScreen} />
     </Tab.Navigator>
@@ -352,17 +356,17 @@ const MainTabs = () => {
   const { userRole } = useAuth();
 
   switch (userRole?.toLowerCase()) {
-    case 'admin':      return <AdminTabNavigator />;
-    case 'principal':  return <PrincipalTabNavigator />;
-    case 'hm':         return <HMTabNavigator />;
-    case 'teacher':    return <TeacherTabNavigator />;
+    case 'admin': return <AdminTabNavigator />;
+    case 'principal': return <PrincipalTabNavigator />;
+    case 'hm': return <HMTabNavigator />;
+    case 'teacher': return <TeacherTabNavigator />;
     case 'class_teacher':
     case 'class teacher':
     case 'classteacher':
       return <TeacherTabNavigator />;
-    case 'student':    return <StudentTabNavigator />;
+    case 'student': return <StudentTabNavigator />;
     case 'accountant': return <AccountantTabNavigator />;
-    default:           return <StudentTabNavigator />;
+    default: return <StudentTabNavigator />;
   }
 };
 
@@ -391,12 +395,12 @@ export default function AppNavigator() {
           <Stack.Screen name="RegisterSchool" component={RegisterSchoolScreen} />
           <Stack.Screen name="Pricing" component={PricingScreen} />
           <Stack.Screen name="Loading" component={LoadingScreen} />
-          
+
           {/* Public Registration Routes */}
           <Stack.Screen name="HMRegistrationPublic" component={HMRegistrationPublicScreen} />
           <Stack.Screen name="StudentRegisterPublic" component={StudentRegisterPublicScreen} />
           <Stack.Screen name="TeacherRegisterPublic" component={TeacherRegisterPublicScreen} />
-          
+
           {/* Visitor Routes (No Auth Required) */}
           <Stack.Screen name="VisitForm" component={VisitFormScreen} />
           <Stack.Screen name="VisitSuccess" component={VisitSuccessScreen} />
@@ -405,16 +409,17 @@ export default function AppNavigator() {
         // ─── Main Application Stack (Logged In) ────────────────────────────
         <>
           <Stack.Screen name="MainTabs" component={MainTabs} />
-          
+
           {/* Common Screens */}
-            <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
 
           {/* Admin Screens */}
           <Stack.Screen name="NotificationManager" component={NotificationManagerScreen} options={{ headerShown: false }} />
           <Stack.Screen name="SchoolDetails" component={SchoolDetailsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="AdminSettings" component={SettingsScreen} options={{ headerShown: false }} />
-          
+
+          {/* Teacher Screens */}
           {/* Teacher Screens */}
           <Stack.Screen name="TeacherDashboard" component={TeacherDashboardScreen} />
           <Stack.Screen name="TeacherAttendance" component={TeacherAttendanceScreen} />
@@ -428,15 +433,16 @@ export default function AppNavigator() {
           <Stack.Screen name="TeacherVitalScan" component={TeacherVitalScanScreen} options={{ headerShown: false }} />
           <Stack.Screen name="TeacherViewAttendance" component={TeacherViewAttendanceScreen} options={{ headerShown: false }} />
           <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} options={{ headerShown: false }} />
-          
           {/* Student Screens */}
           <Stack.Screen name="StudentAttendance" component={StudentAttendanceScreen} />
           <Stack.Screen name="StudentMarks" component={StudentMarksScreen} />
           <Stack.Screen name="StudentHomework" component={StudentHomeworkScreen} />
           <Stack.Screen name="StudentFee" component={StudentFeeScreen} />
+
           <Stack.Screen name="StudentLeave" component={StudentLeaveScreen} />
-          <Stack.Screen name="StudentQuestionPapers" component={StudentQuestionPapersScreen} options={{ headerShown: false }} />
-          
+          <Stack.Screen name="StudentQuestionPapers" component={StudentQuestionPapersScreen} options={{ headerShown: false }} />++9
+
+          {/* HM Screens */}
           {/* HM Screens */}
           <Stack.Screen name="HMDashboard" component={HMDashboardScreen} />
           <Stack.Screen name="HMAttendance" component={HMAttendanceScreen} />
@@ -451,12 +457,13 @@ export default function AppNavigator() {
           <Stack.Screen name="HMSettings" component={HMSettingsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="HMStudentRegistration" component={HMStudentRegistrationScreen} options={{ headerShown: false }} />
           <Stack.Screen name="StudentAttendanceReport" component={StudentAttendanceReportScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="CalendarManagement" component={CalendarManagement} options={{ headerShown: false }} /> {/* Add this line */}
 
           {/* Principal Screens */}
           <Stack.Screen name="PrincipalDashboard" component={PrincipalDashboardScreen} />
           <Stack.Screen name="PrincipalBranchDetails" component={PrincipalBranchDetailsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="PrincipalHMRegistration" component={PrincipalHMRegistrationScreen} options={{ headerShown: false }} />
-          
+
           {/* Accountant Screens */}
           <Stack.Screen name="AccountantDashboard" component={AccountantDashboardScreen} />
           <Stack.Screen name="AccountantProfile" component={AccountantProfileScreen} options={{ headerShown: false }} />
@@ -466,7 +473,7 @@ export default function AppNavigator() {
           <Stack.Screen name="AccountantExpense" component={HMExpenseScreen} options={{ headerShown: false }} />
           <Stack.Screen name="AccountantReports" component={HMReportsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="AccountantSettings" component={AccountantSettingsScreen} options={{ headerShown: false }} />
-          
+
           {/* Visitor Screens (Logged In) */}
           <Stack.Screen name="VisitorDashboard" component={VisitorDashboardScreen} options={{ headerShown: false }} />
         </>
