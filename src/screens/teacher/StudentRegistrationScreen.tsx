@@ -31,7 +31,8 @@ import {
   ChevronRight,
   PlusCircle,
   Calendar,
-  X
+  X,
+  Bell,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import API from '../../services/api';
@@ -332,7 +333,68 @@ export default function StudentRegistrationScreen() {
   const [showRollNumberModal, setShowRollNumberModal] = useState<boolean>(false);
   const [generatedRollNumber, setGeneratedRollNumber] = useState<string>('');
   
+  // NEW: Request count state
+  const [requestCount, setRequestCount] = useState<number>(0);
+  
   const isMounted = useRef(true);
+
+  // NEW: Fetch request count function
+  const fetchRequestCount = async () => {
+    try {
+      const sc = safeTrim(loggedSchoolCode);
+      const bid = safeTrim(defaultBranchId);
+
+      if (!sc || !bid) return;
+
+      const res = await API.get('/teacher/student-registration-requests', {
+        headers: {
+          'X-School-Code': sc,
+          'X-Branch-Id': bid,
+        },
+      });
+
+      if (isMounted.current) {
+        setRequestCount(res.data?.count || res.data?.requests?.length || 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch student requests:', err);
+    }
+  };
+
+  // Load credentials and fetch request count
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const code = await getSchoolCode();
+        const branch = await getBranchId();
+
+        if (!isMounted.current) return;
+
+        if (!code || !branch) {
+          setServerError('Session expired. Please login again.');
+          return;
+        }
+        setLoggedSchoolCode(code);
+        setDefaultBranchId(branch);
+        setForm(prev => ({ ...prev, branch_id: branch }));
+        
+        // Fetch request count after credentials are loaded
+        await fetchRequestCount();
+      } catch (err) {
+        if (isMounted.current) {
+          setServerError('Failed to load session info.');
+        }
+      }
+    };
+    load();
+  }, []);
+
+  // Re-fetch request count when schoolCode or branchId changes
+  useEffect(() => {
+    if (loggedSchoolCode && defaultBranchId) {
+      fetchRequestCount();
+    }
+  }, [loggedSchoolCode, defaultBranchId]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -364,31 +426,6 @@ export default function StudentRegistrationScreen() {
   
   // Camera/Image
   const [showImagePicker, setShowImagePicker] = useState<boolean>(false);
-
-  // Load credentials
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const code = await getSchoolCode();
-        const branch = await getBranchId();
-
-        if (!isMounted.current) return;
-
-        if (!code || !branch) {
-          setServerError('Session expired. Please login again.');
-          return;
-        }
-        setLoggedSchoolCode(code);
-        setDefaultBranchId(branch);
-        setForm(prev => ({ ...prev, branch_id: branch }));
-      } catch (err) {
-        if (isMounted.current) {
-          setServerError('Failed to load session info.');
-        }
-      }
-    };
-    load();
-  }, []);
 
   // Load classes
   useEffect(() => {
@@ -676,6 +713,11 @@ export default function StudentRegistrationScreen() {
     ]);
   };
 
+  // NEW: Navigate to requests page
+  const handleViewRequests = () => {
+    navigation.navigate('StudentRegistrationRequests' as never);
+  };
+
   const submit = async () => {
     const errs = validateStep();
     if (Object.keys(errs).length > 0) {
@@ -791,6 +833,8 @@ export default function StudentRegistrationScreen() {
           nationality: 'Indian',
           branch_id: branch,
         });
+        // Refresh request count after successful registration
+        fetchRequestCount();
       }, 3000);
     } catch (err: any) {
       if (isMounted.current) {
@@ -845,11 +889,20 @@ export default function StudentRegistrationScreen() {
             <View style={styles.headerTitleContainer}>
               <AppText weight="bold" style={styles.heroTitle}>Registration</AppText>
             </View>
+            
+            {/* NEW: Request Button with Badge */}
             <TouchableOpacity
               style={styles.iconButton}
-              onPress={copyRegistrationLink}
+              onPress={handleViewRequests}
             >
-              <Copy size={20} color="#FFFFFF" />
+              <Bell size={20} color="#FFFFFF" />
+              {requestCount > 0 && (
+                <View style={styles.requestBadge}>
+                  <AppText weight="bold" style={styles.requestBadgeText}>
+                    {requestCount > 9 ? '9+' : requestCount}
+                  </AppText>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -1666,6 +1719,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   headerTitleContainer: {
     flex: 1,
@@ -1893,6 +1947,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#EF4444',
     marginTop: 4,
+  },
+  // NEW: Request Badge styles
+  requestBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  requestBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
   },
   passwordStrength: {
     marginTop: 10,
