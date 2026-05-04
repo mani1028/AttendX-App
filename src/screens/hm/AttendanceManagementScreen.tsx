@@ -35,8 +35,8 @@ import {
   X,
   Home,
   Award,
-  LogOut,
   Settings,
+  GraduationCap,
 } from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
@@ -160,23 +160,22 @@ const AttendanceItem: React.FC<{
       <View style={[styles.itemAvatar, { backgroundColor: C.primary }]}>
         <AppText style={styles.itemAvatarText} weight="bold">{avatar}</AppText>
       </View>
-      
+
       <View style={styles.itemContent}>
         <View>
           <AppText style={styles.itemId} weight="semiBold">{id}</AppText>
           <AppText style={styles.itemTitle} weight="bold">{title}</AppText>
           <AppText style={styles.itemSubtitle}>{subtitle}</AppText>
+
+          <View style={[styles.statusChip, { backgroundColor: getStatusColor() + '20' }]}>
+            <AppText style={[styles.statusChipText, { color: getStatusColor() }]} weight="bold">
+              {statusText}
+            </AppText>
+          </View>
         </View>
       </View>
 
-      <View style={styles.itemRight}>
-        <View style={[styles.statusPill, { backgroundColor: getStatusColor() + '20' }]}>
-          <AppText style={[styles.statusPillText, { color: getStatusColor() }]} weight="bold">
-            {statusText}
-          </AppText>
-        </View>
-        <ChevronRight size={20} color={C.text2} />
-      </View>
+      <ChevronRight size={20} color={C.text2} />
     </TouchableOpacity>
   );
 };
@@ -191,6 +190,7 @@ const StatCard: React.FC<{
 }> = ({ label, percentage, presentEq, halfDayEq, isActive }) => {
   return (
     <AppCard style={[styles.statCard, isActive && styles.statCardActive]}>
+      <View style={[styles.statAccent, isActive && styles.statAccentActive]} />
       <AppText style={[styles.statLabel, isActive && styles.statLabelActive]} weight="bold">
         {label}
       </AppText>
@@ -230,6 +230,7 @@ export default function AttendanceManagementScreen() {
   const [selectedClass, setSelectedClass] = useState<ClassItem | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
+  const [showClassModal, setShowClassModal] = useState(false);
   
   const [statement, setStatement] = useState<AttendanceStatement | null>(null);
   const [stmtScope, setStmtScope] = useState<'weekly' | 'monthly'>('weekly');
@@ -577,37 +578,50 @@ export default function AttendanceManagementScreen() {
         {/* Student List */}
         {view === 'students' && (
           <>
-            {/* Class Selector */}
+            {/* Class Selector as two picker controls + modal */}
             {classItems.length > 0 && (
-              <View style={styles.classSelector}>
-                <AppText style={styles.classSelectorLabel} weight="bold">Classes & Sections</AppText>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.classScroll}>
-                  {classItems.map(classItem => (
-                    <TouchableOpacity
-                      key={`${classItem.class_grade}-${classItem.section}`}
-                      style={[
-                        styles.classOption,
-                        selectedClass?.class_grade === classItem.class_grade &&
-                        selectedClass?.section === classItem.section &&
-                        styles.classOptionActive
-                      ]}
-                      onPress={() => setSelectedClass(classItem)}
-                    >
-                      <AppText
-                        style={[
-                          styles.classOptionText,
-                          selectedClass?.class_grade === classItem.class_grade &&
-                          selectedClass?.section === classItem.section &&
-                          styles.classOptionTextActive
-                        ]}
-                        weight="bold"
-                      >
-                        Class {classItem.class_grade} - {classItem.section}
-                      </AppText>
+              <>
+                <View style={styles.classSelectorRow}>
+                  <View style={styles.pickerControl}>
+                    <AppText style={styles.controlLabelSmall}>Class</AppText>
+                    <TouchableOpacity style={styles.pickerInput} onPress={() => setShowClassModal(true)}>
+                      <AppText style={styles.pickerValue}>Class {selectedClass?.class_grade || '-'}</AppText>
                     </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
+                  </View>
+
+                  <View style={[styles.pickerControl, { marginLeft: 12 }]}> 
+                    <AppText style={styles.controlLabelSmall}>Section</AppText>
+                    <TouchableOpacity style={styles.pickerInput} onPress={() => setShowClassModal(true)}>
+                      <AppText style={styles.pickerValue}>{selectedClass?.section || '-'}</AppText>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <Modal visible={showClassModal} animationType="slide" transparent>
+                  <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                      <AppText style={styles.modalTitle} weight="bold">Select class & section</AppText>
+                      <ScrollView>
+                        {classItems.map(ci => (
+                          <TouchableOpacity
+                            key={`${ci.class_grade}-${ci.section}`}
+                            style={[styles.modalItem, selectedClass?.class_grade === ci.class_grade && selectedClass?.section === ci.section && styles.modalItemActive]}
+                            onPress={() => {
+                              setSelectedClass(ci);
+                              setShowClassModal(false);
+                            }}
+                          >
+                            <AppText style={styles.modalItemText}>Class {ci.class_grade} - {ci.section}</AppText>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                      <TouchableOpacity style={styles.modalClose} onPress={() => setShowClassModal(false)}>
+                        <AppText style={styles.modalCloseText}>Close</AppText>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </Modal>
+              </>
             )}
 
             {loadingStudents ? (
@@ -636,27 +650,43 @@ export default function AttendanceManagementScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Footer Tabs */}
-      <View style={[styles.footerTabs, { paddingBottom: insets.bottom }]}>
+      {/* Footer Tabs - HM Portal style */}
+      <View style={[styles.footerTabs, { paddingBottom: Math.max(insets.bottom, 8) }]}> 
         <TouchableOpacity style={styles.footerTab} onPress={() => navigation.navigate('HMDashboard' as never)}>
-          <Home size={22} color={C.text2} />
-          <AppText style={styles.footerTabText} weight="semiBold">Home</AppText>
+          <View style={[styles.footerIconWrap, route.name === 'HMDashboard' && styles.footerIconWrapActive]}>
+            <Home size={22} color={route.name === 'HMDashboard' ? '#0B4CF6' : '#8a96a6'} />
+          </View>
+          <AppText style={[styles.footerTabText, route.name === 'HMDashboard' && styles.footerTabTextActive]} weight="semiBold">Home</AppText>
         </TouchableOpacity>
+
         <TouchableOpacity style={styles.footerTab} onPress={() => navigation.navigate('TeacherManagement' as never)}>
-          <Users size={22} color={C.text2} />
-          <AppText style={styles.footerTabText} weight="semiBold">Staff</AppText>
+          <View style={[styles.footerIconWrap, route.name === 'TeacherManagement' && styles.footerIconWrapActive]}>
+            <Users size={22} color={route.name === 'TeacherManagement' ? '#0B4CF6' : '#8a96a6'} />
+          </View>
+          <AppText style={[styles.footerTabText, route.name === 'TeacherManagement' && styles.footerTabTextActive]} weight="semiBold">Staff</AppText>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.footerTab, styles.footerTabActive]}>
-          <Award size={22} color={C.primary} />
-          <AppText style={[styles.footerTabText, styles.footerTabTextActive]} weight="semiBold">Assignment</AppText>
-        </TouchableOpacity>
+
+        <View style={styles.footerCenterSlot}>
+          <TouchableOpacity style={styles.footerFab} onPress={() => navigation.navigate('TeacherAssignment' as never)} activeOpacity={0.85}>
+            <View style={styles.footerFabInner}>
+              <GraduationCap size={20} color="#fff" />
+            </View>
+          </TouchableOpacity>
+          <AppText style={styles.footerCenterLabel} weight="semiBold">Teacher{"\n"}Assignment</AppText>
+        </View>
+
         <TouchableOpacity style={styles.footerTab} onPress={() => navigation.navigate('StudentManagement' as never)}>
-          <Users size={22} color={C.text2} />
-          <AppText style={styles.footerTabText} weight="semiBold">Students</AppText>
+          <View style={[styles.footerIconWrap, route.name === 'StudentManagement' && styles.footerIconWrapActive]}>
+            <GraduationCap size={22} color={route.name === 'StudentManagement' ? '#0B4CF6' : '#8a96a6'} />
+          </View>
+          <AppText style={[styles.footerTabText, route.name === 'StudentManagement' && styles.footerTabTextActive]} weight="semiBold">Students</AppText>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.footerTab} onPress={() => navigation.navigate('TeacherManagement' as never)}>
-          <LogOut size={22} color={C.text2} />
-          <AppText style={styles.footerTabText} weight="semiBold">Leave</AppText>
+
+        <TouchableOpacity style={styles.footerTab} onPress={() => navigation.navigate('Settings' as never)}>
+          <View style={[styles.footerIconWrap, route.name === 'Settings' && styles.footerIconWrapActive]}>
+            <Settings size={22} color={route.name === 'Settings' ? '#0B4CF6' : '#8a96a6'} />
+          </View>
+          <AppText style={[styles.footerTabText, route.name === 'Settings' && styles.footerTabTextActive]} weight="semiBold">Settings</AppText>
         </TouchableOpacity>
       </View>
     </View>
@@ -673,8 +703,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+    borderBottomWidth: 3,
+    borderBottomColor: C.primary,
   },
   backBtn: {
     padding: 8,
@@ -682,7 +714,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 20,
     flex: 1,
     textAlign: 'center',
   },
@@ -696,43 +728,65 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 100,
+    paddingTop: 18,
+    paddingBottom: 110,
   },
   pageHeader: {
-    marginBottom: 16,
+    marginBottom: 18,
   },
   pageTitle: {
-    fontSize: 24,
+    fontSize: 26,
     color: C.text,
-    marginBottom: 8,
+    marginBottom: 10,
+    letterSpacing: -0.2,
   },
   badge: {
     backgroundColor: C.primarySoft,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
     alignSelf: 'flex-start',
   },
   badgeText: {
     color: C.primary,
-    fontSize: 13,
+    fontSize: 12,
   },
   statsContainer: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 20,
+    marginBottom: 18,
   },
   statCard: {
     flex: 1,
     padding: 16,
     borderWidth: 1.5,
     borderColor: C.border,
-    borderRadius: 14,
+    borderRadius: 18,
+    backgroundColor: C.white,
+    overflow: 'hidden',
+    ...Platform.select({
+      android: { elevation: 3 },
+      ios: {
+        shadowColor: '#001F3F',
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 8 },
+      },
+    }),
   },
   statCardActive: {
     borderColor: C.primary,
     backgroundColor: C.primarySoft,
+  },
+  statAccent: {
+    height: 4,
+    width: '100%',
+    backgroundColor: 'transparent',
+    marginBottom: 12,
+    borderRadius: 999,
+  },
+  statAccentActive: {
+    backgroundColor: C.primary,
   },
   statLabel: {
     fontSize: 13,
@@ -743,7 +797,7 @@ const styles = StyleSheet.create({
     color: C.primary,
   },
   statValue: {
-    fontSize: 28,
+    fontSize: 30,
     color: C.text,
     marginBottom: 8,
   },
@@ -759,17 +813,32 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    marginBottom: 18,
+    backgroundColor: C.white,
+    borderRadius: 18,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: C.border,
+    ...Platform.select({
+      android: { elevation: 2 },
+      ios: {
+        shadowColor: '#001F3F',
+        shadowOpacity: 0.05,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 6 },
+      },
+    }),
   },
   tab: {
     flex: 1,
     paddingVertical: 12,
     alignItems: 'center',
     position: 'relative',
+    borderRadius: 14,
   },
-  tabActive: {},
+  tabActive: {
+    backgroundColor: 'rgba(31, 111, 235, 0.05)',
+  },
   tabText: {
     fontSize: 15,
     color: C.text2,
@@ -779,24 +848,41 @@ const styles = StyleSheet.create({
   },
   tabUnderline: {
     position: 'absolute',
-    bottom: -1,
-    left: 0,
-    right: 0,
-    height: 3,
+    bottom: 0,
+    left: 18,
+    right: 18,
+    height: 2.5,
     backgroundColor: C.primary,
+    borderRadius: 999,
   },
   filterContainer: {
     flexDirection: 'row',
     gap: 8,
     marginBottom: 16,
-  },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: C.primarySoft,
+    backgroundColor: C.white,
+    borderRadius: 18,
+    padding: 8,
     borderWidth: 1,
     borderColor: C.border,
+    ...Platform.select({
+      android: { elevation: 2 },
+      ios: {
+        shadowColor: '#001F3F',
+        shadowOpacity: 0.04,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 5 },
+      },
+    }),
+  },
+  filterChip: {
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: 'rgba(31, 111, 235, 0.08)',
+    borderWidth: 1,
+    borderColor: 'transparent',
+    alignItems: 'center',
   },
   filterChipActive: {
     backgroundColor: C.primary,
@@ -816,11 +902,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    height: 44,
+    height: 50,
     backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 12,
+    borderRadius: 16,
+    ...Platform.select({
+      android: { elevation: 1 },
+      ios: {
+        shadowColor: '#001F3F',
+        shadowOpacity: 0.04,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
   },
   searchInput: {
     flex: 1,
@@ -848,12 +943,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    height: 44,
+    height: 48,
     backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 10,
+    borderRadius: 14,
     gap: 8,
+    ...Platform.select({
+      android: { elevation: 1 },
+      ios: {
+        shadowColor: '#001F3F',
+        shadowOpacity: 0.04,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+      },
+    }),
   },
   dropdownControl: {
     justifyContent: 'space-between',
@@ -876,7 +980,7 @@ const styles = StyleSheet.create({
   classOption: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 999,
     backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.border,
@@ -901,22 +1005,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 14,
+    padding: 16,
     backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 12,
+    borderRadius: 18,
+    ...Platform.select({
+      android: { elevation: 2 },
+      ios: {
+        shadowColor: '#001F3F',
+        shadowOpacity: 0.05,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 6 },
+      },
+    }),
   },
   itemAvatar: {
-    width: 56,
-    height: 56,
+    width: 48,
+    height: 48,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   itemAvatarText: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 16,
   },
   itemContent: {
     flex: 1,
@@ -928,9 +1041,85 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   itemTitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: C.text,
     marginBottom: 4,
+  },
+  statusChip: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  statusChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  classSelectorRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  pickerControl: {
+    flex: 1,
+  },
+  controlLabelSmall: {
+    fontSize: 12,
+    color: C.text2,
+    marginBottom: 6,
+  },
+  pickerInput: {
+    height: 48,
+    paddingHorizontal: 12,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 14,
+    justifyContent: 'center',
+  },
+  pickerValue: {
+    fontSize: 14,
+    color: C.text,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: C.white,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '60%',
+    padding: 16,
+  },
+  modalTitle: {
+    fontSize: 16,
+    marginBottom: 12,
+    color: C.text,
+  },
+  modalItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  modalItemActive: {
+    backgroundColor: C.primarySoft,
+  },
+  modalItemText: {
+    fontSize: 14,
+    color: C.text,
+  },
+  modalClose: {
+    marginTop: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    color: C.primary,
+    fontSize: 15,
+    fontWeight: '600',
   },
   itemSubtitle: {
     fontSize: 12,
@@ -941,9 +1130,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   statusPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
   },
   statusPillText: {
     fontSize: 11,
@@ -990,27 +1179,90 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: C.white,
+    alignItems: 'flex-end',
+    backgroundColor: '#071834',
     borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingTop: 8,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 6,
+    ...Platform.select({
+      android: { elevation: 12 },
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: -4 },
+      },
+    }),
   },
   footerTab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    gap: 4,
+    paddingVertical: 2,
+    gap: 2,
   },
-  footerTabActive: {
-    backgroundColor: C.primarySoft,
+  footerIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  footerIconWrapActive: {
+    backgroundColor: 'rgba(11,76,246,0.14)',
   },
   footerTabText: {
-    fontSize: 11,
-    color: C.text2,
+    fontSize: 9,
+    color: '#8a96a6',
   },
   footerTabTextActive: {
-    color: C.primary,
+    color: '#0B4CF6',
+    fontSize: 10,
+  },
+  footerCenterSlot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingVertical: 2,
+  },
+  footerFab: {
+    position: 'absolute',
+    top: -26,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#0b2750',
+    borderWidth: 2,
+    borderColor: '#071834',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+      },
+      android: { elevation: 14 },
+    }),
+  },
+  footerFabInner: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0B4CF6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerCenterLabel: {
+    fontSize: 9,
+    color: '#8a96a6',
+    textAlign: 'center',
+    marginTop: 40,
+    lineHeight: 11,
   },
 });

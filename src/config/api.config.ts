@@ -3,13 +3,13 @@ import { Platform } from 'react-native';
 export const API_CONFIG = {
   // Development URLs
   dev: {
-    android: 'https://attendex-api.vshiftx.com',  // Android Emulator
-    ios: 'https://attendex-api.vshiftx.com',      // iOS Simulator
-    device: 'https://attendex-api.vshiftx.com',   // Physical device
+    android: 'https://test-portal-api.attendx.ai',  // Android Emulator
+    ios: 'https://test-portal-api.attendx.ai',      // iOS Simulator
+    device: 'https://test-portal-api.attendx.ai',   // Physical device
   },
   
   // Production URL
-  production: 'https://attendex-api.vshiftx.com/',
+  production: 'https://test-portal-api.attendx.ai/',
   
   // Timeout in milliseconds
   timeout: 30000,

@@ -1582,7 +1582,7 @@ export default function StudentRegistrationScreen() {
               title="Back"
               onPress={prevStep}
               disabled={step === 0 || loading}
-              type="secondary"
+              type="primary"
               style={styles.navBtn}
             />
             {isLastStep ? (

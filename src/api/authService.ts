@@ -70,11 +70,13 @@ async function postCleanJson<TResponse>(url: string, payload: unknown, headers: 
   }
 
   if (!response.ok) {
-    const error: any = new Error(`Request failed with status ${response.status}`);
+    const error: any = new Error(`Request failed with status ${response.status} for ${url}`);
     error.response = {
       status: response.status,
       data,
+      url,
     };
+    console.error('[authService] postCleanJson error', { status: response.status, url, data });
     throw error;
   }
 

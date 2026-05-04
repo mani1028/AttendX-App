@@ -354,15 +354,15 @@ export default function LeaveApprovalScreen() {
     setRefreshing(false);
   }, [loadRequests]);
 
-  const actOnLeave = async (leaveId: string, action: 'APPROVED' | 'REJECTED') => {
+  const actOnLeave = async (leaveId: string, action: 'APPROVE' | 'REJECTED') => {
     Alert.alert(
       'Confirm Action',
       `Are you sure you want to ${action.toLowerCase()} this leave request?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Confirm',
-          style: action === 'APPROVED' ? 'default' : 'destructive',
+          text: 'Approve',
+          style: action === 'APPROVE' ? 'default' : 'destructive',
           onPress: async () => {
             try {
               await API.put('/manage/teacher/leave-requests/action', {

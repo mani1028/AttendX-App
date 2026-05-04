@@ -40,6 +40,12 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       return apiMessage || 'Invalid school ID, username or password';
     }
 
+    if (status === 405) {
+      // Method not allowed - more likely a server routing/config issue
+      const url = error?.response?.url || error?.config?.url;
+      return `Server error: method not allowed when calling ${url || 'auth endpoint'}. Please verify API route and method.`;
+    }
+
     return apiMessage || error?.message || 'Login failed. Please try again.';
   };
 

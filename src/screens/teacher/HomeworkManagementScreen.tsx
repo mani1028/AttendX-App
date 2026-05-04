@@ -463,6 +463,7 @@ export default function HomeworkManagementScreen() {
   };
 
   const handleEdit = (item: HomeworkItem) => {
+    console.log('[Homework] handleEdit called for', item?.homework_id);
     setEditingId(item.homework_id);
     setForm({
       class_name: item.class_name || '',
