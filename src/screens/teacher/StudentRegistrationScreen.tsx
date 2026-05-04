@@ -805,7 +805,8 @@ export default function StudentRegistrationScreen() {
         formData.append(k, val);
       });
 
-      const res = await API.post('/student/register', formData, {
+      // Use teacher registration requests endpoint so teachers create a request
+      const res = await API.post('/teacher/student-registration-requests', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'X-School-Code': code,
@@ -817,25 +818,42 @@ export default function StudentRegistrationScreen() {
 
       if (!isMounted.current) return;
 
-      const assignedRollNumber = data?.roll_number || form.roll_number || '—';
-      setGeneratedRollNumber(assignedRollNumber);
-      setShowRollNumberModal(true);
+      // If backend returns an assigned roll number (some deployments may auto-create), show modal.
+      if (data?.roll_number) {
+        const assignedRollNumber = data.roll_number || form.roll_number || '—';
+        setGeneratedRollNumber(assignedRollNumber);
+        setShowRollNumberModal(true);
 
-      // Reset form after 3 seconds
-      setTimeout(() => {
-        if (!isMounted.current) return;
-        setStep(0);
-        setShowRollNumberModal(false);
-        setPhotoFile(null);
-        setPhotoPreview(null);
-        setForm({
-          ...INITIAL_FORM,
-          nationality: 'Indian',
-          branch_id: branch,
-        });
-        // Refresh request count after successful registration
-        fetchRequestCount();
-      }, 3000);
+        setTimeout(() => {
+          if (!isMounted.current) return;
+          setStep(0);
+          setShowRollNumberModal(false);
+          setPhotoFile(null);
+          setPhotoPreview(null);
+          setForm({
+            ...INITIAL_FORM,
+            nationality: 'Indian',
+            branch_id: branch,
+          });
+          fetchRequestCount();
+        }, 3000);
+      } else {
+        // Otherwise assume a registration request was created and inform the user.
+        setServerSuccess('Registration request submitted and will be reviewed by school admins.');
+        // Reset visible state and form after short delay
+        setTimeout(() => {
+          if (!isMounted.current) return;
+          setStep(0);
+          setPhotoFile(null);
+          setPhotoPreview(null);
+          setForm({
+            ...INITIAL_FORM,
+            nationality: 'Indian',
+            branch_id: branch,
+          });
+          fetchRequestCount();
+        }, 2000);
+      }
     } catch (err: any) {
       if (isMounted.current) {
         const data = err.response?.data;
@@ -882,7 +900,13 @@ export default function StudentRegistrationScreen() {
           <View style={styles.headerTop}>
             <TouchableOpacity
               style={styles.iconButton}
-              onPress={() => safeGoBack(navigation, 'TeacherDashboard')}
+              onPress={() => {
+                if (step > 0) {
+                  prevStep();
+                } else {
+                  safeGoBack(navigation, 'TeacherDashboard');
+                }
+              }}
             >
               <ChevronLeft size={24} color="#FFFFFF" />
             </TouchableOpacity>
