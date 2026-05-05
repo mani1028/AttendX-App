@@ -14,12 +14,13 @@ import {
   StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Animated,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import {
-  Bell,
   RefreshCw,
   Calendar,
   Users,
@@ -42,9 +43,8 @@ import {
   X,
   Search,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
 } from 'lucide-react-native';
-import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
 import AppButton from '../../components/common/AppButton';
@@ -139,7 +139,7 @@ const HealthBadge: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
-// KPI Card Component
+// KPI Card Component with animations
 const KpiCard: React.FC<{
   title: string;
   value: number;
@@ -149,75 +149,170 @@ const KpiCard: React.FC<{
   iconColor: string;
   badge: string;
   badgeUp: boolean;
+  cardStyle?: any;
   onPress?: () => void;
-}> = ({ title, value, sub, icon: Icon, iconBg, iconColor, badge, badgeUp, onPress }) => (
-  <TouchableOpacity style={styles.kpiCard} onPress={onPress} activeOpacity={0.8}>
-    <View style={styles.kpiHeader}>
-      <View style={[styles.kpiIcon, { backgroundColor: iconBg }]}>
-        <Icon size={20} color={iconColor} />
-      </View>
-      <View style={[styles.kpiBadge, badgeUp ? styles.kpiBadgeUp : styles.kpiBadgeDown]}>
-        <AppText style={styles.kpiBadgeText}>{badgeUp ? '▲' : '▼'} {badge}</AppText>
-      </View>
-    </View>
-    <AppText style={styles.kpiTitle}>{title}</AppText>
-    <AppText style={styles.kpiValue}>{value}</AppText>
-    <AppText style={styles.kpiSub}>{sub}</AppText>
-  </TouchableOpacity>
-);
+}> = ({ title, value, sub, icon: Icon, iconBg, iconColor, badge, badgeUp, cardStyle, onPress }) => {
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 40,
+        friction: 7,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [scaleAnim, opacityAnim]);
 
-// Branch Card Component
+  const handlePressIn = useRef(new Animated.Value(0)).current;
+  
+  const onPressIn = () => {
+    Animated.spring(handlePressIn, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 20,
+      bounciness: 4,
+    }).start();
+  };
+  
+  const onPressOut = () => {
+    Animated.spring(handlePressIn, {
+      toValue: 0,
+      useNativeDriver: true,
+      speed: 20,
+      bounciness: 4,
+    }).start();
+  };
+
+  return (
+    <Animated.View
+      style={[
+        styles.kpiCard,
+        cardStyle,
+        {
+          opacity: opacityAnim,
+          transform: [
+            { scale: scaleAnim },
+            {
+              scale: handlePressIn.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 0.95],
+              }),
+            },
+          ],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        activeOpacity={0.8}
+        style={{ flex: 1 }}
+      >
+        <View style={styles.kpiHeader}>
+          <View style={[styles.kpiIcon, { backgroundColor: iconBg }]}>
+            <Icon size={20} color={iconColor} />
+          </View>
+          <View style={[styles.kpiBadge, badgeUp ? styles.kpiBadgeUp : styles.kpiBadgeDown]}>
+            <AppText style={styles.kpiBadgeText}>{badgeUp ? '▲' : '▼'} {badge}</AppText>
+          </View>
+        </View>
+        <AppText style={styles.kpiTitle}>{title}</AppText>
+        <AppText style={styles.kpiValue}>{value}</AppText>
+        <AppText style={styles.kpiSub}>{sub}</AppText>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+// Branch Card Component with animations
 const BranchCard: React.FC<{ branch: Branch; onPress: () => void }> = ({ branch, onPress }) => {
   const health = getHealthMeta(branch.health_status);
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 40,
+        friction: 7,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [scaleAnim, opacityAnim]);
+
   return (
-    <TouchableOpacity style={styles.branchCard} onPress={onPress}>
-      <View style={styles.branchCardHeader}>
-        <View>
-          <AppText style={styles.branchName}>{branch.branch_name}</AppText>
-          <AppText style={styles.branchId}>ID: {branch.branch_id}</AppText>
+    <Animated.View
+      style={[
+        {
+          opacity: opacityAnim,
+          transform: [{ scale: scaleAnim }],
+        },
+      ]}
+    >
+      <TouchableOpacity style={styles.branchCard} onPress={onPress} activeOpacity={0.85}>
+        <View style={styles.branchCardHeader}>
+          <View>
+            <AppText style={styles.branchName}>{branch.branch_name}</AppText>
+            <AppText style={styles.branchId}>ID: {branch.branch_id}</AppText>
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+            <StatusBadge status={branch.branch_status} />
+            <HealthBadge status={branch.health_status} />
+          </View>
         </View>
-        <View style={{ alignItems: 'flex-end', gap: 4 }}>
-          <StatusBadge status={branch.branch_status} />
-          <HealthBadge status={branch.health_status} />
-        </View>
-      </View>
 
-      <View style={styles.branchInfoRow}>
-        <User size={14} color={colors.textMuted} />
-        <AppText style={styles.branchHm}>HM: {branch.hm_name || 'No HM'}</AppText>
-      </View>
-      <View style={styles.branchInfoRow}>
-        <Mail size={14} color={colors.textMuted} />
-        <AppText style={styles.branchEmail}>{branch.hm_email || 'No email'}</AppText>
-      </View>
+        <View style={styles.branchInfoRow}>
+          <User size={14} color={colors.textMuted} />
+          <AppText style={styles.branchHm}>HM: {branch.hm_name || 'No HM'}</AppText>
+        </View>
+        <View style={styles.branchInfoRow}>
+          <Mail size={14} color={colors.textMuted} />
+          <AppText style={styles.branchEmail}>{branch.hm_email || 'No email'}</AppText>
+        </View>
 
-      <View style={styles.branchStats}>
-        <View style={styles.branchStat}>
-          <AppText style={styles.branchStatValue}>{branch.teachers_count || 0}</AppText>
-          <AppText style={styles.branchStatLabel}>Teachers</AppText>
+        <View style={styles.branchStats}>
+          <View style={styles.branchStat}>
+            <AppText style={styles.branchStatValue}>{branch.teachers_count || 0}</AppText>
+            <AppText style={styles.branchStatLabel}>Teachers</AppText>
+          </View>
+          <View style={styles.branchStat}>
+            <AppText style={styles.branchStatValue}>{branch.students_count || 0}</AppText>
+            <AppText style={styles.branchStatLabel}>Students</AppText>
+          </View>
+          <View style={styles.branchStat}>
+            <AppText style={styles.branchStatValue}>{branch.classes_count || 0}</AppText>
+            <AppText style={styles.branchStatLabel}>Classes</AppText>
+          </View>
+          <View style={styles.branchStat}>
+            <AppText style={styles.branchStatValue}>{branch.sections_count || 0}</AppText>
+            <AppText style={styles.branchStatLabel}>Sections</AppText>
+          </View>
         </View>
-        <View style={styles.branchStat}>
-          <AppText style={styles.branchStatValue}>{branch.students_count || 0}</AppText>
-          <AppText style={styles.branchStatLabel}>Students</AppText>
-        </View>
-        <View style={styles.branchStat}>
-          <AppText style={styles.branchStatValue}>{branch.classes_count || 0}</AppText>
-          <AppText style={styles.branchStatLabel}>Classes</AppText>
-        </View>
-        <View style={styles.branchStat}>
-          <AppText style={styles.branchStatValue}>{branch.sections_count || 0}</AppText>
-          <AppText style={styles.branchStatLabel}>Sections</AppText>
-        </View>
-      </View>
 
-      <View style={styles.branchFooter}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <FileText size={14} color={colors.textMuted} />
-          <AppText style={styles.branchPendingLeaves}>Leaves: {branch.pending_leave_requests || 0}</AppText>
+        <View style={styles.branchFooter}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <FileText size={14} color={colors.textMuted} />
+            <AppText style={styles.branchPendingLeaves}>Leaves: {branch.pending_leave_requests || 0}</AppText>
+          </View>
+          <AppText style={styles.branchViewBtn}>View Details →</AppText>
         </View>
-        <AppText style={styles.branchViewBtn}>View Details →</AppText>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Animated.View>
   );
 };
 
@@ -305,7 +400,7 @@ const BranchRow: React.FC<{
   );
 };
 
-// Pass/Fail Bar Chart Component
+// Pass/Fail Bar Chart Component with animations
 const PassFailChart: React.FC<{ data: MarksSummary[]; isAllBranches: boolean }> = ({ data, isAllBranches }) => {
   if (!data || data.length === 0) {
     return (
@@ -316,7 +411,29 @@ const PassFailChart: React.FC<{ data: MarksSummary[]; isAllBranches: boolean }> 
   }
 
   const maxTotal = Math.max(...data.map(d => (d.passed || 0) + (d.failed || 0)), 1);
-  const maxHeight = 150;
+  const maxHeight = 160;
+
+  const AnimatedChartBar: React.FC<{ percentage: number; color: string; delay: number }> = ({ percentage, color, delay }) => {
+    const heightAnim = useRef(new Animated.Value(0)).current;
+    
+    useEffect(() => {
+      Animated.timing(heightAnim, {
+        toValue: Math.max(percentage * maxHeight, 2),
+        duration: 800,
+        delay: delay * 100,
+        useNativeDriver: false,
+      }).start();
+    }, [delay, heightAnim]);
+
+    return (
+      <Animated.View
+        style={[
+          styles.chartBarPassed,
+          { height: heightAnim, backgroundColor: color },
+        ]}
+      />
+    );
+  };
 
   return (
     <View>
@@ -334,16 +451,16 @@ const PassFailChart: React.FC<{ data: MarksSummary[]; isAllBranches: boolean }> 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.chartContainer}>
           {data.map((item, idx) => {
-            const passedHeight = ((item.passed || 0) / maxTotal) * maxHeight;
-            const failedHeight = ((item.failed || 0) / maxTotal) * maxHeight;
+            const passedHeight = ((item.passed || 0) / maxTotal);
+            const failedHeight = ((item.failed || 0) / maxTotal);
             const total = (item.passed || 0) + (item.failed || 0);
             const passRate = total > 0 ? Math.round((item.passed / total) * 100) : 0;
 
             return (
               <View key={idx} style={styles.chartBarGroup}>
                 <View style={styles.chartBars}>
-                  <View style={[styles.chartBarPassed, { height: Math.max(passedHeight, 2) }]} />
-                  <View style={[styles.chartBarFailed, { height: Math.max(failedHeight, 2) }]} />
+                  <AnimatedChartBar percentage={passedHeight} color="#10b981" delay={idx * 1.5} />
+                  <AnimatedChartBar percentage={failedHeight} color="#ef4444" delay={idx * 1.5 + 0.8} />
                 </View>
                 <AppText style={styles.chartLabel}>
                   {isAllBranches 
@@ -406,11 +523,18 @@ const HMRegistrationModal: React.FC<{
 
 export default function PrincipalDashboardScreen() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName, setTabBarVisible } = useAuth();
   const route = useRoute();
   const overviewRef = useRef<ScrollView>(null);
   const lastScrollY = useRef(0);
+
+  // Animation refs
+  const welcomeOpacityAnim = useRef(new Animated.Value(0)).current;
+  const welcomeTranslateAnim = useRef(new Animated.Value(20)).current;
+  const topBarOpacityAnim = useRef(new Animated.Value(0)).current;
+  const topBarTranslateAnim = useRef(new Animated.Value(20)).current;
 
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [stats, setStats] = useState<Stats>({
@@ -430,11 +554,43 @@ export default function PrincipalDashboardScreen() {
   const [view, setView] = useState<'dashboard' | 'branches' | 'addhm'>('dashboard');
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const { unreadCount, refreshUnreadCount } = useUnreadNotifications();
   const isMounted = useRef(true);
 
   useEffect(() => {
     isMounted.current = true;
+    
+    // Animate welcome section
+    Animated.parallel([
+      Animated.timing(welcomeOpacityAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(welcomeTranslateAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 40,
+        friction: 8,
+      }),
+    ]).start();
+
+    // Animate top bar with delay
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(topBarOpacityAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.spring(topBarTranslateAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 40,
+          friction: 8,
+        }),
+      ]).start();
+    }, 100);
+
     return () => {
       isMounted.current = false;
     };
@@ -448,6 +604,11 @@ export default function PrincipalDashboardScreen() {
   const [marksSummary, setMarksSummary] = useState<MarksSummary[]>([]);
   const [marksSummaryLoading, setMarksSummaryLoading] = useState<boolean>(false);
   const [showRegistrationModal, setShowRegistrationModal] = useState<boolean>(false);
+  const responsiveKpiCardStyle = useMemo(() => {
+    if (width < 380) return { minWidth: '46%' };
+    if (width < 460) return { minWidth: '31%' };
+    return { minWidth: '30%' };
+  }, [width]);
   
   // Edit states
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -457,15 +618,29 @@ export default function PrincipalDashboardScreen() {
   const [branchViewSearchTerm, setBranchViewSearchTerm] = useState<string>('');
   const [branchViewPage, setBranchViewPage] = useState<number>(1);
 
+  // Principal details for profile card
+  const [principalEmail, setPrincipalEmail] = useState<string>('');
+  const [principalPhone, setPrincipalPhone] = useState<string>('');
+
   const ROWS_PER_PAGE = 7;
   const BRANCH_CARDS_PER_PAGE = 6;
 
-  // Load school code
+  // Load school code and principal details
   useEffect(() => {
     const load = async () => {
       const code = await getSchoolCode();
       if (isMounted.current) {
         setSchoolCode(code);
+      }
+      try {
+        const email = await AsyncStorage.getItem('email') || '';
+        const phone = await AsyncStorage.getItem('phone') || '';
+        if (isMounted.current) {
+          setPrincipalEmail(email);
+          setPrincipalPhone(phone);
+        }
+      } catch (err) {
+        console.log('Error loading principal details:', err);
       }
     };
     load();
@@ -473,6 +648,8 @@ export default function PrincipalDashboardScreen() {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
   }, []);
+
+
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
@@ -491,7 +668,6 @@ export default function PrincipalDashboardScreen() {
     if (!schoolCode) return;
     setLoading(true);
     try {
-      refreshUnreadCount();
       const res = await API.get('/principal/dashboard/overview', {
         headers: { 'x-school-code': schoolCode },
       });
@@ -831,33 +1007,27 @@ export default function PrincipalDashboardScreen() {
     return 'Evening';
   };
 
+
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
-      {/* Fixed Navy Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
-        <View style={{ width: 40 }} />
-        <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>Principal Portal</AppText>
-        </View>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
-            <Bell size={20} color="#fff" />
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
-              </View>
-            )}
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 12, paddingBottom: 20 }]}>
+        <View style={styles.heroHeaderRow}>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
+            <AvatarBubble
+              displayName={userName || 'Principal'}
+              size={66}
+              textSize={23}
+              primaryColor="#2f80ed"
+              primaryGlowColor="rgba(47,128,237,0.35)"
+            />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.refreshIconBtn}
-            onPress={onRefresh}
-            disabled={loading || refreshing}
-          >
-            <RefreshCw size={20} color="#fff" />
-          </TouchableOpacity>
+          <View style={styles.heroHeaderSpacer} />
         </View>
+        <AppText style={styles.heroTitle}>Hello Principal 👋</AppText>
+        <AppText style={styles.heroSub}>Here&apos;s what&apos;s happening today.</AppText>
       </View>
 
       <ScrollView
@@ -868,70 +1038,49 @@ export default function PrincipalDashboardScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
 
-        {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <View>
-            <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Principal'}!</AppText>
-            <AppText style={styles.welcomeSub}>Complete school-wide branch health and operational status.</AppText>
-          </View>
-          <View style={styles.dateBadge}>
-            <Calendar size={12} color={colors.textMuted} />
-            <AppText style={styles.dateText}>
-              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </AppText>
-          </View>
-        </View>
-
-        {/* Top Bar */}
-        <View style={styles.topBar}>
-          <View style={styles.topBarLeft}>
-            <View style={styles.topBarIcon}>
-              {view === 'dashboard' ? (
-                <LayoutDashboard size={20} color={colors.accent} />
-              ) : view === 'branches' ? (
-                <Layers size={20} color={colors.accent} />
-              ) : (
-                <PlusCircle size={20} color={colors.accent} />
-              )}
-            </View>
-            <View>
-              <AppText style={styles.title}>
-                {view === 'dashboard'
-                  ? 'Main Principal Dashboard'
-                  : view === 'branches'
-                    ? 'Branches & HMs'
-                    : 'Register New HM'}
-              </AppText>
-              <AppText style={styles.subtitle}>Manage all data and complete sub-branch status</AppText>
-            </View>
-          </View>
-
-          <View style={styles.topBarRight}>
-            <View style={styles.branchSelector}>
-              <AppText style={styles.branchSelectorLabel}>Branch:</AppText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.branchChips}>
-                  <TouchableOpacity
-                    style={[styles.branchChip, selectedBranchId === 'ALL' && styles.branchChipActive]}
-                    onPress={() => setSelectedBranchId('ALL')}
-                  >
-                    <AppText style={[styles.branchChipText, selectedBranchId === 'ALL' && styles.branchChipTextActive]}>
-                      All Branches
-                    </AppText>
-                  </TouchableOpacity>
-                  {branches.map(b => (
-                    <TouchableOpacity
-                      key={b.branch_id}
-                      style={[styles.branchChip, selectedBranchId === b.branch_id && styles.branchChipActive]}
-                      onPress={() => setSelectedBranchId(b.branch_id)}
-                    >
-                      <AppText style={[styles.branchChipText, selectedBranchId === b.branch_id && styles.branchChipTextActive]}>
-                        {b.branch_id}
-                      </AppText>
-                    </TouchableOpacity>
-                  ))}
+        {/* Quick Access */}
+        <Animated.View
+          style={[
+            {
+              opacity: topBarOpacityAnim,
+              transform: [{ translateY: topBarTranslateAnim }],
+            },
+          ]}
+        >
+          <View style={styles.quickAccessPanel}>
+            <View style={styles.quickAccessHeaderRow}>
+              <View style={styles.quickAccessTitleRow}>
+                <View style={styles.topBarIcon}>
+                  {view === 'dashboard' ? (
+                    <LayoutDashboard size={18} color={colors.accent} />
+                  ) : view === 'branches' ? (
+                    <Layers size={18} color={colors.accent} />
+                  ) : (
+                    <PlusCircle size={18} color={colors.accent} />
+                  )}
                 </View>
-              </ScrollView>
+                <View style={styles.quickAccessTitleTextWrap}>
+                  <AppText style={styles.title}>Quick Access</AppText>
+                  <AppText style={styles.subtitle}>Jump straight to branch and HM actions</AppText>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.viewAllTextBtn} onPress={() => setView('branches')}>
+                <AppText style={styles.viewAllText}>View All</AppText>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.branchSelector}>
+              <AppText style={styles.branchSelectorLabel}>View Branch</AppText>
+              <TouchableOpacity
+                style={styles.branchSelectorField}
+                onPress={() => setSelectedBranchId('ALL')}
+                activeOpacity={0.85}
+              >
+                <AppText style={styles.branchSelectorValue} numberOfLines={1}>
+                  {selectedBranchId === 'ALL' ? 'All Branches' : selectedBranchId}
+                </AppText>
+                <ChevronRight size={16} color={colors.textMuted} style={{ transform: [{ rotate: '90deg' }] }} />
+              </TouchableOpacity>
             </View>
 
             <View style={styles.viewButtons}>
@@ -947,18 +1096,55 @@ export default function PrincipalDashboardScreen() {
                 </TouchableOpacity>
               ))}
               <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
-                <RefreshCw size={14} color={colors.textMuted} style={{ marginRight: 4 }} />
+                <RefreshCw size={14} color={colors.textMuted} />
                 <AppText style={styles.refreshBtnText}>Refresh</AppText>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </Animated.View>
 
         {loading && <ActivityIndicator size="large" color={colors.accent} style={styles.loader} />}
 
         {/* Dashboard View */}
         {view === 'dashboard' && (
           <>
+            <AppCard style={styles.profileSectionCard}>
+              <View style={styles.profileSectionHeader}>
+                <AvatarBubble
+                  displayName={userName || 'Principal'}
+                  size={48}
+                  textSize={18}
+                  primaryColor="#2f80ed"
+                  primaryGlowColor="rgba(47,128,237,0.2)"
+                />
+                <View style={styles.profileSectionContent}>
+                  <View style={styles.profileDetailRow}>
+                    <AppText style={styles.profileDetailLabel}>Name</AppText>
+                    <AppText style={styles.profileDetailValue}>{userName || 'Principal'}</AppText>
+                  </View>
+                  {principalPhone && (
+                    <View style={styles.profileDetailRow}>
+                      <AppText style={styles.profileDetailLabel}>Mobile</AppText>
+                      <AppText style={styles.profileDetailValue}>{principalPhone}</AppText>
+                    </View>
+                  )}
+                  {principalEmail && (
+                    <View style={styles.profileDetailRow}>
+                      <AppText style={styles.profileDetailLabel}>Email</AppText>
+                      <AppText style={styles.profileDetailValue}>{principalEmail}</AppText>
+                    </View>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={styles.profileSectionBtn}
+                  onPress={() => navigation.navigate('Profile')}
+                  activeOpacity={0.85}
+                >
+                  <AppText style={styles.profileSectionBtnText}>View</AppText>
+                </TouchableOpacity>
+              </View>
+            </AppCard>
+
             {/* KPI Cards */}
             <View style={styles.kpiGrid}>
               <KpiCard
@@ -970,6 +1156,7 @@ export default function PrincipalDashboardScreen() {
                 iconColor="#3b82f6"
                 badge="Live"
                 badgeUp={true}
+                cardStyle={responsiveKpiCardStyle}
                 onPress={handleKpiClick}
               />
               <KpiCard
@@ -981,6 +1168,7 @@ export default function PrincipalDashboardScreen() {
                 iconColor="#10b981"
                 badge="Live"
                 badgeUp={true}
+                cardStyle={responsiveKpiCardStyle}
                 onPress={handleKpiClick}
               />
               <KpiCard
@@ -992,6 +1180,7 @@ export default function PrincipalDashboardScreen() {
                 iconColor="#f97316"
                 badge="Live"
                 badgeUp={true}
+                cardStyle={responsiveKpiCardStyle}
                 onPress={handleKpiClick}
               />
               <KpiCard
@@ -1003,6 +1192,7 @@ export default function PrincipalDashboardScreen() {
                 iconColor="#10b981"
                 badge="Status"
                 badgeUp={true}
+                cardStyle={responsiveKpiCardStyle}
                 onPress={handleKpiClick}
               />
               <KpiCard
@@ -1014,6 +1204,7 @@ export default function PrincipalDashboardScreen() {
                 iconColor="#dc2626"
                 badge="Watch"
                 badgeUp={false}
+                cardStyle={responsiveKpiCardStyle}
                 onPress={handleKpiClick}
               />
               <KpiCard
@@ -1025,6 +1216,7 @@ export default function PrincipalDashboardScreen() {
                 iconColor="#ea580c"
                 badge="Pending"
                 badgeUp={false}
+                cardStyle={responsiveKpiCardStyle}
                 onPress={handleKpiClick}
               />
             </View>
@@ -1451,7 +1643,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   contentContainer: {
-    padding: 16,
+    padding: 18,
     paddingBottom: 40,
   },
   errorContainer: {
@@ -1475,52 +1667,118 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: 28,
+    paddingHorizontal: 6,
   },
   welcomeTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '900',
     color: colors.textPrimary,
+    letterSpacing: -0.3,
   },
   welcomeSub: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textMuted,
-    marginTop: 2,
+    marginTop: 6,
+    letterSpacing: 0.2,
   },
   dateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
+    gap: 8,
+    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(99, 102, 241, 0.15)',
   },
   dateText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   topBar: {
     backgroundColor: colors.surface,
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 20,
+    padding: 20,
     borderWidth: 1,
     borderColor: colors.border,
+    marginBottom: 28,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  heroHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 20,
+  },
+  heroAvatarWrap: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  heroHeaderSpacer: {
+    width: 42,
+    height: 42,
+  },
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#fff',
+    letterSpacing: -0.3,
+    marginBottom: 6,
+  },
+  heroSub: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 16,
+  },
+  heroStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  heroStatusChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  heroStatusText: {
+    color: '#dbeafe',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  heroRefreshBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   topBarLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    marginBottom: 16,
+    gap: 16,
+    marginBottom: 18,
   },
   topBarIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     backgroundColor: 'rgba(99, 102, 241, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1533,34 +1791,52 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: colors.textPrimary,
+    letterSpacing: -0.2,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 14,
     color: colors.textMuted,
-    marginTop: 2,
+    marginTop: 4,
+    letterSpacing: 0.1,
   },
   topBarRight: {
-    gap: 12,
+    gap: 14,
   },
   branchSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    marginBottom: 16,
   },
   branchSelectorLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textMuted,
+    marginBottom: 10,
+  },
+  branchSelectorField: {
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  branchSelectorValue: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textPrimary,
+    fontWeight: '600',
   },
   branchChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
   },
   branchChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 22,
     backgroundColor: colors.bg,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1570,22 +1846,24 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
   },
   branchChipText: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.textMuted,
   },
   branchChipTextActive: {
     color: '#fff',
+    fontWeight: '700',
   },
   viewButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
+    gap: 10,
+    marginTop: 12,
   },
   viewBtn: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -1602,129 +1880,276 @@ const styles = StyleSheet.create({
   viewBtnTextActive: {
     color: '#fff',
   },
+  viewAllTextBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  viewAllText: {
+    fontSize: 13,
+    color: colors.accent,
+    fontWeight: '700',
+  },
+  quickAccessHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 14,
+    flexWrap: 'wrap',
+  },
+  quickAccessTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    minWidth: 0,
+  },
+  quickAccessTitleTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  quickAccessPanel: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 20,
+    marginBottom: 28,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0f172a',
+        shadowOpacity: 0.08,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
   refreshBtn: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   refreshBtnText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textMuted,
   },
   loader: {
     marginVertical: 20,
   },
+  profileSectionCard: {
+    marginBottom: 28,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    padding: 18,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  profileSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  profileSectionContent: {
+    flex: 1,
+    gap: 8,
+  },
+  profileDetailRow: {
+    backgroundColor: 'rgba(99, 102, 241, 0.04)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  profileDetailLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.2,
+    marginBottom: 2,
+  },
+  profileDetailValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  profileSectionBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: colors.accent,
+  },
+  profileSectionBtnText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
-    marginBottom: 20,
+    marginTop: 0,
+    marginBottom: 28,
   },
   kpiCard: {
     flex: 1,
-    minWidth: '45%',
+    minWidth: '32%',
     backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 18,
+    padding: 18,
     borderWidth: 1,
     borderColor: colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   kpiHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   kpiIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  kpiIconText: {
-    fontSize: 19,
-  },
   kpiBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 20,
+    borderRadius: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
   },
   kpiBadgeUp: {
     backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.2)',
   },
   kpiBadgeDown: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
   },
   kpiBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.success,
+    color: colors.accent,
   },
   kpiTitle: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.textMuted,
-    textTransform: 'uppercase',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   kpiValue: {
     fontSize: 32,
     fontWeight: '900',
     color: colors.textPrimary,
-    marginBottom: 6,
+    marginBottom: 4,
+    letterSpacing: -0.5,
   },
   kpiSub: {
     fontSize: 12,
     color: colors.textMuted,
+    fontWeight: '500',
   },
   twoColumnGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 18,
-    marginBottom: 20,
+    gap: 16,
+    marginBottom: 28,
   },
   distributionCard: {
     flex: 1,
-    padding: 20,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   snapshotCard: {
     flex: 1,
-    padding: 20,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   cardTitle: {
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: '800',
     color: colors.textPrimary,
-    marginBottom: 16,
+    marginBottom: 20,
+    letterSpacing: -0.3,
   },
   barItem: {
-    marginBottom: 18,
+    marginBottom: 24,
   },
   barHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   barLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: colors.textMuted,
   },
   barValue: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   barTrack: {
-    height: 8,
+    height: 12,
     backgroundColor: colors.bg,
     borderRadius: 100,
     overflow: 'hidden',
@@ -1735,114 +2160,139 @@ const styles = StyleSheet.create({
   },
   donutContainer: {
     alignItems: 'center',
-    marginVertical: 16,
+    marginVertical: 24,
   },
   donut: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: 'rgba(99, 102, 241, 0.1)',
   },
   donutTotal: {
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: '900',
     color: colors.textPrimary,
+    letterSpacing: -0.5,
   },
   donutLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
-    marginTop: 4,
+    marginTop: 8,
   },
   legend: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 20,
-    marginTop: 16,
+    gap: 28,
+    marginTop: 20,
+    flexWrap: 'wrap',
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 10,
   },
   legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 3,
+    width: 12,
+    height: 12,
+    borderRadius: 4,
   },
   legendText: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.textMuted,
   },
   branchSnapshot: {
-    gap: 12,
+    gap: 16,
   },
   snapshotItem: {
     backgroundColor: colors.bg,
-    padding: 12,
+    padding: 16,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
   },
   snapshotLabel: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textMuted,
-    marginBottom: 4,
+    marginBottom: 8,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   snapshotValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '800',
     color: colors.textPrimary,
+    letterSpacing: -0.2,
   },
   snapshotItemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: colors.bg,
-    padding: 12,
+    padding: 16,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
   },
   snapshotDate: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
   },
   chartCard: {
-    padding: 20,
-    marginBottom: 20,
+    padding: 22,
+    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   chartHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   chartEmpty: {
-    padding: 32,
+    padding: 48,
     alignItems: 'center',
   },
   chartEmptyText: {
     textAlign: 'center',
     color: colors.textMuted,
-    fontSize: 13,
+    fontSize: 14,
+    lineHeight: 22,
   },
   chartContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 20,
-    paddingVertical: 20,
+    gap: 24,
+    paddingVertical: 28,
   },
   chartBarGroup: {
     alignItems: 'center',
-    width: 60,
+    width: 64,
   },
   chartBars: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 4,
-    height: 150,
+    gap: 6,
+    height: 160,
   },
   chartBarPassed: {
     width: 20,
@@ -1857,99 +2307,121 @@ const styles = StyleSheet.create({
     minHeight: 2,
   },
   chartLabel: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.textPrimary,
-    marginTop: 8,
+    marginTop: 12,
     textAlign: 'center',
   },
   chartPassRate: {
-    fontSize: 9,
+    fontSize: 11,
     color: colors.textMuted,
-    marginTop: 2,
+    marginTop: 4,
+    fontWeight: '600',
   },
   chartStatsList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 16,
+    gap: 10,
+    marginTop: 20,
   },
   chartStatItem: {
     backgroundColor: colors.bg,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.border,
   },
   chartStatLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.2,
   },
   chartStatValue: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textMuted,
   },
   overviewCard: {
-    padding: 20,
-    marginBottom: 20,
+    padding: 22,
+    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   overviewHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 16,
+    gap: 14,
+    marginBottom: 20,
   },
   overviewSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
-    marginTop: 4,
+    marginTop: 8,
+    lineHeight: 20,
   },
   statusChips: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
+    flexWrap: 'wrap',
   },
   statusChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
   },
   statusChipHealthy: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.2)',
+    borderColor: 'rgba(16, 185, 129, 0.25)',
   },
   statusChipAttention: {
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.2)',
+    borderColor: 'rgba(245, 158, 11, 0.25)',
   },
   statusChipInactive: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
+    borderColor: 'rgba(239, 68, 68, 0.25)',
   },
   statusChipText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.textMuted,
   },
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: colors.bg,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1.5,
     borderBottomColor: colors.border,
+    borderRadius: 8,
   },
   tableHeaderText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
     color: colors.textMuted,
     textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   colBranch: { width: '15%' },
   colHm: { width: '20%' },
@@ -1961,175 +2433,218 @@ const styles = StyleSheet.create({
   colAction: { width: '10%' },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    alignItems: 'center',
   },
   tableCell: {
     justifyContent: 'center',
   },
   branchNameCell: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: colors.textPrimary,
   },
   branchIdCell: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textMuted,
+    marginTop: 2,
   },
   hmNameCell: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: colors.textPrimary,
   },
   hmIdCell: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textMuted,
   },
   hmEmailCell: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textMuted,
   },
   numberCell: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     color: colors.textPrimary,
   },
   viewBranchBtn: {
     backgroundColor: colors.accent,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 10,
   },
   viewBranchBtnText: {
     color: '#fff',
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
   },
   branchContainersCard: {
-    padding: 20,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    marginBottom: 28,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   branchContainersHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 16,
+    gap: 16,
+    marginBottom: 20,
   },
   branchContainersActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
   },
   searchInput: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 13,
-    minWidth: 180,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    minWidth: 220,
     color: colors.textPrimary,
     backgroundColor: colors.bg,
+    fontWeight: '600',
   },
   viewAllBtn: {
     backgroundColor: colors.accent,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
   viewAllBtnText: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   showLessBtn: {
     backgroundColor: colors.bg,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
   },
   showLessBtnText: {
     color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   branchCardsGrid: {
     gap: 16,
   },
   branchCard: {
-    backgroundColor: colors.bg,
-    padding: 16,
+    backgroundColor: colors.surface,
+    padding: 18,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   branchCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   branchName: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '800',
     color: colors.textPrimary,
+    letterSpacing: -0.3,
   },
   branchId: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textMuted,
-    marginTop: 2,
+    marginTop: 4,
+    fontWeight: '600',
   },
   branchInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   branchHm: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textMuted,
+    fontWeight: '600',
   },
   branchEmail: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
   },
   branchStats: {
     flexDirection: 'row',
-    gap: 16,
-    marginVertical: 12,
+    gap: 12,
+    marginVertical: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   branchStat: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   branchStatValue: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '900',
     color: colors.textPrimary,
+    letterSpacing: -0.4,
   },
   branchStatLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: colors.textMuted,
+    marginTop: 4,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.2,
   },
   branchFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    marginTop: 14,
   },
   branchPendingLeaves: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
+    fontWeight: '600',
   },
   branchViewBtn: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.accent,
   },
   branchCardPagination: {
@@ -2137,16 +2652,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 18,
+    gap: 16,
+    marginTop: 24,
   },
   paginationInfo: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.textMuted,
   },
   paginationButtons: {
     flexDirection: 'row',
-    gap: 5,
+    gap: 8,
     alignItems: 'center',
   },
   pagination: {
@@ -2154,77 +2670,96 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
     gap: 8,
-    marginTop: 16,
+    marginTop: 20,
   },
   pageBtn: {
-    minWidth: 34,
-    height: 34,
-    borderRadius: 9,
+    minWidth: 40,
+    height: 40,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
   },
   pageBtnDisabled: {
-    opacity: 0.36,
+    opacity: 0.4,
   },
   pageBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.textMuted,
   },
   pageInfo: {
     fontSize: 13,
+    fontWeight: '700',
     color: colors.textMuted,
+    marginHorizontal: 12,
   },
   branchesViewCard: {
-    padding: 20,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   branchesViewHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 16,
+    gap: 16,
+    marginBottom: 20,
   },
   addBranchBtn: {
     backgroundColor: colors.accent,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
   addBranchBtnText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 14,
   },
   branchSearchInput: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13,
-    marginBottom: 16,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    marginBottom: 20,
     color: colors.textPrimary,
     backgroundColor: colors.bg,
+    fontWeight: '600',
   },
   branchesListHeader: {
     flexDirection: 'row',
     backgroundColor: colors.bg,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
     borderRadius: 12,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   branchesHeaderText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
     color: colors.textMuted,
     textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   colBranchId: { width: '10%' },
   colBranchName: { width: '15%' },
@@ -2237,83 +2772,88 @@ const styles = StyleSheet.create({
   branchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   branchRowId: {
     width: '10%',
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.accent,
   },
   branchRowCell: {
     width: '15%',
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   branchRowDate: {
     width: '12%',
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textMuted,
   },
   branchRowActions: {
     width: '11%',
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
   },
   editRowBtn: {
-    backgroundColor: 'rgba(37, 99, 235, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   editRowBtnText: {
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.accent,
   },
   deleteRowBtn: {
-    backgroundColor: 'rgba(220, 38, 38, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    backgroundColor: 'rgba(220, 38, 38, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   deleteRowBtnText: {
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.error,
   },
   viewRowBtn: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   viewRowBtnText: {
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.success,
   },
   editInput: {
     width: '15%',
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    fontSize: 12,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.textPrimary,
     backgroundColor: colors.bg,
   },
   editStatusContainer: {
     width: '10%',
     flexDirection: 'row',
-    gap: 4,
+    gap: 6,
   },
   editStatusBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     backgroundColor: colors.bg,
     borderWidth: 1,
     borderColor: colors.border,
@@ -2324,14 +2864,14 @@ const styles = StyleSheet.create({
   },
   editStatusText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textMuted,
   },
   editStatusTextActive: {
     color: '#fff',
   },
   saveBtn: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -2340,7 +2880,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   cancelBtn: {
-    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+    backgroundColor: 'rgba(220, 38, 38, 0.12)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -2350,19 +2890,21 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 20,
     alignSelf: 'flex-start',
   },
   statusActive: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
   },
   statusInactive: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
   },
   statusText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   statusTextActive: {
     color: colors.success,
@@ -2371,72 +2913,54 @@ const styles = StyleSheet.create({
     color: colors.error,
   },
   healthBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 1.2,
     marginTop: 4,
   },
   healthText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.2,
   },
   emptyContainer: {
-    padding: 40,
+    padding: 48,
     alignItems: 'center',
   },
   emptyText: {
     color: colors.textMuted,
     fontSize: 14,
+    fontWeight: '600',
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
+    backgroundColor: '#071f45',
     paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingBottom: 24,
   },
   headerTitleContainer: {
     flex: 1,
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '900',
     color: '#ffffff',
+    letterSpacing: -0.3,
   },
   headerIcons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   refreshIconBtn: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 18,
-  },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.error,
-    borderWidth: 1.5,
-    borderColor: '#001F3F',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 2,
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 8,
-    fontWeight: '800',
-    textAlign: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 20,
   },
   modalOverlay: {
     flex: 1,
@@ -2457,19 +2981,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 18,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textPrimary,
   },
   modalClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2483,17 +3007,19 @@ const styles = StyleSheet.create({
   },
   modalPlaceholder: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   modalNote: {
     fontSize: 13,
     color: colors.textMuted,
+    lineHeight: 20,
   },
   modalFooter: {
-    padding: 16,
+    padding: 18,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
+
 });

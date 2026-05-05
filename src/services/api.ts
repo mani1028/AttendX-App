@@ -113,13 +113,16 @@ API.interceptors.response.use(
     if (err.response) {
       // Handle 401 Unauthorized globally
       if (err.response.status === 401) {
+        // Allow callers to suppress global logout on specific requests
+        const suppress = Boolean((err.config as any)?.suppressLogoutOn401) || Boolean(err.config?.suppressLogoutOn401);
         // Skip global logout for login requests to allow LoginScreen to handle errors
         const isLoginRequest = err.config?.url?.includes('/login') || err.config?.url?.includes('/auth/login');
-        if (!isLoginRequest) {
+        if (!isLoginRequest && !suppress) {
           console.warn('[API] 401 Unauthorized detected. Emitting logout.');
           eventEmitter.emit('app-logout');
         } else {
-          console.log('[API] 401 Unauthorized on login request. Skipping global logout.');
+          if (isLoginRequest) console.log('[API] 401 Unauthorized on login request. Skipping global logout.');
+          if (suppress) console.log('[API] 401 Unauthorized suppressed by request config (suppressLogoutOn401).');
         }
       }
 

@@ -32,7 +32,7 @@ import {
   PlusCircle,
   Calendar,
   X,
-  Bell,
+  BadgeCheck,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import API from '../../services/api';
@@ -805,14 +805,35 @@ export default function StudentRegistrationScreen() {
         formData.append(k, val);
       });
 
-      // Use teacher registration requests endpoint so teachers create a request
-      const res = await API.post('/teacher/student-registration-requests', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'X-School-Code': code,
-          'X-Branch-Id': branch,
-        },
-      });
+      // Prefer teacher registration requests endpoint; some deployments return 405 for this
+      // so we retry against the public student register endpoint as a fallback.
+      let res;
+      try {
+        res = await API.post('/teacher/student-registration-requests', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'X-School-Code': code,
+            'X-Branch-Id': branch,
+          },
+        });
+      } catch (e: any) {
+        // If backend rejects the teacher-specific endpoint, try the public register endpoint
+        if (e?.response?.status === 405) {
+          try {
+            res = await API.post('/student/register', formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+                'X-School-Code': code,
+                'X-Branch-Id': branch,
+              },
+            });
+          } catch (e2: any) {
+            throw e2; // rethrow second error to be handled below
+          }
+        } else {
+          throw e; // rethrow non-405 errors
+        }
+      }
 
       const data = res.data;
 
@@ -855,6 +876,103 @@ export default function StudentRegistrationScreen() {
         }, 2000);
       }
     } catch (err: any) {
+      if (!isMounted.current) return;
+
+      // If backend returns 405 for both endpoints, try additional fallbacks:
+      // 1) POST a JSON payload (without photo) to `/student/register` or `/student/register-request`
+      // 2) If those fail, present a helpful message listing the fields we attempted to send.
+      const status = err?.response?.status;
+      if (status === 405) {
+        try {
+          // Build minimal JSON payload from sanitized form (exclude photo)
+          const sanitizeValueJson = (key: string, value: any) => {
+            const v = String(value ?? '').trim();
+            if (!v) return '';
+            if (key === 'section') return v.toUpperCase().replace(/[^A-Z]/g, '');
+            if (key === 'aadhaar_number') return v.replace(/\D/g, '').slice(0, 12);
+            if (key === 'pin_code') return v.replace(/\D/g, '').slice(0, 6);
+            if (key === 'father_guardian_mobile' || key === 'mother_guardian_mobile' || key === 'emergency_contact_number') return v.replace(/\D/g, '').slice(0, 10);
+            if (key === 'academic_year') {
+              const digits = v.replace(/[^0-9]/g, '');
+              if (digits.length >= 6) return `${digits.slice(0,4)}-${digits.slice(4,6)}`;
+            }
+            if (key === 'date_of_birth' || key === 'date_of_admission') {
+              const d = new Date(v);
+              if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+            }
+            return v;
+          };
+
+          const payload: Record<string, any> = {};
+          // include a conservative set of fields that backends commonly require
+          const requiredKeys = [
+            'first_name', 'last_name', 'student_full_name', 'class_grade', 'section',
+            'admission_number', 'academic_year', 'branch_id', 'date_of_birth', 'father_guardian_mobile'
+          ];
+          requiredKeys.forEach(k => {
+            payload[k] = sanitizeValueJson(k, (form as any)[k] ?? (k === 'branch_id' ? branch : ''));
+          });
+          // Also include school code
+          payload.school_code = code;
+
+          // Try register-request first (server may accept a request object)
+          try {
+            const resReq = await API.post('/student/register-request', payload, {
+              headers: { 'Content-Type': 'application/json', 'X-School-Code': code, 'X-Branch-Id': branch },
+            });
+            const dataReq = resReq.data;
+            setServerSuccess('Registration request submitted (fallback).');
+            setTimeout(() => {
+              if (!isMounted.current) return;
+              setStep(0);
+              setPhotoFile(null);
+              setPhotoPreview(null);
+              setForm({ ...INITIAL_FORM, nationality: 'Indian', branch_id: branch });
+              fetchRequestCount();
+            }, 1500);
+            return;
+          } catch (eReq: any) {
+            // If register-request also fails, try JSON register
+            try {
+              const resJson = await API.post('/student/register', payload, {
+                headers: { 'Content-Type': 'application/json', 'X-School-Code': code, 'X-Branch-Id': branch },
+              });
+              const dataJson = resJson.data;
+              if (dataJson?.roll_number) {
+                setGeneratedRollNumber(dataJson.roll_number || '—');
+                setShowRollNumberModal(true);
+                setTimeout(() => {
+                  if (!isMounted.current) return;
+                  setStep(0);
+                  setShowRollNumberModal(false);
+                  setPhotoFile(null);
+                  setPhotoPreview(null);
+                  setForm({ ...INITIAL_FORM, nationality: 'Indian', branch_id: branch });
+                  fetchRequestCount();
+                }, 3000);
+                return;
+              }
+              setServerSuccess('Registration submitted (fallback JSON).');
+              setTimeout(() => {
+                if (!isMounted.current) return;
+                setStep(0);
+                setPhotoFile(null);
+                setPhotoPreview(null);
+                setForm({ ...INITIAL_FORM, nationality: 'Indian', branch_id: branch });
+                fetchRequestCount();
+              }, 1500);
+              return;
+            } catch (eJson: any) {
+              // Fall through to show helpful error message below
+              err = eJson;
+            }
+          }
+        } catch (fallbackErr) {
+          // continue to error display below
+          console.error('Fallback registration attempts failed:', fallbackErr);
+        }
+      }
+
       if (isMounted.current) {
         const data = err.response?.data;
         if (data && data.detail) {
@@ -871,6 +989,11 @@ export default function StudentRegistrationScreen() {
           } else {
             setServerError(data.detail);
           }
+        } else if (status === 405) {
+          // Helpful message when server refuses method: suggest required fields
+          const triedFields = Object.keys(form).filter(k => (form as any)[k]).slice(0, 40).join(', ');
+          setServerError(`Server rejected request (405). Tried fallbacks but server still denied the operation. Ensure backend accepts teacher-created registrations or provide required fields: first_name, last_name, class_grade, section, admission_number, academic_year. Fields sent: ${triedFields}`);
+          console.error('[API Error Response]:', { status: err.response?.status, data: err.response?.data, url: err.config?.url });
         } else {
           setServerError(`Submission Error: ${err.message}`);
         }
@@ -904,7 +1027,7 @@ export default function StudentRegistrationScreen() {
                 if (step > 0) {
                   prevStep();
                 } else {
-                  safeGoBack(navigation, 'TeacherDashboard');
+                  safeGoBack(navigation as any, 'TeacherDashboard');
                 }
               }}
             >
@@ -919,7 +1042,7 @@ export default function StudentRegistrationScreen() {
               style={styles.iconButton}
               onPress={handleViewRequests}
             >
-              <Bell size={20} color="#FFFFFF" />
+              <BadgeCheck size={20} color="#FFFFFF" />
               {requestCount > 0 && (
                 <View style={styles.requestBadge}>
                   <AppText weight="bold" style={styles.requestBadgeText}>

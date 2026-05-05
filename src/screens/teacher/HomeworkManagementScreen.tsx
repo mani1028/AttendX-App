@@ -745,9 +745,6 @@ export default function HomeworkManagementScreen() {
         {/* Existing Homework List */}
         <View style={styles.sectionHeader}>
           <AppText weight="bold" style={styles.sectionTitle}>Homework List</AppText>
-          <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilterModal(true)}>
-            <Filter size={20} color="#64748B" />
-          </TouchableOpacity>
         </View>
 
         {loading ? (

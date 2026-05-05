@@ -9,8 +9,9 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import API from '../../services/api';
+import { formatLocalDateKey, getMonthSundayDates } from '../../utils/holidayUtils';
 
 const Colors = {
   primary: "#2563eb",
@@ -43,14 +44,6 @@ const EVENT_COLORS: Record<string, string> = {
   festival: "#d97706",
   exam: "#2563eb",
   event: "#059669",
-};
-
-// Format date to YYYY-MM-DD without timezone conversion
-const formatLocalDate = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 };
 
 interface CalendarViewProps {
@@ -112,11 +105,25 @@ export default function CalendarView({ onEventPress }: CalendarViewProps) {
 
   const getEventsForDate = (date: Date | null): Event[] => {
     if (!date) return [];
-    const dateStr = formatLocalDate(date);
+    const dateStr = formatLocalDateKey(date);
     return events.filter((e) => e.event_date === dateStr);
   };
 
-  const upcomingEvents = events
+  const sundayEvents = getMonthSundayDates(currentDate.getMonth(), currentDate.getFullYear()).map((date) => ({
+    event_id: `sunday-${formatLocalDateKey(date)}`,
+    title: 'Sunday Holiday',
+    event_date: formatLocalDateKey(date),
+    event_type: 'holiday',
+  }));
+
+  const allEvents = [...events];
+  sundayEvents.forEach((holiday) => {
+    if (!allEvents.some((event) => event.event_date === holiday.event_date)) {
+      allEvents.push(holiday);
+    }
+  });
+
+  const upcomingEvents = allEvents
     .filter((e) => new Date(e.event_date) >= new Date())
     .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
     .slice(0, 10);
@@ -162,10 +169,15 @@ export default function CalendarView({ onEventPress }: CalendarViewProps) {
         {calendarDays.map((date, idx) => {
           const dayEvents = getEventsForDate(date);
           const isOtherMonth = !date;
+          const isSunday = Boolean(date && date.getDay() === 0);
           return (
             <TouchableOpacity
               key={idx}
-              style={[styles.dayCell, isOtherMonth && styles.otherMonthCell]}
+              style={[
+                styles.dayCell,
+                isOtherMonth && styles.otherMonthCell,
+                isSunday && styles.sundayCell,
+              ]}
               disabled={isOtherMonth}
               onPress={() => {
                 if (date && dayEvents.length > 0 && onEventPress) {
@@ -175,7 +187,11 @@ export default function CalendarView({ onEventPress }: CalendarViewProps) {
             >
               {date && (
                 <>
-                  <Text style={styles.dayNumber}>{date.getDate()}</Text>
+                  <View style={styles.dayHeaderRow}>
+                    <Text style={styles.dayNumber}>{date.getDate()}</Text>
+                    {isSunday && <CalendarDays size={12} color={Colors.danger} />}
+                  </View>
+                  {isSunday && <Text style={styles.holidayLabel}>Sunday</Text>}
                   {dayEvents.slice(0, 2).map((evt) => (
                     <TouchableOpacity
                       key={evt.event_id}
@@ -312,6 +328,16 @@ const styles = StyleSheet.create({
     padding: 6,
     backgroundColor: Colors.cardBg,
   },
+  sundayCell: {
+    backgroundColor: '#fff7f7',
+    borderColor: '#fecaca',
+  },
+  dayHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
   otherMonthCell: {
     backgroundColor: '#f9fafb',
     opacity: 0.5,
@@ -321,6 +347,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 4,
     color: Colors.text,
+  },
+  holidayLabel: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: Colors.danger,
+    marginBottom: 2,
   },
   eventBadge: {
     borderRadius: 4,

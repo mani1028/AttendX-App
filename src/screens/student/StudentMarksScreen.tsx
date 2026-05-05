@@ -83,24 +83,7 @@ const ResultBadge: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
-// Grade Badge Component
-const GradeBadge: React.FC<{ grade: string }> = ({ grade }) => {
-  const getGradeColor = () => {
-    const gradeUpper = grade?.toUpperCase() || '';
-    if (gradeUpper === 'A+' || gradeUpper === 'A') return '#10b981';
-    if (gradeUpper === 'B+' || gradeUpper === 'B') return '#3b82f6';
-    if (gradeUpper === 'C+' || gradeUpper === 'C') return '#f59e0b';
-    return '#ef4444';
-  };
-
-  return (
-    <View style={[styles.gradeBadge, { backgroundColor: getGradeColor() + '15' }]}>
-      <AppText style={[styles.gradeText, { color: getGradeColor() }]}>
-        {grade || '-'}
-      </AppText>
-    </View>
-  );
-};
+// grading removed: grade UI omitted for students
 
 // Summary Card Component
 const SummaryCard: React.FC<{ 
@@ -153,7 +136,7 @@ const MarksCard: React.FC<{ mark: Mark }> = ({ mark }) => {
           </View>
           <AppText style={styles.subjectName}>{mark.subject_name}</AppText>
         </View>
-        <GradeBadge grade={mark.grade} />
+        {/* grading removed */}
       </View>
       
       <View style={styles.marksDetails}>
@@ -761,15 +744,7 @@ const styles = StyleSheet.create({
   badgeTextFail: {
     color: '#b91c1c',
   },
-  gradeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  gradeText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
+  // grading styles removed
   emptyResults: {
     flex: 1,
     alignItems: 'center',

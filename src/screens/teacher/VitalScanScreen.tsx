@@ -412,7 +412,7 @@ export default function VitalScanScreen() {
               <TextInput
                 style={styles.tempInput}
                 placeholder="e.g. 38.5 °C"
-                placeholderTextColor="#8898aa"
+                placeholderTextColor="#000000"
                 keyboardType="numeric"
                 value={tempInput}
                 onChangeText={setTempInput}

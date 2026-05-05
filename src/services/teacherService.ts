@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API, { buildApiUrl } from './api';
+import { isSunday } from '../utils/holidayUtils';
 
 const PROFILE_ENDPOINTS = [
   'profile/details',
@@ -107,6 +108,8 @@ async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
   const teacherId = await AsyncStorage.getItem('teacher_id') || await AsyncStorage.getItem('teacherId') || await AsyncStorage.getItem('employee_id');
   const suppressLogs = config.suppressFallback404Log;
 
+  const errors: any[] = [];
+
   for (const endpoint of endpoints) {
     try {
       const { params, ...restConfig } = config;
@@ -132,24 +135,63 @@ async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
         console.log(`[Service] GET ${endpoint} succeeded after ${endpoints[0]} failed`);
       }
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
+      const status = error?.response?.status;
       const isLastEndpoint = endpoint === endpoints[endpoints.length - 1];
-      if (__DEV__ && !suppressLogs) {
-        console.log(`[Service] GET ${endpoint} failed${isLastEndpoint ? ' (all endpoints exhausted)' : ', trying next...'}`);
+
+      // If it's a real error (not 404/405), we might want to throw early.
+      // However, for GET fallback, sometimes different endpoints have different auth requirements.
+      // For now, let's at least capture it.
+      if (status && status !== 404 && status !== 405) {
+        // If we get a 401 or 403, it's likely a real auth issue on a valid endpoint.
+        if (status === 401 || status === 403) throw error;
       }
+
+      if (__DEV__ && !suppressLogs) {
+        console.log(`[Service] GET ${endpoint} failed (${status || 'network error'})${isLastEndpoint ? ' (all endpoints exhausted)' : ', trying next...'}`);
+      }
+      errors.push({ endpoint, status, message: error?.message });
     }
+  }
+
+  if (errors.length > 0 && !suppressLogs) {
+    const detail = errors.map(e => `${e.endpoint} (${e.status || 'network error'})`).join(', ');
+    throw new Error(`Teacher service GET endpoint not found. Tried: ${detail}`);
   }
   throw new Error('Teacher service GET endpoint not found');
 }
 
 async function postFirstSuccessful<T>(endpoints: string[], data: any, config: any = {}) {
+  const errors: any[] = [];
   for (const endpoint of endpoints) {
     try {
-      const response = await API.post<T>(endpoint, data, config);
+      const response = await API.post<T>(endpoint, data, {
+        ...config,
+        suppressFallback404Log: true,
+      });
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
+      const status = error?.response?.status;
+      const detail = error?.response?.data?.detail || error?.response?.data?.message || error?.message;
+
+      if (__DEV__) {
+        console.log(`[Service] POST ${endpoint} failed (${status || 'network error'}):`, detail);
+      }
+
+      // If it's a legitimate backend error (like 401 Unauthorized or 400 Bad Request),
+      // we should stop and throw it, as the endpoint was found but rejected the request.
+      if (status && status !== 404 && status !== 405) {
+        throw error;
+      }
+
+      errors.push({ endpoint, status, message: detail });
       // Try next variant
     }
+  }
+
+  if (errors.length > 0) {
+    const detail = errors.map(e => `${e.endpoint} (${e.status || 'network error'})`).join(', ');
+    throw new Error(`Teacher service POST endpoint not found. Tried: ${detail}`);
   }
   throw new Error('Teacher service POST endpoint not found');
 }
@@ -179,7 +221,9 @@ export async function verifyTeacher(payload: any): Promise<any> {
     'teacher/verify'
   ];
   // Backend expects JSON by default now
-  return postFirstSuccessful(endpoints, payload);
+  // Suppress global 401 logout for face-verification requests so we can show an error
+  // message instead of logging the user out when recognition fails.
+  return postFirstSuccessful(endpoints, payload, { suppressLogoutOn401: true });
 }
 
 export async function uploadStudentImage(payload: any): Promise<any> {
@@ -198,44 +242,244 @@ export async function processAttendance(payload: any): Promise<any> {
 }
 
 export async function getAssignedClasses(schoolCode: string, branchId: string, employeeId: string): Promise<any[]> {
-  const endpoints = [
-    'teacher/marks/teacher-context',
-    'teacher/assigned-classes',
-    'manage/teacher/assigned-classes'
+  const requestVariants = [
+    {
+      method: 'get' as const,
+      endpoint: 'teacher/marks/teacher-context',
+      params: { teacher_id: employeeId },
+    },
+    {
+      method: 'get' as const,
+      endpoint: 'teacher/assigned-classes',
+      params: { teacher_id: employeeId },
+    },
+    {
+      method: 'post' as const,
+      endpoint: 'teacher/assigned-classes',
+      data: { teacher_id: employeeId, branch_id: branchId, employee_id: employeeId },
+    },
+    {
+      method: 'get' as const,
+      endpoint: 'manage/teacher/assigned-classes',
+      params: { teacher_id: employeeId },
+    },
+    {
+      method: 'post' as const,
+      endpoint: 'manage/teacher/assigned-classes',
+      data: { teacher_id: employeeId, branch_id: branchId, employee_id: employeeId },
+    },
+    {
+      method: 'get' as const,
+      endpoint: 'teacher/assigned-classes',
+      params: { employee_id: employeeId },
+    },
+    {
+      method: 'post' as const,
+      endpoint: 'teacher/assigned-classes',
+      data: { employee_id: employeeId, branch_id: branchId },
+    },
+    {
+      method: 'get' as const,
+      endpoint: 'manage/teacher/assigned-classes',
+      params: { employee_id: employeeId },
+    },
+    {
+      method: 'post' as const,
+      endpoint: 'manage/teacher/assigned-classes',
+      data: { employee_id: employeeId, branch_id: branchId },
+    },
+    {
+      method: 'get' as const,
+      endpoint: 'teacher/assigned-classes',
+      params: { branch_id: branchId, teacher_id: employeeId, employee_id: employeeId, teacherId: employeeId },
+    },
+    {
+      method: 'post' as const,
+      endpoint: 'teacher/assigned-classes',
+      data: { branch_id: branchId, teacher_id: employeeId, employee_id: employeeId, teacherId: employeeId },
+    },
   ];
-  try {
-    const data = await getFirstSuccessful<any>(endpoints, {
-      params: { 
-        branch_id: branchId, 
-        employee_id: employeeId, 
-        teacher_id: employeeId, // Explicitly required for teacher-context
-        teacherId: employeeId
-      },
-      headers: { 
-        'X-School-Code': schoolCode,
-        'X-Branch-Id': branchId,
-        'X-Tenant-Id': schoolCode
-      },
-      suppressFallback404Log: true,
-    } as any);
-    return data.assigned_classes || data.items || (Array.isArray(data) ? data : []);
-  } catch (err) {
+
+  const normalizeText = (value: unknown): string => {
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'number') return String(value);
+    return '';
+  };
+
+  const headers = {
+    'X-School-Code': schoolCode,
+    'X-Branch-Id': branchId,
+    'X-Tenant-Id': schoolCode,
+  };
+
+  const extractList = (respData: any): any[] => {
+    if (!respData) return [];
+    if (Array.isArray(respData)) return respData;
+    if (Array.isArray(respData.items)) return respData.items;
+    if (Array.isArray(respData.data)) return respData.data;
+    if (Array.isArray(respData.assigned_classes)) return respData.assigned_classes;
+    if (Array.isArray(respData.assignedClasses)) return respData.assignedClasses;
+    if (Array.isArray(respData.assignments)) return respData.assignments;
+    if (Array.isArray(respData.results)) return respData.results;
+    if (Array.isArray(respData.teachers)) return respData.teachers;
+    if (Array.isArray(respData.students)) return respData.students;
+    // nested shapes
+    if (respData.teacher_context && Array.isArray(respData.teacher_context.assigned_classes)) return respData.teacher_context.assigned_classes;
+    if (respData.teacher_context && Array.isArray(respData.teacher_context.items)) return respData.teacher_context.items;
+    if (respData.context && Array.isArray(respData.context.assigned_classes)) return respData.context.assigned_classes;
+    if (respData.data?.teacher_context && Array.isArray(respData.data.teacher_context.assigned_classes)) return respData.data.teacher_context.assigned_classes;
+    if (respData.data?.teacher_context && Array.isArray(respData.data.teacher_context.items)) return respData.data.teacher_context.items;
+    if (respData.data?.assignments && Array.isArray(respData.data.assignments)) return respData.data.assignments;
     return [];
+  };
+
+  const normalizeAssignment = (item: any) => {
+    const classGrade = String(item?.class_grade ?? item?.class_name ?? '').trim();
+    const section = String(item?.section ?? item?.section_name ?? '').trim();
+    return {
+      ...item,
+      class_grade: classGrade,
+      section,
+      class_name: String(item?.class_name ?? classGrade).trim(),
+      section_name: String(item?.section_name ?? section).trim(),
+    };
+  };
+
+  for (const variant of requestVariants) {
+    try {
+      if (__DEV__) {
+        console.log('[getAssignedClasses] trying request:', variant.method.toUpperCase(), variant.endpoint, {
+          params: variant.params,
+          data: variant.data,
+        });
+      }
+      const res = variant.method === 'get'
+        ? await API.get<any>(variant.endpoint, {
+            params: variant.params,
+            headers,
+            suppressFallback404Log: true,
+          } as any)
+        : await API.post<any>(variant.endpoint, variant.data, {
+            headers,
+            suppressFallback404Log: true,
+          } as any);
+
+      if (__DEV__) {
+        try {
+          const sample = res.data && (Array.isArray(res.data) ? `array(length=${res.data.length})` : `object(keys=${Object.keys(res.data || {}).slice(0,10).join(',')})`);
+          console.log(`[getAssignedClasses] ${variant.endpoint} response sample:`, sample);
+        } catch (e) {
+          console.log(`[getAssignedClasses] ${variant.endpoint} response received`);
+        }
+      }
+      const list = extractList(res.data || res).map(normalizeAssignment);
+      if (__DEV__) console.log('[getAssignedClasses] extracted list length:', Array.isArray(list) ? list.length : 'n/a');
+      if (Array.isArray(list) && list.length > 0) return list;
+      // If backend returns a teacher context wrapper, fall back to data that may be nested elsewhere.
+      const raw = res.data || {};
+      const assignmentCount = normalizeText(raw.assignment_count || raw.data?.assignment_count || raw.teacher_context?.assignment_count);
+      if (__DEV__) {
+        console.log('[getAssignedClasses] assignment_count:', assignmentCount || 'n/a');
+      }
+    } catch (err: any) {
+      if (__DEV__) console.log('[getAssignedClasses] request failed:', variant.endpoint, err?.message || err);
+      // ignore and try next
+    }
   }
+
+  // If all endpoints returned empty/failed, return empty array
+  return [];
 }
 
 export async function getStudentsByClass(schoolCode: string, branchId: string, classGrade: string, section: string): Promise<any[]> {
-  const endpoints = [
-    'teacher/students',
-    'manage/students'
-  ];
   try {
+    if (__DEV__) {
+      console.log('[getStudentsByClass] Attempting to fetch students:', { schoolCode, branchId, classGrade, section });
+    }
+
+    // Normalize parameters to lowercase as required by backend
+    const normalizedGrade = classGrade?.toLowerCase?.() || classGrade;
+    const normalizedSection = section?.toLowerCase?.() || section;
+
+    // Try direct API call first (matching HM implementation)
+    try {
+      const response = await API.get<any>('hm/students', {
+        params: {
+          class_grade: normalizedGrade,
+          section: normalizedSection,
+        },
+        headers: {
+          'X-School-Code': schoolCode,
+          'X-Branch-Id': branchId,
+        }
+      });
+      
+      if (__DEV__) {
+        console.log('[getStudentsByClass] hm/students response:', response.data);
+      }
+      
+      // Handle expected response format
+      if (response.data?.items && Array.isArray(response.data.items)) {
+        return response.data.items;
+      }
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+      if (response.data?.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      
+      return [];
+    } catch (directErr) {
+      if (__DEV__) {
+        console.log('[getStudentsByClass] hm/students failed, trying fallback endpoints');
+      }
+    }
+
+    // Fallback to getFirstSuccessful with multiple endpoints
+    const endpoints = [
+      'teacher/students',
+      'manage/students',
+      'students'
+    ];
+    
     const data = await getFirstSuccessful<any>(endpoints, {
-      params: { branch_id: branchId, class_grade: classGrade, section: section },
-      headers: { 'X-School-Code': schoolCode }
+      params: { 
+        branch_id: branchId, 
+        class_grade: normalizedGrade, 
+        section: normalizedSection 
+      },
+      headers: { 'X-School-Code': schoolCode },
+      suppressFallback404Log: true
     });
-    return data.items || (Array.isArray(data) ? data : []);
+    
+    if (__DEV__) {
+      console.log('[getStudentsByClass] Fallback response data:', data);
+      console.log('[getStudentsByClass] Data type:', typeof data, 'Is array:', Array.isArray(data));
+    }
+    
+    // Handle different response formats
+    if (data?.items && Array.isArray(data.items)) {
+      return data.items;
+    }
+    if (data?.data && Array.isArray(data.data)) {
+      return data.data;
+    }
+    if (data?.students && Array.isArray(data.students)) {
+      return data.students;
+    }
+    if (Array.isArray(data)) {
+      return data;
+    }
+    
+    if (__DEV__) {
+      console.warn('[getStudentsByClass] Unexpected response format:', data);
+    }
+    return [];
   } catch (err) {
+    if (__DEV__) {
+      console.error('[getStudentsByClass] Error fetching students:', err);
+    }
     return [];
   }
 }
@@ -497,6 +741,17 @@ export async function getTeacherCapability(schoolId: string, employeeId: string)
 }
 
 export async function getAttendanceReport(schoolCode: string, branchId: string, attendanceDate: string, classGrade: string, section: string): Promise<any> {
+  if (isSunday(attendanceDate)) {
+    return {
+      present: [],
+      absent: [],
+      total: 0,
+      attendance_date: attendanceDate,
+      holiday: true,
+      holiday_name: 'Sunday Holiday',
+    };
+  }
+
   const endpoints = [
     'manage/attendance/student/fetch-report',
     'teacher/attendance/report',

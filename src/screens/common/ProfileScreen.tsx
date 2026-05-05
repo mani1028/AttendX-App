@@ -252,13 +252,14 @@ export default function ProfileScreen() {
         if (cachedPhoto && isMounted.current) {
           setProfilePhotoUrl(cachedPhoto);
           setProfilePhotoError(false);
-        }
-      } else {
-        const cachedPhoto = await AsyncStorage.getItem('profile_photo_url');
-        if (cachedPhoto && isMounted.current) {
-          setProfilePhotoUrl(cachedPhoto);
+        } else if (isMounted.current) {
+          setProfilePhotoUrl(null);
           setProfilePhotoError(false);
         }
+      } else if (isMounted.current) {
+        // Avoid shared photo fallback across users when unique id is missing.
+        setProfilePhotoUrl(null);
+        setProfilePhotoError(false);
       }
 
       // If we had cached profile, stop showing loader and refresh in background.
@@ -287,9 +288,31 @@ export default function ProfileScreen() {
           try { return JSON.parse(storedUserRaw); } catch { return {}; }
         })() : {};
 
-        const [storedEmail, storedPhone, storedBranchName, storedBranchId, storedSchoolName, storedSchoolCodeFromStore, storedTeacherId2, storedEmployeeId2, storedStudentId2] =
+        const [
+          storedEmail,
+          storedPhone,
+          storedMobile,
+          storedMobileNumber,
+          storedBranchName,
+          storedBranchId,
+          storedSchoolName,
+          storedSchoolCodeFromStore,
+          storedTeacherId2,
+          storedEmployeeId2,
+          storedStudentId2,
+        ] =
           await AsyncStorage.multiGet([
-            'email','phone','branch_name','branch_id','school_name','school_code','teacher_id','employee_id','student_id',
+            'email',
+            'phone',
+            'mobile',
+            'mobile_number',
+            'branch_name',
+            'branch_id',
+            'school_name',
+            'school_code',
+            'teacher_id',
+            'employee_id',
+            'student_id',
           ]).then(items => items.map(([, value]) => value || ''));
 
         const profileSource = (freshData as any) || {};
@@ -298,7 +321,17 @@ export default function ProfileScreen() {
           role: firstNonEmptyText(profileSource?.role, normalizedRole, 'student'),
           name: firstNonEmptyText(profileSource?.name, profileSource?.full_name, profileSource?.teacher_full_name, profileSource?.student_full_name, userName, storedUser?.name),
           email: firstNonEmptyText(profileSource?.email, profileSource?.email_id, profileSource?.email_address, storedEmail, storedUser?.email),
-          phone: firstNonEmptyText(profileSource?.phone, profileSource?.mobile, profileSource?.mobile_number, profileSource?.phone_number, storedPhone, storedUser?.phone),
+          phone: firstNonEmptyText(
+            profileSource?.phone,
+            profileSource?.mobile,
+            profileSource?.mobile_number,
+            profileSource?.phone_number,
+            storedPhone,
+            storedMobile,
+            storedMobileNumber,
+            storedUser?.phone,
+            storedUser?.mobile,
+          ),
           branch_name: firstNonEmptyText(profileSource?.branch_name, profileSource?.branchName, profileSource?.branch, storedBranchName, storedUser?.branch_name),
           branch_id: firstNonEmptyText(profileSource?.branch_id, profileSource?.branchId, storedBranchId, storedUser?.branch_id),
           school_name: firstNonEmptyText(profileSource?.school_name, profileSource?.schoolName, profileSource?.school, storedSchoolName, storedUser?.school_name),
@@ -342,26 +375,37 @@ export default function ProfileScreen() {
           (roleBucket === 'student' ? profileSource?.student_photograph : profileSource?.teacher_photograph)
         );
 
+        const resolvedEntityId = roleBucket === 'student'
+          ? firstNonEmptyText(resolvedProfile.student_id, storedStudentId, storedStudentId2)
+          : firstNonEmptyText(resolvedProfile.teacher_id, resolvedProfile.employee_id, storedTeacherId, storedEmployeeId, storedTeacherId2, storedEmployeeId2);
+
+        const resolvedPhotoCacheKey = getPhotoCacheKey(
+          roleBucket,
+          resolvedEntityId,
+          resolvedProfile.school_code || storedSchoolCode,
+        );
+
         let resolvedPhoto = directProfilePhoto;
-        if (!resolvedPhoto && entityId && freshData) {
+        if (!resolvedPhoto && resolvedEntityId && freshData) {
           try {
             resolvedPhoto = roleBucket === 'student'
-              ? ((await withTimeout(Promise.resolve(getStudentProfilePhotoDataUri(entityId, storedSchoolCode)))) ||
-                (await withTimeout(Promise.resolve(getStudentProfilePhotoUrl(entityId, resolvedProfile.school_code || storedSchoolCode)))))
-              : ((await withTimeout(Promise.resolve(getTeacherProfilePhotoDataUri(entityId, resolvedProfile.school_code || storedSchoolCode)))) ||
-                (await withTimeout(Promise.resolve(getTeacherProfilePhotoUrl(entityId, resolvedProfile.school_code || storedSchoolCode)))));
+              ? ((await withTimeout(Promise.resolve(getStudentProfilePhotoDataUri(resolvedEntityId, storedSchoolCode)))) ||
+                (await withTimeout(Promise.resolve(getStudentProfilePhotoUrl(resolvedEntityId, resolvedProfile.school_code || storedSchoolCode)))))
+              : ((await withTimeout(Promise.resolve(getTeacherProfilePhotoDataUri(resolvedEntityId, resolvedProfile.school_code || storedSchoolCode)))) ||
+                (await withTimeout(Promise.resolve(getTeacherProfilePhotoUrl(resolvedEntityId, resolvedProfile.school_code || storedSchoolCode)))));
           } catch (photoError) {
             console.warn('Error fetching profile photo:', photoError);
           }
         }
 
         if (resolvedPhoto && isMounted.current) {
-          if (photoCacheKey) {
-            await AsyncStorage.setItem(photoCacheKey, resolvedPhoto);
-          } else {
-            await AsyncStorage.setItem('profile_photo_url', resolvedPhoto);
+          if (resolvedPhotoCacheKey) {
+            await AsyncStorage.setItem(resolvedPhotoCacheKey, resolvedPhoto);
           }
           setProfilePhotoUrl(resolvedPhoto);
+          setProfilePhotoError(false);
+        } else if (isMounted.current) {
+          setProfilePhotoUrl(null);
           setProfilePhotoError(false);
         }
 
@@ -576,7 +620,9 @@ export default function ProfileScreen() {
     }
   };
 
-  const isStudent = userInfo.role === 'student';
+  const roleKey = String(userInfo.role || '').trim().toLowerCase();
+  const isStudent = roleKey === 'student';
+  const isPrincipal = roleKey === 'principal';
 
   const renderInfoRow = (label: string, value: string | undefined, IconComponent: any, editableKey?: string) => (
     <View style={styles.infoRow}>
@@ -652,7 +698,15 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <AppText style={styles.sectionTitle}>Basic Information</AppText>
           <AppCard style={styles.infoCard}>
-            {renderInfoRow('Full Name', userInfo.name, User, userInfo.role === 'student' ? undefined : 'name')}
+            {renderInfoRow('Full Name', userInfo.name, User, isStudent ? undefined : 'name')}
+            {isPrincipal && (
+              <>
+                <View style={styles.divider} />
+                {renderInfoRow('Mobile Number', userInfo.phone, Phone, 'phone')}
+                <View style={styles.divider} />
+                {renderInfoRow('Email', userInfo.email, Mail, 'email')}
+              </>
+            )}
             {userInfo.role === 'student' && (
               <>
                 <View style={styles.divider} />
@@ -665,7 +719,7 @@ export default function ProfileScreen() {
                 {renderInfoRow('Blood Group', userInfo.blood_group, Droplet, 'blood_group')}
               </>
             )}
-            {userInfo.role !== 'student' && (
+            {!isStudent && !isPrincipal && (
               <>
                 <View style={styles.divider} />
                 {renderInfoRow('Blood Group', userInfo.blood_group, Droplet, 'blood_group')}
@@ -674,7 +728,7 @@ export default function ProfileScreen() {
           </AppCard>
         </View>
 
-        {userInfo.role !== 'student' && (
+        {!isStudent && !isPrincipal && (
           <View style={styles.section}>
             <AppText style={styles.sectionTitle}>Professional Details</AppText>
             <AppCard style={styles.infoCard}>
@@ -685,7 +739,7 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {userInfo.role === 'student' && (
+        {isStudent && (
           <View style={styles.section}>
             <AppText style={styles.sectionTitle}>Parental Information</AppText>
             <AppCard style={styles.infoCard}>
@@ -698,11 +752,11 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {userInfo.role !== 'student' && (
+        {!isStudent && !isPrincipal && (
           <View style={styles.section}>
             <AppText style={styles.sectionTitle}>Contact Information</AppText>
             <AppCard style={styles.infoCard}>
-              {renderInfoRow('Email', userInfo.email, Mail, userInfo.role === 'student' ? undefined : 'email')}
+              {renderInfoRow('Email', userInfo.email, Mail, isStudent ? undefined : 'email')}
               <View style={styles.divider} />
               {renderInfoRow('Phone', userInfo.phone, Phone, 'phone')}
               <View style={styles.divider} />
@@ -710,14 +764,16 @@ export default function ProfileScreen() {
             </AppCard>
           </View>
         )}
-        <View style={styles.section}>
-          <AppText style={styles.sectionTitle}>Organization</AppText>
-          <AppCard style={styles.infoCard}>
-            {renderInfoRow('School', userInfo.school_name, Home)}
-            <View style={styles.divider} />
-            {renderInfoRow('Branch', userInfo.branch_name, MapPin)}
-          </AppCard>
-        </View>
+        {!isPrincipal && (
+          <View style={styles.section}>
+            <AppText style={styles.sectionTitle}>Organization</AppText>
+            <AppCard style={styles.infoCard}>
+              {renderInfoRow('School', userInfo.school_name, Home)}
+              <View style={styles.divider} />
+              {renderInfoRow('Branch', userInfo.branch_name, MapPin)}
+            </AppCard>
+          </View>
+        )}
 
         <View style={styles.section}>
           <AppText style={styles.sectionTitle}>Account Settings</AppText>

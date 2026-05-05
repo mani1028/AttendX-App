@@ -38,6 +38,7 @@ import {
 import AppButton from '../../components/common/AppButton';
 import Loader from '../../components/common/Loader';
 import * as teacherService from '../../services/teacherService';
+import { updateStudentProfile } from '../../services/studentService';
 import { useAuth } from '../../context/AuthContext';
 import HM_THEME from '../../constants/hmTheme';
 import AppText from '../../components/common/AppText';
@@ -176,7 +177,12 @@ export default function StudentListScreen() {
   const [assignedClasses, setAssignedClasses] = useState<AssignedClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [selectedSection, setSelectedSection] = useState<string>('');
+  const [lockedClassGrade, setLockedClassGrade] = useState<string>('');
+  const [lockedSection, setLockedSection] = useState<string>('');
   const [viewStudent, setViewStudent] = useState<Student | null>(null);
+  const [isEditingStudent, setIsEditingStudent] = useState(false);
+  const [editStudent, setEditStudent] = useState<Partial<Student>>({});
+  const [savingStudent, setSavingStudent] = useState(false);
   const [isClassTeacher, setIsClassTeacher] = useState<boolean>(authIsClassTeacher);
 
   // Load credentials
@@ -196,6 +202,26 @@ export default function StudentListScreen() {
           setIsClassTeacher(classTeacherStr === 'true');
         }
       }
+
+      if (classTeacherStr === 'true' || classTeacherStr === '1' || authIsClassTeacher) {
+        try {
+          const profile = await teacherService.getTeacherProfile();
+          if (isMounted.current) {
+            const profileClassGrade = String(profile?.class_grade || profile?.className || '').trim();
+            const profileSection = String(profile?.section || profile?.section_name || '').trim();
+            if (profileClassGrade && profileSection) {
+              setLockedClassGrade(profileClassGrade);
+              setLockedSection(profileSection);
+              setSelectedClass(profileClassGrade);
+              setSelectedSection(profileSection);
+            }
+          }
+        } catch (profileError) {
+          if (__DEV__) {
+            console.log('[StudentListScreen] Failed to load teacher profile scope:', profileError);
+          }
+        }
+      }
     };
     load();
     setTabBarVisible(true);
@@ -210,29 +236,85 @@ export default function StudentListScreen() {
     if (!schoolCode || !branchId || !employeeId) return;
     try {
       const assigned = await teacherService.getAssignedClasses(schoolCode, branchId, employeeId);
+      if (__DEV__) {
+        console.log('[StudentListScreen] Assigned classes loaded:', assigned);
+      }
       if (isMounted.current) {
-        setAssignedClasses(assigned);
-        if (assigned.length > 0 && !selectedClass) {
-          setSelectedClass(assigned[0].class_grade);
-          setSelectedSection(assigned[0].section);
+        const normalized = Array.isArray(assigned) ? assigned.filter(Boolean) : [];
+        const scoped = isClassTeacher && lockedClassGrade && lockedSection
+          ? normalized.filter(item => String(item.class_grade) === lockedClassGrade && String(item.section) === lockedSection)
+          : normalized;
+
+        setAssignedClasses(scoped);
+        if (scoped.length > 0) {
+          const first = scoped[0];
+          const nextClass = String(first.class_grade || '').trim();
+          const nextSection = String(first.section || '').trim();
+          if (!selectedClass || isClassTeacher) setSelectedClass(nextClass);
+          if (!selectedSection || isClassTeacher) setSelectedSection(nextSection);
+          if (__DEV__) {
+            console.log('[StudentListScreen] Initial class set to:', nextClass, nextSection);
+          }
         }
       }
     } catch (error) {
       console.error('Failed to load assigned classes:', error);
     }
-  }, [schoolCode, branchId, employeeId]);
+  }, [schoolCode, branchId, employeeId, isClassTeacher, lockedClassGrade, lockedSection, selectedClass, selectedSection]);
+
+  // When credentials become available, load assigned classes
+  useEffect(() => {
+    if (schoolCode && branchId && employeeId) {
+      loadAssignedClasses();
+    }
+  }, [schoolCode, branchId, employeeId, loadAssignedClasses]);
+
+  useEffect(() => {
+    if (viewStudent) {
+      setEditStudent({
+        student_full_name: viewStudent.student_full_name || '',
+        gender: viewStudent.gender || '',
+        date_of_birth: viewStudent.date_of_birth || '',
+        blood_group: viewStudent.blood_group || '',
+        father_guardian_name: viewStudent.father_guardian_name || '',
+        father_guardian_mobile: viewStudent.father_guardian_mobile || '',
+        mother_guardian_name: viewStudent.mother_guardian_name || '',
+        mother_guardian_mobile: viewStudent.mother_guardian_mobile || '',
+      });
+      setIsEditingStudent(false);
+    } else {
+      setEditStudent({});
+      setIsEditingStudent(false);
+    }
+  }, [viewStudent]);
 
   // Load students
   const fetchStudents = useCallback(async (showLoading = true) => {
-    if (!schoolCode || !branchId || !selectedClass || !selectedSection) return;
+    if (!schoolCode || !branchId || !selectedClass || !selectedSection) {
+      if (__DEV__) {
+        console.log('[StudentListScreen] Skipping fetchStudents - missing params:', {
+          schoolCode: !!schoolCode,
+          branchId: !!branchId,
+          selectedClass: selectedClass,
+          selectedSection: selectedSection
+        });
+      }
+      return;
+    }
     if (showLoading) setLoading(true);
     try {
+      if (__DEV__) {
+        console.log('[StudentListScreen] Fetching students for:', { schoolCode, branchId, selectedClass, selectedSection });
+      }
       const students = await teacherService.getStudentsByClass(
         schoolCode,
         branchId,
         selectedClass,
         selectedSection,
       );
+      if (__DEV__) {
+        console.log('[StudentListScreen] Students fetched:', students?.length || 0, 'students');
+      }
       if (isMounted.current) {
         setRecords(students);
       }
@@ -243,9 +325,19 @@ export default function StudentListScreen() {
     }
   }, [schoolCode, branchId, selectedClass, selectedSection]);
 
+  // Ensure we fetch students once assigned classes are available
   useEffect(() => {
-    loadAssignedClasses();
-  }, [loadAssignedClasses]);
+    if (!isMounted.current) return;
+    if (assignedClasses && assignedClasses.length > 0 && (!selectedClass || !selectedSection)) {
+      const first = assignedClasses[0];
+      if (first) {
+        setSelectedClass(first.class_grade);
+        setSelectedSection(first.section);
+        // Trigger a fetch immediately
+        fetchStudents();
+      }
+    }
+  }, [assignedClasses]);
 
   useEffect(() => {
     fetchStudents();
@@ -257,6 +349,42 @@ export default function StudentListScreen() {
     setRefreshing(false);
   }, [loadAssignedClasses, fetchStudents]);
 
+  const handleSaveStudent = useCallback(async () => {
+    if (!viewStudent?.student_id) return;
+
+    const payload = {
+      student_id: viewStudent.student_id,
+      student_full_name: String(editStudent.student_full_name || '').trim(),
+      gender: String(editStudent.gender || '').trim(),
+      date_of_birth: String(editStudent.date_of_birth || '').trim(),
+      blood_group: String(editStudent.blood_group || '').trim(),
+      father_guardian_name: String(editStudent.father_guardian_name || '').trim(),
+      father_guardian_mobile: String(editStudent.father_guardian_mobile || '').trim(),
+      mother_guardian_name: String(editStudent.mother_guardian_name || '').trim(),
+      mother_guardian_mobile: String(editStudent.mother_guardian_mobile || '').trim(),
+      class_grade: String(viewStudent.class_grade || '').trim(),
+      section: String(viewStudent.section || '').trim(),
+      data_type: 'student',
+    };
+
+    setSavingStudent(true);
+    try {
+      await updateStudentProfile(payload);
+      const updatedStudent: Student = {
+        ...viewStudent,
+        ...editStudent,
+      } as Student;
+      setViewStudent(updatedStudent);
+      setRecords(prev => prev.map(student => student.student_id === updatedStudent.student_id ? updatedStudent : student));
+      setIsEditingStudent(false);
+      Alert.alert('Success', 'Student profile updated successfully');
+    } catch (error: any) {
+      Alert.alert('Error', error?.response?.data?.detail || error?.response?.data?.message || error?.message || 'Failed to update student profile');
+    } finally {
+      setSavingStudent(false);
+    }
+  }, [viewStudent, editStudent]);
+
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase();
     if (!q) return records;
@@ -267,6 +395,21 @@ export default function StudentListScreen() {
     );
   }, [records, searchQuery]);
 
+  // Debug: log key state values to diagnose empty list rendering
+  useEffect(() => {
+    if (__DEV__) {
+      try {
+        console.log('[StudentListScreen.debug] selectedClass:', selectedClass,
+          'selectedSection:', selectedSection,
+          'records.length:', Array.isArray(records) ? records.length : 0,
+          'filtered.length:', Array.isArray(filtered) ? filtered.length : 0,
+          'searchQuery:', JSON.stringify(searchQuery)
+        );
+      } catch (e) {
+        console.log('[StudentListScreen.debug] failed to stringify debug values', e);
+      }
+    }
+  }, [selectedClass, selectedSection, records, filtered, searchQuery]);
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
     const deltaY = currentScrollY - lastScrollY.current;
@@ -279,15 +422,17 @@ export default function StudentListScreen() {
   };
 
   const classOptions = useMemo(() => {
+    if (isClassTeacher && lockedClassGrade) return [lockedClassGrade];
     const unique = new Set(assignedClasses.map(c => c.class_grade));
     return Array.from(unique);
-  }, [assignedClasses]);
+  }, [assignedClasses, isClassTeacher, lockedClassGrade]);
 
   const sectionOptions = useMemo(() => {
-    return assignedClasses
+    if (isClassTeacher && lockedSection) return [lockedSection];
+    return Array.from(new Set(assignedClasses
       .filter(c => c.class_grade === selectedClass)
-      .map(c => c.section);
-  }, [assignedClasses, selectedClass]);
+      .map(c => c.section)));
+  }, [assignedClasses, selectedClass, isClassTeacher, lockedSection]);
 
   return (
     <View style={styles.container}>
@@ -303,7 +448,11 @@ export default function StudentListScreen() {
             <ChevronLeft size={24} color="#fff" />
           </TouchableOpacity>
           <AppText weight="bold" style={styles.headerTitle}>Manage Profiles</AppText>
-          <TouchableOpacity style={styles.notificationBtn}>
+          <TouchableOpacity
+            style={styles.notificationBtn}
+            onPress={() => navigation.navigate('Notifications' as never)}
+            accessibilityLabel="Open notifications"
+          >
             <Bell size={22} color="#fff" />
           </TouchableOpacity>
         </View>
@@ -318,9 +467,6 @@ export default function StudentListScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <TouchableOpacity style={styles.filterBtn}>
-              <Filter size={20} color="#94A3B8" />
-            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -338,42 +484,54 @@ export default function StudentListScreen() {
             <Filter size={18} color={HM_THEME.navy} />
             <AppText weight="bold" style={styles.filterTitle}>Filter by Class</AppText>
           </View>
-          
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-            {classOptions.map(cls => (
-              <TouchableOpacity
-                key={cls}
-                style={[styles.chip, selectedClass === cls && styles.chipActive]}
-                onPress={() => {
-                  setSelectedClass(cls);
-                  const firstSec = assignedClasses.find(c => c.class_grade === cls)?.section;
-                  if (firstSec) setSelectedSection(firstSec);
-                }}
-              >
-                <AppText weight="semiBold" style={[styles.chipText, selectedClass === cls && styles.chipTextActive]}>
-                  Class {cls}
-                </AppText>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          {selectedClass !== '' && (
-            <View style={styles.sectionPicker}>
-              <AppText weight="bold" style={styles.sectionLabel}>Section:</AppText>
-              <View style={styles.sectionChips}>
-                {sectionOptions.map(sec => (
+          {isClassTeacher ? (
+            <View style={styles.lockedScopeCard}>
+              <AppText weight="bold" style={styles.lockedScopeText}>
+                Class {selectedClass || lockedClassGrade || '-'} • Section {selectedSection || lockedSection || '-'}
+              </AppText>
+              <AppText style={styles.lockedScopeHint}>
+                Class teachers can view only their assigned class.
+              </AppText>
+            </View>
+          ) : (
+            <>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+                {classOptions.map((cls, index) => (
                   <TouchableOpacity
-                    key={sec}
-                    style={[styles.secChip, selectedSection === sec && styles.secChipActive]}
-                    onPress={() => setSelectedSection(sec)}
+                    key={`class-${cls || index}`}
+                    style={[styles.chip, selectedClass === cls && styles.chipActive]}
+                    onPress={() => {
+                      setSelectedClass(cls);
+                      const firstSec = assignedClasses.find(c => c.class_grade === cls)?.section;
+                      if (firstSec) setSelectedSection(firstSec);
+                    }}
                   >
-                    <AppText weight="bold" style={[styles.secChipText, selectedSection === sec && styles.secChipTextActive]}>
-                      {sec}
+                    <AppText weight="semiBold" style={[styles.chipText, selectedClass === cls && styles.chipTextActive]}>
+                      Class {cls}
                     </AppText>
                   </TouchableOpacity>
                 ))}
-              </View>
-            </View>
+              </ScrollView>
+
+              {selectedClass !== '' && (
+                <View style={styles.sectionPicker}>
+                  <AppText weight="bold" style={styles.sectionLabel}>Section:</AppText>
+                  <View style={styles.sectionChips}>
+                    {sectionOptions.map((sec, index) => (
+                      <TouchableOpacity
+                        key={`section-${sec || index}`}
+                        style={[styles.secChip, selectedSection === sec && styles.secChipActive]}
+                        onPress={() => setSelectedSection(sec)}
+                      >
+                        <AppText weight="bold" style={[styles.secChipText, selectedSection === sec && styles.secChipTextActive]}>
+                          {sec}
+                        </AppText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </>
           )}
         </View>
 
@@ -394,15 +552,15 @@ export default function StudentListScreen() {
           </View>
         ) : (
           <View style={styles.listContainer}>
-            {filtered.map(student => (
-              <StudentCard key={student.student_id} student={student} onView={setViewStudent} />
+            {filtered.map((student, index) => (
+              <StudentCard key={student.student_id || `${student.roll_number}-${index}`} student={student} onView={setViewStudent} />
             ))}
           </View>
         )}
       </ScrollView>
 
       {/* FAB - Add Student (If allowed) */}
-      {isClassTeacher && (
+      {false && isClassTeacher && (
         <TouchableOpacity
           style={styles.fab}
           onPress={() => navigation.navigate('HMStudentRegistration' as any)}
@@ -442,6 +600,17 @@ export default function StudentListScreen() {
             <AppText weight="semiBold" style={styles.modalSub}>{viewStudent?.student_id} • Roll {viewStudent?.roll_number}</AppText>
           </View>
 
+          <View style={styles.modalActionRow}>
+            {isClassTeacher && (
+              <AppButton
+                title={isEditingStudent ? 'Cancel Edit' : 'Edit Profile'}
+                type="secondary"
+                onPress={() => setIsEditingStudent(prev => !prev)}
+                style={styles.modalActionBtn}
+              />
+            )}
+          </View>
+
           {/* Info Sections */}
           <View style={styles.infoSection}>
             <View style={styles.infoRow}>
@@ -460,7 +629,16 @@ export default function StudentListScreen() {
                 </View>
                 <View>
                   <AppText weight="bold" style={styles.infoLabel}>Gender</AppText>
-                  <AppText weight="bold" style={styles.infoValue}>{viewStudent?.gender || '—'}</AppText>
+                  {isEditingStudent ? (
+                    <TextInput
+                      style={styles.editInput}
+                      value={String(editStudent.gender || '')}
+                      onChangeText={(value) => setEditStudent(prev => ({ ...prev, gender: value }))}
+                      placeholder="Gender"
+                    />
+                  ) : (
+                    <AppText weight="bold" style={styles.infoValue}>{viewStudent?.gender || '—'}</AppText>
+                  )}
                 </View>
               </View>
             </View>
@@ -472,7 +650,16 @@ export default function StudentListScreen() {
                 </View>
                 <View>
                   <AppText weight="bold" style={styles.infoLabel}>Date of Birth</AppText>
-                  <AppText weight="bold" style={styles.infoValue}>{viewStudent?.date_of_birth || '—'}</AppText>
+                  {isEditingStudent ? (
+                    <TextInput
+                      style={styles.editInput}
+                      value={String(editStudent.date_of_birth || '')}
+                      onChangeText={(value) => setEditStudent(prev => ({ ...prev, date_of_birth: value }))}
+                      placeholder="YYYY-MM-DD"
+                    />
+                  ) : (
+                    <AppText weight="bold" style={styles.infoValue}>{viewStudent?.date_of_birth || '—'}</AppText>
+                  )}
                 </View>
               </View>
               <View style={styles.infoItem}>
@@ -481,7 +668,16 @@ export default function StudentListScreen() {
                 </View>
                 <View>
                   <AppText weight="bold" style={styles.infoLabel}>Blood Group</AppText>
-                  <AppText weight="bold" style={styles.infoValue}>{viewStudent?.blood_group || '—'}</AppText>
+                  {isEditingStudent ? (
+                    <TextInput
+                      style={styles.editInput}
+                      value={String(editStudent.blood_group || '')}
+                      onChangeText={(value) => setEditStudent(prev => ({ ...prev, blood_group: value }))}
+                      placeholder="Blood Group"
+                    />
+                  ) : (
+                    <AppText weight="bold" style={styles.infoValue}>{viewStudent?.blood_group || '—'}</AppText>
+                  )}
                 </View>
               </View>
             </View>
@@ -497,8 +693,28 @@ export default function StudentListScreen() {
                   <Phone size={16} color="#001F3F" />
                 </TouchableOpacity>
               </View>
-              <AppText weight="bold" style={styles.parentName}>{viewStudent?.father_guardian_name || '—'}</AppText>
-              <AppText weight="semiBold" style={styles.parentPhone}>{viewStudent?.father_guardian_mobile || '—'}</AppText>
+              {isEditingStudent ? (
+                <>
+                  <TextInput
+                    style={styles.editInput}
+                    value={String(editStudent.father_guardian_name || '')}
+                    onChangeText={(value) => setEditStudent(prev => ({ ...prev, father_guardian_name: value }))}
+                    placeholder="Father / Guardian Name"
+                  />
+                  <TextInput
+                    style={styles.editInput}
+                    value={String(editStudent.father_guardian_mobile || '')}
+                    onChangeText={(value) => setEditStudent(prev => ({ ...prev, father_guardian_mobile: value }))}
+                    placeholder="Father / Guardian Mobile"
+                    keyboardType="phone-pad"
+                  />
+                </>
+              ) : (
+                <>
+                  <AppText weight="bold" style={styles.parentName}>{viewStudent?.father_guardian_name || '—'}</AppText>
+                  <AppText weight="semiBold" style={styles.parentPhone}>{viewStudent?.father_guardian_mobile || '—'}</AppText>
+                </>
+              )}
             </View>
 
             <View style={styles.parentDivider} />
@@ -510,8 +726,28 @@ export default function StudentListScreen() {
                   <Phone size={16} color="#001F3F" />
                 </TouchableOpacity>
               </View>
-              <AppText weight="bold" style={styles.parentName}>{viewStudent?.mother_guardian_name || '—'}</AppText>
-              <AppText weight="semiBold" style={styles.parentPhone}>{viewStudent?.mother_guardian_mobile || '—'}</AppText>
+              {isEditingStudent ? (
+                <>
+                  <TextInput
+                    style={styles.editInput}
+                    value={String(editStudent.mother_guardian_name || '')}
+                    onChangeText={(value) => setEditStudent(prev => ({ ...prev, mother_guardian_name: value }))}
+                    placeholder="Mother / Guardian Name"
+                  />
+                  <TextInput
+                    style={styles.editInput}
+                    value={String(editStudent.mother_guardian_mobile || '')}
+                    onChangeText={(value) => setEditStudent(prev => ({ ...prev, mother_guardian_mobile: value }))}
+                    placeholder="Mother / Guardian Mobile"
+                    keyboardType="phone-pad"
+                  />
+                </>
+              ) : (
+                <>
+                  <AppText weight="bold" style={styles.parentName}>{viewStudent?.mother_guardian_name || '—'}</AppText>
+                  <AppText weight="semiBold" style={styles.parentPhone}>{viewStudent?.mother_guardian_mobile || '—'}</AppText>
+                </>
+              )}
             </View>
           </View>
 
@@ -519,11 +755,20 @@ export default function StudentListScreen() {
         </ScrollView>
 
         <View style={styles.modalFooter}>
-          <AppButton
-            title="Done"
-            onPress={() => setViewStudent(null)}
-            style={styles.doneBtn}
-          />
+          {isEditingStudent ? (
+            <AppButton
+              title={savingStudent ? 'Saving...' : 'Save Changes'}
+              onPress={handleSaveStudent}
+              disabled={savingStudent}
+              style={styles.doneBtn}
+            />
+          ) : (
+            <AppButton
+              title="Done"
+              onPress={() => setViewStudent(null)}
+              style={styles.doneBtn}
+            />
+          )}
         </View>
       </BottomSheetModal>
     </View>
@@ -666,6 +911,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  lockedScopeCard: {
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  lockedScopeText: {
+    fontSize: 14,
+    color: HM_THEME.navy,
+  },
+  lockedScopeHint: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#64748B',
+  },
   secChip: {
     width: 36,
     height: 36,
@@ -709,6 +970,25 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     gap: 12,
+  },
+  modalActionRow: {
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
+  modalActionBtn: {
+    alignSelf: 'flex-start',
+  },
+  editInput: {
+    minHeight: 42,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 6,
+    color: '#1E293B',
+    fontSize: 14,
   },
   studentCard: {
     flexDirection: 'row',

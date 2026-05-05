@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle, TouchableOpacity } from 'react-native';
+import { Platform } from 'react-native';
 
 import { colors } from '../../constants/theme';
 
@@ -34,9 +35,20 @@ export default function AppCard({ children, style, testID, onPress }: Props) {
 const styles = StyleSheet.create({
 	card: {
 		backgroundColor: colors.surface,
-		borderRadius: 14,
-		padding: 14,
+		borderRadius: 18,
+		padding: 16,
 		borderWidth: 1,
 		borderColor: colors.border,
+		...Platform.select({
+			ios: {
+				shadowColor: '#0f172a',
+				shadowOpacity: 0.08,
+				shadowRadius: 14,
+				shadowOffset: { width: 0, height: 6 },
+			},
+			android: {
+				elevation: 4,
+			},
+		}),
 	},
 });

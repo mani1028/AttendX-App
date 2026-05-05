@@ -87,13 +87,14 @@ export default function StudentDashboardScreen() {
     lastScrollY.current = currentScrollY;
   };
   const navigateRoot = (screen: keyof RootStackParamList, params?: any) => {
-    safeNavigate(navigation as any, screen, params);
+    safeNavigate(navigation as any, screen as any, params);
   };
   const [attendanceData, setAttendanceData] = useState({
     percentage: 0,
     presentDays: 0,
     absentDays: 0,
     totalDays: 0,
+    halfDays: 0,
   });
 
   const [recentAttendance, setRecentAttendance] = useState<any[]>([]);
@@ -142,21 +143,34 @@ export default function StudentDashboardScreen() {
       if (!isMounted.current) return;
 
       if (attendance) {
+        const attendanceResponse = attendance as any;
+        const attendanceItems = Array.isArray(attendance.items) ? attendance.items : [];
+        const halfDayCount = attendanceItems.filter((item: any) => {
+          const status = String(item?.status || '').toUpperCase();
+          return status === 'LATE' || status === 'HALF_DAY' || status === 'HALF DAY';
+        }).length;
+        const totalDays = Number(
+          attendanceResponse.totalDays ??
+          attendanceResponse.total_days ??
+          attendanceItems.length ??
+          ((attendance.presentDays || 0) + (attendance.absentDays || 0) + halfDayCount)
+        ) || 0;
         const attendanceData = {
           percentage: attendance.percentage || 0,
           presentDays: attendance.presentDays || 0,
           absentDays: attendance.absentDays || 0,
-          totalDays: (attendance.presentDays || 0) + (attendance.absentDays || 0),
+          totalDays,
+          halfDays: Number(attendanceResponse.halfDays ?? attendanceResponse.half_days ?? halfDayCount) || 0,
         };
         setAttendanceData(attendanceData);
-        if (attendance.items) {
-          setRecentAttendance(attendance.items);
+        if (attendanceItems.length > 0) {
+          setRecentAttendance(attendanceItems);
         }
 
         if (cacheKey) {
           await AsyncStorage.setItem(cacheKey, JSON.stringify({
             attendanceData,
-            recentAttendance: attendance.items || [],
+            recentAttendance: attendanceItems,
             recentPapers: [],
           }));
         }
@@ -280,7 +294,7 @@ export default function StudentDashboardScreen() {
   const stats = [
     { label: 'Total days', value: String(attendanceData.totalDays) },
     { label: 'Present', value: String(attendanceData.presentDays) },
-    { label: 'Half Day', value: '0' },
+    { label: 'Half Day', value: String(attendanceData.halfDays) },
     { label: 'Absent', value: String(attendanceData.absentDays) },
   ];
 

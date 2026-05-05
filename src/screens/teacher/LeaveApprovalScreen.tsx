@@ -12,6 +12,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Dimensions,
+  Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -192,6 +193,7 @@ export default function LeaveApprovalScreen() {
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
+  const scrollY = useRef(new Animated.Value(0)).current;
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [teacherId, setTeacherId] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
@@ -221,6 +223,10 @@ export default function LeaveApprovalScreen() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [sections, setSections] = useState<SectionItem[]>([]);
   const [loadingClassesSections, setLoadingClassesSections] = useState<boolean>(false);
+  // Teacher assignments/context
+  const [teacherAssignments, setTeacherAssignments] = useState<any[]>([]);
+  const [teacherName, setTeacherName] = useState<string>('');
+  const [loadingTeacherContext, setLoadingTeacherContext] = useState<boolean>(false);
 
   // Load credentials with defensive rehydration
   useEffect(() => {
@@ -269,6 +275,11 @@ export default function LeaveApprovalScreen() {
 
         const canonicalTeacherId = String(res.data?.teacher_data?.teacher_id || teacherId || '').trim();
         setResolvedTeacherId(canonicalTeacherId);
+        // store teacher assignments and name for filter defaults
+        const assignments = Array.isArray(res.data?.assignments) ? res.data.assignments.filter(Boolean) : [];
+        setTeacherAssignments(assignments);
+        const tName = res.data?.teacher_data?.full_name || res.data?.teacher_data?.teacher_full_name || res.data?.teacher_data?.name || '';
+        setTeacherName(String(tName || '').trim());
       } catch (err: any) {
         if (!isMounted.current) return;
         setResolvedTeacherId(teacherId || '');
@@ -348,6 +359,32 @@ export default function LeaveApprovalScreen() {
     }
   }, [schoolCode, resolvedTeacherId, classId, sectionId, status]);
 
+  const advancedFilterText = useMemo(() => {
+    // If explicit class filter selected
+    if (classId) {
+      const cls = classes.find(c => c.id === classId);
+      const classText = `Class ${cls?.name || classId}`;
+      const secText = sectionId ? ` • Sec ${sections.find(s => s.id === sectionId)?.name || sectionId}` : ' • All Sections';
+      return classText + secText;
+    }
+
+    // No explicit class selected - if teacher has exactly one assigned class, show that class and teacher name
+    const uniqueAssignedClasses = Array.from(new Map((teacherAssignments || [])
+      .filter(a => a?.class_name)
+      .map((a: any) => [String(a.class_name).trim().toLowerCase(), { class_name: a.class_name, class_id: String(a.class_id) }])
+      ).values());
+
+    if (!classId && uniqueAssignedClasses.length === 1) {
+      const cls = uniqueAssignedClasses[0];
+      const classText = `Class ${cls.class_name || cls.class_id}`;
+      const nameText = teacherName ? ` • ${teacherName}` : ' • All Sections';
+      return classText + nameText;
+    }
+
+    // Fallback to generic labels
+    return 'All Classes • All Sections';
+  }, [classId, sectionId, classes, sections, teacherAssignments, teacherName]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadRequests();
@@ -400,38 +437,67 @@ export default function LeaveApprovalScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
 
+      {/* Navy Standard Header (animated on scroll) */}
+      <Animated.View
+        style={[
+          styles.headerStandard,
+          { paddingTop: insets.top + 20, paddingBottom: 40 },
+          {
+            transform: [
+              {
+                translateY: scrollY.interpolate({
+                  inputRange: [0, 120],
+                  outputRange: [0, -80],
+                  extrapolate: 'clamp',
+                }),
+              },
+              {
+                scale: scrollY.interpolate({
+                  inputRange: [0, 120],
+                  outputRange: [1, 0.99],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ],
+            opacity: scrollY.interpolate({
+              inputRange: [0, 120],
+              outputRange: [1, 0.98],
+              extrapolate: 'clamp',
+            }),
+          },
+        ]}
+      >
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <AppText weight="bold" style={styles.headerTitle}>Leave Approvals</AppText>
+          </View>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => (navigation as any).navigate('Notifications')}
+          >
+            <Bell size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.headerContent}>
+          <AppText weight="bold" style={styles.headerGreeting}>Student Leaves</AppText>
+          <AppText style={styles.headerSubtext}>Review and manage pending leave applications</AppText>
+        </View>
+      </Animated.View>
+
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        onScroll={handleScroll}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: 20 }]}
+        onScroll={(e) => { Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })(e); handleScroll(e); }}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={HM_THEME.navy} />}
       >
-        {/* Navy Standard Header */}
-        <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
-            >
-              <ChevronLeft size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View style={styles.headerTitleContainer}>
-              <AppText weight="bold" style={styles.headerTitle}>Leave Approvals</AppText>
-            </View>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => (navigation as any).navigate('Notifications')}
-            >
-              <Bell size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.headerContent}>
-            <AppText weight="bold" style={styles.headerGreeting}>Student Leaves</AppText>
-            <AppText style={styles.headerSubtext}>Review and manage pending leave applications</AppText>
-          </View>
-        </View>
 
         {/* Filter Selection Card */}
         <AppCard style={styles.filterCard}>
@@ -471,8 +537,7 @@ export default function LeaveApprovalScreen() {
             >
               <Search size={16} color="#64748B" />
               <AppText weight="semiBold" style={styles.advancedFilterText}>
-                {classId ? `Class ${classes.find(c => c.id === classId)?.name || classId}` : 'All Classes'}
-                {sectionId ? ` • Sec ${sections.find(s => s.id === sectionId)?.name || sectionId}` : ' • All Sections'}
+                  {advancedFilterText}
               </AppText>
               <ChevronRight size={16} color="#94A3B8" />
             </TouchableOpacity>

@@ -113,18 +113,7 @@ const getTeacherId = async (): Promise<string> => {
          (await AsyncStorage.getItem('employeeId')) || '';
 };
 
-// Grade Badge Component
-const GradeBadge: React.FC<{ grade: string }> = ({ grade }) => {
-  const isFail = grade === 'F';
-  if (!grade) return null;
-  return (
-    <View style={[styles.gradeBadge, isFail ? styles.gradeBadgeFail : styles.gradeBadgePass]}>
-      <AppText weight="bold" style={[styles.gradeText, isFail ? styles.gradeTextFail : styles.gradeTextPass]}>
-        {grade}
-      </AppText>
-    </View>
-  );
-};
+// grading removed: grade UI intentionally omitted
 
 // Roll Tag Component
 const RollTag: React.FC<{ roll: string }> = ({ roll }) => (
@@ -182,7 +171,7 @@ const StudentRow: React.FC<{
             onChangeText={(value) => onMarksChange(student.student_id, value)}
             editable={!student.isAbsent}
           />
-          <GradeBadge grade={student.grade || ''} />
+          {/* grading removed */}
         </View>
       </View>
 
@@ -830,25 +819,21 @@ export default function MarksEntryScreen() {
       if (!silent) {
         Alert.alert(
           'Exam configuration missing',
-          'Exam configuration is not saved. Save default configuration (Total: 100, Pass: 33) and continue?',
+          'Exam configuration is not saved. You can open Exam Configuration to save values, or continue without configuration.',
           [
             { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Config', onPress: () => setShowConfigModal(true) },
             {
-              text: 'Save & Continue',
+              text: 'Continue Without Config',
               onPress: async () => {
-                try {
-                  if (!inputMaxMarks) setInputMaxMarks('100');
-                  if (!inputPassMarks) setInputPassMarks('33');
-                  await saveExamConfig();
-                  // Give state a moment to update then retry saving marks
-                  setTimeout(() => {
-                    saveMarks(silent);
-                  }, 300);
-                } catch (e) {
-                  // ignore - saveExamConfig handles alerts
-                }
-              },
-            },
+                // Mark as intentionally unset and proceed to save
+                setExamSubjectId(true as any);
+                // Give state a moment to update then retry saving marks
+                setTimeout(() => {
+                  saveMarks(silent);
+                }, 100);
+              }
+            }
           ]
         );
       }
@@ -926,10 +911,7 @@ export default function MarksEntryScreen() {
       Alert.alert('Error', 'Total Marks and Pass Marks must be valid positive numbers');
       return;
     }
-    if (pass > max) {
-      Alert.alert('Error', 'Pass Marks cannot be greater than Total Marks');
-      return;
-    }
+    // Allow pass marks to be any non-negative number (teachers may set custom pass thresholds)
 
     if (isMounted.current) setSavingExamConfig(true);
     try {
@@ -1139,7 +1121,7 @@ export default function MarksEntryScreen() {
                   <AppText weight="bold" style={styles.configItemValue}>{inputPassMarks}</AppText>
                 </View>
                 <TouchableOpacity style={styles.editConfigBtn} onPress={() => setIsEditMode(true)}>
-                  <RefreshCw size={16} color="#64748b" />
+                  <RefreshCw size={16} color="#01060e" />
                 </TouchableOpacity>
               </View>
             )}
@@ -1692,28 +1674,7 @@ const styles = StyleSheet.create({
   marksInputSaved: {
     borderColor: '#10b981',
   },
-  gradeBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gradeBadgePass: {
-    backgroundColor: '#dcfce7',
-  },
-  gradeBadgeFail: {
-    backgroundColor: '#fee2e2',
-  },
-  gradeText: {
-    fontSize: 12,
-  },
-  gradeTextPass: {
-    color: '#15803d',
-  },
-  gradeTextFail: {
-    color: '#b91c1c',
-  },
+  // grading styles removed
   savedIndicator: {
     position: 'absolute',
     top: -4,

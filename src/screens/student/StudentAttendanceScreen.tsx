@@ -29,6 +29,7 @@ interface MonthlyStats {
     absent: number;
     late: number;
     leave: number;
+    holiday: number;
     percentage: string;
 }
 
@@ -45,6 +46,7 @@ export default function StudentAttendanceScreen({ navigation }: any) {
         absent: 0,
         late: 0,
         leave: 0,
+        holiday: 0,
         percentage: '0'
     });
 
@@ -87,8 +89,9 @@ export default function StudentAttendanceScreen({ navigation }: any) {
             else if (curr.status === 'ABSENT') acc.absent++;
             else if (curr.status === 'LATE') acc.late++;
             else if (curr.status === 'LEAVE') acc.leave++;
+            else if (curr.status === 'HOLIDAY') acc.holiday++;
             return acc;
-        }, { present: 0, absent: 0, late: 0, leave: 0 });
+        }, { present: 0, absent: 0, late: 0, leave: 0, holiday: 0 });
 
         const total = stats.present + stats.absent + stats.late + stats.leave;
         const percentage = total > 0 ? ((stats.present + stats.late) / total * 100).toFixed(1) : '0';

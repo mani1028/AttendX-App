@@ -31,7 +31,8 @@ import {
   User,
   BookOpen,
   Clock,
-  Eye
+  Eye,
+  BadgeCheck
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
@@ -75,6 +76,8 @@ interface AttendanceSummary {
   half_day?: number;
   total: number;
   attendancePct: number;
+  holiday?: boolean;
+  holidayName?: string;
   total_teachers?: number;
   total_students?: number;
   total_classes?: number;
@@ -349,6 +352,8 @@ export default function TeacherDashboardScreen() {
                     half_day: 0,
                     total,
                     attendancePct,
+                    holiday: Boolean(report?.holiday),
+                    holidayName: report?.holiday_name,
                   };
 
                   if (isMounted.current) {
@@ -453,6 +458,7 @@ export default function TeacherDashboardScreen() {
     // Student Enrollment is a Class-Teacher only action; include only if effectiveIsClassTeacher
     ...(effectiveIsClassTeacher ? [
       { label: 'Student Enrollment', icon: UserPlus, color: '#10b981', route: 'HMStudentRegistration' },
+      { label: 'Accept Student', icon: BadgeCheck, color: '#059669', route: 'StudentRegistrationRequests' },
       { label: 'Manage Profiles', icon: Users, color: '#6366f1', route: 'TeacherStudentList' }
     ] : []),
     { label: 'Vital Scan AI', icon: Heart, color: '#ef4444', route: 'TeacherVitalScan' },
@@ -477,8 +483,8 @@ export default function TeacherDashboardScreen() {
         }))
     : [
         {
-          title: 'No Classes',
-          class: 'No assigned classes found',
+          title: 'coming up',
+          class: 'Up Coming Feature',
           status: 'N/A',
           statusColor: '#64748b',
           statusBg: '#f1f5f9',
@@ -486,7 +492,17 @@ export default function TeacherDashboardScreen() {
       ];
 
   const attendanceStats = attendanceSummary
-    ? [
+    ? attendanceSummary.holiday
+      ? [
+          {
+            label: 'Holiday',
+            value: attendanceSummary.holidayName || 'Sunday Holiday',
+            sub: 'No academic session today',
+            icon: CalendarCheck2,
+            color: '#f97316',
+          },
+        ]
+      : [
         {
           label: 'Present',
           value: String(attendanceSummary.present ?? 0),

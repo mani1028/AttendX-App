@@ -1,5 +1,6 @@
 import API, { buildApiUrl } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { formatLocalDateKey, getMonthSundayDates } from '../utils/holidayUtils';
 
 type AttendanceData = {
   percentage: number;
@@ -249,11 +250,28 @@ export async function getStudentAttendanceByMonth(month: string, year: string): 
   try {
     const res = await getStudentAttendance({ month, year });
     const items = res.items || [];
-    return items.map((item: any) => ({
+    const normalizedItems = items.map((item: any) => ({
       ...item,
       date: item.date || item.attendance_date || item.day || '',
       status: String(item.status || '').toUpperCase(),
     }));
+
+    const monthIndex = Math.max(Number(month) - 1, 0);
+    const yearValue = Number(year);
+    if (!Number.isFinite(yearValue)) {
+      return normalizedItems;
+    }
+
+    const sundayItems = getMonthSundayDates(monthIndex, yearValue)
+      .map((date) => formatLocalDateKey(date))
+      .filter((dateKey) => !normalizedItems.some((item: any) => item.date === dateKey))
+      .map((dateKey) => ({
+        date: dateKey,
+        status: 'HOLIDAY',
+        holiday_name: 'Sunday Holiday',
+      }));
+
+    return [...normalizedItems, ...sundayItems].sort((left, right) => left.date.localeCompare(right.date));
   } catch (error) {
     return [];
   }

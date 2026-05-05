@@ -380,7 +380,7 @@ const Header: React.FC<HeaderProps> = ({
         </View>
 
         <View style={styles.rightSection}>
-          {showCalendar && (role === 'student' || role === 'teacher') && (
+          {showCalendar && (role === 'student' || role === 'teacher' || role === 'accountant') && (
             <TouchableOpacity 
               style={styles.iconButton} 
               onPress={() => setShowCalendarModal(true)}

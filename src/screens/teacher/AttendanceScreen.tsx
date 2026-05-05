@@ -17,6 +17,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Linking } from 'react-native';
 import { useCameraDevice, Camera } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -248,6 +249,15 @@ export default function TeacherAttendanceScreen() {
     };
   }, [navigation, setTabBarVisible]);
 
+  // Hide the app tab bar while the camera view is active so only the camera is visible
+  useEffect(() => {
+    try {
+      setTabBarVisible(!cameraActive);
+    } catch (e) {
+      // ignore
+    }
+  }, [cameraActive, setTabBarVisible]);
+
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
     if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
@@ -434,8 +444,30 @@ export default function TeacherAttendanceScreen() {
 
   const startCamera = async (useFor: 'teacher' | 'student') => {
     setCameraUse(useFor);
-    setCameraPosition(useFor === 'teacher' ? 'front' : 'back');
-    setCameraActive(true);
+    const desiredPosition: 'back' | 'front' = useFor === 'teacher' ? 'front' : 'back';
+
+    try {
+      const permission = await Camera.requestCameraPermission();
+      const granted = permission === 'granted';
+      setHasPermission(granted);
+      if (!granted) {
+        Alert.alert(
+          'Camera Permission',
+          'Camera permission is required to capture photos. Please enable it in Settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() }
+          ]
+        );
+        return;
+      }
+
+      setCameraPosition(desiredPosition);
+      setCameraActive(true);
+    } catch (err) {
+      console.error('Failed to request camera permission:', err);
+      Alert.alert('Camera Error', 'Unable to access camera. Please check permissions.');
+    }
   };
 
   const toggleCamera = () => {
@@ -553,12 +585,18 @@ export default function TeacherAttendanceScreen() {
       setStep(3);
       showToast('Identity verified!', `Welcome, ${data.teacher_full_name}`, '✅', '#22C55E');
     } catch (err: any) {
-      if (err?.response?.status === 401) {
-        showToast('Verification Failed', 'Unauthorized access', '❌', '#EF4444');
+      if (!isMounted.current) return;
+
+      const status = err?.response?.status;
+      const backendDetail = err?.response?.data?.detail || err?.response?.data?.message;
+      const errorMsg = backendDetail || err?.message || 'Please try again';
+
+      if (status === 401) {
+        showToast('Verification Failed', backendDetail || 'Unauthorized access', '❌', '#EF4444');
+        Alert.alert('Verification Failed', backendDetail || 'Your identity could not be verified. Please try again or contact support.');
         return;
       }
-      if (!isMounted.current) return;
-      const errorMsg = err?.response?.data?.detail || err?.message || 'Please try again';
+
       Alert.alert('Verification Failed', errorMsg);
       console.error('Teacher verification error:', err);
     } finally {
@@ -611,9 +649,16 @@ export default function TeacherAttendanceScreen() {
       setStep(4);
       showToast('Attendance scanned', 'Review and save', '📊', '#22C55E');
     } catch (err: any) {
-      if (err?.response?.status === 401) return;
       if (!isMounted.current) return;
-      Alert.alert('Processing Failed', err?.response?.data?.detail || 'Please try again');
+      const backendDetail = err?.response?.data?.detail || err?.response?.data?.message;
+      const errorMsg = backendDetail || err?.message || 'Please try again';
+
+      if (err?.response?.status === 401) {
+        Alert.alert('Session Expired', 'Please verify your identity again.');
+        setStep(1); // Force re-verification
+        return;
+      }
+      Alert.alert('Processing Failed', errorMsg);
     } finally {
       if (isMounted.current) {
         setLoading(false);
@@ -666,9 +711,16 @@ export default function TeacherAttendanceScreen() {
         Alert.alert('Success', 'Attendance saved successfully', [{ text: 'OK', onPress: resetFlow }]);
       }
     } catch (err: any) {
-      if (err?.response?.status === 401) return;
       if (!isMounted.current) return;
-      Alert.alert('Save Failed', err?.response?.data?.detail || 'Please try again');
+      const backendDetail = err?.response?.data?.detail || err?.response?.data?.message;
+      const errorMsg = backendDetail || err?.message || 'Please try again';
+
+      if (err?.response?.status === 401) {
+        Alert.alert('Session Expired', 'Your session has expired. Please verify your identity again.');
+        setStep(1);
+        return;
+      }
+      Alert.alert('Save Failed', errorMsg);
     } finally {
       if (isMounted.current) {
         setManualSaving(false);
@@ -882,7 +934,7 @@ export default function TeacherAttendanceScreen() {
             />
             <View style={styles.cameraOverlay}>
               <AppText style={styles.cameraStep}>
-                {cameraUse === 'teacher' ? 'Teacher Face Verification' : `Image ${studentImages.length + 1}/3`}
+                {cameraUse === 'teacher' ? 'Teacher Face Verification' : `Image ${studentImages.length + 1}`}
               </AppText>
               <View style={styles.cameraControls}>
                 <TouchableOpacity
@@ -1080,24 +1132,21 @@ export default function TeacherAttendanceScreen() {
 
               <View style={styles.imageGridHeader}>
                 <AppText style={styles.label}>Student Images</AppText>
-                <AppText style={styles.imageCount}>{studentImages.length}/3</AppText>
               </View>
 
               {!cameraActive && (
                 <View style={styles.buttonGrid}>
                   <TouchableOpacity
-                    style={[styles.actionBtn, { backgroundColor: HM_THEME.navy }]}
-                    onPress={() => startCamera('student')}
-                    disabled={studentImages.length >= 3}
-                  >
+                      style={[styles.actionBtn, { backgroundColor: HM_THEME.navy }]}
+                      onPress={() => startCamera('student')}
+                    >
                     <CameraIcon size={20} color="#fff" />
                     <AppText style={styles.actionBtnText}>Capture Students</AppText>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionBtn, { backgroundColor: '#F1F5F9' }]}
-                    onPress={handleStudentUpload}
-                    disabled={studentImages.length >= 3}
-                  >
+                    <TouchableOpacity
+                      style={[styles.actionBtn, { backgroundColor: '#F1F5F9' }]}
+                      onPress={handleStudentUpload}
+                    >
                     <Upload size={20} color={HM_THEME.navy} />
                     <AppText style={[styles.actionBtnText, { color: HM_THEME.navy }]}>Upload</AppText>
                   </TouchableOpacity>

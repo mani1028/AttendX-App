@@ -145,6 +145,7 @@ export type RootStackParamList = {
   TeacherLeaveRequest: undefined;
   TeacherLeaveApproval: undefined;
   TeacherStudentList: undefined;
+  StudentRegistrationRequests: undefined;
   TeacherSkinDisease: undefined;
   TeacherVitalScan: undefined;
   TeacherViewAttendance: undefined;
@@ -409,18 +410,11 @@ export default function AppNavigator() {
         // ─── Main Application Stack (Logged In) ────────────────────────────
         <>
           <Stack.Screen name="MainTabs" component={MainTabs} />
-
-          {/* Common Screens */}
           <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
-
-          {/* Admin Screens */}
           <Stack.Screen name="NotificationManager" component={NotificationManagerScreen} options={{ headerShown: false }} />
           <Stack.Screen name="SchoolDetails" component={SchoolDetailsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="AdminSettings" component={SettingsScreen} options={{ headerShown: false }} />
-
-          {/* Teacher Screens */}
-          {/* Teacher Screens */}
           <Stack.Screen name="TeacherDashboard" component={TeacherDashboardScreen} />
           <Stack.Screen name="TeacherAttendance" component={TeacherAttendanceScreen} />
           <Stack.Screen name="TeacherMarksEntry" component={TeacherMarksEntryScreen} />
@@ -433,17 +427,12 @@ export default function AppNavigator() {
           <Stack.Screen name="TeacherVitalScan" component={TeacherVitalScanScreen} options={{ headerShown: false }} />
           <Stack.Screen name="TeacherViewAttendance" component={TeacherViewAttendanceScreen} options={{ headerShown: false }} />
           <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} options={{ headerShown: false }} />
-          {/* Student Screens */}
           <Stack.Screen name="StudentAttendance" component={StudentAttendanceScreen} />
           <Stack.Screen name="StudentMarks" component={StudentMarksScreen} />
           <Stack.Screen name="StudentHomework" component={StudentHomeworkScreen} />
           <Stack.Screen name="StudentFee" component={StudentFeeScreen} />
-
           <Stack.Screen name="StudentLeave" component={StudentLeaveScreen} />
-          <Stack.Screen name="StudentQuestionPapers" component={StudentQuestionPapersScreen} options={{ headerShown: false }} />++9
-
-          {/* HM Screens */}
-          {/* HM Screens */}
+          <Stack.Screen name="StudentQuestionPapers" component={StudentQuestionPapersScreen} options={{ headerShown: false }} />
           <Stack.Screen name="HMDashboard" component={HMDashboardScreen} />
           <Stack.Screen name="HMAttendance" component={HMAttendanceScreen} />
           <Stack.Screen name="HMStudentManagement" component={HMStudentManagementScreen} options={{ headerShown: false }} />
@@ -457,14 +446,10 @@ export default function AppNavigator() {
           <Stack.Screen name="HMSettings" component={HMSettingsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="HMStudentRegistration" component={HMStudentRegistrationScreen} options={{ headerShown: false }} />
           <Stack.Screen name="StudentAttendanceReport" component={StudentAttendanceReportScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="CalendarManagement" component={CalendarManagement} options={{ headerShown: false }} /> {/* Add this line */}
-
-          {/* Principal Screens */}
+          <Stack.Screen name="CalendarManagement" component={CalendarManagement} options={{ headerShown: false }} />
           <Stack.Screen name="PrincipalDashboard" component={PrincipalDashboardScreen} />
           <Stack.Screen name="PrincipalBranchDetails" component={PrincipalBranchDetailsScreen} options={{ headerShown: false }} />
           <Stack.Screen name="PrincipalHMRegistration" component={PrincipalHMRegistrationScreen} options={{ headerShown: false }} />
-
-          {/* Accountant Screens */}
           <Stack.Screen name="AccountantDashboard" component={AccountantDashboardScreen} />
           <Stack.Screen name="AccountantProfile" component={AccountantProfileScreen} options={{ headerShown: false }} />
           <Stack.Screen name="AccountantPaymentEntry" component={HMPaymentEntryScreen} options={{ headerShown: false }} />

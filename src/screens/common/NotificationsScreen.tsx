@@ -4,6 +4,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
   RefreshControl,
   ActivityIndicator,
   StatusBar,
@@ -14,7 +15,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, Bell, Calendar, Info, AlertTriangle, PartyPopper, Tent, CheckCheck, X } from 'lucide-react-native';
+import { ChevronLeft, Bell, Calendar, Info, AlertTriangle, PartyPopper, Tent, CheckCheck, X, Trash2, BadgeCheck } from 'lucide-react-native';
 import API from '../../services/api';
 import AppText from '../../components/common/AppText';
 import AppCard from '../../components/common/AppCard';
@@ -42,6 +43,12 @@ const getTypeIcon = (type: string) => {
     case 'festival': return <PartyPopper size={20} color="#f59e0b" />;
     case 'urgent': return <AlertTriangle size={20} color="#ef4444" />;
     case 'announcement': return <Info size={20} color="#f43f5e" />;
+    case 'approval':
+    case 'approved':
+    case 'request':
+    case 'registration':
+    case 'student_registration':
+      return <BadgeCheck size={20} color="#059669" />;
     default: return <Bell size={20} color="#6366f1" />;
   }
 };
@@ -53,6 +60,12 @@ const getTypeStyles = (type: string) => {
     case 'festival': return { bg: '#fef3c7', color: '#92400e' };
     case 'urgent': return { bg: '#fee2e2', color: '#991b1b' };
     case 'announcement': return { bg: '#fff1f2', color: '#9f1239' };
+    case 'approval':
+    case 'approved':
+    case 'request':
+    case 'registration':
+    case 'student_registration':
+      return { bg: '#dcfce7', color: '#047857' };
     default: return { bg: '#eef2ff', color: '#4338ca' };
   }
 };
@@ -67,6 +80,7 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [showDetailModal, setShowDetailModal] = useState<boolean>(false);
+  const [deleting, setDeleting] = useState<boolean>(false);
 
   const isMounted = useRef(true);
 
@@ -137,6 +151,49 @@ export default function NotificationsScreen() {
     markAsRead(notification.id);
     setSelectedNotification(notification);
     setShowDetailModal(true);
+  };
+
+  const canDeleteServerSide = (userRole || '').toLowerCase() === 'hm' || (userRole || '').toLowerCase() === 'admin';
+
+  const handleDeleteNotification = async (id?: string) => {
+    const nid = id || selectedNotification?.id;
+    if (!nid) return;
+
+    const confirm = await new Promise<boolean>(resolve => {
+      // @ts-ignore Alert types
+      Alert.alert('Delete', 'Are you sure you want to delete this notification?', [
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
+      ]);
+    });
+
+    if (!confirm) return;
+
+    try {
+      setDeleting(true);
+      if (canDeleteServerSide) {
+        // Use HM delete endpoint — backend currently exposes /notifications/hm/delete/{id}
+        await API.delete(`/notifications/hm/delete/${nid}`);
+      }
+      setNotifications(prev => prev.filter(n => n.id !== nid));
+      setShowDetailModal(false);
+      setSelectedNotification(null);
+      // Refresh badge/context
+      await refreshUnreadCount(true);
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+      Alert.alert('Error', 'Failed to delete notification');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const getNotificationLabel = (item: Notification) => {
+    const type = (item.type || '').toLowerCase();
+    if (type === 'approval' || type === 'approved' || type === 'request' || type === 'registration' || type === 'student_registration') {
+      return 'Student Approval';
+    }
+    return item.type?.toUpperCase();
   };
 
   const markAsRead = async (id: string) => {
@@ -279,7 +336,7 @@ export default function NotificationsScreen() {
                     </View>
                     <View style={styles.cardContent}>
                       <View style={styles.cardHeader}>
-                        <AppText style={[styles.typeText, { color: styles_type.color }]}>{item.type?.toUpperCase()}</AppText>
+                        <AppText style={[styles.typeText, { color: styles_type.color }]}>{getNotificationLabel(item)}</AppText>
                         <AppText style={styles.dateText}>{formatDate(item.created_at)}</AppText>
                       </View>
                       <AppText style={styles.cardTitle}>{item.title}</AppText>
@@ -292,6 +349,12 @@ export default function NotificationsScreen() {
                       )}
                     </View>
                     {!item.is_read && <View style={styles.unreadDot} />}
+                    <TouchableOpacity
+                      style={styles.cardDeleteBtn}
+                      onPress={() => handleDeleteNotification(item.id)}
+                    >
+                      <Trash2 size={16} color="#dc2626" />
+                    </TouchableOpacity>
                   </AppCard>
                 </TouchableOpacity>
               );
@@ -318,9 +381,14 @@ export default function NotificationsScreen() {
             >
               <View style={styles.modalTitleRow}>
                 <AppText style={styles.modalTitle}>Notification Details</AppText>
-                <TouchableOpacity onPress={() => setShowDetailModal(false)}>
-                  <X size={24} color="#fff" />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <TouchableOpacity onPress={() => handleDeleteNotification(selectedNotification?.id)} disabled={deleting} style={styles.modalActionBtn}>
+                    <Trash2 size={18} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setShowDetailModal(false)}>
+                    <X size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
               </View>
             </LinearGradient>
 
@@ -460,6 +528,7 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     flex: 1,
+    paddingRight: 34,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -622,5 +691,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#0c4a6e',
     fontWeight: '600',
+  },
+  modalActionBtn: {
+    padding: 6,
+    marginRight: 6,
+  },
+  cardDeleteBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.9)',
   },
 });

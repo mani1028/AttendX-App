@@ -345,9 +345,6 @@ export default function AccountantDashboardScreen() {
 
         <View style={styles.sectionRow}>
           <AppText style={styles.sectionTitle} weight="bold">Quick Access</AppText>
-          <TouchableOpacity onPress={() => navigation.navigate('AccountantReports')}>
-            <AppText style={styles.viewAll}>View All</AppText>
-          </TouchableOpacity>
         </View>
 
         <View style={styles.quickGrid}>
