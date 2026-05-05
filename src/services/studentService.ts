@@ -1,6 +1,6 @@
 import API, { buildApiUrl } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getAllFees, getPaymentHistoryByFee } from './accountantService';
+import { getFeesByStudent, getPaymentHistoryByFee } from './accountantService';
 import { formatLocalDateKey, getMonthSundayDates } from '../utils/holidayUtils';
 
 type AttendanceData = {
@@ -357,7 +357,8 @@ export async function getPaymentHistory(): Promise<any[]> {
   const studentId = await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('studentId');
 
   try {
-    const allFees = await getAllFees();
+    // FIX: Use the student-specific fetcher instead of the bulk list
+    const allFees = await getFeesByStudent(studentId || '');
     const matchingFees = studentId
       ? allFees.filter((fee) => String(fee.student_id || '').trim() === String(studentId).trim())
       : allFees;
