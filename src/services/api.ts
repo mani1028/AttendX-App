@@ -8,13 +8,20 @@ import { requestQueueManager } from './requestQueueManager';
 /* ================= BASE URL ================= */
 
 const getBaseUrl = (): string => {
-  const baseUrl = ENV.API_URL.replace(/\/$/, '');
-  // If the provided ENV.API_URL already contains an /api segment at the end,
-  // avoid appending another /api to prevent double /api/api paths.
-  if (baseUrl.toLowerCase().endsWith('/api')) {
-    return `${baseUrl}/`;
+  const rawUrl = String(ENV.API_URL || '').trim();
+  const cleaned = rawUrl.replace(/\/$/, '');
+  const protocolSeparator = '://';
+  let normalized = cleaned;
+
+  if (cleaned.includes(protocolSeparator)) {
+    const [protocol, rest] = cleaned.split(protocolSeparator);
+    normalized = `${protocol}${protocolSeparator}${rest.replace(/\/+/g, '/')}`;
+  } else {
+    normalized = cleaned.replace(/\/+/g, '/');
   }
-  return `${baseUrl}/api/`;
+
+  const stripped = normalized.replace(/\/api$/i, '');
+  return `${stripped}/api/`;
 };
 
 const API_BASE = getBaseUrl();
@@ -37,6 +44,25 @@ const API = axios.create({
   },
 });
 
+const normalizeStorageKey = async (keys: string[]) => {
+  for (const key of keys) {
+    const value = await AsyncStorage.getItem(key);
+    if (value && value !== 'null') {
+      return value;
+    }
+  }
+  return null;
+};
+
+const normalizeUrl = (configUrl?: string) => {
+  if (!configUrl) return configUrl;
+  let normalized = configUrl.replace(/\/+/g, '/');
+  if (normalized.toLowerCase().startsWith('/api/')) {
+    normalized = normalized.replace(/^\/api\//i, '/');
+  }
+  return normalized;
+};
+
 /* ================= REQUEST INTERCEPTOR ================= */
 
 API.interceptors.request.use(async config => {
@@ -50,37 +76,35 @@ API.interceptors.request.use(async config => {
     console.log(`[API Request] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
   }
 
-  const token = authToken || (await AsyncStorage.getItem('token'));
-  if (token && token !== 'null') {
+  const token = authToken || (await normalizeStorageKey(['token', 'auth_token', 'authToken']));
+  if (token) {
     config.headers.Authorization = `Bearer ${token}`;
     if (!authToken) {
       authToken = token; // Cache in memory for performance
     }
   }
 
-  const rawSchoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode'));
-  if (rawSchoolCode && rawSchoolCode !== 'null') {
+  const rawSchoolCode = await normalizeStorageKey([
+    'school_code',
+    'schoolCode',
+    'school_id',
+    'schoolId',
+  ]);
+  if (rawSchoolCode) {
     config.headers['X-School-Code'] = rawSchoolCode;
-    // Automatically inject school_code into query params if not already present
-    // Avoid double injection for multipart/form-data where it's usually in the body
-    const isMultipart = config.headers?.['Content-Type'] === 'multipart/form-data';
-    if (!isMultipart) {
-      config.params = { school_code: rawSchoolCode, ...config.params };
-    }
   }
 
-  const rawStudentId = (await AsyncStorage.getItem('student_id')) || (await AsyncStorage.getItem('studentId'));
-  if (rawStudentId && rawStudentId !== 'null') {
+  const rawStudentId = await normalizeStorageKey(['student_id', 'studentId']);
+  if (rawStudentId) {
     config.headers['X-Student-Id'] = rawStudentId;
-    // Automatically inject student_id into query params if not already present
-    config.params = { student_id: rawStudentId, ...config.params };
   }
 
-  const rawBranchId = (await AsyncStorage.getItem('branch_id')) || (await AsyncStorage.getItem('branchId'));
-  if (rawBranchId && rawBranchId !== 'null') {
+  const rawBranchId = await normalizeStorageKey(['branch_id', 'branchId']);
+  if (rawBranchId) {
     config.headers['X-Branch-Id'] = rawBranchId;
   }
 
+  config.url = normalizeUrl(config.url);
   return config;
 });
 
@@ -172,7 +196,10 @@ initializeNetworkListener();
 
 export const buildApiUrl = (path: string) => {
   const base = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  let cleanPath = path.startsWith('/') ? path : `/${path}`;
+  if (base.toLowerCase().endsWith('/api') && cleanPath.toLowerCase().startsWith('/api/')) {
+    cleanPath = cleanPath.replace(/^\/api/i, '');
+  }
   return `${base}${cleanPath}`;
 };
 

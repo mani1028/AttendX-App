@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { ChevronLeft, ChevronRight, Plus, X, Edit2, Trash2, Eye } from 'lucide-react-native';
 import API, { buildApiUrl } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 // Types
 interface Event {
@@ -84,6 +85,9 @@ export default function CalendarManagement() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [selectedCountry, setSelectedCountry] = useState<string>('IN');
+  const { userRole } = useAuth();
+  const isStudent = String(userRole || '').trim().toLowerCase() === 'student';
+  const canEdit = !isStudent;
   const [googleHolidays, setGoogleHolidays] = useState<GoogleHoliday[]>([]);
   const [fetchingGoogleHolidays, setFetchingGoogleHolidays] = useState<boolean>(false);
 
@@ -223,6 +227,7 @@ export default function CalendarManagement() {
   };
 
   const handleAddEvent = (date: Date): void => {
+    if (!canEdit) return;
     setEditingEvent(null);
     setFormData({
       title: '',
@@ -235,6 +240,7 @@ export default function CalendarManagement() {
   };
 
   const handleSaveEvent = async (): Promise<void> => {
+    if (!canEdit) return;
     if (!formData.title.trim() || !formData.date) {
       Alert.alert('Error', 'Title and date are required');
       return;
@@ -266,6 +272,7 @@ export default function CalendarManagement() {
   };
 
   const handleDeleteEvent = async (eventId: string | number): Promise<void> => {
+    if (!canEdit) return;
     Alert.alert('Delete Event', 'Delete this event?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -325,17 +332,26 @@ export default function CalendarManagement() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Calendar Management</Text>
-          <Text style={styles.subtitle}>Plan holidays, festivals, and events for the year</Text>
+          <Text style={styles.title}>School Calendar</Text>
+          <Text style={styles.subtitle}>Review academic events, holidays, and important dates.</Text>
         </View>
         <View style={styles.headerButtons}>
-          <TouchableOpacity style={styles.addButton} onPress={() => setShowHolidaysModal(true)}>
-            <Text style={styles.addButtonText}>📅 Public Holidays</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.addButton} onPress={() => handleAddEvent(new Date())}>
-            <Plus size={18} color="#fff" />
-            <Text style={styles.addButtonText}>Add Event</Text>
-          </TouchableOpacity>
+          {canEdit ? (
+            <>
+              <TouchableOpacity style={styles.addButton} onPress={() => setShowHolidaysModal(true)}>
+                <Text style={styles.addButtonText}>📅 Public Holidays</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.addButton} onPress={() => handleAddEvent(new Date())}>
+                <Plus size={18} color="#fff" />
+                <Text style={styles.addButtonText}>Add Event</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <View style={styles.readOnlyNotice}>
+              <Text style={styles.readOnlyNoticeTitle}>Student access</Text>
+              <Text style={styles.readOnlyNoticeText}>This calendar is view-only for students.</Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -375,9 +391,9 @@ export default function CalendarManagement() {
             return (
               <TouchableOpacity
                 key={idx}
-                style={[styles.dayCell, isOtherMonth && styles.otherMonthCell]}
-                onPress={() => date && handleAddEvent(date)}
-                disabled={isOtherMonth}
+                style={[styles.dayCell, isOtherMonth && styles.otherMonthCell, !canEdit && !isOtherMonth && styles.dayCellReadOnly]}
+                onPress={date && canEdit ? () => handleAddEvent(date) : undefined}
+                disabled={isOtherMonth || !canEdit}
               >
                 {date && (
                   <>
@@ -397,15 +413,17 @@ export default function CalendarManagement() {
                         <Text style={styles.eventText} numberOfLines={1}>
                           {evt.title}
                         </Text>
-                        <TouchableOpacity
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            handleDeleteEvent(evt.event_id);
-                          }}
-                          style={styles.deleteIcon}
-                        >
-                          <Trash2 size={10} color="#fff" />
-                        </TouchableOpacity>
+                        {canEdit && (
+                          <TouchableOpacity
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleDeleteEvent(evt.event_id);
+                            }}
+                            style={styles.deleteIcon}
+                          >
+                            <Trash2 size={10} color="#fff" />
+                          </TouchableOpacity>
+                        )}
                       </TouchableOpacity>
                     ))}
                     {dayEvents.length > 2 && (
@@ -422,7 +440,8 @@ export default function CalendarManagement() {
       {/* Holidays List Toggle */}
       <TouchableOpacity
         style={styles.holidaysListBtn}
-        onPress={() => setShowHolidaysList(!showHolidaysList)}
+        onPress={() => setShowHolidaysList((prev) => !prev)}
+        activeOpacity={0.8}
       >
         <Text style={styles.holidaysListBtnText}>
           📋 {showHolidaysList ? 'Hide' : 'Show'} Holidays List
@@ -437,7 +456,15 @@ export default function CalendarManagement() {
           ) : (
             <>
               {events.map((event) => (
-                <View key={event.event_id} style={styles.holidayItemCard}>
+                <TouchableOpacity
+                  key={event.event_id}
+                  style={styles.holidayItemCard}
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    setPreviewingEvent(event);
+                    setShowPreviewModal(true);
+                  }}
+                >
                   <View style={styles.holidayItemContent}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.holidayName}>{event.title}</Text>
@@ -452,29 +479,31 @@ export default function CalendarManagement() {
                         <Text style={styles.eventTypeBadge}>{event.event_type}</Text>
                       )}
                     </View>
-                    <View style={styles.holidayItemActions}>
-                      <TouchableOpacity
-                        onPress={() => {
-                          setEditingEvent(event);
-                          setFormData({
-                            title: event.title,
-                            date: event.event_date,
-                            description: event.description || '',
-                            type: event.event_type || 'holiday',
-                            color: 'holiday',
-                          });
-                          setShowModal(true);
-                        }}
-                        style={styles.actionButton}
-                      >
-                        <Edit2 size={16} color={COLORS.primary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleDeleteEvent(event.event_id)}>
-                        <Trash2 size={16} color={COLORS.danger} />
-                      </TouchableOpacity>
-                    </View>
+                    {canEdit && (
+                      <View style={styles.holidayItemActions}>
+                        <TouchableOpacity
+                          onPress={() => {
+                            setEditingEvent(event);
+                            setFormData({
+                              title: event.title,
+                              date: event.event_date,
+                              description: event.description || '',
+                              type: event.event_type || 'holiday',
+                              color: 'holiday',
+                            });
+                            setShowModal(true);
+                          }}
+                          style={styles.actionButton}
+                        >
+                          <Edit2 size={16} color={COLORS.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDeleteEvent(event.event_id)}>
+                          <Trash2 size={16} color={COLORS.danger} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </>
           )}
@@ -610,36 +639,40 @@ export default function CalendarManagement() {
                 )}
 
                 <View style={styles.previewButtonGroup}>
-                  <TouchableOpacity
-                    style={styles.previewEditBtn}
-                    onPress={() => {
-                      if (previewingEvent) {
-                        setEditingEvent(previewingEvent);
-                        setFormData({
-                          title: previewingEvent.title,
-                          date: previewingEvent.event_date,
-                          description: previewingEvent.description || '',
-                          type: previewingEvent.event_type || 'holiday',
-                          color: 'holiday',
-                        });
+                  {canEdit && (
+                  <>
+                    <TouchableOpacity
+                      style={styles.previewEditBtn}
+                      onPress={() => {
+                        if (previewingEvent) {
+                          setEditingEvent(previewingEvent);
+                          setFormData({
+                            title: previewingEvent.title,
+                            date: previewingEvent.event_date,
+                            description: previewingEvent.description || '',
+                            type: previewingEvent.event_type || 'holiday',
+                            color: 'holiday',
+                          });
+                          setShowPreviewModal(false);
+                          setShowModal(true);
+                        }
+                      }}
+                    >
+                      <Edit2 size={16} color="#fff" />
+                      <Text style={styles.previewEditBtnText}>Edit Event</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.previewDeleteBtn}
+                      onPress={() => {
                         setShowPreviewModal(false);
-                        setShowModal(true);
-                      }
-                    }}
-                  >
-                    <Edit2 size={16} color="#fff" />
-                    <Text style={styles.previewEditBtnText}>Edit Event</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.previewDeleteBtn}
-                    onPress={() => {
-                      setShowPreviewModal(false);
-                      handleDeleteEvent(previewingEvent.event_id);
-                    }}
-                  >
-                    <Trash2 size={16} color={COLORS.danger} />
-                    <Text style={styles.previewDeleteBtnText}>Delete</Text>
-                  </TouchableOpacity>
+                        handleDeleteEvent(previewingEvent.event_id);
+                      }}
+                    >
+                      <Trash2 size={16} color={COLORS.danger} />
+                      <Text style={styles.previewDeleteBtnText}>Delete</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
                 </View>
               </>
             )}
@@ -835,21 +868,29 @@ const styles = StyleSheet.create({
   addButton: {
     flexDirection: 'row',
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: 'center',
     gap: 8,
+    minHeight: 48,
   },
   addButtonText: {
     color: '#fff',
     fontWeight: '600',
   },
   calendarContainer: {
-    backgroundColor: COLORS.cardBg,
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
   },
   calendarHeader: {
     flexDirection: 'row',
@@ -886,9 +927,11 @@ const styles = StyleSheet.create({
     width: '14.28%',
     aspectRatio: 1,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 4,
-    borderRadius: 4,
+    borderColor: '#e2e8f0',
+    padding: 6,
+    borderRadius: 12,
+    marginBottom: 4,
+    backgroundColor: '#fff',
   },
   otherMonthCell: {
     backgroundColor: '#f9fafb',
@@ -901,10 +944,10 @@ const styles = StyleSheet.create({
   },
   eventBadge: {
     backgroundColor: COLORS.primary,
-    borderRadius: 2,
-    paddingHorizontal: 2,
-    paddingVertical: 1,
-    marginBottom: 2,
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    marginBottom: 4,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -923,9 +966,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   holidaysListBtn: {
-    backgroundColor: COLORS.success,
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: '#047857',
+    padding: 14,
+    borderRadius: 14,
     alignItems: 'center',
     marginBottom: 16,
   },
@@ -945,11 +988,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   holidayItemCard: {
-    backgroundColor: COLORS.bg,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    borderLeftWidth: 3,
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 10,
+    borderLeftWidth: 4,
     borderLeftColor: COLORS.primary,
   },
   holidayItemContent: {
@@ -974,6 +1017,27 @@ const styles = StyleSheet.create({
   holidayItemActions: {
     flexDirection: 'row',
     gap: 12,
+  },
+  readOnlyNotice: {
+    backgroundColor: '#f8fafc',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  readOnlyNoticeTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  readOnlyNoticeText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+  },
+  dayCellReadOnly: {
+    opacity: 0.75,
+    backgroundColor: '#f8fafc',
   },
   actionButton: {
     padding: 4,
@@ -1104,7 +1168,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1118,7 +1182,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: '#fee2e2',
     alignItems: 'center',
     justifyContent: 'center',

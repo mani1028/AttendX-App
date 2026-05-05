@@ -17,7 +17,7 @@ export async function getAllSchools(): Promise<any[]> {
     '/schools/all',
     '/admin/schools/all',
     '/manage/schools/all',
-    '/api/schools/all'
+    'schools/all'
   ];
   try {
     const data = await getFirstSuccessful<any>(endpoints);

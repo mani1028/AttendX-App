@@ -19,6 +19,7 @@ import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
+import AvatarBubble from '../../components/common/AvatarBubble';
 import type { RootStackParamList } from '../../navigation/AppNavigator';
 import { safeNavigate } from '../../utils/navigationHelpers';
 import Svg, { Path } from 'react-native-svg';
@@ -301,6 +302,7 @@ export default function StudentDashboardScreen() {
   const quickAccess = [
     { name: 'Homework', icon: 'clipboard', color: '#fdf2f8', iconColor: '#db2777', screen: 'StudentHomework' },
     { name: 'Attendance', icon: 'list', color: '#fef2f2', iconColor: '#ef4444', screen: 'StudentAttendance' },
+    { name: 'Calendar', icon: 'calendar-outline', color: '#ecfdf5', iconColor: '#10b981', screen: 'CalendarManagement' },
     { name: 'Marks', icon: 'stats-chart', color: '#ecfeff', iconColor: '#06b6d4', screen: 'StudentMarks' },
     { name: 'Leaves', icon: 'calendar', color: '#eef2ff', iconColor: '#6366f1', screen: 'StudentLeave' },
     { name: 'Fees', icon: 'wallet', color: '#fff7ed', iconColor: '#f97316', screen: 'StudentFee' },
@@ -333,11 +335,21 @@ export default function StudentDashboardScreen() {
         <View style={[styles.headerContent, { paddingTop: insets.top + 14 }]}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={() => navigateRoot('Profile')}>
-              <Image
-                source={{ uri: profilePhotoUrl && !profilePhotoError ? profilePhotoUrl : 'https://i.pravatar.cc/150?u=student' }}
-                style={styles.avatar}
-                onError={() => setProfilePhotoError(true)}
-              />
+              {profilePhotoUrl && !profilePhotoError ? (
+                <Image
+                  source={{ uri: profilePhotoUrl }}
+                  style={styles.avatar}
+                  onError={() => setProfilePhotoError(true)}
+                />
+              ) : (
+                /* Use your initials component instead of the random URL */
+                <AvatarBubble
+                  displayName={userName || 'Student'}
+                  size={40}
+                  textSize={16}
+                  primaryColor="#2563eb"
+                />
+              )}
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.notificationBtn}

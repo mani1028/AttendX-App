@@ -20,8 +20,8 @@ import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import { Buffer } from 'buffer';
 import Icon from '@react-native-vector-icons/feather';
-import API from '../../services/api';
-import { getStudentFee, getPaymentHistory, downloadReceipt } from '../../services/studentService';
+import { getStudentFee, getPaymentHistory } from '../../services/studentService';
+import { downloadReceipt } from '../../services/accountantService';
 import colors from '../../constants/colors';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
@@ -48,6 +48,16 @@ interface Payment {
   receipt_no?: string;
   transaction_id?: string;
 }
+
+const getFeeCacheKey = (studentId: string, schoolCode?: string) => {
+  if (!studentId) return null;
+  return schoolCode ? `fees_cache_${schoolCode}_${studentId}` : `fees_cache_${studentId}`;
+};
+
+const getPaymentCacheKey = (studentId: string, schoolCode?: string) => {
+  if (!studentId) return null;
+  return schoolCode ? `payments_cache_${schoolCode}_${studentId}` : `payments_cache_${studentId}`;
+};
 
 // Summary Card Component
 const SummaryCard: React.FC<{
@@ -104,15 +114,20 @@ export default function StudentFeeScreen({ navigation }: any) {
 
         // Load cached data
         if (sid) {
-           const cachedFees = await AsyncStorage.getItem(`fees_cache_${sid}`);
-           if (cachedFees) setFees(JSON.parse(cachedFees));
+          const feeCacheKey = getFeeCacheKey(sid, code || undefined);
+          const paymentCacheKey = getPaymentCacheKey(sid, code || undefined);
 
-           const cachedPayments = await AsyncStorage.getItem(`payments_cache_${sid}`);
-           if (cachedPayments) setPayments(JSON.parse(cachedPayments));
+          const cachedFees = (feeCacheKey ? await AsyncStorage.getItem(feeCacheKey) : null)
+            || await AsyncStorage.getItem(`fees_cache_${sid}`);
+          if (cachedFees) setFees(JSON.parse(cachedFees));
+
+          const cachedPayments = (paymentCacheKey ? await AsyncStorage.getItem(paymentCacheKey) : null)
+            || await AsyncStorage.getItem(`payments_cache_${sid}`);
+          if (cachedPayments) setPayments(JSON.parse(cachedPayments));
         }
 
         if (sid) {
-          await fetchFeeInfo(sid, !fees.length);
+          await fetchFeeInfo(sid, code || undefined, !fees.length);
         }
       } catch (error) {
         console.error('Error loading user data:', error);
@@ -124,12 +139,14 @@ export default function StudentFeeScreen({ navigation }: any) {
     loadUserData();
   }, []);
 
-  const fetchFeeInfo = async (sid: string, showLoading = true) => {
+  const fetchFeeInfo = async (sid: string, code?: string, showLoading = true) => {
+    const feeCacheKey = getFeeCacheKey(sid, code);
+    const paymentCacheKey = getPaymentCacheKey(sid, code);
+
     try {
       if (showLoading) setLoading(true);
-      
+
       const feeData = await getStudentFee();
-      // Format the data to match the expected local 'fees' array structure
       const formattedFees: Fee[] = [{
         id: 'summary',
         total_fee: feeData.totalFee,
@@ -140,18 +157,22 @@ export default function StudentFeeScreen({ navigation }: any) {
       }];
 
       setFees(formattedFees);
-      await AsyncStorage.setItem(`fees_cache_${sid}`, JSON.stringify(formattedFees));
-
-      // Fetch payment history
-      const historyData = await getPaymentHistory();
-      setPayments(Array.isArray(historyData) ? historyData : []);
-      await AsyncStorage.setItem(`payments_cache_${sid}`, JSON.stringify(historyData));
-
+      if (feeCacheKey) {
+        await AsyncStorage.setItem(feeCacheKey, JSON.stringify(formattedFees));
+      }
     } catch (error) {
-      console.error('Error fetching fee info:', error);
-      // Fallback to empty states on 404/Error
-      setFees([]);
-      setPayments([]);
+      console.error('Error fetching fee summary:', error);
+    }
+
+    try {
+      const historyData = await getPaymentHistory();
+      const normalizedHistory = Array.isArray(historyData) ? historyData : [];
+      setPayments(normalizedHistory);
+      if (paymentCacheKey) {
+        await AsyncStorage.setItem(paymentCacheKey, JSON.stringify(normalizedHistory));
+      }
+    } catch (error) {
+      console.error('Error fetching payment history:', error);
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -160,10 +181,10 @@ export default function StudentFeeScreen({ navigation }: any) {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     if (studentId) {
-      await fetchFeeInfo(studentId, false);
+      await fetchFeeInfo(studentId, schoolCode, false);
     }
     setRefreshing(false);
-  }, [studentId]);
+  }, [schoolCode, studentId]);
 
   const handleDownloadReceipt = async (paymentId: string, receiptNo: string) => {
     try {

@@ -1099,6 +1099,13 @@ export default function PrincipalDashboardScreen() {
                 <RefreshCw size={14} color={colors.textMuted} />
                 <AppText style={styles.refreshBtnText}>Refresh</AppText>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.viewAllTextBtn}
+                onPress={() => navigation.navigate('TeacherLeaveApproval' as any)}
+              >
+                <FileText size={16} color={colors.textMuted} />
+                <AppText style={[styles.viewAllText, { marginLeft: 8 }]}>Teacher Leaves</AppText>
+              </TouchableOpacity>
             </View>
           </View>
         </Animated.View>

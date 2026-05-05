@@ -103,69 +103,34 @@ export default function StudentAttendanceScreen({ navigation }: any) {
         });
     };
 
+    const attendanceStatusColors: Record<string, string> = {
+        PRESENT: '#22C55E',
+        ABSENT: '#EF4444',
+        LATE: '#F59E0B',
+        LEAVE: '#3B82F6',
+        HOLIDAY: '#64748B',
+    };
+
     const markedDates = useMemo(() => {
         const marked: any = {};
         attendance.forEach(item => {
-            let color = '#E2E8F0';
-            let textColor = '#64748B';
-
-            switch (item.status) {
-                case 'PRESENT':
-                    color = '#DCFCE7';
-                    textColor = '#166534';
-                    break;
-                case 'ABSENT':
-                    color = '#FEE2E2';
-                    textColor = '#991B1B';
-                    break;
-                case 'LATE':
-                    color = '#FEF3C7';
-                    textColor = '#92400E';
-                    break;
-                case 'LEAVE':
-                    color = '#DBEAFE';
-                    textColor = '#1E40AF';
-                    break;
-                case 'HOLIDAY':
-                    color = '#F1F5F9';
-                    textColor = '#475569';
-                    break;
-            }
-
             marked[item.date] = {
-                customStyles: {
-                    container: {
-                        backgroundColor: color,
-                        borderRadius: 8,
-                        elevation: 1,
+                dots: [
+                    {
+                        key: item.status,
+                        color: attendanceStatusColors[item.status] || '#CBD5E1',
                     },
-                    text: {
-                        color: textColor,
-                        fontWeight: 'bold',
-                    }
-                }
+                ],
             };
         });
 
-        // Highlight selected date
-        if (marked[selectedDate]) {
-            marked[selectedDate].customStyles.container.borderWidth = 2;
-            marked[selectedDate].customStyles.container.borderColor = '#3B82F6';
-        } else {
-            marked[selectedDate] = {
-                customStyles: {
-                    container: {
-                        borderWidth: 2,
-                        borderColor: '#3B82F6',
-                        borderRadius: 8,
-                    },
-                    text: {
-                        color: '#3B82F6',
-                        fontWeight: 'bold',
-                    }
-                }
-            };
-        }
+        marked[selectedDate] = {
+            ...(marked[selectedDate] || {}),
+            selected: true,
+            selectedColor: '#3B82F6',
+            selectedTextColor: '#FFFFFF',
+            dots: marked[selectedDate]?.dots || [],
+        };
 
         return marked;
     }, [attendance, selectedDate]);
@@ -247,8 +212,10 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                         current={selectedDate}
                         onDayPress={day => setSelectedDate(day.dateString)}
                         onMonthChange={handleMonthChange}
-                        markingType={'custom'}
+                        markingType={'multi-dot'}
                         markedDates={markedDates}
+                        enableSwipeMonths={true}
+                        hideExtraDays={true}
                         theme={{
                             backgroundColor: '#ffffff',
                             calendarBackground: '#ffffff',
@@ -268,7 +235,9 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                             textDayFontSize: 14,
                             textMonthFontSize: 16,
                             textDayHeaderFontSize: 12,
+                            todayBackgroundColor: '#E0F2FE',
                         }}
+                        style={styles.calendar}
                     />
                 </View>
 
@@ -448,6 +417,11 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 10,
         elevation: 3,
+        overflow: 'hidden',
+    },
+    calendar: {
+        borderRadius: 20,
+        backgroundColor: '#FFFFFF',
     },
     detailsCard: {
         backgroundColor: '#FFFFFF',

@@ -23,20 +23,12 @@ function normalizeTeacherList(data: any): any[] {
 }
 
 export async function getHMStats(headers: any): Promise<any> {
-  const endpoints = [
-    '/hm/dashboard/stats',
-    '/api/hm/dashboard/stats',
-    '/manage/hm/dashboard/stats'
-  ];
+  const endpoints = ['hm/dashboard/stats'];
   return getFirstSuccessful(endpoints, headers);
 }
 
 export async function getHMClasses(headers: any): Promise<any[]> {
-  const endpoints = [
-    '/hm/classes',
-    '/api/hm/classes',
-    '/manage/hm/classes'
-  ];
+  const endpoints = ['hm/classes'];
   try {
     const data = await getFirstSuccessful<any>(endpoints, headers);
     return data.items || (Array.isArray(data) ? data : []);
@@ -46,13 +38,7 @@ export async function getHMClasses(headers: any): Promise<any[]> {
 }
 
 export async function getHMTeachers(headers: any): Promise<any[]> {
-  const endpoints = [
-    '/hm/teachers',
-    '/api/hm/teachers',
-    '/manage/hm/teachers',
-    '/api/teachers',
-    '/manage/teachers',
-  ];
+  const endpoints = ['hm/teachers'];
 
   try {
     const data = await getFirstSuccessful<any>(endpoints, headers);
@@ -61,7 +47,7 @@ export async function getHMTeachers(headers: any): Promise<any[]> {
       return items;
     }
   } catch (err) {
-    console.warn('Primary teacher endpoints failed:', err);
+    console.warn('Primary teacher endpoint failed:', err);
     // Fall through to the attendance-backed teacher list.
   }
 
@@ -77,24 +63,6 @@ export async function getHMTeachers(headers: any): Promise<any[]> {
     }
   } catch (err) {
     console.warn('Attendance-based teacher fetch failed:', err);
-  }
-
-  try {
-    const response = await API.get('/api/teachers', {
-      suppressFallback404Log: true,
-    });
-    return normalizeTeacherList(response.data);
-  } catch (err) {
-    console.warn('Fallback /api/teachers failed:', err);
-  }
-
-  try {
-    const response = await API.get('/manage/teachers', {
-      suppressFallback404Log: true,
-    });
-    return normalizeTeacherList(response.data);
-  } catch (err) {
-    console.warn('Fallback /manage/teachers failed:', err);
   }
 
   return [];

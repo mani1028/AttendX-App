@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, Bell, Calendar, Info, AlertTriangle, PartyPopper, Tent, CheckCheck, X, Trash2, BadgeCheck } from 'lucide-react-native';
+import { ChevronLeft, Bell, Calendar, Info, AlertTriangle, PartyPopper, Tent, CheckCheck, X, Trash2, BadgeCheck, MoreVertical } from 'lucide-react-native';
 import API from '../../services/api';
 import AppText from '../../components/common/AppText';
 import AppCard from '../../components/common/AppCard';
@@ -81,6 +81,7 @@ export default function NotificationsScreen() {
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [showDetailModal, setShowDetailModal] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
+  const [showActionMenu, setShowActionMenu] = useState<boolean>(false);
 
   const isMounted = useRef(true);
 
@@ -235,6 +236,60 @@ export default function NotificationsScreen() {
     }
   };
 
+  const deleteAllReadNotifications = async () => {
+    const readNotifications = notifications.filter(n => n.is_read);
+    
+    if (readNotifications.length === 0) {
+      Alert.alert('No Read Notifications', 'There are no read notifications to delete.');
+      return;
+    }
+
+    const confirm = await new Promise<boolean>(resolve => {
+      Alert.alert(
+        'Delete All Read',
+        `Delete ${readNotifications.length} read notification${readNotifications.length !== 1 ? 's' : ''}?`,
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Delete All', style: 'destructive', onPress: () => resolve(true) },
+        ]
+      );
+    });
+
+    if (!confirm) return;
+
+    try {
+      setDeleting(true);
+      
+      // Delete from backend if user has permission
+      if (canDeleteServerSide) {
+        await Promise.allSettled(
+          readNotifications.map(n => API.delete(`/notifications/hm/delete/${n.id}`))
+        );
+      }
+
+      // Remove from UI
+      setNotifications(prev => prev.filter(n => !n.is_read));
+      
+      // Update read status in storage
+      await AsyncStorage.setItem('read_notifications', JSON.stringify([]));
+      
+      // Update badge count
+      const unreads = notifications.filter(n => !n.is_read).length;
+      await notificationService.updateBadgeCount(unreads);
+      
+      // Refresh context
+      await refreshUnreadCount(true);
+      
+      setShowActionMenu(false);
+      Alert.alert('Success', `Deleted ${readNotifications.length} read notification${readNotifications.length !== 1 ? 's' : ''}`);
+    } catch (err) {
+      console.error('Failed to delete read notifications:', err);
+      Alert.alert('Error', 'Failed to delete read notifications');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -293,14 +348,14 @@ export default function NotificationsScreen() {
             <ChevronLeft size={24} color="#fff" />
           </TouchableOpacity>
           <AppText style={styles.heroTitle}>Notifications</AppText>
+        <View style={styles.headerActionRow}>
           <TouchableOpacity onPress={markAllRead} style={styles.markAllBtn}>
             <CheckCheck size={20} color="#fff" />
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowActionMenu(true)} style={styles.menuBtn}>
+            <MoreVertical size={20} color="#fff" />
+          </TouchableOpacity>
         </View>
-
-        <View style={styles.heroContent}>
-          <AppText style={styles.heroGreeting}>Notice Board</AppText>
-          <AppText style={styles.heroSubtext}>Stay updated with the latest school announcements</AppText>
         </View>
       </View>
 
@@ -363,6 +418,47 @@ export default function NotificationsScreen() {
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Action Menu Modal */}
+      <Modal
+        visible={showActionMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowActionMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowActionMenu(false)}
+        >
+          <View style={styles.menuContent}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                deleteAllReadNotifications();
+              }}
+              disabled={deleting}
+            >
+              <Trash2 size={18} color="#dc2626" />
+              <AppText style={styles.menuItemText}>Delete All Read</AppText>
+              <AppText style={styles.menuItemHint}>
+                {notifications.filter(n => n.is_read).length}
+              </AppText>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                markAllRead();
+                setShowActionMenu(false);
+              }}
+            >
+              <CheckCheck size={18} color="#10b981" />
+              <AppText style={styles.menuItemText}>Mark All as Read</AppText>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Notification Detail Modal */}
       <Modal
@@ -703,5 +799,60 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.9)',
+  },
+  headerActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  menuBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  menuContent: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 20,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 16,
+  },
+  menuItemText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0f172a',
+    flex: 1,
+  },
+  menuItemHint: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2563eb',
+    backgroundColor: '#dbeafe',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: '#f1f5f9',
   },
 });

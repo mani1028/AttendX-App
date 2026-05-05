@@ -217,6 +217,7 @@ const QUICK_ACTIONS = [
   { label: 'Notices', route: 'HMAnnouncements', icon: Megaphone, bg: 'rgba(236, 72, 153, 0.08)', color: '#ec4899' },
   { label: 'Settings', route: 'HMSettings', icon: Settings, bg: 'rgba(100, 116, 139, 0.08)', color: '#64748b' },
   { label: 'Profile', route: 'Profile', icon: User, bg: 'rgba(139, 92, 246, 0.08)', color: '#8b5cf6' },
+  { label: 'Teacher Leaves', route: 'TeacherLeaveApproval', icon: CalendarIcon, bg: 'rgba(234, 88, 12, 0.08)', color: '#ea580c' },
 ] as const;
 
 export default function DashboardPage() {

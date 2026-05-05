@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Alert,
   ActivityIndicator,
   Platform,
@@ -13,12 +11,12 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft, Calendar, Users, CheckCircle2, XCircle } from 'lucide-react-native';
-import API from '../../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
-import AppCard from '../../components/common/AppCard';
 import ClassSelector from '../../components/teacher/ClassSelector';
 import AppText from '../../components/common/AppText';
+import { getStudentsByClass, markAttendance } from '../../services/teacherService';
 
 interface Student {
   id: string;
@@ -60,27 +58,61 @@ export default function MarkAttendanceScreen() {
     return date.toISOString().split('T')[0];
   };
 
+  const safeText = (value: unknown, fallback = ''): string => {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return String(value);
+    return fallback;
+  };
+
+  const parseClassGradeSection = (name: string) => {
+    const normalized = name.trim();
+    const gradeMatch = normalized.match(/class\s*(\d+)/i);
+    const sectionMatch = normalized.match(/section\s*([A-Za-z0-9]+)/i) || normalized.match(/class\s*\d+\s*[-:]?\s*([A-Za-z0-9]+)/i);
+    return {
+      grade: gradeMatch ? gradeMatch[1] : normalized,
+      section: sectionMatch ? sectionMatch[1] : '',
+    };
+  };
+
   const fetchStudents = async () => {
     if (!classInfo) return;
     setLoading(true);
     try {
-      const mockStudents: Student[] = Array.from({ length: classInfo.students }, (_, i) => ({
-        id: `${i + 1}`,
-        rollNo: `${100 + i}`,
-        name: `Student ${i + 1}`,
-        present: Math.random() > 0.5,
-      }));
-      
+      const schoolCode =
+        (await AsyncStorage.getItem('school_code')) ||
+        (await AsyncStorage.getItem('schoolCode')) ||
+        (await AsyncStorage.getItem('school_id')) ||
+        (await AsyncStorage.getItem('schoolId')) ||
+        '';
+      const branchId =
+        (await AsyncStorage.getItem('branch_id')) ||
+        (await AsyncStorage.getItem('branchId')) ||
+        '';
       const dateStr = formatDate(selectedDate);
-      const records: AttendanceRecord[] = mockStudents.map(s => ({
-        id: s.id,
-        rollNo: s.rollNo,
-        name: s.name,
-        date: dateStr,
-        present: s.present,
-      }));
+      const { grade, section } = parseClassGradeSection(classInfo.name);
+      const students = schoolCode && branchId
+        ? await getStudentsByClass(schoolCode, branchId, grade, section)
+        : [];
+
+      const records: AttendanceRecord[] = Array.isArray(students) && students.length > 0
+        ? students.map((student: any, index: number) => ({
+            id: safeText(student.student_id ?? student.id ?? `student-${index + 1}`),
+            rollNo: safeText(student.roll_no ?? student.rollNo ?? student.roll_number ?? index + 1),
+            name: safeText(student.name ?? student.student_name ?? student.full_name ?? `Student ${index + 1}`),
+            date: dateStr,
+            present: Boolean(student.present ?? student.is_present ?? student.attendance_status === 'present'),
+          }))
+        : Array.from({ length: classInfo.students }, (_, i) => ({
+            id: `${i + 1}`,
+            rollNo: `${100 + i}`,
+            name: `Student ${i + 1}`,
+            date: dateStr,
+            present: Math.random() > 0.5,
+          }));
+
       setAttendanceData(records);
     } catch (error) {
+      console.error('Failed to load students:', error);
       Alert.alert('Error', 'Failed to load students');
     } finally {
       setLoading(false);
@@ -116,13 +148,46 @@ export default function MarkAttendanceScreen() {
   };
 
   const handleSaveAttendance = async () => {
+    if (!classInfo) {
+      Alert.alert('Error', 'Please select a class first.');
+      return;
+    }
+
     setLoading(true);
     try {
-      await new Promise<void>(resolve => setTimeout(resolve, 1000));
+      const schoolCode =
+        (await AsyncStorage.getItem('school_code')) ||
+        (await AsyncStorage.getItem('schoolCode')) ||
+        (await AsyncStorage.getItem('school_id')) ||
+        (await AsyncStorage.getItem('schoolId')) ||
+        '';
+      const branchId =
+        (await AsyncStorage.getItem('branch_id')) ||
+        (await AsyncStorage.getItem('branchId')) ||
+        '';
+
+      if (!schoolCode || !branchId) {
+        Alert.alert('Error', 'Missing school or branch information.');
+        return;
+      }
+
+      const { grade, section } = parseClassGradeSection(classInfo.name);
+      const payload = {
+        class_grade: grade,
+        section,
+        attendance_date: formatDate(selectedDate),
+        students: attendanceData.map(student => ({
+          student_id: student.id,
+          present: student.present,
+        })),
+      };
+
+      await markAttendance(schoolCode, branchId, payload);
       Alert.alert('Success', 'Attendance saved successfully');
       await fetchStudents();
-    } catch (error) {
-      Alert.alert('Error', 'Failed to save attendance');
+    } catch (error: any) {
+      console.error('Failed to save attendance:', error);
+      Alert.alert('Error', error?.message || 'Failed to save attendance');
     } finally {
       setLoading(false);
     }

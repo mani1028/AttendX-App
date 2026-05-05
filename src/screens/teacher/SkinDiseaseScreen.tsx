@@ -148,6 +148,21 @@ export default function SkinDiseaseScreen() {
     );
   }, []);
 
+  const getFileName = (uri: string) => {
+    const parts = uri.split('/').filter(Boolean);
+    const rawName = parts.length ? parts[parts.length - 1] : '';
+    if (!rawName) return `skin_image_${Date.now()}.jpg`;
+    return rawName.includes('.') ? rawName : `${rawName}.jpg`;
+  };
+
+  const getMimeType = (name: string) => {
+    const lower = name.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    return 'image/jpeg';
+  };
+
   const handleUpload = useCallback(async () => {
     if (!selectedImage) {
       Alert.alert('No Image', 'Please select an image first');
@@ -158,12 +173,13 @@ export default function SkinDiseaseScreen() {
     setPrediction(null);
 
     try {
-      // Create FormData
+      const filename = getFileName(selectedImage);
+      const fileType = getMimeType(filename);
       const formData = new FormData();
       formData.append('image', {
         uri: selectedImage,
-        type: 'image/jpeg',
-        name: 'skin_image.jpg',
+        type: fileType,
+        name: filename,
       } as any);
 
       const response = await API.post('/vitalscan/predict/skin', formData, {

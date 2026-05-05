@@ -1,11 +1,14 @@
 import API, { buildApiUrl } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAllFees, getPaymentHistoryByFee } from './accountantService';
 import { formatLocalDateKey, getMonthSundayDates } from '../utils/holidayUtils';
 
 type AttendanceData = {
   percentage: number;
   presentDays: number;
   absentDays: number;
+  halfDays?: number;
+  totalDays?: number;
 };
 
 type MarksData = {
@@ -27,43 +30,15 @@ const MARKS_ENDPOINTS = [
 const EXAM_LIST_ENDPOINTS = [
   'student-dashboard/marks/exams'
 ];
-const FEE_ENDPOINTS = [
-  'student-dashboard/fees'
-];
-const PROFILE_ENDPOINTS = [
-  'hm/students/directory',
-  'manage/students',
-  'student-dashboard/profile'
-];
 const PROFILE_PHOTO_ENDPOINT = 'profile-photo/student';
-const QUESTION_PAPER_ENDPOINTS = [
-  'student/question-papers',
-  'student-dashboard/question-papers',
-  'student-dashboard/papers'
-];
-const EXAM_TYPES_ENDPOINTS = [
-  'student/question-papers/exam-types',
-  'student-dashboard/question-papers/exam-types',
-  'student-dashboard/papers/exam-types'
-];
-const SCHOOL_HOLIDAYS_ENDPOINTS = [
-  'student/school-holidays'
-];
-const STUDENT_REGISTER_REQUEST_ENDPOINTS = [
-  'student/register-request'
-];
-const LEAVE_TEACHERS_ENDPOINTS = [
-  'student-dashboard/teachers-for-leave'
-];
-const LEAVE_REQUESTS_ENDPOINTS = [
-  'student-dashboard/leave-requests'
-];
-const SUBJECTS_ENDPOINTS = [
-  'student-dashboard/subjects'
-];
-const HOMEWORK_ENDPOINTS = [
-  'student-dashboard/homework'
-];
+const QUESTION_PAPER_ENDPOINTS = ['student/question-papers'];
+const EXAM_TYPES_ENDPOINTS = ['student/question-papers/exam-types'];
+const SCHOOL_HOLIDAYS_ENDPOINTS = ['student/school-holidays'];
+const STUDENT_REGISTER_REQUEST_ENDPOINTS = ['student/register-request'];
+const LEAVE_TEACHERS_ENDPOINTS = ['student-dashboard/teachers-for-leave'];
+const LEAVE_REQUESTS_ENDPOINTS = ['student-dashboard/leave-requests'];
+const SUBJECTS_ENDPOINTS = ['student-dashboard/subjects'];
+const HOMEWORK_ENDPOINTS = ['student-dashboard/homework'];
 
 const FALLBACK_404_CONFIG = {
   suppressFallback404Log: true,
@@ -169,12 +144,40 @@ function firstNonEmptyStringArray(...values: unknown[]): string[] {
   return [];
 }
 
+function normalizeAttendanceStatus(value: unknown): string {
+  return toText(value, '').trim().toUpperCase();
+}
+
+function normalizeAttendanceItem(item: Record<string, any>): Record<string, any> {
+  const status = normalizeAttendanceStatus(
+    item.status ?? item.attendance_status ?? item.type ?? item.attendanceType
+  );
+
+  return {
+    ...item,
+    date: toText(item.date ?? item.attendance_date ?? item.day ?? item.attendanceDate, '').trim(),
+    status,
+  };
+}
+
+function isHolidayAttendanceItem(item: Record<string, any>): boolean {
+  const status = normalizeAttendanceStatus(item.status);
+  if (status === 'HOLIDAY' || status === 'SUNDAY_HOLIDAY') return true;
+
+  if (item.holiday === true || item.is_holiday === true || item.isHoliday === true) {
+    return true;
+  }
+
+  const holidayLabel = toText(item.holiday_name ?? item.holidayName ?? item.name ?? item.title, '').trim();
+  return /holiday/i.test(holidayLabel);
+}
+
 /**
  * Tries multiple endpoint variants to find a working one.
  * It also tries prefixes like /api/v1/ and /mobile/ automatically.
  */
 async function getFirstSuccessful<T>(endpoints: string[], additionalParams: any = {}) {
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
+  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
   const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
   const studentId = await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('studentId');
   const perEndpointTimeoutMs = 15000;
@@ -191,8 +194,10 @@ async function getFirstSuccessful<T>(endpoints: string[], additionalParams: any 
         timeout: perEndpointTimeoutMs,
         params: {
           school_code: schoolCode,
+          school_id: schoolCode,
+          branch_id: branchId,
           student_id: studentId,
-          ...additionalParams
+          ...additionalParams,
         },
         headers,
         ...FALLBACK_404_CONFIG,
@@ -202,7 +207,7 @@ async function getFirstSuccessful<T>(endpoints: string[], additionalParams: any 
          return response.data;
       }
     } catch (error: any) {
-      if (error.response?.status === 401) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
         console.error(`[API] Unauthorized access to ${endpoint}. Token might be missing or invalid.`);
         throw error; // Don't try other endpoints if unauthorized
       }
@@ -218,16 +223,25 @@ export async function getStudentAttendance(params: any = {}): Promise<Attendance
 
     const data = responseData?.data || responseData?.summary || responseData;
     const items = responseData?.items || responseData?.data?.items || [];
+    const normalizedItems = Array.isArray(items)
+      ? items.map((item: any) => normalizeAttendanceItem(item))
+      : [];
+    const schoolDayItems = normalizedItems.filter((item) => !isHolidayAttendanceItem(item));
 
-    if (Array.isArray(items) && items.length > 0) {
-      const presentDays = items.filter((item: any) => String(item.status).toLowerCase() === 'present').length;
-      const total = items.length || 1;
-      const absentDays = Math.max(total - presentDays, 0);
+    if (schoolDayItems.length > 0) {
+      const presentDays = schoolDayItems.filter((item: any) => item.status === 'PRESENT').length;
+      const absentDays = schoolDayItems.filter((item: any) => item.status === 'ABSENT').length;
+      const lateDays = schoolDayItems.filter((item: any) => item.status === 'LATE').length;
+      const halfDayOnly = schoolDayItems.filter((item: any) => item.status === 'HALF_DAY' || item.status === 'HALF DAY').length;
+      const total = schoolDayItems.length || 1;
+      const percentage = Math.round(((presentDays + lateDays + (halfDayOnly * 0.5)) / total) * 100);
       return {
-        percentage: responseData.summary?.attendance_percentage ?? Math.round((presentDays / total) * 100),
+        percentage: responseData.summary?.attendance_percentage ?? percentage,
         presentDays: responseData.summary?.present_days ?? presentDays,
         absentDays: responseData.summary?.absent_days ?? absentDays,
-        items,
+        halfDays: responseData.summary?.half_days ?? responseData.summary?.halfDays ?? (lateDays + halfDayOnly),
+        totalDays: responseData.summary?.total_days ?? responseData.summary?.totalDays ?? total,
+        items: normalizedItems,
       };
     }
 
@@ -236,9 +250,9 @@ export async function getStudentAttendance(params: any = {}): Promise<Attendance
     const fallbackTotal = Math.max(presentDays + absentDays, 1);
     const percentage = toNumber(data.attendance_percentage ?? data.percentage, Math.round((presentDays / fallbackTotal) * 100));
 
-    return { percentage, presentDays, absentDays, items: [] };
+    return { percentage, presentDays, absentDays, halfDays: toNumber(data.half_days ?? data.halfDays), totalDays: fallbackTotal, items: [] };
   } catch (error) {
-    return { percentage: 0, presentDays: 0, absentDays: 0, items: [] };
+    return { percentage: 0, presentDays: 0, absentDays: 0, halfDays: 0, totalDays: 0, items: [] };
   }
 }
 
@@ -317,150 +331,62 @@ export async function getStudentExams(): Promise<any[]> {
 
 export async function getStudentFee(): Promise<FeeData> {
   const studentId = await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('studentId');
-  const feeEndpoints = studentId
-    ? [`accountant/fees/${encodeURIComponent(studentId)}`, ...FEE_ENDPOINTS]
-    : FEE_ENDPOINTS;
-
-  let data: any;
   try {
-    data = (await getFirstSuccessful<any>(feeEndpoints)) as any;
+    // FIX: Use the student-specific fetcher instead of the bulk list
+    const allFees = await getFeesByStudent(studentId || '');
+    const matchingFees = studentId
+      ? allFees.filter((fee) => String(fee.student_id || '').trim() === String(studentId).trim())
+      : allFees;
+    const fees = matchingFees.length > 0 ? matchingFees : allFees;
+
+    if (fees.length === 0) {
+      return { totalFee: 0, paidFee: 0, pendingFee: 0 };
+    }
+
+    const totalFee = fees.reduce((sum, fee) => sum + toNumber(fee.total_fee), 0);
+    const paidFee = fees.reduce((sum, fee) => sum + toNumber(fee.paid_amount), 0);
+    const pendingFee = fees.reduce((sum, fee) => sum + toNumber(fee.due_amount), 0);
+
+    return { totalFee, paidFee, pendingFee: Math.max(pendingFee, Math.max(totalFee - paidFee, 0)) };
   } catch (error) {
     return { totalFee: 0, paidFee: 0, pendingFee: 0 };
   }
-
-  const root = asRecord(data);
-  const nested = asRecord(firstDefined(root.data, root.summary, root.fee_summary, root.fees_summary));
-  const nested2 = asRecord(firstDefined(asRecord(root.data).summary, asRecord(root.data).fee_summary, asRecord(root.data).fees_summary));
-  const feesList =
-    (Array.isArray(root.items) && root.items) ||
-    (Array.isArray(root.records) && root.records) ||
-    (Array.isArray(root.fees) && root.fees) ||
-    (Array.isArray(root.history) && root.history) ||
-    (Array.isArray(asRecord(root.data).items) && asRecord(root.data).items) ||
-    (Array.isArray(asRecord(root.data).fees) && asRecord(root.data).fees) ||
-    (Array.isArray(asRecord(root.data).records) && asRecord(root.data).records) ||
-    (Array.isArray(asRecord(root.data).history) && asRecord(root.data).history) ||
-    (Array.isArray(data) ? data : []);
-
-  if (Array.isArray(feesList) && feesList.length > 0) {
-    const totalFee = feesList.reduce((sum, item) => {
-      const row = asRecord(item);
-      return sum + toNumber(firstDefined(row.amount, row.total_fee, row.total_amount, row.fee_amount));
-    }, 0);
-    const paidFee = feesList.reduce((sum, item) => {
-      const row = asRecord(item);
-      const explicitPaid = toNumber(firstDefined(row.paid_amount, row.paid_fee, row.paid));
-      if (explicitPaid > 0) return sum + explicitPaid;
-      const explicitPending = toNumber(firstDefined(row.pending_fee, row.pending_amount, row.due_amount, row.balance), -1);
-      if (explicitPending >= 0) {
-        const totalAmount = toNumber(firstDefined(row.amount, row.total_fee, row.total_amount, row.fee_amount));
-        return sum + Math.max(totalAmount - explicitPending, 0);
-      }
-      const status = String(firstDefined(row.status, row.payment_status, '')).toLowerCase();
-      const amount = toNumber(firstDefined(row.amount, row.total_fee, row.total_amount, row.fee_amount));
-      return status === 'paid' ? sum + amount : sum;
-    }, 0);
-
-    return { totalFee, paidFee, pendingFee: Math.max(totalFee - paidFee, 0) };
-  }
-
-  const totalFee = toNumber(firstDefined(root.total_fee, root.total, nested.total_fee, nested.total, nested2.total_fee, nested2.total));
-  const paidFee = toNumber(firstDefined(root.paid_fee, root.paid, nested.paid_fee, nested.paid, nested2.paid_fee, nested2.paid));
-  const pendingFee = toNumber(firstDefined(root.pending_fee, root.pending, nested.pending_fee, nested.pending), Math.max(totalFee - paidFee, 0));
-
-  return { totalFee, paidFee, pendingFee };
 }
 
 export async function getPaymentHistory(): Promise<any[]> {
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
   const studentId = await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('studentId');
 
-  if (studentId) {
-    try {
-      const feesResponse = await API.get<any>(`accountant/fees/${studentId}`, {
-        params: { school_code: schoolCode },
-        ...FALLBACK_404_CONFIG,
-      } as any);
-
-      const feeRoot = asRecord(feesResponse.data);
-      const feeRows =
-        (Array.isArray(feeRoot.items) && feeRoot.items) ||
-        (Array.isArray(feeRoot.fees) && feeRoot.fees) ||
-        (Array.isArray(feeRoot.history) && feeRoot.history) ||
-        (Array.isArray(asRecord(feeRoot.data).items) && asRecord(feeRoot.data).items) ||
-        (Array.isArray(asRecord(feeRoot.data).fees) && asRecord(feeRoot.data).fees) ||
-        (Array.isArray(asRecord(feeRoot.data).history) && asRecord(feeRoot.data).history) ||
-        (Array.isArray(feesResponse.data) ? feesResponse.data : []);
-
-      const feeIds = feeRows
-        .map((row: any) => toText(firstDefined(asRecord(row).id, asRecord(row).fee_id), ''))
-        .filter(Boolean);
-
-      if (feeIds.length > 0) {
-        const paymentGroups = await Promise.all(
-          feeIds.map(async (feeId: string) => {
-            try {
-              const paymentResponse = await API.get<any>(`accountant/payments/${feeId}`, {
-                params: { school_code: schoolCode },
-                ...FALLBACK_404_CONFIG,
-              } as any);
-              const root = asRecord(paymentResponse.data);
-              const items =
-                (Array.isArray(root.items) && root.items) ||
-                (Array.isArray(root.payments) && root.payments) ||
-                (Array.isArray(root.ledger) && root.ledger) ||
-                (Array.isArray(asRecord(root.data).items) && asRecord(root.data).items) ||
-                (Array.isArray(asRecord(root.data).payments) && asRecord(root.data).payments) ||
-                (Array.isArray(asRecord(root.data).ledger) && asRecord(root.data).ledger) ||
-                (Array.isArray(paymentResponse.data) ? paymentResponse.data : []);
-
-              return items.map((item: any, index: number) => {
-                const row = asRecord(item);
-                return {
-                  id: toText(firstDefined(row.id, row.payment_id, row.receipt_no), `${feeId}-${index}`),
-                  amount: toNumber(firstDefined(row.amount, row.paid_amount)),
-                  method: toText(firstDefined(row.method, row.payment_method), 'CASH'),
-                  date: toText(firstDefined(row.date, row.paid_at, row.created_at), new Date().toISOString()),
-                };
-              });
-            } catch (error) {
-              return [];
-            }
-          }),
-        );
-
-        const flattened = paymentGroups.flat();
-        if (flattened.length > 0) {
-          return flattened.sort((a, b) => String(b.date).localeCompare(String(a.date)));
-        }
-      }
-    } catch (error) {
-      // Fall back to legacy endpoint below.
-    }
-  }
-
   try {
-    const response = await API.get<any>('student-dashboard/payments', {
-      params: { school_code: schoolCode, student_id: studentId },
-      ...FALLBACK_404_CONFIG,
-    } as any);
-    const root = asRecord(response.data);
-    const rawItems =
-      (Array.isArray(root.items) && root.items) ||
-      (Array.isArray(root.payments) && root.payments) ||
-      (Array.isArray(asRecord(root.data).items) && asRecord(root.data).items) ||
-      (Array.isArray(asRecord(root.data).payments) && asRecord(root.data).payments) ||
-      (Array.isArray(response.data) ? response.data : []);
+    const allFees = await getAllFees();
+    const matchingFees = studentId
+      ? allFees.filter((fee) => String(fee.student_id || '').trim() === String(studentId).trim())
+      : allFees;
+    const fees = matchingFees.length > 0 ? matchingFees : allFees;
 
-    return rawItems.map((item: any, index: number) => {
-      const row = asRecord(item);
-      return {
-        id: toText(firstDefined(row.id, row.payment_id, row.receipt_no), String(index)),
-        amount: toNumber(firstDefined(row.amount, row.paid_amount)),
-        method: toText(firstDefined(row.method, row.payment_method), 'CASH'),
-        date: toText(firstDefined(row.date, row.created_at), new Date().toISOString()),
-      };
-    });
+    if (fees.length === 0) {
+      return [];
+    }
+
+    const paymentGroups = await Promise.all(
+      fees.map(async (fee) => {
+        try {
+          const payments = await getPaymentHistoryByFee(fee.id);
+          return payments.map((payment, index) => ({
+            id: payment.id || `${fee.id}-${index}`,
+            amount: payment.amount,
+            method: payment.method.toUpperCase(),
+            date: payment.paid_at || payment.created_at || new Date().toISOString(),
+            receipt_no: payment.receipt_no || undefined,
+            transaction_id: payment.transaction_id || undefined,
+          }));
+        } catch (error) {
+          return [];
+        }
+      }),
+    );
+
+    const flattened = paymentGroups.flat();
+    return flattened.sort((left, right) => String(right.date).localeCompare(String(left.date)));
   } catch (error) {}
 
   return [];
@@ -534,30 +460,45 @@ export async function getStudentProfile(): Promise<any> {
       }
     })() : {};
 
-    const responseData = await getFirstSuccessful<any>(PROFILE_ENDPOINTS);
-    const root = asRecord(responseData);
     const studentId = String(
       (await AsyncStorage.getItem('student_id')) ||
       (await AsyncStorage.getItem('studentId')) ||
-      root.student_id ||
+      storedUser?.student_id ||
+      storedUser?.studentId ||
+      ''
+    ).trim();
+    const schoolCode = String(
+      (await AsyncStorage.getItem('school_code')) ||
+      (await AsyncStorage.getItem('schoolCode')) ||
+      storedUser?.school_code ||
       ''
     ).trim();
 
-    const candidateList = [
-      root.data,
-      root.items,
-      root.students,
-      root.records,
-      responseData,
-    ].find(Array.isArray) as any[] | undefined;
+    if (!studentId && !schoolCode) {
+      return storedUser || {};
+    }
 
-    const listMatch = candidateList?.find((item: any) => {
-      const row = asRecord(item);
-      const rowId = String(firstDefined(row.student_id, row.studentId, row.id, row.code, row.student_no, row.roll_number, '') || '').trim();
-      return studentId ? rowId === studentId : Boolean(rowId);
-    });
+    const responseData = await getProfile(studentId, schoolCode);
 
-    const raw = asRecord(firstDefined(listMatch, root.data, root.profile, root.student, root.user, storedUser, responseData));
+    // Normalize response if it's a list instead of a single object
+    let profileData = responseData;
+    if (Array.isArray(responseData)) {
+      profileData = responseData[0];
+    } else if (responseData && typeof responseData === 'object') {
+      const candidateList = [
+        responseData.data,
+        responseData.items,
+        responseData.students,
+        responseData.records
+      ].find(Array.isArray);
+
+      if (candidateList && candidateList.length > 0) {
+        profileData = candidateList[0];
+      }
+    }
+
+    const root = asRecord(profileData);
+    const raw = asRecord(firstDefined(root.data, root.profile, root.student, root.user, profileData, storedUser));
     let photoSource = normalizePhotoSource(firstDefined(
       raw.student_photograph,
       raw.profile_photo_url,
@@ -673,29 +614,55 @@ export async function getStudentProfile(): Promise<any> {
  */
 export async function getProfile(studentId: string, schoolCode: string): Promise<any> {
   try {
-    // Try student-dashboard/profile as primary endpoint
     const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
     const response = await API.get('student-dashboard/profile', {
-      params: { student_id: studentId, school_code: schoolCode },
-      headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId || undefined },
+      params: {
+        student_id: studentId || undefined,
+        school_code: schoolCode || undefined,
+      },
+      headers: { 'X-School-Code': schoolCode || undefined, 'X-Branch-Id': branchId || undefined },
       timeout: 15000,
     });
-    return response.data;
-  } catch (error) {
-    console.error('[Service] Failed to fetch profile (student-dashboard/profile), trying fallback...', error);
-    try {
-      // Fall back to hm/students/directory
-      const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
-      const response = await API.get('hm/students/directory', {
-        params: { student_id: studentId, school_code: schoolCode },
-        headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId || undefined },
-        timeout: 15000,
-      });
-      return response.data;
-    } catch (fallbackError) {
-      console.error('[Service] Failed to fetch profile from both endpoints.');
-      throw fallbackError;
+    const responseData = response.data;
+    const root = asRecord(responseData);
+
+    const candidateList = [
+      responseData,
+      root.data,
+      root.items,
+      root.students,
+      root.records,
+      root.profile,
+      root.student,
+      root.user,
+    ].find(Array.isArray) as any[] | undefined;
+
+    const matchedRecord = candidateList?.find((item: any) => {
+      const row = asRecord(item);
+      const rowId = String(firstDefined(row.student_id, row.studentId, row.id, row.code, row.student_no, row.roll_number, '') || '').trim();
+      return studentId ? rowId === studentId : Boolean(rowId);
+    });
+
+    if (matchedRecord) {
+      return asRecord(matchedRecord);
     }
+
+    if (Array.isArray(responseData)) {
+      return asRecord(responseData[0]);
+    }
+
+    if (Array.isArray(root.data) && root.data.length > 0) {
+      return asRecord(root.data[0]);
+    }
+
+    if (Array.isArray(root.items) && root.items.length > 0) {
+      return asRecord(root.items[0]);
+    }
+
+    return root;
+  } catch (error) {
+    console.error('[Service] Failed to fetch profile from student-dashboard/profile.');
+    throw error;
   }
 }
 
@@ -770,29 +737,11 @@ export async function getExamTypes(): Promise<any> {
 }
 
 export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffer> {
-  const endpoints = [
-    `student/question-papers/${encodeURIComponent(paperId)}/download`,
-    `student-dashboard/question-papers/${encodeURIComponent(paperId)}/download`,
-    `student-dashboard/papers/${encodeURIComponent(paperId)}/download`,
-  ];
-
-  let lastError: unknown;
-
-  for (const endpoint of endpoints) {
-    try {
-      const response = await API.get<ArrayBuffer>(endpoint, {
-        responseType: 'arraybuffer',
-      });
-      return response.data;
-    } catch (error: any) {
-      lastError = error;
-      if (error.response?.status !== 404) {
-        throw error;
-      }
-    }
-  }
-
-  throw lastError ?? new Error('Could not download question paper');
+  const endpoint = `student/question-papers/${encodeURIComponent(paperId)}/download`;
+  const response = await API.get<ArrayBuffer>(endpoint, {
+    responseType: 'arraybuffer',
+  });
+  return response.data;
 }
 
 export async function getTeachersForLeave(): Promise<any[]> {
@@ -860,25 +809,12 @@ export async function getSchoolHolidays(params: any = {}): Promise<any[]> {
 }
 
 export async function submitStudentRegisterRequest(formData: FormData): Promise<any> {
-  let lastError: unknown;
-
-  for (const endpoint of STUDENT_REGISTER_REQUEST_ENDPOINTS) {
-    try {
-      const response = await API.post(endpoint, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      return response.data;
-    } catch (error: any) {
-      lastError = error;
-      if (error.response?.status !== 404) {
-        throw error;
-      }
-    }
-  }
-
-  throw lastError ?? new Error('Could not submit student registration request');
+  const response = await API.post('student/register-request', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
 }
 
 export async function sendOtp(emailId: string): Promise<any> {

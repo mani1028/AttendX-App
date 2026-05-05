@@ -3,23 +3,15 @@ import API, { buildApiUrl } from './api';
 import { isSunday } from '../utils/holidayUtils';
 
 const PROFILE_ENDPOINTS = [
-  'profile/details',
-  'teacher/profile',
-  'teacher/marks/teacher-context',
-  'teacher-dashboard/profile',
-  'auth/teacher-capability',
-  'hm/dashboard/profile'
+  'teacher/profile'
 ];
 
 const PROFILE_PHOTO_ENDPOINT = 'profile-photo/teacher';
 const STUDENT_PHOTO_ENDPOINT = 'profile-photo/student';
 
 const UPDATE_PROFILE_ENDPOINTS = [
-  'teacher-dashboard/profile/update',
   'teacher/profile/update',
-  'manage/teachers/update',
-  'hm/teachers/update',
-  'profile/update'
+  'manage/teachers/update'
 ];
 
 const FALLBACK_404_CONFIG = {
@@ -103,7 +95,7 @@ function normalizeContentType(value: unknown): string {
 }
 
 async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
+  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
   const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
   const teacherId = await AsyncStorage.getItem('teacher_id') || await AsyncStorage.getItem('teacherId') || await AsyncStorage.getItem('employee_id');
   const suppressLogs = config.suppressFallback404Log;
@@ -124,12 +116,12 @@ async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
           school_id: schoolCode,
           teacher_id: teacherId,
           employee_id: teacherId,
-          ...params
+          ...params,
         },
         headers: {
           ...defaultHeaders,
           ...(restConfig && restConfig.headers ? restConfig.headers : {}),
-        }
+        },
       });
       if (__DEV__ && !suppressLogs && endpoint !== endpoints[0]) {
         console.log(`[Service] GET ${endpoint} succeeded after ${endpoints[0]} failed`);
@@ -139,11 +131,7 @@ async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
       const status = error?.response?.status;
       const isLastEndpoint = endpoint === endpoints[endpoints.length - 1];
 
-      // If it's a real error (not 404/405), we might want to throw early.
-      // However, for GET fallback, sometimes different endpoints have different auth requirements.
-      // For now, let's at least capture it.
       if (status && status !== 404 && status !== 405) {
-        // If we get a 401 or 403, it's likely a real auth issue on a valid endpoint.
         if (status === 401 || status === 403) throw error;
       }
 
@@ -163,10 +151,20 @@ async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
 
 async function postFirstSuccessful<T>(endpoints: string[], data: any, config: any = {}) {
   const errors: any[] = [];
+
+  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
+  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+
   for (const endpoint of endpoints) {
     try {
+      const headers = {
+        'X-School-Code': schoolCode || undefined,
+        'X-Branch-Id': branchId || undefined,
+        ...(config.headers || {}),
+      };
       const response = await API.post<T>(endpoint, data, {
         ...config,
+        headers,
         suppressFallback404Log: true,
       });
       return response.data;
@@ -178,14 +176,11 @@ async function postFirstSuccessful<T>(endpoints: string[], data: any, config: an
         console.log(`[Service] POST ${endpoint} failed (${status || 'network error'}):`, detail);
       }
 
-      // If it's a legitimate backend error (like 401 Unauthorized or 400 Bad Request),
-      // we should stop and throw it, as the endpoint was found but rejected the request.
       if (status && status !== 404 && status !== 405) {
         throw error;
       }
 
       errors.push({ endpoint, status, message: detail });
-      // Try next variant
     }
   }
 
@@ -197,18 +192,12 @@ async function postFirstSuccessful<T>(endpoints: string[], data: any, config: an
 }
 
 export async function getAttendanceSettings(headers: any): Promise<any> {
-  const endpoints = [
-    'hm/attendance/settings',
-    'manage/attendance/settings'
-  ];
+  const endpoints = ['hm/attendance/settings'];
   return getFirstSuccessful(endpoints, { headers });
 }
 
 export async function getClassesSections(branchId: string, schoolCode: string): Promise<any> {
-  const endpoints = [
-    'manage/classes-sections',
-    'teacher/classes-sections'
-  ];
+  const endpoints = ['manage/classes-sections'];
   return getFirstSuccessful(endpoints, {
     params: { branch_id: branchId },
     headers: { 'X-School-Code': schoolCode }
@@ -216,10 +205,7 @@ export async function getClassesSections(branchId: string, schoolCode: string): 
 }
 
 export async function verifyTeacher(payload: any): Promise<any> {
-  const endpoints = [
-    'manage/verify-teacher',
-    'teacher/verify'
-  ];
+  const endpoints = ['manage/verify-teacher'];
   // Backend expects JSON by default now
   // Suppress global 401 logout for face-verification requests so we can show an error
   // message instead of logging the user out when recognition fails.
@@ -227,10 +213,7 @@ export async function verifyTeacher(payload: any): Promise<any> {
 }
 
 export async function uploadStudentImage(payload: any): Promise<any> {
-  const endpoints = [
-    'manage/attendance/student/upload-image',
-    'teacher/attendance/upload-image'
-  ];
+  const endpoints = ['manage/attendance/student/upload-image'];
   return postFirstSuccessful(endpoints, payload);
 }
 
@@ -242,70 +225,6 @@ export async function processAttendance(payload: any): Promise<any> {
 }
 
 export async function getAssignedClasses(schoolCode: string, branchId: string, employeeId: string): Promise<any[]> {
-  const requestVariants = [
-    {
-      method: 'get' as const,
-      endpoint: 'teacher/marks/teacher-context',
-      params: { teacher_id: employeeId },
-    },
-    {
-      method: 'get' as const,
-      endpoint: 'teacher/assigned-classes',
-      params: { teacher_id: employeeId },
-    },
-    {
-      method: 'post' as const,
-      endpoint: 'teacher/assigned-classes',
-      data: { teacher_id: employeeId, branch_id: branchId, employee_id: employeeId },
-    },
-    {
-      method: 'get' as const,
-      endpoint: 'manage/teacher/assigned-classes',
-      params: { teacher_id: employeeId },
-    },
-    {
-      method: 'post' as const,
-      endpoint: 'manage/teacher/assigned-classes',
-      data: { teacher_id: employeeId, branch_id: branchId, employee_id: employeeId },
-    },
-    {
-      method: 'get' as const,
-      endpoint: 'teacher/assigned-classes',
-      params: { employee_id: employeeId },
-    },
-    {
-      method: 'post' as const,
-      endpoint: 'teacher/assigned-classes',
-      data: { employee_id: employeeId, branch_id: branchId },
-    },
-    {
-      method: 'get' as const,
-      endpoint: 'manage/teacher/assigned-classes',
-      params: { employee_id: employeeId },
-    },
-    {
-      method: 'post' as const,
-      endpoint: 'manage/teacher/assigned-classes',
-      data: { employee_id: employeeId, branch_id: branchId },
-    },
-    {
-      method: 'get' as const,
-      endpoint: 'teacher/assigned-classes',
-      params: { branch_id: branchId, teacher_id: employeeId, employee_id: employeeId, teacherId: employeeId },
-    },
-    {
-      method: 'post' as const,
-      endpoint: 'teacher/assigned-classes',
-      data: { branch_id: branchId, teacher_id: employeeId, employee_id: employeeId, teacherId: employeeId },
-    },
-  ];
-
-  const normalizeText = (value: unknown): string => {
-    if (typeof value === 'string') return value.trim();
-    if (typeof value === 'number') return String(value);
-    return '';
-  };
-
   const headers = {
     'X-School-Code': schoolCode,
     'X-Branch-Id': branchId,
@@ -345,50 +264,20 @@ export async function getAssignedClasses(schoolCode: string, branchId: string, e
     };
   };
 
-  for (const variant of requestVariants) {
-    try {
-      if (__DEV__) {
-        console.log('[getAssignedClasses] trying request:', variant.method.toUpperCase(), variant.endpoint, {
-          params: variant.params,
-          data: variant.data,
-        });
-      }
-      const res = variant.method === 'get'
-        ? await API.get<any>(variant.endpoint, {
-            params: variant.params,
-            headers,
-            suppressFallback404Log: true,
-          } as any)
-        : await API.post<any>(variant.endpoint, variant.data, {
-            headers,
-            suppressFallback404Log: true,
-          } as any);
+  const response = await API.get<any>('teacher/marks/teacher-context', {
+    params: {
+      school_code: schoolCode,
+      branch_id: branchId,
+      teacher_id: employeeId,
+      employee_id: employeeId,
+    },
+    headers,
+    suppressFallback404Log: true,
+  } as any);
 
-      if (__DEV__) {
-        try {
-          const sample = res.data && (Array.isArray(res.data) ? `array(length=${res.data.length})` : `object(keys=${Object.keys(res.data || {}).slice(0,10).join(',')})`);
-          console.log(`[getAssignedClasses] ${variant.endpoint} response sample:`, sample);
-        } catch (e) {
-          console.log(`[getAssignedClasses] ${variant.endpoint} response received`);
-        }
-      }
-      const list = extractList(res.data || res).map(normalizeAssignment);
-      if (__DEV__) console.log('[getAssignedClasses] extracted list length:', Array.isArray(list) ? list.length : 'n/a');
-      if (Array.isArray(list) && list.length > 0) return list;
-      // If backend returns a teacher context wrapper, fall back to data that may be nested elsewhere.
-      const raw = res.data || {};
-      const assignmentCount = normalizeText(raw.assignment_count || raw.data?.assignment_count || raw.teacher_context?.assignment_count);
-      if (__DEV__) {
-        console.log('[getAssignedClasses] assignment_count:', assignmentCount || 'n/a');
-      }
-    } catch (err: any) {
-      if (__DEV__) console.log('[getAssignedClasses] request failed:', variant.endpoint, err?.message || err);
-      // ignore and try next
-    }
-  }
-
-  // If all endpoints returned empty/failed, return empty array
-  return [];
+  const list = extractList(response.data || response).map(normalizeAssignment);
+  if (__DEV__) console.log('[getAssignedClasses] extracted list length:', Array.isArray(list) ? list.length : 'n/a');
+  return Array.isArray(list) ? list : [];
 }
 
 export async function getStudentsByClass(schoolCode: string, branchId: string, classGrade: string, section: string): Promise<any[]> {
@@ -432,50 +321,10 @@ export async function getStudentsByClass(schoolCode: string, branchId: string, c
       return [];
     } catch (directErr) {
       if (__DEV__) {
-        console.log('[getStudentsByClass] hm/students failed, trying fallback endpoints');
+        console.log('[getStudentsByClass] hm/students failed.');
       }
+      return [];
     }
-
-    // Fallback to getFirstSuccessful with multiple endpoints
-    const endpoints = [
-      'teacher/students',
-      'manage/students',
-      'students'
-    ];
-    
-    const data = await getFirstSuccessful<any>(endpoints, {
-      params: { 
-        branch_id: branchId, 
-        class_grade: normalizedGrade, 
-        section: normalizedSection 
-      },
-      headers: { 'X-School-Code': schoolCode },
-      suppressFallback404Log: true
-    });
-    
-    if (__DEV__) {
-      console.log('[getStudentsByClass] Fallback response data:', data);
-      console.log('[getStudentsByClass] Data type:', typeof data, 'Is array:', Array.isArray(data));
-    }
-    
-    // Handle different response formats
-    if (data?.items && Array.isArray(data.items)) {
-      return data.items;
-    }
-    if (data?.data && Array.isArray(data.data)) {
-      return data.data;
-    }
-    if (data?.students && Array.isArray(data.students)) {
-      return data.students;
-    }
-    if (Array.isArray(data)) {
-      return data;
-    }
-    
-    if (__DEV__) {
-      console.warn('[getStudentsByClass] Unexpected response format:', data);
-    }
-    return [];
   } catch (err) {
     if (__DEV__) {
       console.error('[getStudentsByClass] Error fetching students:', err);
@@ -724,20 +573,18 @@ export async function getTeacherProfile(): Promise<any> {
 }
 
 export async function getTeacherCapability(schoolId: string, employeeId: string): Promise<any> {
-  const endpoints = [
-    'auth/teacher-capability',
-    'teacher/capability',
-    'manage/teacher/capability'
-  ];
-  return getFirstSuccessful(endpoints, {
-    params: { 
-      school_id: schoolId, 
+  const response = await API.get('auth/teacher-capability', {
+    params: {
+      school_id: schoolId,
       employee_id: employeeId,
-      branch_id: schoolId,
-      teacher_id: employeeId
+    },
+    headers: {
+      'X-School-Code': schoolId,
     },
     suppressFallback404Log: true,
   } as any);
+
+  return response.data;
 }
 
 export async function getAttendanceReport(schoolCode: string, branchId: string, attendanceDate: string, classGrade: string, section: string): Promise<any> {
@@ -752,11 +599,7 @@ export async function getAttendanceReport(schoolCode: string, branchId: string, 
     };
   }
 
-  const endpoints = [
-    'manage/attendance/student/fetch-report',
-    'teacher/attendance/report',
-    'manage/attendance/fetch-report'
-  ];
+  const endpoints = ['manage/attendance/student/fetch-report'];
   return postFirstSuccessful(endpoints, {
     school_code: schoolCode,
     branch_id: branchId,
@@ -767,10 +610,7 @@ export async function getAttendanceReport(schoolCode: string, branchId: string, 
 }
 
 export async function getBranchStats(schoolCode: string, branchId: string): Promise<any> {
-  const endpoints = [
-    'hm/dashboard/stats',
-    'teacher/dashboard/stats'
-  ];
+  const endpoints = ['hm/dashboard/stats'];
   try {
     const data = await getFirstSuccessful<any>(endpoints, {
       headers: { 
@@ -787,10 +627,7 @@ export async function getBranchStats(schoolCode: string, branchId: string): Prom
 }
 
 export async function getTeacherAttendance(schoolCode: string, branchId: string, onDate?: string): Promise<any[]> {
-  const endpoints = [
-    'hm/teachers/attendance',
-    'teacher/attendance/status'
-  ];
+  const endpoints = ['hm/teachers/attendance'];
   try {
     const data = await getFirstSuccessful<any>(endpoints, {
       params: { 
@@ -1078,20 +915,18 @@ export async function predictSkinCondition(
   branchId: string,
   payload: any
 ): Promise<any> {
-  return postFirstSuccessful(
-    ['teacher/skin-prediction'],
-    {
-      school_code: schoolCode,
-      branch_id: branchId,
-      ...payload,
+  const response = await API.post('vitalscan/predict/skin', {
+    school_code: schoolCode,
+    branch_id: branchId,
+    ...payload,
+  }, {
+    headers: {
+      'X-School-Code': schoolCode,
+      'X-Branch-Id': branchId,
     },
-    {
-      headers: {
-        'X-School-Code': schoolCode,
-        'X-Branch-Id': branchId,
-      },
-    }
-  );
+  });
+
+  return response.data;
 }
 
 export async function processVitalScan(
@@ -1099,20 +934,23 @@ export async function processVitalScan(
   branchId: string,
   payload: any
 ): Promise<any> {
-  return postFirstSuccessful(
-    ['vitalscan/process'],
-    {
-      school_code: schoolCode,
-      branch_id: branchId,
-      ...payload,
+  const scanType = String(payload?.scan_type ?? payload?.scanType ?? payload?.type ?? '').trim().toLowerCase();
+  if (!scanType) {
+    throw new Error('processVitalScan requires a scan_type value');
+  }
+
+  const response = await API.post(`vitalscan/predict/${encodeURIComponent(scanType)}`, {
+    school_code: schoolCode,
+    branch_id: branchId,
+    ...payload,
+  }, {
+    headers: {
+      'X-School-Code': schoolCode,
+      'X-Branch-Id': branchId,
     },
-    {
-      headers: {
-        'X-School-Code': schoolCode,
-        'X-Branch-Id': branchId,
-      },
-    }
-  );
+  });
+
+  return response.data;
 }
 
 /* ============ NOTIFICATIONS ============ */
