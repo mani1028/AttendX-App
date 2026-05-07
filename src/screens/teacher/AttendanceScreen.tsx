@@ -237,6 +237,12 @@ export default function TeacherAttendanceScreen() {
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
+  // Camera
+  const [hasPermission, setHasPermission] = useState<boolean>(false);
+  const [cameraActive, setCameraActive] = useState<boolean>(false);
+  const [cameraUse, setCameraUse] = useState<'teacher' | 'student'>('teacher');
+  const [cameraPosition, setCameraPosition] = useState<'back' | 'front'>('back');
+
   useEffect(() => {
     setTabBarVisible(true);
     isMounted.current = true;
@@ -267,12 +273,6 @@ export default function TeacherAttendanceScreen() {
     }
     lastScrollY.current = currentScrollY;
   };
-
-  // Camera
-  const [hasPermission, setHasPermission] = useState<boolean>(false);
-  const [cameraActive, setCameraActive] = useState<boolean>(false);
-  const [cameraUse, setCameraUse] = useState<'teacher' | 'student'>('teacher');
-  const [cameraPosition, setCameraPosition] = useState<'back' | 'front'>('back');
   const cameraRef = useRef<Camera>(null);
   const device = useCameraDevice(cameraPosition);
   

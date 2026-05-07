@@ -164,7 +164,7 @@ const FeeManagement = () => {
 
       const [studentRows, feeRows] = await Promise.all([
         getSchoolStudents(schoolCode),
-        getAllFees(),
+        getAllFees(schoolCode),
       ]);
 
       if (isMounted.current) {
@@ -229,7 +229,7 @@ const FeeManagement = () => {
         student_id: formData.student_id,
         total_fee: Number(formData.total_fee),
         due_date: formData.due_date,
-      });
+      }, schoolCode);
       
       if (isMounted.current) {
         Alert.alert('Success', 'Fee created successfully');
@@ -268,7 +268,7 @@ const FeeManagement = () => {
         fee_id: selectedFee.id,
         amount: parseFloat(paymentAmount),
         method: 'cash',
-      });
+      }, schoolCode);
       
       if (isMounted.current) {
         Alert.alert('Success', 'Payment recorded successfully');

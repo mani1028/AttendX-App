@@ -1,6 +1,7 @@
 import API, { buildApiUrl } from './client';
 import { AppRole } from '../constants/roles';
 import { normalizeBackendRole } from '../utils/roleMapper';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type LoginResponse = {
   status?: string;
@@ -127,6 +128,16 @@ async function postWithFallback<TPayload>(endpoints: string[], payload: TPayload
   throw lastError;
 }
 
+async function getTenantContext() {
+  const schoolCode = await AsyncStorage.getItem('school_code')
+    || await AsyncStorage.getItem('schoolCode')
+    || await AsyncStorage.getItem('school_id')
+    || await AsyncStorage.getItem('schoolId');
+  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+
+  return { schoolCode, branchId };
+}
+
 function normalizeLoginResponse(data: LoginResponse, fallbackRole: AppRole): NormalizedLoginResponse {
   const payload = data.data ?? data;
   const role = normalizeBackendRole(payload.role ?? payload.user_role) ?? fallbackRole;
@@ -157,68 +168,94 @@ export const authService = {
   async login(schoolId: string, username: string, password: string, fallbackRole: AppRole = 'student') {
     // We use a clean instance for login to prevent stale AsyncStorage tokens from causing 403s
     // We also include both snake_case and camelCase for school code to match web logic
-    const response = await postWithFallback(['/auth/login', '/login'], {
-      school_id: schoolId,
-      school_code: schoolId,
-      schoolCode: schoolId,
-      username,
-      password,
-      role: fallbackRole,
-    }, true);
+    const response = await postWithFallback(
+      ['/auth/login', '/login'],
+      {
+        school_id: schoolId,
+        school_code: schoolId,
+        schoolCode: schoolId,
+        username,
+        password,
+        role: fallbackRole,
+      },
+      true,
+    );
     return normalizeLoginResponse(response.data as LoginResponse, fallbackRole);
   },
-  requestOtp(schoolId: string, identifier: string) {
+  async requestOtp(schoolId: string, identifier: string) {
     console.log('[authService.requestOtp] Called with:', { schoolId, identifier });
-    return postWithFallback(['/auth/forgot-password', '/auth/request-otp'], {
-      school_id: schoolId,
-      school_code: schoolId,
-      identifier,
-      email_id: identifier,
-    }, true);
+
+    return postWithFallback(
+      ['/auth/forgot-password', '/auth/request-otp'],
+      {
+        school_id: schoolId,
+        schoolCode: schoolId,
+        school_code: schoolId,
+        email: identifier,
+        identifier,
+        email_id: identifier,
+      },
+      true,
+    );
   },
-  forgotPasswordReset(
+  async forgotPasswordReset(
     schoolId: string,
     identifier: string,
     otp: string,
     resetToken: string,
     newPassword: string,
   ) {
-    return postWithFallback(['/auth/forgot-password'], {
-      school_id: schoolId,
-      school_code: schoolId,
-      identifier,
-      email_id: identifier,
-      otp,
-      reset_token: resetToken,
-      new_password: newPassword,
-      confirm_password: newPassword,
-    }, true);
-  },
-  verifyOtp(schoolId: string, identifier: string, otp: string) {
-    console.log('[authService.verifyOtp] Called with:', { schoolId, identifier });
     return postWithFallback(
-      ['/auth/verify-otp', '/auth/forgot-password/verify-otp', '/auth/forgot-password'],
+      ['/auth/forgot-password'],
       {
-      school_id: schoolId,
-      school_code: schoolId,
-      identifier,
-      email_id: identifier,
-      otp,
+        school_id: schoolId,
+        schoolCode: schoolId,
+        school_code: schoolId,
+        email: identifier,
+        identifier,
+        email_id: identifier,
+        otp,
+        reset_token: resetToken,
+        new_password: newPassword,
+        confirm_password: newPassword,
       },
       true,
     );
   },
-  resetPassword(schoolId: string, identifier: string, resetToken: string, password: string) {
+  async verifyOtp(schoolId: string, identifier: string, otp: string) {
+    console.log('[authService.verifyOtp] Called with:', { schoolId, identifier });
+
+    return postWithFallback(
+      ['/auth/verify-otp', '/auth/forgot-password/verify-otp', '/auth/forgot-password'],
+      {
+        school_id: schoolId,
+        schoolCode: schoolId,
+        school_code: schoolId,
+        email: identifier,
+        identifier,
+        email_id: identifier,
+        otp,
+      },
+      true,
+    );
+  },
+  async resetPassword(schoolId: string, identifier: string, resetToken: string, password: string) {
     console.log('[authService.resetPassword] Called with:', { schoolId, identifier, resetTokenProvided: !!resetToken });
-    return postWithFallback(['/auth/forgot-password', '/auth/reset-password', '/auth/forgot-password/reset-password'], {
-      school_id: schoolId,
-      school_code: schoolId,
-      identifier,
-      email_id: identifier,
-      reset_token: resetToken,
-      new_password: password,
-      confirm_password: password,
-    }, true);
+    return postWithFallback(
+      ['/auth/forgot-password', '/auth/reset-password', '/auth/forgot-password/reset-password'],
+      {
+        school_id: schoolId,
+        schoolCode: schoolId,
+        school_code: schoolId,
+        email: identifier,
+        identifier,
+        email_id: identifier,
+        reset_token: resetToken,
+        new_password: password,
+        confirm_password: password,
+      },
+      true,
+    );
   },
   async checkTeacherCapability(schoolId: string, employeeId: string) {
     const response = await API.get('/auth/teacher-capability', {

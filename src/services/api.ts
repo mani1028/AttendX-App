@@ -92,6 +92,18 @@ API.interceptors.request.use(async config => {
   ]);
   if (rawSchoolCode) {
     config.headers['X-School-Code'] = rawSchoolCode;
+    
+    // CRITICAL: Add school_code as query parameter for all accountant routes
+    // The backend requires school_code as a query param for multi-tenancy
+    if (config.url?.toLowerCase().includes('accountant')) {
+      if (!config.params) {
+        config.params = {};
+      }
+      // Only set if not already explicitly provided
+      if (!config.params.school_code) {
+        config.params.school_code = rawSchoolCode;
+      }
+    }
   }
 
   const rawStudentId = await normalizeStorageKey(['student_id', 'studentId']);

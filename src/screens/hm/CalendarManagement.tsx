@@ -16,6 +16,8 @@ import {
 import { ChevronLeft, ChevronRight, Plus, X, Edit2, Trash2, Eye } from 'lucide-react-native';
 import API, { buildApiUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
+import type { RootStackParamList } from '../../navigation/AppNavigator';
 
 // Types
 interface Event {
@@ -66,6 +68,7 @@ const COLORS: Record<string, string> = {
 };
 
 export default function CalendarManagement() {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
   const [showModal, setShowModal] = useState<boolean>(false);
@@ -331,9 +334,16 @@ export default function CalendarManagement() {
     <ScrollView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>School Calendar</Text>
-          <Text style={styles.subtitle}>Review academic events, holidays, and important dates.</Text>
+        <View style={styles.headerLeft}>
+          {isStudent && (
+            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+              <ChevronLeft size={20} color={COLORS.text} />
+            </TouchableOpacity>
+          )}
+          <View>
+            <Text style={styles.title}>School Calendar</Text>
+            <Text style={styles.subtitle}>Review academic events, holidays, and important dates.</Text>
+          </View>
         </View>
         <View style={styles.headerButtons}>
           {canEdit ? (
@@ -849,6 +859,21 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 20,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backBtn: {
+    marginRight: 12,
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   title: {
     fontSize: 24,

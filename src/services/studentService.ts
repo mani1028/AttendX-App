@@ -819,23 +819,26 @@ export async function submitStudentRegisterRequest(formData: FormData): Promise<
 }
 
 export async function sendOtp(emailId: string): Promise<any> {
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
+  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
   const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
 
   // We try a few common OTP sending endpoints
-  const endpoints = ['/auth/request-otp', '/auth/forgot-password', '/teacher/register/send-otp'];
+  const endpoints = ['/auth/forgot-password', '/auth/request-otp', '/teacher/register/send-otp'];
 
   let lastError: any;
   for (const endpoint of endpoints) {
     try {
       const response = await API.post(endpoint, {
+        email: emailId,
         email_id: emailId,
         identifier: emailId,
+        school_id: schoolCode,
+        schoolCode,
         school_code: schoolCode,
       }, {
         headers: {
-          'X-School-Code': schoolCode,
-          'X-Branch-Id': branchId,
+          'X-School-Code': schoolCode || undefined,
+          'X-Branch-Id': branchId || undefined,
         }
       });
       return response.data;
@@ -847,23 +850,26 @@ export async function sendOtp(emailId: string): Promise<any> {
 }
 
 export async function verifyOtp(emailId: string, otp: string): Promise<any> {
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
+  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
   const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
 
-  const endpoints = ['/auth/verify-otp', '/auth/forgot-password/verify-otp', '/teacher/register/verify-otp'];
+  const endpoints = ['/auth/forgot-password', '/auth/verify-otp', '/auth/forgot-password/verify-otp', '/teacher/register/verify-otp'];
 
   let lastError: any;
   for (const endpoint of endpoints) {
     try {
       const response = await API.post(endpoint, {
+        email: emailId,
         email_id: emailId,
         identifier: emailId,
         otp,
+        school_id: schoolCode,
+        schoolCode,
         school_code: schoolCode,
       }, {
         headers: {
-          'X-School-Code': schoolCode,
-          'X-Branch-Id': branchId,
+          'X-School-Code': schoolCode || undefined,
+          'X-Branch-Id': branchId || undefined,
         }
       });
       return response.data;
@@ -875,20 +881,29 @@ export async function verifyOtp(emailId: string, otp: string): Promise<any> {
 }
 
 export async function changePassword(emailId: string, newPassword: string, otp: string): Promise<any> {
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
+  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
+  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
 
-  const endpoints = ['/auth/reset-password', '/auth/forgot-password/reset-password', '/auth/forgot-password'];
+  const endpoints = ['/auth/forgot-password', '/auth/reset-password', '/auth/forgot-password/reset-password'];
 
   let lastError: any;
   for (const endpoint of endpoints) {
     try {
       const response = await API.post(endpoint, {
+        email: emailId,
         email_id: emailId,
         identifier: emailId,
         otp,
         new_password: newPassword,
         confirm_password: newPassword,
+        school_id: schoolCode,
+        schoolCode,
         school_code: schoolCode,
+      }, {
+        headers: {
+          'X-School-Code': schoolCode || undefined,
+          'X-Branch-Id': branchId || undefined,
+        }
       });
       return response.data;
     } catch (error) {
@@ -899,24 +914,143 @@ export async function changePassword(emailId: string, newPassword: string, otp: 
 }
 
 export async function updateStudentProfile(data: any): Promise<any> {
-  // Preferred API: PUT /manage/update with data_type=student
+  const schoolCode =
+    toText(
+      firstDefined(
+        data?.school_code,
+        data?.schoolCode,
+        await AsyncStorage.getItem('school_code'),
+        await AsyncStorage.getItem('schoolCode'),
+        await AsyncStorage.getItem('school_id'),
+        await AsyncStorage.getItem('schoolId'),
+      ),
+    ).trim();
+
+  const branchId =
+    toText(
+      firstDefined(
+        data?.branch_id,
+        data?.branchId,
+        await AsyncStorage.getItem('branch_id'),
+        await AsyncStorage.getItem('branchId'),
+      ),
+    ).trim();
+
+  let storedUser: Record<string, any> = {};
   try {
-    const payload = { ...data, data_type: 'student' };
-    const response = await API.put('manage/update', payload);
-    return response.data;
-  } catch (err) {
-    // Fallbacks: existing endpoints (POST) kept for backward compatibility
+    const storedUserRaw = await AsyncStorage.getItem('user');
+    storedUser = storedUserRaw ? asRecord(JSON.parse(storedUserRaw)) : {};
+  } catch {
+    storedUser = {};
   }
 
-  const endpoints = ['manage/students/update', 'profile/update', 'student-dashboard/profile/update'];
+  const source = Object.keys(asRecord(data?.data)).length > 0 ? asRecord(data?.data) : asRecord(data);
+
+  const studentPrimaryId = toText(
+    firstDefined(
+      source.student_id,
+      source.studentId,
+      data?.student_id,
+      data?.studentId,
+      await AsyncStorage.getItem('student_id'),
+      await AsyncStorage.getItem('studentId'),
+      storedUser.student_id,
+      storedUser.studentId,
+    ),
+  ).trim();
+
+  if (!studentPrimaryId) {
+    throw new Error('Student ID is required to update student profile.');
+  }
+
+  const rollNumber = toText(firstDefined(source.roll_number, source.rollNo, source.roll_no, data?.roll_number, data?.rollNo, data?.roll_no)).trim();
+  const admissionNumber = toText(
+    firstDefined(
+      source.admission_number,
+      source.admissionNumber,
+      source.admission_no,
+      data?.admission_number,
+      data?.admissionNumber,
+      data?.admission_no,
+      storedUser.admission_number,
+      storedUser.admissionNumber,
+      studentPrimaryId,
+    ),
+  ).trim();
+
+  const headers = {
+    'X-School-Code': schoolCode || undefined,
+    'x-school-code': schoolCode || undefined,
+    'X-Branch-Id': branchId || undefined,
+  };
+
+  const metadataKeys = new Set([
+    'school_code',
+    'schoolCode',
+    'branch_id',
+    'branchId',
+    'data_type',
+    'dataType',
+    'data',
+  ]);
+
+  const generalStudentData: Record<string, any> = { student_id: studentPrimaryId };
+  for (const [key, value] of Object.entries(source)) {
+    if (metadataKeys.has(key)) continue;
+    if (key === 'roll_number' || key === 'roll_no' || key === 'rollNo') continue;
+    if (value === undefined) continue;
+    generalStudentData[key] = value;
+  }
+
+  const hasGeneralFields = Object.keys(generalStudentData).some(key => key !== 'student_id');
+  let generalUpdateResponse: any = null;
+  let rollUpdateResponse: any = null;
   let lastError: any;
-  for (const endpoint of endpoints) {
+
+  if (hasGeneralFields) {
     try {
-      const response = await API.post(endpoint, data);
-      return response.data;
+      const response = await API.put('manage/update', {
+        school_code: schoolCode || undefined,
+        branch_id: branchId || undefined,
+        data_type: 'students',
+        data: generalStudentData,
+      }, { headers });
+      generalUpdateResponse = response.data;
     } catch (error) {
       lastError = error;
     }
   }
-  throw lastError;
+
+  if (rollNumber) {
+    if (!admissionNumber) {
+      throw new Error('Admission number is required to update roll number.');
+    }
+
+    try {
+      const response = await API.post('manage/student/update-roll-number', {
+        school_code: schoolCode || undefined,
+        branch_id: branchId || undefined,
+        student_id: admissionNumber,
+        roll_number: rollNumber,
+      }, { headers });
+      rollUpdateResponse = response.data;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (generalUpdateResponse || rollUpdateResponse) {
+    return {
+      ...(generalUpdateResponse && asRecord(generalUpdateResponse)),
+      ...(rollUpdateResponse && asRecord(rollUpdateResponse)),
+      general_update: generalUpdateResponse,
+      roll_update: rollUpdateResponse,
+    };
+  }
+
+  if (!hasGeneralFields && !rollNumber) {
+    throw new Error('No updatable student profile fields were provided.');
+  }
+
+  throw lastError || new Error('Failed to update student profile.');
 }

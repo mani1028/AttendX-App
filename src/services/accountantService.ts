@@ -198,12 +198,14 @@ export async function getSchoolStudents(schoolCode?: string): Promise<StudentDir
   });
 }
 
-export async function createFee(payload: CreateFeePayload): Promise<any> {
+export async function createFee(payload: CreateFeePayload, schoolCode?: string): Promise<any> {
   const body = {
     ...payload,
     total_fee: Number(payload.total_fee),
   };
-  const response = await API.post('accountant/fees/create', body);
+  const response = await API.post('accountant/fees/create', body, {
+    params: schoolCode ? { school_code: schoolCode } : undefined,
+  });
   return response.data;
 }
 
@@ -214,8 +216,10 @@ export async function updateFee(feeId: string, totalFee: number): Promise<any> {
   return response.data;
 }
 
-export async function getAllFees(): Promise<FeeRecord[]> {
-  const response = await API.get<any>('accountant/fees');
+export async function getAllFees(schoolCode?: string): Promise<FeeRecord[]> {
+  const response = await API.get<any>('accountant/fees', {
+    params: schoolCode ? { school_code: schoolCode } : undefined,
+  });
   const rows = pickList(response.data, ['fees', 'data']);
   return rows.map(normalizeFee);
 }
@@ -227,19 +231,23 @@ export async function getDashboardSummary(schoolCode?: string): Promise<Dashboar
   return normalizeDashboardSummary(response.data);
 }
 
-export async function getFeesByStudent(studentId: string): Promise<FeeRecord[]> {
-  const response = await API.get<any>(`accountant/fees/${encodeURIComponent(studentId)}`);
+export async function getFeesByStudent(studentId: string, schoolCode?: string): Promise<FeeRecord[]> {
+  const response = await API.get<any>(`accountant/fees/student/${encodeURIComponent(studentId)}`, {
+    params: schoolCode ? { school_code: schoolCode } : undefined,
+  });
   const rows = pickList(response.data, ['fees', 'history', 'data']);
   return rows.map(normalizeFee);
 }
 
-export async function addPayment(payload: AddPaymentPayload): Promise<any> {
+export async function addPayment(payload: AddPaymentPayload, schoolCode?: string): Promise<any> {
   const body = {
     ...payload,
     amount: Number(payload.amount),
     method: payload.method,
   };
-  const response = await API.post('accountant/payments/add', body);
+  const response = await API.post('accountant/payments/add', body, {
+    params: schoolCode ? { school_code: schoolCode } : undefined,
+  });
   return response.data;
 }
 
@@ -292,12 +300,14 @@ export async function addExpense(payload: {
   category: string;
   date: string;
   description?: string;
-}): Promise<any> {
+}, schoolCode?: string): Promise<any> {
   const body = {
     ...payload,
     amount: Number(payload.amount),
   };
-  const response = await API.post('accountant/expenses', body);
+  const response = await API.post('accountant/expenses/add', body, {
+    params: schoolCode ? { school_code: schoolCode } : undefined,
+  });
   return response.data;
 }
 
