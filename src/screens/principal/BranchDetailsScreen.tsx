@@ -829,7 +829,7 @@ export default function BranchDetailsScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
       {/* Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 20, paddingBottom: 40 }]}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20, paddingBottom: 30 }]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backBtn}
@@ -1497,6 +1497,7 @@ const styles = StyleSheet.create({
   headerStandard: {
     backgroundColor: '#001F3F',
     paddingHorizontal: 20,
+    paddingBottom: 30,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

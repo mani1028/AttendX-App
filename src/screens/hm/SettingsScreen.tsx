@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   headerStandard: {
     backgroundColor: C.navy,
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 30,
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
     ...Platform.select({

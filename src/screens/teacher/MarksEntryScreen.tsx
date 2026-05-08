@@ -1245,7 +1245,7 @@ const styles = StyleSheet.create({
   headerStandard: {
     backgroundColor: HM_THEME.navy,
     paddingHorizontal: 20,
-    paddingBottom: 60,
+    paddingBottom: 30,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     ...Platform.select({

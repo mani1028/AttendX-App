@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeJsonParse } from '../utils/storage';
 
 interface PendingRequest {
   id: string;
@@ -196,7 +197,7 @@ class RequestQueueManager {
     try {
       const stored = await AsyncStorage.getItem(QUEUE_STORAGE_KEY);
       if (stored) {
-        this.queue = JSON.parse(stored);
+        this.queue = safeJsonParse<PendingRequest[]>(stored, []);
         console.log(`[Queue] Loaded ${this.queue.length} pending requests`);
       }
     } catch (error) {
@@ -224,7 +225,7 @@ class RequestQueueManager {
     try {
       const stored = await AsyncStorage.getItem(CACHE_STORAGE_KEY);
       if (stored) {
-        const cacheArray = JSON.parse(stored);
+        const cacheArray = safeJsonParse<[string, CacheEntry][]>(stored, []);
         this.cache = new Map(cacheArray);
         console.log(`[Cache] Loaded ${this.cache.size} cached entries`);
       }

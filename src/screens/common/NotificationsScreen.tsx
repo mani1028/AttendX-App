@@ -25,6 +25,7 @@ import { useAuth } from '../../context/AuthContext';
 import notificationService from '../../services/notificationService';
 import { safeJsonParse } from '../../utils/storage';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
+import { addScopedNotificationId, loadScopedNotificationIds, saveScopedNotificationIds } from '../../utils/notificationStorage';
 
 interface Notification {
   id: string;
@@ -110,22 +111,44 @@ export default function NotificationsScreen() {
         endpoint = '/notifications/accountant/list';
       }
 
+      console.log(`[NOTIFICATIONS] Fetching from endpoint: ${endpoint} (role: ${role})`);
       const response = await API.get(endpoint);
 
       if (!isMounted.current) return;
 
       const items = response.data?.items || [];
+      console.log(`[NOTIFICATIONS] Fetched ${items.length} notifications from server`);
+      if (items.length > 0) {
+        console.log('[NOTIFICATIONS] First item:', {
+          id: items[0].id,
+          title: items[0].title,
+          created_at: items[0].created_at,
+        });
+      }
 
       // Load read status from local storage for simulation if backend doesn't support it
-      const readStatus = await AsyncStorage.getItem('read_notifications');
-      const readIds = safeJsonParse<string[]>(readStatus, [], () => {
-        AsyncStorage.setItem('read_notifications', JSON.stringify([])).catch(() => {});
+      const [readIds, deletedIds] = await Promise.all([
+        loadScopedNotificationIds('read'),
+        loadScopedNotificationIds('deleted'),
+      ]);
+
+      // Deduplicate notifications by ID (prevents duplicate display if backend returns duplicates)
+      const seenIds = new Set<string>();
+      const deduplicatedItems = items.filter((item: any) => {
+        if (seenIds.has(item.id)) {
+          console.warn('Duplicate notification detected, filtering:', item.id);
+          return false;
+        }
+        seenIds.add(item.id);
+        return true;
       });
 
-      setNotifications(items.map((item: any) => ({
-        ...item,
-        is_read: item.is_read || readIds.includes(item.id)
-      })));
+      setNotifications(deduplicatedItems
+        .filter((item: any) => !deletedIds.includes(item.id))
+        .map((item: any) => ({
+          ...item,
+          is_read: item.is_read || readIds.includes(item.id)
+        })));
     } catch (err: any) {
       console.error('Failed to fetch notifications:', err);
       if (isMounted.current && err?.response?.status !== 401) {
@@ -154,8 +177,6 @@ export default function NotificationsScreen() {
     setShowDetailModal(true);
   };
 
-  const canDeleteServerSide = (userRole || '').toLowerCase() === 'hm' || (userRole || '').toLowerCase() === 'admin';
-
   const handleDeleteNotification = async (id?: string) => {
     const nid = id || selectedNotification?.id;
     if (!nid) return;
@@ -172,18 +193,17 @@ export default function NotificationsScreen() {
 
     try {
       setDeleting(true);
-      if (canDeleteServerSide) {
-        // Use HM delete endpoint — backend currently exposes /notifications/hm/delete/{id}
-        await API.delete(`/notifications/hm/delete/${nid}`);
-      }
+      await addScopedNotificationId('deleted', nid);
+      // Remove all copies of this notification (handles duplicates)
       setNotifications(prev => prev.filter(n => n.id !== nid));
       setShowDetailModal(false);
       setSelectedNotification(null);
       // Refresh badge/context
       await refreshUnreadCount(true);
+      Alert.alert('Success', 'Notification deleted');
     } catch (err) {
       console.error('Failed to delete notification:', err);
-      Alert.alert('Error', 'Failed to delete notification');
+      Alert.alert('Error', 'Failed to delete notification. Please try again.');
     } finally {
       setDeleting(false);
     }
@@ -200,13 +220,10 @@ export default function NotificationsScreen() {
   const markAsRead = async (id: string) => {
     try {
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-      const readStatus = await AsyncStorage.getItem('read_notifications');
-      const readIds = safeJsonParse<string[]>(readStatus, [], () => {
-        AsyncStorage.setItem('read_notifications', JSON.stringify([])).catch(() => {});
-      });
+      const readIds = await loadScopedNotificationIds('read');
       if (!readIds.includes(id)) {
         readIds.push(id);
-        await AsyncStorage.setItem('read_notifications', JSON.stringify(readIds));
+        await saveScopedNotificationIds('read', readIds);
         
         // Update badge count
         const unreadCount = Math.max(0, (notifications.length - readIds.length));
@@ -224,7 +241,7 @@ export default function NotificationsScreen() {
     try {
       const allIds = notifications.map(n => n.id);
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      await AsyncStorage.setItem('read_notifications', JSON.stringify(allIds));
+      await saveScopedNotificationIds('read', allIds);
       
       // Update badge count to 0
       await notificationService.updateBadgeCount(0);
@@ -259,19 +276,19 @@ export default function NotificationsScreen() {
 
     try {
       setDeleting(true);
+      let deletedCount = 0;
+      let failedCount = 0;
       
-      // Delete from backend if user has permission
-      if (canDeleteServerSide) {
-        await Promise.allSettled(
-          readNotifications.map(n => API.delete(`/notifications/hm/delete/${n.id}`))
-        );
-      }
+      deletedCount = readNotifications.length;
 
-      // Remove from UI
+      const deletedIds = readNotifications.map(n => n.id);
+      await Promise.all(deletedIds.map(id => addScopedNotificationId('deleted', id)));
+
+      // Remove from UI (only the ones that were successfully deleted or local-only)
       setNotifications(prev => prev.filter(n => !n.is_read));
       
       // Update read status in storage
-      await AsyncStorage.setItem('read_notifications', JSON.stringify([]));
+      await saveScopedNotificationIds('read', []);
       
       // Update badge count
       const unreads = notifications.filter(n => !n.is_read).length;
@@ -281,7 +298,13 @@ export default function NotificationsScreen() {
       await refreshUnreadCount(true);
       
       setShowActionMenu(false);
-      Alert.alert('Success', `Deleted ${readNotifications.length} read notification${readNotifications.length !== 1 ? 's' : ''}`);
+      
+      // Show appropriate message
+      if (failedCount > 0) {
+        Alert.alert('Partial Success', `Deleted ${deletedCount} notification${deletedCount !== 1 ? 's' : ''}, ${failedCount} failed. Please try again.`);
+      } else {
+        Alert.alert('Success', `Deleted ${deletedCount} read notification${deletedCount !== 1 ? 's' : ''}`);
+      }
     } catch (err) {
       console.error('Failed to delete read notifications:', err);
       Alert.alert('Error', 'Failed to delete read notifications');

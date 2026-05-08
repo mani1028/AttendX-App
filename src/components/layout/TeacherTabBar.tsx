@@ -24,9 +24,20 @@ import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
+// Responsive sizing for large screens
+const getResponsiveSizes = () => {
+  if (width > 430) {
+    return { iconSize: 28, centerButtonSize: 72, centerIconSize: 32 };
+  } else if (width > 390) {
+    return { iconSize: 26, centerButtonSize: 68, centerIconSize: 30 };
+  }
+  return { iconSize: 24, centerButtonSize: 64, centerIconSize: 28 };
+};
+
 const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { tabBarTranslate, isTabBarVisible } = useAuth();
+  const sizes = getResponsiveSizes();
 
   const animatedOpacity = tabBarTranslate
     ? tabBarTranslate.interpolate({
@@ -75,11 +86,11 @@ const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
               <View key={tab.name} style={styles.centerTabContainer}>
                 <TouchableOpacity
                   onPress={onPress}
-                  style={styles.centerButton}
+                  style={[styles.centerButton, { width: sizes.centerButtonSize, height: sizes.centerButtonSize, borderRadius: sizes.centerButtonSize / 2 }]}
                   activeOpacity={0.8}
                 >
-                  <View style={styles.centerIconWrapper}>
-                    <IconComponent size={28} color="#fff" strokeWidth={2} />
+                  <View style={[styles.centerIconWrapper, { borderRadius: sizes.centerButtonSize / 2 }]}>
+                    <IconComponent size={sizes.centerIconSize} color="#fff" strokeWidth={2} />
                   </View>
                 </TouchableOpacity>
                 <Text style={styles.centerLabel}>{tab.label}</Text>
@@ -95,7 +106,7 @@ const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
               activeOpacity={0.7}
             >
               <IconComponent
-                size={24}
+                size={sizes.iconSize}
                 color={isFocused ? '#FFFFFF' : '#94a3b8'}
                 strokeWidth={isFocused ? 2.5 : 2}
               />
@@ -144,9 +155,6 @@ const styles = StyleSheet.create({
     marginTop: -30,
   },
   centerButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
     backgroundColor: '#001F3F',
     justifyContent: 'center',
     alignItems: 'center',
@@ -173,7 +181,6 @@ const styles = StyleSheet.create({
   centerIconWrapper: {
     width: '100%',
     height: '100%',
-    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
   },

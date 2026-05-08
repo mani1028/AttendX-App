@@ -33,6 +33,7 @@ import {
 } from '../../services/studentService';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeJsonParse } from '../../utils/storage';
 
 const getStudentPhotoCacheKey = (studentId: string, schoolCode: string): string | null => {
   if (!studentId) return null;
@@ -124,7 +125,7 @@ export default function StudentDashboardScreen() {
         try {
           const cached = await AsyncStorage.getItem(cacheKey);
           if (cached && isMounted.current) {
-            const parsed = JSON.parse(cached);
+            const parsed = safeJsonParse<any>(cached, {});
             if (parsed.attendanceData) setAttendanceData(parsed.attendanceData);
             if (Array.isArray(parsed.recentAttendance)) setRecentAttendance(parsed.recentAttendance);
             if (Array.isArray(parsed.recentPapers)) setRecentPapers(parsed.recentPapers);
@@ -193,7 +194,7 @@ export default function StudentDashboardScreen() {
 
         if (cacheKey) {
           const cachedValue = await AsyncStorage.getItem(cacheKey);
-          const cachedData = cachedValue ? JSON.parse(cachedValue) : {};
+          const cachedData = safeJsonParse<Record<string, any>>(cachedValue, {});
           await AsyncStorage.setItem(cacheKey, JSON.stringify({
             ...cachedData,
             recentPapers: sortedPapers,

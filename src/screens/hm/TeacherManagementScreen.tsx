@@ -1798,7 +1798,7 @@ export default function TeacherPage() {
 const styles = StyleSheet.create({
   headerStandard: {
     backgroundColor: C.navy,
-    paddingBottom: 20,
+    paddingBottom: 30,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',

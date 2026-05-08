@@ -1,10 +1,12 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode, useRef } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../services/api';
 import notificationService from '../services/notificationService';
 import { safeJsonParse } from '../utils/storage';
 import eventEmitter from '../utils/eventEmitter';
 import { isJwtExpired } from '../utils/jwt';
+import { loadScopedNotificationIds } from '../utils/notificationStorage';
 
 interface NotificationContextType {
   unreadCount: number;
@@ -30,6 +32,15 @@ const UNREAD_COUNT_FAILURE_COOLDOWN_MS = 60000;
 export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      appStateRef.current = nextAppState;
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   const fetchUnreadCount = useCallback(async (force: boolean = false) => {
     if (unreadCountInFlight) {
@@ -84,7 +95,7 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
       }
 
       const endpoint = `/notifications/${role.toLowerCase()}/list`;
-      let response;
+      let response: any = null;
       let attempt = 0;
       const maxAttempts = 2;
       // simple retry on transient network errors
@@ -96,22 +107,41 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
           attempt += 1;
           if (attempt >= maxAttempts) throw e;
           // small backoff before retrying
-          await new Promise(res => setTimeout(res, 500 * attempt));
+          await new Promise<void>(resolve => setTimeout(resolve, 500 * attempt));
         }
       }
+      if (!response) {
+        throw new Error('No response received while fetching unread notifications');
+      }
       const items = response.data?.items || response.data?.data || [];
+      const previousUnreadCount = lastUnreadCount;
 
-      const readStatus = await AsyncStorage.getItem('read_notifications');
-      const readIds = safeJsonParse<string[]>(readStatus, [], () => {
-        AsyncStorage.setItem('read_notifications', JSON.stringify([])).catch(() => {});
-      });
+      const [readIds, deletedIds] = await Promise.all([
+        loadScopedNotificationIds('read'),
+        loadScopedNotificationIds('deleted'),
+      ]);
 
-      const unread = items.filter((item: any) => !readIds.includes(item.id)).length;
+      const unread = items.filter((item: any) => !readIds.includes(item.id) && !deletedIds.includes(item.id)).length;
       lastUnreadCount = unread;
       lastUnreadCountFetchAt = Date.now();
       consecutiveUnreadFailures = 0;
       unreadFailureWarningLogged = false;
       setUnreadCount(unread);
+
+      if (appStateRef.current !== 'active' && unread > previousUnreadCount) {
+        const firstNewItem = items.find((item: any) => !readIds.includes(item.id) && !deletedIds.includes(item.id));
+        const title = firstNewItem?.title || 'New Notification';
+        const body = firstNewItem?.description || `You have ${unread} unread notification${unread !== 1 ? 's' : ''}`;
+
+        await notificationService.displayNotification({
+          title,
+          body,
+          data: {
+            notificationId: String(firstNewItem?.id || ''),
+            source: 'notification_poll',
+          },
+        });
+      }
       
       // Update app badge count
       await notificationService.updateBadgeCount(unread);

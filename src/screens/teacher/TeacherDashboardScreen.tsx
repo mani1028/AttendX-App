@@ -42,6 +42,7 @@ import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeGoBack } from '../../utils/navigationHelpers';
 import { safeNavigate } from '../../utils/navigationHelpers';
+import { safeJsonParse } from '../../utils/storage';
 import AvatarBubble from '../../components/common/AvatarBubble';
 import API from '../../services/api';
 import { 
@@ -149,7 +150,7 @@ export default function TeacherDashboardScreen() {
         try {
           const cached = await AsyncStorage.getItem(cacheKey);
           if (cached && isMounted.current) {
-            const parsed = JSON.parse(cached);
+            const parsed = safeJsonParse<Record<string, any>>(cached, {});
 
             if (parsed.profile) {
               setProfile(parsed.profile);
@@ -265,7 +266,7 @@ export default function TeacherDashboardScreen() {
 
             if (cacheKey) {
               const cachedValue = await AsyncStorage.getItem(cacheKey);
-              const cachedData = cachedValue ? JSON.parse(cachedValue) : {};
+              const cachedData = safeJsonParse<Record<string, any>>(cachedValue, {});
               await AsyncStorage.setItem(cacheKey, JSON.stringify({
                 ...cachedData,
                 assignedClasses: resolvedAssigned,
@@ -301,7 +302,7 @@ export default function TeacherDashboardScreen() {
 
               if (cacheKey) {
                 const cachedValue = await AsyncStorage.getItem(cacheKey);
-                const cachedData = cachedValue ? JSON.parse(cachedValue) : {};
+                const cachedData = safeJsonParse<Record<string, any>>(cachedValue, {});
                 await AsyncStorage.setItem(cacheKey, JSON.stringify({
                   ...cachedData,
                   attendanceSummary: {
@@ -362,7 +363,7 @@ export default function TeacherDashboardScreen() {
 
                   if (cacheKey) {
                     const cachedValue = await AsyncStorage.getItem(cacheKey);
-                    const cachedData = cachedValue ? JSON.parse(cachedValue) : {};
+                    const cachedData = safeJsonParse<Record<string, any>>(cachedValue, {});
                     await AsyncStorage.setItem(cacheKey, JSON.stringify({
                       ...cachedData,
                       attendanceSummary: attendanceSummaryData,
@@ -562,16 +563,28 @@ export default function TeacherDashboardScreen() {
       >
         <Animated.View style={[styles.navyHeader, { paddingTop: insets.top + 12, transform: [{ translateY: headerTranslate }] }]}> 
           <View style={styles.headerTop}>
-            <TouchableOpacity style={styles.profileContainer} onPress={() => safeNavigate(navigation as any, 'Profile')}>
-              {profilePhotoUrl && !profilePhotoError ? (
-                <Image
-                  source={{ uri: profilePhotoUrl }}
-                  style={styles.profileImage}
-                  onError={() => setProfilePhotoError(true)}
-                />
-              ) : (
-                <AvatarBubble displayName={profile?.name || userName || 'User'} size={40} textSize={14} primaryColor={colors.accent} />
-              )}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.profileContainer}
+              onPress={() => safeNavigate(navigation as any, 'Profile')}
+            >
+              <View style={styles.profileInner}>
+                {profilePhotoUrl && !profilePhotoError ? (
+                  <Image
+                    source={{ uri: profilePhotoUrl }}
+                    style={styles.profileImage}
+                    onError={() => setProfilePhotoError(true)}
+                  />
+                ) : (
+                  <AvatarBubble
+                    displayName={profile?.name || userName || 'User'}
+                    size={42}
+                    textSize={15}
+                    primaryColor="#2563EB"
+                    primaryGlowColor="rgba(37,99,235,0.28)"
+                  />
+                )}
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.notificationBtn}
@@ -733,7 +746,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 34,
     borderBottomRightRadius: 34,
     paddingHorizontal: 20,
-    paddingBottom: 22,
+    paddingBottom: 30,
     paddingTop: 6,
     marginBottom: 18,
     marginHorizontal: -16,
@@ -764,18 +777,33 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   profileContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 2,
-    borderColor: '#22c55e',
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     padding: 2,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  profileInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 27,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   profileImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 25,
+    borderRadius: 27,
   },
   notificationBtn: {
     width: 56,

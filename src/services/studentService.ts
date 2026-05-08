@@ -2,6 +2,7 @@ import API, { buildApiUrl } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFeesByStudent, getPaymentHistoryByFee } from './accountantService';
 import { formatLocalDateKey, getMonthSundayDates } from '../utils/holidayUtils';
+import { safeJsonParse } from '../utils/storage';
 
 type AttendanceData = {
   percentage: number;
@@ -453,13 +454,9 @@ export async function getStudentProfilePhotoDataUri(studentId?: string, schoolCo
 export async function getStudentProfile(): Promise<any> {
   try {
     const storedUserRaw = await AsyncStorage.getItem('user');
-    const storedUser = storedUserRaw ? (() => {
-      try {
-        return JSON.parse(storedUserRaw);
-      } catch {
-        return {};
-      }
-    })() : {};
+    const storedUser = safeJsonParse<Record<string, any>>(storedUserRaw, {}, () => {
+      AsyncStorage.setItem('user', JSON.stringify({})).catch(() => {});
+    });
 
     const studentId = String(
       (await AsyncStorage.getItem('student_id')) ||
@@ -602,7 +599,7 @@ export async function getStudentProfile(): Promise<any> {
   } catch (error) {
     try {
       const storedUserRaw = await AsyncStorage.getItem('user');
-      return storedUserRaw ? JSON.parse(storedUserRaw) : {};
+      return safeJsonParse<Record<string, any>>(storedUserRaw, {});
     } catch {
       return {};
     }
@@ -939,7 +936,7 @@ export async function updateStudentProfile(data: any): Promise<any> {
   let storedUser: Record<string, any> = {};
   try {
     const storedUserRaw = await AsyncStorage.getItem('user');
-    storedUser = storedUserRaw ? asRecord(JSON.parse(storedUserRaw)) : {};
+    storedUser = asRecord(safeJsonParse(storedUserRaw, {}));
   } catch {
     storedUser = {};
   }

@@ -462,8 +462,23 @@ export default function TeacherAttendanceScreen() {
         return;
       }
 
+      // Verify the requested camera device is available before activating
       setCameraPosition(desiredPosition);
-      setCameraActive(true);
+      // Small delay to allow device state to update
+      setTimeout(() => {
+        if (isMounted.current && device) {
+          setCameraActive(true);
+        } else if (isMounted.current) {
+          // Device not available, try alternate position
+          const alternatePosition: 'back' | 'front' = desiredPosition === 'front' ? 'back' : 'front';
+          setCameraPosition(alternatePosition);
+          setTimeout(() => {
+            if (isMounted.current) {
+              setCameraActive(true);
+            }
+          }, 200);
+        }
+      }, 200);
     } catch (err) {
       console.error('Failed to request camera permission:', err);
       Alert.alert('Camera Error', 'Unable to access camera. Please check permissions.');
@@ -552,6 +567,7 @@ export default function TeacherAttendanceScreen() {
         attendance_session: parseInt(form.attendance_session || '1', 10),
       };
 
+      // Ensure suppressLogoutOn401 is applied at service level to prevent logout on wrong face
       const data = await teacherService.verifyTeacher(payload);
 
       if (!isMounted.current) return;
@@ -592,8 +608,20 @@ export default function TeacherAttendanceScreen() {
       const errorMsg = backendDetail || err?.message || 'Please try again';
 
       if (status === 401) {
-        showToast('Verification Failed', backendDetail || 'Unauthorized access', '❌', '#EF4444');
-        Alert.alert('Verification Failed', backendDetail || 'Your identity could not be verified. Please try again or contact support.');
+        // Face verification failed - user's face doesn't match or not recognized
+        const verificationError = backendDetail?.toLowerCase().includes('face') || 
+                                  backendDetail?.toLowerCase().includes('recogni') ||
+                                  backendDetail?.toLowerCase().includes('match')
+          ? 'Face not recognized. Please try again with a clearer photo.'
+          : backendDetail || 'Identity verification failed. Please try again.';
+        
+        showToast('Verification Failed', verificationError, '❌', '#EF4444');
+        Alert.alert(
+          'Identity Verification Failed',
+          verificationError + ' Do not log out - stay in the app and try again.',
+          [{ text: 'OK' }]
+        );
+        // Important: Don't navigate away or reset state - let user retry
         return;
       }
 
@@ -923,7 +951,7 @@ export default function TeacherAttendanceScreen() {
         </View>
 
         {/* Camera View */}
-        {cameraActive && hasPermission && device && (
+        {cameraActive && hasPermission && device ? (
           <View style={styles.cameraContainer}>
             <Camera
               ref={cameraRef}
@@ -961,7 +989,19 @@ export default function TeacherAttendanceScreen() {
               <XCircle size={24} color="#fff" />
             </TouchableOpacity>
           </View>
-        )}
+        ) : cameraActive && hasPermission ? (
+          <View style={styles.cameraContainer}>
+            <View style={[styles.camera, { backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }]}>
+              <AlertCircle size={48} color="#ef4444" />
+              <AppText style={{ color: '#fff', marginTop: 16, textAlign: 'center', paddingHorizontal: 20 }}>
+                Camera not available. Please check if camera permission is granted.
+              </AppText>
+            </View>
+            <TouchableOpacity style={styles.closeCameraBtn} onPress={stopCamera}>
+              <XCircle size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {/* Stepper */}
         <Stepper step={step} />
@@ -1312,7 +1352,7 @@ const styles = StyleSheet.create({
     backgroundColor: HM_THEME.navy,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    paddingBottom: 40,
+    paddingBottom: 30,
     elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },

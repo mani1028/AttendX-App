@@ -1,6 +1,19 @@
-import notifee, { AndroidImportance, AndroidBadgeIconType, AuthorizationStatus } from '@notifee/react-native';
+import notifee, { AndroidImportance, AndroidBadgeIconType, AuthorizationStatus, AndroidVisibility } from '@notifee/react-native';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import messaging from '@react-native-firebase/messaging';
 import { safeJsonParse } from '../utils/storage';
+import API from './api';
+
+const TOKEN_SYNC_ENDPOINTS = [
+  '/notifications/device-token/register',
+  '/notifications/device-token',
+  '/notifications/register-device',
+  '/notifications/register-token',
+  '/device-tokens/register',
+  '/fcm/register-token',
+  '/fcm/token',
+];
 
 interface NotificationPayload {
   title: string;
@@ -11,6 +24,30 @@ interface NotificationPayload {
 
 class NotificationService {
   private initialized = false;
+  private tokenRefreshUnsubscribe: (() => void) | null = null;
+
+  private toSafeString(value: unknown, fallback: string): string {
+    if (typeof value === 'string' && value.trim()) return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    return fallback;
+  }
+
+  private normalizeNotificationData(data?: Record<string, any>): Record<string, string> {
+    if (!data || typeof data !== 'object') return {};
+
+    const normalized: Record<string, string> = {};
+    Object.entries(data).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        normalized[key] = value;
+      } else if (typeof value === 'number' || typeof value === 'boolean') {
+        normalized[key] = String(value);
+      } else if (value != null) {
+        normalized[key] = JSON.stringify(value);
+      }
+    });
+
+    return normalized;
+  }
 
   /**
    * Initialize notification service
@@ -20,11 +57,31 @@ class NotificationService {
     if (this.initialized) return;
 
     try {
-      // Request user permission for notifications (iOS)
+      // Request user permission for notifications (iOS and Android 13+)
       const permission = await notifee.requestPermission();
       
       if (permission.authorizationStatus !== AuthorizationStatus.AUTHORIZED) {
-        console.log('Notification permission not granted');
+        console.log('Notification permission not fully granted');
+      }
+
+      // Request FCM permission (handles both iOS and Android)
+      const fcmPermission = await messaging().requestPermission();
+      console.log('FCM permission status:', fcmPermission);
+
+      // Get and log FCM device token
+      const fcmToken = await messaging().getToken();
+      console.log('[FCM] Device token:', fcmToken);
+      // You should send this token to your backend so it knows where to send push notifications
+      await AsyncStorage.setItem('fcm_device_token', fcmToken);
+      await this.syncFcmTokenWithBackend(fcmToken);
+
+      if (!this.tokenRefreshUnsubscribe) {
+        this.tokenRefreshUnsubscribe = messaging().onTokenRefresh(async (newToken) => {
+          console.log('[FCM] Token refreshed');
+          await AsyncStorage.setItem('fcm_device_token', newToken);
+          await AsyncStorage.removeItem('fcm_device_token_synced');
+          await this.syncFcmTokenWithBackend(newToken);
+        });
       }
 
       // Create Android notification channels
@@ -34,7 +91,7 @@ class NotificationService {
       this.setupForegroundHandler();
       
       this.initialized = true;
-      console.log('Notification service initialized');
+      console.log('Notification service initialized with Firebase');
     } catch (error) {
       console.error('Failed to initialize notification service:', error);
     }
@@ -50,6 +107,7 @@ class NotificationService {
         id: 'general',
         name: 'General Notifications',
         importance: AndroidImportance.HIGH,
+        visibility: AndroidVisibility.PUBLIC, // Shows on lock screen
         vibration: true,
         sound: 'default',
         lights: true,
@@ -61,10 +119,23 @@ class NotificationService {
         id: 'urgent',
         name: 'Urgent Notifications',
         importance: AndroidImportance.HIGH,
+        visibility: AndroidVisibility.PUBLIC, // Shows on lock screen
         vibration: true,
         sound: 'default',
         lights: true,
         lightColor: '#FF0000',
+      });
+
+      // Default channel (used by Firebase)
+      await notifee.createChannel({
+        id: 'default',
+        name: 'Default Notifications',
+        importance: AndroidImportance.HIGH,
+        visibility: AndroidVisibility.PUBLIC, // Shows on lock screen
+        vibration: true,
+        sound: 'default',
+        lights: true,
+        lightColor: '#007AFF',
       });
 
       // Channel for lock screen notifications
@@ -72,6 +143,7 @@ class NotificationService {
         id: 'lockscreen',
         name: 'Lock Screen Notifications',
         importance: AndroidImportance.HIGH,
+        visibility: AndroidVisibility.PUBLIC, // Shows on lock screen
         vibration: true,
         sound: 'default',
         lights: true,
@@ -90,6 +162,7 @@ class NotificationService {
    */
   private setupForegroundHandler(): void {
     try {
+      // Notifee foreground event handler
       notifee.onForegroundEvent(({ type, detail }) => {
         console.log('Foreground notification received:', detail);
         
@@ -97,6 +170,30 @@ class NotificationService {
         if (type === 1) { // PRESS
           const data = detail?.notification?.data as Record<string, string> | undefined;
           this.handleNotificationPress(data);
+        }
+      });
+
+      // FCM foreground message handler (when app is open)
+      messaging().onMessage(async (remoteMessage) => {
+        console.log('[FCM Foreground] Message received while app is open:', remoteMessage);
+
+        if (remoteMessage?.notification || remoteMessage?.data) {
+          const title = this.toSafeString(
+            remoteMessage.notification?.title ?? remoteMessage.data?.title,
+            'New Notification',
+          );
+          const body = this.toSafeString(
+            remoteMessage.notification?.body ?? remoteMessage.data?.body,
+            'You have a new notification',
+          );
+
+          // Display notification even when app is in foreground
+          await this.displayNotification({
+            title,
+            body,
+            data: this.normalizeNotificationData(remoteMessage.data as Record<string, any> | undefined),
+            notificationId: remoteMessage.messageId,
+          });
         }
       });
 
@@ -151,6 +248,8 @@ class NotificationService {
     showOnLockscreen: boolean = true
   ): Promise<string> {
     try {
+      await this.initialize();
+
       const channelId = isUrgent ? 'urgent' : 'general';
 
       const notificationId = await notifee.displayNotification({
@@ -160,7 +259,8 @@ class NotificationService {
         android: {
           channelId,
           importance: isUrgent ? AndroidImportance.HIGH : AndroidImportance.HIGH,
-          smallIcon: 'ic_launcher',
+          visibility: AndroidVisibility.PUBLIC, // Shows content on lock screen
+          smallIcon: 'ic_notification',
           badgeIconType: AndroidBadgeIconType.LARGE,
           pressAction: {
             id: 'default',
@@ -174,6 +274,8 @@ class NotificationService {
         },
         ios: {
           sound: 'default',
+          badgeCount: 1,
+          launchImageName: 'LaunchScreen',
         },
       });
 
@@ -255,6 +357,102 @@ class NotificationService {
       await this.updateBadgeCount(0);
     } catch (error) {
       console.error('Failed to mark all as read:', error);
+    }
+  }
+
+  /**
+   * Get FCM device token for sending push notifications
+   */
+  async getFcmToken(): Promise<string | null> {
+    try {
+      const token = await messaging().getToken();
+      return token || null;
+    } catch (error) {
+      console.error('Failed to get FCM token:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Attempts to sync the current FCM token with backend endpoints.
+   * This uses endpoint fallbacks because backend routes can differ by deployment.
+   */
+  async syncFcmTokenWithBackend(tokenInput?: string | null): Promise<boolean> {
+    try {
+      const token = (tokenInput || (await messaging().getToken()) || '').trim();
+      if (!token) return false;
+
+      const [storedToken, syncedToken, userRole, userId, teacherId, employeeId, studentId, schoolCode, branchId] = await AsyncStorage.multiGet([
+        'fcm_device_token',
+        'fcm_device_token_synced',
+        'user_role',
+        'user_id',
+        'teacher_id',
+        'employee_id',
+        'student_id',
+        'school_code',
+        'branch_id',
+      ]).then(items => items.map(([, value]) => value || ''));
+
+      const finalToken = token || storedToken;
+      if (!finalToken) return false;
+
+      if (syncedToken === finalToken) {
+        return true;
+      }
+
+      const userRaw = await AsyncStorage.getItem('user');
+      const user = safeJsonParse<Record<string, any>>(userRaw, {});
+
+      const payload = {
+        token: finalToken,
+        fcm_token: finalToken,
+        device_token: finalToken,
+        platform: 'react-native',
+        app_platform: 'mobile',
+        os: Platform.OS,
+        role: userRole || user.role || user.user_role || undefined,
+        user_id: userId || user.user_id || user.id || undefined,
+        teacher_id: teacherId || employeeId || user.teacher_id || user.employee_id || undefined,
+        employee_id: employeeId || user.employee_id || undefined,
+        student_id: studentId || user.student_id || undefined,
+        school_code: schoolCode || user.school_code || undefined,
+        branch_id: branchId || user.branch_id || undefined,
+      };
+
+      for (const endpoint of TOKEN_SYNC_ENDPOINTS) {
+        try {
+          await API.post(endpoint, payload, {
+            suppressFallback404Log: true,
+          } as any);
+
+          await AsyncStorage.setItem('fcm_device_token', finalToken);
+          await AsyncStorage.setItem('fcm_device_token_synced', finalToken);
+          console.log(`[FCM] Token synced via ${endpoint}`);
+          return true;
+        } catch (error: any) {
+          const status = error?.response?.status;
+          if (status && ![404, 405].includes(status)) {
+            console.warn(`[FCM] Token sync failed at ${endpoint} with status ${status}`);
+          }
+        }
+      }
+
+      console.warn('[FCM] Token sync endpoint not available on backend. Token kept locally.');
+      await AsyncStorage.setItem('fcm_device_token', finalToken);
+      return false;
+    } catch (error) {
+      console.error('[FCM] Token sync error:', error);
+      return false;
+    }
+  }
+
+  async ensureFcmTokenSynced(): Promise<void> {
+    try {
+      const token = await AsyncStorage.getItem('fcm_device_token');
+      await this.syncFcmTokenWithBackend(token);
+    } catch (error) {
+      console.error('[FCM] ensureFcmTokenSynced failed:', error);
     }
   }
 

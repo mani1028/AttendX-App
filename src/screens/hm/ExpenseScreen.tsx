@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
   },
   headerStandard: {
     backgroundColor: '#001F3F',
-    paddingBottom: 16,
+    paddingBottom: 30,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',

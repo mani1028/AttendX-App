@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import messaging from '@react-native-firebase/messaging';
 import AttendXIntro from './src/components/common/AttendXIntro';
 import AppNavigator from './src/navigation/AppNavigator';
 import { AuthProvider } from './src/context/AuthContext';
@@ -16,12 +17,42 @@ export default function App() {
     // Initialize notification service on app startup
     const initializeNotifications = async () => {
       try {
+        // Request notification permission on iOS
+        const authStatus = await messaging().requestPermission();
+        console.log('=== NOTIFICATION PERMISSION STATUS ===');
+        console.log('Permission:', authStatus);
+
         await notificationService.initialize();
-        console.log('App: Notifications initialized');
+        console.log('App: Notifications initialized with Firebase support');
+
+        // Get FCM token for backend
+        const fcmToken = await notificationService.getFcmToken();
+        console.log('=== FCM TOKEN ===');
+        console.log('FCM TOKEN:', fcmToken);
+        console.log('================================');
+
+        await notificationService.ensureFcmTokenSynced();
       } catch (error) {
         console.error('App: Failed to initialize notifications:', error);
       }
     };
+
+    // Handle notification opened when app is closed (user taps notification)
+    const unsubscribe = messaging().onNotificationOpenedApp((remoteMessage) => {
+      console.log('App opened from notification:', remoteMessage);
+      // You can navigate to the notification screen or specific notification here
+      // navigation.navigate('Notifications');
+    });
+
+    // Check for initial notification when app is launched from a closed state
+    messaging()
+      .getInitialNotification()
+      .then((remoteMessage) => {
+        if (remoteMessage) {
+          console.log('App: Launched from closed state by notification:', remoteMessage);
+          // You can navigate to notifications screen here
+        }
+      });
 
     // Initialize offline queue sync
     const initializeOfflineSync = () => {
@@ -39,6 +70,7 @@ export default function App() {
     // Cleanup on unmount
     return () => {
       offlineQueueSync.stopMonitoring();
+      unsubscribe();
     };
   }, []);
 

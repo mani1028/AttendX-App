@@ -54,6 +54,7 @@ import { getStudentProfile, getStudentProfilePhotoDataUri, getStudentProfilePhot
 import { getTeacherProfile, getTeacherProfilePhotoDataUri, getTeacherProfilePhotoUrl, updateTeacherProfile } from '../../services/teacherService';
 import { buildApiUrl } from '../../services/api';
 import { formatErrorMessage } from '../../utils/helpers';
+import { safeJsonParse } from '../../utils/storage';
 
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
@@ -239,12 +240,8 @@ export default function ProfileScreen() {
       // Try to hydrate from cache immediately
       const cachedProfileRaw = await AsyncStorage.getItem(profileCacheKey);
       if (cachedProfileRaw && isMounted.current) {
-        try {
-          const parsed = JSON.parse(cachedProfileRaw);
-          setUserInfo(prev => ({ ...prev, ...parsed }));
-        } catch {
-          // ignore parse errors
-        }
+        const parsed = safeJsonParse<Record<string, any>>(cachedProfileRaw, {});
+        setUserInfo(prev => ({ ...prev, ...parsed }));
       }
 
       if (photoCacheKey) {
@@ -284,9 +281,7 @@ export default function ProfileScreen() {
         if (!isMounted.current) return;
 
         const storedUserRaw = await AsyncStorage.getItem('user');
-        const storedUser = storedUserRaw ? (() => {
-          try { return JSON.parse(storedUserRaw); } catch { return {}; }
-        })() : {};
+        const storedUser = safeJsonParse<Record<string, any>>(storedUserRaw, {});
 
         const [
           storedEmail,
@@ -418,7 +413,9 @@ export default function ProfileScreen() {
 
         // persist app settings if present in profile
         const savedSettings = await AsyncStorage.getItem('app_settings');
-        if (savedSettings && isMounted.current) setSettings(JSON.parse(savedSettings));
+        if (savedSettings && isMounted.current) {
+          setSettings(safeJsonParse<AppSettings>(savedSettings, settings));
+        }
       };
 
       if (hadCache) {

@@ -295,8 +295,8 @@ export default function StudentListScreen() {
         console.log('[StudentListScreen] Skipping fetchStudents - missing params:', {
           schoolCode: !!schoolCode,
           branchId: !!branchId,
-          selectedClass: selectedClass,
-          selectedSection: selectedSection
+          selectedClass: selectedClass || '(empty)',
+          selectedSection: selectedSection || '(empty)'
         });
       }
       return;
@@ -314,12 +314,18 @@ export default function StudentListScreen() {
       );
       if (__DEV__) {
         console.log('[StudentListScreen] Students fetched:', students?.length || 0, 'students');
+        if (!students || students.length === 0) {
+          console.warn('[StudentListScreen] No students returned for class:', selectedClass, 'section:', selectedSection);
+        }
       }
       if (isMounted.current) {
-        setRecords(students);
+        setRecords(students || []);
       }
-    } catch (error) {
-      console.error('Failed to fetch students:', error);
+    } catch (error: any) {
+      console.error('[StudentListScreen] Failed to fetch students:', error?.message || error);
+      if (isMounted.current) {
+        setRecords([]);
+      }
     } finally {
       if (isMounted.current) setLoading(false);
     }
@@ -328,25 +334,41 @@ export default function StudentListScreen() {
   // Ensure we fetch students once assigned classes are available
   useEffect(() => {
     if (!isMounted.current) return;
-    if (assignedClasses && assignedClasses.length > 0 && (!selectedClass || !selectedSection)) {
-      const first = assignedClasses[0];
-      if (first) {
-        setSelectedClass(first.class_grade);
-        setSelectedSection(first.section);
-        // Trigger a fetch immediately
-        fetchStudents();
+    if (assignedClasses && assignedClasses.length > 0) {
+      // If no class/section selected yet, select the first one
+      if (!selectedClass || !selectedSection) {
+        const first = assignedClasses[0];
+        if (first) {
+          const nextClass = first.class_grade;
+          const nextSection = first.section;
+          setSelectedClass(nextClass);
+          setSelectedSection(nextSection);
+          if (__DEV__) {
+            console.log('[StudentListScreen] Setting initial class/section:', nextClass, nextSection);
+          }
+        }
       }
     }
   }, [assignedClasses]);
 
+  // Fetch students when class/section change
   useEffect(() => {
-    fetchStudents();
-  }, [fetchStudents]);
+    if (selectedClass && selectedSection) {
+      fetchStudents();
+    }
+  }, [selectedClass, selectedSection, fetchStudents]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadAssignedClasses(), fetchStudents(false)]);
-    setRefreshing(false);
+    try {
+      await Promise.all([loadAssignedClasses(), fetchStudents(false)]);
+    } catch (err) {
+      if (__DEV__) {
+        console.error('[StudentListScreen] Refresh failed:', err);
+      }
+    } finally {
+      setRefreshing(false);
+    }
   }, [loadAssignedClasses, fetchStudents]);
 
   const handleSaveStudent = useCallback(async () => {
@@ -784,7 +806,7 @@ const styles = StyleSheet.create({
     backgroundColor: HM_THEME.navy,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    paddingBottom: 40,
+    paddingBottom: 30,
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },

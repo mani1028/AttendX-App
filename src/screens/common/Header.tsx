@@ -19,6 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import NotificationPanel from './NotificationPanel';
 import CalendarView from '../CalendarView';
+import { safeJsonParse } from '../../utils/storage';
 
 // Utility function for photo cache key generation
 const getPhotoCacheKey = (roleBucket: 'student' | 'teacher', id: string, schoolCode: string): string | null => {
@@ -96,7 +97,7 @@ const Header: React.FC<HeaderProps> = ({
       try {
         const userStr = await AsyncStorage.getItem('user');
         if (userStr) {
-          const user = JSON.parse(userStr);
+          const user = safeJsonParse<Record<string, any>>(userStr, {});
           if (typeof user?.is_class_teacher === 'boolean') {
             setIsClassTeacher(user.is_class_teacher);
             return;
@@ -133,10 +134,8 @@ const Header: React.FC<HeaderProps> = ({
       const userStr = await AsyncStorage.getItem('user');
       let userName = name;
       if (userStr) {
-        try {
-          const user = JSON.parse(userStr);
-          userName = user.name || user.school_name || name;
-        } catch {}
+        const user = safeJsonParse<Record<string, any>>(userStr, {});
+        userName = user.name || user.school_name || name;
       }
 
       setUserData({

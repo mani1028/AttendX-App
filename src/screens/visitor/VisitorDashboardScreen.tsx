@@ -511,7 +511,7 @@ export default function VisitorDashboardScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
       {/* Standardized Navy Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 30 }]}>
         <View style={{ width: 40 }} />
         <View style={styles.headerTitleContainer}>
           <AppText style={styles.headerTitle}>Visitor Portal</AppText>

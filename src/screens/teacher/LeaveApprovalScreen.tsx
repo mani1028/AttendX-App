@@ -441,7 +441,7 @@ export default function LeaveApprovalScreen() {
       <Animated.View
         style={[
           styles.headerStandard,
-          { paddingTop: insets.top + 20, paddingBottom: 40 },
+          { paddingTop: insets.top + 20, paddingBottom: 30 },
           {
             transform: [
               {
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
   headerStandard: {
     backgroundColor: HM_THEME.navy,
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 30,
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
     ...Platform.select({

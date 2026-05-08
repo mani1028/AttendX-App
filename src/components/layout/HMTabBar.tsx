@@ -4,6 +4,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Text,
+  Dimensions,
   Platform,
   Animated,
 } from 'react-native';
@@ -16,6 +17,18 @@ import {
 } from 'lucide-react-native';
 import Svg, { Path, Line, Circle } from 'react-native-svg';
 import { useAuth } from '../../context/AuthContext';
+
+const { width } = Dimensions.get('window');
+
+// Responsive sizing for large screens
+const getResponsiveSizes = () => {
+  if (width > 430) {
+    return { iconSize: 28, centerButtonSize: 72, centerIconSize: 22 };
+  } else if (width > 390) {
+    return { iconSize: 26, centerButtonSize: 68, centerIconSize: 21 };
+  }
+  return { iconSize: 24, centerButtonSize: 64, centerIconSize: 22 };
+};
 
 const tabs = [
   { name: 'Home', label: 'Home', icon: Home },
@@ -33,8 +46,8 @@ interface HMTabBarProps {
   isScrollingDown?: boolean;
 }
 
-const TeacherIcon = ({ color }: { color: string }) => (
-  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+const TeacherIcon = ({ color, size }: { color: string; size: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
     <Path d="M22 10v6M2 10l10-5 10 5-10 5z" />
     <Path d="M6 12v5c3 3 9 3 12 0v-5" />
   </Svg>
@@ -43,6 +56,7 @@ const TeacherIcon = ({ color }: { color: string }) => (
 const HMTabBar = ({ state, descriptors, navigation, isScrollingDown = false }: HMTabBarProps) => {
   const insets = useSafeAreaInsets();
   const { isTabBarVisible, tabBarTranslate } = useAuth();
+  const sizes = getResponsiveSizes();
   const visibility = isTabBarVisible === false || isScrollingDown;
   const animatedOpacity = tabBarTranslate
     ? tabBarTranslate.interpolate({
@@ -69,50 +83,34 @@ const HMTabBar = ({ state, descriptors, navigation, isScrollingDown = false }: H
       pointerEvents={visibility ? 'none' : 'auto'}
       style={[
         styles.container,
-        {
-          paddingBottom: insets.bottom,
-          transform: [{ translateY: tabBarTranslate || new Animated.Value(0) }],
-          opacity: animatedOpacity,
-        },
+        { paddingBottom: insets.bottom || 10 },
+        tabBarTranslate ? { transform: [{ translateY: tabBarTranslate }], opacity: animatedOpacity } : null,
       ]}
     >
-      {/* Floating center button */}
-      <TouchableOpacity
-        style={styles.fab}
-        activeOpacity={0.85}
-        onPress={() => {
-          const centerIndex = tabs.findIndex(t => t.isCenterPlaceholder);
-          const route = state.routes[centerIndex];
-          if (route) navigate(route.name, route.key, centerIndex);
-        }}
-      >
-        <View style={[
-          styles.fabInner,
-          state.index === tabs.findIndex(t => t.isCenterPlaceholder) && styles.fabInnerActive,
-        ]}>
-          <TeacherIcon color="#fff" />
-        </View>
-      </TouchableOpacity>
-
-      {/* Tab row */}
-      <View style={styles.row}>
+      <View style={styles.content}>
         {tabs.map((tab, index) => {
           const isFocused = state.index === index;
           const route = state.routes[index];
 
           if (tab.isCenterPlaceholder) {
             return (
-              <TouchableOpacity
+              <View
                 key={tab.name}
-                style={styles.centerSlot}
-                activeOpacity={0.7}
-                onPress={() => route && navigate(route.name, route.key, index)}
+                style={styles.centerTabContainer}
               >
-                <View style={{ height: 44 }} />
-                <Text style={[styles.label, isFocused && styles.labelActive]} numberOfLines={2}>
+                <TouchableOpacity
+                  style={[styles.centerButton, { width: sizes.centerButtonSize, height: sizes.centerButtonSize, borderRadius: sizes.centerButtonSize / 2 }]}
+                  activeOpacity={0.8}
+                  onPress={() => route && navigate(route.name, route.key, index)}
+                >
+                  <View style={[styles.centerIconWrapper, { borderRadius: sizes.centerButtonSize / 2 }]}>
+                    <TeacherIcon color="#fff" size={sizes.centerIconSize} />
+                  </View>
+                </TouchableOpacity>
+                <Text style={[styles.centerLabel, { color: isFocused ? '#FFFFFF' : '#94a3b8' }]} numberOfLines={2}>
                   {'Teacher\nAssignment'}
                 </Text>
-              </TouchableOpacity>
+              </View>
             );
           }
 
@@ -122,19 +120,16 @@ const HMTabBar = ({ state, descriptors, navigation, isScrollingDown = false }: H
             <TouchableOpacity
               key={tab.name}
               style={styles.tabItem}
-              activeOpacity={0.6}
+              activeOpacity={0.7}
               onPress={() => route && navigate(route.name, route.key, index)}
               onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route?.key })}
             >
-              <View style={[styles.iconWrap, isFocused && styles.iconWrapActive]}>
-                {isFocused && <View style={styles.activeDot} />}
-                <IconComponent
-                  size={22}
-                  color={isFocused ? '#ff0033' : '#8a96a6'}
-                  strokeWidth={2}
-                />
-              </View>
-              <Text style={[styles.label, isFocused && styles.labelActive]} numberOfLines={1}>
+              <IconComponent
+                size={sizes.iconSize}
+                color={isFocused ? '#FFFFFF' : '#94a3b8'}
+                strokeWidth={isFocused ? 2.5 : 2}
+              />
+              <Text style={[styles.tabLabel, { color: isFocused ? '#FFFFFF' : '#94a3b8' }]} numberOfLines={1}>
                 {tab.label}
               </Text>
             </TouchableOpacity>
@@ -147,111 +142,73 @@ const HMTabBar = ({ state, descriptors, navigation, isScrollingDown = false }: H
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#071834',
+    backgroundColor: '#001F3F',
     position: 'absolute',
     bottom: 0,
     width: '100%',
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-      },
-      android: { elevation: 12 },
-    }),
+    borderTopColor: 'rgba(255,255,255,0.05)',
   },
-  row: {
+  content: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: 8,
-    paddingTop: 6,
-    paddingBottom: 4,
+    paddingHorizontal: 4,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 2,
-    borderRadius: 10,
+    justifyContent: 'center',
+    paddingBottom: 8,
   },
-  centerSlot: {
+  tabLabel: {
+    fontSize: 10,
+    marginTop: 6,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  centerTabContainer: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 2,
-  },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+    marginTop: -30,
   },
-  iconWrapActive: {
-    backgroundColor: 'rgba(255,0,51,0.12)',
-  },
-  activeDot: {
-    position: 'absolute',
-    top: 4,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#ff0033',
-  },
-  label: {
-    fontSize: 9,
-    fontWeight: '500',
-    color: '#8a96a6',
-    textAlign: 'center',
-    marginTop: 1,
-    letterSpacing: 0.2,
-  },
-  labelActive: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#ff0033',
-  },
-  fab: {
-    position: 'absolute',
-    top: -26,
-    alignSelf: 'center',
-    left: '50%',
-    marginLeft: -27,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#0b2750',
-    borderWidth: 2,
-    borderColor: '#071834',
-    alignItems: 'center',
+  centerButton: {
+    backgroundColor: '#001F3F',
     justifyContent: 'center',
-    zIndex: 10,
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: '#fff',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
-        shadowRadius: 12,
+        shadowRadius: 6,
       },
-      android: { elevation: 14 },
+      android: {
+        ...Platform.select({
+
+          android: { elevation: 8 },
+
+          ios: {},
+
+        }),
+      },
     }),
   },
-  fabInner: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#0B4CF6',
-    alignItems: 'center',
+  centerIconWrapper: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  fabInnerActive: {
-    backgroundColor: '#2563eb',
+  centerLabel: {
+    textAlign: 'center',
+    fontSize: 9,
+    marginTop: 4,
+    fontWeight: '600',
   },
 });
 

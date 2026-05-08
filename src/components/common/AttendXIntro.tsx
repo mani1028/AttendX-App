@@ -168,7 +168,7 @@ const AttendXIntro: React.FC<AttendXIntroProps> = ({ onComplete, duration = 3200
               style={{
                 transform: [
                   { translateX: xTranslateX },
-                  { translateY: Platform.OS === 'ios' ? 2 : 0 } // Vertical adjustment for iOS
+                  { translateY: Platform.OS === 'ios' ? 0 : -2 } // Keep the X aligned with the wordmark baseline
                 ],
                 opacity: xOpacity,
               }}
@@ -184,7 +184,7 @@ const AttendXIntro: React.FC<AttendXIntroProps> = ({ onComplete, duration = 3200
                 </Defs>
                 <SvgText
                   x="30"
-                  y={Platform.OS === 'ios' ? 52 : 54} // Fine-tune baseline per platform
+                  y={Platform.OS === 'ios' ? 50 : 52} // Fine-tune baseline per platform
                   textAnchor="middle"
                   fontFamily={Platform.OS === 'ios' ? 'System' : 'sans-serif'}
                   fontWeight="800"
@@ -233,6 +233,7 @@ const styles = StyleSheet.create({
     gap: 16,
     maxWidth: width * 0.9,
     paddingHorizontal: 20,
+    transform: [{ translateY: -24 }],
   },
   cloudLogo: {
     width: 80,

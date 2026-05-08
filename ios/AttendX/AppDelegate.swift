@@ -1,5 +1,6 @@
 import UIKit
 import React
+import FirebaseCore
 
 @main
 class AppDelegate: RCTAppDelegate {
@@ -8,6 +9,10 @@ class AppDelegate: RCTAppDelegate {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     self.moduleName = "AttendX"
+
+    if FirebaseApp.app() == nil {
+      FirebaseApp.configure()
+    }
     
     let success = super.application(application, didFinishLaunchingWithOptions: launchOptions)
 

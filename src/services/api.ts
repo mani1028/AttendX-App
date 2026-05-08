@@ -28,6 +28,11 @@ const API_BASE = getBaseUrl();
 
 let authToken: string | null = null;
 
+// Log the API base URL on startup
+if (__DEV__) {
+  console.log(`[API Config] Base URL: ${API_BASE}`);
+}
+
 export function setAuthToken(token?: string | null) {
   authToken = token ?? null;
 }
@@ -126,6 +131,20 @@ API.interceptors.response.use(
   res => {
     if (__DEV__) {
       console.log(`[API Response] ${res.status} ${res.config.url}`);
+    }
+    
+    // ENHANCED LOGGING for notifications endpoints
+    if (res.config.url?.includes('/notifications/')) {
+      console.log(`[NOTIFICATION API] ${res.config.method?.toUpperCase()} ${res.config.baseURL}${res.config.url}`);
+      console.log(`[NOTIFICATION Response] Status: ${res.status}, Items: ${res.data?.items?.length || 0}`);
+      if (res.data?.items?.length > 0) {
+        console.log(`[NOTIFICATION Data Sample] First notification:`, {
+          id: res.data.items[0].id,
+          title: res.data.items[0].title,
+          created_at: res.data.items[0].created_at,
+          type: res.data.items[0].type,
+        });
+      }
     }
     
     // Cache successful GET responses

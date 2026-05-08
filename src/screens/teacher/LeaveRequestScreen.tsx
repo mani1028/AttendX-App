@@ -8,7 +8,6 @@ import {
   Alert,
   Platform,
   StatusBar,
-  Animated,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -136,7 +135,6 @@ export default function LeaveRequestScreen() {
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const lastScrollY = useRef(0);
-  const scrollY = useRef(new Animated.Value(0)).current;
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [teacherId, setTeacherId] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
@@ -181,8 +179,7 @@ export default function LeaveRequestScreen() {
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
     const deltaY = currentScrollY - lastScrollY.current;
-    // drive animated value for header
-    if (typeof scrollY.setValue === 'function') scrollY.setValue(currentScrollY);
+    // Toggle tab bar visibility based on scroll direction
     if (currentScrollY > 100 && deltaY > 10) {
       setTabBarVisible(false);
     } else if (deltaY < -10) {
@@ -361,59 +358,12 @@ export default function LeaveRequestScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
 
-      {/* Navy Hero Header - animates on scroll */}
-      <Animated.View
-        style={[
-          styles.headerStandard,
-          { paddingTop: insets.top + 16, paddingBottom: 24 },
-          {
-            transform: [
-              {
-                translateY: scrollY.interpolate({
-                  inputRange: [0, 120],
-                  outputRange: [0, -80],
-                  extrapolate: 'clamp',
-                }),
-              },
-              {
-                scale: scrollY.interpolate({
-                  inputRange: [0, 120],
-                  outputRange: [1, 0.98],
-                  extrapolate: 'clamp',
-                }),
-              },
-            ],
-            opacity: scrollY.interpolate({
-              inputRange: [0, 120],
-              outputRange: [1, 0.95],
-              extrapolate: 'clamp',
-            }),
-          },
-        ]}
-      >
-        <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('TeacherDashboard')}
-            activeOpacity={0.7}
-          >
-            <ChevronLeft size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <AppText weight="bold" style={styles.heroTitle}>Leave Request</AppText>
-          <View style={{ width: 40 }} />
-        </View>
-
-        <View style={styles.heroContent}>
-          <AppText weight="bold" style={styles.heroGreeting}>Request Time Off</AppText>
-          <AppText style={styles.heroSubtext}>Submit and track your leave applications</AppText>
-        </View>
-      </Animated.View>
-
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: 20 }]}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
@@ -421,6 +371,30 @@ export default function LeaveRequestScreen() {
         bounces={true}
         // Make sure keyboard handling / inertia still works
       >
+        {/* Navy Hero Header - scrolls with page */}
+        <View
+          style={[
+            styles.headerStandard,
+            { paddingTop: insets.top + 12, paddingBottom: 20 },
+          ]}
+        >
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('TeacherDashboard')}
+              activeOpacity={0.7}
+            >
+              <ChevronLeft size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <AppText weight="bold" style={styles.heroTitle}>Leave Request</AppText>
+            <View style={{ width: 40 }} />
+          </View>
+
+          <View style={styles.heroContent}>
+            <AppText weight="bold" style={styles.heroGreeting}>Request Time Off</AppText>
+            <AppText style={styles.heroSubtext}>Submit and track your leave applications</AppText>
+          </View>
+        </View>
         {/* Form Card */}
         <AppCard style={styles.mainCard}>
           <View style={styles.cardHeader}>
@@ -540,6 +514,10 @@ export default function LeaveRequestScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: HM_THEME.navy,
+  },
+  scrollView: {
+    flex: 1,
     backgroundColor: '#F8FAFC',
   },
   headerStandard: {
@@ -554,7 +532,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   iconButton: {
     width: 40,
@@ -569,11 +547,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   heroContent: {
-    marginBottom: 10,
+    marginBottom: 0,
   },
   heroGreeting: {
     color: '#FFFFFF',
-    fontSize: 28,
+    fontSize: 24,
   },
   heroSubtext: {
     color: 'rgba(255,255,255,0.7)',
@@ -581,12 +559,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 100,
-    paddingTop: 20,
+    paddingBottom: 130,
   },
   mainCard: {
-    marginTop: 0,
+    marginTop: 16,
+    marginHorizontal: 20,
     borderRadius: 24,
     padding: 20,
     backgroundColor: '#FFFFFF',
@@ -705,6 +682,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginHorizontal: 20,
     marginTop: 30,
     marginBottom: 15,
   },
@@ -718,6 +696,7 @@ const styles = StyleSheet.create({
   },
   historyList: {
     gap: 12,
+    paddingHorizontal: 20,
   },
   historyCard: {
     borderRadius: 20,
@@ -791,9 +770,11 @@ const styles = StyleSheet.create({
   loaderContainer: {
     padding: 40,
     alignItems: 'center',
+    paddingHorizontal: 20,
   },
   emptyState: {
     padding: 60,
+    paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },

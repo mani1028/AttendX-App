@@ -19,6 +19,7 @@ import { colors } from '../../constants/colors';
 import BottomSheetModal from './BottomSheetModal';
 import { safeJsonParse } from '../../utils/storage';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
+import { addScopedNotificationId, loadScopedNotificationIds, saveScopedNotificationIds } from '../../utils/notificationStorage';
 
 interface Notification {
   id: string;
@@ -74,22 +75,38 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
         },
       });
       const newItems = res.data?.items || res.data?.data || [];
-      setNotifications(newItems);
-
-      const readStatus = await AsyncStorage.getItem('read_notifications');
-      const currentReadIds = safeJsonParse<string[]>(readStatus, [], () => {
-        AsyncStorage.setItem('read_notifications', JSON.stringify([])).catch(() => {});
+      
+      // Deduplicate notifications by ID (prevents duplicate display if backend returns duplicates)
+      const seenIds = new Set<string>();
+      const deduplicatedItems = newItems.filter((item: any) => {
+        if (seenIds.has(item.id)) {
+          console.warn('Duplicate notification detected in panel, filtering:', item.id);
+          return false;
+        }
+        seenIds.add(item.id);
+        return true;
       });
+      
+      setNotifications(deduplicatedItems);
+
+      const [currentReadIds, deletedIds] = await Promise.all([
+        loadScopedNotificationIds('read'),
+        loadScopedNotificationIds('deleted'),
+      ]);
       setReadIds(currentReadIds);
 
-      if (previousCount >= 0 && newItems.length > previousCount) {
-        const added = newItems.length - previousCount;
-        const msg = added === 1 ? `📢 new notification: ${newItems[0]?.title}` : `📢 ${added} new notifications`;
+      const visibleItems = deduplicatedItems.filter((item: any) => !deletedIds.includes(item.id));
+
+      if (previousCount >= 0 && visibleItems.length > previousCount) {
+        const added = visibleItems.length - previousCount;
+        const msg = added === 1 ? `📢 new notification: ${visibleItems[0]?.title}` : `📢 ${added} new notifications`;
         setToastMsg(msg);
         setShowToast(true);
         setTimeout(() => setShowToast(false), 5000);
       }
-      setPreviousCount(newItems.length);
+      setPreviousCount(visibleItems.length);
+
+      setNotifications(visibleItems);
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
     } finally {
@@ -108,17 +125,13 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
   const handleDelete = async (id: string) => {
     if (!canDelete) return;
     try {
-      const schoolCode = await getSchoolCode();
-      const branchId = await getBranchId();
-      await API.delete(`/notifications/hm/delete/${id}`, {
-        headers: {
-          'X-School-Code': schoolCode,
-          'X-Branch-Id': branchId,
-        },
-      });
+      await addScopedNotificationId('deleted', id);
+      // Remove all copies of this notification (handles duplicates)
       setNotifications(prev => prev.filter(n => n.id !== id));
+      await refreshUnreadCount(true);
     } catch (err) {
-      Alert.alert('Error', 'Failed to delete notification');
+      console.error('Failed to delete notification:', err);
+      Alert.alert('Error', 'Failed to delete notification. Please try again.');
     }
   };
 
@@ -139,7 +152,7 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
           if (isNew) {
             const newReadIds = [...readIds, item.id];
             setReadIds(newReadIds);
-            await AsyncStorage.setItem('read_notifications', JSON.stringify(newReadIds));
+            await saveScopedNotificationIds('read', newReadIds);
             await refreshUnreadCount(true);
           }
         }}

@@ -709,6 +709,7 @@ const styles = StyleSheet.create({
   headerStandard: {
     backgroundColor: C.navy,
     paddingHorizontal: 20,
+    paddingBottom: 30,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

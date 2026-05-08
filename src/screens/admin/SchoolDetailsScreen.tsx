@@ -23,7 +23,7 @@ export default function SchoolDetailsScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
 
       {/* Standardized Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 20, paddingBottom: 60 }]}>
+      <View style={[styles.headerStandard, { paddingTop: insets.top + 20, paddingBottom: 30 }]}>
         <TouchableOpacity style={styles.backBtn} onPress={handleBackPress}>
           <ChevronLeft size={24} color="#fff" />
         </TouchableOpacity>
@@ -55,6 +55,7 @@ const styles = StyleSheet.create({
   headerStandard: {
     backgroundColor: '#001F3F',
     paddingHorizontal: 20,
+    paddingBottom: 30,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

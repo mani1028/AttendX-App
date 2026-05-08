@@ -474,6 +474,7 @@ export default function HomeworkManagementScreen() {
       assigned_date: item.assigned_date || '',
       due_date: item.due_date || '',
     });
+    setCreateExpanded(true);
     setShowFormModal(true);
   };
 
@@ -572,21 +573,22 @@ export default function HomeworkManagementScreen() {
           {createExpanded && (
             <>
               {/* Form Title */}
-              <AppText weight="bold" style={styles.formSectionTitle}>Create Homework</AppText>
+              <AppText weight="bold" style={styles.formSectionTitle}>{editingId ? "Edit Homework" : "Create Homework"}</AppText>
 
               {/* Class Name */}
               <View style={styles.formGroup}>
                 <AppText weight="semiBold" style={styles.formLabel}>Class Name</AppText>
                 <TouchableOpacity 
-                  style={styles.dropdown}
-                  onPress={() => setShowClassDropdown(!showClassDropdown)}
+                  style={[styles.dropdown, editingId && styles.disabledDropdown]}
+                  onPress={() => !editingId && setShowClassDropdown(!showClassDropdown)}
+                  disabled={!!editingId}
                 >
                   <AppText style={[styles.dropdownText, form.class_name && styles.dropdownValueText]}>
                     {form.class_name || 'Select Class'}
                   </AppText>
                   <ChevronRight size={20} color="#94A3B8" />
                 </TouchableOpacity>
-                {showClassDropdown && Array.isArray(classOptions) && classOptions.length > 0 && (
+                {!editingId && showClassDropdown && Array.isArray(classOptions) && classOptions.length > 0 && (
                   <View style={styles.dropdownMenu}>
                     {classOptions.map((cls, idx) => (
                       <TouchableOpacity
@@ -610,16 +612,16 @@ export default function HomeworkManagementScreen() {
               <View style={styles.formGroup}>
                 <AppText weight="semiBold" style={styles.formLabel}>Section Name</AppText>
                 <TouchableOpacity 
-                  style={styles.dropdown}
-                  onPress={() => form.class_name ? setShowSectionDropdown(!showSectionDropdown) : null}
-                  disabled={!form.class_name}
+                  style={[styles.dropdown, editingId && styles.disabledDropdown]}
+                  onPress={() => !editingId && form.class_name ? setShowSectionDropdown(!showSectionDropdown) : null}
+                  disabled={!!editingId || !form.class_name}
                 >
                   <AppText style={[styles.dropdownText, form.section_name && styles.dropdownValueText]}>
                     {form.section_name || (form.class_name ? 'Select Section' : 'Select Class First')}
                   </AppText>
                   <ChevronRight size={20} color="#94A3B8" />
                 </TouchableOpacity>
-                {showSectionDropdown && Array.isArray(sectionOptions) && sectionOptions.length > 0 && (
+                {!editingId && showSectionDropdown && Array.isArray(sectionOptions) && sectionOptions.length > 0 && (
                   <View style={styles.dropdownMenu}>
                     {sectionOptions.map((sec, idx) => (
                       <TouchableOpacity
@@ -643,16 +645,16 @@ export default function HomeworkManagementScreen() {
               <View style={styles.formGroup}>
                 <AppText weight="semiBold" style={styles.formLabel}>Subject Name</AppText>
                 <TouchableOpacity 
-                  style={styles.dropdown}
-                  onPress={() => form.section_name ? setShowSubjectDropdown(!showSubjectDropdown) : null}
-                  disabled={!form.section_name}
+                  style={[styles.dropdown, editingId && styles.disabledDropdown]}
+                  onPress={() => !editingId && form.section_name ? setShowSubjectDropdown(!showSubjectDropdown) : null}
+                  disabled={!!editingId || !form.section_name}
                 >
                   <AppText style={[styles.dropdownText, form.subject_name && styles.dropdownValueText]}>
                     {form.subject_name || (form.section_name ? 'Select Subject' : 'Select Section first')}
                   </AppText>
                   <ChevronRight size={20} color="#94A3B8" />
                 </TouchableOpacity>
-                {showSubjectDropdown && Array.isArray(subjectOptions) && subjectOptions.length > 0 && (
+                {!editingId && showSubjectDropdown && Array.isArray(subjectOptions) && subjectOptions.length > 0 && (
                   <View style={styles.dropdownMenu}>
                     {subjectOptions.map((subj, idx) => (
                       <TouchableOpacity
@@ -723,20 +725,19 @@ export default function HomeworkManagementScreen() {
               {/* Action Buttons */}
               <View style={styles.actionButtons}>
                 <AppButton
-                  title="Create +"
+                  title={editingId ? "Update" : "Create +"}
                   onPress={handleSubmit}
                   disabled={submitting}
                   style={styles.createButton}
                 />
-                <AppButton
-                  title="View History"
-                  type="secondary"
-                  onPress={() => {
-                    const scrollPos = width * 1.5; // Rough estimate to get to list
-                    Alert.alert("Tip", "Scroll down to see the full homework list!");
-                  }}
-                  style={styles.viewButton}
-                />
+                {editingId && (
+                  <AppButton
+                    title="Cancel"
+                    type="secondary"
+                    onPress={resetForm}
+                    style={styles.cancelButton}
+                  />
+                )}
               </View>
             </>
           )}
@@ -940,6 +941,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
   },
+  disabledDropdown: {
+    backgroundColor: '#F1F5F9',
+    opacity: 0.6,
+  },
   dropdownText: {
     fontSize: 14,
     color: '#94A3B8',
@@ -998,6 +1003,11 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 12,
     backgroundColor: '#3B82F6',
+  },
+  cancelButton: {
+    flex: 0.5,
+    height: 50,
+    borderRadius: 12,
   },
   viewButton: {
     flex: 0.8,

@@ -2,6 +2,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import eventEmitter from "./eventEmitter";
+import { safeJsonParse } from "./storage";
 
 /* ================= CONSTANTS ================= */
 
@@ -54,9 +55,10 @@ export const getStoredRole = async (): Promise<string> => {
 export const getStoredUser = async (): Promise<any> => {
   try {
     const user = await AsyncStorage.getItem("user");
-    return user ? JSON.parse(user) : {};
-  } catch (error) {
-    console.error("Error parsing stored user:", error);
+    return safeJsonParse(user, {}, () => {
+      AsyncStorage.setItem("user", JSON.stringify({})).catch(() => {});
+    });
+  } catch {
     return {};
   }
 };

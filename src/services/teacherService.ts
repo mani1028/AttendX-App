@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API, { buildApiUrl } from './api';
 import { isSunday } from '../utils/holidayUtils';
+import { safeJsonParse } from '../utils/storage';
 
 const PROFILE_ENDPOINTS = [
   'teacher/profile'
@@ -221,7 +222,8 @@ export async function processAttendance(payload: any): Promise<any> {
   const endpoints = [
     'manage/attendance/student/view'
   ];
-  return postFirstSuccessful(endpoints, payload);
+  // Suppress logout on 401 for preview/processing to avoid session loss during attendance workflow
+  return postFirstSuccessful(endpoints, payload, { suppressLogoutOn401: true });
 }
 
 export async function getAssignedClasses(schoolCode: string, branchId: string, employeeId: string): Promise<any[]> {
@@ -412,13 +414,9 @@ export async function getTeacherProfilePhotoDataUri(teacherId?: string, schoolCo
 export async function getTeacherProfile(): Promise<any> {
   try {
     const storedUserRaw = await AsyncStorage.getItem('user');
-    const storedUser = storedUserRaw ? (() => {
-      try {
-        return JSON.parse(storedUserRaw);
-      } catch {
-        return {};
-      }
-    })() : {};
+    const storedUser = safeJsonParse<Record<string, any>>(storedUserRaw, {}, () => {
+      AsyncStorage.setItem('user', JSON.stringify({})).catch(() => {});
+    });
 
     // Retrieve all stored values
     const [
@@ -565,7 +563,7 @@ export async function getTeacherProfile(): Promise<any> {
   } catch {
     try {
       const storedUserRaw = await AsyncStorage.getItem('user');
-      return storedUserRaw ? JSON.parse(storedUserRaw) : {};
+      return safeJsonParse<Record<string, any>>(storedUserRaw, {});
     } catch {
       return {};
     }

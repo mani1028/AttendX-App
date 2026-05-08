@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Platform,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 
@@ -57,7 +56,7 @@ const AvatarBubble: React.FC<AvatarBubbleProps> = ({
         {
           width: size,
           height: size,
-          borderRadius: size / 3, // Slightly rounded-xl style
+          borderRadius: size / 2,
           shadowColor: primaryGlowColor,
           shadowOffset: { width: 0, height: 0 },
           shadowOpacity: 0.5,
@@ -86,6 +85,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.18)',
   },
   avatarText: {
     color: '#ffffff',
