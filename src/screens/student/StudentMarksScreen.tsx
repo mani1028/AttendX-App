@@ -89,7 +89,7 @@ const ResultBadge: React.FC<{ status: string }> = ({ status }) => {
 const SummaryCard: React.FC<{ 
   label: string; 
   value: string | number;
-  icon: string;
+  icon: React.ComponentProps<typeof Icon>['name'];
   trend?: number;
 }> = ({ label, value, icon, trend }) => (
   <View style={styles.summaryCard}>
@@ -102,7 +102,7 @@ const SummaryCard: React.FC<{
       {trend !== undefined && (
         <View style={styles.trendContainer}>
           <Icon 
-            name={trend >= 0 ? "trending-up" : "trending-down"} 
+            name={trend >= 0 ? "arrow-up" : "arrow-down"} 
             size={10} 
             color={trend >= 0 ? "#10b981" : "#ef4444"} 
           />
@@ -604,6 +604,51 @@ const styles = StyleSheet.create({
     minHeight: 200,
     marginTop: 10,
   },
+  summaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  summaryIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  summaryContent: {
+    flex: 1,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 2,
+    fontWeight: '600',
+  },
+  summaryValue: {
+    fontSize: 18,
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  trendContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 4,
+  },
+  trendText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   selectLabel: {
     fontSize: 12,
     color: '#64748B',
@@ -710,6 +755,110 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#1E293B',
+  },
+  marksCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  marksCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  subjectContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  subjectIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  subjectName: {
+    fontSize: 15,
+    color: '#0F172A',
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  marksDetails: {
+    gap: 12,
+  },
+  marksRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  marksItem: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  marksLabel: {
+    fontSize: 9,
+    color: '#94A3B8',
+    marginBottom: 2,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  marksValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  progressBar: {
+    flex: 1,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: '#E2E8F0',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  percentageText: {
+    width: 52,
+    textAlign: 'right',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  resultContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  remarksContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  remarksText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#64748B',
   },
   resultBadgeContainer: {
     paddingHorizontal: 10,

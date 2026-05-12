@@ -210,7 +210,7 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                 <View style={styles.calendarCard}>
                     <Calendar
                         current={selectedDate}
-                        onDayPress={day => setSelectedDate(day.dateString)}
+                        onDayPress={(day: { dateString: string }) => setSelectedDate(day.dateString)}
                         onMonthChange={handleMonthChange}
                         markingType={'multi-dot'}
                         markedDates={markedDates}

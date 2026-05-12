@@ -300,7 +300,7 @@ const AnnouncementsScreen = () => {
 
   const formatTime = (dateString?: string) => {
     if (!dateString) return "";
-    return new Date(dateString).toLocaleTimeString();
+    return "";
   };
 
   return (
@@ -466,9 +466,7 @@ const AnnouncementsScreen = () => {
                 ) : null}
 
                 <AppText style={styles.meta}>
-                  🕐 Posted:{" "}
-                  {formatDate(announcement.created_at)}{" "}
-                  {formatTime(announcement.created_at)}
+                  � Posted: {formatDate(announcement.created_at)}
                 </AppText>
 
                 <View style={styles.actionRow}>

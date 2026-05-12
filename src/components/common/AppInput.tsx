@@ -8,6 +8,7 @@ import {
 	ViewStyle,
 	TextStyle,
 	TouchableOpacity,
+	Platform,
 } from 'react-native';
 import { colors } from '../../constants/colors';
 import { Eye, EyeOff } from 'lucide-react-native';
@@ -27,6 +28,25 @@ export const AppInput: React.FC<AppInputProps> = ({
 	secureTextEntry,
 	...props
 }) => {
+	const inputProps = { ...props } as TextInputProps;
+	const finalEditable = inputProps.editable ?? true;
+	// showSoftInputOnFocus may not be present on all RN versions; ensure keyboard shows by default
+	const finalShowSoftInputOnFocus = (inputProps as any).showSoftInputOnFocus ?? true;
+
+	// preserve user handlers and add lightweight logging for on-device debugging
+	const { onFocus: userOnFocus, onBlur: userOnBlur } = inputProps as any;
+	const handleFocus = (e: any) => {
+		try {
+			console.log(`[AppInput] focus label=${label} editable=${finalEditable} showSoftInputOnFocus=${finalShowSoftInputOnFocus} platform=${Platform.OS}`);
+		} catch (err) {}
+		if (typeof userOnFocus === 'function') userOnFocus(e);
+	};
+	const handleBlur = (e: any) => {
+		try {
+			console.log(`[AppInput] blur label=${label} platform=${Platform.OS}`);
+		} catch (err) {}
+		if (typeof userOnBlur === 'function') userOnBlur(e);
+	};
 	const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
 	const togglePasswordVisibility = () => {
@@ -48,7 +68,11 @@ export const AppInput: React.FC<AppInputProps> = ({
 					]}
 					placeholderTextColor={colors.mutedText}
 					secureTextEntry={isPassword && !isPasswordVisible}
-					{...props}
+					{...inputProps}
+					editable={finalEditable}
+					showSoftInputOnFocus={finalShowSoftInputOnFocus}
+					onFocus={handleFocus}
+					onBlur={handleBlur}
 				/>
 				{isPassword && (
 					<TouchableOpacity

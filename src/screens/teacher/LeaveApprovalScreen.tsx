@@ -392,14 +392,17 @@ export default function LeaveApprovalScreen() {
   }, [loadRequests]);
 
   const actOnLeave = async (leaveId: string, action: 'APPROVE' | 'REJECTED') => {
+    const isRejectAction = action === 'REJECTED';
+    const actionText = isRejectAction ? 'reject' : 'approve';
+
     Alert.alert(
-      'Confirm Action',
-      `Are you sure you want to ${action.toLowerCase()} this leave request?`,
+      isRejectAction ? 'Reject Leave Request' : 'Approve Leave Request',
+      `Are you sure you want to ${actionText} this leave request?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Approve',
-          style: action === 'APPROVE' ? 'default' : 'destructive',
+          text: 'Confirm',
+          style: isRejectAction ? 'destructive' : 'default',
           onPress: async () => {
             try {
               await API.put('/manage/teacher/leave-requests/action', {
@@ -411,7 +414,7 @@ export default function LeaveApprovalScreen() {
 
               if (!isMounted.current) return;
 
-              Alert.alert('Success', `Leave ${action.toLowerCase()} successfully`);
+              Alert.alert('Success', `Leave ${actionText}ed successfully`);
               loadRequests();
             } catch (e: any) {
               if (!isMounted.current) return;
@@ -564,7 +567,7 @@ export default function LeaveApprovalScreen() {
               <LeaveRequestCard
                 key={request.leave_id}
                 request={request}
-                onApprove={(id) => actOnLeave(id, 'APPROVED')}
+                onApprove={(id) => actOnLeave(id, 'APPROVE')}
                 onReject={(id) => actOnLeave(id, 'REJECTED')}
               />
             ))}

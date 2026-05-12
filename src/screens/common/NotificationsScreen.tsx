@@ -584,6 +584,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
+    marginTop: 6,
   },
   heroContent: {
     marginTop: 20,

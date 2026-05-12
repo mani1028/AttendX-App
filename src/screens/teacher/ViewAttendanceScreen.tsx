@@ -686,8 +686,8 @@ export default function ViewAttendanceScreen() {
                     onPress={() => setPickerMode('class')}
                   >
                     <Users size={18} color="#64748B" style={{ marginRight: 8 }} />
-                    <AppText style={styles.dropdownText} aria-label="--Select Class--">
-                      {selClass ? `Class ${selClass}` : '--Select Class--'}
+                    <AppText style={styles.dropdownText} aria-label="Select Class">
+                      {selClass ? `Class ${selClass}` : 'Select Class'}
                     </AppText>
                     <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
                   </TouchableOpacity>
@@ -702,11 +702,11 @@ export default function ViewAttendanceScreen() {
                     style={[styles.dropdown, !selClass && styles.dropdownDisabled]}
                     onPress={() => selClass ? setPickerMode('section') : Alert.alert('Select class first', 'Choose a class before selecting a section.')}
                     disabled={!selClass}
-                    aria-label="--Select Section--"
+                    aria-label="Select Section"
                   >
                     <LayoutGrid size={18} color="#64748B" style={{ marginRight: 8 }} />
-                    <AppText style={styles.dropdownText} aria-label="--Select Section--">
-                      {selSection ? `Section ${selSection}` : '--Select Section--'}
+                    <AppText style={styles.dropdownText} aria-label="Select Section">
+                      {selSection ? `Section ${selSection}` : 'Select Section'}
                     </AppText>
                     <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
                   </TouchableOpacity>

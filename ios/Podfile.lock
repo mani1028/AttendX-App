@@ -1403,49 +1403,8 @@ PODS:
     - Yoga
   - react-native-safe-area-context (4.12.0):
     - React-Core
-  - react-native-slider (5.2.0):
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - RCT-Folly (= 2024.01.01.00)
-    - RCTRequired
-    - RCTTypeSafety
+  - react-native-slider (4.4.0):
     - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - react-native-slider/common (= 5.2.0)
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - Yoga
-  - react-native-slider/common (5.2.0):
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - RCT-Folly (= 2024.01.01.00)
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - Yoga
   - react-native-vector-icons-feather (13.1.1)
   - react-native-vector-icons-ionicons (13.1.1)
   - react-native-webview (13.16.1):
@@ -1469,7 +1428,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-worklets-core (1.6.3):
+  - react-native-worklets-core (1.5.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1953,7 +1912,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - RNShare (12.2.6):
+  - RNShare (12.3.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1974,7 +1933,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - RNSVG (15.15.4):
+  - RNSVG (15.15.5):
     - React-Core
   - SocketRocket (0.7.1)
   - SplashView (0.0.21):
@@ -2018,9 +1977,7 @@ DEPENDENCIES:
   - BVLinearGradient (from `../node_modules/react-native-linear-gradient`)
   - DoubleConversion (from `../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
-  - FirebaseCoreExtension
   - FirebaseCoreInternal
-  - FirebaseInstallations
   - fmt (from `../node_modules/react-native/third-party-podspecs/fmt.podspec`)
   - glog (from `../node_modules/react-native/third-party-podspecs/glog.podspec`)
   - GoogleUtilities
@@ -2374,11 +2331,11 @@ SPEC CHECKSUMS:
   react-native-netinfo: 387c95161b1971d0b2acd61f5ecf394c8fd3fb95
   react-native-pager-view: 40fb187840331afe14b9d39116a8e4c203c8ee37
   react-native-safe-area-context: 8b8404e70b0cbf2a56428a17017c14c1dcc16448
-  react-native-slider: 6b44007540d9f1f3d75743c8c7b43e76f9f2159b
+  react-native-slider: 45d5a151b65666f500871dafb368d7855a809425
   react-native-vector-icons-feather: 76dcd7caba65d8799a0587bd298c256c3687b96c
   react-native-vector-icons-ionicons: c416c2cdf94f4cd9957ec77fde502e3410e40d14
   react-native-webview: 8be94d6d4dfb9afed8625cb88832e035267e853b
-  react-native-worklets-core: 87d860f784368d59ca6cd446669a9b9b3f96fc89
+  react-native-worklets-core: a7fb4fee321f4af49820f92bf6252b5fe9c41a74
   React-nativeconfig: a0ee536f9c1b8f2ba80fdf95aa4f2d6eb9b79510
   React-NativeModulesApple: d5ad8550bfa8ceae1590d88cfd37f30d41355890
   React-perflogger: a071982fd1a3f708a7f35e9a80acc7709f047fde
@@ -2419,13 +2376,13 @@ SPEC CHECKSUMS:
   RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
   RNReanimated: 66cf0f600a26d2b5e74c6e0b1c77c1ab1f62fc05
   RNScreens: d607af53a52b2c304d3f40f661dab0a7708494a6
-  RNShare: fbf8290b1259fe4023fbf04260f7889c0a98e899
-  RNSVG: fd0862e394549acfc0f17ac2660f74b40344a37e
+  RNShare: fab09ebb9ac62e65cfaeade72af286064dc86b27
+  RNSVG: 25c13e790de42443d6060c44bcf9d06e6591eb1f
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   SplashView: fe4f757ba0085b4d48dffdb8389dc2cc747f3734
   VisionCamera: 0044a94f7489f19e19d5938e97dfc36f4784af3c
   Yoga: 9f2ca179441625f0b05abb2a72517acdb35b36bd
 
-PODFILE CHECKSUM: 5727486c582a3ffcb1a86f348ab175597ecd7426
+PODFILE CHECKSUM: 8ffa5b4f2d524578a8979c8ce5bad21ab6e7ea26
 
 COCOAPODS: 1.16.2

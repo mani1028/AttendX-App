@@ -12,7 +12,9 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, Plus, X, Edit2, Trash2, Eye } from 'lucide-react-native';
 import API, { buildApiUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -68,6 +70,7 @@ const COLORS: Record<string, string> = {
 };
 
 export default function CalendarManagement() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
@@ -331,14 +334,16 @@ export default function CalendarManagement() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          {isStudent && (
-            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-              <ChevronLeft size={20} color={COLORS.text} />
-            </TouchableOpacity>
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      <StatusBar barStyle="light-content" backgroundColor="#001F3F" translucent={false} />
+      <ScrollView style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            {isStudent && (
+              <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                <ChevronLeft size={20} color={COLORS.text} />
+              </TouchableOpacity>
           )}
           <View>
             <Text style={styles.title}>School Calendar</Text>
@@ -816,11 +821,16 @@ export default function CalendarManagement() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,

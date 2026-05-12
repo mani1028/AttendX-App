@@ -22,7 +22,6 @@ import { useNavigation } from '@react-navigation/native';
 import {
   ChevronLeft,
   ChevronRight,
-  Filter,
   Settings,
   CheckCircle2,
   AlertCircle,
@@ -33,6 +32,7 @@ import {
   Save,
   BookOpen,
   User,
+  Users,
   LayoutGrid,
   ClipboardList,
   Clock,
@@ -433,13 +433,19 @@ export default function MarksEntryScreen() {
   const [savingMarks, setSavingMarks] = useState<boolean>(false);
 
   // UI states
-  const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
+  const [inlinePickerModal, setInlinePickerModal] = useState<{
+    visible: boolean;
+    title: string;
+    options: { label: string; value: any }[];
+    selectedValue: any;
+    onValueChange: (value: any) => void;
+  } | null>(null);
   const [autoSave, setAutoSave] = useState<boolean>(false);
   const [msg, setMsg] = useState<string>('');
   const [error, setError] = useState<string>('');
 
   // Auto save timer
-  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const studentsRef = useRef(students);
 
   useEffect(() => {
@@ -578,7 +584,7 @@ export default function MarksEntryScreen() {
         const rawExams = Array.isArray(res.data?.exams) ? res.data.exams.filter(Boolean) : [];
         const uniqueExams = Array.from(
           new Map(rawExams.map((e: any) => [String(e?.exam_id), e])).values()
-        );
+        ) as ExamItem[];
         setExams(uniqueExams);
         await AsyncStorage.setItem(cacheKey, JSON.stringify(uniqueExams));
       } catch {
@@ -977,12 +983,59 @@ export default function MarksEntryScreen() {
     setRefreshing(false);
   }, [classId, sectionId, examId, subjectId, examSubjectId]);
 
-  const handleApplyFilters = () => {
-    setShowFilterModal(false);
-    // Load students immediately after applying filters
-    setTimeout(() => {
-      loadStudents();
-    }, 50);
+  const openInlinePicker = (mode: 'class' | 'section' | 'exam' | 'subject') => {
+    if (mode === 'section' && !classId) {
+      Alert.alert('Select class first', 'Choose a class before selecting a section.');
+      return;
+    }
+    if (mode === 'subject' && !classId) {
+      Alert.alert('Select class first', 'Choose a class before selecting a subject.');
+      return;
+    }
+
+    const config = {
+      class: {
+        title: 'Select Class',
+        options: classes.map(c => ({ label: c.class_name, value: c.class_id })),
+        selectedValue: classId,
+        onValueChange: (value: string) => setClassId(String(value)),
+      },
+      section: {
+        title: 'Select Section',
+        options: sections.map(s => ({ label: s.section_name, value: s.section_id })),
+        selectedValue: sectionId,
+        onValueChange: (value: string) => setSectionId(String(value)),
+      },
+      exam: {
+        title: 'Select Exam',
+        options: exams.map(e => ({ label: e.exam_name, value: e.exam_id })),
+        selectedValue: examId,
+        onValueChange: (value: string) => setExamId(String(value)),
+      },
+      subject: {
+        title: 'Select Subject',
+        options: subjects.map(s => ({ label: s.subject_name, value: s.subject_id })),
+        selectedValue: subjectId,
+        onValueChange: (value: string) => setSubjectId(String(value)),
+      },
+    }[mode];
+
+    if (config.options.length === 0) {
+      const title = mode === 'section' ? 'No sections available' : mode === 'subject' ? 'No subjects available' : `No ${mode}s available`;
+      Alert.alert(title, 'Please try another selection.');
+      return;
+    }
+
+    setInlinePickerModal({
+      visible: true,
+      title: config.title,
+      options: config.options,
+      selectedValue: config.selectedValue,
+      onValueChange: (value: any) => {
+        config.onValueChange(value);
+        setInlinePickerModal(null);
+      },
+    });
   };
 
   const totalSaved = students.filter(s => s.hasExistingMarks || s.marks_obtained !== '').length;
@@ -1014,53 +1067,85 @@ export default function MarksEntryScreen() {
 
           <View style={styles.headerContent}>
             <AppText weight="bold" style={styles.headerGreeting}>Academic Grading</AppText>
-            <AppText weight="regular" style={styles.headerSubtext}>Enter and manage student marks for examinations</AppText>
           </View>
         </View>
 
         {/* Filter Card */}
         <AppCard style={styles.mainCard}>
-          <View style={styles.cardHeader}>
-            <Filter size={20} color={HM_THEME.navy} />
-            <AppText weight="bold" style={styles.cardTitle}>Selection Filters</AppText>
-          </View>
-
-          <View style={styles.cardBody}>
-            {/* Selected Filters Display */}
-            <View style={styles.selectedFilters}>
-              {classId ? (
-                <View style={styles.filterTag}>
-                  <LayoutGrid size={12} color={HM_THEME.navy} />
-                  <AppText weight="semiBold" style={styles.filterTagText}>Class {classes.find(c => c.class_id === classId)?.class_name}</AppText>
-                </View>
-              ) : null}
-              {sectionId ? (
-                <View style={styles.filterTag}>
-                  <BookOpen size={12} color={HM_THEME.navy} />
-                  <AppText weight="semiBold" style={styles.filterTagText}>Sec {sections.find(s => s.section_id === sectionId)?.section_name}</AppText>
-                </View>
-              ) : null}
-              {examId ? (
-                <View style={styles.filterTag}>
-                  <ClipboardList size={12} color={HM_THEME.navy} />
-                  <AppText weight="semiBold" style={styles.filterTagText}>{exams.find(e => e.exam_id === examId)?.exam_name}</AppText>
-                </View>
-              ) : null}
-              {subjectId ? (
-                <View style={styles.filterTag}>
-                  <BookOpen size={12} color={HM_THEME.navy} />
-                  <AppText weight="semiBold" style={styles.filterTagText}>{subjects.find(s => s.subject_id === subjectId)?.subject_name}</AppText>
-                </View>
-              ) : null}
+          <View style={styles.selectionRow}>
+            <View style={[styles.selectionField, { marginRight: 10 }]}>
+              <AppText weight="bold" style={styles.selectionLabel}>Class</AppText>
+              <TouchableOpacity style={styles.selectionDropdown} onPress={() => openInlinePicker('class')}>
+                <Users size={18} color="#64748B" style={{ marginRight: 8 }} />
+                <AppText weight="semiBold" style={styles.selectionDropdownText} numberOfLines={1}>
+                  {classId ? `Class ${classes.find(c => c.class_id === classId)?.class_name || classId}` : 'Select Class'}
+                </AppText>
+                <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
+              </TouchableOpacity>
+              <AppText style={styles.selectionHelperText}>
+                {loadingClasses ? 'Loading classes...' : 'Tap to choose a class'}
+              </AppText>
             </View>
 
-            <AppButton
-              title="Configure Selection"
-              onPress={() => setShowFilterModal(true)}
-              icon={<Settings size={18} color="#fff" />}
-              style={styles.primaryButton}
-            />
+            <View style={styles.selectionField}>
+              <AppText weight="bold" style={styles.selectionLabel}>Section</AppText>
+              <TouchableOpacity
+                style={[styles.selectionDropdown, !classId && styles.selectionDropdownDisabled]}
+                onPress={() => openInlinePicker('section')}
+                disabled={!classId}
+              >
+                <LayoutGrid size={18} color="#64748B" style={{ marginRight: 8 }} />
+                <AppText weight="semiBold" style={styles.selectionDropdownText} numberOfLines={1}>
+                  {sectionId ? `Section ${sections.find(s => s.section_id === sectionId)?.section_name || sectionId}` : 'Select Section'}
+                </AppText>
+                <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
+              </TouchableOpacity>
+              <AppText style={styles.selectionHelperText}>
+                {classId ? `${sections.length} section${sections.length === 1 ? '' : 's'} available` : 'Pick a class first'}
+              </AppText>
+            </View>
           </View>
+
+          <View style={styles.selectionRow}>
+            <View style={[styles.selectionField, { marginRight: 10 }]}>
+              <AppText weight="bold" style={styles.selectionLabel}>Exam</AppText>
+              <TouchableOpacity style={styles.selectionDropdown} onPress={() => openInlinePicker('exam')}>
+                <ClipboardList size={18} color="#64748B" style={{ marginRight: 8 }} />
+                <AppText weight="semiBold" style={styles.selectionDropdownText} numberOfLines={1}>
+                  {examId ? exams.find(e => e.exam_id === examId)?.exam_name || examId : 'Select Exam'}
+                </AppText>
+                <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
+              </TouchableOpacity>
+              <AppText style={styles.selectionHelperText}>
+                {loadingExams ? 'Loading exams...' : `${exams.length} exam${exams.length === 1 ? '' : 's'} available`}
+              </AppText>
+            </View>
+
+            <View style={styles.selectionField}>
+              <AppText weight="bold" style={styles.selectionLabel}>Subject</AppText>
+              <TouchableOpacity
+                style={[styles.selectionDropdown, !classId && styles.selectionDropdownDisabled]}
+                onPress={() => openInlinePicker('subject')}
+                disabled={!classId}
+              >
+                <BookOpen size={18} color="#64748B" style={{ marginRight: 8 }} />
+                <AppText weight="semiBold" style={styles.selectionDropdownText} numberOfLines={1}>
+                  {subjectId ? subjects.find(s => s.subject_id === subjectId)?.subject_name || subjectId : 'Select Subject'}
+                </AppText>
+                <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
+              </TouchableOpacity>
+              <AppText style={styles.selectionHelperText}>
+                {classId ? `${subjects.length} subject${subjects.length === 1 ? '' : 's'} available` : 'Pick a class first'}
+              </AppText>
+            </View>
+          </View>
+
+          <AppButton
+            title={loadingStudents ? 'Searching...' : 'Search Marks'}
+            onPress={() => loadStudents()}
+            disabled={loadingStudents || !classId || !sectionId || !examId || !subjectId}
+            style={styles.selectionSearchBtn}
+          />
         </AppCard>
 
         {/* Exam Config Card */}
@@ -1151,7 +1236,6 @@ export default function MarksEntryScreen() {
                 title={savingMarks ? 'Saving...' : 'Save Marks'}
                 onPress={() => saveMarks(false)}
                 disabled={savingMarks}
-                icon={<Save size={18} color="#fff" />}
                 style={[styles.primaryButton, { flex: 2 }]}
               />
               <TouchableOpacity
@@ -1191,7 +1275,7 @@ export default function MarksEntryScreen() {
             <AppButton
               title="Select Filters"
               type="secondary"
-              onPress={() => setShowFilterModal(true)}
+              onPress={() => openInlinePicker('class')}
               style={{ marginTop: 16 }}
             />
           </AppCard>
@@ -1211,28 +1295,12 @@ export default function MarksEntryScreen() {
         )}
       </ScrollView>
 
-      {/* Filter Modal */}
-      <FilterModal
-        visible={showFilterModal}
-        classes={classes}
-        sections={sections}
-        exams={exams}
-        subjects={subjects}
-        selectedClass={classId}
-        selectedSection={sectionId}
-        selectedExam={examId}
-        selectedSubject={subjectId}
-        loadingClasses={loadingClasses}
-        loadingSections={loadingSections}
-        loadingExams={loadingExams}
-        loadingSubjects={loadingSubjects}
-        onSelectClass={setClassId}
-        onSelectSection={setSectionId}
-        onSelectExam={setExamId}
-        onSelectSubject={setSubjectId}
-        onApply={handleApplyFilters}
-        onClose={() => setShowFilterModal(false)}
-      />
+      {inlinePickerModal && (
+        <CustomPickerModal
+          {...inlinePickerModal}
+          onClose={() => setInlinePickerModal(null)}
+        />
+      )}
     </View>
   );
 }
@@ -1330,6 +1398,56 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     padding: 16,
+  },
+  selectionRow: {
+    flexDirection: 'row',
+    marginBottom: 14,
+  },
+  selectionField: {
+    flex: 1,
+  },
+  selectionLabel: {
+    fontSize: 14,
+    color: '#1E293B',
+    marginBottom: 8,
+  },
+  selectionDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 48,
+  },
+  selectionDropdownDisabled: {
+    opacity: 0.55,
+  },
+  selectionDropdownText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1E293B',
+  },
+  selectionHelperText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  selectionSearchBtn: {
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: HM_THEME.navy,
+    marginTop: 8,
+  },
+  selectionConfigureWrap: {
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  selectionConfigureText: {
+    fontSize: 12,
+    color: '#475569',
   },
   selectedFilters: {
     flexDirection: 'row',
@@ -1648,6 +1766,9 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
   },
   toggleTextActive: {
+    color: '#fff',
+  },
+  toggleTextAbsentActive: {
     color: '#fff',
   },
   marksContainer: {

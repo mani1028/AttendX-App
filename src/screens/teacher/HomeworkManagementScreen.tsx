@@ -38,6 +38,7 @@ import {
   Bell
 } from 'lucide-react-native';
 import API from '../../services/api';
+import { getAssignedClasses } from '../../services/teacherService';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
@@ -51,6 +52,8 @@ interface Assignment {
   class_name: string;
   section_name: string;
   subject_name: string;
+  class_grade?: string;
+  section?: string;
   class_id?: number;
   section_id?: number;
   subject_id?: number;
@@ -198,6 +201,39 @@ export default function HomeworkManagementScreen() {
   const [showSectionDropdown, setShowSectionDropdown] = useState<boolean>(false);
   const [showSubjectDropdown, setShowSubjectDropdown] = useState<boolean>(false);
 
+  const toggleClassDropdown = () => {
+    setShowClassDropdown(prev => {
+      const next = !prev;
+      if (next) {
+        setShowSectionDropdown(false);
+        setShowSubjectDropdown(false);
+      }
+      return next;
+    });
+  };
+
+  const toggleSectionDropdown = () => {
+    setShowSectionDropdown(prev => {
+      const next = !prev;
+      if (next) {
+        setShowClassDropdown(false);
+        setShowSubjectDropdown(false);
+      }
+      return next;
+    });
+  };
+
+  const toggleSubjectDropdown = () => {
+    setShowSubjectDropdown(prev => {
+      const next = !prev;
+      if (next) {
+        setShowClassDropdown(false);
+        setShowSectionDropdown(false);
+      }
+      return next;
+    });
+  };
+
   const normalizeText = (value: unknown): string => String(value ?? '').trim();
   const equalsIgnoreCase = (a: unknown, b: unknown): boolean =>
     normalizeText(a).toLowerCase() === normalizeText(b).toLowerCase();
@@ -248,35 +284,52 @@ export default function HomeworkManagementScreen() {
   useEffect(() => {
     const loadDropdownData = async () => {
       if (!schoolCode || !branchId || !teacherId) return;
-      
+
       try {
+        // Try the teacher-context endpoint first
         const res = await API.get(
-          `/teacher/marks/teacher-context?teacher_id=${encodeURIComponent(teacherId)}`,
-          { headers: { 'x-school-code': schoolCode } }
+          'teacher/marks/teacher-context',
+          {
+            params: { teacher_id: teacherId },
+            headers: { 'x-school-code': schoolCode },
+          }
         );
-        
+
         if (!isMounted.current) return;
 
-        const assignments: Assignment[] = Array.isArray(res.data?.assignments)
-          ? res.data.assignments
+        let assignments: Assignment[] = Array.isArray(res.data?.assignments)
+          ? res.data.assignments.filter(Boolean)
           : [];
-        
+
+        // Fallback: if API didn't return assignments, try service helper which
+        // handles multiple shapes and normalization used across the app.
+        if ((!assignments || assignments.length === 0) && schoolCode && branchId && teacherId) {
+          try {
+            const fallback = await getAssignedClasses(schoolCode, branchId, teacherId);
+            if (Array.isArray(fallback) && fallback.length > 0) assignments = fallback as Assignment[];
+          } catch (fallbackErr) {
+            // ignore fallback failure, we'll continue with whatever we have
+            if (__DEV__) console.log('[Homework] fallback getAssignedClasses failed', fallbackErr);
+          }
+        }
+
         const grouped = new Map<string, Set<string>>();
         assignments.forEach((a) => {
-          const className = String(a.class_name || '').trim();
-          const sectionName = String(a.section_name || '').trim();
+          const className = String(a.class_name || a.class_grade || '').trim();
+          const sectionName = String(a.section_name || a.section || '').trim();
           if (!className || !sectionName) return;
-          if (!grouped.has(className)) grouped.set(className, new Set());
-          grouped.get(className)!.add(sectionName);
+          const key = className;
+          if (!grouped.has(key)) grouped.set(key, new Set());
+          grouped.get(key)!.add(sectionName);
         });
-        
+
         const classOpts: ClassOption[] = Array.from(grouped.entries())
           .map(([className, sections]) => ({
             class_name: className,
             sections: Array.from(sections).sort(),
           }))
           .sort((a, b) => a.class_name.localeCompare(b.class_name));
-        
+
         const teacherData = res.data?.teacher_data || null;
         const canonicalTeacherId = String(teacherData?.teacher_id || teacherId).trim();
         const departmentSubjectsRaw = String(teacherData?.department_subject || '').trim();
@@ -288,7 +341,7 @@ export default function HomeworkManagementScreen() {
               .filter(Boolean)
           )
         );
-        
+
         setClassOptions(classOpts);
         setTeacherAssignments(assignments);
         setTeacherSubjects(departmentSubjects);
@@ -304,7 +357,7 @@ export default function HomeworkManagementScreen() {
 
   // Update section options when class changes
   useEffect(() => {
-    const selectedClass = classOptions.find(c => c.class_name === form.class_name);
+    const selectedClass = classOptions.find(c => equalsIgnoreCase(c.class_name, form.class_name));
     const sections = selectedClass?.sections || [];
     setSectionOptions(sections);
 
@@ -580,7 +633,7 @@ export default function HomeworkManagementScreen() {
                 <AppText weight="semiBold" style={styles.formLabel}>Class Name</AppText>
                 <TouchableOpacity 
                   style={[styles.dropdown, editingId && styles.disabledDropdown]}
-                  onPress={() => !editingId && setShowClassDropdown(!showClassDropdown)}
+                  onPress={() => !editingId && toggleClassDropdown()}
                   disabled={!!editingId}
                 >
                   <AppText style={[styles.dropdownText, form.class_name && styles.dropdownValueText]}>
@@ -598,6 +651,8 @@ export default function HomeworkManagementScreen() {
                           if (cls?.class_name) {
                             setForm(prev => ({ ...prev, class_name: cls.class_name, section_name: '', subject_name: '' }));
                             setShowClassDropdown(false);
+                            setShowSectionDropdown(false);
+                            setShowSubjectDropdown(false);
                           }
                         }}
                       >
@@ -613,7 +668,7 @@ export default function HomeworkManagementScreen() {
                 <AppText weight="semiBold" style={styles.formLabel}>Section Name</AppText>
                 <TouchableOpacity 
                   style={[styles.dropdown, editingId && styles.disabledDropdown]}
-                  onPress={() => !editingId && form.class_name ? setShowSectionDropdown(!showSectionDropdown) : null}
+                  onPress={() => !editingId && form.class_name ? toggleSectionDropdown() : null}
                   disabled={!!editingId || !form.class_name}
                 >
                   <AppText style={[styles.dropdownText, form.section_name && styles.dropdownValueText]}>
@@ -631,6 +686,7 @@ export default function HomeworkManagementScreen() {
                           if (sec) {
                             setForm(prev => ({ ...prev, section_name: sec, subject_name: '' }));
                             setShowSectionDropdown(false);
+                            setShowSubjectDropdown(false);
                           }
                         }}
                       >
@@ -646,7 +702,7 @@ export default function HomeworkManagementScreen() {
                 <AppText weight="semiBold" style={styles.formLabel}>Subject Name</AppText>
                 <TouchableOpacity 
                   style={[styles.dropdown, editingId && styles.disabledDropdown]}
-                  onPress={() => !editingId && form.section_name ? setShowSubjectDropdown(!showSubjectDropdown) : null}
+                  onPress={() => !editingId && form.section_name ? toggleSubjectDropdown() : null}
                   disabled={!!editingId || !form.section_name}
                 >
                   <AppText style={[styles.dropdownText, form.subject_name && styles.dropdownValueText]}>
@@ -954,21 +1010,18 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   dropdownMenu: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 8,
-    marginTop: 4,
+    marginTop: 8,
     zIndex: 100,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5,
+    overflow: 'hidden',
   },
   dropdownItem: {
     paddingVertical: 12,

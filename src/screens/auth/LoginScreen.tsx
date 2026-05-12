@@ -9,6 +9,7 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
+  Linking,
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setSessionData } from '../../utils/authSession';
@@ -103,15 +104,14 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
             <AppInput
               label="SCHOOL ID"
-              placeholder="XXXXXXXXX"
+              placeholder="SSCXXXXX"
               value={schoolId}
               onChangeText={setSchoolId}
               autoCapitalize="characters"
             />
-
             <AppInput
               label="EMAIL / EMPLOYEE ID"
-              placeholder="XXXXXXXXX"
+              placeholder="user@school.com or EMP12345"
               value={username}
               onChangeText={setUsername}
               autoCapitalize="none"
@@ -119,7 +119,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
             <AppInput
               label="PASSWORD"
-              placeholder="XXXXXXXXX"
+              placeholder="P@ssw0rd123"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -132,12 +132,17 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               style={styles.signInButton}
             />
 
-            <TouchableOpacity
-              onPress={() => navigation.navigate('ForgotPassword')}
-              style={styles.forgotPasswordContainer}
-            >
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </TouchableOpacity>
+            <View style={styles.footerRowCentered}>
+              <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+                <Text style={styles.footerText}>Forgot password?</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.footerSeparator}>•</Text>
+
+              <TouchableOpacity onPress={() => Linking.openURL('https://portal.attendx.ai/register-school')}>
+                <Text style={styles.footerText}>New to AttendX?</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -222,5 +227,39 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 14,
     fontWeight: '500',
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#2563EB',
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+  },
+  footerRow: {
+    marginTop: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  footerLink: {
+    fontSize: 13,
+    color: '#2563EB',
+    fontWeight: '500',
+  },
+  footerRowCentered: {
+    marginTop: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  footerText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  footerSeparator: {
+    marginHorizontal: 10,
+    fontSize: 14,
+    color: '#94A3B8',
   },
 });

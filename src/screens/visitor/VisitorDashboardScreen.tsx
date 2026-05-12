@@ -76,9 +76,8 @@ const formatDate = (dateString: string): string => {
 };
 
 const formatTime = (dateString: string): string => {
-  if (!dateString) return '-';
-  const date = new Date(dateString);
-  return date.toLocaleTimeString('en-IN');
+  if (!dateString) return '';
+  return '';
 };
 
 // Status Badge Component
@@ -154,7 +153,6 @@ const VisitorRow: React.FC<{
 
       <View style={styles.visitorDetails}>
         <AppText style={styles.visitorPurpose}>Purpose: {visitor.purpose}</AppText>
-        <AppText style={styles.visitorTime}>Time: {formatTime(visitor.visited_at)}</AppText>
       </View>
 
       <View style={styles.visitorActions}>
