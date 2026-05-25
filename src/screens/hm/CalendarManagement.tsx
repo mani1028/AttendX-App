@@ -69,6 +69,21 @@ const COLORS: Record<string, string> = {
   cardBg: '#ffffff',
 };
 
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
 export default function CalendarManagement() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -305,9 +320,10 @@ export default function CalendarManagement() {
     return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
   };
 
-  const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+  const monthName = `${MONTH_NAMES[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
   const daysInMonth = getDaysInMonth(currentDate);
   const firstDay = getFirstDayOfMonth(currentDate);
+  const todayDateStr = formatLocalDate(new Date());
 
   const calendarDays: (Date | null)[] = [];
   for (let i = 0; i < firstDay; i++) {
@@ -337,38 +353,46 @@ export default function CalendarManagement() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor="#001F3F" translucent={false} />
       <ScrollView style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            {isStudent && (
-              <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-                <ChevronLeft size={20} color={COLORS.text} />
-              </TouchableOpacity>
-          )}
-          <View>
-            <Text style={styles.title}>School Calendar</Text>
-            <Text style={styles.subtitle}>Review academic events, holidays, and important dates.</Text>
-          </View>
-        </View>
-        <View style={styles.headerButtons}>
-          {canEdit ? (
-            <>
-              <TouchableOpacity style={styles.addButton} onPress={() => setShowHolidaysModal(true)}>
-                <Text style={styles.addButtonText}>📅 Public Holidays</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.addButton} onPress={() => handleAddEvent(new Date())}>
-                <Plus size={18} color="#fff" />
-                <Text style={styles.addButtonText}>Add Event</Text>
-              </TouchableOpacity>
-            </>
+        {/* App-style Top Header */}
+        <View style={[styles.appHeader, { paddingTop: insets.top + 10, paddingBottom: 18 }]}> 
+          {isStudent ? (
+            <TouchableOpacity style={styles.appHeaderBackButton} onPress={() => navigation.goBack()}>
+              <ChevronLeft size={22} color="#FFFFFF" />
+            </TouchableOpacity>
           ) : (
-            <View style={styles.readOnlyNotice}>
-              <Text style={styles.readOnlyNoticeTitle}>Student access</Text>
-              <Text style={styles.readOnlyNoticeText}>This calendar is view-only for students.</Text>
-            </View>
+            <View style={styles.appHeaderSidePlaceholder} />
           )}
+
+          <View style={styles.appHeaderTitleContainer}>
+            <Text style={styles.appHeaderTitle}>School Calendar</Text>
+          </View>
+
+          <View style={styles.appHeaderSidePlaceholder} />
         </View>
-      </View>
+
+        {/* Header Content */}
+        <View style={styles.header}>
+          <Text style={styles.subtitle}>Review academic events, holidays, and important dates.</Text>
+
+          <View style={[styles.headerButtons, !canEdit && styles.headerButtonsReadOnly]}>
+            {canEdit ? (
+              <>
+                <TouchableOpacity style={styles.addButton} onPress={() => setShowHolidaysModal(true)}>
+                  <Text style={styles.addButtonText}>📅 Public Holidays</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.addButton} onPress={() => handleAddEvent(new Date())}>
+                  <Plus size={18} color="#fff" />
+                  <Text style={styles.addButtonText}>Add Event</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <View style={styles.readOnlyNotice}>
+                <Text style={styles.readOnlyNoticeTitle}>Student access</Text>
+                <Text style={styles.readOnlyNoticeText}>This calendar is view-only for students.</Text>
+              </View>
+            )}
+        </View>
+        </View>
 
       {error ? (
         <View style={styles.errorContainer}>
@@ -403,16 +427,23 @@ export default function CalendarManagement() {
           {calendarDays.map((date, idx) => {
             const dayEvents = getEventsForDate(date);
             const isOtherMonth = !date;
+            const isToday = date ? formatLocalDate(date) === todayDateStr : false;
+
             return (
               <TouchableOpacity
                 key={idx}
-                style={[styles.dayCell, isOtherMonth && styles.otherMonthCell, !canEdit && !isOtherMonth && styles.dayCellReadOnly]}
+                style={[
+                  styles.dayCell,
+                  isOtherMonth && styles.otherMonthCell,
+                  !canEdit && !isOtherMonth && styles.dayCellReadOnly,
+                  isToday && styles.dayCellToday,
+                ]}
                 onPress={date && canEdit ? () => handleAddEvent(date) : undefined}
                 disabled={isOtherMonth || !canEdit}
               >
                 {date && (
                   <>
-                    <Text style={styles.dayNumber}>{date.getDate()}</Text>
+                    <Text style={[styles.dayNumber, isToday && styles.dayNumberToday]}>{date.getDate()}</Text>
                     {dayEvents.slice(0, 2).map((evt) => (
                       <TouchableOpacity
                         key={evt.event_id}
@@ -868,37 +899,54 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   header: {
-    marginBottom: 20,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backBtn: {
-    marginRight: 12,
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.text,
+    marginBottom: 14,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: COLORS.textSecondary,
     marginTop: 4,
+    lineHeight: 22,
+  },
+  appHeader: {
+    backgroundColor: '#001F3F',
+    marginHorizontal: -16,
+    marginTop: -16,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  appHeaderBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  appHeaderTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  appHeaderTitle: {
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontWeight: '700',
+  },
+  appHeaderSidePlaceholder: {
+    width: 40,
+    height: 40,
   },
   headerButtons: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 12,
+    marginTop: 14,
+  },
+  headerButtonsReadOnly: {
+    flexDirection: 'column',
   },
   addButton: {
     flexDirection: 'row',
@@ -916,14 +964,14 @@ const styles = StyleSheet.create({
   },
   calendarContainer: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 18,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#e2e8f0',
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
+    shadowOpacity: 0.07,
+    shadowRadius: 18,
     shadowOffset: { width: 0, height: 6 },
     elevation: 4,
   },
@@ -934,18 +982,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   navButton: {
-    padding: 8,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: COLORS.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   monthYear: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: COLORS.text,
   },
   weekdaysRow: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   weekday: {
     flex: 1,
@@ -957,15 +1008,16 @@ const styles = StyleSheet.create({
   daysGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   dayCell: {
-    width: '14.28%',
+    width: '13.7%',
     aspectRatio: 1,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    padding: 6,
-    borderRadius: 12,
-    marginBottom: 4,
+    padding: 7,
+    borderRadius: 14,
+    marginBottom: 8,
     backgroundColor: '#fff',
   },
   otherMonthCell: {
@@ -973,24 +1025,34 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   dayNumber: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     marginBottom: 4,
+    color: COLORS.textSecondary,
+  },
+  dayCellToday: {
+    borderColor: '#3b82f6',
+    backgroundColor: '#eff6ff',
+  },
+  dayNumberToday: {
+    color: '#1d4ed8',
+    fontWeight: '700',
   },
   eventBadge: {
     backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     marginBottom: 4,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   eventText: {
-    fontSize: 8,
+    fontSize: 9,
     color: '#fff',
     flex: 1,
+    fontWeight: '600',
   },
   deleteIcon: {
     paddingHorizontal: 2,
@@ -1002,14 +1064,20 @@ const styles = StyleSheet.create({
   },
   holidaysListBtn: {
     backgroundColor: '#047857',
-    padding: 14,
-    borderRadius: 14,
+    paddingVertical: 16,
+    borderRadius: 16,
     alignItems: 'center',
     marginBottom: 16,
+    shadowColor: '#064e3b',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   holidaysListBtnText: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 16,
   },
   holidaysSidebar: {
     backgroundColor: COLORS.cardBg,
@@ -1054,21 +1122,22 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   readOnlyNotice: {
-    backgroundColor: '#f8fafc',
-    padding: 12,
-    borderRadius: 12,
+    backgroundColor: '#f8fbff',
+    padding: 16,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: '#bfdbfe',
   },
   readOnlyNoticeTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: COLORS.text,
     marginBottom: 4,
   },
   readOnlyNoticeText: {
     color: COLORS.textSecondary,
-    fontSize: 13,
+    fontSize: 14,
+    lineHeight: 21,
   },
   dayCellReadOnly: {
     opacity: 0.75,

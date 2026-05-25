@@ -83,7 +83,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
             />
 
             <AppInput
-              label="EMAIL / EMPLOYEE ID"
+              label="EMAIL / EMPLOYEE ID / STUDENT ID"
               placeholder="XXXXXXXXX"
               value={identifier}
               onChangeText={setIdentifier}

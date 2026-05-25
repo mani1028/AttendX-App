@@ -41,11 +41,14 @@ export function setAuthToken(token?: string | null) {
 
 const API = axios.create({
   baseURL: API_BASE,
-  timeout: 30000,
+  // Increase timeout to account for tunnel latency during development
+  timeout: 60000,
   // Token auth is used; avoid cookie/credential mode to prevent platform-specific request issues.
   withCredentials: false,
   headers: {
     'Content-Type': 'application/json',
+    // Bypass Dev Tunnel anti-phishing landing page which can return HTML instead of JSON
+    'X-Tunnel-Skip-Anti-Phishing-Page': 'true',
   },
 });
 
@@ -131,6 +134,13 @@ API.interceptors.response.use(
   res => {
     if (__DEV__) {
       console.log(`[API Response] ${res.status} ${res.config.url}`);
+    }
+    // Detect HTML responses (e.g., Dev Tunnel landing page) to aid debugging
+    const contentType = (res.headers && (res.headers['content-type'] || res.headers['Content-Type'])) || '';
+    if (typeof contentType === 'string' && contentType.toLowerCase().includes('text/html')) {
+      console.warn('[API] Received HTML response from server; this may indicate a tunnel landing page or proxy. URL:', res.config.url);
+      // Attach a flag for callers that want to handle this specially
+      (res as any).__receivedHtmlResponse = true;
     }
     
     // ENHANCED LOGGING for notifications endpoints

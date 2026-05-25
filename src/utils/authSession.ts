@@ -65,110 +65,130 @@ export const getStoredUser = async (): Promise<any> => {
 
 /* ================= SET SESSION DATA ================= */
 
+/* ================= SET SESSION DATA ================= */
+
 export const setSessionData = async (data: any) => {
   try {
+    // Collect all key-value pairs to store
+    const storageOps: Array<[string, string]> = [];
+    
+    // Role
     const role = data.role || data.userRole;
     if (role) {
-      await AsyncStorage.setItem("userRole", role);
-      await AsyncStorage.setItem("role", role);
+      storageOps.push(["userRole", role]);
+      storageOps.push(["role", role]);
     }
     
+    // Token
     const token = data.token || data.accessToken || data.access_token;
     if (token) {
-      await AsyncStorage.setItem("token", token);
+      storageOps.push(["token", token]);
     }
     
+    // User object
     if (data.user) {
-      await AsyncStorage.setItem("user", JSON.stringify(data.user));
+      storageOps.push(["user", JSON.stringify(data.user)]);
       
       // Extract additional fields from user object (handle both snake_case and camelCase)
       const isClassTeacher = data.user.is_class_teacher ?? data.user.isClassTeacher;
       if (isClassTeacher !== undefined) {
-        await AsyncStorage.setItem("is_class_teacher", 
-          isClassTeacher ? "1" : "0"
-        );
+        storageOps.push(["is_class_teacher", isClassTeacher ? "1" : "0"]);
       }
       
       const teacherId = data.user.teacher_id ?? data.user.teacherId;
       if (teacherId) {
-        await AsyncStorage.setItem("teacher_id", String(teacherId));
-        await AsyncStorage.setItem("teacherId", String(teacherId));
+        storageOps.push(["teacher_id", String(teacherId)]);
+        storageOps.push(["teacherId", String(teacherId)]);
       }
       
       const employeeId = data.user.employee_id ?? data.user.employeeId;
       if (employeeId) {
-        await AsyncStorage.setItem("employee_id", String(employeeId));
-        await AsyncStorage.setItem("employeeId", String(employeeId));
+        storageOps.push(["employee_id", String(employeeId)]);
+        storageOps.push(["employeeId", String(employeeId)]);
       }
 
       const userId = data.user.user_id ?? data.user.userId ?? data.user.id;
       if (userId) {
-        await AsyncStorage.setItem("user_id", String(userId));
-        await AsyncStorage.setItem("userId", String(userId));
+        storageOps.push(["user_id", String(userId)]);
+        storageOps.push(["userId", String(userId)]);
       }
 
       const branchId = data.user.branch_id ?? data.user.branchId;
       if (branchId) {
-        await AsyncStorage.setItem("branch_id", String(branchId));
-        await AsyncStorage.setItem("branchId", String(branchId));
+        storageOps.push(["branch_id", String(branchId)]);
+        storageOps.push(["branchId", String(branchId)]);
       }
 
       const studentId = data.user.student_id ?? data.user.studentId;
       if (studentId) {
-        await AsyncStorage.setItem("student_id", String(studentId));
-        await AsyncStorage.setItem("studentId", String(studentId));
+        storageOps.push(["student_id", String(studentId)]);
+        storageOps.push(["studentId", String(studentId)]);
       }
       
       const email = data.user.email;
       if (email) {
-        await AsyncStorage.setItem("email", email);
+        storageOps.push(["email", email]);
       }
 
       const name = data.user.name ?? data.user.full_name ?? data.user.userName ?? data.user.user_name;
       if (name) {
-        await AsyncStorage.setItem("user_name", name);
+        storageOps.push(["user_name", name]);
       }
     }
     
+    // School code
     const schoolCode = data.school_code ?? data.schoolCode ?? data.school_id;
     if (schoolCode) {
-      await AsyncStorage.setItem("school_code", String(schoolCode));
-      await AsyncStorage.setItem("schoolCode", String(schoolCode));
+      storageOps.push(["school_code", String(schoolCode)]);
+      storageOps.push(["schoolCode", String(schoolCode)]);
     }
     
+    // Branch ID
     const branchId = data.branch_id ?? data.branchId;
     if (branchId) {
-      await AsyncStorage.setItem("branch_id", String(branchId));
-      await AsyncStorage.setItem("branchId", String(branchId));
+      storageOps.push(["branch_id", String(branchId)]);
+      storageOps.push(["branchId", String(branchId)]);
     }
     
+    // Branch name
     const branchName = data.branch_name ?? data.branchName;
     if (branchName) {
-      await AsyncStorage.setItem("branch_name", branchName);
+      storageOps.push(["branch_name", branchName]);
     }
     
+    // Student ID (from root data, not just user)
     const studentId = data.student_id ?? data.studentId;
-    if (studentId) {
-      await AsyncStorage.setItem("student_id", String(studentId));
-      await AsyncStorage.setItem("studentId", String(studentId));
+    if (studentId && !storageOps.some(([k]) => k === "student_id")) {
+      storageOps.push(["student_id", String(studentId)]);
+      storageOps.push(["studentId", String(studentId)]);
     }
     
+    // Roll number
     const rollNumber = data.roll_number ?? data.rollNumber;
     if (rollNumber) {
-      await AsyncStorage.setItem("roll_number", String(rollNumber));
+      storageOps.push(["roll_number", String(rollNumber)]);
     }
     
+    // Parent ID
     const parentId = data.parent_id ?? data.parentId;
     if (parentId) {
-      await AsyncStorage.setItem("parent_id", String(parentId));
+      storageOps.push(["parent_id", String(parentId)]);
     }
     
+    // HM-specific fields
     if (data.hm_email) {
-      await AsyncStorage.setItem("hm_email", data.hm_email);
+      storageOps.push(["hm_email", data.hm_email]);
     }
     
     if (data.hm_employee_id) {
-      await AsyncStorage.setItem("hm_employee_id", data.hm_employee_id);
+      storageOps.push(["hm_employee_id", data.hm_employee_id]);
+    }
+    
+    // Use multiSet for much faster parallel storage operations
+    // This reduces ~20 sequential operations to ~1-2 network calls
+    if (storageOps.length > 0) {
+      await AsyncStorage.multiSet(storageOps);
+      console.log(`[setSessionData] Stored ${storageOps.length} values using multiSet (parallel)`);
     }
   } catch (error) {
     console.error("Error setting session data:", error);

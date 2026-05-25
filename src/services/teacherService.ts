@@ -109,6 +109,8 @@ async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
       const defaultHeaders = {
         'X-School-Code': schoolCode || undefined,
         'X-Branch-Id': branchId || undefined,
+        'x_school_code': schoolCode || undefined,
+        'x_branch_id': branchId || undefined,
       };
       const response = await API.get<T>(endpoint, {
         ...restConfig,
@@ -156,32 +158,58 @@ async function postFirstSuccessful<T>(endpoints: string[], data: any, config: an
   const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
   const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
 
+  // Retry configuration for temporary service issues
+  const maxRetries = config.maxRetries || 0;
+  const retryDelayMs = config.retryDelayMs || 1000;
+  const retryableStatuses = config.retryableStatuses || [503, 502, 504]; // Service Unavailable, Bad Gateway, Gateway Timeout
+
   for (const endpoint of endpoints) {
-    try {
-      const headers = {
-        'X-School-Code': schoolCode || undefined,
-        'X-Branch-Id': branchId || undefined,
-        ...(config.headers || {}),
-      };
-      const response = await API.post<T>(endpoint, data, {
-        ...config,
-        headers,
-        suppressFallback404Log: true,
-      });
-      return response.data;
-    } catch (error: any) {
-      const status = error?.response?.status;
-      const detail = error?.response?.data?.detail || error?.response?.data?.message || error?.message;
+    let lastError: any = null;
+    
+    // Retry loop for transient errors
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const headers = {
+          'X-School-Code': schoolCode || undefined,
+          'X-Branch-Id': branchId || undefined,
+          'x_school_code': schoolCode || undefined,
+          'x_branch_id': branchId || undefined,
+          ...(config.headers || {}),
+        };
+        const response = await API.post<T>(endpoint, data, {
+          ...config,
+          headers,
+          suppressFallback404Log: true,
+        });
+        return response.data;
+      } catch (error: any) {
+        lastError = error;
+        const status = error?.response?.status;
+        const detail = error?.response?.data?.detail || error?.response?.data?.message || error?.message;
+        const isLastAttempt = attempt === maxRetries;
 
-      if (__DEV__) {
-        console.log(`[Service] POST ${endpoint} failed (${status || 'network error'}):`, detail);
+        if (__DEV__) {
+          const attemptStr = maxRetries > 0 ? ` (attempt ${attempt + 1}/${maxRetries + 1})` : '';
+          console.log(`[Service] POST ${endpoint} failed (${status || 'network error'})${attemptStr}:`, detail);
+        }
+
+        // For temporary service issues (503, 502, 504), retry if we have attempts left
+        if (retryableStatuses.includes(status) && !isLastAttempt) {
+          const delayMs = retryDelayMs * Math.pow(2, attempt); // Exponential backoff
+          if (__DEV__) {
+            console.log(`[Service] 📡 Retrying ${endpoint} in ${delayMs}ms due to ${status} error...`);
+          }
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          continue; // Retry this endpoint
+        }
+
+        if (status && status !== 404 && status !== 405) {
+          throw error;
+        }
+
+        errors.push({ endpoint, status, message: detail });
+        break; // Don't retry non-transient errors, move to next endpoint
       }
-
-      if (status && status !== 404 && status !== 405) {
-        throw error;
-      }
-
-      errors.push({ endpoint, status, message: detail });
     }
   }
 
@@ -223,7 +251,13 @@ export async function processAttendance(payload: any): Promise<any> {
     'manage/attendance/student/view'
   ];
   // Suppress logout on 401 for preview/processing to avoid session loss during attendance workflow
-  return postFirstSuccessful(endpoints, payload, { suppressLogoutOn401: true });
+  // Add retry logic for temporary service issues (503, 502, 504) with exponential backoff
+  return postFirstSuccessful(endpoints, payload, { 
+    suppressLogoutOn401: true,
+    maxRetries: 2, // Retry up to 2 times on service unavailable
+    retryDelayMs: 1500, // Start with 1.5s delay, exponentially backoff
+    retryableStatuses: [503, 502, 504] // Service Unavailable, Bad Gateway, Gateway Timeout
+  });
 }
 
 export async function getAssignedClasses(schoolCode: string, branchId: string, employeeId: string): Promise<any[]> {
@@ -418,7 +452,7 @@ export async function getTeacherProfile(): Promise<any> {
       AsyncStorage.setItem('user', JSON.stringify({})).catch(() => {});
     });
 
-    // Retrieve all stored values
+    // Retrieve all stored values (keep nulls intact, don't convert to '')
     const [
       storedEmail, storedPhone, storedBranchName, storedBranchId,
       storedSchoolName, storedSchoolCode, storedTeacherId, storedEmployeeId,
@@ -427,10 +461,19 @@ export async function getTeacherProfile(): Promise<any> {
       'email', 'phone', 'branch_name', 'branch_id',
       'school_name', 'school_code', 'teacher_id', 'employee_id',
       'designation', 'department_subject', 'address', 'blood_group'
-    ]).then(items => items.map(([, value]) => value || ''));
+    ]).then(items => items.map(([, value]) => value));
+
+    // CRITICAL: Validate required params exist before sending profile request
+    // This prevents 422 Unprocessable Entity if AsyncStorage values are missing
+    const resolvedTeacherId = toText(storedTeacherId || (await AsyncStorage.getItem('teacherId')) || (await AsyncStorage.getItem('employee_id')), '').trim();
+    const resolvedSchoolCode = toText(storedSchoolCode || (await AsyncStorage.getItem('schoolCode')) || (await AsyncStorage.getItem('school_id')), '').trim();
 
     const responseData = await getFirstSuccessful<any>(PROFILE_ENDPOINTS, {
       ...FALLBACK_404_CONFIG,
+      params: {
+        teacher_id: resolvedTeacherId || undefined,
+        school_code: resolvedSchoolCode || undefined,
+      },
     } as any);
     const root = asRecord(responseData);
 
@@ -620,6 +663,10 @@ export async function getBranchStats(schoolCode: string, branchId: string): Prom
     } as any);
     return data;
   } catch (err) {
+    const status = (err && err.response && err.response.status) || (err && err.status) || null;
+    if (status === 401 || status === 403) {
+      return { permissionDenied: true };
+    }
     return null;
   }
 }
@@ -849,6 +896,17 @@ export async function uploadQuestionPapers(
   branchId: string,
   formData: FormData
 ): Promise<any> {
+  try {
+    if (formData && typeof (formData as any).append === 'function') {
+      try {
+        (formData as any).append('school_code', schoolCode);
+      } catch (e) {}
+      try {
+        (formData as any).append('branch_id', branchId);
+      } catch (e) {}
+    }
+  } catch (e) {}
+
   return postFirstSuccessful(
     ['teacher/question-papers/upload'],
     formData,

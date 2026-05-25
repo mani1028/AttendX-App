@@ -52,11 +52,12 @@ function pickTokenValue(...values: Array<string | undefined | null>) {
   return undefined;
 }
 
-async function postCleanJson<TResponse>(url: string, payload: unknown, headers: Record<string, string>) {
+async function postCleanJson<TResponse>(url: string, payload: unknown, headers: Record<string, string>, signal?: AbortSignal) {
   const response = await fetch(url, {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),
+    signal, // Pass abort signal to fetch
   });
 
   const rawText = await response.text();
@@ -87,7 +88,7 @@ async function postCleanJson<TResponse>(url: string, payload: unknown, headers: 
   };
 }
 
-async function postWithFallback<TPayload>(endpoints: string[], payload: TPayload, useCleanInstance = false) {
+async function postWithFallback<TPayload>(endpoints: string[], payload: TPayload, useCleanInstance = false, signal?: AbortSignal) {
   let lastError: unknown;
 
   for (const endpoint of endpoints) {
@@ -107,7 +108,7 @@ async function postWithFallback<TPayload>(endpoints: string[], payload: TPayload
         }
 
         console.log(`[authService] Attempting clean post to: ${url}`, { headers });
-        const res = await postCleanJson(url, payload, headers);
+        const res = await postCleanJson(url, payload, headers, signal);
         console.log(`[authService] Clean post success: ${endpoint}`);
         return res;
       }
@@ -165,7 +166,7 @@ function normalizeLoginResponse(data: LoginResponse, fallbackRole: AppRole): Nor
 }
 
 export const authService = {
-  async login(schoolId: string, username: string, password: string, fallbackRole: AppRole = 'student') {
+  async login(schoolId: string, username: string, password: string, fallbackRole: AppRole = 'student', signal?: AbortSignal) {
     // We use a clean instance for login to prevent stale AsyncStorage tokens from causing 403s
     // We also include both snake_case and camelCase for school code to match web logic
     const response = await postWithFallback(
@@ -179,6 +180,7 @@ export const authService = {
         role: fallbackRole,
       },
       true,
+      signal,
     );
     return normalizeLoginResponse(response.data as LoginResponse, fallbackRole);
   },

@@ -8,6 +8,9 @@ platform :ios, '16.0'
 target 'AttendX' do
   pod 'FirebaseCoreInternal', :modular_headers => true
   pod 'GoogleUtilities', :modular_headers => true
+  # Ensure modular headers for VisionCamera and Amplitude to avoid missing modulemap during archive
+  pod 'VisionCamera', :path => '../node_modules/react-native-vision-camera', :modular_headers => true
+  pod 'amplitude-react-native', :path => '../node_modules/@amplitude/analytics-react-native', :modular_headers => true
 
   config = use_native_modules!
   use_react_native!(:path => config[:reactNativePath])

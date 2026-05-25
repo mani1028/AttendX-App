@@ -268,10 +268,29 @@ export async function sendFeeAlerts(): Promise<any> {
 }
 
 export async function downloadReceipt(paymentId: string): Promise<ArrayBuffer> {
-  const response = await API.get<ArrayBuffer>(`accountant/receipts/${encodeURIComponent(paymentId)}/download`, {
-    responseType: 'arraybuffer',
-  });
-  return response.data;
+  const encodedPaymentId = encodeURIComponent(paymentId);
+  const endpoints = [
+    `accountant/receipts/${encodedPaymentId}/download`,
+    `accountant/payments/receipt/${encodedPaymentId}`,
+  ];
+
+  let lastError: any;
+  for (const endpoint of endpoints) {
+    try {
+      const response = await API.get<ArrayBuffer>(endpoint, {
+        responseType: 'arraybuffer',
+      });
+      return response.data;
+    } catch (error: any) {
+      lastError = error;
+      const status = error?.response?.status;
+      if (status !== 404 && status !== 405) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError || new Error('Could not download receipt from any known endpoint.');
 }
 
 // ============ EXPENSE MANAGEMENT ============

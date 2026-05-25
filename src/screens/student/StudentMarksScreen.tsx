@@ -208,7 +208,6 @@ export default function StudentMarksScreen() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [selectedExamName, setSelectedExamName] = useState<string>('');
   const [showExamModal, setShowExamModal] = useState<boolean>(false);
-  const [selectedSubjectIndex, setSelectedSubjectIndex] = useState<number>(0);
 
   // Load stored credentials and cached data
   useEffect(() => {
@@ -296,7 +295,6 @@ export default function StudentMarksScreen() {
         if (nextExamId !== examId) {
           setExamId(nextExamId);
           setSelectedExamName(resolvedExam.exam_name);
-          setSelectedSubjectIndex(0);
         }
       }
     } catch (error) {
@@ -321,7 +319,6 @@ export default function StudentMarksScreen() {
 
       setItems(mItems);
       setSummary(mSummary);
-      setSelectedSubjectIndex(0);
 
       // Cache marks for this specific exam
       await AsyncStorage.setItem(
@@ -363,8 +360,6 @@ export default function StudentMarksScreen() {
   const performanceLevel = averagePercentage >= 75 ? 'Excellent' : 
                           averagePercentage >= 60 ? 'Good' : 
                           averagePercentage >= 45 ? 'Average' : 'Needs Improvement';
-
-  const currentSubject = items[selectedSubjectIndex];
 
   return (
     <View style={styles.container}>
@@ -426,64 +421,35 @@ export default function StudentMarksScreen() {
             </TouchableOpacity>
           </View>
 
-          {items.length > 0 && (
-            <View style={styles.subjectSelectorContainer}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subjectScroll}>
-                {items.map((item, index) => (
-                  <TouchableOpacity
-                    key={item.mark_id}
-                    style={[
-                      styles.subjectChip,
-                      selectedSubjectIndex === index && styles.subjectChipActive
-                    ]}
-                    onPress={() => setSelectedSubjectIndex(index)}
-                  >
-                    <AppText style={[
-                      styles.subjectChipText,
-                      selectedSubjectIndex === index && styles.subjectChipTextActive
-                    ]}>
-                      {item.subject_name}
-                    </AppText>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          {items.length > 0 && currentSubject ? (
-            <View style={styles.marksGrid}>
-              <View style={styles.gridRow}>
-                <View style={styles.gridItem}>
-                  <AppText style={styles.gridLabel}>Subject</AppText>
-                  <AppText style={styles.gridValue} numberOfLines={1}>{currentSubject.subject_name}</AppText>
-                </View>
-                <View style={styles.gridItem}>
-                  <AppText style={styles.gridLabel}>Total Max Marks</AppText>
-                  <AppText style={styles.gridValue}>{currentSubject.max_marks}</AppText>
-                </View>
+          {items.length > 0 ? (
+            <View style={styles.subjectListContainer}>
+              <View style={styles.subjectListHeader}>
+                <AppText style={[styles.subjectListHeaderCell, styles.subjectCol]}>Subject</AppText>
+                <AppText style={[styles.subjectListHeaderCell, styles.maxCol]}>Max</AppText>
+                <AppText style={[styles.subjectListHeaderCell, styles.passCol]}>Pass</AppText>
+                <AppText style={[styles.subjectListHeaderCell, styles.obtainedCol]}>Obt.</AppText>
+                <AppText style={[styles.subjectListHeaderCell, styles.resultCol]}>Result</AppText>
               </View>
 
-              <View style={styles.gridRow}>
-                <View style={styles.gridItem}>
-                  <AppText style={styles.gridLabel}>Pass Marks</AppText>
-                  <AppText style={styles.gridValue}>{currentSubject.pass_marks}</AppText>
+              {items.map((item, index) => (
+                <View
+                  key={item.mark_id || `${item.subject_name}-${index}`}
+                  style={[
+                    styles.subjectListRow,
+                    index % 2 === 1 && styles.subjectListRowAlt,
+                  ]}
+                >
+                  <AppText style={[styles.subjectListCell, styles.subjectCol]} numberOfLines={1}>
+                    {item.subject_name}
+                  </AppText>
+                  <AppText style={[styles.subjectListCell, styles.maxCol]}>{item.max_marks}</AppText>
+                  <AppText style={[styles.subjectListCell, styles.passCol]}>{item.pass_marks}</AppText>
+                  <AppText style={[styles.subjectListCell, styles.obtainedCol]}>{item.marks_obtained}</AppText>
+                  <View style={[styles.resultCol, styles.resultCellWrap]}>
+                    <ResultBadge status={item.result_status} />
+                  </View>
                 </View>
-                <View style={styles.gridItem}>
-                  <AppText style={styles.gridLabel}>Obtained Marks</AppText>
-                  <AppText style={styles.gridValue}>{currentSubject.marks_obtained}</AppText>
-                </View>
-              </View>
-
-              <View style={styles.gridRow}>
-                <View style={styles.gridItem}>
-                  <AppText style={styles.gridLabel}>Grade</AppText>
-                  <AppText style={styles.gridValue}>{currentSubject.grade || 'N/A'}</AppText>
-                </View>
-                <View style={styles.gridItem}>
-                  <AppText style={styles.gridLabel}>Result</AppText>
-                  <ResultBadge status={currentSubject.result_status} />
-                </View>
-              </View>
+              ))}
             </View>
           ) : !loadingMarks && (
             <View style={styles.emptyResults}>
@@ -697,35 +663,65 @@ const styles = StyleSheet.create({
   refreshIcon: {
     marginRight: 8,
   },
-  subjectSelectorContainer: {
-    marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    paddingBottom: 10,
-  },
-  subjectScroll: {
-    flexDirection: 'row',
-  },
-  subjectChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 10,
-    backgroundColor: '#F8FAFC',
+  subjectListContainer: {
+    marginTop: 6,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    borderRadius: 10,
+    overflow: 'hidden',
   },
-  subjectChipActive: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
+  subjectListHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
   },
-  subjectChipText: {
+  subjectListHeaderCell: {
+    fontSize: 11,
+    textTransform: 'uppercase',
+    color: '#94A3B8',
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  subjectListRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  subjectListRowAlt: {
+    backgroundColor: '#FCFDFF',
+  },
+  subjectListCell: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#1E293B',
     fontWeight: '600',
   },
-  subjectChipTextActive: {
-    color: '#FFFFFF',
+  subjectCol: {
+    flex: 2.2,
+  },
+  maxCol: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  passCol: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  obtainedCol: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  resultCol: {
+    flex: 1.4,
+    alignItems: 'flex-end',
+  },
+  resultCellWrap: {
+    justifyContent: 'center',
   },
   marksGrid: {
     gap: 12,

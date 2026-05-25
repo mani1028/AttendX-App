@@ -31,6 +31,7 @@ import {
   getQuestionPapers,
   downloadQuestionPaper
 } from '../../services/studentService';
+import { buildApiUrl } from '../../services/api';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeJsonParse } from '../../utils/storage';
@@ -65,6 +66,27 @@ const arrayBufferToBase64 = (data: ArrayBuffer): string => {
 const getStudentDashboardCacheKey = (schoolCode: string, studentId: string): string | null => {
   if (!schoolCode || !studentId) return null;
   return `student_dashboard_cache:${schoolCode}:${studentId}`;
+};
+
+const normalizeDashboardPhotoUri = (value: string | null | undefined): string | null => {
+  const uri = String(value || '').trim();
+  if (!uri) return null;
+  if (
+    uri.startsWith('data:') ||
+    uri.startsWith('http://') ||
+    uri.startsWith('https://') ||
+    uri.startsWith('file://') ||
+    uri.startsWith('content://')
+  ) {
+    return uri;
+  }
+  if (uri.startsWith('/')) {
+    return buildApiUrl(uri);
+  }
+  if (uri.toLowerCase().startsWith('api/')) {
+    return buildApiUrl(`/${uri}`);
+  }
+  return uri;
 };
 
 export default function StudentDashboardScreen() {
@@ -237,31 +259,34 @@ export default function StudentDashboardScreen() {
           (freshProfile as any)?.student_photograph ||
           ''
         ).trim();
+        const normalizedProfilePhoto = normalizeDashboardPhotoUri(profilePhoto);
 
-        if (profilePhoto && isMounted.current) {
-          setProfilePhotoUrl(profilePhoto);
+        if (normalizedProfilePhoto && isMounted.current) {
+          setProfilePhotoUrl(normalizedProfilePhoto);
           setProfilePhotoError(false);
           if (scopedCacheKey) {
-            await AsyncStorage.setItem(scopedCacheKey, profilePhoto);
+            await AsyncStorage.setItem(scopedCacheKey, normalizedProfilePhoto);
           }
           return;
         }
 
         if (scopedCacheKey) {
           const cached = await AsyncStorage.getItem(scopedCacheKey);
-          if (cached && isMounted.current) {
-            setProfilePhotoUrl(cached);
+          const normalizedCached = normalizeDashboardPhotoUri(cached);
+          if (normalizedCached && isMounted.current) {
+            setProfilePhotoUrl(normalizedCached);
             setProfilePhotoError(false);
             return;
           }
         }
 
         const resolved = (await getStudentProfilePhotoDataUri()) || (await getStudentProfilePhotoUrl());
-        if (resolved && isMounted.current) {
-          setProfilePhotoUrl(resolved);
+        const normalizedResolved = normalizeDashboardPhotoUri(resolved);
+        if (normalizedResolved && isMounted.current) {
+          setProfilePhotoUrl(normalizedResolved);
           setProfilePhotoError(false);
           if (scopedCacheKey) {
-            await AsyncStorage.setItem(scopedCacheKey, resolved);
+            await AsyncStorage.setItem(scopedCacheKey, normalizedResolved);
           }
         }
       } catch {
@@ -283,9 +308,29 @@ export default function StudentDashboardScreen() {
     try {
       const buffer = await downloadQuestionPaper(paperId);
       const base64 = arrayBufferToBase64(buffer);
-      const dataUri = `data:application/pdf;base64,${base64}`;
-      setViewingPaperUrl(dataUri);
-      setViewerVisible(true);
+      const safeName = (title || `paper_${paperId}`).replace(/[^a-z0-9_.-]/gi, '_');
+      const fileName = `${safeName}.pdf`;
+      const filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
+
+      await RNFS.writeFile(filePath, base64, 'base64');
+
+      // Use Share to open with an external PDF viewer (more reliable on mobile)
+      try {
+        const Share = require('react-native-share').default;
+        const exists = await RNFS.exists(filePath);
+        if (!exists) throw new Error('Written file not found');
+        await Share.open({ url: Platform.OS === 'android' ? `file://${filePath}` : filePath, type: 'application/pdf', title: title || 'Question Paper' });
+      } catch (shareErr) {
+        const message = String(shareErr?.message || '');
+        if (message.includes('User did not share') || message.includes('cancel')) {
+          // user cancelled sharing - silently ignore
+        } else {
+          // Fallback: expose modal with WebView using data URI if Share fails
+          const dataUri = `data:application/pdf;base64,${base64}`;
+          setViewingPaperUrl(dataUri);
+          setViewerVisible(true);
+        }
+      }
     } catch (error) {
       console.error('Error viewing paper:', error);
     } finally {

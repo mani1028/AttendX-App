@@ -134,7 +134,7 @@ const PaperCard: React.FC<{
       <View style={styles.paperCardHeader}>
         <View style={styles.paperTypeBadge}>
           <Icon name="file-text" size={12} color="#3b82f6" />
-          <Text style={styles.paperTypeText}>{paper.exam_type}</Text>
+          <Text style={styles.paperTypeText}>{String(paper.exam_type ?? '')}</Text>
         </View>
         {paper.file_size && (
           <View style={styles.fileSizeBadge}>
@@ -144,21 +144,21 @@ const PaperCard: React.FC<{
         )}
       </View>
 
-      <Text style={styles.paperTitle}>{paper.title}</Text>
+      <Text style={styles.paperTitle}>{String(paper.title ?? '')}</Text>
 
       <View style={styles.paperMeta}>
         <View style={styles.metaItem}>
           <Icon name="user" size={12} color="#64748b" />
-          <Text style={styles.metaText}>{paper.teacher_name || 'Unknown Teacher'}</Text>
+          <Text style={styles.metaText}>{String(paper.teacher_name || 'Unknown Teacher')}</Text>
         </View>
         <View style={styles.metaItem}>
           <Icon name="calendar" size={12} color="#64748b" />
-          <Text style={styles.metaText}>{formatDate(paper.created_at)}</Text>
+          <Text style={styles.metaText}>{String(formatDate(paper.created_at))}</Text>
         </View>
         <View style={styles.metaItem}>
           <Icon name="bookmark" size={12} color="#64748b" />
           <Text style={styles.metaText}>
-            {paper.class_name} {paper.section_name}
+            {String(`${paper.class_name || ''}${paper.class_name && paper.section_name ? ' ' : ''}${paper.section_name || ''}`)}
           </Text>
         </View>
       </View>
@@ -208,18 +208,18 @@ const SubjectSection: React.FC<{
         <View style={styles.subjectIconContainer}>
           <View style={styles.subjectIcon}>
             <Text style={styles.subjectIconText}>
-              {subject.subject_name.charAt(0)}
+              {(subject.subject_name || '').charAt(0)}
             </Text>
           </View>
         </View>
         <View style={styles.subjectInfo}>
-          <Text style={styles.subjectTitle}>{subject.subject_name}</Text>
+          <Text style={styles.subjectTitle}>{String(subject.subject_name ?? '')}</Text>
           {subject.subject_code && (
-            <Text style={styles.subjectCode}>Code: {subject.subject_code}</Text>
+            <Text style={styles.subjectCode}>Code: {String(subject.subject_code ?? '')}</Text>
           )}
         </View>
         <View style={styles.paperCount}>
-          <Text style={styles.paperCountText}>{subject.papers.length}</Text>
+          <Text style={styles.paperCountText}>{String(subject.papers.length ?? 0)}</Text>
         </View>
         <Icon
           name={isExpanded ? 'chevron-up' : 'chevron-down'}

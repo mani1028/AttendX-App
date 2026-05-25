@@ -57,6 +57,9 @@ interface TeacherData {
   employee_id: string;
   teacher_full_name: string;
   branch_id: string;
+  enable_video_attendance?: boolean | string;
+  is_class_teacher?: boolean;
+  teacher_type?: string;
 }
 
 interface AssignedClass {
@@ -93,6 +96,7 @@ interface AttendanceResult {
   absent: Student[];
   duplicates: Student[];
   per_image_results?: any[];
+  per_frame_results?: any[];
   date?: string;
 }
 
@@ -124,6 +128,8 @@ const cleanBase64 = (base64: string): string => {
   if (!base64) return '';
   return base64.replace(/^data:image\/\w+;base64,/, '');
 };
+
+const MAX_STUDENT_IMAGES = 5;
 
 // Step Labels
 const stepLabels = ['Teacher Auth', 'Verified', 'Student Setup', 'Review & Save'];
@@ -236,6 +242,8 @@ export default function TeacherAttendanceScreen() {
   const [isClassTeacher, setIsClassTeacher] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [videoAttendanceEnabled, setVideoAttendanceEnabled] = useState<boolean>(false);
+  const [attendanceInputMode, setAttendanceInputMode] = useState<'image' | 'video'>('image');
 
   // Camera
   const [hasPermission, setHasPermission] = useState<boolean>(false);
@@ -306,6 +314,9 @@ export default function TeacherAttendanceScreen() {
   const [manualStatusById, setManualStatusById] = useState<Record<string, string>>({});
   const [manualFilter, setManualFilter] = useState<string>('review');
   const [manualSaving, setManualSaving] = useState<boolean>(false);
+  const [sessionMarked, setSessionMarked] = useState({ session1: false, session2: false });
+  const [viewingGallery, setViewingGallery] = useState<boolean>(false);
+  const [savedAttendanceData, setSavedAttendanceData] = useState<any>(null);
 
   // Toast
   const [toast, setToast] = useState<{
@@ -324,6 +335,36 @@ export default function TeacherAttendanceScreen() {
     setToast({ visible: false, title: '' });
   }, []);
 
+  // Helper function to check if current session is already marked
+  const isCurrentSessionMarked = useCallback(() => {
+    const currentSession = parseInt(form.attendance_session || '1', 10);
+    return currentSession === 1 ? sessionMarked.session1 : sessionMarked.session2;
+  }, [form.attendance_session, sessionMarked]);
+
+  // Check session marked status
+  const checkSessionMarkedStatus = useCallback(async () => {
+    const activeSchoolCode = schoolCode || (await getSchoolCode());
+    const activeEmployeeId = String(teacherData?.employee_id || employeeId || (await getEmployeeId()) || '').trim();
+    
+    if (!activeSchoolCode || !activeEmployeeId) return;
+    
+    try {
+      const url = `/manage/teacher/attendance/my-attendance?school_code=${activeSchoolCode}&employee_id=${activeEmployeeId}`;
+      const data = await teacherService.getRequest(url);
+      const todayDate = getTodayDateString();
+      const todayAttendance = data?.items?.find((item: any) => item.attendance_date === todayDate);
+      
+      if (todayAttendance) {
+        setSessionMarked({
+          session1: todayAttendance.session1_status === 'PRESENT',
+          session2: todayAttendance.session2_status === 'PRESENT',
+        });
+      }
+    } catch (err) {
+      console.error('Error checking session status:', err);
+    }
+  }, [schoolCode, employeeId, teacherData]);
+
   // Persist attendance state
   useEffect(() => {
     const persist = async () => {
@@ -335,6 +376,8 @@ export default function TeacherAttendanceScreen() {
           studentImages,
           result,
           step,
+          teacherData,
+          assignedClasses,
           timestamp: new Date().getTime()
         };
         await AsyncStorage.setItem(cacheKey, JSON.stringify(state));
@@ -344,7 +387,7 @@ export default function TeacherAttendanceScreen() {
     };
     const timer = setTimeout(persist, 1000);
     return () => clearTimeout(timer);
-  }, [form, studentImages, result, step, schoolCode, branchId, employeeId]);
+  }, [form, studentImages, result, step, teacherData, assignedClasses, schoolCode, branchId, employeeId]);
 
   // Load credentials and permissions
   useEffect(() => {
@@ -389,6 +432,8 @@ export default function TeacherAttendanceScreen() {
           if (Array.isArray(state?.studentImages)) setStudentImages(state.studentImages.filter(Boolean));
           if (state?.result) setResult(state.result);
           if (state?.step) setStep(state.step);
+          if (state?.teacherData) setTeacherData(state.teacherData);
+          if (Array.isArray(state?.assignedClasses)) setAssignedClasses(state.assignedClasses);
         }
 
         if (code && bid) {
@@ -504,13 +549,19 @@ export default function TeacherAttendanceScreen() {
 
   const handleTeacherUpload = () => {
     launchImageLibrary({ mediaType: 'photo', quality: 0.9 }, (response) => {
-      if (response.assets && response.assets[0].uri) {
+      if (response.assets && response.assets[0]?.uri) {
         setTeacherImage(response.assets[0].uri);
+        showToast('Teacher photo uploaded', 'Image ready for verification', '📁', '#1a1a1a');
       }
     });
   };
 
   const handleStudentCapture = async () => {
+    if (studentImages.length >= MAX_STUDENT_IMAGES) {
+      showToast('Maximum reached', `You can only add up to ${MAX_STUDENT_IMAGES} images`, '⚠️', '#F59E0B');
+      stopCamera();
+      return;
+    }
     const img = await captureImage();
     if (img) {
       setPreviewImage(img);
@@ -520,6 +571,10 @@ export default function TeacherAttendanceScreen() {
   };
 
   const handleStudentUpload = () => {
+    if (studentImages.length >= MAX_STUDENT_IMAGES) {
+      showToast('Maximum reached', `You can only add up to ${MAX_STUDENT_IMAGES} images`, '⚠️', '#F59E0B');
+      return;
+    }
     launchImageLibrary({ mediaType: 'photo', quality: 0.9 }, (response) => {
       if (response.assets && response.assets[0]?.uri) {
         setPreviewImage(response.assets[0].uri);
@@ -529,21 +584,30 @@ export default function TeacherAttendanceScreen() {
   };
 
   const confirmStudentImage = async () => {
-    if (previewImage) {
+    if (previewImage && studentImages.length < MAX_STUDENT_IMAGES) {
       setStudentImages(prev => [...prev, previewImage]);
       setPreviewImage(null);
       setShowPreview(false);
-      showToast('Image added', `${studentImages.length + 1} image(s) captured`, '✅', '#22C55E');
+      showToast('Image added', `${studentImages.length + 1} image(s) ready`, '✅', '#22C55E');
+    } else if (studentImages.length >= MAX_STUDENT_IMAGES) {
+      showToast('Maximum reached', `You can only add up to ${MAX_STUDENT_IMAGES} images`, '⚠️', '#F59E0B');
+      setShowPreview(false);
+      setPreviewImage(null);
     }
   };
 
   const retakeImage = () => {
     setPreviewImage(null);
     setShowPreview(false);
+    // If camera was active for student, restart it
+    if (cameraUse === 'student' && !cameraActive && studentImages.length < MAX_STUDENT_IMAGES) {
+      startCamera('student');
+    }
   };
 
   const removeStudentImage = (index: number) => {
     setStudentImages(prev => prev.filter((_, i) => i !== index));
+    showToast('Image removed', `${studentImages.length - 1} image(s) remaining`, '🗑️', '#EF4444');
   };
 
   const verifyTeacher = async () => {
@@ -575,6 +639,8 @@ export default function TeacherAttendanceScreen() {
       const assigned = Array.isArray(data?.assigned_classes) ? data.assigned_classes.filter(Boolean) : [];
       setTeacherData(data);
       setAssignedClasses(assigned);
+      setVideoAttendanceEnabled(data.enable_video_attendance === true || data.enable_video_attendance === 'true');
+      setIsClassTeacher(data.is_class_teacher || false);
       
       const sessionKey = `teacher_session_${employeeId}_${schoolCode}`;
       await AsyncStorage.setItem(sessionKey, JSON.stringify({
@@ -582,6 +648,9 @@ export default function TeacherAttendanceScreen() {
         assigned_classes: assigned,
         timestamp: new Date().getTime()
       }));
+
+      // Check session marked status
+      await checkSessionMarkedStatus();
 
       if (!isMounted.current) return;
 
@@ -596,8 +665,6 @@ export default function TeacherAttendanceScreen() {
       }
 
       setCameraActive(false); 
-      setTeacherImage(null);
-      setStudentImages([]);
       setStep(3);
       showToast('Identity verified!', `Welcome, ${data.teacher_full_name}`, '✅', '#22C55E');
     } catch (err: any) {
@@ -621,7 +688,6 @@ export default function TeacherAttendanceScreen() {
           verificationError + ' Do not log out - stay in the app and try again.',
           [{ text: 'OK' }]
         );
-        // Important: Don't navigate away or reset state - let user retry
         return;
       }
 
@@ -637,6 +703,11 @@ export default function TeacherAttendanceScreen() {
   const processAttendance = async () => {
     if (studentImages.length === 0 || !form.class_grade || !form.section) {
       Alert.alert('Missing Info', 'Please select class, section and capture at least one image.');
+      return;
+    }
+
+    if (isClassTeacher && isCurrentSessionMarked()) {
+      Alert.alert('Session Already Marked', `Attendance for ${form.attendance_session === '1' ? 'Session 1 (Morning)' : 'Session 2 (Afternoon)'} has already been marked for today.`);
       return;
     }
 
@@ -665,27 +736,118 @@ export default function TeacherAttendanceScreen() {
         employee_id: activeEmployeeId,
         class_grade: String(form.class_grade).toLowerCase(),
         section: String(form.section).toLowerCase(),
-        date: form.attendance_date,
-        attendance_session: parseInt(form.attendance_session || '1', 10),
+        attendance_date: form.attendance_date,
         preview_only: true,
-        image: base64Images[0], // Schema expects 'image' (singular) for view
+        images: base64Images, // Send all images for better detection
       };
+
+      // Only add attendance_session if dailySessions is 2
+      if (dailySessions === 1) {
+        payload.attendance_session = 1;
+      } else {
+        payload.attendance_session = parseInt(form.attendance_session || '1', 10);
+      }
 
       const data = await teacherService.processAttendance(payload);
       if (!isMounted.current) return;
-      setResult(data);
+      
+      // Merge results - keep previously present students from multiple image submissions
+      setResult((prevResult: AttendanceResult | null) => {
+        if (!prevResult) return data;
+        
+        // Merge logic: combine present lists, remove promoted students from absent
+        const prevPresentIds = new Set((prevResult.present || []).map(s => s.student_id));
+        const newPresentIds = new Set((data.present || []).map(s => s.student_id));
+        
+        // Keep all previously present students
+        const mergedPresentIds = new Set([...prevPresentIds, ...newPresentIds]);
+        
+        // Build merged present list
+        const mergedPresent: Student[] = [];
+        const seenIds = new Set();
+        
+        // Add from previous result
+        (prevResult.present || []).forEach((student) => {
+          const id = student.student_id;
+          if (id && !seenIds.has(id)) {
+            mergedPresent.push(student);
+            seenIds.add(id);
+          }
+        });
+        
+        // Add new students from current result
+        (data.present || []).forEach((student) => {
+          const id = student.student_id;
+          if (id && !seenIds.has(id)) {
+            mergedPresent.push(student);
+            seenIds.add(id);
+          }
+        });
+        
+        // Build merged absent list (exclude promoted students)
+        const mergedAbsent = (data.absent || []).filter((student) => {
+          const id = student.student_id;
+          return !mergedPresentIds.has(id);
+        });
+        
+        return {
+          ...data,
+          present: mergedPresent,
+          absent: mergedAbsent,
+          summary: {
+            ...data.summary,
+            present_count: mergedPresent.length,
+            absent_count: mergedAbsent.length,
+            total_students: mergedPresent.length + mergedAbsent.length,
+          },
+        };
+      });
+      
       setStep(4);
-      showToast('Attendance scanned', 'Review and save', '📊', '#22C55E');
+      showToast('Attendance scanned', 'Review the report and save if needed', '📊', '#22C55E');
     } catch (err: any) {
       if (!isMounted.current) return;
+      const status = err?.response?.status;
       const backendDetail = err?.response?.data?.detail || err?.response?.data?.message;
       const errorMsg = backendDetail || err?.message || 'Please try again';
 
-      if (err?.response?.status === 401) {
+      if (status === 401) {
         Alert.alert('Session Expired', 'Please verify your identity again.');
         setStep(1); // Force re-verification
         return;
       }
+
+      // Handle service unavailable errors with retry option
+      if (status === 503 || status === 502 || status === 504) {
+        const serviceError = status === 503 
+          ? 'The face verification service is temporarily unavailable.'
+          : 'The server is temporarily unavailable.';
+        
+        Alert.alert(
+          'Service Unavailable',
+          `${serviceError} Please wait a moment and try again.`,
+          [
+            {
+              text: 'Retry',
+              onPress: () => {
+                if (isMounted.current) {
+                  processAttendance(); // Recursive retry
+                }
+              },
+            },
+            {
+              text: 'Cancel',
+              onPress: () => {
+                if (isMounted.current) {
+                  setLoading(false);
+                }
+              },
+            },
+          ]
+        );
+        return;
+      }
+
       Alert.alert('Processing Failed', errorMsg);
     } finally {
       if (isMounted.current) {
@@ -720,12 +882,18 @@ export default function TeacherAttendanceScreen() {
         employee_id: activeEmployeeId,
         class_grade: String(form.class_grade).toLowerCase(),
         section: String(form.section).toLowerCase(),
-        date: form.attendance_date,
-        attendance_session: parseInt(form.attendance_session || '1', 10),
-        preview_only: false,
-        image: base64Images[0], // Schema expects 'image' (singular) for view
+        attendance_date: form.attendance_date,
+        preview_only: false, // Actually save now
+        images: base64Images,
       };
 
+      if (dailySessions === 1) {
+        payload.attendance_session = 1;
+      } else {
+        payload.attendance_session = parseInt(form.attendance_session || '1', 10);
+      }
+
+      // Add manual attendance if changes were made
       if (Object.keys(manualStatusById).length > 0) {
         const manualAttendance = manualRows.map(row => ({
           student_id: row.student_id,
@@ -734,20 +902,62 @@ export default function TeacherAttendanceScreen() {
         payload.manual_attendance = manualAttendance;
       }
 
-      await teacherService.processAttendance(payload);
+      const data = await teacherService.processAttendance(payload);
       if (isMounted.current) {
-        Alert.alert('Success', 'Attendance saved successfully', [{ text: 'OK', onPress: resetFlow }]);
+        // Update session marked status
+        const currentSession = parseInt(form.attendance_session || '1', 10);
+        setSessionMarked(prev => ({
+          ...prev,
+          [`session${currentSession}`]: true
+        }));
+        
+        setSavedAttendanceData(data);
+        setViewingGallery(true);
+        showToast('Attendance saved', `${data?.summary?.present_count || 0} present, ${data?.summary?.absent_count || 0} absent`, '✅', '#22C55E');
       }
     } catch (err: any) {
       if (!isMounted.current) return;
+      const status = err?.response?.status;
       const backendDetail = err?.response?.data?.detail || err?.response?.data?.message;
       const errorMsg = backendDetail || err?.message || 'Please try again';
 
-      if (err?.response?.status === 401) {
+      if (status === 401) {
         Alert.alert('Session Expired', 'Your session has expired. Please verify your identity again.');
         setStep(1);
         return;
       }
+
+      // Handle service unavailable errors with retry option
+      if (status === 503 || status === 502 || status === 504) {
+        const serviceError = status === 503 
+          ? 'The face verification service is temporarily unavailable.'
+          : 'The server is temporarily unavailable.';
+        
+        Alert.alert(
+          'Service Unavailable',
+          `${serviceError} Please wait a moment and try again.`,
+          [
+            {
+              text: 'Retry',
+              onPress: () => {
+                if (isMounted.current) {
+                  saveAttendance(); // Recursive retry
+                }
+              },
+            },
+            {
+              text: 'Cancel',
+              onPress: () => {
+                if (isMounted.current) {
+                  setManualSaving(false);
+                }
+              },
+            },
+          ]
+        );
+        return;
+      }
+
       Alert.alert('Save Failed', errorMsg);
     } finally {
       if (isMounted.current) {
@@ -756,7 +966,20 @@ export default function TeacherAttendanceScreen() {
     }
   };
 
+  const resetManualChanges = () => {
+    if (!manualRows.length) return;
+    const next: Record<string, string> = {};
+    for (const row of manualRows) {
+      const sid = String(row.student_id || '').trim();
+      if (sid) next[sid] = row._defaultStatus;
+    }
+    setManualStatusById(next);
+    setManualFilter('review');
+    showToast('Reset complete', 'Changes reverted to scan results', '🔄', '#F59E0B');
+  };
+
   const resetFlow = async () => {
+    stopCamera();
     setStep(1);
     setTeacherImage(null);
     setTeacherData(null);
@@ -764,6 +987,10 @@ export default function TeacherAttendanceScreen() {
     setStudentImages([]);
     setResult(null);
     setManualStatusById({});
+    setPreviewImage(null);
+    setShowPreview(false);
+    setViewingGallery(false);
+    setSavedAttendanceData(null);
     setForm({
       employee_id: employeeId,
       branch_id: branchId,
@@ -772,6 +999,7 @@ export default function TeacherAttendanceScreen() {
       attendance_date: getTodayDateString(),
       attendance_session: '1',
     });
+    setSessionMarked({ session1: false, session2: false });
     const cacheKey = `teacher_attendance_cache_${schoolCode}_${branchId}_${employeeId}`;
     try { await AsyncStorage.removeItem(cacheKey); } catch (e) {}
   };
@@ -837,6 +1065,8 @@ export default function TeacherAttendanceScreen() {
     });
   }, [manualRows, manualStatusById]);
 
+  const manualHasChanges = useMemo(() => manualRowsWithState.some(row => row._changed), [manualRowsWithState]);
+
   const manualCounts = useMemo(() => {
     const total = manualRowsWithState.length;
     const present = manualRowsWithState.filter(r => r._currentStatus === 'PRESENT').length;
@@ -885,6 +1115,83 @@ export default function TeacherAttendanceScreen() {
     const selected = assignedClassOptions.find(opt => opt.class_grade === form.class_grade && opt.section === section);
     if (selected) setSelectedClassKey(selected.key);
   };
+
+  // If viewing gallery after save
+  if (viewingGallery && savedAttendanceData) {
+    const groupImages = savedAttendanceData?.image_urls || [];
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+            <View style={styles.headerContent}>
+              <TouchableOpacity style={styles.backBtn} onPress={resetFlow}>
+                <ChevronLeft size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+              <AppText style={styles.headerTitle}>Attendance Saved</AppText>
+              <View style={{ width: 40 }} />
+            </View>
+            <View style={styles.heroContent}>
+              <AppText style={styles.heroGreeting}>Success! ✅</AppText>
+              <AppText style={styles.heroSubtext}>Attendance has been recorded</AppText>
+            </View>
+          </View>
+
+          <View style={styles.statsRow}>
+            <View style={[styles.miniStatCard, { borderLeftColor: '#3B82F6' }]}>
+              <AppText style={styles.miniStatVal}>{savedAttendanceData?.summary?.total_students || 0}</AppText>
+              <AppText style={styles.miniStatLabel}>Total</AppText>
+            </View>
+            <View style={[styles.miniStatCard, { borderLeftColor: '#10B981' }]}>
+              <AppText style={styles.miniStatVal}>{savedAttendanceData?.summary?.present_count || 0}</AppText>
+              <AppText style={styles.miniStatLabel}>Present</AppText>
+            </View>
+            <View style={[styles.miniStatCard, { borderLeftColor: '#EF4444' }]}>
+              <AppText style={styles.miniStatVal}>{savedAttendanceData?.summary?.absent_count || 0}</AppText>
+              <AppText style={styles.miniStatLabel}>Absent</AppText>
+            </View>
+          </View>
+
+          {/* Teacher Image Section */}
+          {teacherImage && (
+            <AppCard style={styles.mainCard}>
+              <View style={styles.cardHeader}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' }}>
+                  <AppText style={{ fontSize: 20 }}>👨‍🏫</AppText>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppText style={styles.cardTitle}>Teacher Verification Image</AppText>
+                  <AppText style={styles.resultSub}>{teacherData?.teacher_full_name || 'Teacher'} - {form.attendance_date}</AppText>
+                </View>
+              </View>
+              <View style={{ padding: 24, alignItems: 'center' }}>
+                <Image source={{ uri: teacherImage }} style={{ width: '100%', height: 200, borderRadius: 12, resizeMode: 'cover' }} />
+              </View>
+            </AppCard>
+          )}
+
+          {/* Student Images Section */}
+          {groupImages.length > 0 && (
+            <AppCard style={styles.mainCard}>
+              <View style={styles.cardHeader}>
+                <CameraIcon size={20} color={HM_THEME.navy} />
+                <AppText style={styles.cardTitle}>Student Images ({groupImages.length})</AppText>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ padding: 16 }}>
+                {groupImages.map((img: string, idx: number) => (
+                  <View key={idx} style={styles.thumbWrapper}>
+                    <Image source={{ uri: img }} style={styles.thumbImg} />
+                  </View>
+                ))}
+              </ScrollView>
+            </AppCard>
+          )}
+
+          <AppButton title="✓ Done - Start New Attendance" onPress={resetFlow} style={[styles.primaryButton, { marginHorizontal: 16, marginBottom: 30 }]} />
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -962,7 +1269,7 @@ export default function TeacherAttendanceScreen() {
             />
             <View style={styles.cameraOverlay}>
               <AppText style={styles.cameraStep}>
-                {cameraUse === 'teacher' ? 'Teacher Face Verification' : `Image ${studentImages.length + 1}`}
+                {cameraUse === 'teacher' ? 'Teacher Face Verification' : `Image ${studentImages.length + 1} of ${MAX_STUDENT_IMAGES}`}
               </AppText>
               <View style={styles.cameraControls}>
                 <TouchableOpacity
@@ -1053,7 +1360,7 @@ export default function TeacherAttendanceScreen() {
           </AppCard>
         )}
 
-        {/* Step 2: Class Selection */}
+        {/* Step 2: Teacher Verified with Image Display */}
         {step === 2 && teacherData && (
           <AppCard style={styles.mainCard}>
             <View style={styles.cardHeader}>
@@ -1072,6 +1379,22 @@ export default function TeacherAttendanceScreen() {
                   <AppText style={styles.infoValue}>{teacherData.employee_id}</AppText>
                 </View>
               </View>
+
+              {/* Display teacher verification image */}
+              {teacherImage && (
+                <View style={{ marginTop: 16, marginBottom: 16, padding: 16, backgroundColor: '#F0FDF4', borderRadius: 12, borderWidth: 1.5, borderColor: '#22C55E' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#22C55E', alignItems: 'center', justifyContent: 'center' }}>
+                      <CheckCircle2 size={16} color="#fff" />
+                    </View>
+                    <View>
+                      <AppText style={{ fontWeight: '800', color: '#15803D', fontSize: 14 }}>Teacher Verification Image</AppText>
+                      <AppText style={{ fontSize: 12, color: '#16A34A', marginTop: 2 }}>Captured for {teacherData.teacher_full_name} verification</AppText>
+                    </View>
+                  </View>
+                  <Image source={{ uri: teacherImage }} style={{ width: '100%', height: 200, borderRadius: 8, borderWidth: 2, borderColor: '#22C55E', resizeMode: 'cover' }} />
+                </View>
+              )}
 
               {assignedClasses.length > 0 && (
                 <View style={styles.field}>
@@ -1116,6 +1439,16 @@ export default function TeacherAttendanceScreen() {
             </View>
 
             <View style={styles.cardBody}>
+              {/* Session already marked warning for class teachers */}
+              {isClassTeacher && isCurrentSessionMarked() && (
+                <View style={styles.warningBox}>
+                  <AlertCircle size={20} color="#D97706" />
+                  <AppText style={styles.warningText}>
+                    Attendance for {form.attendance_session === '1' ? 'Session 1 (Morning)' : 'Session 2 (Afternoon)'} has already been marked for today. You cannot mark again.
+                  </AppText>
+                </View>
+              )}
+
               <View style={styles.field}>
                 <AppText style={styles.label}>Class</AppText>
                 <TouchableOpacity
@@ -1170,23 +1503,51 @@ export default function TeacherAttendanceScreen() {
                 </AppText>
               </View>
 
+              {dailySessions === 2 && (
+                <View style={styles.field}>
+                  <AppText style={styles.label}>Attendance Session</AppText>
+                  <TouchableOpacity
+                    style={styles.pickerTrigger}
+                    onPress={() => setPickerModal({
+                      visible: true,
+                      title: 'Select Session',
+                      options: [
+                        { label: `Session 1 (Morning) ${sessionMarked.session1 ? '✓ Marked' : ''}`, value: '1', disabled: sessionMarked.session1 },
+                        { label: `Session 2 (Afternoon) ${sessionMarked.session2 ? '✓ Marked' : ''}`, value: '2', disabled: sessionMarked.session2 }
+                      ].filter(opt => !opt.disabled),
+                      selectedValue: form.attendance_session,
+                      onValueChange: (v) => setForm(prev => ({ ...prev, attendance_session: v }))
+                    })}
+                  >
+                    <AppText style={styles.pickerTriggerText}>
+                      Session {form.attendance_session} {form.attendance_session === '1' ? '(Morning)' : '(Afternoon)'}
+                      {(form.attendance_session === '1' && sessionMarked.session1) || (form.attendance_session === '2' && sessionMarked.session2) ? ' ✓ Marked' : ''}
+                    </AppText>
+                    <ChevronDown size={20} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+              )}
+
               <View style={styles.imageGridHeader}>
-                <AppText style={styles.label}>Student Images</AppText>
+                <AppText style={styles.label}>Student Images ({studentImages.length}/{MAX_STUDENT_IMAGES})</AppText>
+                <AppText style={styles.imageCount}>{studentImages.length} captured</AppText>
               </View>
 
               {!cameraActive && (
                 <View style={styles.buttonGrid}>
                   <TouchableOpacity
-                      style={[styles.actionBtn, { backgroundColor: HM_THEME.navy }]}
-                      onPress={() => startCamera('student')}
-                    >
+                    style={[styles.actionBtn, { backgroundColor: HM_THEME.navy }]}
+                    onPress={() => startCamera('student')}
+                    disabled={studentImages.length >= MAX_STUDENT_IMAGES}
+                  >
                     <CameraIcon size={20} color="#fff" />
                     <AppText style={styles.actionBtnText}>Capture Students</AppText>
                   </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.actionBtn, { backgroundColor: '#F1F5F9' }]}
-                      onPress={handleStudentUpload}
-                    >
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: '#F1F5F9' }]}
+                    onPress={handleStudentUpload}
+                    disabled={studentImages.length >= MAX_STUDENT_IMAGES}
+                  >
                     <Upload size={20} color={HM_THEME.navy} />
                     <AppText style={[styles.actionBtnText, { color: HM_THEME.navy }]}>Upload</AppText>
                   </TouchableOpacity>
@@ -1212,7 +1573,7 @@ export default function TeacherAttendanceScreen() {
                 <AppButton
                   title={loading ? 'Scanning...' : 'Scan / Preview'}
                   onPress={processAttendance}
-                  disabled={loading || studentImages.length === 0 || !form.class_grade || !form.section}
+                  disabled={loading || studentImages.length === 0 || !form.class_grade || !form.section || (isClassTeacher && isCurrentSessionMarked())}
                   style={[styles.primaryButton, { flex: 2 }]}
                 />
                 <AppButton title="Back" onPress={() => setStep(2)} type="secondary" style={{ flex: 1 }} />
@@ -1250,6 +1611,28 @@ export default function TeacherAttendanceScreen() {
               </View>
 
               <View style={styles.cardBody}>
+                <View style={styles.manualStrip}>
+                  <AppText style={styles.manualStripText}>
+                    {manualHasChanges
+                      ? `${manualCounts.changed} student(s) changed manually. Save to store the edits.`
+                      : "No manual changes detected. Save to store the scanned attendance."}
+                  </AppText>
+                  <View style={styles.miniChipContainer}>
+                    <View style={[styles.miniChip, styles.miniChipSuccess]}>
+                      <CheckCircle2 size={12} color="#15803D" />
+                      <AppText style={[styles.miniChipText, { color: '#15803D' }]}>Present {manualCounts.present}</AppText>
+                    </View>
+                    <View style={[styles.miniChip, styles.miniChipDanger]}>
+                      <XCircle size={12} color="#B91C1C" />
+                      <AppText style={[styles.miniChipText, { color: '#B91C1C' }]}>Absent {manualCounts.absent}</AppText>
+                    </View>
+                    <View style={[styles.miniChip, styles.miniChipWarning]}>
+                      <Clock size={12} color="#B45309" />
+                      <AppText style={[styles.miniChipText, { color: '#B45309' }]}>Changed {manualCounts.changed}</AppText>
+                    </View>
+                  </View>
+                </View>
+
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
                   {['review', 'all', 'present', 'absent', 'changed'].map(filter => (
                     <TouchableOpacity
@@ -1264,6 +1647,19 @@ export default function TeacherAttendanceScreen() {
                   ))}
                 </ScrollView>
 
+                <View style={styles.buttonRowInline}>
+                  <TouchableOpacity 
+                    style={[styles.resetBtn, !manualHasChanges && styles.resetBtnDisabled]} 
+                    onPress={resetManualChanges}
+                    disabled={!manualHasChanges}
+                  >
+                    <RefreshCw size={16} color={manualHasChanges ? HM_THEME.navy : '#94A3B8'} />
+                    <AppText style={[styles.resetBtnText, !manualHasChanges && { color: '#94A3B8' }]}>
+                      Reset to Scan Result
+                    </AppText>
+                  </TouchableOpacity>
+                </View>
+
                 <View style={styles.tableWrapper}>
                   <View style={styles.tHeader}>
                     <AppText style={[styles.tHead, { width: 40 }]}>#</AppText>
@@ -1273,7 +1669,15 @@ export default function TeacherAttendanceScreen() {
 
                   {Array.isArray(filteredManualRows) && filteredManualRows.map((item, idx) => (
                     item && (
-                      <View key={item.student_id || `row-${idx}`} style={styles.tRow}>
+                      <View 
+                        key={item.student_id || `row-${idx}`} 
+                        style={[
+                          styles.tRow,
+                          item._currentStatus === 'PRESENT' && styles.rowPresent,
+                          item._currentStatus === 'ABSENT' && styles.rowAbsent,
+                          item._changed && styles.rowChanged
+                        ]}
+                      >
                         <AppText style={[styles.tCell, { width: 40, color: '#94A3B8' }]}>{item.roll || idx + 1}</AppText>
                         <View style={{ flex: 1 }}>
                           <AppText style={styles.tCellName}>{item.name || 'Unknown Student'}</AppText>
@@ -1298,15 +1702,32 @@ export default function TeacherAttendanceScreen() {
                   ))}
                 </View>
 
+                <View style={styles.resultNote}>
+                  <AppText style={styles.resultNoteText}>
+                    Date: <AppText style={{ fontWeight: 'bold' }}>{result?.date || form.attendance_date}</AppText>
+                    {" • "}
+                    Unknown Faces: <AppText style={{ fontWeight: 'bold' }}>{result?.summary?.unknown_faces_count || 0}</AppText>
+                    {" • "}
+                    Faces Detected: <AppText style={{ fontWeight: 'bold' }}>{result?.summary?.total_faces_detected || 0}</AppText>
+                  </AppText>
+                </View>
+
                 <View style={styles.buttonRow}>
-                   <AppButton
-                    title={manualSaving ? 'Saving...' : 'Finalize & Save'}
+                  <AppButton
+                    title={manualSaving ? 'Saving...' : 'Save Attendance'}
                     onPress={saveAttendance}
-                    disabled={manualSaving}
+                    disabled={manualSaving || (isClassTeacher && isCurrentSessionMarked())}
                     style={[styles.primaryButton, { flex: 1 }]}
                   />
-                  <TouchableOpacity style={styles.retryBtn} onPress={() => setStep(3)}>
+                  <TouchableOpacity style={styles.retryBtn} onPress={() => {
+                    setResult(null);
+                    setManualStatusById({});
+                    setStep(3);
+                  }}>
                     <RefreshCw size={20} color="#64748B" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.retryBtn} onPress={resetFlow}>
+                    <Save size={20} color="#64748B" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1686,6 +2107,11 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 12,
   },
+  buttonRowInline: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
   dateSelector: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1730,11 +2156,13 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     elevation: 2,
     shadowOpacity: 0.06,
+    overflow: 'hidden',
   },
   thumbImg: {
     width: '100%',
     height: '100%',
     borderRadius: 13,
+    resizeMode: 'cover',
   },
   thumbRemove: {
     position: 'absolute',
@@ -1773,7 +2201,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   filterScroll: {
-    marginBottom: 18,
+    marginBottom: 12,
     paddingVertical: 4,
   },
   filterChip: {
@@ -1802,7 +2230,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 18,
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: 16,
     elevation: 2,
     shadowOpacity: 0.06,
   },
@@ -1829,6 +2257,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
     backgroundColor: '#FFFFFF',
+  },
+  rowPresent: {
+    backgroundColor: '#F0FDF4',
+  },
+  rowAbsent: {
+    backgroundColor: '#FEF2F2',
+  },
+  rowChanged: {
+    borderWidth: 2,
+    borderColor: '#FDE68A',
+    margin: -1,
   },
   tCell: {
     fontSize: 13,
@@ -2017,11 +2456,104 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
-  modalImage: { width: '100%', height: 320, borderRadius: 18, marginBottom: 24 },
+  modalImage: { width: '100%', height: 320, borderRadius: 18, marginBottom: 24, resizeMode: 'cover' },
   modalButtons: { flexDirection: 'row', gap: 14, width: '100%' },
   modalBtn: { flex: 1, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', elevation: 2 },
   modalBtnPrimary: { backgroundColor: HM_THEME.navy },
   modalBtnSecondary: { backgroundColor: '#F1F5F9', borderWidth: 1.5, borderColor: '#E2E8F0' },
   modalBtnTextPrimary: { color: '#fff', fontWeight: '600', fontSize: 14 },
   modalBtnTextSecondary: { color: '#475569', fontWeight: '600', fontSize: 14 },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FEF3C7',
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#92400E',
+  },
+  resetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    marginRight: 10,
+  },
+  resetBtnDisabled: {
+    opacity: 0.6,
+  },
+  resetBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: HM_THEME.navy,
+  },
+  manualStrip: {
+    marginBottom: 16,
+    padding: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  manualStripText: {
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  miniChipContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  miniChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  miniChipSuccess: {
+    backgroundColor: '#DCFCE7',
+  },
+  miniChipDanger: {
+    backgroundColor: '#FEE2E2',
+  },
+  miniChipWarning: {
+    backgroundColor: '#FEF3C7',
+  },
+  miniChipText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  resultNote: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  resultNoteText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  resultSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
 });

@@ -115,10 +115,15 @@ export default function TeacherDashboardScreen() {
   const [attendanceLoading, setAttendanceLoading] = useState(true);
   const [assignedClasses, setAssignedClasses] = useState<any[]>([]);
   const [classesLoading, setClassesLoading] = useState(true);
+  const [capability, setCapability] = useState<TeacherCapability | null | undefined>(undefined);
   const { unreadCount, refreshUnreadCount } = useUnreadNotifications();
 
-  // Determine effective class teacher status (from auth or profile)
-  const effectiveIsClassTeacher = profile?.is_class_teacher || authIsClassTeacher;
+  // Determine effective class teacher status: prefer backend capability once fetched.
+  // `capability` undefined = not fetched yet => fallback to local auth/profile.
+  // `capability` null = fetch attempted but failed => treat as not a class teacher.
+  const effectiveIsClassTeacher = (capability !== undefined)
+    ? Boolean(capability?.is_class_teacher)
+    : Boolean(profile?.is_class_teacher || authIsClassTeacher);
   const teacherFirstName = (userName || profile?.name || 'Mahesh').split(' ')[0];
 
   const lastScrollY = useRef(0);
@@ -176,22 +181,32 @@ export default function TeacherDashboardScreen() {
 
       const responseData = await getTeacherProfile();
       if (responseData && isMounted.current) {
-        // Fetch capability details if possible
-        let capability: TeacherCapability | null = null;
+        // Fetch capability details if possible. Store in state so UI relies on backend result.
         try {
           const schoolId = responseData.school_code || schoolCode;
           const empId = responseData.employee_id || storedEmployeeId;
           if (schoolId && empId) {
-            capability = await getTeacherCapability(schoolId, empId);
+            const fetchedCapability = await getTeacherCapability(schoolId, empId);
+            setCapability(fetchedCapability ?? null);
+            setProfile({
+              ...responseData,
+              is_class_teacher: fetchedCapability?.is_class_teacher ?? false,
+            });
+          } else {
+            setCapability(null);
+            setProfile({
+              ...responseData,
+              is_class_teacher: false,
+            });
           }
         } catch (capErr) {
-          console.log('Capability fetch failed, using defaults');
+          console.log('Capability fetch failed, treating as not class teacher');
+          setCapability(null);
+          setProfile({
+            ...responseData,
+            is_class_teacher: false,
+          });
         }
-
-        setProfile({
-          ...responseData,
-          is_class_teacher: capability?.is_class_teacher ?? false
-        });
 
         const directPhoto = String(responseData.profile_photo_url || responseData.teacher_photograph || '').trim();
         let resolvedPhoto = directPhoto || null;
@@ -275,8 +290,13 @@ export default function TeacherDashboardScreen() {
 
             // 1. Fetch Branch-wide stats for "Today's Attendance" section
             const branchStats = await getBranchStats(attendanceSchoolCode, branchId);
-            
-            if (branchStats && isMounted.current) {
+
+            if (branchStats && branchStats.permissionDenied) {
+              // Teacher role isn't permitted to view branch stats; fallback to class report
+              console.log('Branch stats permission denied for teacher role, falling back to class report');
+            }
+
+            if (branchStats && !branchStats.permissionDenied && isMounted.current) {
               const studentStats = branchStats.today_breakdown?.students || { present: 0, absent: 0, half_day: 0, attendance_pct: 0, total: 0 };
               const teacherStats = branchStats.today_breakdown?.teachers || { present: 0, absent: 0, half_day: 0, attendance_pct: 0, total: 0 };
               const cards = branchStats.cards || {};

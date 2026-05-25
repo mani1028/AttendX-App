@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Linking,
+  ActivityIndicator,
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setSessionData } from '../../utils/authSession';
@@ -32,8 +34,16 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [timeoutWarning, setTimeoutWarning] = useState(false);
+  const loginAbortController = useRef<AbortController | null>(null);
+  const loginTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getLoginErrorMessage = (error: any) => {
+    // Handle abort/timeout errors
+    if (error?.name === 'AbortError' || error?.message?.includes('timeout') || error?.code === 'ECONNABORTED') {
+      return 'Login request took too long. Please check your internet connection and try again.';
+    }
+
     const status = error?.response?.status;
     const apiMessage = formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.response?.data?.error);
 
@@ -50,31 +60,102 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     return apiMessage || error?.message || 'Login failed. Please try again.';
   };
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (loginTimeoutRef.current) {
+        clearTimeout(loginTimeoutRef.current);
+      }
+      if (loginAbortController.current) {
+        loginAbortController.current.abort();
+      }
+    };
+  }, []);
+
+  const cancelLogin = () => {
+    if (loginAbortController.current) {
+      console.log('[LoginScreen] User cancelled login request');
+      loginAbortController.current.abort();
+    }
+    if (loginTimeoutRef.current) {
+      clearTimeout(loginTimeoutRef.current);
+    }
+    setLoading(false);
+    setTimeoutWarning(false);
+  };
+
   const handleLogin = async () => {
     if (!schoolId || !username || !password) {
       Alert.alert('Required', 'Please enter school code, username and password');
       return;
     }
 
+    Keyboard.dismiss();
     setLoading(true);
+    setTimeoutWarning(false);
+
+    // Create a fresh abort controller for this login attempt
+    const abortController = new AbortController();
+    loginAbortController.current = abortController;
+
+    // Set a 15-second timeout for the login request
+    const timeoutId = setTimeout(() => {
+      if (!abortController.signal.aborted) {
+        console.warn('[LoginScreen] Login request timeout after 15 seconds');
+        setTimeoutWarning(true);
+        // Show the warning but don't abort yet - give user chance to see the cancel button
+        // If they don't cancel in 3 more seconds, abort
+        const finalAbortTimeout = setTimeout(() => {
+          if (!abortController.signal.aborted) {
+            console.error('[LoginScreen] Aborting login request');
+            abortController.abort();
+          }
+        }, 3000);
+        loginTimeoutRef.current = finalAbortTimeout;
+      }
+    }, 15000);
+
+    loginTimeoutRef.current = timeoutId;
+
     try {
+      console.log('[LoginScreen] Starting login with abort signal');
       const schoolCode = schoolId.trim();
-      const normalized = await authService.login(schoolCode, username.trim(), password);
+      
+      // Pass abort signal to authService for proper cancellation
+      const normalized = await authService.login(schoolCode, username.trim(), password, 'student', abortController.signal);
 
-      // Use the helper to ensure consistent storage
-      await setSessionData(normalized);
+      // Only proceed if not aborted
+      if (!abortController.signal.aborted) {
+        // Clear any pending timeouts
+        if (loginTimeoutRef.current) {
+          clearTimeout(loginTimeoutRef.current);
+        }
 
-      setAuthToken(normalized.token || '');
-      signIn(
-        normalized.role,
-        normalized.user?.name || username,
-        normalized.token || '',
-        normalized.user?.isClassTeacher ?? false
-      );
+        // Use the helper to ensure consistent storage
+        await setSessionData(normalized);
+        setAuthToken(normalized.token || '');
+        signIn(
+          normalized.role,
+          normalized.user?.name || username,
+          normalized.token || '',
+          normalized.user?.isClassTeacher ?? false
+        );
+      }
     } catch (err: any) {
-      Alert.alert('Login Failed', getLoginErrorMessage(err));
+      // Clear timeout on error
+      if (loginTimeoutRef.current) {
+        clearTimeout(loginTimeoutRef.current);
+      }
+
+      // Don't show error if user cancelled
+      if (err?.name !== 'AbortError' && !abortController.signal.aborted) {
+        Alert.alert('Login Failed', getLoginErrorMessage(err));
+      }
     } finally {
-      setLoading(false);
+      if (!abortController.signal.aborted) {
+        setLoading(false);
+        setTimeoutWarning(false);
+      }
     }
   };
 
@@ -110,7 +191,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               autoCapitalize="characters"
             />
             <AppInput
-              label="EMAIL / EMPLOYEE ID"
+              label="EMAIL / EMPLOYEE ID / STUDENT ID"
               placeholder="user@school.com or EMP12345"
               value={username}
               onChangeText={setUsername}
@@ -131,6 +212,29 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               disabled={loading}
               style={styles.signInButton}
             />
+
+            <View style={styles.statusSlot}>
+              {timeoutWarning && (
+                <View style={styles.timeoutWarningContainer}>
+                  <Text style={styles.timeoutWarningText}>
+                    Login is taking longer than expected. This might be a network issue.
+                  </Text>
+                  <AppButton
+                    title="Cancel"
+                    type="danger"
+                    onPress={cancelLogin}
+                    style={styles.cancelButton}
+                  />
+                </View>
+              )}
+
+              {loading && !timeoutWarning && (
+                <View style={styles.loadingIndicatorContainer}>
+                  <ActivityIndicator size="small" color={colors.accent} />
+                  <Text style={styles.loadingText}>Verifying credentials...</Text>
+                </View>
+              )}
+            </View>
 
             <View style={styles.footerRowCentered}>
               <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
@@ -219,6 +323,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563EB',
     marginTop: 24,
   },
+  statusSlot: {
+    minHeight: 58,
+    justifyContent: 'center',
+  },
   forgotPasswordContainer: {
     marginTop: 16,
     alignItems: 'center',
@@ -261,5 +369,37 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     fontSize: 14,
     color: '#94A3B8',
+  },
+  timeoutWarningContainer: {
+    marginTop: 12,
+    padding: 14,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F59E0B',
+  },
+  timeoutWarningText: {
+    fontSize: 13,
+    color: '#92400E',
+    fontWeight: '500',
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  cancelButton: {
+    height: 44,
+    borderRadius: 10,
+  },
+  loadingIndicatorContainer: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748B',
+    marginLeft: 10,
+    fontWeight: '500',
   },
 });

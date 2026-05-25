@@ -192,16 +192,39 @@ export default function StudentFeeScreen({ navigation }: any) {
       const data = await downloadReceipt(paymentId);
 
       const fileName = `Receipt_${receiptNo || paymentId}.pdf`;
-      const filePath = `${RNFS.CachesDirectoryPath}/${fileName}`;
+      const filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
 
-      const base64Data = Buffer.from(data).toString('base64');
+      // Ensure robust conversion from ArrayBuffer to base64
+      let base64Data: string;
+      try {
+        if (data instanceof ArrayBuffer) {
+          base64Data = Buffer.from(new Uint8Array(data)).toString('base64');
+        } else {
+          base64Data = Buffer.from(data).toString('base64');
+        }
+      } catch (convErr) {
+        // Fallback: attempt generic Buffer conversion
+        base64Data = Buffer.from(data as any).toString('base64');
+      }
+
       await RNFS.writeFile(filePath, base64Data, 'base64');
+      const exists = await RNFS.exists(filePath);
+      if (!exists) throw new Error('Written file not found');
 
-      await Share.open({
-        url: `file://${filePath}`,
-        type: 'application/pdf',
-        title: 'Payment Receipt',
-      });
+      try {
+        await Share.open({
+          url: Platform.OS === 'android' ? `file://${filePath}` : filePath,
+          type: 'application/pdf',
+          title: 'Payment Receipt',
+        });
+      } catch (shareErr: any) {
+        const m = String(shareErr?.message || '').toLowerCase();
+        if (m.includes('user did not share') || m.includes('cancel')) {
+          // user cancelled share - silently ignore
+        } else {
+          throw shareErr;
+        }
+      }
     } catch (error: any) {
       console.error('Download error:', error);
       Alert.alert('Error', 'Failed to download receipt. Please try again later.');

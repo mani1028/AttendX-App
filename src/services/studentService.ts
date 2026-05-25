@@ -32,10 +32,11 @@ const EXAM_LIST_ENDPOINTS = [
   'student-dashboard/marks/exams'
 ];
 const PROFILE_PHOTO_ENDPOINT = 'profile-photo/student';
-const QUESTION_PAPER_ENDPOINTS = ['student/question-papers'];
-const EXAM_TYPES_ENDPOINTS = ['student/question-papers/exam-types'];
-const SCHOOL_HOLIDAYS_ENDPOINTS = ['student/school-holidays'];
-const STUDENT_REGISTER_REQUEST_ENDPOINTS = ['student/register-request'];
+// Prefer the canonical `student` endpoints first (some backends expose these).
+const QUESTION_PAPER_ENDPOINTS = ['student/question-papers', 'student-dashboard/question-papers', 'student-dashboard/papers'];
+const EXAM_TYPES_ENDPOINTS = ['student/question-papers/exam-types', 'student-dashboard/question-papers/exam-types', 'student-dashboard/papers/exam-types'];
+const SCHOOL_HOLIDAYS_ENDPOINTS = ['student-dashboard/school-holidays', 'student/school-holidays'];
+const STUDENT_REGISTER_REQUEST_ENDPOINTS = ['student-dashboard/register-request', 'student/register-request'];
 const LEAVE_TEACHERS_ENDPOINTS = ['student-dashboard/teachers-for-leave'];
 const LEAVE_REQUESTS_ENDPOINTS = ['student-dashboard/leave-requests'];
 const SUBJECTS_ENDPOINTS = ['student-dashboard/subjects'];
@@ -89,6 +90,18 @@ function normalizePhotoSource(value: unknown): string | null {
     photo.startsWith('content://')
   ) {
     return photo;
+  }
+
+  // Backend sometimes returns relative media paths (e.g. /api/profile-photo/student/123).
+  // React Native Image requires absolute URLs for remote images.
+  if (photo.startsWith('/')) {
+    return buildApiUrl(photo);
+  }
+  if (photo.toLowerCase().startsWith('api/')) {
+    return buildApiUrl(`/${photo}`);
+  }
+  if (/^(profile-photo|uploads?|media|storage|images?)\//i.test(photo)) {
+    return buildApiUrl(`/${photo}`);
   }
 
   const lower = photo.toLowerCase();
@@ -161,6 +174,105 @@ function normalizeAttendanceItem(item: Record<string, any>): Record<string, any>
   };
 }
 
+function hasMarkFields(value: Record<string, any>): boolean {
+  const subject = toText(firstDefined(value.subject_name, value.subject, value.name, value.subjectName), '').trim();
+  const hasScoreField =
+    firstDefined(
+      value.marks_obtained,
+      value.obtained_marks,
+      value.score,
+      value.marks,
+      value.max_marks,
+      value.total_marks,
+      value.pass_marks,
+    ) !== undefined;
+
+  return Boolean(subject) || hasScoreField;
+}
+
+function normalizeMarkItem(item: Record<string, any>, index: number): Record<string, any> {
+  const maxMarks = toNumber(firstDefined(item.max_marks, item.total_marks, item.maximum_marks, item.maxMarks), 0);
+  const passMarks = toNumber(firstDefined(item.pass_marks, item.minimum_pass_marks, item.passMarks), 0);
+  const marksObtained = toNumber(firstDefined(item.marks_obtained, item.obtained_marks, item.score, item.marks), 0);
+  const computedResult = marksObtained >= passMarks ? 'PASS' : 'FAIL';
+
+  return {
+    ...item,
+    mark_id: toText(firstDefined(item.mark_id, item.id, item.subject_id, item.subjectId), `mark-${index}`),
+    subject_name: toText(firstDefined(item.subject_name, item.subject, item.name, item.subjectName), 'Subject'),
+    max_marks: maxMarks,
+    pass_marks: passMarks,
+    marks_obtained: marksObtained,
+    grade: toText(firstDefined(item.grade, item.letter_grade, item.grade_letter), ''),
+    result_status: toText(firstDefined(item.result_status, item.result, item.status), computedResult).toUpperCase(),
+    remarks: toText(firstDefined(item.remarks, item.comment, item.note), ''),
+  };
+}
+
+function extractMarkItems(responseData: any): Record<string, any>[] {
+  const root = asRecord(responseData);
+  const dataRoot = asRecord(root.data);
+
+  const directCandidates: unknown[] = [
+    responseData,
+    root.items,
+    root.subjects,
+    root.results,
+    root.marks,
+    root.marks_data,
+    root.marks_details,
+    root.subject_wise_results,
+    root.subject_results,
+    root.exam_subjects,
+    dataRoot.items,
+    dataRoot.subjects,
+    dataRoot.results,
+    dataRoot.marks,
+    dataRoot.marks_data,
+    dataRoot.marks_details,
+    dataRoot.subject_wise_results,
+    dataRoot.subject_results,
+    dataRoot.exam_subjects,
+  ];
+
+  const collected: Record<string, any>[] = [];
+
+  for (const candidate of directCandidates) {
+    if (!Array.isArray(candidate)) continue;
+
+    for (const entry of candidate) {
+      const record = asRecord(entry);
+      if (hasMarkFields(record)) {
+        collected.push(record);
+        continue;
+      }
+
+      const nestedArrays: unknown[] = [
+        record.items,
+        record.subjects,
+        record.results,
+        record.marks,
+        record.marks_data,
+        record.marks_details,
+        record.subject_wise_results,
+        record.subject_results,
+      ];
+
+      for (const nested of nestedArrays) {
+        if (!Array.isArray(nested)) continue;
+        for (const nestedEntry of nested) {
+          const nestedRecord = asRecord(nestedEntry);
+          if (hasMarkFields(nestedRecord)) {
+            collected.push(nestedRecord);
+          }
+        }
+      }
+    }
+  }
+
+  return collected;
+}
+
 function isHolidayAttendanceItem(item: Record<string, any>): boolean {
   const status = normalizeAttendanceStatus(item.status);
   if (status === 'HOLIDAY' || status === 'SUNDAY_HOLIDAY') return true;
@@ -179,15 +291,31 @@ function isHolidayAttendanceItem(item: Record<string, any>): boolean {
  */
 async function getFirstSuccessful<T>(endpoints: string[], additionalParams: any = {}) {
   const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
-  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+  let branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
   const studentId = await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('studentId');
   const perEndpointTimeoutMs = 15000;
+
+  // Normalize numeric branch IDs (e.g. "01" -> "1") to avoid strict DB matches
+  try {
+    if (typeof branchId === 'string' && /^\d+$/.test(branchId)) {
+      branchId = String(Number(branchId));
+    }
+  } catch (e) {
+    // ignore normalization errors and keep original branchId
+  }
+
+  // Special flag: additionalParams.__omitBranch -> omit X-Branch-Id header and branch_id param
+  const omitBranch = Boolean(additionalParams && additionalParams.__omitBranch);
+  if (omitBranch && additionalParams && typeof additionalParams === 'object') {
+    // remove the internal flag so it is not sent to the backend
+    delete additionalParams.__omitBranch;
+  }
 
   for (const endpoint of endpoints) {
     try {
       const headers = {
         'X-School-Code': schoolCode || undefined,
-        'X-Branch-Id': branchId || undefined,
+        ...(omitBranch ? {} : { 'X-Branch-Id': branchId || undefined }),
         ...(additionalParams && additionalParams.headers ? additionalParams.headers : {}),
       };
 
@@ -196,7 +324,7 @@ async function getFirstSuccessful<T>(endpoints: string[], additionalParams: any 
         params: {
           school_code: schoolCode,
           school_id: schoolCode,
-          branch_id: branchId,
+          ...(omitBranch ? {} : { branch_id: branchId }),
           student_id: studentId,
           ...additionalParams,
         },
@@ -212,7 +340,13 @@ async function getFirstSuccessful<T>(endpoints: string[], additionalParams: any 
         console.error(`[API] Unauthorized access to ${endpoint}. Token might be missing or invalid.`);
         throw error; // Don't try other endpoints if unauthorized
       }
-      console.warn(`[Service] Failed ${endpoint}: ${error.message}`);
+      // 404/405 from a fallback endpoint is expected; skip noisy logs for those
+      const status = error.response?.status;
+      if (status && (status === 404 || status === 405)) {
+        // continue to next endpoint silently
+      } else {
+        console.warn(`[Service] Failed ${endpoint}: ${error.message}`);
+      }
     }
   }
   throw new Error('No backend endpoint responded for this resource.');
@@ -222,13 +356,25 @@ export async function getStudentAttendance(params: any = {}): Promise<Attendance
   try {
     const responseData = (await getFirstSuccessful<any>(ATTENDANCE_ENDPOINTS, params)) as any;
 
+    const summary = asRecord(responseData?.summary || responseData?.data?.summary);
     const data = responseData?.data || responseData?.summary || responseData;
     const items = responseData?.items || responseData?.data?.items || [];
     const normalizedItems = Array.isArray(items)
       ? items.map((item: any) => normalizeAttendanceItem(item))
       : [];
-    const schoolDayItems = normalizedItems.filter((item) => !isHolidayAttendanceItem(item));
 
+    if (Object.keys(summary).length > 0) {
+      return {
+        percentage: toNumber(summary.attendance_percentage ?? summary.percentage),
+        presentDays: toNumber(summary.present_days ?? summary.present),
+        absentDays: toNumber(summary.absent_days ?? summary.absent),
+        halfDays: toNumber(summary.half_days ?? summary.halfDays),
+        totalDays: toNumber(summary.total_days ?? summary.totalDays),
+        items: normalizedItems,
+      };
+    }
+
+    const schoolDayItems = normalizedItems.filter((item) => !isHolidayAttendanceItem(item));
     if (schoolDayItems.length > 0) {
       const presentDays = schoolDayItems.filter((item: any) => item.status === 'PRESENT').length;
       const absentDays = schoolDayItems.filter((item: any) => item.status === 'ABSENT').length;
@@ -236,14 +382,7 @@ export async function getStudentAttendance(params: any = {}): Promise<Attendance
       const halfDayOnly = schoolDayItems.filter((item: any) => item.status === 'HALF_DAY' || item.status === 'HALF DAY').length;
       const total = schoolDayItems.length || 1;
       const percentage = Math.round(((presentDays + lateDays + (halfDayOnly * 0.5)) / total) * 100);
-      return {
-        percentage: responseData.summary?.attendance_percentage ?? percentage,
-        presentDays: responseData.summary?.present_days ?? presentDays,
-        absentDays: responseData.summary?.absent_days ?? absentDays,
-        halfDays: responseData.summary?.half_days ?? responseData.summary?.halfDays ?? (lateDays + halfDayOnly),
-        totalDays: responseData.summary?.total_days ?? responseData.summary?.totalDays ?? total,
-        items: normalizedItems,
-      };
+      return { percentage, presentDays, absentDays, halfDays: lateDays + halfDayOnly, totalDays: total, items: normalizedItems };
     }
 
     const presentDays = toNumber(data.present_days ?? data.present);
@@ -295,25 +434,48 @@ export async function getStudentAttendanceByMonth(month: string, year: string): 
 export async function getStudentMarks(examId?: string): Promise<MarksData & { summary?: any; items?: any[] }> {
   const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
   const studentId = await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('studentId');
+  let resolvedExamId = toText(examId, '').trim();
+
+  if (!resolvedExamId) {
+    const exams = await getStudentExams();
+    const firstExam = Array.isArray(exams) ? exams[0] : undefined;
+    resolvedExamId = toText(
+      firstExam?.exam_id ?? firstExam?.id ?? firstExam?.examId,
+      ''
+    ).trim();
+  }
+
+  if (!resolvedExamId) {
+    console.warn('[Service] getStudentMarks skipped: missing required exam_id.');
+    return { subjects: [], items: [] };
+  }
 
   for (const endpoint of MARKS_ENDPOINTS) {
     try {
       const response = await API.get<any>(endpoint, {
-        params: { school_code: schoolCode, student_id: studentId, exam_id: examId },
+        params: { school_code: schoolCode, student_id: studentId, exam_id: resolvedExamId },
         ...FALLBACK_404_CONFIG,
       } as any);
 
       const responseData = response.data;
-      const list = Array.isArray(responseData) ? responseData :
-                   Array.isArray(responseData?.items) ? responseData.items :
-                   responseData?.subjects ?? responseData?.data?.subjects ?? [];
+      const list = extractMarkItems(responseData).map((item, index) => normalizeMarkItem(item, index));
+      const responseSummary = responseData?.summary || responseData?.data?.summary;
+      const computedSummary = {
+        total_obtained: list.reduce((sum, row) => sum + toNumber(row.marks_obtained, 0), 0),
+        total_max_marks: list.reduce((sum, row) => sum + toNumber(row.max_marks, 0), 0),
+        percentage: 0,
+        overall_result: list.every((row) => String(row.result_status || '').toUpperCase() === 'PASS') ? 'PASS' : 'FAIL',
+      };
+      computedSummary.percentage = computedSummary.total_max_marks > 0
+        ? Number(((computedSummary.total_obtained / computedSummary.total_max_marks) * 100).toFixed(2))
+        : 0;
 
       return {
         subjects: list.map((item: any) => ({
           subject: String(item.subject ?? item.name ?? item.subject_name ?? 'Subject'),
-          score: toNumber(item.score ?? item.marks ?? item.obtained_marks),
+          score: toNumber(item.score ?? item.marks_obtained ?? item.marks ?? item.obtained_marks),
         })),
-        summary: responseData?.summary || responseData?.data?.summary,
+        summary: responseSummary || computedSummary,
         items: list
       };
     } catch (error) {}
@@ -472,7 +634,8 @@ export async function getStudentProfile(): Promise<any> {
       ''
     ).trim();
 
-    if (!studentId && !schoolCode) {
+    // The backend profile route requires both query params; avoid partial requests.
+    if (!studentId || !schoolCode) {
       return storedUser || {};
     }
 
@@ -619,7 +782,7 @@ export async function getProfile(studentId: string, schoolCode: string): Promise
         school_code: schoolCode || undefined,
       },
       headers: { 'X-School-Code': schoolCode || undefined, 'X-Branch-Id': branchId || undefined },
-      timeout: 15000,
+      timeout: 60000,
     });
     const responseData = response.data;
     const root = asRecord(responseData);
@@ -665,7 +828,9 @@ export async function getProfile(studentId: string, schoolCode: string): Promise
 }
 
 export async function getQuestionPapers(params?: any): Promise<any> {
-  const data = await getFirstSuccessful<any>(QUESTION_PAPER_ENDPOINTS, params);
+  // Include branch headers/params by default; backend may require X-Branch-Id for question papers
+  const requestParams = { ...(params || {}) };
+  const data = await getFirstSuccessful<any>(QUESTION_PAPER_ENDPOINTS, requestParams);
   const root = asRecord(data);
   const wrapped = asRecord(firstDefined(root.data, root.result));
 
@@ -682,16 +847,57 @@ export async function getQuestionPapers(params?: any): Promise<any> {
     (Array.isArray(wrapped.question_papers_by_subject) && wrapped.question_papers_by_subject) ||
     [];
 
+  // Normalize subjects and papers to expected frontend shape
+  const normalizedSubjects = (subjects || []).map((sub: any) => {
+    const s = asRecord(sub);
+    const subjectId = toText(firstDefined(s.subject_id, s.id, s.subjectId, s.subjectCode), '').trim();
+    const subjectName = toText(firstDefined(s.subject_name, s.name, s.subjectName), '').trim() || toText(firstDefined(s.subject, s.title), '');
+
+    const rawPapers = Array.isArray(s.papers)
+      ? s.papers
+      : Array.isArray(s.items)
+      ? s.items
+      : Array.isArray(s.question_papers)
+      ? s.question_papers
+      : Array.isArray(s.papers_list)
+      ? s.papers_list
+      : [];
+
+    const papers = rawPapers.map((p: any) => {
+      const paper = asRecord(p);
+      return {
+        paper_id: toText(firstDefined(paper.paper_id, paper.id, paper.paperId), ''),
+        title: toText(firstDefined(paper.title, paper.name), ''),
+        exam_type: toText(firstDefined(paper.exam_type, paper.type, paper.examType), ''),
+        teacher_name: toText(firstDefined(paper.teacher_name, paper.author, paper.uploaded_by, paper.teacherName), ''),
+        created_at: toText(firstDefined(paper.created_at, paper.uploaded_at, paper.date, paper.createdAt), ''),
+        class_name: toText(firstDefined(paper.class_name, paper.className, paper.class), ''),
+        section_name: toText(firstDefined(paper.section_name, paper.sectionName, paper.section), ''),
+        file_size: toNumber(firstDefined(paper.file_size, paper.size, paper.fileSize), 0),
+        file_type: toText(firstDefined(paper.file_type, paper.mime_type, paper.fileType), ''),
+        // keep original raw for any extra fields
+        raw: paper,
+      };
+    });
+
+    return {
+      subject_id: subjectId || String(subjectName),
+      subject_name: subjectName || subjectId,
+      subject_code: toText(firstDefined(s.subject_code, s.code, s.subjectCode), ''),
+      papers,
+    };
+  });
+
   return {
     ...root,
     data: wrapped,
-    subjects,
+    subjects: normalizedSubjects,
   };
 }
 
 export async function getExamTypes(): Promise<any> {
   try {
-    const data = await getFirstSuccessful<any>(EXAM_TYPES_ENDPOINTS);
+    const data = await getFirstSuccessful<any>(EXAM_TYPES_ENDPOINTS, { __omitBranch: true });
     const root = asRecord(data);
     const wrapped = asRecord(firstDefined(root.data, root.result));
     const examTypes = firstNonEmptyStringArray(
@@ -735,11 +941,132 @@ export async function getExamTypes(): Promise<any> {
 }
 
 export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffer> {
-  const endpoint = `student/question-papers/${encodeURIComponent(paperId)}/download`;
-  const response = await API.get<ArrayBuffer>(endpoint, {
-    responseType: 'arraybuffer',
-  });
-  return response.data;
+  const encodedPaperId = encodeURIComponent(paperId);
+  const endpoints = [
+    `student/question-papers/${encodedPaperId}/download`,
+    `student-dashboard/question-papers/${encodedPaperId}/download`,
+  ];
+  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
+  let branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+
+  try {
+    if (typeof branchId === 'string' && /^\d+$/.test(branchId)) {
+      branchId = String(Number(branchId));
+    }
+  } catch (e) {}
+
+  for (const endpoint of endpoints) {
+    try {
+      console.log('[Service] downloadQuestionPaper trying (arraybuffer) ->', endpoint);
+      const response = await API.get<ArrayBuffer>(endpoint, {
+        responseType: 'arraybuffer',
+        params: {
+          school_code: schoolCode,
+        },
+        headers: {
+          'X-School-Code': schoolCode || undefined,
+          'X-Branch-Id': branchId || undefined,
+        },
+        ...FALLBACK_404_CONFIG,
+      } as any);
+
+      console.log('[Service] downloadQuestionPaper response headers:', (response.headers || {}));
+      if (response && response.data) {
+        return response.data;
+      }
+    } catch (error: any) {
+      const status = error?.response?.status;
+      console.warn('[Service] downloadQuestionPaper arraybuffer attempt failed for', endpoint, 'status=', status, 'message=', error?.message);
+      if (status !== 404 && status !== 405 && error?.code !== 'ERR_NETWORK') {
+        throw error;
+      }
+      // otherwise continue to next endpoint
+    }
+  }
+
+  // Fallback: some deployments return JSON with base64-encoded PDF data or a remote URL.
+  for (const endpoint of endpoints) {
+    try {
+      console.log('[Service] downloadQuestionPaper trying (json/base64/url) ->', endpoint);
+      const resp = await API.get<any>(endpoint, {
+        params: { school_code: schoolCode, branch_id: branchId },
+        headers: {
+          'X-School-Code': schoolCode || undefined,
+          'X-Branch-Id': branchId || undefined,
+          // underscored header fallbacks
+          'x_school_code': schoolCode || undefined,
+          'x_branch_id': branchId || undefined,
+        },
+        ...FALLBACK_404_CONFIG,
+      } as any);
+
+      console.log('[Service] downloadQuestionPaper fallback response status=', resp.status, 'headers=', (resp.headers || {}));
+      const data = resp.data;
+
+      // If server returned a direct base64 string
+      if (typeof data === 'string') {
+        const candidateStr = data.trim();
+        if (/^[A-Za-z0-9+\/=_\r\n-]+$/.test(candidateStr)) {
+          const base64 = candidateStr.replace(/\r|\n/g, '');
+          try {
+            const buf = (globalThis as any).Buffer?.from(base64, 'base64');
+            if (buf) return buf.buffer as ArrayBuffer;
+          } catch (e) {
+            // try browser-friendly conversion
+            try {
+              const binaryString = (globalThis as any).atob ? (globalThis as any).atob(base64) : undefined;
+              if (binaryString) {
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+                return bytes.buffer as ArrayBuffer;
+              }
+            } catch (e2) {}
+          }
+        }
+      }
+
+      // If server returned JSON with known fields
+      const candidate = data?.base64 || data?.file || data?.data || data?.payload || data?.pdf || data?.file_data;
+      if (candidate && typeof candidate === 'string') {
+        const base64 = String(candidate).replace(/\r|\n/g, '');
+        try {
+          const buf = (globalThis as any).Buffer?.from(base64, 'base64');
+          if (buf) return buf.buffer as ArrayBuffer;
+        } catch (e) {
+          try {
+            const binaryString = (globalThis as any).atob ? (globalThis as any).atob(base64) : undefined;
+            if (binaryString) {
+              const len = binaryString.length;
+              const bytes = new Uint8Array(len);
+              for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+              return bytes.buffer as ArrayBuffer;
+            }
+          } catch (e2) {}
+        }
+      }
+
+      // If server returned a remote URL to fetch
+      const remoteUrl = data?.url || data?.file_url || data?.download_url;
+      if (remoteUrl && typeof remoteUrl === 'string') {
+        try {
+          console.log('[Service] downloadQuestionPaper fetching remote url ->', remoteUrl);
+          const remoteResp = await API.get<ArrayBuffer>(remoteUrl, { responseType: 'arraybuffer' } as any);
+          return remoteResp.data;
+        } catch (e) {
+          console.warn('[Service] downloadQuestionPaper remote fetch failed', e?.message || e);
+        }
+      }
+    } catch (err: any) {
+      const status = err?.response?.status;
+      console.warn('[Service] downloadQuestionPaper fallback attempt failed for', endpoint, 'status=', status, 'err=', err?.message || err);
+      if (status && status !== 404 && status !== 405) {
+        // continue to next
+      }
+    }
+  }
+
+  throw new Error('Could not download question paper from any known endpoint.');
 }
 
 export async function getTeachersForLeave(): Promise<any[]> {
@@ -790,8 +1117,23 @@ export async function getSubjects(): Promise<any[]> {
 
 export async function getHomework(params: any): Promise<any[]> {
   try {
-    const data = await getFirstSuccessful<any>(HOMEWORK_ENDPOINTS, params);
-    return data?.items || data?.homework || (Array.isArray(data) ? data : []);
+    // Normalize assigned_date to YYYY-MM-DD if present (backend expects a date)
+    const normalizedParams = { ...(params || {}) };
+    if (normalizedParams.assigned_date) {
+      const v = normalizedParams.assigned_date;
+      try {
+        if (v instanceof Date) {
+          normalizedParams.assigned_date = v.toISOString().split('T')[0];
+        } else if (typeof v === 'string') {
+          normalizedParams.assigned_date = v.slice(0, 10);
+        }
+      } catch (e) {
+        // leave as-is if normalization fails
+      }
+    }
+
+    const data = await getFirstSuccessful<any>(HOMEWORK_ENDPOINTS, normalizedParams);
+    return data?.items || data?.homework || data?.data?.items || (Array.isArray(data) ? data : []);
   } catch (error) {
     return [];
   }
@@ -807,12 +1149,23 @@ export async function getSchoolHolidays(params: any = {}): Promise<any[]> {
 }
 
 export async function submitStudentRegisterRequest(formData: FormData): Promise<any> {
-  const response = await API.post('student/register-request', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-  return response.data;
+  for (const endpoint of STUDENT_REGISTER_REQUEST_ENDPOINTS) {
+    try {
+      const response = await API.post(endpoint, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        ...FALLBACK_404_CONFIG,
+      } as any);
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status !== 404) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error('Could not submit student register request.');
 }
 
 export async function sendOtp(emailId: string): Promise<any> {

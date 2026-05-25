@@ -691,7 +691,7 @@ export default function HMTeacherAssignmentsScreen() {
                 onPress={() => saveClassTeacher('keep_both')}
                 disabled={classTeacherSaving}
               >
-                <AppText style={styles.btnOutlineText} weight="bold">Assign Both</AppText>
+                <AppText style={styles.btnOutlineText} weight="bold">Assign For ALL</AppText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.btnPrimary}
