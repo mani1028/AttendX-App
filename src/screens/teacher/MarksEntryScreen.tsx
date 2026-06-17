@@ -41,7 +41,8 @@ import {
 import API from '../../services/api';
 import { formatErrorMessage } from '../../utils/helpers';
 import { colors } from '../../constants/theme';
-import HM_THEME from '../../constants/hmTheme';
+import { Director_THEME } from '../../constants/directorTheme';
+import { Theme } from '../../theme/theme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
@@ -115,6 +116,10 @@ const getTeacherId = async (): Promise<string> => {
 
 // grading removed: grade UI intentionally omitted
 
+const validateDecimalWithHalfStep = (value: string) => {
+  return /^(0|[1-9]\d*)(\.[5]?)?$/.test(value);
+};
+
 // Roll Tag Component
 const RollTag: React.FC<{ roll: string }> = ({ roll }) => (
   <View style={styles.rollTag}>
@@ -138,7 +143,7 @@ const StudentRow: React.FC<{
           <RollTag roll={student.roll_number} />
           <AppText weight="bold" style={styles.studentName} numberOfLines={1}>{student.student_full_name}</AppText>
         </View>
-        <AppText weight="semiBold" style={styles.studentId}>ID: {student.student_id}</AppText>
+        <AppText weight="semibold" style={styles.studentId}>ID: {student.student_id}</AppText>
       </View>
 
       <View style={styles.actionCol}>
@@ -527,9 +532,13 @@ export default function MarksEntryScreen() {
 
       if (isMounted.current) setLoadingClasses(true);
       try {
-        const res = await API.get('/teacher/marks/teacher-context', {
-          params: { teacher_id: teacherId },
-          headers: { 'x-school-code': schoolCode },
+        const res = await API.get('/staff/marks/staff-context', {
+          params: {
+            school_code: schoolCode,
+            branch_id: branchId,
+            teacher_id: teacherId,
+            employee_id: teacherId,
+          },
         });
         
         if (!isMounted.current) return;
@@ -547,8 +556,11 @@ export default function MarksEntryScreen() {
         const uniqueClasses = Array.from(
           new Map(
             rawAssignments
-              .filter((a: any) => a?.class_id && a?.class_name)
-              .map((a: any) => [String(a.class_name).trim().toLowerCase(), { class_id: String(a.class_id), class_name: a.class_name }])
+              .filter((a: any) => a?.class_id && (a?.class_name || a?.class_grade))
+              .map((a: any) => {
+                const name = String(a?.class_name || a?.class_grade || '').trim();
+                return [name.toLowerCase(), { class_id: String(a.class_id), class_name: name }];
+              })
           ).values()
         ) as ClassItem[];
         setClasses(uniqueClasses);
@@ -611,7 +623,7 @@ export default function MarksEntryScreen() {
     const assignmentsArray = Array.isArray(teacherAssignments) ? teacherAssignments.filter(Boolean) : [];
     const sectionsData = assignmentsArray
       .filter(a => String(a?.class_id) === String(classId))
-      .map(a => ({ section_id: String(a?.section_id), section_name: a?.section_name }))
+      .map(a => ({ section_id: String(a?.section_id), section_name: String(a?.section_name || a?.section || '') }))
       .filter(a => a.section_id && a.section_name);
     const uniqueSections = Array.from(new Map(sectionsData.map(x => [String(x.section_id), x])).values()) as SectionItem[];
     setSections(uniqueSections);
@@ -798,14 +810,32 @@ export default function MarksEntryScreen() {
   };
 
   const handleMarksChange = (studentId: string, value: string) => {
+    if (value === '') {
+      setStudents(prev =>
+        prev.map(s => {
+          if (s.student_id !== studentId) return s;
+          if (s.isAbsent) return s;
+          return { ...s, marks_obtained: value };
+        })
+      );
+      return;
+    }
+
+    const validFormat = validateDecimalWithHalfStep(value);
+    if (!validFormat) return;
+
+    if (!value.endsWith('.')) {
+      const numValue = parseFloat(value);
+      if (inputMaxMarks) {
+        const maxValue = parseFloat(inputMaxMarks);
+        if (numValue < 0 || numValue > maxValue) return;
+      }
+    }
+
     setStudents(prev =>
       prev.map(s => {
         if (s.student_id !== studentId) return s;
         if (s.isAbsent) return s;
-        if (inputMaxMarks && value !== '') {
-          const num = parseFloat(value);
-          if (num < 0 || num > parseFloat(inputMaxMarks)) return s;
-        }
         return { ...s, marks_obtained: value };
       })
     );
@@ -814,6 +844,16 @@ export default function MarksEntryScreen() {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = setTimeout(() => triggerAutoSave(), 2000);
     }
+  };
+
+  const handleMaxMarksChange = (value: string) => {
+    if (value === '') { setInputMaxMarks(''); return; }
+    if (validateDecimalWithHalfStep(value)) setInputMaxMarks(value);
+  };
+
+  const handlePassMarksChange = (value: string) => {
+    if (value === '') { setInputPassMarks(''); return; }
+    if (validateDecimalWithHalfStep(value)) setInputPassMarks(value);
   };
 
   const saveMarks = async (silent = false) => {
@@ -911,8 +951,8 @@ export default function MarksEntryScreen() {
     }
 
     // Basic client-side validation
-    const max = parseInt(String(inputMaxMarks || '').trim(), 10);
-    const pass = parseInt(String(inputPassMarks || '').trim(), 10);
+    const max = parseFloat(String(inputMaxMarks || '').trim());
+    const pass = parseFloat(String(inputPassMarks || '').trim());
     if (Number.isNaN(max) || Number.isNaN(pass) || max <= 0 || pass < 0) {
       Alert.alert('Error', 'Total Marks and Pass Marks must be valid positive numbers');
       return;
@@ -1044,13 +1084,13 @@ export default function MarksEntryScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={HM_THEME.navy} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Director_THEME.navy} />}
       >
         {/* Navy Standard Header */}
         <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
@@ -1071,13 +1111,13 @@ export default function MarksEntryScreen() {
         </View>
 
         {/* Filter Card */}
-        <AppCard style={styles.mainCard}>
+        <AppCard style={styles.mainCard} elevated={false}>
           <View style={styles.selectionRow}>
             <View style={[styles.selectionField, { marginRight: 10 }]}>
               <AppText weight="bold" style={styles.selectionLabel}>Class</AppText>
               <TouchableOpacity style={styles.selectionDropdown} onPress={() => openInlinePicker('class')}>
                 <Users size={18} color="#64748B" style={{ marginRight: 8 }} />
-                <AppText weight="semiBold" style={styles.selectionDropdownText} numberOfLines={1}>
+                <AppText weight="semibold" style={styles.selectionDropdownText} numberOfLines={1}>
                   {classId ? `Class ${classes.find(c => c.class_id === classId)?.class_name || classId}` : 'Select Class'}
                 </AppText>
                 <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
@@ -1095,7 +1135,7 @@ export default function MarksEntryScreen() {
                 disabled={!classId}
               >
                 <LayoutGrid size={18} color="#64748B" style={{ marginRight: 8 }} />
-                <AppText weight="semiBold" style={styles.selectionDropdownText} numberOfLines={1}>
+                <AppText weight="semibold" style={styles.selectionDropdownText} numberOfLines={1}>
                   {sectionId ? `Section ${sections.find(s => s.section_id === sectionId)?.section_name || sectionId}` : 'Select Section'}
                 </AppText>
                 <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
@@ -1111,7 +1151,7 @@ export default function MarksEntryScreen() {
               <AppText weight="bold" style={styles.selectionLabel}>Exam</AppText>
               <TouchableOpacity style={styles.selectionDropdown} onPress={() => openInlinePicker('exam')}>
                 <ClipboardList size={18} color="#64748B" style={{ marginRight: 8 }} />
-                <AppText weight="semiBold" style={styles.selectionDropdownText} numberOfLines={1}>
+                <AppText weight="semibold" style={styles.selectionDropdownText} numberOfLines={1}>
                   {examId ? exams.find(e => e.exam_id === examId)?.exam_name || examId : 'Select Exam'}
                 </AppText>
                 <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
@@ -1129,7 +1169,7 @@ export default function MarksEntryScreen() {
                 disabled={!classId}
               >
                 <BookOpen size={18} color="#64748B" style={{ marginRight: 8 }} />
-                <AppText weight="semiBold" style={styles.selectionDropdownText} numberOfLines={1}>
+                <AppText weight="semibold" style={styles.selectionDropdownText} numberOfLines={1}>
                   {subjectId ? subjects.find(s => s.subject_id === subjectId)?.subject_name || subjectId : 'Select Subject'}
                 </AppText>
                 <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
@@ -1150,10 +1190,10 @@ export default function MarksEntryScreen() {
 
         {/* Exam Config Card */}
         {examId && subjectId && (
-          <AppCard style={styles.configCard}>
+          <AppCard style={styles.configCard} elevated={false}>
             <View style={styles.configHeader}>
               <View style={styles.configTitleRow}>
-                <Settings size={18} color={HM_THEME.navy} />
+                <Settings size={18} color={Theme.colors.primary} />
                 <AppText weight="bold" style={styles.configTitle}>Exam Rules</AppText>
               </View>
               {examSubjectId && !isEditMode && (
@@ -1168,23 +1208,23 @@ export default function MarksEntryScreen() {
               <View style={styles.configForm}>
                 <View style={styles.configRow}>
                   <View style={styles.configInputGroup}>
-                    <AppText weight="semiBold" style={styles.configLabel}>Total Marks</AppText>
+                    <AppText weight="semibold" style={styles.configLabel}>Total Marks</AppText>
                     <TextInput
                       style={styles.configInput}
                       placeholder="e.g. 100"
                       keyboardType="numeric"
                       value={inputMaxMarks}
-                      onChangeText={setInputMaxMarks}
+                      onChangeText={handleMaxMarksChange}
                     />
                   </View>
                   <View style={styles.configInputGroup}>
-                    <AppText weight="semiBold" style={styles.configLabel}>Pass Marks</AppText>
+                    <AppText weight="semibold" style={styles.configLabel}>Pass Marks</AppText>
                     <TextInput
                       style={styles.configInput}
                       placeholder="e.g. 33"
                       keyboardType="numeric"
                       value={inputPassMarks}
-                      onChangeText={setInputPassMarks}
+                      onChangeText={handlePassMarksChange}
                     />
                   </View>
                 </View>
@@ -1206,7 +1246,7 @@ export default function MarksEntryScreen() {
                   <AppText weight="bold" style={styles.configItemValue}>{inputPassMarks}</AppText>
                 </View>
                 <TouchableOpacity style={styles.editConfigBtn} onPress={() => setIsEditMode(true)}>
-                  <RefreshCw size={16} color="#01060e" />
+                  <RefreshCw size={16} color={Theme.colors.text} />
                 </TouchableOpacity>
               </View>
             )}
@@ -1251,12 +1291,12 @@ export default function MarksEntryScreen() {
 
             <View style={styles.secondaryActions}>
               <TouchableOpacity style={styles.secondaryBtn} onPress={() => loadStudents(true)}>
-                <RefreshCw size={16} color={HM_THEME.navy} />
-                <AppText weight="semiBold" style={styles.secondaryBtnText}>Refresh</AppText>
+                <RefreshCw size={16} color={Theme.colors.primary} />
+                <AppText weight="semibold" style={styles.secondaryBtnText}>Refresh</AppText>
               </TouchableOpacity>
               <TouchableOpacity style={styles.secondaryBtn} onPress={exportToCSV}>
-                <Download size={16} color={HM_THEME.navy} />
-                <AppText weight="semiBold" style={styles.secondaryBtnText}>Export</AppText>
+                <Download size={16} color={Theme.colors.primary} />
+                <AppText weight="semibold" style={styles.secondaryBtnText}>Export</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -1266,18 +1306,18 @@ export default function MarksEntryScreen() {
         {loadingStudents ? (
           <View style={{ marginTop: 40 }}><Loader /></View>
         ) : students.length === 0 ? (
-          <AppCard style={styles.emptyCard}>
-            <Search size={48} color="#cbd5e1" />
+          <AppCard style={styles.emptyCard} elevated={false}>
+            <Search size={80} color="#e2e8f0" strokeWidth={1.5} />
             <AppText weight="bold" style={styles.emptyTitle}>Ready to grade?</AppText>
             <AppText weight="regular" style={styles.emptyText}>
               Configure filters and exam rules above to load the student list.
             </AppText>
-            <AppButton
-              title="Select Filters"
-              type="secondary"
+            <TouchableOpacity
+              style={styles.emptyButton}
               onPress={() => openInlinePicker('class')}
-              style={{ marginTop: 16 }}
-            />
+            >
+              <AppText weight="bold" style={styles.emptyButtonText}>Select Filters</AppText>
+            </TouchableOpacity>
           </AppCard>
         ) : (
           <View style={styles.listWrapper}>
@@ -1311,48 +1351,47 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   headerStandard: {
-    backgroundColor: HM_THEME.navy,
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    backgroundColor: Theme.colors.primary,
+    paddingHorizontal: 24,
+    paddingBottom: 110,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     ...Platform.select({
-
-      android: { elevation: 10 },
-
-      ios: {},
-
+      android: { elevation: 0 },
+      ios: { shadowOpacity: 0 },
     }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginTop: Platform.OS === 'ios' ? 0 : 10,
+    position: 'relative',
+    height: 40,
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'absolute',
+    left: 0,
   },
   headerTitle: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 17,
+    fontWeight: '700',
   },
   headerContent: {
-    marginTop: 20,
+    marginTop: 25,
   },
   headerGreeting: {
     color: '#FFFFFF',
-    fontSize: 28,
-    letterSpacing: -0.5,
+    fontSize: 32,
+    fontWeight: 'bold',
+    letterSpacing: -0.8,
   },
   headerSubtext: {
     color: 'rgba(255,255,255,0.7)',
@@ -1363,25 +1402,20 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   mainCard: {
-    marginTop: -30,
+    marginTop: -80,
     marginHorizontal: 16,
-    borderRadius: 30,
     backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: 'rgba(241, 245, 249, 0.8)',
+    padding: 24,
     ...Platform.select({
-
-      android: { elevation: 8 },
-
-      ios: {},
-
+      android: { elevation: 15 },
+      ios: {
+        shadowColor: Theme.colors.primary,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.12,
+        shadowRadius: 20,
+      },
     }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    marginBottom: 16,
-    overflow: 'hidden',
+    marginBottom: 25,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1408,38 +1442,47 @@ const styles = StyleSheet.create({
   },
   selectionLabel: {
     fontSize: 14,
-    color: '#1E293B',
+    color: Theme.colors.text,
     marginBottom: 8,
+    fontWeight: '700',
   },
   selectionDropdown: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 48,
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    height: 56,
   },
   selectionDropdownDisabled: {
-    opacity: 0.55,
+    backgroundColor: '#F9FAFB',
+    opacity: 0.5,
   },
   selectionDropdownText: {
     flex: 1,
     fontSize: 14,
-    color: '#1E293B',
+    color: Theme.colors.textSec,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   selectionHelperText: {
-    marginTop: 8,
+    marginTop: 10,
     fontSize: 12,
-    color: '#64748B',
+    color: Theme.colors.textMuted,
     fontWeight: '500',
   },
   selectionSearchBtn: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: HM_THEME.navy,
-    marginTop: 8,
+    height: 58,
+    borderRadius: Theme.radius.lg,
+    backgroundColor: Theme.colors.primary,
+    marginTop: 25,
+    shadowColor: Theme.colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
   },
   selectionConfigureWrap: {
     marginTop: 10,
@@ -1468,29 +1511,29 @@ const styles = StyleSheet.create({
   },
   filterTagText: {
     fontSize: 12,
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
   },
   primaryButton: {
-    backgroundColor: HM_THEME.navy,
-    borderRadius: 12,
-    height: 48,
+    backgroundColor: Theme.colors.primary,
+    borderRadius: 16,
+    height: 52,
   },
   configCard: {
     marginHorizontal: 16,
-    borderRadius: 30,
     backgroundColor: '#fff',
-    padding: 16,
+    padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#F1F5F9',
     ...Platform.select({
-
       android: { elevation: 2 },
-
-      ios: {},
-
+      ios: {
+        shadowColor: Theme.colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+      },
     }),
-    shadowOpacity: 0.05,
   },
   configHeader: {
     flexDirection: 'row',
@@ -1505,7 +1548,7 @@ const styles = StyleSheet.create({
   },
   configTitle: {
     fontSize: 15,
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   savedBadge: {
     flexDirection: 'row',
@@ -1537,13 +1580,13 @@ const styles = StyleSheet.create({
     color: '#64748b',
   },
   configInput: {
-    height: 44,
-    borderWidth: 1,
+    height: 48,
+    borderWidth: 1.5,
     borderColor: '#e2e8f0',
-    borderRadius: 10,
+    borderRadius: 14,
     backgroundColor: '#f8fafc',
-    paddingHorizontal: 12,
-    fontSize: 14,
+    paddingHorizontal: 14,
+    fontSize: 15,
     color: '#0f172a',
   },
   configDisplay: {
@@ -1554,9 +1597,9 @@ const styles = StyleSheet.create({
   configItem: {
     flex: 1,
     backgroundColor: '#f8fafc',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: '#f1f5f9',
   },
   configItemLabel: {
@@ -1567,7 +1610,7 @@ const styles = StyleSheet.create({
   },
   configItemValue: {
     fontSize: 18,
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
   },
   editConfigBtn: {
     width: 44,
@@ -1650,25 +1693,44 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: {
     fontSize: 13,
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
   },
   emptyCard: {
     marginHorizontal: 16,
-    padding: 40,
+    padding: 48,
     alignItems: 'center',
-    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#f1f5f9',
+    marginTop: 10,
   },
   emptyTitle: {
-    fontSize: 18,
-    color: '#0f172a',
-    marginTop: 16,
-    marginBottom: 4,
+    fontSize: 22,
+    color: Theme.colors.text,
+    marginTop: 20,
+    marginBottom: 8,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#64748b',
+    fontSize: 15,
+    color: Theme.colors.textSec,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  emptyButton: {
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    paddingHorizontal: 36,
+    paddingVertical: 14,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    marginTop: 10,
+    ...Theme.shadow.sm,
+  },
+  emptyButtonText: {
+    color: Theme.colors.text,
+    fontSize: 15,
+    fontWeight: '700',
   },
   listWrapper: {
     marginHorizontal: 16,
@@ -1676,28 +1738,28 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     fontSize: 16,
-    color: '#0f172a',
+    color: Theme.colors.text,
     marginBottom: 4,
     marginLeft: 4,
   },
   studentRow: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 30,
-    padding: 16,
+    borderRadius: Theme.radius.xxl,
+    padding: 18,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(241, 245, 249, 0.8)',
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
     ...Platform.select({
-
-      android: { elevation: 2 },
-
-      ios: {},
-
+      android: { elevation: 3 },
+      ios: {
+        shadowColor: Theme.colors.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+      },
     }),
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    marginBottom: 12,
   },
   studentRowAbsent: {
     backgroundColor: '#fef2f2',
@@ -1719,15 +1781,15 @@ const styles = StyleSheet.create({
   studentName: {
     flex: 1,
     fontSize: 14,
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   studentId: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: Theme.colors.textMuted,
     marginLeft: 4,
   },
   rollTag: {
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,

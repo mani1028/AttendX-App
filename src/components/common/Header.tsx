@@ -1,148 +1,160 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Shield, Bell } from 'lucide-react-native';
-import { useAuth } from '../../context/AuthContext';
-import { colors } from '../../constants/theme';
-import { useNavigation } from '@react-navigation/native';
-import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
-import AvatarBubble from './AvatarBubble';
-import AppText from './AppText';
-import { safeNavigate } from '../../utils/navigationHelpers';
+import React, { useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+  Platform,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Bell, ArrowLeft, Menu } from 'lucide-react-native';
+import { Theme } from '../../theme/theme';
 
-const Header = () => {
-  const { userRole, userName } = useAuth();
-  const navigation = useNavigation<any>();
-  const { unreadCount } = useUnreadNotifications();
+interface HeaderProps {
+  title: string;
+  subtitle?: string;
+  onBack?: () => void;
+  onNotifications?: () => void;
+  onMenu?: () => void;
+  unreadCount?: number;
+  rightComponent?: React.ReactNode;
+  transparent?: boolean;
+  accentColor?: string;
+}
 
-  const handleProfilePress = () => {
-    safeNavigate(navigation as any, 'Profile');
-  };
-
-  const handleNotificationsPress = () => {
-    safeNavigate(navigation as any, 'Notifications');
-  };
-
-  const displayName = userName || 'User';
-  const firstName = displayName.split(' ')[0];
+export default function Header({
+  title,
+  subtitle,
+  onBack,
+  onNotifications,
+  onMenu,
+  unreadCount = 0,
+  rightComponent,
+  transparent = false,
+  accentColor,
+}: HeaderProps) {
+  const insets = useSafeAreaInsets();
+  const accent = accentColor ?? Theme.colors.primary;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.leftSection}>
-        <View style={styles.logoPlaceholder}>
-          <Shield size={20} color={colors.accent} />
+    <View
+      style={[
+        styles.container,
+        !transparent && styles.solid,
+        { paddingTop: insets.top + 12 },
+      ]}
+    >
+      <View style={styles.inner}>
+        {/* Left */}
+        <View style={styles.side}>
+          {onBack ? (
+            <TouchableOpacity onPress={onBack} style={styles.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <ArrowLeft size={22} color={Theme.colors.text} strokeWidth={2} />
+            </TouchableOpacity>
+          ) : onMenu ? (
+            <TouchableOpacity onPress={onMenu} style={styles.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Menu size={22} color={Theme.colors.text} strokeWidth={2} />
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 36 }} />
+          )}
         </View>
-        <View>
-          <AppText style={styles.appName}>AttendX</AppText>
-          <AppText style={styles.roleText}>{userRole?.toUpperCase()} • {firstName}</AppText>
-        </View>
-      </View>
 
-      <View style={styles.rightSection}>
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={handleNotificationsPress}
-        >
-          <View style={styles.bellContainer}>
-            <Bell size={22} color={colors.textPrimary} />
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </Text>
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
-          <AvatarBubble
-            displayName={userName || 'User'}
-            size={34}
-            textSize={12}
-            primaryColor={colors.accent}
-          />
-        </TouchableOpacity>
+        {/* Center */}
+        <View style={styles.center}>
+          <Text style={styles.title} numberOfLines={1}>{title}</Text>
+          {subtitle && <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>}
+        </View>
+
+        {/* Right */}
+        <View style={[styles.side, styles.sideRight]}>
+          {rightComponent ?? (
+            onNotifications ? (
+              <TouchableOpacity onPress={onNotifications} style={styles.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Bell size={22} color={Theme.colors.text} strokeWidth={1.8} />
+                {unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : String(unreadCount)}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ) : <View style={{ width: 36 }} />
+          )}
+        </View>
       </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
-    height: 60,
-    backgroundColor: colors.surface,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingBottom: 12,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
-  leftSection: {
+  solid: {
+    backgroundColor: Theme.colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+  },
+  inner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
   },
-  logoPlaceholder: {
+  side: {
+    width: 44,
+  },
+  sideRight: {
+    alignItems: 'flex-end',
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: Theme.colors.text,
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: Theme.colors.textMuted,
+    marginTop: 1,
+    fontWeight: '500',
+  },
+  iconBtn: {
     width: 36,
     height: 36,
-    borderRadius: 8,
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    borderRadius: 18,
+    backgroundColor: Theme.colors.card,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  appName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  roleText: {
-    fontSize: 10,
-    color: colors.textMuted,
-    fontWeight: '600',
-  },
-  rightSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  iconButton: {
-    padding: 4,
-  },
-  profileButton: {
-    padding: 2,
-  },
-  bellContainer: {
-    position: 'relative',
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
   badge: {
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#EF4444',
-    borderRadius: 12,
-    minWidth: 24,
-    height: 24,
-    justifyContent: 'center',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#ef4444', // Red as seen in image
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 2,
-    borderColor: colors.surface,
+    borderColor: '#ffffff', // Thick white border as seen in image
+    zIndex: 1,
   },
   badgeText: {
+    fontSize: 9,
+    fontWeight: '900',
     color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-    textAlign: 'center',
-    paddingHorizontal: 4,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
 });
-
-export default Header;

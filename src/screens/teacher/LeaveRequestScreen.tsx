@@ -23,7 +23,7 @@ import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
-import HM_THEME from '../../constants/hmTheme';
+import { Theme } from '../../theme/theme';
 
 // Types
 interface LeaveRequest {
@@ -105,11 +105,11 @@ const LeaveHistoryCard: React.FC<{ request: LeaveRequest }> = ({ request }) => {
       <View style={styles.historyHeader}>
         <View style={styles.dateRangeContainer}>
           <Calendar size={16} color="#64748b" />
-          <AppText weight="semiBold" style={styles.dateText}>{formatDate(request.from_date)}</AppText>
+          <AppText weight="semibold" style={styles.dateText}>{formatDate(request.from_date)}</AppText>
           {request.from_date !== request.to_date && (
             <>
               <AppText style={styles.dateArrow}>→</AppText>
-              <AppText weight="semiBold" style={styles.dateText}>{formatDate(request.to_date)}</AppText>
+              <AppText weight="semibold" style={styles.dateText}>{formatDate(request.to_date)}</AppText>
             </>
           )}
         </View>
@@ -192,9 +192,13 @@ export default function LeaveRequestScreen() {
     const resolveTeacherId = async () => {
       if (!schoolCode || !teacherId) return;
       try {
-        const res = await API.get('/teacher/marks/teacher-context', {
-          params: { teacher_id: teacherId },
-          headers: { 'x-school-code': schoolCode },
+        const res = await API.get('/staff/marks/staff-context', {
+          params: {
+            school_code: schoolCode,
+            branch_id: branchId,
+            teacher_id: teacherId,
+            employee_id: teacherId,
+          },
         });
 
         if (!isMounted.current) return;
@@ -258,16 +262,16 @@ export default function LeaveRequestScreen() {
     try {
       let res;
       try {
-        res = await API.post('/manage/teacher/leave-requests/list', {
+        res = await API.post('/manage/staff/leave-requests/list', {
           school_code: schoolCode,
-          teacher_id: resolvedTeacherId,
+          employee_id: resolvedTeacherId,
           branch_id: branchId,
         });
       } catch {
-        res = await API.get('/manage/teacher/leave-requests', {
+        res = await API.get('/manage/staff/leave-requests', {
           params: {
             school_code: schoolCode,
-            teacher_id: resolvedTeacherId,
+            employee_id: resolvedTeacherId,
             branch_id: branchId,
           },
         });
@@ -329,9 +333,9 @@ export default function LeaveRequestScreen() {
 
     setSubmitting(true);
     try {
-      await API.post('/manage/teacher/leave-requests/submit', {
+      await API.post('/manage/staff/leave-requests/submit', {
         school_code: schoolCode,
-        teacher_id: resolvedTeacherId,
+        employee_id: resolvedTeacherId,
         branch_id: branchId,
         from_date: formatDateToYMD(fromDate),
         to_date: formatDateToYMD(finalToDate),
@@ -359,7 +363,7 @@ export default function LeaveRequestScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       <ScrollView
         style={styles.scrollView}
@@ -398,7 +402,7 @@ export default function LeaveRequestScreen() {
         {/* Form Card */}
         <AppCard style={styles.mainCard}>
           <View style={styles.cardHeader}>
-            <Calendar size={20} color={HM_THEME.navy} />
+            <Calendar size={20} color={Theme.colors.primary} />
             <AppText weight="bold" style={styles.cardTitle}>New Application</AppText>
           </View>
 
@@ -407,21 +411,21 @@ export default function LeaveRequestScreen() {
               style={[styles.typeBtn, leaveType === 'one-day' && styles.typeBtnActive]}
               onPress={() => setLeaveType('one-day')}
             >
-              <AppText weight="semiBold" style={[styles.typeBtnText, leaveType === 'one-day' && styles.typeBtnTextActive]}>Single Day</AppText>
+              <AppText weight="semibold" style={[styles.typeBtnText, leaveType === 'one-day' && styles.typeBtnTextActive]}>Single Day</AppText>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.typeBtn, leaveType === 'multiple' && styles.typeBtnActive]}
               onPress={() => setLeaveType('multiple')}
             >
-              <AppText weight="semiBold" style={[styles.typeBtnText, leaveType === 'multiple' && styles.typeBtnTextActive]}>Multiple Days</AppText>
+              <AppText weight="semibold" style={[styles.typeBtnText, leaveType === 'multiple' && styles.typeBtnTextActive]}>Multiple Days</AppText>
             </TouchableOpacity>
           </View>
 
           <View style={styles.formRow}>
             <View style={styles.inputGroup}>
-              <AppText weight="semiBold" style={styles.inputLabel}>{leaveType === 'one-day' ? 'Date' : 'From Date'}</AppText>
+              <AppText weight="semibold" style={styles.inputLabel}>{leaveType === 'one-day' ? 'Date' : 'From Date'}</AppText>
               <TouchableOpacity style={styles.dateSelector} onPress={() => setShowFromDatePicker(true)}>
-                <AppText weight="semiBold" style={fromDate ? styles.dateValue : styles.datePlaceholder}>
+                <AppText weight="semibold" style={fromDate ? styles.dateValue : styles.datePlaceholder}>
                   {fromDate ? formatDateToYMD(fromDate) : 'YYYY-MM-DD'}
                 </AppText>
                 <Calendar size={16} color="#94a3b8" />
@@ -430,9 +434,9 @@ export default function LeaveRequestScreen() {
 
             {leaveType === 'multiple' && (
               <View style={styles.inputGroup}>
-                <AppText weight="semiBold" style={styles.inputLabel}>To Date</AppText>
+                <AppText weight="semibold" style={styles.inputLabel}>To Date</AppText>
                 <TouchableOpacity style={styles.dateSelector} onPress={() => setShowToDatePicker(true)}>
-                  <AppText weight="semiBold" style={toDate ? styles.dateValue : styles.datePlaceholder}>
+                  <AppText weight="semibold" style={toDate ? styles.dateValue : styles.datePlaceholder}>
                     {toDate ? formatDateToYMD(toDate) : 'YYYY-MM-DD'}
                   </AppText>
                   <Calendar size={16} color="#94a3b8" />
@@ -442,7 +446,7 @@ export default function LeaveRequestScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <AppText weight="semiBold" style={styles.inputLabel}>Reason for Leave</AppText>
+            <AppText weight="semibold" style={styles.inputLabel}>Reason for Leave</AppText>
             <TextInput
               style={styles.reasonInput}
               multiline
@@ -466,7 +470,7 @@ export default function LeaveRequestScreen() {
         <View style={styles.sectionHeader}>
           <AppText weight="bold" style={styles.sectionTitle}>Application History</AppText>
           <TouchableOpacity onPress={refreshAll}>
-            <AppText weight="semiBold" style={styles.refreshText}>Refresh</AppText>
+            <AppText weight="semibold" style={styles.refreshText}>Refresh</AppText>
           </TouchableOpacity>
         </View>
 
@@ -514,14 +518,14 @@ export default function LeaveRequestScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
   },
   scrollView: {
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
   headerStandard: {
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
@@ -620,7 +624,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   typeBtnTextActive: {
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
   },
   formRow: {
     flexDirection: 'row',
@@ -670,7 +674,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
   },
   submitButton: {
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
     borderRadius: 12,
     height: 52,
     marginTop: 10,
@@ -692,7 +696,7 @@ const styles = StyleSheet.create({
   },
   refreshText: {
     fontSize: 14,
-    color: '#2563EB',
+    color: Theme.colors.blue,
   },
   historyList: {
     gap: 12,

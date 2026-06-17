@@ -18,12 +18,13 @@ const SESSION_KEYS = [
   "branchId",
   "student_id",
   "roll_number",
+  "roll_no",
   "parent_id",
   "teacher_id",
   "employee_id",
   "email",
-  "hm_email",
-  "hm_employee_id",
+  "director_email",
+  "director_employee_id",
   "is_class_teacher",
   "branch_name",
   "user",
@@ -101,10 +102,14 @@ export const setSessionData = async (data: any) => {
         storageOps.push(["teacherId", String(teacherId)]);
       }
       
-      const employeeId = data.user.employee_id ?? data.user.employeeId;
+      const employeeId = data.user.employee_id ?? data.user.employeeId ?? data.user.principal_employee_id;
       if (employeeId) {
         storageOps.push(["employee_id", String(employeeId)]);
         storageOps.push(["employeeId", String(employeeId)]);
+      }
+
+      if (data.user.principal_employee_id) {
+        storageOps.push(["principal_employee_id", String(data.user.principal_employee_id)]);
       }
 
       const userId = data.user.user_id ?? data.user.userId ?? data.user.id;
@@ -125,9 +130,18 @@ export const setSessionData = async (data: any) => {
         storageOps.push(["studentId", String(studentId)]);
       }
       
-      const email = data.user.email;
+      const email = data.user.email ?? data.user.principal_email;
       if (email) {
         storageOps.push(["email", email]);
+      }
+
+      if (data.user.principal_email) {
+        storageOps.push(["principal_email", data.user.principal_email]);
+      }
+
+      if (data.user.principal_address) {
+        storageOps.push(["principal_address", data.user.principal_address]);
+        storageOps.push(["address", data.user.principal_address]);
       }
 
       const name = data.user.name ?? data.user.full_name ?? data.user.userName ?? data.user.user_name;
@@ -142,6 +156,12 @@ export const setSessionData = async (data: any) => {
       storageOps.push(["school_code", String(schoolCode)]);
       storageOps.push(["schoolCode", String(schoolCode)]);
     }
+
+    const schoolName = data.school_name ?? data.schoolName;
+    if (schoolName) {
+      storageOps.push(["school_name", String(schoolName)]);
+      storageOps.push(["schoolName", String(schoolName)]);
+    }
     
     // Branch ID
     const branchId = data.branch_id ?? data.branchId;
@@ -155,18 +175,37 @@ export const setSessionData = async (data: any) => {
     if (branchName) {
       storageOps.push(["branch_name", branchName]);
     }
-    
-    // Student ID (from root data, not just user)
-    const studentId = data.student_id ?? data.studentId;
-    if (studentId && !storageOps.some(([k]) => k === "student_id")) {
-      storageOps.push(["student_id", String(studentId)]);
-      storageOps.push(["studentId", String(studentId)]);
+
+    // Blood group
+    const bloodGroup = data.user?.blood_group ?? data.user?.bloodGroup ?? data.blood_group ?? data.bloodGroup;
+    if (bloodGroup) {
+      storageOps.push(["blood_group", String(bloodGroup)]);
     }
     
     // Roll number
-    const rollNumber = data.roll_number ?? data.rollNumber;
+    const rollNumber = data.roll_number ?? data.rollNumber ?? data.roll_no ?? data.rollNo ?? data.user?.roll_no ?? data.user?.rollNo;
     if (rollNumber) {
+      storageOps.push(["roll_no", String(rollNumber)]);
       storageOps.push(["roll_number", String(rollNumber)]);
+      // Fallback student_id to roll_no if missing
+      if (!storageOps.some(([k]) => k === "student_id")) {
+        storageOps.push(["student_id", String(rollNumber)]);
+        storageOps.push(["studentId", String(rollNumber)]);
+      }
+    }
+    
+    // Student ID (from root data, not just user)
+    const studentId = data.student_id ?? data.studentId;
+    if (studentId) {
+      if (!storageOps.some(([k]) => k === "student_id")) {
+        storageOps.push(["student_id", String(studentId)]);
+        storageOps.push(["studentId", String(studentId)]);
+      }
+      // Fallback roll_no to student_id if missing
+      if (!storageOps.some(([k]) => k === "roll_no")) {
+        storageOps.push(["roll_no", String(studentId)]);
+        storageOps.push(["roll_number", String(studentId)]);
+      }
     }
     
     // Parent ID
@@ -175,13 +214,13 @@ export const setSessionData = async (data: any) => {
       storageOps.push(["parent_id", String(parentId)]);
     }
     
-    // HM-specific fields
-    if (data.hm_email) {
-      storageOps.push(["hm_email", data.hm_email]);
+    // Director-specific fields
+    if (data.director_email) {
+      storageOps.push(["director_email", data.director_email]);
     }
     
-    if (data.hm_employee_id) {
-      storageOps.push(["hm_employee_id", data.hm_employee_id]);
+    if (data.director_employee_id) {
+      storageOps.push(["director_employee_id", data.director_employee_id]);
     }
     
     // Use multiSet for much faster parallel storage operations
@@ -346,8 +385,8 @@ export const performLogout = async (navigation?: any) => {
       key.includes("_state") ||
       key.includes("_prediction") ||
       key.includes("_image") ||
-      key.includes("hm_") ||
-      key.includes("principal_") ||
+      key.includes("director_") ||
+      key.includes("director_") ||
       key.includes("teacher_") ||
       key.includes("student_") ||
       key.includes("admin_")

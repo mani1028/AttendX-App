@@ -3,7 +3,7 @@ import { StyleSheet, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppText from '../common/AppText';
-import { HM_THEME } from '../../constants/hmTheme';
+import { Director_THEME } from '../../constants/directorTheme';
 
 interface StandardPageHeaderProps {
   title: string;
@@ -22,7 +22,7 @@ const StandardPageHeader: React.FC<StandardPageHeaderProps> = ({
   onRightIconPress,
   subtitle,
   containerStyle,
-  backgroundColor = HM_THEME.navy,
+  backgroundColor = Director_THEME.navy,
 }) => {
   const insets = useSafeAreaInsets();
 

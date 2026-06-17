@@ -8,6 +8,7 @@ import 'react-native-gesture-handler';
 // Polyfill for Array.prototype.findLastIndex and findLast for older JS engines
 if (!Array.prototype.findLastIndex) {
   Array.prototype.findLastIndex = function (predicate, thisArg) {
+    if (typeof predicate !== 'function') return -1;
     for (let i = this.length - 1; i >= 0; i--) {
       if (predicate.call(thisArg, this[i], i, this)) return i;
     }
@@ -17,6 +18,7 @@ if (!Array.prototype.findLastIndex) {
 
 if (!Array.prototype.findLast) {
   Array.prototype.findLast = function (predicate, thisArg) {
+    if (typeof predicate !== 'function') return undefined;
     for (let i = this.length - 1; i >= 0; i--) {
       if (predicate.call(thisArg, this[i], i, this)) return this[i];
     }
@@ -26,10 +28,12 @@ if (!Array.prototype.findLast) {
 
 // Firebase Cloud Messaging background handler (must be registered before app starts)
 // This runs when the app is closed, minimized, or the phone is asleep
-import messaging from '@react-native-firebase/messaging';
-import notifee from '@notifee/react-native';
+import { getMessaging, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
+import notifee, { AndroidVisibility, AndroidImportance } from '@notifee/react-native';
 
-messaging().setBackgroundMessageHandler(async (remoteMessage) => {
+const messaging = getMessaging();
+
+setBackgroundMessageHandler(messaging, async (remoteMessage) => {
   console.log('[FCM Background] Message received while app is closed/background:', remoteMessage);
 
   if (remoteMessage?.notification || remoteMessage?.data) {
@@ -45,8 +49,8 @@ messaging().setBackgroundMessageHandler(async (remoteMessage) => {
         data: remoteMessage.data || {},
         android: {
           channelId: 'default',
-          visibility: notifee.AndroidVisibility.PUBLIC, // Shows on lock screen
-          importance: notifee.AndroidImportance.HIGH,
+          visibility: AndroidVisibility.PUBLIC, // Shows on lock screen
+          importance: AndroidImportance.HIGH,
           smallIcon: 'ic_notification',
           pressAction: {
             id: 'default',

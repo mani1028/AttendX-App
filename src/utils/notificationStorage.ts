@@ -10,18 +10,18 @@ const normalizePart = (value: string | null | undefined): string => {
 };
 
 const resolveNotificationScope = async (): Promise<string> => {
-  const [schoolCode, role, userId, studentId, employeeId, teacherId, hmEmployeeId, userName] = await Promise.all([
+  const [schoolCode, role, userId, studentId, employeeId, teacherId, directorEmployeeId, userName] = await Promise.all([
     AsyncStorage.getItem('school_code'),
     AsyncStorage.getItem('user_role'),
     AsyncStorage.getItem('user_id'),
     AsyncStorage.getItem('student_id'),
     AsyncStorage.getItem('employee_id'),
     AsyncStorage.getItem('teacher_id'),
-    AsyncStorage.getItem('hm_employee_id'),
+    AsyncStorage.getItem('director_employee_id'),
     AsyncStorage.getItem('user_name'),
   ]);
 
-  const identity = userId || studentId || employeeId || teacherId || hmEmployeeId || userName || role || 'global';
+  const identity = userId || studentId || employeeId || teacherId || directorEmployeeId || userName || role || 'global';
   return [schoolCode, role, identity].map(normalizePart).filter(Boolean).join(':') || 'global';
 };
 

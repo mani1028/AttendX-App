@@ -16,6 +16,8 @@ type LoginResponse = {
   user?: {
     id?: string | number;
     student_id?: string;
+    roll_no?: string;       // Student login returns roll_no here
+    roll_number?: string;
     employee_id?: string;
     branch_id?: string;
     full_name?: string;
@@ -39,58 +41,60 @@ export type NormalizedLoginResponse = {
     branchId?: string;
     name?: string;
     isClassTeacher?: boolean;
+    bloodGroup?: string;
+    principal_employee_id?: string;
+    principal_email?: string;
+    principal_address?: string;
   };
+  schoolName?: string;
+  branchName?: string;
 };
 
 function pickTokenValue(...values: Array<string | undefined | null>) {
   for (const value of values) {
-    if (typeof value === 'string' && value.trim()) {
-      return value;
-    }
+    if (typeof value === 'string' && value.trim()) return value;
   }
-
   return undefined;
 }
 
 async function postCleanJson<TResponse>(url: string, payload: unknown, headers: Record<string, string>, signal?: AbortSignal) {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
-    signal, // Pass abort signal to fetch
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 seconds timeout
 
-  const rawText = await response.text();
-  let data: any = null;
+  if (signal) {
+    signal.addEventListener('abort', () => controller.abort());
+  }
 
-  if (rawText) {
-    try {
-      data = JSON.parse(rawText);
-    } catch {
-      data = rawText;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    const rawText = await response.text();
+    let data: any = null;
+    if (rawText) {
+      try { data = JSON.parse(rawText); } catch { data = rawText; }
     }
-  }
 
-  if (!response.ok) {
-    const error: any = new Error(`Request failed with status ${response.status} for ${url}`);
-    error.response = {
-      status: response.status,
-      data,
-      url,
-    };
-    console.error('[authService] postCleanJson error', { status: response.status, url, data });
-    throw error;
-  }
+    if (!response.ok) {
+      const error: any = new Error(`Request failed with status ${response.status}`);
+      error.response = { status: response.status, data, url };
+      throw error;
+    }
 
-  return {
-    status: response.status,
-    data: data as TResponse,
-  };
+    return { status: response.status, data: data as TResponse };
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
 }
 
 async function postWithFallback<TPayload>(endpoints: string[], payload: TPayload, useCleanInstance = false, signal?: AbortSignal) {
   let lastError: unknown;
-
   for (const endpoint of endpoints) {
     try {
       if (useCleanInstance) {
@@ -98,56 +102,42 @@ async function postWithFallback<TPayload>(endpoints: string[], payload: TPayload
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'X-Tunnel-Skip-Anti-Phishing-Page': 'true',
         };
-
-        // Extract school code from payload to ensure multi-tenancy routing works
         const p = payload as any;
         const schoolCode = p.school_code || p.schoolCode || p.school_id;
-        if (schoolCode) {
-          headers['X-School-Code'] = schoolCode;
-        }
-
-        console.log(`[authService] Attempting clean post to: ${url}`, { headers });
+        if (schoolCode) headers['X-School-Code'] = schoolCode;
         const res = await postCleanJson(url, payload, headers, signal);
-        console.log(`[authService] Clean post success: ${endpoint}`);
         return res;
       }
       return await API.post(endpoint, payload);
     } catch (error: any) {
-      console.log(`[authService] Error posting to ${endpoint}:`, error?.response?.data || error.message);
       lastError = error;
-
       const status = error?.response?.status;
-      const shouldRetry = status === 404 || status === 405;
-
-      if (!shouldRetry) {
+      // If we have a response status that suggests credentials/input issue (like 400, 401, 403, 422),
+      // throw immediately. Otherwise, continue trying fallback endpoints (like 404, 405, 5xx, or network timeouts).
+      if (status && [400, 401, 403, 422].includes(status)) {
         throw error;
+      }
+      if (__DEV__) {
+        console.log(`[postWithFallback] Attempt for ${endpoint} failed (${status || 'network/timeout error'}), trying next fallback...`);
       }
     }
   }
-
   throw lastError;
-}
-
-async function getTenantContext() {
-  const schoolCode = await AsyncStorage.getItem('school_code')
-    || await AsyncStorage.getItem('schoolCode')
-    || await AsyncStorage.getItem('school_id')
-    || await AsyncStorage.getItem('schoolId');
-  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
-
-  return { schoolCode, branchId };
 }
 
 function normalizeLoginResponse(data: LoginResponse, fallbackRole: AppRole): NormalizedLoginResponse {
   const payload = data.data ?? data;
   const role = normalizeBackendRole(payload.role ?? payload.user_role) ?? fallbackRole;
-  const token = pickTokenValue(payload.token, payload.access_token, payload.accessToken);
-  const name =
-    payload.user?.name ??
-    payload.user?.full_name ??
-    payload.user?.username ??
-    payload.user?.user_name;
+  const token = pickTokenValue(payload.token, payload.access_token, payload.accessToken, payload.user?.token, payload.user?.access_token);
+  const name = payload.user?.name ?? payload.user?.full_name ?? payload.user?.username ?? payload.user?.user_name;
+  // Student login returns roll_no in user object; fall back to student_id for other cases
+  const studentId = payload.user?.student_id ?? payload.user?.roll_no ?? payload.user?.roll_number;
+  
+  const principalEmployeeId = payload.user?.principal_employee_id ?? payload.principal_employee_id;
+  const principalEmail = payload.user?.principal_email ?? payload.principal_email;
+  const principalAddress = payload.user?.principal_address ?? payload.principal_address;
 
   return {
     token,
@@ -156,19 +146,23 @@ function normalizeLoginResponse(data: LoginResponse, fallbackRole: AppRole): Nor
     schoolCode: payload.school_code ?? payload.schoolCode ?? payload.school_id,
     user: {
       userId: payload.user?.id != null ? String(payload.user.id) : undefined,
-      studentId: payload.user?.student_id,
-      employeeId: payload.user?.employee_id,
+      studentId: studentId ? String(studentId) : undefined,
+      employeeId: payload.user?.employee_id ?? principalEmployeeId,
       branchId: payload.user?.branch_id,
       name,
       isClassTeacher: payload.user?.is_class_teacher ?? false,
+      bloodGroup: payload.user?.blood_group ?? payload.user?.bloodGroup ?? payload.blood_group ?? payload.bloodGroup,
+      principal_employee_id: principalEmployeeId,
+      principal_email: principalEmail,
+      principal_address: principalAddress,
     },
+    schoolName: payload.school_name ?? payload.schoolName ?? payload.school?.school_name ?? payload.school?.name,
+    branchName: payload.branch_name ?? payload.branchName ?? payload.user?.branch_name ?? payload.branch?.branch_name ?? payload.branch?.name,
   };
 }
 
 export const authService = {
   async login(schoolId: string, username: string, password: string, fallbackRole: AppRole = 'student', signal?: AbortSignal) {
-    // We use a clean instance for login to prevent stale AsyncStorage tokens from causing 403s
-    // We also include both snake_case and camelCase for school code to match web logic
     const response = await postWithFallback(
       ['/auth/login', '/login'],
       {
@@ -184,9 +178,8 @@ export const authService = {
     );
     return normalizeLoginResponse(response.data as LoginResponse, fallbackRole);
   },
-  async requestOtp(schoolId: string, identifier: string) {
-    console.log('[authService.requestOtp] Called with:', { schoolId, identifier });
 
+  async requestOtp(schoolId: string, identifier: string) {
     return postWithFallback(
       ['/auth/forgot-password', '/auth/request-otp'],
       {
@@ -200,13 +193,43 @@ export const authService = {
       true,
     );
   },
-  async forgotPasswordReset(
-    schoolId: string,
-    identifier: string,
-    otp: string,
-    resetToken: string,
-    newPassword: string,
-  ) {
+
+  async verifyOtp(schoolId: string, identifier: string, otp: string): Promise<{ reset_token?: string; detail?: string }> {
+    const res = await postWithFallback(
+      ['/auth/verify-otp', '/auth/forgot-password/verify-otp', '/auth/forgot-password'],
+      {
+        school_id: schoolId,
+        schoolCode: schoolId,
+        school_code: schoolId,
+        email: identifier,
+        identifier,
+        email_id: identifier,
+        otp,
+      },
+      true,
+    );
+    return (res.data as any) ?? {};
+  },
+
+  async resetPassword(schoolId: string, identifier: string, resetToken: string, newPassword: string, confirmPassword: string) {
+    return postWithFallback(
+    ['/auth/forgot-password', '/auth/reset-password', '/auth/forgot-password/reset-password'],
+      {
+        school_id: schoolId,
+        schoolCode: schoolId,
+        school_code: schoolId,
+        email: identifier,
+        identifier,
+        email_id: identifier,
+        reset_token: resetToken,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+      },
+      true,
+    );
+  },
+
+  async forgotPasswordReset(schoolId: string, identifier: string, otp: string, resetToken: string, newPassword: string) {
     return postWithFallback(
       ['/auth/forgot-password'],
       {
@@ -224,50 +247,11 @@ export const authService = {
       true,
     );
   },
-  async verifyOtp(schoolId: string, identifier: string, otp: string) {
-    console.log('[authService.verifyOtp] Called with:', { schoolId, identifier });
 
-    return postWithFallback(
-      ['/auth/verify-otp', '/auth/forgot-password/verify-otp', '/auth/forgot-password'],
-      {
-        school_id: schoolId,
-        schoolCode: schoolId,
-        school_code: schoolId,
-        email: identifier,
-        identifier,
-        email_id: identifier,
-        otp,
-      },
-      true,
-    );
-  },
-  async resetPassword(schoolId: string, identifier: string, resetToken: string, password: string) {
-    console.log('[authService.resetPassword] Called with:', { schoolId, identifier, resetTokenProvided: !!resetToken });
-    return postWithFallback(
-      ['/auth/forgot-password', '/auth/reset-password', '/auth/forgot-password/reset-password'],
-      {
-        school_id: schoolId,
-        schoolCode: schoolId,
-        school_code: schoolId,
-        email: identifier,
-        identifier,
-        email_id: identifier,
-        reset_token: resetToken,
-        new_password: password,
-        confirm_password: password,
-      },
-      true,
-    );
-  },
   async checkTeacherCapability(schoolId: string, employeeId: string) {
     const response = await API.get('/auth/teacher-capability', {
-      params: {
-        school_id: schoolId,
-        employee_id: employeeId,
-      },
-      headers: {
-        'X-School-Code': schoolId,
-      },
+      params: { school_id: schoolId, employee_id: employeeId },
+      headers: { 'X-School-Code': schoolId },
     });
     return response.data;
   },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,9 +21,9 @@ import { useNavigation } from '@react-navigation/native';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import LinearGradient from 'react-native-linear-gradient';
-import Icon from '@react-native-vector-icons/feather';
+import Icon from 'react-native-vector-icons/Feather';
 import { getQuestionPapers, getExamTypes, downloadQuestionPaper } from '../../services/studentService';
-import { colors } from '../../constants/colors';
+import { Theme as C } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import BottomSheetModal from '../../components/common/BottomSheetModal';
 
@@ -124,39 +124,36 @@ const PaperCard: React.FC<{
   paper: Paper;
   onView: (paperId: string) => void;
   onDownload: (paperId: string, title: string) => void;
-}> = ({ paper, onView, onDownload }) => {
-  const [showActions, setShowActions] = useState(false);
-
+  isProcessing: boolean;
+}> = ({ paper, onView, onDownload, isProcessing }) => {
   return (
     <View
       style={styles.paperCard}
     >
       <View style={styles.paperCardHeader}>
         <View style={styles.paperTypeBadge}>
-          <Icon name="file-text" size={12} color="#3b82f6" />
-          <Text style={styles.paperTypeText}>{String(paper.exam_type ?? '')}</Text>
+          <Icon name="file-text" size={12} color={C.colors.blue} />
+          <Text style={styles.paperTypeText}>{String(paper.exam_type ?? '').toUpperCase()}</Text>
         </View>
-        {paper.file_size && (
-          <View style={styles.fileSizeBadge}>
-            <Icon name="hard-drive" size={10} color="#64748b" />
-            <Text style={styles.fileSizeText}>{formatFileSize(paper.file_size)}</Text>
-          </View>
-        )}
       </View>
 
       <Text style={styles.paperTitle}>{String(paper.title ?? '')}</Text>
 
       <View style={styles.paperMeta}>
         <View style={styles.metaItem}>
-          <Icon name="user" size={12} color="#64748b" />
+          <Icon name="user" size={13} color={C.colors.textMuted} />
           <Text style={styles.metaText}>{String(paper.teacher_name || 'Unknown Teacher')}</Text>
         </View>
         <View style={styles.metaItem}>
-          <Icon name="calendar" size={12} color="#64748b" />
+          <Icon name="calendar" size={13} color={C.colors.textMuted} />
           <Text style={styles.metaText}>{String(formatDate(paper.created_at))}</Text>
         </View>
         <View style={styles.metaItem}>
-          <Icon name="bookmark" size={12} color="#64748b" />
+          <Icon name="file" size={13} color={C.colors.textMuted} />
+          <Text style={styles.metaText}>{formatFileSize(paper.file_size)}</Text>
+        </View>
+        <View style={styles.metaItem}>
+          <Icon name="bookmark" size={13} color={C.colors.textMuted} />
           <Text style={styles.metaText}>
             {String(`${paper.class_name || ''}${paper.class_name && paper.section_name ? ' ' : ''}${paper.section_name || ''}`)}
           </Text>
@@ -164,27 +161,31 @@ const PaperCard: React.FC<{
       </View>
 
       <View style={styles.paperActions}>
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => onView(paper.paper_id)}
-        >
-          <LinearGradient
-            colors={['#3b82f6', '#2563eb']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.actionGradient}
-          >
-            <Icon name="eye" size={14} color="#fff" />
-            <Text style={styles.actionBtnText}>View</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.actionBtnOutline}
-          onPress={() => onDownload(paper.paper_id, paper.title)}
-        >
-          <Icon name="download" size={14} color="#3b82f6" />
-          <Text style={styles.actionBtnOutlineText}>Download</Text>
-        </TouchableOpacity>
+        {isProcessing ? (
+          <View style={styles.processingContainer}>
+            <ActivityIndicator size="small" color={C.colors.blue} />
+            <Text style={styles.processingText}>Preparing file...</Text>
+          </View>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => onView(paper.paper_id)}
+            >
+              <View style={styles.viewBtnContent}>
+                <Icon name="eye" size={16} color={C.colors.card} />
+                <Text style={styles.actionBtnText}>View</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionBtnOutline}
+              onPress={() => onDownload(paper.paper_id, paper.title)}
+            >
+              <Icon name="download" size={16} color={C.colors.blue} />
+              <Text style={styles.actionBtnOutlineText}>Download</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </View>
   );
@@ -197,7 +198,8 @@ const SubjectSection: React.FC<{
   onToggle: () => void;
   onView: (paperId: string) => void;
   onDownload: (paperId: string, title: string) => void;
-}> = ({ subject, isExpanded, onToggle, onView, onDownload }) => {
+  processingId: string | null;
+}> = ({ subject, isExpanded, onToggle, onView, onDownload, processingId }) => {
   return (
     <View style={styles.subjectSection}>
       <TouchableOpacity
@@ -205,26 +207,21 @@ const SubjectSection: React.FC<{
         onPress={onToggle}
         activeOpacity={0.7}
       >
-        <View style={styles.subjectIconContainer}>
-          <View style={styles.subjectIcon}>
-            <Text style={styles.subjectIconText}>
-              {(subject.subject_name || '').charAt(0)}
-            </Text>
-          </View>
+        <View style={styles.subjectIcon}>
+          <Text style={styles.subjectIconText}>
+            {(subject.subject_name || '').charAt(0)}
+          </Text>
         </View>
         <View style={styles.subjectInfo}>
           <Text style={styles.subjectTitle}>{String(subject.subject_name ?? '')}</Text>
-          {subject.subject_code && (
-            <Text style={styles.subjectCode}>Code: {String(subject.subject_code ?? '')}</Text>
-          )}
-        </View>
-        <View style={styles.paperCount}>
-          <Text style={styles.paperCountText}>{String(subject.papers.length ?? 0)}</Text>
+          <View style={styles.paperCountBadge}>
+            <Text style={styles.paperCountBadgeText}>{String(subject.papers.length ?? 0)}</Text>
+          </View>
         </View>
         <Icon
           name={isExpanded ? 'chevron-up' : 'chevron-down'}
           size={20}
-          color="#64748b"
+          color={C.colors.textMuted}
         />
       </TouchableOpacity>
 
@@ -232,7 +229,7 @@ const SubjectSection: React.FC<{
         <View style={styles.papersList}>
           {subject.papers.length === 0 ? (
             <View style={styles.noPapersContainer}>
-              <Icon name="file" size={32} color="#cbd5e1" />
+              <Icon name="file" size={32} color={C.colors.border} />
               <Text style={styles.noPapersText}>No papers available</Text>
             </View>
           ) : (
@@ -242,6 +239,7 @@ const SubjectSection: React.FC<{
                 paper={paper}
                 onView={onView}
                 onDownload={onDownload}
+                isProcessing={processingId === paper.paper_id}
               />
             ))
           )}
@@ -250,6 +248,7 @@ const SubjectSection: React.FC<{
     </View>
   );
 };
+
 
 // Filter Modal Component
 const FilterModal: React.FC<{
@@ -287,7 +286,7 @@ const FilterModal: React.FC<{
       <View style={styles.modalHeader}>
         <Text style={styles.modalTitle}>Filter Papers</Text>
         <TouchableOpacity onPress={onClose}>
-          <Icon name="x" size={24} color="#64748b" />
+          <Icon name="x" size={24} color={C.colors.textMuted} />
         </TouchableOpacity>
       </View>
 
@@ -377,7 +376,7 @@ const FilterModal: React.FC<{
         </TouchableOpacity>
         <TouchableOpacity style={styles.applyModalBtn} onPress={handleApply}>
           <LinearGradient
-            colors={['#3b82f6', '#2563eb']}
+            colors={[C.colors.blue, C.colors.primaryLight]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.applyModalGradient}
@@ -405,7 +404,7 @@ export default function QuestionPapersScreen() {
   const [examTypes, setExamTypes] = useState<string[]>([]);
   const [subjectOptions, setSubjectOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [totalPapers, setTotalPapers] = useState(0);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   // Fetch exam types
   const fetchExamTypes = useCallback(async () => {
@@ -414,50 +413,42 @@ export default function QuestionPapersScreen() {
       setExamTypes(res.exam_types || []);
     } catch (err: any) {
       console.error('Failed to fetch exam types:', err);
-      // Don't show alert for this, as it's not critical - exam types can be inferred from papers
     }
   }, []);
 
   // Fetch papers with filters
-  const fetchPapers = useCallback(async () => {
-    setLoading(true);
+  const fetchPapers = useCallback(async (isRefresh = false) => {
+    const isActuallyRefresh = isRefresh === true;
+    if (!isActuallyRefresh) setLoading(true);
     try {
       const params: any = {};
       if (filterSubject !== 'all') params.subject_id = filterSubject;
       if (filterExamType !== 'all') params.exam_type = filterExamType;
 
       const res = await getQuestionPapers(params);
-
-      let data = res.subjects || res.data?.subjects || [];
-
-      // Apply client-side search
-      if (searchTerm.trim()) {
-        const term = searchTerm.toLowerCase();
-        data = data
-          .map((sub: Subject) => ({
-            ...sub,
-            papers: sub.papers.filter(
-              (p) =>
-                p.title.toLowerCase().includes(term) ||
-                (p.teacher_name || '').toLowerCase().includes(term)
-            ),
-          }))
-          .filter((sub: Subject) => sub.papers.length > 0);
-      }
+      const data = res.subjects || res.data?.subjects || [];
 
       setSubjects(data);
 
-      const total = data.reduce((sum: number, sub: Subject) => sum + sub.papers.length, 0);
-      setTotalPapers(total);
+      // Build subject options for filter
+      setSubjectOptions(prev => {
+        const isCleanRefresh = isActuallyRefresh && filterSubject === 'all' && filterExamType === 'all';
+        if (prev.length === 0 || isCleanRefresh) {
+          const options = [...new Map<string, string>(data.map((s: Subject) => [String(s.subject_id), String(s.subject_name)])).entries()];
+          return options.map(([id, name]) => ({ id, name }));
+        }
+        return prev;
+      });
 
       // Auto-expand first subject if any
-      if (data.length > 0 && !expandedSubjects[data[0].subject_id]) {
-        setExpandedSubjects((prev) => ({ ...prev, [data[0].subject_id]: true }));
+      if (data.length > 0) {
+        setExpandedSubjects((prev) => {
+          if (Object.keys(prev).length === 0) {
+            return { [data[0].subject_id]: true };
+          }
+          return prev;
+        });
       }
-
-      // Build subject options for filter
-      const options = [...new Map<string, string>(data.map((s: Subject) => [String(s.subject_id), String(s.subject_name)])).entries()];
-      setSubjectOptions(options.map(([id, name]) => ({ id, name })));
     } catch (err: any) {
       console.error('Failed to fetch question papers:', err);
       const errorMsg = err?.message || 'Failed to load question papers';
@@ -466,7 +457,26 @@ export default function QuestionPapersScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filterSubject, filterExamType, searchTerm, expandedSubjects]);
+  }, [filterSubject, filterExamType]);
+
+  const filteredSubjects = useMemo(() => {
+    if (!searchTerm.trim()) return subjects;
+    const term = searchTerm.toLowerCase();
+    return subjects
+      .map((sub: Subject) => ({
+        ...sub,
+        papers: sub.papers.filter(
+          (p) =>
+            p.title.toLowerCase().includes(term) ||
+            (p.teacher_name || '').toLowerCase().includes(term)
+        ),
+      }))
+      .filter((sub: Subject) => sub.papers.length > 0);
+  }, [subjects, searchTerm]);
+
+  const totalFilteredPapers = useMemo(() => {
+    return filteredSubjects.reduce((sum, sub) => sum + sub.papers.length, 0);
+  }, [filteredSubjects]);
 
   useEffect(() => {
     fetchExamTypes();
@@ -478,63 +488,59 @@ export default function QuestionPapersScreen() {
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchPapers();
+    fetchExamTypes();
+    fetchPapers(true);
   };
 
   const toggleSubject = (subjectId: string) => {
     setExpandedSubjects((prev) => ({ ...prev, [subjectId]: !prev[subjectId] }));
   };
 
-  const handleView = async (paperId: string) => {
+  const processPaperAction = async (paperId: string, title: string, isDownload: boolean) => {
+    if (processingId) return;
+
     try {
-      const hasPermission = await requestStoragePermission();
-      if (!hasPermission) {
-        Alert.alert('Permission Denied', 'Cannot view file without storage permission');
-        return;
+      setProcessingId(paperId);
+
+      const paperBuffer = await downloadQuestionPaper(paperId);
+      if (!paperBuffer || paperBuffer.byteLength === 0) {
+        throw new Error('Received empty file from server');
       }
 
-      const fileUri = `${RNFS.DocumentDirectoryPath}/question_paper_${paperId}.pdf`;
-      const paperBuffer = await downloadQuestionPaper(paperId);
       const base64Data = arrayBufferToBase64(paperBuffer);
+      const dataUri = `data:application/pdf;base64,${base64Data}`;
 
-      await RNFS.writeFile(fileUri, base64Data, 'base64');
-
-      await Share.open({
-        url: Platform.OS === 'android' ? `file://${fileUri}` : fileUri,
+      const shareOptions = {
+        url: dataUri,
         type: 'application/pdf',
+        title: isDownload ? 'Save Question Paper' : 'View Question Paper',
         failOnCancel: false,
-      });
-    } catch (err) {
-      console.error('Failed to view paper:', err);
-      Alert.alert('Error', 'Could not open the file');
+      };
+
+      await Share.open(shareOptions);
+
+    } catch (err: any) {
+      const message = String(err?.message || '');
+      if (message.includes('User did not share') || message.includes('cancel')) {
+        // Ignore cancel
+      } else {
+        console.error(`Failed to ${isDownload ? 'download' : 'view'} paper:`, err);
+        Alert.alert('Error', err.message || `Could not ${isDownload ? 'download' : 'open'} the file`);
+      }
+    } finally {
+      setProcessingId(null);
     }
   };
 
-  const handleDownload = async (paperId: string, title: string) => {
-    try {
-      const hasPermission = await requestStoragePermission();
-      if (!hasPermission) {
-        Alert.alert('Permission Denied', 'Cannot download file without storage permission');
-        return;
-      }
-
-      const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-      const fileUri = `${RNFS.DocumentDirectoryPath}/${sanitizedTitle}.pdf`;
-      const paperBuffer = await downloadQuestionPaper(paperId);
-      const base64Data = arrayBufferToBase64(paperBuffer);
-
-      await RNFS.writeFile(fileUri, base64Data, 'base64');
-
-      await Share.open({
-        url: Platform.OS === 'android' ? `file://${fileUri}` : fileUri,
-        type: 'application/pdf',
-        failOnCancel: false,
-      });
-    } catch (err) {
-      console.error('Failed to download paper:', err);
-      Alert.alert('Error', 'Could not download the file');
-    }
+  const handleView = (paperId: string) => {
+    const paper = subjects.flatMap(s => s.papers).find(p => p.paper_id === paperId);
+    processPaperAction(paperId, paper?.title || 'Paper', false);
   };
+
+  const handleDownload = (paperId: string, title: string) => {
+    processPaperAction(paperId, title, true);
+  };
+
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -572,12 +578,12 @@ export default function QuestionPapersScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
         <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <Icon name="arrow-left" size={24} color={C.colors.card} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Question Papers</Text>
         <View style={styles.backBtn} />
@@ -590,26 +596,26 @@ export default function QuestionPapersScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />
         }
         showsVerticalScrollIndicator={false}
       >
         {/* Search and Filter Bar */}
         <View style={styles.searchSection}>
           <View style={styles.searchContainer}>
-            <Icon name="search" size={18} color="#94a3b8" />
+            <Icon name="search" size={18} color={C.colors.textMuted} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search by title or teacher..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={C.colors.textMuted}
               value={searchTerm}
               onChangeText={setSearchTerm}
               returnKeyType="search"
-              onSubmitEditing={fetchPapers}
+              onSubmitEditing={() => fetchPapers()}
             />
             {searchTerm !== '' ? (
               <TouchableOpacity onPress={() => setSearchTerm('')}>
-                <Icon name="x" size={16} color="#94a3b8" />
+                <Icon name="x" size={16} color={C.colors.textMuted} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -618,7 +624,7 @@ export default function QuestionPapersScreen() {
             style={[styles.filterButton, hasActiveFilters && styles.filterButtonActive]}
             onPress={() => setShowFilterModal(true)}
           >
-            <Icon name="sliders" size={18} color={hasActiveFilters ? '#fff' : '#64748b'} />
+            <Icon name="sliders" size={18} color={hasActiveFilters ? C.colors.card : C.colors.textSec} />
             <Text
               style={[styles.filterButtonText, hasActiveFilters && styles.filterButtonTextActive]}
             >
@@ -640,7 +646,7 @@ export default function QuestionPapersScreen() {
                 <View style={styles.activeFilterChip}>
                   <Text style={styles.activeFilterText}>Search: {searchTerm}</Text>
                   <TouchableOpacity onPress={() => setSearchTerm('')}>
-                    <Icon name="x" size={12} color="#64748b" />
+                    <Icon name="x" size={12} color={C.colors.textSec} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -650,7 +656,7 @@ export default function QuestionPapersScreen() {
                     Subject: {subjectOptions.find((s) => s.id === filterSubject)?.name}
                   </Text>
                   <TouchableOpacity onPress={() => setFilterSubject('all')}>
-                    <Icon name="x" size={12} color="#64748b" />
+                    <Icon name="x" size={12} color={C.colors.textSec} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -658,7 +664,7 @@ export default function QuestionPapersScreen() {
                 <View style={styles.activeFilterChip}>
                   <Text style={styles.activeFilterText}>Type: {filterExamType}</Text>
                   <TouchableOpacity onPress={() => setFilterExamType('all')}>
-                    <Icon name="x" size={12} color="#64748b" />
+                    <Icon name="x" size={12} color={C.colors.textSec} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -670,17 +676,17 @@ export default function QuestionPapersScreen() {
         )}
 
         {/* Stats Summary */}
-        {!loading && subjects.length > 0 && (
+        {!loading && filteredSubjects.length > 0 && (
           <View style={styles.statsContainer}>
             <View style={styles.statCard}>
-              <Icon name="folder" size={20} color="#3b82f6" />
-              <Text style={styles.statNumber}>{subjects.length}</Text>
+              <Icon name="folder" size={20} color={C.colors.blue} />
+              <Text style={styles.statNumber}>{filteredSubjects.length}</Text>
               <Text style={styles.statLabel}>Subjects</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCard}>
-              <Icon name="file-text" size={20} color="#10b981" />
-              <Text style={styles.statNumber}>{totalPapers}</Text>
+              <Icon name="file-text" size={20} color={C.colors.success} />
+              <Text style={styles.statNumber}>{totalFilteredPapers}</Text>
               <Text style={styles.statLabel}>Papers</Text>
             </View>
           </View>
@@ -688,13 +694,13 @@ export default function QuestionPapersScreen() {
 
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#3b82f6" />
+            <ActivityIndicator size="large" color={C.colors.primary} />
             <Text style={styles.loadingText}>Loading question papers...</Text>
           </View>
-        ) : subjects.length === 0 ? (
+        ) : filteredSubjects.length === 0 ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconContainer}>
-              <Icon name="file" size={48} color="#cbd5e1" />
+              <Icon name="file" size={48} color={C.colors.border} />
             </View>
             <Text style={styles.emptyTitle}>No question papers available</Text>
             <Text style={styles.emptyText}>
@@ -709,17 +715,19 @@ export default function QuestionPapersScreen() {
             )}
           </View>
         ) : (
-          subjects.map((subject) => (
+          filteredSubjects.map((subject) => (
             <SubjectSection
               key={subject.subject_id}
               subject={subject}
-              isExpanded={!!expandedSubjects[subject.subject_id]}
+              isExpanded={searchTerm.trim() !== '' || !!expandedSubjects[subject.subject_id]}
               onToggle={() => toggleSubject(subject.subject_id)}
               onView={handleView}
               onDownload={handleDownload}
+              processingId={processingId}
             />
           ))
         )}
+
       </ScrollView>
 
       {/* Filter Modal */}
@@ -739,10 +747,10 @@ export default function QuestionPapersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: C.colors.background,
   },
   header: {
-    backgroundColor: '#001F3F',
+    backgroundColor: C.colors.primary,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -757,177 +765,149 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#ffffff',
+    color: C.colors.card,
     textAlign: 'center',
     flex: 1,
+  },
+  listContainer: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   searchSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    marginTop: 10,
-    marginBottom: 4,
+    marginTop: 16,
+    marginBottom: 8,
     gap: 12,
   },
   searchContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: C.colors.card,
     borderRadius: 12,
-    minHeight: 48,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    ...Platform.select({
-
-      android: { elevation: 3 },
-
-      ios: {},
-
-    }),
+    height: 50,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...C.shadow.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: '#0f172a',
-    paddingVertical: Platform.OS === 'ios' ? 0 : 8,
+    fontSize: 15,
+    color: C.colors.primary,
+    marginLeft: 8,
+    paddingVertical: 0,
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#ffffff',
-    minHeight: 48,
+    gap: 8,
+    backgroundColor: C.colors.card,
+    height: 50,
     paddingHorizontal: 16,
-    paddingVertical: 10,
     borderRadius: 12,
-    position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    ...Platform.select({
-
-      android: { elevation: 3 },
-
-      ios: {},
-
-    }),
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...C.shadow.sm,
   },
   filterButtonActive: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: C.colors.primary,
+    borderColor: C.colors.primary,
   },
   filterButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#64748b',
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.colors.textSec,
   },
   filterButtonTextActive: {
-    color: '#ffffff',
+    color: C.colors.card,
   },
   filterDot: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ef4444',
+    top: -4,
+    right: -4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: C.colors.error,
+    borderWidth: 2,
+    borderColor: C.colors.card,
   },
   activeFilters: {
     marginTop: 12,
+    marginBottom: 4,
   },
   activeFiltersContainer: {
     flexDirection: 'row',
     gap: 8,
     paddingRight: 16,
+    alignItems: 'center',
   },
   activeFilterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
+    backgroundColor: C.colors.blueLight,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
   },
   activeFilterText: {
     fontSize: 12,
-    color: '#475569',
+    color: C.colors.primary,
+    fontWeight: '600',
   },
   clearAllText: {
-    fontSize: 12,
-    color: '#ef4444',
-    fontWeight: '500',
-    paddingVertical: 6,
+    fontSize: 13,
+    color: C.colors.error,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   statsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: C.colors.card,
     marginTop: 16,
-    padding: 16,
+    marginBottom: 16,
+    paddingVertical: 16,
     borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    ...Platform.select({
-
-      android: { elevation: 2 },
-
-      ios: {},
-
-    }),
+    ...C.shadow.sm,
   },
   statCard: {
     flex: 1,
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '800',
-    color: '#0f172a',
+    color: C.colors.primary,
+    marginBottom: 2,
   },
   statLabel: {
-    fontSize: 11,
-    color: '#64748b',
+    fontSize: 12,
+    color: C.colors.textMuted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   statDivider: {
     width: 1,
-    height: 30,
-    backgroundColor: '#e2e8f0',
-  },
-  listContainer: {
-    flex: 1,
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 40,
+    height: 40,
+    backgroundColor: C.colors.border,
   },
   subjectSection: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.colors.card,
     borderRadius: 16,
     marginBottom: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    ...Platform.select({
-
-      android: { elevation: 2 },
-
-      ios: {},
-
-    }),
+    ...C.shadow.sm,
   },
   subjectHeader: {
     flexDirection: 'row',
@@ -935,146 +915,151 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
-  subjectIconContainer: {
-    width: 44,
-    height: 44,
-  },
   subjectIcon: {
     width: 44,
     height: 44,
     borderRadius: 12,
+    backgroundColor: C.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   subjectIconText: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   subjectInfo: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: 8,
   },
   subjectTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
-    color: '#0f172a',
+    color: C.colors.primary,
   },
-  subjectCode: {
-    fontSize: 11,
-    color: '#64748b',
-    marginTop: 2,
-  },
-  paperCount: {
-    backgroundColor: '#eff6ff',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  paperCountBadge: {
+    backgroundColor: C.colors.blueLight,
+    width: 24,
+    height: 24,
     borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  paperCountText: {
+  paperCountBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#3b82f6',
+    color: C.colors.blue,
   },
   papersList: {
     padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    paddingTop: 0,
   },
   paperCard: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: '#F8FAFF',
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#E2E8F0',
   },
   paperCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   paperTypeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#eff6ff',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    alignSelf: 'flex-start',
+    gap: 6,
+    backgroundColor: C.colors.blueLight,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 8,
   },
   paperTypeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#3b82f6',
-  },
-  fileSizeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  fileSizeText: {
-    fontSize: 10,
-    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '800',
+    color: C.colors.blue,
+    textTransform: 'uppercase',
   },
   paperTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 10,
+    fontSize: 18,
+    fontWeight: '700',
+    color: C.colors.primary,
+    marginBottom: 12,
   },
   paperMeta: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 12,
+    columnGap: 16,
+    rowGap: 8,
+    marginBottom: 16,
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   metaText: {
-    fontSize: 11,
-    color: '#64748b',
+    fontSize: 13,
+    color: C.colors.textMuted,
   },
   paperActions: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
+    gap: 12,
   },
   actionBtn: {
     flex: 1,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  actionGradient: {
+    borderRadius: 10,
+    backgroundColor: C.colors.blue,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
+    height: 44,
+  },
+  viewBtnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   actionBtnOutline: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: C.colors.blue,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    backgroundColor: '#FFFFFF',
+  },
+  actionBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  actionBtnOutlineText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: C.colors.blue,
+  },
+  processingContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
     paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#3b82f6',
+    backgroundColor: C.colors.backgroundAlt,
     borderRadius: 8,
   },
-  actionBtnText: {
+  processingText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  actionBtnOutlineText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#3b82f6',
+    color: C.colors.textSec,
+    fontWeight: '500',
   },
   noPapersContainer: {
     alignItems: 'center',
@@ -1083,7 +1068,7 @@ const styles = StyleSheet.create({
   },
   noPapersText: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: C.colors.textMuted,
   },
   loadingContainer: {
     minHeight: 220,
@@ -1094,7 +1079,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 13,
-    color: '#64748b',
+    color: C.colors.textSec,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -1102,18 +1087,11 @@ const styles = StyleSheet.create({
     minHeight: 300,
     paddingVertical: 36,
     paddingHorizontal: 24,
-    backgroundColor: '#ffffff',
+    backgroundColor: C.colors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    ...Platform.select({
-      android: { elevation: 1 },
-      ios: {},
-    }),
+    borderColor: C.colors.border,
+    ...C.shadow.sm,
     width: '100%',
     maxWidth: 420,
     alignSelf: 'center',
@@ -1122,7 +1100,7 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: '#eff6ff',
+    backgroundColor: C.colors.blueLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 18,
@@ -1130,13 +1108,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#0f172a',
+    color: C.colors.primary,
     marginBottom: 10,
     textAlign: 'center',
   },
   emptyText: {
     fontSize: 14,
-    color: '#64748b',
+    color: C.colors.textSec,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 20,
@@ -1146,103 +1124,116 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 12,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: C.colors.background,
   },
   resetEmptyBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#3b82f6',
+    color: C.colors.blue,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: '#00000080',
     justifyContent: 'flex-end',
   },
   filterModal: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '80%',
+    backgroundColor: C.colors.card,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '85%',
+    shadowColor: C.colors.primary,
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 25,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 20,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
+    fontSize: 20,
+    fontWeight: '800',
+    color: C.colors.primary,
+    letterSpacing: -0.5,
   },
   modalBody: {
-    padding: 20,
+    paddingHorizontal: 24,
   },
   filterSectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
-    marginBottom: 12,
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.colors.textMuted,
+    marginBottom: 16,
     marginTop: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   filterOptions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 24,
+    gap: 10,
+    marginBottom: 28,
   },
   filterOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f1f5f9',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
   },
   filterOptionActive: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
+    backgroundColor: C.colors.blueLight,
+    borderColor: C.colors.blue,
   },
   filterOptionText: {
-    fontSize: 13,
-    color: '#475569',
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.colors.textSec,
   },
   filterOptionTextActive: {
-    color: '#ffffff',
+    color: C.colors.blue,
   },
   modalFooter: {
     flexDirection: 'row',
-    gap: 12,
-    padding: 20,
+    gap: 16,
+    padding: 24,
+    backgroundColor: C.colors.card,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: '#F1F5F9',
   },
   resetModalBtn: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#f1f5f9',
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   resetModalBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#64748b',
+    fontSize: 16,
+    fontWeight: '700',
+    color: C.colors.textSec,
   },
   applyModalBtn: {
     flex: 2,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   applyModalGradient: {
-    paddingVertical: 14,
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   applyModalBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+    color: C.colors.card,
   },
 });

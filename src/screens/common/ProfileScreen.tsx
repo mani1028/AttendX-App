@@ -1,3 +1,4 @@
+import { Theme } from '../../theme/theme';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -9,57 +10,48 @@ import {
   Switch,
   Modal,
   TextInput,
-  Platform,
   StatusBar,
   Image,
 } from 'react-native';
 import {
   ChevronLeft,
-  Edit2,
   LogOut,
   Key,
-  Globe,
   Sliders,
   ChevronRight,
   User,
   Mail,
   Phone,
-  Users,
-  Calendar,
   Droplet,
-  Flag,
-  MessageCircle,
-  Heart,
-  CreditCard,
-  Hash,
   Briefcase,
   BookOpen,
-  Award,
-  Clock,
   Grid,
   Home,
-  GitBranch,
   MapPin,
   X,
   Eye,
   EyeOff,
   Check,
+  Hash,
+  ChevronDown,
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
-import { colors } from '../../constants/theme';
 import { getStudentProfile, getStudentProfilePhotoDataUri, getStudentProfilePhotoUrl, getProfile as getStudentProfileDetails, sendOtp, verifyOtp, changePassword, updateStudentProfile } from '../../services/studentService';
 import { getTeacherProfile, getTeacherProfilePhotoDataUri, getTeacherProfilePhotoUrl, updateTeacherProfile } from '../../services/teacherService';
 import { buildApiUrl } from '../../services/api';
+import API from '../../services/api';
 import { formatErrorMessage } from '../../utils/helpers';
 import { safeJsonParse } from '../../utils/storage';
+import { decodeJwt } from '../../utils/jwt';
 
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import AvatarBubble from '../../components/common/AvatarBubble';
+import AccountSwitcher from '../../components/common/AccountSwitcher';
 
 interface UserProfile {
   name: string;
@@ -162,12 +154,12 @@ const normalizePhotoUri = (value: unknown): string | null => {
   return photo;
 };
 
-  const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number = 8000): Promise<T | null> => {
-    const timeoutPromise = new Promise<null>((resolve) => {
-      setTimeout(() => resolve(null), timeoutMs);
-    });
-    return Promise.race([promise, timeoutPromise]);
-  };
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number = 8000): Promise<T | null> => {
+  const timeoutPromise = new Promise<null>((resolve) => {
+    setTimeout(() => resolve(null), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]);
+};
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
@@ -176,6 +168,7 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [profilePhotoError, setProfilePhotoError] = useState(false);
+  const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
 
   const isMounted = useRef(true);
 
@@ -185,6 +178,7 @@ export default function ProfileScreen() {
       isMounted.current = false;
     };
   }, []);
+
   const [userInfo, setUserInfo] = useState<UserProfile>({
     name: '', email: '', phone: '', employee_id: '', teacher_id: '', student_id: '',
     school_name: '', school_code: '', branch_id: '', branch_name: '', role: '',
@@ -195,7 +189,25 @@ export default function ProfileScreen() {
     father_guardian_mobile: '', mother_guardian_name: '', mother_guardian_mobile: '',
     parent_guardian_email: '',
   });
-  
+
+  const roleKey = String(userInfo.role || '').trim().toLowerCase();
+  const isStudent = roleKey === 'student' || roleKey === 'students';
+  const isDirector = roleKey === 'director' || roleKey === 'principal' || roleKey === 'admin';
+  const isTeacher = roleKey === 'teacher' || roleKey === 'teachers' || roleKey === 'staff';
+
+  const systemSettingsRoute = (() => {
+    switch (roleKey) {
+      case 'principal': return 'PrincipalSettings';
+      case 'admin':
+      case 'superadmin':
+      case 'super_admin':
+      case 'super admin':
+        return 'AdminSettings';
+      case 'accountant': return 'AccountantSettings';
+      default: return null;
+    }
+  })();
+
   const [settings, setSettings] = useState<AppSettings>({
     notifications: true, emailAlerts: true, pushNotifications: true,
     autoSave: true, language: 'English',
@@ -222,7 +234,6 @@ export default function ProfileScreen() {
   const [verifiedOtpToken, setVerifiedOtpToken] = useState('');
 
   const fetchProfileData = useCallback(async () => {
-    // Cache-first: show cached profile/photo quickly, then refresh in background
     try {
       const storedRole = (await AsyncStorage.getItem('userRole')) || (await AsyncStorage.getItem('role')) || 'student';
       const normalizedRole = String(storedRole).trim().toLowerCase();
@@ -237,7 +248,6 @@ export default function ProfileScreen() {
       const profileCacheKey = entityId ? `profile_cache:${roleBucket}:${storedSchoolCode || 'unknown'}:${entityId}` : `profile_cache:${roleBucket}:${storedSchoolCode || 'unknown'}:anon`;
       const photoCacheKey = getPhotoCacheKey(roleBucket, entityId, storedSchoolCode);
 
-      // Try to hydrate from cache immediately
       const cachedProfileRaw = await AsyncStorage.getItem(profileCacheKey);
       if (cachedProfileRaw && isMounted.current) {
         const parsed = safeJsonParse<Record<string, any>>(cachedProfileRaw, {});
@@ -254,12 +264,10 @@ export default function ProfileScreen() {
           setProfilePhotoError(false);
         }
       } else if (isMounted.current) {
-        // Avoid shared photo fallback across users when unique id is missing.
         setProfilePhotoUrl(null);
         setProfilePhotoError(false);
       }
 
-      // If we had cached profile, stop showing loader and refresh in background.
       const hadCache = !!cachedProfileRaw;
       if (hadCache && isMounted.current) setLoading(false);
 
@@ -271,7 +279,24 @@ export default function ProfileScreen() {
               freshData = await withTimeout(getStudentProfileDetails(storedStudentId, storedSchoolCode), 5000);
             }
             if (!freshData) freshData = await withTimeout(getStudentProfile(), 5000);
-          } else {
+          } else if (normalizedRole === 'director') {
+            try {
+              const profRes = await withTimeout(API.get('/director/profile'), 5000);
+              if (profRes && profRes.data) {
+                freshData = profRes.data.director || profRes.data.profile || profRes.data.user || profRes.data;
+              }
+            } catch (err) {
+              console.warn('Failed to fetch GET /director/profile, trying overview...', err);
+              try {
+                const overviewRes = await withTimeout(API.get('/director/dashboard/overview'), 5000);
+                if (overviewRes && overviewRes.data) {
+                  freshData = overviewRes.data.director || overviewRes.data.profile || overviewRes.data.user || null;
+                }
+              } catch (err2) {
+                console.warn('Failed to fetch director overview:', err2);
+              }
+            }
+          } else if (normalizedRole === 'principal' || (normalizedRole !== 'admin')) {
             freshData = await withTimeout(getTeacherProfile(), 5000);
           }
         } catch (e) {
@@ -295,6 +320,14 @@ export default function ProfileScreen() {
           storedTeacherId2,
           storedEmployeeId2,
           storedStudentId2,
+          storedBloodGroup,
+          storedAddress,
+          storedPrincipalEmployeeId,
+          storedPrincipalEmail,
+          storedPrincipalMobile,
+          storedPrincipalAddress,
+          storedDirectorEmail,
+          storedDirectorEmployeeId,
         ] =
           await AsyncStorage.multiGet([
             'email',
@@ -308,37 +341,99 @@ export default function ProfileScreen() {
             'teacher_id',
             'employee_id',
             'student_id',
+            'blood_group',
+            'address',
+            'principal_employee_id',
+            'principal_email',
+            'principal_mobile',
+            'principal_address',
+            'director_email',
+            'director_employee_id',
           ]).then(items => items.map(([, value]) => value || ''));
 
         const profileSource = (freshData as any) || {};
         const resolvedProfile = {
           ...profileSource,
           role: firstNonEmptyText(profileSource?.role, normalizedRole, 'student'),
-          name: firstNonEmptyText(profileSource?.name, profileSource?.full_name, profileSource?.teacher_full_name, profileSource?.student_full_name, userName, storedUser?.name),
-          email: firstNonEmptyText(profileSource?.email, profileSource?.email_id, profileSource?.email_address, storedEmail, storedUser?.email),
+          name: firstNonEmptyText(
+            profileSource?.name,
+            profileSource?.full_name,
+            profileSource?.teacher_full_name,
+            profileSource?.student_full_name,
+            profileSource?.director_name,
+            userName,
+            storedUser?.name,
+            storedUser?.director_name
+          ),
+          email: firstNonEmptyText(
+            profileSource?.email,
+            profileSource?.email_id,
+            profileSource?.email_address,
+            profileSource?.director_email,
+            storedEmail,
+            storedDirectorEmail,
+            storedPrincipalEmail,
+            storedUser?.email,
+            storedUser?.principal_email,
+            storedUser?.director_email
+          ),
           phone: firstNonEmptyText(
             profileSource?.phone,
             profileSource?.mobile,
             profileSource?.mobile_number,
             profileSource?.phone_number,
+            profileSource?.director_phone,
+            profileSource?.director_mobile,
             storedPhone,
             storedMobile,
             storedMobileNumber,
+            storedPrincipalMobile,
             storedUser?.phone,
             storedUser?.mobile,
+            storedUser?.principal_mobile,
+            storedUser?.director_phone
           ),
-          branch_name: firstNonEmptyText(profileSource?.branch_name, profileSource?.branchName, profileSource?.branch, storedBranchName, storedUser?.branch_name),
+          branch_name: firstNonEmptyText(
+            profileSource?.branch_name,
+            profileSource?.branchName,
+            typeof profileSource?.branch === 'object' && profileSource?.branch !== null ? (profileSource?.branch?.branch_name || profileSource?.branch?.name) : profileSource?.branch,
+            storedBranchName,
+            storedUser?.branch_name
+          ),
           branch_id: firstNonEmptyText(profileSource?.branch_id, profileSource?.branchId, storedBranchId, storedUser?.branch_id),
-          school_name: firstNonEmptyText(profileSource?.school_name, profileSource?.schoolName, profileSource?.school, storedSchoolName, storedUser?.school_name),
+          school_name: firstNonEmptyText(
+            profileSource?.school_name,
+            profileSource?.schoolName,
+            typeof profileSource?.school === 'object' && profileSource?.school !== null ? (profileSource?.school?.school_name || profileSource?.school?.name) : profileSource?.school,
+            storedSchoolName,
+            storedUser?.school_name
+          ),
           school_code: firstNonEmptyText(profileSource?.school_code, profileSource?.schoolCode, storedSchoolCodeFromStore, storedUser?.school_code),
           teacher_id: firstNonEmptyText(profileSource?.teacher_id, storedTeacherId2, storedUser?.teacher_id),
-          employee_id: firstNonEmptyText(profileSource?.employee_id, storedEmployeeId2, storedUser?.employee_id),
+          employee_id: firstNonEmptyText(
+            profileSource?.employee_id,
+            profileSource?.director_employee_id,
+            storedEmployeeId2,
+            storedDirectorEmployeeId,
+            storedPrincipalEmployeeId,
+            storedUser?.employee_id,
+            storedUser?.principal_employee_id,
+            storedUser?.director_employee_id
+          ),
           student_id: firstNonEmptyText(profileSource?.student_id, storedStudentId2, storedUser?.student_id),
           parent_guardian_email: firstNonEmptyText(profileSource?.parent_guardian_email, profileSource?.parent_email, profileSource?.guardian_email, profileSource?.father_email, profileSource?.mother_email, profileSource?.father_guardian_email, storedUser?.parent_guardian_email),
           designation: firstNonEmptyText(profileSource?.designation, profileSource?.teacher_designation, storedUser?.designation),
           department_subject: firstNonEmptyText(profileSource?.department_subject, profileSource?.department, profileSource?.subject, storedUser?.department_subject),
-          address: firstNonEmptyText(profileSource?.address, storedUser?.address),
-          blood_group: firstNonEmptyText(profileSource?.blood_group, profileSource?.blood_type, storedUser?.blood_group),
+          address: firstNonEmptyText(
+            profileSource?.address,
+            profileSource?.director_address,
+            storedAddress,
+            storedPrincipalAddress,
+            storedUser?.address,
+            storedUser?.principal_address,
+            storedUser?.director_address
+          ),
+          blood_group: firstNonEmptyText(profileSource?.blood_group, profileSource?.bloodGroup, profileSource?.blood_type, storedBloodGroup, storedUser?.blood_group),
           date_of_birth: firstNonEmptyText(profileSource?.date_of_birth, storedUser?.date_of_birth),
           gender: firstNonEmptyText(profileSource?.gender, storedUser?.gender),
           nationality: firstNonEmptyText(profileSource?.nationality, storedUser?.nationality),
@@ -359,14 +454,26 @@ export default function ProfileScreen() {
           mother_guardian_mobile: firstNonEmptyText(profileSource?.mother_guardian_mobile, profileSource?.mother_mobile, profileSource?.mother_phone, storedUser?.mother_guardian_mobile),
         };
 
-        // Update UI and cache
         if (isMounted.current) {
+          if (normalizedRole === 'principal') {
+            const decodedToken = decodeJwt(userToken) || {};
+            resolvedProfile.employee_id = resolvedProfile.employee_id || profileSource?.principal_employee_id || storedUser?.principal_employee_id || storedPrincipalEmployeeId || decodedToken.principal_employee_id || decodedToken.sub;
+            resolvedProfile.email = resolvedProfile.email || profileSource?.principal_email || storedUser?.principal_email || storedPrincipalEmail;
+            resolvedProfile.phone = resolvedProfile.phone || profileSource?.principal_mobile || storedUser?.principal_mobile || storedPrincipalMobile;
+            resolvedProfile.address = resolvedProfile.address || profileSource?.principal_address || storedUser?.principal_address || storedPrincipalAddress;
+            resolvedProfile.branch_id = resolvedProfile.branch_id || profileSource?.branch_id || storedUser?.branch_id || storedBranchId || decodedToken.branch_id;
+            resolvedProfile.school_code = resolvedProfile.school_code || profileSource?.school_code || storedUser?.school_code || storedSchoolCodeFromStore || decodedToken.school_code;
+          }
+        
+          resolvedProfile.school_name = resolvedProfile.school_name || resolvedProfile.school_code || 'Unknown School';
+
           setUserInfo(prev => ({ ...prev, ...resolvedProfile, role: resolvedProfile.role || prev.role || 'student' }));
         }
 
-        // Fetch or resolve photo
         const directProfilePhoto = normalizePhotoUri(
           profileSource?.profile_photo_url ||
+          profileSource?.photo_url ||
+          profileSource?.photo_path ||
           (roleBucket === 'student' ? profileSource?.student_photograph : profileSource?.teacher_photograph)
         );
 
@@ -404,14 +511,11 @@ export default function ProfileScreen() {
           setProfilePhotoError(false);
         }
 
-        // persist resolved profile to cache
         try {
           await AsyncStorage.setItem(profileCacheKey, JSON.stringify(resolvedProfile));
         } catch (e) {
-          // ignore cache write errors
         }
 
-        // persist app settings if present in profile
         const savedSettings = await AsyncStorage.getItem('app_settings');
         if (savedSettings && isMounted.current) {
           setSettings(safeJsonParse<AppSettings>(savedSettings, settings));
@@ -419,10 +523,8 @@ export default function ProfileScreen() {
       };
 
       if (hadCache) {
-        // background refresh
         void refresh();
       } else {
-        // no cache — wait for fresh fetch so UI can render
         await refresh();
       }
 
@@ -440,7 +542,7 @@ export default function ProfileScreen() {
         setLoading(false);
       }
     }
-  }, []);
+  }, [userName, userToken]);
 
   useEffect(() => {
     fetchProfileData();
@@ -475,7 +577,7 @@ export default function ProfileScreen() {
 
   // Password change handlers
   const handleRequestOtp = async () => {
-    const targetEmail = userInfo.role === 'student' ? (userInfo.parent_guardian_email || userInfo.email) : userInfo.email;
+    const targetEmail = isStudent ? (userInfo.parent_guardian_email || userInfo.email) : userInfo.email;
     if (!targetEmail) {
       setPasswordChangeError('Email not found in profile');
       return;
@@ -504,7 +606,7 @@ export default function ProfileScreen() {
       return;
     }
 
-    const targetEmail = userInfo.role === 'student' ? (userInfo.parent_guardian_email || userInfo.email) : userInfo.email;
+    const targetEmail = isStudent ? (userInfo.parent_guardian_email || userInfo.email) : userInfo.email;
     if (!targetEmail) {
       setPasswordChangeError('Email not found in profile');
       return;
@@ -548,7 +650,7 @@ export default function ProfileScreen() {
       return;
     }
 
-    const targetEmail = userInfo.role === 'student' ? (userInfo.parent_guardian_email || userInfo.email) : userInfo.email;
+    const targetEmail = isStudent ? (userInfo.parent_guardian_email || userInfo.email) : userInfo.email;
     if (!targetEmail) {
       setPasswordChangeError('Email not found in profile');
       return;
@@ -589,11 +691,6 @@ export default function ProfileScreen() {
     resetPasswordChangeModal();
   };
 
-  const handleEditPress = (key: string, label: string, value: string) => {
-    setEditField({ key, label, value: value || '' });
-    setShowEditModal(true);
-  };
-
   const handleUpdateProfile = async () => {
     if (!editField.key) return;
 
@@ -601,8 +698,24 @@ export default function ProfileScreen() {
     try {
       const updateData = { [editField.key]: editField.value };
 
-      if (userInfo.role === 'student') {
+      if (isStudent) {
         await updateStudentProfile(updateData);
+      } else if (isDirector) {
+        const { buildApiUrl } = require('../../services/api');
+        const API = require('../../services/api').default;
+        const body = { ...updateData };
+        if (editField.key === 'phone') {
+          body.director_phone = editField.value;
+          body.director_mobile = editField.value;
+          body.mobile = editField.value;
+        } else if (editField.key === 'email') {
+          body.director_email = editField.value;
+        } else if (editField.key === 'name') {
+          body.director_name = editField.value;
+        } else if (editField.key === 'address') {
+          body.director_address = editField.value;
+        }
+        await API.put('/director/profile', body);
       } else {
         await updateTeacherProfile(updateData);
       }
@@ -617,26 +730,36 @@ export default function ProfileScreen() {
     }
   };
 
-  const roleKey = String(userInfo.role || '').trim().toLowerCase();
-  const isStudent = roleKey === 'student';
-  const isPrincipal = roleKey === 'principal';
-
-  const renderInfoRow = (label: string, value: string | undefined, IconComponent: any, editableKey?: string) => (
-    <View style={styles.infoRow}>
-      <View style={styles.iconCircle}>
-        <IconComponent size={18} color="#2563eb" />
-      </View>
-      <View style={styles.infoContent}>
-        <AppText style={styles.infoLabel}>{label}</AppText>
-        <AppText style={styles.infoValue}>{value || '—'}</AppText>
-      </View>
-    </View>
-  );
+  const renderInfoRow = (label: string, value: string | undefined, IconComponent: any, fieldKey?: string) => {
+    const RowComponent = (fieldKey && isDirector) ? TouchableOpacity : View;
+    return (
+      <RowComponent 
+        style={styles.infoRow}
+        onPress={fieldKey && isDirector ? () => {
+          setEditField({ key: fieldKey, label, value: value || '' });
+          setShowEditModal(true);
+        } : undefined}
+      >
+        <View style={styles.iconCircle}>
+          <IconComponent size={18} color={Theme.colors.blue} />
+        </View>
+        <View style={styles.infoContent}>
+          <AppText style={styles.infoLabel}>{label}</AppText>
+          <AppText style={styles.infoValue}>{value || '—'}</AppText>
+        </View>
+        {fieldKey && isDirector && (
+          <View style={styles.editIcon}>
+            <AppText style={{ fontSize: 12, color: Theme.colors.blue, fontWeight: '600' }}>Edit</AppText>
+          </View>
+        )}
+      </RowComponent>
+    );
+  };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color={Theme.colors.primary} />
       </View>
     );
   }
@@ -651,7 +774,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <View style={styles.headerTop}>
@@ -679,15 +802,18 @@ export default function ProfileScreen() {
               displayName={userInfo.name || 'User'}
               size={80}
               textSize={28}
-              primaryColor="#2563eb"
+              primaryColor={Theme.colors.blue}
             />
           )}
-          <View style={styles.profileTextInfo}>
-            <AppText style={styles.userName}>{userInfo.name}</AppText>
+          <TouchableOpacity style={styles.profileTextInfo} onPress={() => setShowAccountSwitcher(true)}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <AppText style={styles.userName}>{userInfo.name}</AppText>
+              <ChevronDown size={20} color="#fff" style={{ marginLeft: 6 }} />
+            </View>
             <AppText style={styles.userRole}>
               {userInfo.role?.toUpperCase() || 'STUDENT'} • ID: {userInfo.student_id || userInfo.employee_id}
             </AppText>
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -695,37 +821,42 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <AppText style={styles.sectionTitle}>Basic Information</AppText>
           <AppCard style={styles.infoCard}>
-            {renderInfoRow('Full Name', userInfo.name, User, isStudent ? undefined : 'name')}
-            {isPrincipal && (
+            {isDirector && (
               <>
-                <View style={styles.divider} />
-                {renderInfoRow('Mobile Number', userInfo.phone, Phone, 'phone')}
+                {renderInfoRow('Full Name', userInfo.name, User, 'name')}
                 <View style={styles.divider} />
                 {renderInfoRow('Email', userInfo.email, Mail, 'email')}
+                
+                {roleKey !== 'admin' && (
+                  <>
+                    <View style={styles.divider} />
+                    {renderInfoRow('Phone', userInfo.phone, Phone, 'phone')}
+                    <View style={styles.divider} />
+                    {renderInfoRow('Address', userInfo.address, MapPin, 'address')}
+                  </>
+                )}
               </>
             )}
-            {userInfo.role === 'student' && (
+            {isStudent && (
               <>
-                <View style={styles.divider} />
                 {renderInfoRow('Roll Number', userInfo.roll_number, Hash)}
                 <View style={styles.divider} />
                 {renderInfoRow('Class', userInfo.class_grade, BookOpen)}
                 <View style={styles.divider} />
                 {renderInfoRow('Section', userInfo.section, Grid)}
                 <View style={styles.divider} />
-                {renderInfoRow('Blood Group', userInfo.blood_group, Droplet, 'blood_group')}
+                {renderInfoRow('Blood Group', userInfo.blood_group, Droplet)}
               </>
             )}
-            {!isStudent && !isPrincipal && (
+            {!isStudent && !isDirector && (
               <>
-                <View style={styles.divider} />
-                {renderInfoRow('Blood Group', userInfo.blood_group, Droplet, 'blood_group')}
+                {renderInfoRow('Blood Group', userInfo.blood_group, Droplet)}
               </>
             )}
           </AppCard>
         </View>
 
-        {!isStudent && !isPrincipal && (
+        {!isStudent && !isDirector && (
           <View style={styles.section}>
             <AppText style={styles.sectionTitle}>Professional Details</AppText>
             <AppCard style={styles.infoCard}>
@@ -742,32 +873,34 @@ export default function ProfileScreen() {
             <AppCard style={styles.infoCard}>
               {renderInfoRow('Father Name', userInfo.father_guardian_name, User)}
               <View style={styles.divider} />
-              {renderInfoRow('Father Mobile', userInfo.father_guardian_mobile, Phone, 'father_guardian_mobile')}
+              {renderInfoRow('Father Mobile', userInfo.father_guardian_mobile, Phone)}
               <View style={styles.divider} />
-              {renderInfoRow('Parent Email', userInfo.parent_guardian_email, Mail, 'parent_guardian_email')}
+              {renderInfoRow('Parent Email', userInfo.parent_guardian_email, Mail)}
             </AppCard>
           </View>
         )}
 
-        {!isStudent && !isPrincipal && (
+        {!isStudent && !isDirector && (
           <View style={styles.section}>
             <AppText style={styles.sectionTitle}>Contact Information</AppText>
             <AppCard style={styles.infoCard}>
-              {renderInfoRow('Email', userInfo.email, Mail, isStudent ? undefined : 'email')}
+              {renderInfoRow('Email', userInfo.email, Mail)}
               <View style={styles.divider} />
-              {renderInfoRow('Phone', userInfo.phone, Phone, 'phone')}
+              {renderInfoRow('Phone', userInfo.phone, Phone)}
               <View style={styles.divider} />
-              {renderInfoRow('Address', userInfo.address, MapPin, 'address')}
+              {renderInfoRow('Address', userInfo.address, MapPin)}
             </AppCard>
           </View>
         )}
-        {!isPrincipal && (
+        {(!isDirector || roleKey === 'principal') && (
           <View style={styles.section}>
             <AppText style={styles.sectionTitle}>Organization</AppText>
             <AppCard style={styles.infoCard}>
               {renderInfoRow('School', userInfo.school_name, Home)}
               <View style={styles.divider} />
               {renderInfoRow('Branch', userInfo.branch_name, MapPin)}
+              <View style={styles.divider} />
+              {renderInfoRow('Branch ID', userInfo.branch_id, Hash)}
             </AppCard>
           </View>
         )}
@@ -775,14 +908,32 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <AppText style={styles.sectionTitle}>Account Settings</AppText>
           <AppCard style={styles.infoCard}>
-            <TouchableOpacity style={styles.menuItem} onPress={() => setShowSettingsModal(true)}>
-              <View style={styles.menuIconContainer}>
-                <Sliders size={18} color="#0f172a" />
-              </View>
-              <AppText style={styles.menuText}>App Settings</AppText>
-              <ChevronRight size={20} color="#94a3b8" />
-            </TouchableOpacity>
-            <View style={styles.divider} />
+            {systemSettingsRoute ? (
+              <>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => systemSettingsRoute && (navigation as any).navigate(systemSettingsRoute)}
+                >
+                  <View style={styles.menuIconContainer}>
+                    <Sliders size={18} color="#0f172a" />
+                  </View>
+                  <AppText style={styles.menuText}>Settings</AppText>
+                  <ChevronRight size={20} color="#94a3b8" />
+                </TouchableOpacity>
+                <View style={styles.divider} />
+              </>
+            ) : (
+              <>
+                <TouchableOpacity style={styles.menuItem} onPress={() => setShowSettingsModal(true)}>
+                  <View style={styles.menuIconContainer}>
+                    <Sliders size={18} color="#0f172a" />
+                  </View>
+                  <AppText style={styles.menuText}>App Settings</AppText>
+                  <ChevronRight size={20} color="#94a3b8" />
+                </TouchableOpacity>
+                <View style={styles.divider} />
+              </>
+            )}
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => setShowPasswordChangeModal(true)}
@@ -892,7 +1043,7 @@ export default function ProfileScreen() {
                 <View>
                   <AppText style={styles.passwordStepLabel}>Step 1: Request OTP</AppText>
                   <AppText style={styles.passwordStepDesc}>
-                    We'll send an OTP to: {userInfo.role === 'student' ? (userInfo.parent_guardian_email || userInfo.email) : userInfo.email}
+                    We'll send an OTP to: {isStudent ? (userInfo.parent_guardian_email || userInfo.email) : userInfo.email}
                   </AppText>
                   <AppButton
                     title={passwordChangeLoading ? 'Sending...' : 'Send OTP'}
@@ -1033,6 +1184,7 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+      <AccountSwitcher visible={showAccountSwitcher} onClose={() => setShowAccountSwitcher(false)} />
     </View>
   );
 }
@@ -1057,7 +1209,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   header: {
-    backgroundColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
     paddingHorizontal: 20,
     paddingBottom: 30,
     borderBottomLeftRadius: 30,
@@ -1102,7 +1254,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 26,
     borderWidth: 2,
-    borderColor: '#2563eb',
+    borderColor: Theme.colors.blue,
     backgroundColor: '#e2e8f0',
   },
   userName: {
@@ -1144,7 +1296,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    backgroundColor: Theme.colors.blueLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1237,7 +1389,6 @@ const styles = StyleSheet.create({
   modalFooter: {
     flexDirection: 'row',
   },
-  // Password change modal styles
   passwordStepLabel: {
     fontSize: 16,
     fontWeight: '700',
@@ -1368,4 +1519,3 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
-

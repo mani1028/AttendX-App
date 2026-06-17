@@ -10,6 +10,7 @@ import {
   Alert,
   Image,
   Platform,
+  Text,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -78,10 +79,10 @@ const Header: React.FC<HeaderProps> = ({
   const role = propRole || authRole || 'teacher';
   const effectiveRoleDisplay = role === 'teacher' && isClassTeacher ? 'Class Teacher' : 
     role === 'teacher' ? 'Subject Teacher' :
-    role === 'hm' ? 'Head Master' :
+    role === 'director' ? 'Director' :
     role === 'student' ? 'Student' :
     role === 'accountant' ? 'Accountant' :
-    role === 'principal' ? 'Principal' :
+    role === 'director' ? 'Director' :
     role === 'admin' ? 'Administrator' : role;
 
   useEffect(() => {
@@ -172,14 +173,14 @@ const Header: React.FC<HeaderProps> = ({
         if (branchName) details.push({ label: 'Branch Name', value: branchName });
       }
       
-      if (storedRole === 'hm') {
-        const hmEmployeeId = await AsyncStorage.getItem('hm_employee_id');
-        const hmEmail = await AsyncStorage.getItem('hm_email');
+      if (storedRole === 'director') {
+        const directorEmployeeId = await AsyncStorage.getItem('director_employee_id');
+        const directorEmail = await AsyncStorage.getItem('director_email');
         const branchId = await AsyncStorage.getItem('branch_id');
         const branchName = await AsyncStorage.getItem('branch_name');
         
-        if (hmEmployeeId) details.push({ label: 'HM Employee ID', value: hmEmployeeId });
-        if (hmEmail) details.push({ label: 'HM Email', value: hmEmail });
+        if (directorEmployeeId) details.push({ label: 'Director Employee ID', value: directorEmployeeId });
+        if (directorEmail) details.push({ label: 'Director Email', value: directorEmail });
         if (branchId) details.push({ label: 'Branch ID', value: branchId });
         if (branchName) details.push({ label: 'Branch Name', value: branchName });
       }
@@ -191,7 +192,7 @@ const Header: React.FC<HeaderProps> = ({
         if (parentId) details.push({ label: 'Parent ID', value: parentId });
       }
       
-      if (storedRole === 'principal' && email) {
+      if (storedRole === 'director' && email) {
         details.push({ label: 'Email', value: email });
       }
       
@@ -394,9 +395,9 @@ const Header: React.FC<HeaderProps> = ({
                 <Bell size={22} color="#f1f5f9" />
                 {unreadCount > 0 && (
                   <View style={styles.badge}>
-                    <AppText style={styles.badgeText}>
+                    <Text style={styles.badgeText}>
                       {unreadCount > 99 ? '99+' : unreadCount}
-                    </AppText>
+                    </Text>
                   </View>
                 )}
               </View>
@@ -459,27 +460,46 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   iconButton: {
-    padding: 8,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   bellContainer: {
     position: 'relative',
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   badge: {
     position: 'absolute',
-    top: -6,
-    right: -6,
+    top: -4,
+    right: -4,
     backgroundColor: '#ef4444',
-    borderRadius: 12,
-    minWidth: 18,
-    height: 18,
+    borderRadius: 10,
+    width: 20,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    zIndex: 1,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   badgeText: {
     color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '900',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    textAlign: 'center',
   },
   profileButton: {
     flexDirection: "row",
@@ -498,7 +518,7 @@ const styles = StyleSheet.create({
   avatarInitials: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: "#3b82f6",
+    backgroundColor: "#6648dc",
   },
   avatarInitialsText: {
     color: '#fff',
@@ -512,13 +532,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   dropdownContainer: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#040912',
     borderRadius: 16,
     width: 320,
     marginTop: 60,
     marginRight: 16,
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.2)',
+    borderColor: 'rgba(102,72,220,0.25)',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -588,7 +608,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#6648dc',
     alignItems: 'center',
   },
   dropdownViewProfileText: {

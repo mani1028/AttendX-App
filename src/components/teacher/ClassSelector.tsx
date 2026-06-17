@@ -1,15 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   TextInput,
   ScrollView,
-  Platform,
+  StatusBar,
 } from 'react-native';
-import { colors } from '../../constants/colors';
-import AppCard from '../common/AppCard';
+import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
+import { ChevronLeft, Search, Users, User, Percent } from 'lucide-react-native';
+import AppText from '../common/AppText';
 
 interface ClassItem {
   id: string;
@@ -52,6 +54,8 @@ const COLORS = [
 
 export default function ClassSelector({ onSelectClass, classes = DEFAULT_CLASSES }: ClassSelectorProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
 
   const filteredClasses = useMemo(() => {
     if (!searchTerm.trim()) return classes;
@@ -62,62 +66,93 @@ export default function ClassSelector({ onSelectClass, classes = DEFAULT_CLASSES
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Select Class</Text>
-        <View style={styles.searchContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by class name..."
-            placeholderTextColor="#94a3b8"
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
+      {/* Curved Navy Header with Search */}
+      <LinearGradient
+        colors={['#1e3a8a', '#3b82f6']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.headerStandard, { paddingTop: insets.top + 16 }]}
+      >
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard')}
+            accessibilityLabel="Go back"
+          >
+            <ChevronLeft size={24} color="#FFF" />
+          </TouchableOpacity>
+          <AppText weight="bold" style={styles.headerTitle}>Select Class</AppText>
+          <View style={{ width: 40 }} />
         </View>
-      </View>
 
-      <Text style={styles.subtitle}>
-        Click on a class to view student attendance
-      </Text>
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Search size={20} color="#94A3B8" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by class name..."
+              placeholderTextColor="#94a3b8"
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+            />
+          </View>
+        </View>
+      </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <AppText style={styles.subtitle}>
+          Click on a class to view student attendance
+        </AppText>
+
         <View style={styles.classGrid}>
           {filteredClasses.map((classItem, index) => {
-            const colors = COLORS[index % COLORS.length];
+            const themeColors = COLORS[index % COLORS.length];
             return (
               <TouchableOpacity
                 key={classItem.id}
-                style={[styles.classCard, { backgroundColor: colors.bg }]}
+                style={styles.classCard}
                 onPress={() => onSelectClass(classItem)}
+                activeOpacity={0.7}
               >
-                <View style={[styles.cardAccent, { backgroundColor: colors.accent }]} />
-                <Text style={styles.className}>{classItem.name}</Text>
-                
+                {/* Left accent border */}
+                <View style={[styles.cardAccentLeft, { backgroundColor: themeColors.accent }]} />
+
+                <AppText weight="bold" style={styles.className}>{classItem.name}</AppText>
+
                 <View style={styles.classInfo}>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoIcon}>👥</Text>
-                    <Text style={styles.infoText}>{classItem.students} Students</Text>
+                    <Users size={14} color="#64748B" />
+                    <AppText style={styles.infoText}>{classItem.students} Students</AppText>
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoIcon}>👨‍🏫</Text>
-                    <Text style={styles.infoText}>Class Teacher: {classItem.teacher}</Text>
+                    <User size={14} color="#64748B" />
+                    <AppText style={styles.infoText} numberOfLines={1}>
+                      {classItem.teacher ? classItem.teacher : 'No Class Teacher'}
+                    </AppText>
                   </View>
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoIcon}>📊</Text>
-                    <Text style={styles.infoText}>Avg. Attendance: {classItem.attendance}%</Text>
+                    <Percent size={14} color="#64748B" />
+                    <AppText style={styles.infoText}>Avg. Att: {classItem.attendance}%</AppText>
                   </View>
                 </View>
 
                 <View style={styles.viewButton}>
-                  <Text style={styles.viewButtonText}>View Attendance</Text>
-                  <Text style={styles.viewButtonArrow}>→</Text>
+                  <AppText weight="bold" style={[styles.viewButtonText, { color: themeColors.accent }]}>
+                    View Attendance
+                  </AppText>
+                  <AppText weight="bold" style={[styles.viewButtonArrow, { color: themeColors.accent }]}>→</AppText>
                 </View>
               </TouchableOpacity>
             );
           })}
         </View>
         {filteredClasses.length === 0 && (
-          <Text style={styles.noResults}>No classes found.</Text>
+          <AppText style={styles.noResults}>No classes found.</AppText>
         )}
       </ScrollView>
     </View>
@@ -127,46 +162,70 @@ export default function ClassSelector({ onSelectClass, classes = DEFAULT_CLASSES
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    backgroundColor: '#F8FAFC',
   },
-  header: {
+  headerStandard: {
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    paddingBottom: 24,
+    paddingHorizontal: 16,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  headerTop: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 12,
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
-  title: {
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#0f172a',
+    color: '#FFF',
   },
   searchContainer: {
-    position: 'relative',
+    marginTop: 4,
+  },
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    backgroundColor: '#fff',
-  },
-  searchIcon: {
-    fontSize: 14,
-    marginRight: 6,
-    color: '#94a3b8',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    height: 48,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
   },
   searchInput: {
-    width: 200,
-    paddingVertical: 8,
+    flex: 1,
+    marginLeft: 8,
     fontSize: 14,
-    color: '#0f172a',
+    color: '#0F172A',
+    paddingVertical: 8,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
   subtitle: {
-    color: '#64748b',
-    fontSize: 13,
-    marginBottom: 20,
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 16,
   },
   classGrid: {
     flexDirection: 'row',
@@ -176,48 +235,47 @@ const styles = StyleSheet.create({
   },
   classCard: {
     width: '48%',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#1E3A8A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    ...Platform.select({
-      android: { elevation: 2 },
-      ios: {},
-    }),
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
     position: 'relative',
     overflow: 'hidden',
   },
-  cardAccent: {
+  cardAccentLeft: {
     position: 'absolute',
     top: 0,
+    bottom: 0,
     left: 0,
-    right: 0,
-    height: 5,
+    width: 4,
   },
   className: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 12,
+    fontSize: 16,
+    color: '#0F172A',
+    marginBottom: 10,
+    paddingLeft: 4,
   },
   classInfo: {
-    marginVertical: 8,
+    marginVertical: 4,
     gap: 6,
+    paddingLeft: 4,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  infoIcon: {
-    fontSize: 14,
-  },
   infoText: {
     fontSize: 12,
     color: '#475569',
+    flex: 1,
   },
   viewButton: {
     flexDirection: 'row',
@@ -226,20 +284,19 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
+    borderTopColor: '#F1F5F9',
+    paddingLeft: 4,
   },
   viewButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#10b981',
+    fontSize: 12,
   },
   viewButtonArrow: {
     fontSize: 12,
-    color: '#10b981',
   },
   noResults: {
     textAlign: 'center',
-    color: '#64748b',
+    color: '#64748B',
     marginTop: 40,
+    fontSize: 14,
   },
 });

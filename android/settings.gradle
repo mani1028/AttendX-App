@@ -15,6 +15,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = 'AttendX'
 include ':app'
-include ':amplitude_analytics-react-native'
-project(':amplitude_analytics-react-native').projectDir = new File(rootProject.projectDir, '../node_modules/@amplitude/analytics-react-native/android')
 includeBuild('../node_modules/@react-native/gradle-plugin')

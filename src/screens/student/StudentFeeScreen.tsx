@@ -19,10 +19,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import { Buffer } from 'buffer';
-import Icon from '@react-native-vector-icons/feather';
+import Icon from 'react-native-vector-icons/Feather';
 import { getStudentFee, getPaymentHistory } from '../../services/studentService';
 import { downloadReceipt } from '../../services/accountantService';
-import colors from '../../constants/colors';
+import { Theme as C } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 
@@ -68,7 +68,7 @@ const SummaryCard: React.FC<{
 }> = ({ icon, label, value, backgroundColor }) => (
   <View style={[styles.summaryCard, { backgroundColor }]}>
     <View style={styles.summaryIconContainer}>
-      <Icon name={icon as any} size={24} color="#fff" />
+      <Icon name={icon as any} size={24} color={C.colors.card} />
     </View>
     <View style={styles.summaryContent}>
       <AppText style={styles.summaryLabel}>{label}</AppText>
@@ -153,7 +153,7 @@ export default function StudentFeeScreen({ navigation }: any) {
         paid_amount: feeData.paidFee,
         due_amount: feeData.pendingFee,
         status: feeData.pendingFee <= 0 ? 'paid' : 'partial',
-        due_date: 'N/A'
+        due_date: (feeData as any).due_date || 'N/A'
       }];
 
       setFees(formattedFees);
@@ -212,11 +212,17 @@ export default function StudentFeeScreen({ navigation }: any) {
       if (!exists) throw new Error('Written file not found');
 
       try {
-        await Share.open({
-          url: Platform.OS === 'android' ? `file://${filePath}` : filePath,
+        const finalUrl = Platform.OS === 'android'
+          ? `content://com.visys.attendx.fileprovider/internal_files/${fileName}`
+          : `file://${filePath}`;
+
+        const shareOptions = {
+          url: finalUrl,
           type: 'application/pdf',
           title: 'Payment Receipt',
-        });
+        };
+
+        await Share.open(shareOptions);
       } catch (shareErr: any) {
         const m = String(shareErr?.message || '').toLowerCase();
         if (m.includes('user did not share') || m.includes('cancel')) {
@@ -242,11 +248,11 @@ export default function StudentFeeScreen({ navigation }: any) {
   };
 
   const renderOverview = () => {
-    const mainFee = fees[0] || { status: 'PARTIAL', due_date: '23-04-2026' };
+    const mainFee = fees[0] || { status: 'PARTIAL', due_date: 'N/A' };
     return (
       <View style={styles.detailsCard}>
         <View style={styles.detailsHeader}>
-          <Icon name="file-text" size={18} color="#1E293B" />
+          <Icon name="file-text" size={18} color={C.colors.primary} />
           <AppText style={styles.detailsTitle}>FEE DETAILS</AppText>
         </View>
 
@@ -258,20 +264,22 @@ export default function StudentFeeScreen({ navigation }: any) {
 
         <View style={styles.detailRow}>
           <AppText style={styles.detailLabel}>Paid Amount</AppText>
-          <AppText style={[styles.detailValue, { color: '#22c55e' }]}>{formatCurrency(totalPaid)}</AppText>
+          <AppText style={[styles.detailValue, { color: C.colors.success }]}>{formatCurrency(totalPaid)}</AppText>
         </View>
         <View style={styles.divider} />
 
         <View style={styles.detailRow}>
           <AppText style={styles.detailLabel}>Due Amount</AppText>
-          <AppText style={[styles.detailValue, { color: '#ef4444' }]}>{formatCurrency(totalDue)}</AppText>
+          <AppText style={[styles.detailValue, { color: C.colors.error }]}>{formatCurrency(totalDue)}</AppText>
         </View>
         <View style={styles.divider} />
 
         <View style={styles.detailRow}>
           <AppText style={styles.detailLabel}>Status</AppText>
-          <View style={styles.statusBadge}>
-            <AppText style={styles.statusText}>{mainFee.status?.toUpperCase() || 'PARTIAL'}</AppText>
+          <View style={[styles.statusBadge, { backgroundColor: totalDue <= 0 ? C.colors.successBg : C.colors.warningBg }]}>
+            <AppText style={[styles.statusText, { color: totalDue <= 0 ? C.colors.success : C.colors.warning }]}>
+              {totalDue <= 0 ? 'PAID' : (totalPaid > 0 ? 'PARTIAL' : 'UNPAID')}
+            </AppText>
           </View>
         </View>
         <View style={styles.divider} />
@@ -279,8 +287,8 @@ export default function StudentFeeScreen({ navigation }: any) {
         <View style={styles.detailRow}>
           <AppText style={styles.detailLabel}>Due Date</AppText>
           <View style={styles.dueDateContainer}>
-            <Icon name="calendar" size={16} color="#94A3B8" />
-            <AppText style={styles.dueDateValue}>{mainFee.due_date || '23-04-2026'}</AppText>
+            <Icon name="calendar" size={16} color={C.colors.textMuted} />
+            <AppText style={styles.dueDateValue}>{mainFee.due_date || 'N/A'}</AppText>
           </View>
         </View>
       </View>
@@ -291,7 +299,7 @@ export default function StudentFeeScreen({ navigation }: any) {
     <View style={styles.historySection}>
       <View style={styles.historyHeader}>
         <View style={styles.historyHeaderLeft}>
-          <Icon name="rotate-ccw" size={18} color="#1E293B" />
+          <Icon name="rotate-ccw" size={18} color={C.colors.primary} />
           <AppText style={styles.detailsTitle}>Payment History</AppText>
         </View>
         <TouchableOpacity>
@@ -314,7 +322,7 @@ export default function StudentFeeScreen({ navigation }: any) {
             }}
           >
             <View style={styles.historyIconContainer}>
-              <Icon name="database" size={20} color="#22c55e" />
+              <Icon name="database" size={20} color={C.colors.success} />
             </View>
             <View style={styles.historyInfo}>
               <AppText style={styles.historyAmount}>{formatCurrency(item.amount)}</AppText>
@@ -324,7 +332,7 @@ export default function StudentFeeScreen({ navigation }: any) {
               <AppText style={styles.historyDate}>
                 {new Date(item.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
               </AppText>
-              <Icon name="chevron-right" size={18} color="#94A3B8" />
+              <Icon name="chevron-right" size={18} color={C.colors.textMuted} />
             </View>
           </TouchableOpacity>
         ))
@@ -337,9 +345,9 @@ export default function StudentFeeScreen({ navigation }: any) {
           disabled={!!downloading}
         >
           {downloading === payments[0].id ? (
-            <ActivityIndicator size="small" color="#3b82f6" />
+            <ActivityIndicator size="small" color={C.colors.blue} />
           ) : (
-            <Icon name="download" size={18} color="#3b82f6" />
+            <Icon name="download" size={18} color={C.colors.blue} />
           )}
           <AppText style={styles.downloadButtonText}>
             {downloading === payments[0].id ? 'Downloading...' : 'Download Latest Receipt'}
@@ -352,28 +360,28 @@ export default function StudentFeeScreen({ navigation }: any) {
   if (loading && !refreshing) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <ActivityIndicator size="large" color={C.colors.primary} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
       
       <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs')}
         >
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <Icon name="arrow-left" size={24} color={C.colors.card} />
         </TouchableOpacity>
         <AppText style={styles.headerTitle}>Fee & Payments</AppText>
         <TouchableOpacity
           style={styles.notificationIcon}
           onPress={() => navigation.navigate('Notifications')}
         >
-          <Icon name="bell" size={22} color="#fff" />
+          <Icon name="bell" size={22} color={C.colors.card} />
         </TouchableOpacity>
       </View>
 
@@ -383,7 +391,7 @@ export default function StudentFeeScreen({ navigation }: any) {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />
         }
       >
         {/* Ledger Info Card */}
@@ -408,19 +416,19 @@ export default function StudentFeeScreen({ navigation }: any) {
           icon="credit-card"
           label="Total Fee"
           value={formatCurrency(totalFee)}
-          backgroundColor="#3b82f6"
+          backgroundColor={C.colors.blue}
         />
         <SummaryCard
           icon="check-circle"
           label="Amount Paid"
           value={formatCurrency(totalPaid)}
-          backgroundColor="#10b981"
+          backgroundColor={C.colors.success}
         />
         <SummaryCard
           icon="clock"
           label="Amount Due"
           value={formatCurrency(totalDue)}
-          backgroundColor="#ef4444"
+          backgroundColor={C.colors.error}
         />
 
         {/* Tabs */}
@@ -455,14 +463,14 @@ export default function StudentFeeScreen({ navigation }: any) {
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle}>Payment Details</AppText>
               <TouchableOpacity onPress={() => setShowDetailModal(false)}>
-                <Icon name="x" size={24} color="#64748B" />
+                <Icon name="x" size={24} color={C.colors.textMuted} />
               </TouchableOpacity>
             </View>
 
             {selectedPayment && (
               <ScrollView style={styles.modalBody}>
                 <View style={styles.receiptContainer}>
-                  <Icon name="check-circle" size={48} color="#10b981" />
+                  <Icon name="check-circle" size={48} color={C.colors.success} />
                   <AppText style={styles.receiptAmount}>{formatCurrency(selectedPayment.amount)}</AppText>
                   <AppText style={styles.receiptStatus}>Payment Successful</AppText>
                 </View>
@@ -494,8 +502,8 @@ export default function StudentFeeScreen({ navigation }: any) {
                   </View>
                   <View style={styles.modalDetailRow}>
                     <AppText style={styles.modalDetailLabel}>Status</AppText>
-                    <View style={[styles.statusBadge, { backgroundColor: '#dcfce7' }]}>
-                      <AppText style={[styles.statusText, { color: '#15803d' }]}>SUCCESS</AppText>
+                    <View style={[styles.statusBadge, { backgroundColor: C.colors.successBg }]}>
+                      <AppText style={[styles.statusText, { color: C.colors.success }]}>SUCCESS</AppText>
                     </View>
                   </View>
                 </View>
@@ -506,9 +514,9 @@ export default function StudentFeeScreen({ navigation }: any) {
                   disabled={!!downloading}
                 >
                   {downloading === selectedPayment.id ? (
-                    <ActivityIndicator size="small" color="#3b82f6" />
+                    <ActivityIndicator size="small" color={C.colors.blue} />
                   ) : (
-                    <Icon name="download" size={18} color="#3b82f6" />
+                    <Icon name="download" size={18} color={C.colors.blue} />
                   )}
                   <AppText style={styles.downloadButtonText}>
                     {downloading === selectedPayment.id ? 'Downloading...' : 'Download Receipt PDF'}
@@ -526,10 +534,10 @@ export default function StudentFeeScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.colors.background,
   },
   header: {
-    backgroundColor: '#001F3F',
+    backgroundColor: C.colors.primary,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -542,7 +550,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: '#fff',
+    color: C.colors.card,
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -551,7 +559,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: C.colors.card + '1A', // ~0.1 opacity
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -560,27 +568,17 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   ledgerCard: {
-    backgroundColor: '#fff',
+    backgroundColor: C.colors.card,
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    ...Platform.select({
-
-      android: { elevation: 3 },
-
-      ios: {},
-
-    }),
+    ...C.shadow.sm,
     marginTop: 10,
   },
   ledgerTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1E293B',
+    color: C.colors.primary,
     marginBottom: 12,
   },
   ledgerRow: {
@@ -589,13 +587,13 @@ const styles = StyleSheet.create({
   },
   ledgerLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: C.colors.textSec,
     width: 100,
   },
   ledgerValue: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1E293B',
+    color: C.colors.primary,
   },
   summaryCard: {
     flexDirection: 'row',
@@ -603,23 +601,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    ...Platform.select({
-
-      android: { elevation: 4 },
-
-      ios: {},
-
-    }),
+    ...C.shadow.md,
   },
   summaryIconContainer: {
     width: 56,
     height: 56,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: C.colors.card + '33', // ~0.2 opacity
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 20,
@@ -629,18 +617,18 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
+    color: C.colors.card + 'CC', // ~0.8 opacity
     marginBottom: 4,
     fontWeight: '500',
   },
   summaryValue: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#fff',
+    color: C.colors.card,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: C.colors.card,
     borderRadius: 12,
     padding: 6,
     marginBottom: 20,
@@ -654,31 +642,21 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: '#3b82f6',
+    borderBottomColor: C.colors.blue,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748B',
+    color: C.colors.textSec,
   },
   activeTabText: {
-    color: '#3b82f6',
+    color: C.colors.blue,
   },
   detailsCard: {
-    backgroundColor: '#fff',
+    backgroundColor: C.colors.card,
     borderRadius: 16,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    ...Platform.select({
-
-      android: { elevation: 3 },
-
-      ios: {},
-
-    }),
+    ...C.shadow.sm,
   },
   detailsHeader: {
     flexDirection: 'row',
@@ -689,7 +667,7 @@ const styles = StyleSheet.create({
   detailsTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1E293B',
+    color: C.colors.primary,
   },
   detailRow: {
     flexDirection: 'row',
@@ -699,20 +677,20 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 14,
-    color: '#64748B',
+    color: C.colors.textSec,
     fontWeight: '500',
   },
   detailValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1E293B',
+    color: C.colors.primary,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.colors.borderLight,
   },
   statusBadge: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: C.colors.successBg,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
@@ -720,7 +698,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#15803d',
+    color: C.colors.success,
   },
   dueDateContainer: {
     flexDirection: 'row',
@@ -729,24 +707,14 @@ const styles = StyleSheet.create({
   },
   dueDateValue: {
     fontSize: 14,
-    color: '#64748B',
+    color: C.colors.textSec,
     fontWeight: '500',
   },
   historySection: {
-    backgroundColor: '#fff',
+    backgroundColor: C.colors.card,
     borderRadius: 16,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    ...Platform.select({
-
-      android: { elevation: 3 },
-
-      ios: {},
-
-    }),
+    ...C.shadow.sm,
   },
   historyHeader: {
     flexDirection: 'row',
@@ -761,7 +729,7 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     fontSize: 13,
-    color: '#3b82f6',
+    color: C.colors.blue,
     fontWeight: '600',
   },
   historyItem: {
@@ -769,13 +737,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
+    borderBottomColor: C.colors.background,
   },
   historyIconContainer: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: C.colors.successBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -786,11 +754,11 @@ const styles = StyleSheet.create({
   historyAmount: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#1E293B',
+    color: C.colors.primary,
   },
   historyMethod: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: C.colors.textMuted,
     marginTop: 2,
   },
   historyRight: {
@@ -800,7 +768,7 @@ const styles = StyleSheet.create({
   },
   historyDate: {
     fontSize: 12,
-    color: '#64748B',
+    color: C.colors.textSec,
   },
   downloadButton: {
     flexDirection: 'row',
@@ -809,38 +777,38 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 20,
     borderWidth: 1,
-    borderColor: '#3b82f6',
+    borderColor: C.colors.blue,
     borderRadius: 12,
     paddingVertical: 12,
   },
   downloadButtonText: {
     fontSize: 14,
-    color: '#3b82f6',
+    color: C.colors.blue,
     fontWeight: '700',
   },
   loaderContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.colors.background,
   },
   emptyHistory: {
     paddingVertical: 20,
     alignItems: 'center',
   },
   emptyHistoryText: {
-    color: '#94A3B8',
+    color: C.colors.textMuted,
     fontSize: 14,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: '#00000080',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: C.colors.card,
     borderRadius: 20,
     width: '100%',
     maxHeight: '80%',
@@ -852,12 +820,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: C.colors.borderLight,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#1E293B',
+    color: C.colors.primary,
   },
   modalBody: {
     padding: 20,
@@ -869,17 +837,17 @@ const styles = StyleSheet.create({
   receiptAmount: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#1E293B',
+    color: C.colors.primary,
     marginTop: 10,
   },
   receiptStatus: {
     fontSize: 14,
-    color: '#10b981',
+    color: C.colors.success,
     fontWeight: '600',
     marginTop: 5,
   },
   detailList: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.colors.background,
     borderRadius: 16,
     padding: 16,
   },
@@ -889,16 +857,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: C.colors.border,
   },
   modalDetailLabel: {
     fontSize: 13,
-    color: '#64748B',
+    color: C.colors.textSec,
     fontWeight: '500',
   },
   modalDetailValue: {
     fontSize: 13,
-    color: '#1E293B',
+    color: C.colors.primary,
     fontWeight: '700',
     flex: 1,
     textAlign: 'right',

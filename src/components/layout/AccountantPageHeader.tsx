@@ -3,7 +3,7 @@ import { Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { CalendarDays, ChevronLeft, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppText from '../common/AppText';
-import { HM_THEME } from '../../constants/hmTheme';
+import { Director_THEME } from '../../constants/directorTheme';
 import CalendarView from '../common/CalendarView';
 
 type AccountantPageHeaderProps = {
@@ -58,7 +58,7 @@ const AccountantPageHeader: React.FC<AccountantPageHeaderProps> = ({ title, onBa
 
 const styles = StyleSheet.create({
   headerStandard: {
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Director_THEME.navy,
     paddingBottom: 40,
     paddingHorizontal: 16,
     flexDirection: 'row',

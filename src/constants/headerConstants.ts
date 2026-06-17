@@ -1,7 +1,9 @@
+import { Theme } from '../theme/theme';
+
 // Standardized header values for consistent sizing across all pages
 export const HEADER_CONSTANTS = {
   // Padding values for standard headers
-  PADDING_TOP_WITH_INSETS: (insets: any) => insets.top + 20,
+  PADDING_TOP_WITH_INSETS: (insets: any) => insets.top + 32,
   PADDING_BOTTOM: 30, // Standard padding for all headers
   PADDING_HORIZONTAL: 16,
   
@@ -19,7 +21,7 @@ export const HEADER_CONSTANTS = {
   SUBTITLE_OPACITY: 0.7,
   
   // Colors
-  BACKGROUND_COLOR: '#001F3F',
+  BACKGROUND_COLOR: Theme.colors.primary,
   TEXT_COLOR: '#ffffff',
   BUTTON_BACKGROUND_OPACITY: 0.1,
 } as const;

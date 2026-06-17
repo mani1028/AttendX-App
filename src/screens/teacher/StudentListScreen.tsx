@@ -40,9 +40,9 @@ import Loader from '../../components/common/Loader';
 import * as teacherService from '../../services/teacherService';
 import { updateStudentProfile } from '../../services/studentService';
 import { useAuth } from '../../context/AuthContext';
-import HM_THEME from '../../constants/hmTheme';
+import { Theme } from '../../theme/theme';
 import AppText from '../../components/common/AppText';
-import type { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/types';
 import BottomSheetModal from '../../components/common/BottomSheetModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -311,6 +311,7 @@ export default function StudentListScreen() {
         branchId,
         selectedClass,
         selectedSection,
+        employeeId
       );
       if (__DEV__) {
         console.log('[StudentListScreen] Students fetched:', students?.length || 0, 'students');
@@ -458,7 +459,7 @@ export default function StudentListScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       {/* Navy Standard Header */}
       <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
@@ -503,7 +504,7 @@ export default function StudentListScreen() {
         {/* Class Filter */}
         <View style={styles.filterCard}>
           <View style={styles.filterRow}>
-            <Filter size={18} color={HM_THEME.navy} />
+            <Filter size={18} color={Theme.colors.primary} />
             <AppText weight="bold" style={styles.filterTitle}>Filter by Class</AppText>
           </View>
           {isClassTeacher ? (
@@ -528,7 +529,7 @@ export default function StudentListScreen() {
                       if (firstSec) setSelectedSection(firstSec);
                     }}
                   >
-                    <AppText weight="semiBold" style={[styles.chipText, selectedClass === cls && styles.chipTextActive]}>
+                    <AppText weight="semibold" style={[styles.chipText, selectedClass === cls && styles.chipTextActive]}>
                       Class {cls}
                     </AppText>
                   </TouchableOpacity>
@@ -560,12 +561,12 @@ export default function StudentListScreen() {
         {/* List Header */}
         <View style={styles.listHeader}>
           <AppText weight="bold" style={styles.listTitle}>All Students</AppText>
-          <AppText weight="semiBold" style={styles.listCount}>{filtered.length} Students</AppText>
+          <AppText weight="semibold" style={styles.listCount}>{filtered.length} Students</AppText>
         </View>
 
         {/* Student List */}
         {loading ? (
-          <ActivityIndicator size="large" color="#001F3F" style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color="#6648dc" style={{ marginTop: 40 }} />
         ) : filtered.length === 0 ? (
           <View style={styles.emptyState}>
             <Users size={64} color="#CBD5E1" />
@@ -585,7 +586,7 @@ export default function StudentListScreen() {
       {false && isClassTeacher && (
         <TouchableOpacity
           style={styles.fab}
-          onPress={() => navigation.navigate('HMStudentRegistration' as any)}
+          onPress={() => navigation.navigate('DirectorStudentRegistration' as any)}
         >
           <UserPlus size={24} color="#fff" />
         </TouchableOpacity>
@@ -619,7 +620,7 @@ export default function StudentListScreen() {
               </View>
             </View>
             <AppText weight="bold" style={styles.modalName}>{viewStudent?.student_full_name}</AppText>
-            <AppText weight="semiBold" style={styles.modalSub}>{viewStudent?.student_id} • Roll {viewStudent?.roll_number}</AppText>
+            <AppText weight="semibold" style={styles.modalSub}>{viewStudent?.student_id} • Roll {viewStudent?.roll_number}</AppText>
           </View>
 
           <View style={styles.modalActionRow}>
@@ -712,7 +713,7 @@ export default function StudentListScreen() {
               <View style={styles.parentHeader}>
                 <AppText weight="bold" style={styles.parentRole}>Father / Guardian</AppText>
                 <TouchableOpacity style={styles.callBtn}>
-                  <Phone size={16} color="#001F3F" />
+                  <Phone size={16} color="#6648dc" />
                 </TouchableOpacity>
               </View>
               {isEditingStudent ? (
@@ -734,7 +735,7 @@ export default function StudentListScreen() {
               ) : (
                 <>
                   <AppText weight="bold" style={styles.parentName}>{viewStudent?.father_guardian_name || '—'}</AppText>
-                  <AppText weight="semiBold" style={styles.parentPhone}>{viewStudent?.father_guardian_mobile || '—'}</AppText>
+                  <AppText weight="semibold" style={styles.parentPhone}>{viewStudent?.father_guardian_mobile || '—'}</AppText>
                 </>
               )}
             </View>
@@ -745,7 +746,7 @@ export default function StudentListScreen() {
               <View style={styles.parentHeader}>
                 <AppText weight="bold" style={styles.parentRole}>Mother / Guardian</AppText>
                 <TouchableOpacity style={styles.callBtn}>
-                  <Phone size={16} color="#001F3F" />
+                  <Phone size={16} color="#6648dc" />
                 </TouchableOpacity>
               </View>
               {isEditingStudent ? (
@@ -767,7 +768,7 @@ export default function StudentListScreen() {
               ) : (
                 <>
                   <AppText weight="bold" style={styles.parentName}>{viewStudent?.mother_guardian_name || '—'}</AppText>
-                  <AppText weight="semiBold" style={styles.parentPhone}>{viewStudent?.mother_guardian_mobile || '—'}</AppText>
+                  <AppText weight="semibold" style={styles.parentPhone}>{viewStudent?.mother_guardian_mobile || '—'}</AppText>
                 </>
               )}
             </View>
@@ -803,7 +804,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   headerStandard: {
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     paddingBottom: 30,
@@ -892,7 +893,7 @@ const styles = StyleSheet.create({
   },
   filterTitle: {
     fontSize: 16,
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
   },
   chipScroll: {
     marginBottom: 15,
@@ -907,8 +908,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   chipActive: {
-    backgroundColor: HM_THEME.navy,
-    borderColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
   },
   chipText: {
     fontSize: 14,
@@ -942,7 +943,7 @@ const styles = StyleSheet.create({
   },
   lockedScopeText: {
     fontSize: 14,
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
   },
   lockedScopeHint: {
     marginTop: 4,
@@ -960,8 +961,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   secChipActive: {
-    backgroundColor: HM_THEME.navy,
-    borderColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
   },
   secChipText: {
     fontSize: 14,
@@ -1108,11 +1109,11 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
-    shadowColor: HM_THEME.navy,
+    shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
@@ -1169,7 +1170,7 @@ const styles = StyleSheet.create({
   },
   modalLargeAvatarText: {
     fontSize: 32,
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
   },
   modalStatusBadge: {
     position: 'absolute',
@@ -1268,7 +1269,7 @@ const styles = StyleSheet.create({
   },
   parentPhone: {
     fontSize: 14,
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
     marginTop: 4,
   },
   parentDivider: {
@@ -1282,7 +1283,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#F1F5F9',
   },
   doneBtn: {
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
     height: 56,
     borderRadius: 16,
   },

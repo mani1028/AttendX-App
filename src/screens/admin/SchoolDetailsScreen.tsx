@@ -20,7 +20,7 @@ export default function SchoolDetailsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       {/* Standardized Header */}
       <View style={[styles.headerStandard, { paddingTop: insets.top + 20, paddingBottom: 30 }]}>
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
+    backgroundColor: '#6648dc',
     paddingHorizontal: 20,
     paddingBottom: 30,
     flexDirection: 'row',

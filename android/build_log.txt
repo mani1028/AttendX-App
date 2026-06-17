@@ -1,0 +1,944 @@
+Initialized native services in: /Users/visys/.gradle/native
+Initialized jansi services in: /Users/visys/.gradle/native
+The client will now receive all logging from the daemon (pid: 41946). The daemon log file: /Users/visys/.gradle/daemon/8.13/daemon-41946.out.log
+Starting 15th build in daemon [uptime: 1 hrs 53 mins 17.272 secs, performance: 99%, GC rate: 0.00/s, heap usage: 4% of 4 GiB, non-heap usage: 40% of 512 MiB]
+Using 10 worker leases.
+Now considering [/Users/visys/AttendX/android, /Users/visys/AttendX/node_modules/@react-native/gradle-plugin] as hierarchies to watch
+Watching the file system is configured to be enabled if available
+File system watching is active
+Starting Build
+Now considering [/Users/visys/AttendX/node_modules/@react-native/gradle-plugin, /Users/visys/AttendX/android] as hierarchies to watch
+Resolved plugin [id: 'org.gradle.toolchains.foojay-resolver-convention', version: '0.5.0']
+
+> Configure project :gradle-plugin
+Evaluating project ':gradle-plugin' using build file '/Users/visys/AttendX/node_modules/@react-native/gradle-plugin/build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.jvm', version: '2.0.21', apply: false]
+
+> Configure project :gradle-plugin:react-native-gradle-plugin
+Evaluating project ':gradle-plugin:react-native-gradle-plugin' using build file '/Users/visys/AttendX/node_modules/@react-native/gradle-plugin/react-native-gradle-plugin/build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.jvm', version: '2.0.21']
+Resolved plugin [id: 'java-gradle-plugin']
+Using Kotlin Gradle Plugin gradle85 variant
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+
+> Configure project :gradle-plugin:settings-plugin
+Evaluating project ':gradle-plugin:settings-plugin' using build file '/Users/visys/AttendX/node_modules/@react-native/gradle-plugin/settings-plugin/build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.jvm', version: '2.0.21']
+Resolved plugin [id: 'java-gradle-plugin']
+Using Kotlin Gradle Plugin gradle85 variant
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+
+> Configure project :gradle-plugin:shared
+Evaluating project ':gradle-plugin:shared' using build file '/Users/visys/AttendX/node_modules/@react-native/gradle-plugin/shared/build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.jvm', version: '2.0.21']
+Using Kotlin Gradle Plugin gradle85 variant
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+
+> Configure project :gradle-plugin:shared-testutil
+Evaluating project ':gradle-plugin:shared-testutil' using build file '/Users/visys/AttendX/node_modules/@react-native/gradle-plugin/shared-testutil/build.gradle.kts'.
+Resolved plugin [id: 'org.jetbrains.kotlin.jvm', version: '2.0.21']
+Using Kotlin Gradle Plugin gradle85 variant
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+Resolved plugin [id: 'com.facebook.react.settings']
+Resolved plugin [id: 'org.gradle.toolchains.foojay-resolver-convention', version: '0.8.0']
+Starting process 'command '/usr/libexec/java_home''. Working directory: /Users/visys/.gradle/daemon/8.13 Command: /usr/libexec/java_home -V
+Successfully started process 'command '/usr/libexec/java_home''
+Resolve mutations for :gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors (Thread[Execution worker,5,main]) started.
+:gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors (Thread[Execution worker,5,main]) started.
+
+> Task :gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors (Thread[Execution worker,5,main]) started.
+:gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors (Thread[Execution worker Thread 3,5,main]) started.
+
+> Task :gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :gradle-plugin:shared:compileKotlin (Thread[Execution worker Thread 3,5,main]) started.
+:gradle-plugin:shared:compileKotlin (Thread[Execution worker Thread 3,5,main]) started.
+
+> Task :gradle-plugin:shared:compileKotlin UP-TO-DATE
+Caching disabled for task ':gradle-plugin:shared:compileKotlin' because:
+  Build cache is disabled
+Skipping task ':gradle-plugin:shared:compileKotlin' as it is up-to-date.
+Resolve mutations for :gradle-plugin:shared:compileJava (Thread[Execution worker Thread 3,5,main]) started.
+:gradle-plugin:shared:compileJava (Thread[Execution worker Thread 3,5,main]) started.
+
+> Task :gradle-plugin:shared:compileJava NO-SOURCE
+Skipping task ':gradle-plugin:shared:compileJava' as it has no source files and no previous output files.
+Resolve mutations for :gradle-plugin:shared:processResources (Thread[Execution worker Thread 3,5,main]) started.
+:gradle-plugin:shared:processResources (Thread[Execution worker Thread 3,5,main]) started.
+
+> Task :gradle-plugin:shared:processResources NO-SOURCE
+Skipping task ':gradle-plugin:shared:processResources' as it has no source files and no previous output files.
+Resolve mutations for :gradle-plugin:shared:classes (Thread[Execution worker Thread 3,5,main]) started.
+:gradle-plugin:shared:classes (Thread[Execution worker Thread 3,5,main]) started.
+
+> Task :gradle-plugin:shared:classes UP-TO-DATE
+Skipping task ':gradle-plugin:shared:classes' as it has no actions.
+Resolve mutations for :gradle-plugin:shared:jar (Thread[Execution worker Thread 3,5,main]) started.
+:gradle-plugin:shared:jar (Thread[Execution worker Thread 3,5,main]) started.
+
+> Task :gradle-plugin:shared:jar UP-TO-DATE
+Caching disabled for task ':gradle-plugin:shared:jar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':gradle-plugin:shared:jar' as it is up-to-date.
+work action resolve shared.jar (project :gradle-plugin:shared) (Thread[Execution worker Thread 3,5,main]) started.
+Resolve mutations for :gradle-plugin:settings-plugin:compileKotlin (Thread[Execution worker Thread 3,5,main]) started.
+:gradle-plugin:settings-plugin:compileKotlin (Thread[Execution worker Thread 3,5,main]) started.
+
+> Task :gradle-plugin:settings-plugin:compileKotlin UP-TO-DATE
+Caching disabled for task ':gradle-plugin:settings-plugin:compileKotlin' because:
+  Build cache is disabled
+Skipping task ':gradle-plugin:settings-plugin:compileKotlin' as it is up-to-date.
+Resolve mutations for :gradle-plugin:settings-plugin:compileJava (Thread[Execution worker Thread 3,5,main]) started.
+:gradle-plugin:settings-plugin:compileJava (Thread[Execution worker Thread 3,5,main]) started.
+
+> Task :gradle-plugin:settings-plugin:compileJava NO-SOURCE
+Skipping task ':gradle-plugin:settings-plugin:compileJava' as it has no source files and no previous output files.
+Resolve mutations for :gradle-plugin:settings-plugin:pluginDescriptors (Thread[Execution worker Thread 3,5,main]) started.
+:gradle-plugin:settings-plugin:pluginDescriptors (Thread[Execution worker Thread 3,5,main]) started.
+
+> Task :gradle-plugin:settings-plugin:pluginDescriptors UP-TO-DATE
+Caching disabled for task ':gradle-plugin:settings-plugin:pluginDescriptors' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':gradle-plugin:settings-plugin:pluginDescriptors' as it is up-to-date.
+Resolve mutations for :gradle-plugin:settings-plugin:processResources (Thread[Execution worker Thread 3,5,main]) started.
+:gradle-plugin:settings-plugin:processResources (Thread[Execution worker Thread 3,5,main]) started.
+
+> Task :gradle-plugin:settings-plugin:processResources UP-TO-DATE
+Caching disabled for task ':gradle-plugin:settings-plugin:processResources' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':gradle-plugin:settings-plugin:processResources' as it is up-to-date.
+Resolve mutations for :gradle-plugin:settings-plugin:classes (Thread[Execution worker Thread 3,5,main]) started.
+:gradle-plugin:settings-plugin:classes (Thread[Execution worker Thread 3,5,main]) started.
+
+> Task :gradle-plugin:settings-plugin:classes UP-TO-DATE
+Skipping task ':gradle-plugin:settings-plugin:classes' as it has no actions.
+Resolve mutations for :gradle-plugin:settings-plugin:jar (Thread[Execution worker Thread 3,5,main]) started.
+:gradle-plugin:settings-plugin:jar (Thread[Execution worker Thread 3,5,main]) started.
+
+> Task :gradle-plugin:settings-plugin:jar UP-TO-DATE
+Caching disabled for task ':gradle-plugin:settings-plugin:jar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':gradle-plugin:settings-plugin:jar' as it is up-to-date.
+Settings evaluated using settings file '/Users/visys/AttendX/android/settings.gradle'.
+Projects loaded. Root project using build file '/Users/visys/AttendX/android/build.gradle'.
+Included projects: [root project 'AttendX', project ':app', project ':notifee_react-native', project ':react-native-async-storage_async-storage', project ':react-native-community_datetimepicker', project ':react-native-community_netinfo', project ':react-native-firebase_app', project ':react-native-firebase_messaging', project ':react-native-fs', project ':react-native-gesture-handler', project ':react-native-get-random-values', project ':react-native-image-picker', project ':react-native-linear-gradient', project ':react-native-picker_picker', project ':react-native-reanimated', project ':react-native-safe-area-context', project ':react-native-screens', project ':react-native-share', project ':react-native-svg', project ':react-native-vector-icons', project ':react-native-webview', project ':react-native-worklets-core']
+Registering project ':gradle-plugin' in composite build. Will substitute for module ':gradle-plugin-root'.
+Registering project ':gradle-plugin:react-native-gradle-plugin' in composite build. Will substitute for module 'com.facebook.react:react-native-gradle-plugin'.
+Registering project ':gradle-plugin:settings-plugin' in composite build. Will substitute for module 'com.facebook.react:settings-plugin'.
+Registering project ':gradle-plugin:shared' in composite build. Will substitute for module 'com.facebook.react:shared'.
+Registering project ':gradle-plugin:shared-testutil' in composite build. Will substitute for module 'com.facebook.react:shared-testutil'.
+Resolve mutations for :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors (Thread[Execution worker Thread 4,5,main]) started.
+:gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors (Thread[Execution worker Thread 4,5,main]) started.
+
+> Task :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :gradle-plugin:react-native-gradle-plugin:compileKotlin (Thread[Execution worker Thread 4,5,main]) started.
+:gradle-plugin:react-native-gradle-plugin:compileKotlin (Thread[Execution worker Thread 4,5,main]) started.
+
+> Task :gradle-plugin:react-native-gradle-plugin:compileKotlin UP-TO-DATE
+Caching disabled for task ':gradle-plugin:react-native-gradle-plugin:compileKotlin' because:
+  Build cache is disabled
+Skipping task ':gradle-plugin:react-native-gradle-plugin:compileKotlin' as it is up-to-date.
+Resolve mutations for :gradle-plugin:react-native-gradle-plugin:compileJava (Thread[Execution worker Thread 4,5,main]) started.
+:gradle-plugin:react-native-gradle-plugin:compileJava (Thread[Execution worker Thread 4,5,main]) started.
+
+> Task :gradle-plugin:react-native-gradle-plugin:compileJava NO-SOURCE
+Skipping task ':gradle-plugin:react-native-gradle-plugin:compileJava' as it has no source files and no previous output files.
+Resolve mutations for :gradle-plugin:react-native-gradle-plugin:pluginDescriptors (Thread[Execution worker Thread 4,5,main]) started.
+:gradle-plugin:react-native-gradle-plugin:pluginDescriptors (Thread[Execution worker Thread 4,5,main]) started.
+
+> Task :gradle-plugin:react-native-gradle-plugin:pluginDescriptors UP-TO-DATE
+Caching disabled for task ':gradle-plugin:react-native-gradle-plugin:pluginDescriptors' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':gradle-plugin:react-native-gradle-plugin:pluginDescriptors' as it is up-to-date.
+Resolve mutations for :gradle-plugin:react-native-gradle-plugin:processResources (Thread[Execution worker Thread 4,5,main]) started.
+:gradle-plugin:react-native-gradle-plugin:processResources (Thread[Execution worker Thread 4,5,main]) started.
+
+> Task :gradle-plugin:react-native-gradle-plugin:processResources UP-TO-DATE
+Caching disabled for task ':gradle-plugin:react-native-gradle-plugin:processResources' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':gradle-plugin:react-native-gradle-plugin:processResources' as it is up-to-date.
+Resolve mutations for :gradle-plugin:react-native-gradle-plugin:classes (Thread[Execution worker Thread 4,5,main]) started.
+:gradle-plugin:react-native-gradle-plugin:classes (Thread[Execution worker Thread 4,5,main]) started.
+
+> Task :gradle-plugin:react-native-gradle-plugin:classes UP-TO-DATE
+Skipping task ':gradle-plugin:react-native-gradle-plugin:classes' as it has no actions.
+Resolve mutations for :gradle-plugin:react-native-gradle-plugin:jar (Thread[Execution worker Thread 4,5,main]) started.
+:gradle-plugin:react-native-gradle-plugin:jar (Thread[Execution worker Thread 4,5,main]) started.
+
+> Task :gradle-plugin:react-native-gradle-plugin:jar UP-TO-DATE
+Caching disabled for task ':gradle-plugin:react-native-gradle-plugin:jar' because:
+  Build cache is disabled
+  Not worth caching
+Skipping task ':gradle-plugin:react-native-gradle-plugin:jar' as it is up-to-date.
+
+> Configure project :app
+Evaluating project ':app' using build file '/Users/visys/AttendX/android/app/build.gradle'.
+Using default execution profile
+Using Kotlin Gradle Plugin gradle85 variant
+
+> Configure project :
+Evaluating root project 'AttendX' using build file '/Users/visys/AttendX/android/build.gradle'.
+Found project 'project :gradle-plugin:react-native-gradle-plugin' as substitute for module 'com.facebook.react:react-native-gradle-plugin'.
+Ignoring listeners of task graph ready event, as this build (:gradle-plugin) has already executed work.
+
+> Configure project :notifee_react-native
+Evaluating project ':notifee_react-native' using build file '/Users/visys/AttendX/node_modules/@notifee/react-native/android/build.gradle'.
+Resolved plugin [id: 'io.invertase.gradle.build', version: '1.5']
+Using default execution profile
+:notifee_react-native @notifee/react-native found at /Users/visys/AttendX/node_modules/@notifee/react-native
+:notifee_react-native package.json found at /Users/visys/AttendX/node_modules/@notifee/react-native/package.json
+:notifee_react-native:version set from package.json: 9.1.8 (9,1,8 - 9001008)
+:notifee_react-native:android.compileSdk using custom value: 35
+:notifee_react-native:android.targetSdk using custom value: 35
+:notifee_react-native:android.minSdk using custom value: 24
+:notifee_react-native:reactNativeAndroidDir /Users/visys/AttendX/node_modules/react-native/android
+
+> Configure project :react-native-async-storage_async-storage
+Evaluating project ':react-native-async-storage_async-storage' using build file '/Users/visys/AttendX/node_modules/@react-native-async-storage/async-storage/android/build.gradle'.
+Using default execution profile
+[AsyncStorage] Config used: {kotlinVersion=1.9.24, kspVersion=1.9.24-1.0.20, roomVersion=2.6.1, minSdkVersion=24, targetSdkVersion=35, compileSdkVersion=35, useNextStorage=false, databaseSizeMB=6, isNewArchitectureEnabled=false, useDedicatedExecutor=false}
+
+> Configure project :react-native-community_datetimepicker
+Evaluating project ':react-native-community_datetimepicker' using build file '/Users/visys/AttendX/node_modules/@react-native-community/datetimepicker/android/build.gradle'.
+Using default execution profile
+Using Kotlin Gradle Plugin gradle85 variant
+
+> Configure project :react-native-community_netinfo
+Evaluating project ':react-native-community_netinfo' using build file '/Users/visys/AttendX/node_modules/@react-native-community/netinfo/android/build.gradle'.
+Using default execution profile
+
+> Configure project :react-native-firebase_app
+Evaluating project ':react-native-firebase_app' using build file '/Users/visys/AttendX/node_modules/@react-native-firebase/app/android/build.gradle'.
+Resolved plugin [id: 'io.invertase.gradle.build', version: '1.5']
+Using default execution profile
+:react-native-firebase_app package.json found at /Users/visys/AttendX/node_modules/@react-native-firebase/app/package.json
+:react-native-firebase_app no firebase.json found, skipping
+:react-native-firebase_app:firebase.bom using default value: 34.10.0
+:react-native-firebase_app:play.play-services-auth using default value: 21.5.0
+:react-native-firebase_app package.json found at /Users/visys/AttendX/node_modules/@react-native-firebase/app/package.json
+:react-native-firebase_app:version set from package.json: 24.0.0 (24,0,0 - 24000000)
+:react-native-firebase_app:android.compileSdk using custom value: 35
+:react-native-firebase_app:android.targetSdk using custom value: 35
+:react-native-firebase_app:android.minSdk using custom value: 24
+:react-native-firebase_app:reactNativeAndroidDir /Users/visys/AttendX/node_modules/react-native/android
+[33m [react-native-firebase] Legacy Architecture support is deprecated for all modules
+[33m [react-native-firebase] New Architecture support is already required for some modules
+[33m [react-native-firebase] all modules will require it in the future.
+[33m [react-native-firebase] Suppress this with environment variable RNFB_SUPPRESS_NEW_ARCHITECTURE_WARNING=1[0m
+
+> Configure project :react-native-firebase_messaging
+Evaluating project ':react-native-firebase_messaging' using build file '/Users/visys/AttendX/node_modules/@react-native-firebase/messaging/android/build.gradle'.
+Resolved plugin [id: 'io.invertase.gradle.build', version: '1.5']
+Using default execution profile
+:react-native-firebase_messaging package.json found at /Users/visys/AttendX/node_modules/@react-native-firebase/messaging/package.json
+:react-native-firebase_app package.json found at /Users/visys/AttendX/node_modules/@react-native-firebase/app/package.json
+:react-native-firebase_messaging no firebase.json found, skipping
+:react-native-firebase_messaging:firebase.bom using default value: 34.10.0
+:react-native-firebase_messaging package.json found at /Users/visys/AttendX/node_modules/@react-native-firebase/messaging/package.json
+:react-native-firebase_messaging:version set from package.json: 24.0.0 (24,0,0 - 24000000)
+:react-native-firebase_messaging:android.compileSdk using custom value: 35
+:react-native-firebase_messaging:android.targetSdk using custom value: 35
+:react-native-firebase_messaging:android.minSdk using custom value: 24
+:react-native-firebase_messaging:reactNativeAndroidDir /Users/visys/AttendX/node_modules/react-native/android
+
+> Configure project :react-native-fs
+Evaluating project ':react-native-fs' using build file '/Users/visys/AttendX/node_modules/react-native-fs/android/build.gradle'.
+Using default execution profile
+
+> Configure project :react-native-gesture-handler
+Evaluating project ':react-native-gesture-handler' using build file '/Users/visys/AttendX/node_modules/react-native-gesture-handler/android/build.gradle'.
+Using default execution profile
+Using Kotlin Gradle Plugin gradle85 variant
+Starting process 'command 'node''. Working directory: /Users/visys/AttendX/android Command: node --print require.resolve('react-native/package.json')
+Successfully started process 'command 'node''
+
+> Configure project :react-native-get-random-values
+Evaluating project ':react-native-get-random-values' using build file '/Users/visys/AttendX/node_modules/react-native-get-random-values/android/build.gradle'.
+Using default execution profile
+
+> Configure project :react-native-image-picker
+Evaluating project ':react-native-image-picker' using build file '/Users/visys/AttendX/node_modules/react-native-image-picker/android/build.gradle'.
+Using default execution profile
+
+> Configure project :react-native-linear-gradient
+Evaluating project ':react-native-linear-gradient' using build file '/Users/visys/AttendX/node_modules/react-native-linear-gradient/android/build.gradle'.
+Using default execution profile
+
+> Configure project :react-native-picker_picker
+Evaluating project ':react-native-picker_picker' using build file '/Users/visys/AttendX/node_modules/@react-native-picker/picker/android/build.gradle'.
+Using default execution profile
+
+> Configure project :react-native-reanimated
+Evaluating project ':react-native-reanimated' using build file '/Users/visys/AttendX/node_modules/react-native-reanimated/android/build.gradle'.
+Using default execution profile
+Android gradle plugin: 8.8.0
+Gradle: 8.13
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+
+> Configure project :react-native-safe-area-context
+Evaluating project ':react-native-safe-area-context' using build file '/Users/visys/AttendX/node_modules/react-native-safe-area-context/android/build.gradle'.
+Using default execution profile
+Using Kotlin Gradle Plugin gradle85 variant
+
+> Configure project :react-native-screens
+Evaluating project ':react-native-screens' using build file '/Users/visys/AttendX/node_modules/react-native-screens/android/build.gradle'.
+Using default execution profile
+Using Kotlin Gradle Plugin gradle85 variant
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.1.12297006]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+
+> Configure project :react-native-share
+Evaluating project ':react-native-share' using build file '/Users/visys/AttendX/node_modules/react-native-share/android/build.gradle'.
+Using default execution profile
+
+> Configure project :react-native-svg
+Evaluating project ':react-native-svg' using build file '/Users/visys/AttendX/node_modules/react-native-svg/android/build.gradle'.
+Using default execution profile
+Starting process 'command 'node''. Working directory: /Users/visys/AttendX/android Command: node --print require.resolve('react-native/package.json')
+Successfully started process 'command 'node''
+Starting process 'command 'node''. Working directory: /Users/visys/AttendX/android Command: node --print require.resolve('react-native/package.json')
+Successfully started process 'command 'node''
+
+> Configure project :react-native-vector-icons
+Evaluating project ':react-native-vector-icons' using build file '/Users/visys/AttendX/node_modules/react-native-vector-icons/android/build.gradle'.
+Using default execution profile
+
+> Configure project :react-native-webview
+Evaluating project ':react-native-webview' using build file '/Users/visys/AttendX/node_modules/react-native-webview/android/build.gradle'.
+Using default execution profile
+Using Kotlin Gradle Plugin gradle85 variant
+
+> Configure project :react-native-worklets-core
+Evaluating project ':react-native-worklets-core' using build file '/Users/visys/AttendX/node_modules/react-native-worklets-core/android/build.gradle'.
+Using default execution profile
+C/C++: android.ndkVersion from module build.gradle is [27.0.12077973]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.0.12077973]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.0.12077973]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.0.12077973]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.0.12077973]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.0.12077973]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.0.12077973]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.0.12077973]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.0.12077973]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.0.12077973]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.0.12077973]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.0.12077973]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+C/C++: android.ndkVersion from module build.gradle is [27.0.12077973]
+C/C++: android.ndkPath from module build.gradle is not set
+C/C++: ndk.dir in local.properties is not set
+C/C++: Not considering ANDROID_NDK_HOME because support was removed after deprecation period.
+C/C++: sdkFolder is /Users/visys/Library/Android/sdk
+All projects evaluated.
+Task path ':react-native-screens:assembleDebug' matched project ':react-native-screens'
+Task name matched 'assembleDebug'
+Selected primary task 'assembleDebug' from project :react-native-screens
+Starting process 'command '/usr/libexec/java_home''. Working directory: /Users/visys/.gradle/daemon/8.13 Command: /usr/libexec/java_home -V
+Successfully started process 'command '/usr/libexec/java_home''
+Tasks to be executed: [task ':react-native-screens:preBuild', task ':react-native-screens:preDebugBuild', task ':react-native-screens:configureCMakeDebug[arm64-v8a]', task ':react-native-screens:buildCMakeDebug[arm64-v8a]', task ':react-native-screens:configureCMakeDebug[armeabi-v7a]', task ':react-native-screens:buildCMakeDebug[armeabi-v7a]', task ':react-native-screens:configureCMakeDebug[x86]', task ':react-native-screens:buildCMakeDebug[x86]', task ':react-native-screens:configureCMakeDebug[x86_64]', task ':react-native-screens:buildCMakeDebug[x86_64]', task ':react-native-screens:mergeDebugJniLibFolders', task ':react-native-screens:mergeDebugNativeLibs', task ':react-native-screens:stripDebugDebugSymbols', task ':react-native-screens:copyDebugJniLibsProjectAndLocalJars', task ':react-native-screens:checkKotlinGradlePluginConfigurationErrors', task ':react-native-screens:generateDebugBuildConfig', task ':react-native-screens:generateDebugResValues', task ':react-native-screens:generateDebugResources', task ':react-native-screens:packageDebugResources', task ':react-native-screens:parseDebugLocalResources', task ':react-native-screens:generateDebugRFile', task ':react-native-screens:compileDebugKotlin', task ':react-native-screens:extractDebugAnnotations', task ':react-native-screens:extractDeepLinksForAarDebug', task ':react-native-screens:javaPreCompileDebug', task ':react-native-screens:compileDebugJavaWithJavac', task ':react-native-screens:mergeDebugGeneratedProguardFiles', task ':react-native-screens:mergeDebugConsumerProguardFiles', task ':react-native-screens:mergeDebugShaders', task ':react-native-screens:compileDebugShaders', task ':react-native-screens:generateDebugAssets', task ':react-native-screens:packageDebugAssets', task ':react-native-screens:prepareDebugArtProfile', task ':react-native-screens:prepareLintJarForPublish', task ':react-native-screens:processDebugManifest', task ':react-native-screens:processDebugJavaRes', task ':react-native-screens:mergeDebugJavaResource', task ':react-native-screens:syncDebugLibJars', task ':react-native-screens:writeDebugAarMetadata', task ':react-native-screens:bundleDebugAar', task ':react-native-screens:assembleDebug']
+Tasks that were excluded: []
+Resolve mutations for :react-native-screens:preBuild (Thread[included builds,5,main]) started.
+:react-native-screens:preBuild (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:preBuild UP-TO-DATE
+Skipping task ':react-native-screens:preBuild' as it has no actions.
+Resolve mutations for :react-native-screens:preDebugBuild (Thread[included builds,5,main]) started.
+:react-native-screens:preDebugBuild (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:preDebugBuild UP-TO-DATE
+Skipping task ':react-native-screens:preDebugBuild' as it has no actions.
+Resolve mutations for :react-native-screens:configureCMakeDebug[arm64-v8a] (Thread[included builds,5,main]) started.
+:react-native-screens:configureCMakeDebug[arm64-v8a] (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:configureCMakeDebug[arm64-v8a]
+Caching disabled for task ':react-native-screens:configureCMakeDebug[arm64-v8a]' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Task ':react-native-screens:configureCMakeDebug[arm64-v8a]' is not up-to-date because:
+  Task.upToDateWhen is false.
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|arm64-v8a : Start JSON generation. Platform version: 24 min SDK version: arm64-v8a
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|arm64-v8a : JSON '/Users/visys/AttendX/node_modules/react-native-screens/android/.cxx/Debug/3i3b3a3d/arm64-v8a/android_gradle_build.json' was up-to-date
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|arm64-v8a : JSON generation completed without problems
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|arm64-v8a : Writing build model to /Users/visys/AttendX/node_modules/react-native-screens/android/build/intermediates/cxx/Debug/3i3b3a3d/logs/arm64-v8a/build_model.json
+Resolve mutations for :react-native-screens:buildCMakeDebug[arm64-v8a] (Thread[included builds,5,main]) started.
+:react-native-screens:buildCMakeDebug[arm64-v8a] (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:buildCMakeDebug[arm64-v8a]
+Caching disabled for task ':react-native-screens:buildCMakeDebug[arm64-v8a]' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Task ':react-native-screens:buildCMakeDebug[arm64-v8a]' is not up-to-date because:
+  Task.upToDateWhen is false.
+C/C++: starting build
+C/C++: reading expected JSONs
+C/C++: done reading expected JSONs
+C/C++: executing build commands for targets that produce .so files or executables
+C/C++: evaluate miniconfig
+C/C++: evaluate library rnscreens (arm64-v8a)
+C/C++: building target library rnscreens because no targets are specified.
+C/C++: about to build targets rnscreens
+C/C++: Build rnscreens
+C/C++: /Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja \
+  -C \
+  /Users/visys/AttendX/node_modules/react-native-screens/android/.cxx/Debug/3i3b3a3d/arm64-v8a \
+  rnscreens
+
+Starting process 'command '/Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja''. Working directory: /Users/visys/AttendX/node_modules/react-native-screens/android Command: /Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja -C /Users/visys/AttendX/node_modules/react-native-screens/android/.cxx/Debug/3i3b3a3d/arm64-v8a rnscreens
+Successfully started process 'command '/Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja''
+C/C++: Received process result: 0
+C/C++: check expected build outputs
+C/C++: build complete
+Resolve mutations for :react-native-screens:configureCMakeDebug[armeabi-v7a] (Thread[included builds,5,main]) started.
+:react-native-screens:configureCMakeDebug[armeabi-v7a] (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:configureCMakeDebug[armeabi-v7a]
+Caching disabled for task ':react-native-screens:configureCMakeDebug[armeabi-v7a]' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Task ':react-native-screens:configureCMakeDebug[armeabi-v7a]' is not up-to-date because:
+  Task.upToDateWhen is false.
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|armeabi-v7a : Start JSON generation. Platform version: 24 min SDK version: armeabi-v7a
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|armeabi-v7a : JSON '/Users/visys/AttendX/node_modules/react-native-screens/android/.cxx/Debug/3i3b3a3d/armeabi-v7a/android_gradle_build.json' was up-to-date
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|armeabi-v7a : JSON generation completed without problems
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|armeabi-v7a : Writing build model to /Users/visys/AttendX/node_modules/react-native-screens/android/build/intermediates/cxx/Debug/3i3b3a3d/logs/armeabi-v7a/build_model.json
+Resolve mutations for :react-native-screens:buildCMakeDebug[armeabi-v7a] (Thread[included builds,5,main]) started.
+:react-native-screens:buildCMakeDebug[armeabi-v7a] (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:buildCMakeDebug[armeabi-v7a]
+Caching disabled for task ':react-native-screens:buildCMakeDebug[armeabi-v7a]' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Task ':react-native-screens:buildCMakeDebug[armeabi-v7a]' is not up-to-date because:
+  Task.upToDateWhen is false.
+C/C++: starting build
+C/C++: reading expected JSONs
+C/C++: done reading expected JSONs
+C/C++: executing build commands for targets that produce .so files or executables
+C/C++: evaluate miniconfig
+C/C++: evaluate library rnscreens (armeabi-v7a)
+C/C++: building target library rnscreens because no targets are specified.
+C/C++: about to build targets rnscreens
+C/C++: Build rnscreens
+C/C++: /Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja \
+  -C \
+  /Users/visys/AttendX/node_modules/react-native-screens/android/.cxx/Debug/3i3b3a3d/armeabi-v7a \
+  rnscreens
+
+Starting process 'command '/Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja''. Working directory: /Users/visys/AttendX/node_modules/react-native-screens/android Command: /Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja -C /Users/visys/AttendX/node_modules/react-native-screens/android/.cxx/Debug/3i3b3a3d/armeabi-v7a rnscreens
+Successfully started process 'command '/Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja''
+C/C++: Received process result: 0
+C/C++: check expected build outputs
+C/C++: build complete
+Resolve mutations for :react-native-screens:configureCMakeDebug[x86] (Thread[included builds,5,main]) started.
+:react-native-screens:configureCMakeDebug[x86] (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:configureCMakeDebug[x86]
+Caching disabled for task ':react-native-screens:configureCMakeDebug[x86]' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Task ':react-native-screens:configureCMakeDebug[x86]' is not up-to-date because:
+  Task.upToDateWhen is false.
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|x86 : Start JSON generation. Platform version: 24 min SDK version: x86
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|x86 : JSON '/Users/visys/AttendX/node_modules/react-native-screens/android/.cxx/Debug/3i3b3a3d/x86/android_gradle_build.json' was up-to-date
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|x86 : JSON generation completed without problems
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|x86 : Writing build model to /Users/visys/AttendX/node_modules/react-native-screens/android/build/intermediates/cxx/Debug/3i3b3a3d/logs/x86/build_model.json
+Resolve mutations for :react-native-screens:buildCMakeDebug[x86] (Thread[included builds,5,main]) started.
+:react-native-screens:buildCMakeDebug[x86] (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:buildCMakeDebug[x86]
+Caching disabled for task ':react-native-screens:buildCMakeDebug[x86]' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Task ':react-native-screens:buildCMakeDebug[x86]' is not up-to-date because:
+  Task.upToDateWhen is false.
+C/C++: starting build
+C/C++: reading expected JSONs
+C/C++: done reading expected JSONs
+C/C++: executing build commands for targets that produce .so files or executables
+C/C++: evaluate miniconfig
+C/C++: evaluate library rnscreens (x86)
+C/C++: building target library rnscreens because no targets are specified.
+C/C++: about to build targets rnscreens
+C/C++: Build rnscreens
+C/C++: /Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja \
+  -C \
+  /Users/visys/AttendX/node_modules/react-native-screens/android/.cxx/Debug/3i3b3a3d/x86 \
+  rnscreens
+
+Starting process 'command '/Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja''. Working directory: /Users/visys/AttendX/node_modules/react-native-screens/android Command: /Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja -C /Users/visys/AttendX/node_modules/react-native-screens/android/.cxx/Debug/3i3b3a3d/x86 rnscreens
+Successfully started process 'command '/Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja''
+C/C++: Received process result: 0
+C/C++: check expected build outputs
+C/C++: build complete
+Resolve mutations for :react-native-screens:configureCMakeDebug[x86_64] (Thread[included builds,5,main]) started.
+:react-native-screens:configureCMakeDebug[x86_64] (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:configureCMakeDebug[x86_64]
+Caching disabled for task ':react-native-screens:configureCMakeDebug[x86_64]' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Task ':react-native-screens:configureCMakeDebug[x86_64]' is not up-to-date because:
+  Task.upToDateWhen is false.
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|x86_64 : Start JSON generation. Platform version: 24 min SDK version: x86_64
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|x86_64 : JSON '/Users/visys/AttendX/node_modules/react-native-screens/android/.cxx/Debug/3i3b3a3d/x86_64/android_gradle_build.json' was up-to-date
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|x86_64 : JSON generation completed without problems
+C/C++: /Users/visys/AttendX/node_modules/react-native-screens/android/CMakeLists.txt debug|x86_64 : Writing build model to /Users/visys/AttendX/node_modules/react-native-screens/android/build/intermediates/cxx/Debug/3i3b3a3d/logs/x86_64/build_model.json
+Resolve mutations for :react-native-screens:buildCMakeDebug[x86_64] (Thread[included builds,5,main]) started.
+:react-native-screens:buildCMakeDebug[x86_64] (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:buildCMakeDebug[x86_64]
+Caching disabled for task ':react-native-screens:buildCMakeDebug[x86_64]' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Task ':react-native-screens:buildCMakeDebug[x86_64]' is not up-to-date because:
+  Task.upToDateWhen is false.
+C/C++: starting build
+C/C++: reading expected JSONs
+C/C++: done reading expected JSONs
+C/C++: executing build commands for targets that produce .so files or executables
+C/C++: evaluate miniconfig
+C/C++: evaluate library rnscreens (x86_64)
+C/C++: building target library rnscreens because no targets are specified.
+C/C++: about to build targets rnscreens
+C/C++: Build rnscreens
+C/C++: /Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja \
+  -C \
+  /Users/visys/AttendX/node_modules/react-native-screens/android/.cxx/Debug/3i3b3a3d/x86_64 \
+  rnscreens
+
+Starting process 'command '/Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja''. Working directory: /Users/visys/AttendX/node_modules/react-native-screens/android Command: /Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja -C /Users/visys/AttendX/node_modules/react-native-screens/android/.cxx/Debug/3i3b3a3d/x86_64 rnscreens
+Successfully started process 'command '/Users/visys/Library/Android/sdk/cmake/3.22.1/bin/ninja''
+C/C++: Received process result: 0
+C/C++: check expected build outputs
+C/C++: build complete
+Resolve mutations for :react-native-screens:mergeDebugJniLibFolders (Thread[included builds,5,main]) started.
+:react-native-screens:mergeDebugJniLibFolders (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:mergeDebugJniLibFolders UP-TO-DATE
+Caching disabled for task ':react-native-screens:mergeDebugJniLibFolders' because:
+  Build cache is disabled
+  Simple merging task
+Skipping task ':react-native-screens:mergeDebugJniLibFolders' as it is up-to-date.
+Resolve mutations for :react-native-screens:mergeDebugNativeLibs (Thread[included builds,5,main]) started.
+:react-native-screens:mergeDebugNativeLibs (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:mergeDebugNativeLibs UP-TO-DATE
+Caching disabled for task ':react-native-screens:mergeDebugNativeLibs' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':react-native-screens:mergeDebugNativeLibs' as it is up-to-date.
+Resolve mutations for :react-native-screens:stripDebugDebugSymbols (Thread[included builds,5,main]) started.
+:react-native-screens:stripDebugDebugSymbols (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:stripDebugDebugSymbols UP-TO-DATE
+Caching disabled for task ':react-native-screens:stripDebugDebugSymbols' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':react-native-screens:stripDebugDebugSymbols' as it is up-to-date.
+Resolve mutations for :react-native-screens:copyDebugJniLibsProjectAndLocalJars (Thread[included builds,5,main]) started.
+:react-native-screens:copyDebugJniLibsProjectAndLocalJars (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:copyDebugJniLibsProjectAndLocalJars UP-TO-DATE
+Caching disabled for task ':react-native-screens:copyDebugJniLibsProjectAndLocalJars' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':react-native-screens:copyDebugJniLibsProjectAndLocalJars' as it is up-to-date.
+Resolve mutations for :react-native-screens:checkKotlinGradlePluginConfigurationErrors (Thread[included builds,5,main]) started.
+:react-native-screens:checkKotlinGradlePluginConfigurationErrors (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Skipping task ':react-native-screens:checkKotlinGradlePluginConfigurationErrors' as task onlyIf 'errorDiagnostics are present' is false.
+Resolve mutations for :react-native-screens:generateDebugBuildConfig (Thread[included builds,5,main]) started.
+:react-native-screens:generateDebugBuildConfig (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:generateDebugBuildConfig UP-TO-DATE
+Caching disabled for task ':react-native-screens:generateDebugBuildConfig' because:
+  Build cache is disabled
+Skipping task ':react-native-screens:generateDebugBuildConfig' as it is up-to-date.
+Resolve mutations for :react-native-screens:generateDebugResValues (Thread[included builds,5,main]) started.
+:react-native-screens:generateDebugResValues (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:generateDebugResValues UP-TO-DATE
+Caching disabled for task ':react-native-screens:generateDebugResValues' because:
+  Build cache is disabled
+Skipping task ':react-native-screens:generateDebugResValues' as it is up-to-date.
+Resolve mutations for :react-native-screens:generateDebugResources (Thread[included builds,5,main]) started.
+:react-native-screens:generateDebugResources (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:generateDebugResources UP-TO-DATE
+Caching disabled for task ':react-native-screens:generateDebugResources' because:
+  Build cache is disabled
+Skipping task ':react-native-screens:generateDebugResources' as it is up-to-date.
+Resolve mutations for :react-native-screens:packageDebugResources (Thread[included builds,5,main]) started.
+:react-native-screens:packageDebugResources (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:packageDebugResources UP-TO-DATE
+Caching disabled for task ':react-native-screens:packageDebugResources' because:
+  Build cache is disabled
+Skipping task ':react-native-screens:packageDebugResources' as it is up-to-date.
+Resolve mutations for :react-native-screens:parseDebugLocalResources (Thread[included builds,5,main]) started.
+:react-native-screens:parseDebugLocalResources (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:parseDebugLocalResources UP-TO-DATE
+Caching disabled for task ':react-native-screens:parseDebugLocalResources' because:
+  Build cache is disabled
+Skipping task ':react-native-screens:parseDebugLocalResources' as it is up-to-date.
+Resolve mutations for :react-native-screens:generateDebugRFile (Thread[included builds,5,main]) started.
+:react-native-screens:generateDebugRFile (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:generateDebugRFile UP-TO-DATE
+Caching disabled for task ':react-native-screens:generateDebugRFile' because:
+  Build cache is disabled
+Skipping task ':react-native-screens:generateDebugRFile' as it is up-to-date.
+Resolve mutations for :react-native-screens:compileDebugKotlin (Thread[included builds,5,main]) started.
+:react-native-screens:compileDebugKotlin (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:compileDebugKotlin UP-TO-DATE
+GradleBuildProject.Builder should not be accessed through AnalyticsConfiguratorService after AnalyticsService is created. Analytics information of this build might be incomplete.
+Caching disabled for task ':react-native-screens:compileDebugKotlin' because:
+  Build cache is disabled
+Skipping task ':react-native-screens:compileDebugKotlin' as it is up-to-date.
+Resolve mutations for :react-native-screens:extractDebugAnnotations (Thread[included builds,5,main]) started.
+:react-native-screens:extractDebugAnnotations (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:extractDebugAnnotations UP-TO-DATE
+Caching disabled for task ':react-native-screens:extractDebugAnnotations' because:
+  Build cache is disabled
+Skipping task ':react-native-screens:extractDebugAnnotations' as it is up-to-date.
+Resolve mutations for :react-native-screens:extractDeepLinksForAarDebug (Thread[included builds,5,main]) started.
+:react-native-screens:extractDeepLinksForAarDebug (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:extractDeepLinksForAarDebug UP-TO-DATE
+Caching disabled for task ':react-native-screens:extractDeepLinksForAarDebug' because:
+  Build cache is disabled
+Skipping task ':react-native-screens:extractDeepLinksForAarDebug' as it is up-to-date.
+Resolve mutations for :react-native-screens:javaPreCompileDebug (Thread[included builds,5,main]) started.
+:react-native-screens:javaPreCompileDebug (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:javaPreCompileDebug UP-TO-DATE
+Caching disabled for task ':react-native-screens:javaPreCompileDebug' because:
+  Build cache is disabled
+Skipping task ':react-native-screens:javaPreCompileDebug' as it is up-to-date.
+Resolve mutations for :react-native-screens:compileDebugJavaWithJavac (Thread[included builds,5,main]) started.
+:react-native-screens:compileDebugJavaWithJavac (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:compileDebugJavaWithJavac UP-TO-DATE
+Custom actions are attached to task ':react-native-screens:compileDebugJavaWithJavac'.
+Caching disabled for task ':react-native-screens:compileDebugJavaWithJavac' because:
+  Build cache is disabled
+Skipping task ':react-native-screens:compileDebugJavaWithJavac' as it is up-to-date.
+No compile result for :react-native-screens:compileDebugJavaWithJavac
+No compile result for :react-native-screens:compileDebugJavaWithJavac
+No compile result for :react-native-screens:compileDebugJavaWithJavac
+Resolve mutations for :react-native-screens:mergeDebugGeneratedProguardFiles (Thread[included builds,5,main]) started.
+:react-native-screens:mergeDebugGeneratedProguardFiles (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:mergeDebugGeneratedProguardFiles UP-TO-DATE
+Caching disabled for task ':react-native-screens:mergeDebugGeneratedProguardFiles' because:
+  Build cache is disabled
+  Simple merging task
+Skipping task ':react-native-screens:mergeDebugGeneratedProguardFiles' as it is up-to-date.
+Resolve mutations for :react-native-screens:mergeDebugConsumerProguardFiles (Thread[included builds,5,main]) started.
+:react-native-screens:mergeDebugConsumerProguardFiles (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:mergeDebugConsumerProguardFiles UP-TO-DATE
+Caching disabled for task ':react-native-screens:mergeDebugConsumerProguardFiles' because:
+  Build cache is disabled
+  Simple merging task
+Skipping task ':react-native-screens:mergeDebugConsumerProguardFiles' as it is up-to-date.
+Resolve mutations for :react-native-screens:mergeDebugShaders (Thread[included builds,5,main]) started.
+:react-native-screens:mergeDebugShaders (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:mergeDebugShaders UP-TO-DATE
+Caching disabled for task ':react-native-screens:mergeDebugShaders' because:
+  Build cache is disabled
+  Simple merging task
+Skipping task ':react-native-screens:mergeDebugShaders' as it is up-to-date.
+Resolve mutations for :react-native-screens:compileDebugShaders (Thread[included builds,5,main]) started.
+:react-native-screens:compileDebugShaders (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:compileDebugShaders NO-SOURCE
+Skipping task ':react-native-screens:compileDebugShaders' as it has no source files and no previous output files.
+Resolve mutations for :react-native-screens:generateDebugAssets (Thread[included builds,5,main]) started.
+:react-native-screens:generateDebugAssets (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:generateDebugAssets UP-TO-DATE
+Skipping task ':react-native-screens:generateDebugAssets' as it has no actions.
+Resolve mutations for :react-native-screens:packageDebugAssets (Thread[included builds,5,main]) started.
+:react-native-screens:packageDebugAssets (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:packageDebugAssets UP-TO-DATE
+Caching disabled for task ':react-native-screens:packageDebugAssets' because:
+  Build cache is disabled
+  Simple merging task
+Skipping task ':react-native-screens:packageDebugAssets' as it is up-to-date.
+Resolve mutations for :react-native-screens:prepareDebugArtProfile (Thread[included builds,5,main]) started.
+:react-native-screens:prepareDebugArtProfile (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:prepareDebugArtProfile UP-TO-DATE
+Caching disabled for task ':react-native-screens:prepareDebugArtProfile' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':react-native-screens:prepareDebugArtProfile' as it is up-to-date.
+Resolve mutations for :react-native-screens:prepareLintJarForPublish (Thread[included builds,5,main]) started.
+:react-native-screens:prepareLintJarForPublish (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:prepareLintJarForPublish UP-TO-DATE
+Caching disabled for task ':react-native-screens:prepareLintJarForPublish' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':react-native-screens:prepareLintJarForPublish' as it is up-to-date.
+Resolve mutations for :react-native-screens:processDebugManifest (Thread[included builds,5,main]) started.
+:react-native-screens:processDebugManifest (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:processDebugManifest UP-TO-DATE
+Caching disabled for task ':react-native-screens:processDebugManifest' because:
+  Build cache is disabled
+Skipping task ':react-native-screens:processDebugManifest' as it is up-to-date.
+Resolve mutations for :react-native-screens:processDebugJavaRes (Thread[included builds,5,main]) started.
+:react-native-screens:processDebugJavaRes (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:processDebugJavaRes UP-TO-DATE
+file or directory '/Users/visys/AttendX/node_modules/react-native-screens/android/src/main/resources', not found
+file or directory '/Users/visys/AttendX/node_modules/react-native-screens/android/src/debug/resources', not found
+file or directory '/Users/visys/AttendX/node_modules/react-native-screens/android/src/main/resources', not found
+file or directory '/Users/visys/AttendX/node_modules/react-native-screens/android/src/debug/resources', not found
+Caching disabled for task ':react-native-screens:processDebugJavaRes' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':react-native-screens:processDebugJavaRes' as it is up-to-date.
+Resolve mutations for :react-native-screens:mergeDebugJavaResource (Thread[included builds,5,main]) started.
+:react-native-screens:mergeDebugJavaResource (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:mergeDebugJavaResource UP-TO-DATE
+Caching disabled for task ':react-native-screens:mergeDebugJavaResource' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':react-native-screens:mergeDebugJavaResource' as it is up-to-date.
+Resolve mutations for :react-native-screens:syncDebugLibJars (Thread[included builds,5,main]) started.
+:react-native-screens:syncDebugLibJars (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:syncDebugLibJars UP-TO-DATE
+Caching disabled for task ':react-native-screens:syncDebugLibJars' because:
+  Build cache is disabled
+Skipping task ':react-native-screens:syncDebugLibJars' as it is up-to-date.
+Resolve mutations for :react-native-screens:writeDebugAarMetadata (Thread[included builds,5,main]) started.
+:react-native-screens:writeDebugAarMetadata (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:writeDebugAarMetadata UP-TO-DATE
+Caching disabled for task ':react-native-screens:writeDebugAarMetadata' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':react-native-screens:writeDebugAarMetadata' as it is up-to-date.
+Resolve mutations for :react-native-screens:bundleDebugAar (Thread[included builds,5,main]) started.
+:react-native-screens:bundleDebugAar (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:bundleDebugAar UP-TO-DATE
+Caching disabled for task ':react-native-screens:bundleDebugAar' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':react-native-screens:bundleDebugAar' as it is up-to-date.
+Resolve mutations for :react-native-screens:assembleDebug (Thread[included builds,5,main]) started.
+:react-native-screens:assembleDebug (Thread[included builds,5,main]) started.
+
+> Task :react-native-screens:assembleDebug UP-TO-DATE
+Skipping task ':react-native-screens:assembleDebug' as it has no actions.
+
+[Incubating] Problems report is available at: file:///Users/visys/AttendX/android/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.13/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 1s
+45 actionable tasks: 8 executed, 37 up-to-date
+Watched directory hierarchies: [/Users/visys/AttendX/node_modules/@react-native/gradle-plugin, /Users/visys/AttendX/android]

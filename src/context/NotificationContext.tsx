@@ -94,7 +94,11 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
         return;
       }
 
-      const endpoint = `/notifications/${role.toLowerCase()}/list`;
+      let normalizedRole = role.toLowerCase();
+      if (['teacher', 'admin', 'director', 'accountant'].includes(normalizedRole)) {
+        normalizedRole = 'staff';
+      }
+      const endpoint = `/notifications/${normalizedRole}/list`;
       let response: any = null;
       let attempt = 0;
       const maxAttempts = 2;

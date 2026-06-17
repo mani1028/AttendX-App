@@ -48,7 +48,7 @@ const AvatarBubble: React.FC<AvatarBubbleProps> = ({
 
   return (
     <LinearGradient
-      colors={[primaryColor, '#1d4ed8']}
+      colors={[primaryColor, '#7c3aed']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[

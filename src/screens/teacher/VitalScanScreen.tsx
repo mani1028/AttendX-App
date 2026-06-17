@@ -16,13 +16,14 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Camera } from 'react-native-vision-camera';
+import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+import { Theme } from '../../theme/theme';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
@@ -56,7 +57,7 @@ const Toast: React.FC<{
   icon?: string;
   color?: string;
   onHide: () => void;
-}> = ({ visible, title, message, icon = 'ℹ️', color = '#2563eb', onHide }) => {
+}> = ({ visible, title, message, icon = 'ℹ️', color = '#6648dc', onHide }) => {
   useEffect(() => {
     if (visible) {
       const timer = setTimeout(onHide, 4000);
@@ -82,9 +83,8 @@ export default function VitalScanScreen() {
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
-  const cameraRef = useRef<any>(null);
-  // const device = useCameraDevice('back');
-  const device = null;
+  const cameraRef = useRef<Camera>(null);
+  const device = useCameraDevice('back');
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [cameraActive, setCameraActive] = useState<boolean>(false);
 
@@ -214,7 +214,7 @@ export default function VitalScanScreen() {
     } catch (e) {
       console.warn('Failed to clear vital scan cache', e);
     }
-    showToast('Ready for new scan', 'All fields cleared', '✨', '#2563eb');
+    showToast('Ready for new scan', 'All fields cleared', '✨', '#6648dc');
   };
 
   const diagnoseFever = () => {
@@ -257,7 +257,6 @@ export default function VitalScanScreen() {
     if (!cameraRef.current) return;
     try {
       const photo = await cameraRef.current.takePhoto({
-        qualityPrioritization: 'quality',
         flash: 'off',
       });
       if (!isMounted.current) return;
@@ -292,7 +291,7 @@ export default function VitalScanScreen() {
           setImages(newImages);
         }
         setResult(null);
-        showToast('Image uploaded', `${images.length + 1}/${maxImages} added`, '📁', '#2563eb');
+        showToast('Image uploaded', `${images.length + 1}/${maxImages} added`, '📁', '#6648dc');
       }
     });
   };
@@ -382,7 +381,7 @@ export default function VitalScanScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       {/* Toast */}
       <Toast
@@ -452,18 +451,15 @@ export default function VitalScanScreen() {
       </Modal>
 
       {/* Camera View */}
-      {cameraActive && hasPermission && (
+      {cameraActive && hasPermission && device && (
         <View style={styles.cameraContainer}>
-          {/* <Camera
+          <Camera
             ref={cameraRef}
             style={styles.camera}
-            device={device!}
+            device={device}
             isActive={cameraActive}
             photo={true}
-          /> */}
-          <View style={{flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center'}}>
-            <Text style={{color: '#fff', fontSize: 16}}>Camera disabled for debugging</Text>
-          </View>
+          />
           <View style={styles.cameraOverlay}>
             <Text style={styles.cameraStep}>
               {scanType === 'eye' ? 'Vision Scan' : teethSteps[images.length] || 'Done'}
@@ -492,21 +488,21 @@ export default function VitalScanScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Navy Hero Header */}
-        <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+        <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
           <View style={styles.headerContent}>
             <TouchableOpacity
               style={styles.backBtn}
               onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
             >
-              <ChevronLeft size={24} color="#FFFFFF" />
+              <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
             </TouchableOpacity>
             <AppText weight="bold" style={styles.headerTitle}>VitalScan AI</AppText>
-            <View style={{ width: 44 }} />
+            <View style={{ width: HEADER_CONSTANTS.ICON_BUTTON_SIZE }} />
           </View>
 
           <View style={styles.heroContent}>
             <AppText weight="bold" style={styles.heroGreeting}>Health Diagnostics</AppText>
-            <AppText weight="semiBold" style={styles.heroSubtext}>AI-powered vital scanning for student wellness</AppText>
+            <AppText weight="semibold" style={styles.heroSubtext}>AI-powered vital scanning for student wellness</AppText>
           </View>
         </View>
 
@@ -694,7 +690,7 @@ export default function VitalScanScreen() {
                   <Image source={{ uri: images[images.length - 1].uri }} style={styles.scanImage} />
                 )}
               </View>
-              <ActivityIndicator size="large" color="#2563eb" />
+              <ActivityIndicator size="large" color="#6648dc" />
               <Text style={styles.scanningText}>AI ANALYZING DATA</Text>
               <View style={styles.tagRow}>
                 {['Pattern Recognition', 'Anomaly Detection', 'Generating Report'].map((s, i) => (
@@ -771,13 +767,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
+    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
+    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
+    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
+    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -786,20 +782,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
   },
   backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
+    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
+    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
+    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
+    fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
+    color: HEADER_CONSTANTS.TEXT_COLOR,
   },
   heroContent: {
     paddingHorizontal: 20,
@@ -811,8 +806,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   heroSubtext: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 13,
+    color: `rgba(255,255,255,${HEADER_CONSTANTS.SUBTITLE_OPACITY})`,
+    fontSize: HEADER_CONSTANTS.SUBTITLE_FONT_SIZE,
     marginTop: 6,
     lineHeight: 18,
   },
@@ -867,7 +862,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#6648dc',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -892,7 +887,7 @@ const styles = StyleSheet.create({
   newBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#2563eb',
+    backgroundColor: Theme.colors.primary,
     borderRadius: 10,
   },
   newBtnText: {
@@ -914,7 +909,7 @@ const styles = StyleSheet.create({
   skinBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#7C3AED',
+    backgroundColor: Theme.colors.violet,
     borderRadius: 10,
   },
   skinBtnText: {
@@ -992,8 +987,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pillActive: {
-    borderColor: '#2563eb',
-    backgroundColor: '#eff6ff',
+    borderColor: Theme.colors.primary,
+    backgroundColor: Theme.colors.primary + '10',
   },
   pillText: {
     fontSize: 13,
@@ -1001,7 +996,7 @@ const styles = StyleSheet.create({
     color: '#4a5568',
   },
   pillTextActive: {
-    color: '#2563eb',
+    color: Theme.colors.primary,
   },
   camFrame: {
     width: '100%',
@@ -1041,7 +1036,7 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 9,
     borderWidth: 2,
-    borderColor: '#2563eb',
+    borderColor: Theme.colors.primary,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -1102,7 +1097,7 @@ const styles = StyleSheet.create({
     color: '#4a5568',
   },
   runBtn: {
-    backgroundColor: '#2563eb',
+    backgroundColor: Theme.colors.primary,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
@@ -1159,7 +1154,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 3,
-    borderColor: '#2563eb',
+    borderColor: Theme.colors.primary,
     position: 'relative',
   },
   scanLine: {
@@ -1168,9 +1163,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 3,
-    backgroundColor: '#2563eb',
+    backgroundColor: Theme.colors.primary,
     zIndex: 10,
-    shadowColor: '#2563eb',
+    shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 10,
@@ -1184,7 +1179,7 @@ const styles = StyleSheet.create({
   scanningText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2563eb',
+    color: Theme.colors.primary,
     letterSpacing: 2,
   },
   tagRow: {
@@ -1372,7 +1367,7 @@ const styles = StyleSheet.create({
   cameraStep: {
     position: 'absolute',
     top: -80,
-    backgroundColor: 'rgba(37,99,235,0.9)',
+    backgroundColor: Theme.colors.primary,
     color: '#fff',
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -1400,7 +1395,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#2563eb',
+    backgroundColor: Theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1484,7 +1479,7 @@ const styles = StyleSheet.create({
   checkBtn: {
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#2563eb',
+    backgroundColor: Theme.colors.primary,
     borderRadius: 10,
   },
   checkBtnText: {

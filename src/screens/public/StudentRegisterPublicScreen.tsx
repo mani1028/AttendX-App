@@ -273,7 +273,7 @@ const FormField: React.FC<{
   children: React.ReactNode;
 }> = ({ label, required, error, children }) => (
   <View style={styles.formGroup}>
-    <AppText weight="semiBold" style={styles.formLabel}>
+    <AppText weight="semibold" style={styles.formLabel}>
       {label}
       {required && <AppText style={styles.requiredStar}> *</AppText>}
     </AppText>
@@ -285,7 +285,7 @@ const FormField: React.FC<{
 // Preview Field Component
 const PreviewField: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <View style={styles.previewField}>
-    <AppText weight="semiBold" style={styles.previewFieldLabel}>{label}</AppText>
+    <AppText weight="semibold" style={styles.previewFieldLabel}>{label}</AppText>
     <AppText weight="regular" style={styles.previewFieldValue}>{value || '—'}</AppText>
   </View>
 );
@@ -337,7 +337,7 @@ export default function StudentRegisterPublicScreen() {
 
     const loadClasses = async () => {
       try {
-        const res = await API.get('/hm/public/classes-sections', {
+        const res = await API.get('/director/public/classes-sections', {
           params: {
             branch_id: form.branch_id,
             school_code: publicSchoolCode,
@@ -685,7 +685,7 @@ export default function StudentRegisterPublicScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       <ScrollView
         contentContainerStyle={styles.contentContainer}
@@ -749,7 +749,7 @@ export default function StudentRegisterPublicScreen() {
           {step === 0 && (
             <View>
               <View style={styles.sectionHeader}>
-                <User size={18} color="#001F3F" />
+                <User size={18} color="#6648dc" />
                 <AppText weight="bold" style={styles.sectionTitle}>Personal Details</AppText>
               </View>
               
@@ -781,7 +781,7 @@ export default function StudentRegisterPublicScreen() {
                       style={[styles.genderBtn, form.gender === g && styles.genderBtnActive]}
                       onPress={() => handleChange('gender', g)}
                     >
-                      <AppText weight="semiBold" style={[styles.genderText, form.gender === g && styles.genderTextActive]}>{g}</AppText>
+                      <AppText weight="semibold" style={[styles.genderText, form.gender === g && styles.genderTextActive]}>{g}</AppText>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -878,7 +878,7 @@ export default function StudentRegisterPublicScreen() {
           {step === 1 && (
             <View>
               <View style={styles.sectionHeader}>
-                <BookOpen size={18} color="#001F3F" />
+                <BookOpen size={18} color="#6648dc" />
                 <AppText weight="bold" style={styles.sectionTitle}>Academic Details</AppText>
               </View>
 
@@ -891,7 +891,7 @@ export default function StudentRegisterPublicScreen() {
                         style={[styles.chip, form.class_grade === cls.class_name && styles.chipActive]}
                         onPress={() => handleClassChange(cls.class_name)}
                       >
-                        <AppText weight="semiBold" style={[styles.chipText, form.class_grade === cls.class_name && styles.chipTextActive]}>
+                        <AppText weight="semibold" style={[styles.chipText, form.class_grade === cls.class_name && styles.chipTextActive]}>
                           Class {cls.class_name}
                         </AppText>
                       </TouchableOpacity>
@@ -990,7 +990,7 @@ export default function StudentRegisterPublicScreen() {
           {step === 2 && (
             <View>
               <View style={styles.sectionHeader}>
-                <Users size={18} color="#001F3F" />
+                <Users size={18} color="#6648dc" />
                 <AppText weight="bold" style={styles.sectionTitle}>Parent / Guardian Details</AppText>
               </View>
 
@@ -1076,7 +1076,7 @@ export default function StudentRegisterPublicScreen() {
           {step === 3 && (
             <View>
               <View style={styles.sectionHeader}>
-                <BookOpen size={18} color="#001F3F" />
+                <BookOpen size={18} color="#6648dc" />
                 <AppText weight="bold" style={styles.sectionTitle}>Current Address</AppText>
               </View>
 
@@ -1153,7 +1153,7 @@ export default function StudentRegisterPublicScreen() {
               </FormField>
 
               <View style={[styles.sectionHeader, { marginTop: 20 }]}>
-                <Heart size={18} color="#001F3F" />
+                <Heart size={18} color="#6648dc" />
                 <AppText weight="bold" style={styles.sectionTitle}>Health, Emergency & Transport</AppText>
               </View>
 
@@ -1245,7 +1245,7 @@ export default function StudentRegisterPublicScreen() {
           {step === 4 && (
             <View>
               <View style={styles.sectionHeader}>
-                <Camera size={18} color="#001F3F" />
+                <Camera size={18} color="#6648dc" />
                 <AppText weight="bold" style={styles.sectionTitle}>Student Photograph</AppText>
               </View>
 
@@ -1257,14 +1257,14 @@ export default function StudentRegisterPublicScreen() {
                 ) : (
                   <View style={styles.photoPlaceholder}>
                     <Camera size={48} color="#CBD5E1" />
-                    <AppText weight="semiBold" style={styles.photoText}>Tap to add photo</AppText>
+                    <AppText weight="semibold" style={styles.photoText}>Tap to add photo</AppText>
                     <AppText style={styles.photoSubtext}>Camera or Gallery</AppText>
                   </View>
                 )}
               </TouchableOpacity>
 
               <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-                <Check size={18} color="#001F3F" />
+                <Check size={18} color="#6648dc" />
                 <AppText weight="bold" style={styles.sectionTitle}>Login Credentials</AppText>
               </View>
 
@@ -1418,7 +1418,7 @@ export default function StudentRegisterPublicScreen() {
               </View>
 
               <View style={styles.previewFooter}>
-                <AppText weight="semiBold" style={styles.previewFooterText}>
+                <AppText weight="semibold" style={styles.previewFooterText}>
                   Please review all details carefully before submitting.
                 </AppText>
               </View>
@@ -1468,7 +1468,7 @@ export default function StudentRegisterPublicScreen() {
               Your student details were saved successfully and a roll number has been assigned.
             </AppText>
             <View style={styles.rollNumberDisplay}>
-              <AppText weight="semiBold" style={styles.rollNumberLabel}>Assigned Roll Number</AppText>
+              <AppText weight="semibold" style={styles.rollNumberLabel}>Assigned Roll Number</AppText>
               <AppText weight="bold" style={styles.rollNumberValue}>{generatedRollNumber || '—'}</AppText>
             </View>
             <AppText style={styles.modalNote}>
@@ -1497,7 +1497,7 @@ const styles = StyleSheet.create({
   },
   errorTitle: {
     fontSize: 20,
-    color: '#001F3F',
+    color: '#6648dc',
     marginTop: 16,
     marginBottom: 8,
   },
@@ -1509,7 +1509,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
+    backgroundColor: '#6648dc',
     paddingHorizontal: 20,
     paddingBottom: 60,
     borderBottomLeftRadius: 30,
@@ -1606,7 +1606,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#059669',
   },
   stepActive: {
-    backgroundColor: '#001F3F',
+    backgroundColor: '#6648dc',
   },
   stepNumber: {
     color: '#64748B',
@@ -1622,7 +1622,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   stepLabelActive: {
-    color: '#001F3F',
+    color: '#6648dc',
   },
   stepLabelCompleted: {
     color: '#059669',
@@ -1649,7 +1649,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    color: '#001F3F',
+    color: '#6648dc',
   },
   formGroup: {
     marginBottom: 20,
@@ -1695,8 +1695,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   genderBtnActive: {
-    backgroundColor: '#001F3F',
-    borderColor: '#001F3F',
+    backgroundColor: '#6648dc',
+    borderColor: '#6648dc',
   },
   genderText: {
     color: '#64748B',
@@ -1733,8 +1733,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   chipActive: {
-    backgroundColor: '#001F3F',
-    borderColor: '#001F3F',
+    backgroundColor: '#6648dc',
+    borderColor: '#6648dc',
   },
   chipText: {
     fontSize: 14,
@@ -1809,7 +1809,7 @@ const styles = StyleSheet.create({
   },
   photoText: {
     fontSize: 15,
-    color: '#001F3F',
+    color: '#6648dc',
     marginTop: 12,
   },
   photoSubtext: {
@@ -1848,7 +1848,7 @@ const styles = StyleSheet.create({
   },
   previewName: {
     fontSize: 18,
-    color: '#001F3F',
+    color: '#6648dc',
   },
   previewMeta: {
     fontSize: 12,
@@ -1884,7 +1884,7 @@ const styles = StyleSheet.create({
   },
   previewCardTitle: {
     fontSize: 12,
-    color: '#001F3F',
+    color: '#6648dc',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -1965,7 +1965,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    color: '#001F3F',
+    color: '#6648dc',
     marginBottom: 12,
   },
   modalMessage: {

@@ -1,0 +1,923 @@
+// src/screens/director/RenewalPaymentScreen.tsx
+
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Modal } from 'react-native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import API from '../../services/api';
+import { Check, Loader2, AlertCircle, CreditCard, Calendar, Lock, Info, Shield, GitBranch, ChevronLeft, CheckCircle2 } from 'lucide-react-native';
+import { Theme } from '../../theme/theme';
+import { normalizePricingPlan, sortPricingPlans } from '../../utils/pricingPlans';
+import { WebView } from 'react-native-webview';
+
+// Types (simplified for brevity)
+interface Plan {
+  id: string;
+  title: string;
+  description?: string;
+  priceValue: number;
+  isFree?: boolean;
+  isCustomPricing?: boolean;
+  highlighted?: boolean;
+  selectedPriceText?: string;
+  originalPriceText?: string;
+  plan_code?: string;
+  hasPromo?: boolean;
+  isCurrent?: boolean;
+}
+interface SubscriptionInfo {
+  school_name?: string;
+  director_name?: string;
+  billing_cycle?: string;
+  auto_renew?: boolean;
+  status?: string;
+  current_plan?: string;
+  days_remaining?: number;
+  subscription_end_at?: string;
+  trial_end_at?: string;
+  total_branches?: number;
+  last_payment_at?: string;
+  last_payment_amount?: number;
+}
+
+type RootStackParamList = {
+  RenewalPayment: undefined;
+};
+
+type RenewalPaymentRouteProp = RouteProp<RootStackParamList, 'RenewalPayment'>;
+
+export default function RenewalPaymentScreen() {
+  const navigation = useNavigation();
+  const route = useRoute<RenewalPaymentRouteProp>();
+  const insets = useSafeAreaInsets();
+
+  // State mirrors the web version
+  const [plans, setPlans] = useState<any[]>([]);
+  const [subInfo, setSubInfo] = useState<SubscriptionInfo | null>(null);
+  const [branchCount, setBranchCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [wantsAutoPay, setWantsAutoPay] = useState(false);
+  const [enableAutoPayGlobal, setEnableAutoPayGlobal] = useState(true);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [paySuccess, setPaySuccess] = useState(false);
+  const [schoolId, setSchoolId] = useState('');
+
+  const [checkoutData, setCheckoutData] = useState<{
+    key: string;
+    amount: number;
+    orderId: string;
+    subscriptionId: string;
+    description: string;
+    email: string;
+  } | null>(null);
+
+  const preselectHandled = useRef(false);
+
+  // Compute display plans reactively from raw plans and billing cycle
+  const displayPlans = useMemo(() => {
+    const trialFiltered = plans.filter(p => !String(p.title || "").toLowerCase().includes("trial"));
+    const normalized = trialFiltered.map(p => normalizePricingPlan(p, billingCycle));
+    return sortPricingPlans(normalized);
+  }, [plans, billingCycle]);
+
+  // Helper formatting functions (mirrored from web)
+  const fmtDate = (v?: string) => {
+    if (!v) return '—';
+    const d = new Date(v);
+    return isNaN(d.getTime())
+      ? String(v).slice(0, 10)
+      : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const daysColor = (d: number | null) => {
+    if (d === null) return '#64748b';
+    if (d < 0) return Theme.colors.error;
+    if (d <= 3) return Theme.colors.warning;
+    if (d <= 7) return Theme.colors.warning;
+    return Theme.colors.primary;
+  };
+
+  const formatStatus = (s?: string) => String(s || 'unknown').replace(/_/g, ' ');
+
+  // Load data – similar to the web's load function
+  const load = useCallback(async () => {
+    // In a real app, schoolId would come from auth/session storage. We fetch from AsyncStorage.
+    const code = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
+    if (!code) {
+      setError('School ID missing. Please log in again.');
+      setLoading(false);
+      return;
+    }
+    setSchoolId(code);
+    setLoading(true);
+    setError('');
+    try {
+      const [statusRes, plansRes, settingsRes] = await Promise.allSettled([
+        API.post('payment/subscription-status', { school_id: code }),
+        API.get('pricing/public/plans'),
+        API.get('pricing/public/settings'),
+      ]);
+
+      if (statusRes.status === 'fulfilled') {
+        const data = statusRes.value.data as SubscriptionInfo;
+        setSubInfo(data);
+        setBranchCount(data.total_branches || 0);
+        if (data.billing_cycle === 'monthly' || data.billing_cycle === 'yearly') setBillingCycle(data.billing_cycle);
+        if (data.auto_renew) setWantsAutoPay(true);
+      }
+
+      if (plansRes.status === 'fulfilled') {
+        const loadedPlans = Array.isArray(plansRes.value.data) ? plansRes.value.data : [];
+        setPlans(loadedPlans);
+      } else {
+        throw new Error('Could not load pricing plans');
+      }
+
+      if (settingsRes.status === 'fulfilled') {
+        const enabled = settingsRes.value.data.enable_auto_pay !== 'false';
+        setEnableAutoPayGlobal(enabled);
+        if (!enabled) setWantsAutoPay(false);
+      }
+    } catch (e: any) {
+      setError('Unable to load billing information. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Poll activation after a successful order
+  const pollActivation = useCallback(async (schoolIdStr: string, attempts = 12) => {
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const res = await API.post('payment/subscription-status', { school_id: schoolIdStr });
+        const st = String(res.data?.status || '').toLowerCase();
+        if (st === 'active_paid' || res.data?.auto_renew || (res.data?.days_remaining || 0) > 20) {
+          setPaySuccess(true);
+          setTimeout(() => (navigation as any).navigate('DirectorDashboard'), 2800);
+          return true;
+        }
+      } catch {
+        // retry silently
+      }
+      await new Promise(r => setTimeout(() => r(null), 2000));
+    }
+    setPaySuccess(true);
+    setTimeout(() => (navigation as any).navigate('DirectorDashboard'), 2800);
+    return false;
+  }, [navigation]);
+
+  const handleWebViewMessage = useCallback(async (event: any) => {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data);
+      if (msg.event === 'success') {
+        const response = msg.data;
+        const oId = checkoutData?.orderId;
+        setCheckoutData(null);
+        setLoading(true);
+        setError('');
+        
+        try {
+          await API.post('payment/verify', {
+            razorpay_order_id: response.razorpay_order_id || oId,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            payment_method: 'razorpay',
+          });
+        } catch (e) {
+          // ignore verification error and rely on polling
+        }
+        await pollActivation(schoolId);
+      } else if (msg.event === 'dismiss' || msg.event === 'fail') {
+        setCheckoutData(null);
+        if (msg.event === 'fail') {
+          Alert.alert('Payment Failed', msg.data?.description || 'The transaction was unsuccessful.');
+        }
+      }
+    } catch (e) {
+      setCheckoutData(null);
+    }
+  }, [checkoutData, schoolId, pollActivation]);
+
+  const handleSelect = useCallback(
+    async (plan: any) => {
+      if (plan.isCustomPricing || (plan.priceValue <= 0 && !plan.isFree)) {
+        Alert.alert('Contact', 'Please contact us at https://attendx.ai/contact');
+        return;
+      }
+      setLoadingPlan(plan.id);
+      setError('');
+      try {
+        const orderRes = await API.post(
+          'payment/renewal/create-order',
+          { school_id: schoolId, plan_id: plan.id, billing_cycle: billingCycle, autoPay: wantsAutoPay },
+          { headers: { 'x-user-role': 'director' } }
+        );
+        const email = (await AsyncStorage.getItem('email')) || '';
+        setCheckoutData({
+          key: orderRes.data.key,
+          amount: orderRes.data.amount || 0,
+          orderId: orderRes.data.order_id || '',
+          subscriptionId: orderRes.data.subscription_id || '',
+          description: `${plan.title} — ${wantsAutoPay ? 'Auto-Pay' : 'One-time'} (${billingCycle})`,
+          email: email
+        });
+      } catch (e: any) {
+        setError(e?.response?.data?.detail || e.message || 'Payment setup failed.');
+      } finally {
+        setLoadingPlan(null);
+      }
+    },
+    [billingCycle, wantsAutoPay, schoolId]
+  );
+
+  const getCheckoutHtml = (data: any) => {
+    if (!data) return '';
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <style>
+            body {
+              margin: 0;
+              padding: 0;
+              background-color: #f8fafc;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 100vh;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            }
+            .loader {
+              border: 4px solid #e2e8f0;
+              border-top: 4px solid #6366f1;
+              border-radius: 50%;
+              width: 40px;
+              height: 40px;
+              animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          </style>
+          <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+        </head>
+        <body>
+          <div class="loader"></div>
+          <script>
+            window.onload = function() {
+              try {
+                var options = {
+                  "key": "${data.key}",
+                  "amount": ${data.amount},
+                  "currency": "INR",
+                  "name": "AttendX",
+                  "description": "${data.description}",
+                  "prefill": {
+                    "email": "${data.email}"
+                  },
+                  "theme": {
+                    "color": "#6366f1"
+                  },
+                  "handler": function (response) {
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                      event: 'success',
+                      data: response
+                    }));
+                  },
+                  "modal": {
+                    "ondismiss": function() {
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        event: 'dismiss'
+                      }));
+                    }
+                  }
+                };
+                if ("${data.orderId}") {
+                  options.order_id = "${data.orderId}";
+                }
+                if ("${data.subscriptionId}") {
+                  options.subscription_id = "${data.subscriptionId}";
+                  delete options.order_id;
+                  delete options.amount;
+                }
+                var rzp = new Razorpay(options);
+                rzp.on('payment.failed', function (response) {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    event: 'fail',
+                    data: response.error
+                  }));
+                });
+                rzp.open();
+              } catch (err) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  event: 'fail',
+                  data: { description: err.message }
+                }));
+              }
+            };
+          </script>
+        </body>
+      </html>
+    `;
+  };
+
+  // UI rendering – simplified but retains key sections
+  if (paySuccess) {
+    return (
+      <View style={styles.successContainer}>
+        <View style={styles.successBox}>
+          <Check size={34} color="#16a34a" strokeWidth={2.5} />
+          <Text style={styles.successTitle}>Payment Successful</Text>
+          <Text style={styles.successMsg}>Your subscription is now active. Redirecting to your dashboard…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <AlertCircle size={48} color="#dc2626" />
+        <Text style={styles.errorMsg}>{error}</Text>
+        <TouchableOpacity onPress={load} style={styles.retryBtn}>
+          <Text style={styles.retryTxt}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.page}>
+      <Modal
+        visible={checkoutData !== null}
+        animationType="slide"
+        onRequestClose={() => setCheckoutData(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: '#fff', paddingTop: insets.top }}>
+          <View style={styles.webViewHeader}>
+            <TouchableOpacity onPress={() => setCheckoutData(null)} style={styles.webViewCloseBtn}>
+              <ChevronLeft size={24} color="#0f172a" />
+              <Text style={styles.webViewCloseTxt}>Cancel Payment</Text>
+            </TouchableOpacity>
+          </View>
+          <WebView
+            originWhitelist={['*']}
+            source={{ html: getCheckoutHtml(checkoutData) }}
+            onMessage={handleWebViewMessage}
+            style={{ flex: 1 }}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={true}
+            renderLoading={() => (
+              <ActivityIndicator
+                size="large"
+                color={Theme.colors.primary}
+                style={StyleSheet.absoluteFill}
+              />
+            )}
+          />
+        </View>
+      </Modal>
+
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <ChevronLeft size={24} color="#0f172a" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Subscription & Renewal</Text>
+          <View style={{ width: 40 }} />
+        </View>
+      </View>
+
+      {/* Loading or data */}
+      {loading ? (
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator size="large" color={Theme.colors.primary} />
+          <Text style={styles.loaderMsg}>Loading subscription data…</Text>
+        </View>
+      ) : subInfo ? (
+        <ScrollView style={styles.scrollContent} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+          <View style={styles.content}>
+            {/* Status Panel */}
+            <View style={styles.card}>
+              <View style={styles.statusHeader}>
+                <CreditCard size={20} color="#fff" />
+                <View style={{ marginLeft: 8 }}>
+                  <Text style={styles.statusHeaderTitle}>Subscription Status</Text>
+                  <Text style={styles.statusHeaderSub}>{subInfo.school_name || 'Your School'}</Text>
+                </View>
+              </View>
+              <View style={styles.statusBody}>
+                <Text style={styles.label}>Plan</Text>
+                <Text style={styles.value}>{subInfo.current_plan || 'Trial Period'}</Text>
+                <Text style={styles.label}>Status</Text>
+                <Text style={styles.value}>{formatStatus(subInfo.status)}</Text>
+                <Text style={styles.label}>Valid Until</Text>
+                <Text style={styles.value}>{fmtDate(subInfo.subscription_end_at || subInfo.trial_end_at)}</Text>
+              </View>
+            </View>
+
+            {/* Billing Cycle selection */}
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Select Billing Interval</Text>
+              <View style={styles.segmentedControl}>
+                {['monthly', 'yearly'].map(cycle => {
+                  const active = billingCycle === cycle;
+                  return (
+                    <TouchableOpacity
+                      key={cycle}
+                      onPress={() => setBillingCycle(cycle as any)}
+                      style={[styles.segmentedTab, active && styles.segmentedTabActive]}
+                    >
+                      <Text style={[styles.segmentedTabText, active && styles.segmentedTabTextActive]}>
+                        {cycle.charAt(0).toUpperCase() + cycle.slice(1)}
+                      </Text>
+                      {cycle === 'yearly' && (
+                        <View style={styles.badge}>
+                          <Text style={styles.badgeTxt}>-15%</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Payment mode */}
+            {enableAutoPayGlobal && (
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Choose Payment Mode</Text>
+                <View style={styles.segmentedControl}>
+                  {[{ val: false, title: 'One‑time Payment' }, { val: true, title: 'Automatic Renewal' }].map(item => {
+                    const active = wantsAutoPay === item.val;
+                    return (
+                      <TouchableOpacity
+                        key={String(item.val)}
+                        onPress={() => setWantsAutoPay(item.val)}
+                        style={[styles.segmentedTab, active && styles.segmentedTabActive]}
+                      >
+                        <Text style={[styles.segmentedTabText, active && styles.segmentedTabTextActive]}>
+                          {item.title}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Plans list */}
+            <View style={{ marginBottom: 12 }}>
+              <Text style={styles.sectionTitle}>Select a Plan to {subInfo.days_remaining !== undefined && subInfo.days_remaining < 0 ? 'Renew' : 'Upgrade'}</Text>
+              {displayPlans.length === 0 ? (
+                <View style={styles.card}>
+                  <Text style={styles.emptyMsg}>No public plans found. Please contact support.</Text>
+                </View>
+              ) : (
+                displayPlans.map(plan => {
+                  const isCurrent = Boolean(subInfo?.current_plan && plan.title?.toLowerCase() === subInfo.current_plan.toLowerCase());
+                  const loadingP = loadingPlan === plan.id;
+                  const canCheckout = !plan.isCustomPricing && (plan.priceValue > 0 || plan.isFree);
+                  const isPopular = plan.highlighted && !isCurrent;
+                  
+                  const features: string[] = plan.features && plan.features.length > 0 ? plan.features : ['Core Features Included', 'Student & Staff Attendance', 'Support Tier Included'];
+
+                  return (
+                    <View 
+                      key={plan.id} 
+                      style={[
+                        styles.planCard, 
+                        isCurrent && styles.planCardCurrent, 
+                        isPopular && styles.planCardPopular
+                      ]}
+                    >
+                      {/* Header Row */}
+                      <View style={styles.planCardHeader}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.planCardTitle}>{plan.title}</Text>
+                          {plan.description && <Text style={styles.planCardDesc}>{plan.description}</Text>}
+                        </View>
+                        
+                        {isCurrent && (
+                          <View style={styles.currentPlanBadge}>
+                            <Text style={styles.currentPlanBadgeTxt}>Current</Text>
+                          </View>
+                        )}
+                        
+                        {isPopular && (
+                          <View style={styles.popularPlanBadge}>
+                            <Text style={styles.popularPlanBadgeTxt}>Popular</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Pricing Row */}
+                      <View style={styles.planCardPricing}>
+                        <Text style={styles.planCardPrice}>
+                          {plan.isCustomPricing 
+                            ? 'Custom Pricing' 
+                            : plan.isFree 
+                              ? 'Free' 
+                              : plan.selectedPriceText}
+                        </Text>
+                        {!plan.isCustomPricing && !plan.isFree && (
+                          <Text style={styles.planCardPeriod}>
+                            / {billingCycle === 'monthly' ? 'month' : 'year'}
+                          </Text>
+                        )}
+                      </View>
+
+                      {/* Features Checklist */}
+                      <View style={styles.planFeaturesList}>
+                        {features.map((feature, idx) => (
+                          <View key={idx} style={styles.featureItem}>
+                            <CheckCircle2 size={16} color={isCurrent ? Theme.colors.primary : '#10b981'} style={styles.featureIcon} />
+                            <Text style={styles.featureText}>{feature}</Text>
+                          </View>
+                        ))}
+                      </View>
+
+                      {/* Action Button */}
+                      <TouchableOpacity
+                        onPress={() => handleSelect(plan)}
+                        disabled={loadingPlan !== null || isCurrent || !canCheckout}
+                        style={[
+                          styles.planCardBtn, 
+                          isCurrent && styles.planCardBtnCurrent, 
+                          loadingP && styles.planCardBtnLoading, 
+                          !canCheckout && styles.planCardBtnDisabled
+                        ]}
+                      >
+                        {loadingP ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <Text style={[styles.planCardBtnTxt, isCurrent && styles.planCardBtnTxtCurrent]}>
+                            {isCurrent 
+                              ? 'Active Plan' 
+                              : !canCheckout 
+                                ? 'Contact Support' 
+                                : wantsAutoPay 
+                                  ? 'Subscribe Now' 
+                                  : 'Pay / Renew Now'}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          </View>
+        </ScrollView>
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  page: {
+    flex: 1,
+    backgroundColor: Theme.colors.background,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    backgroundColor: Theme.colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(30, 58, 138, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  loaderWrap: {
+    marginTop: 60,
+    alignItems: 'center',
+  },
+  loaderMsg: {
+    marginTop: 12,
+    color: '#94a3b8',
+    fontSize: 13,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  errorMsg: {
+    marginTop: 16,
+    color: '#dc2626',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: Theme.colors.primary,
+    borderRadius: 8,
+  },
+  retryTxt: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    backgroundColor: Theme.colors.primaryDark,
+    padding: 12,
+    borderRadius: 12,
+  },
+  statusHeaderTitle: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  statusHeaderSub: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  statusBody: {
+    padding: 12,
+  },
+  label: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 8,
+  },
+  value: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 12,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: '#eef2f6',
+    borderRadius: 14,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  segmentedTab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    flexDirection: 'row',
+    gap: 4,
+  },
+  segmentedTabActive: {
+    backgroundColor: Theme.colors.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  segmentedTabText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  segmentedTabTextActive: {
+    color: '#ffffff',
+  },
+  badge: {
+    backgroundColor: '#dcfce7',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 4,
+  },
+  badgeTxt: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#16a34a',
+  },
+  planCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  planCardCurrent: {
+    borderColor: Theme.colors.primary,
+    backgroundColor: '#f8fafc',
+  },
+  planCardPopular: {
+    borderColor: '#f59e0b',
+    borderWidth: 2,
+  },
+  planCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  planCardTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  planCardDesc: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 4,
+  },
+  currentPlanBadge: {
+    backgroundColor: '#dbeafe',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  currentPlanBadgeTxt: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#1e3a8a',
+  },
+  popularPlanBadge: {
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  popularPlanBadgeTxt: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#b45309',
+  },
+  planCardPricing: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    paddingBottom: 16,
+  },
+  planCardPrice: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+  planCardPeriod: {
+    fontSize: 14,
+    color: '#64748b',
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  planFeaturesList: {
+    marginBottom: 24,
+    gap: 12,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  featureIcon: {
+    marginRight: 10,
+  },
+  featureText: {
+    fontSize: 14,
+    color: '#475569',
+    fontWeight: '500',
+  },
+  planCardBtn: {
+    width: '100%',
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: Theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  planCardBtnCurrent: {
+    backgroundColor: '#e2e8f0',
+  },
+  planCardBtnLoading: {
+    backgroundColor: '#94a3b8',
+  },
+  planCardBtnDisabled: {
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
+  },
+  planCardBtnTxt: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  planCardBtnTxtCurrent: {
+    color: '#64748b',
+  },
+  emptyMsg: {
+    textAlign: 'center',
+    color: '#64748b',
+    fontWeight: '700',
+    marginTop: 20,
+  },
+  successContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.background,
+    padding: 24,
+  },
+  successBox: {
+    backgroundColor: '#fff',
+    borderRadius: 28,
+    padding: 40,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  successTitle: {
+    marginTop: 16,
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+  successMsg: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+  },
+  webViewHeader: {
+    height: 56,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  webViewCloseBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  webViewCloseTxt: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+});

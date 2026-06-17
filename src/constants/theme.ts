@@ -9,7 +9,7 @@ export const colors = {
   textMuted: Theme.colors.textMuted,
   border: Theme.colors.border,
   accent: Theme.colors.primary,
-  accentSoft: Theme.colors.secondary,
+  accentSoft: Theme.colors.violetLight,
   success: Theme.colors.success,
   successSoft: Theme.colors.successBg,
   warning: Theme.colors.warning,

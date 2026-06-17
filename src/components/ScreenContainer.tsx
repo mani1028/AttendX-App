@@ -1,37 +1,63 @@
 import React from 'react';
-import { ScrollView, StyleSheet, ViewStyle, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  StyleSheet,
+  View,
+  ViewStyle,
+  StatusBar,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Theme } from '../theme/theme';
 
-import { colors } from '../constants/theme';
-
-type Props = {
+interface Props {
   children: React.ReactNode;
+  style?: ViewStyle;
   contentStyle?: ViewStyle;
-};
+  bgColor?: string;
+  statusBarStyle?: 'light-content' | 'dark-content';
+  statusBarBg?: string;
+  edges?: Array<'top' | 'bottom' | 'left' | 'right'>;
+}
 
-export default function ScreenContainer({ children, contentStyle }: Props) {
+export default function ScreenContainer({
+  children,
+  style,
+  contentStyle,
+  bgColor = Theme.colors.background,
+  statusBarStyle = 'dark-content',
+  edges = ['top', 'bottom'],
+}: Props) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.outerContainer}>
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={[styles.content, contentStyle]} showsVerticalScrollIndicator={false}>
-          {children}
-        </ScrollView>
-      </SafeAreaView>
+    <View style={[styles.root, { backgroundColor: bgColor }, style]}>
+      <StatusBar
+        barStyle={statusBarStyle}
+        backgroundColor="transparent"
+        translucent={true}
+      />
+      <View
+        style={[
+          styles.content,
+          {
+            paddingTop: edges.includes('top') ? insets.top : 0,
+            paddingBottom: edges.includes('bottom') ? insets.bottom : 0,
+            paddingLeft: edges.includes('left') ? insets.left : 0,
+            paddingRight: edges.includes('right') ? insets.right : 0,
+          },
+          contentStyle,
+        ]}
+      >
+        {children}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  outerContainer: {
+  root: {
     flex: 1,
-    backgroundColor: '#FFFFFF', // Ensures the very bottom (navigation bar area) is white
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   content: {
-    padding: 16,
-    gap: 12,
+    flex: 1,
   },
 });

@@ -26,9 +26,9 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import AppCard from '../../components/common/AppCard';
-import { HM_THEME } from '../../constants/hmTheme';
+import { Director_THEME } from '../../constants/directorTheme';
 import { colors } from '../../constants/theme';
-import type { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/types';
 
 type AccountantProfile = {
   name: string;
@@ -164,7 +164,7 @@ export default function AccountantProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       <View style={[styles.hero, { paddingTop: insets.top + 14 }]}>
         <View style={styles.heroRow}>
@@ -188,7 +188,7 @@ export default function AccountantProfileScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={styles.loadingBlock}>
-            <ActivityIndicator size="large" color={HM_THEME.navy} />
+            <ActivityIndicator size="large" color={Director_THEME.navy} />
             <AppText style={styles.loadingText}>Loading profile...</AppText>
           </View>
         ) : (
@@ -196,12 +196,12 @@ export default function AccountantProfileScreen() {
             <AppCard style={styles.summaryCard}>
               <View style={styles.summaryRow}>
                 <View style={styles.summaryPill}>
-                  <CalendarDays size={14} color="#2563eb" />
-                  <AppText style={styles.summaryPillText} weight="semiBold">Finance Team</AppText>
+                  <CalendarDays size={14} color="#6648dc" />
+                  <AppText style={styles.summaryPillText} weight="semibold">Finance Team</AppText>
                 </View>
                 <View style={styles.summaryPillSoft}>
                   <MapPin size={14} color="#16a34a" />
-                  <AppText style={styles.summaryPillTextSoft} weight="semiBold">{profile.branchName || 'Branch Linked'}</AppText>
+                  <AppText style={styles.summaryPillTextSoft} weight="semibold">{profile.branchName || 'Branch Linked'}</AppText>
                 </View>
               </View>
               <AppText style={styles.summaryText}>
@@ -216,9 +216,9 @@ export default function AccountantProfileScreen() {
                 return (
                   <AppCard key={field.label} style={styles.fieldCard}>
                     <View style={styles.fieldIconWrap}>
-                      <IconComponent size={16} color="#2563eb" />
+                      <IconComponent size={16} color="#6648dc" />
                     </View>
-                    <AppText style={styles.fieldLabel} weight="semiBold">{field.label}</AppText>
+                    <AppText style={styles.fieldLabel} weight="semibold">{field.label}</AppText>
                     <AppText style={styles.fieldValue} numberOfLines={2}>{field.value}</AppText>
                   </AppCard>
                 );
@@ -245,7 +245,7 @@ export default function AccountantProfileScreen() {
 
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.85}>
               <LogOut size={18} color="#fff" />
-              <AppText style={styles.logoutText} weight="semiBold">Sign Out</AppText>
+              <AppText style={styles.logoutText} weight="semibold">Sign Out</AppText>
             </TouchableOpacity>
           </>
         )}
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   hero: {
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Director_THEME.navy,
     paddingHorizontal: 16,
     paddingBottom: 24,
     alignItems: 'center',
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: 'rgba(37, 99, 235, 0.10)',
+    backgroundColor: 'rgba(102, 72, 220, 0.10)',
   },
   summaryPillSoft: {
     flexDirection: 'row',
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(22, 163, 74, 0.10)',
   },
   summaryPillText: {
-    color: '#2563eb',
+    color: '#6648dc',
     fontSize: 12,
   },
   summaryPillTextSoft: {
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(37, 99, 235, 0.10)',
+    backgroundColor: 'rgba(102, 72, 220, 0.10)',
     marginBottom: 12,
   },
   fieldLabel: {

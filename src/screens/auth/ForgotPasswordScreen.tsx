@@ -1,183 +1,446 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   Text,
   View,
-  Image,
   TouchableOpacity,
   ScrollView,
-} from "react-native";
+  Animated,
+  StatusBar,
+  TextInput,
+  ActivityIndicator,
+  Dimensions,
+} from 'react-native';
 import { authService } from '../../api/authService';
-import { AppInput } from '../../components/common/AppInput';
-import AppButton from '../../components/common/AppButton';
-import ScreenContainer from '../../components/ScreenContainer';
 import { formatErrorMessage } from '../../utils/helpers';
+import { Theme } from '../../theme/theme';
+import { ArrowLeft, Eye, EyeOff, Building2, User, Lock, ShieldCheck, AlertCircle } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width: SCREEN_W } = Dimensions.get('window');
 
 export default function ForgotPasswordScreen({ navigation }: any) {
+  const insets = useSafeAreaInsets();
   const [schoolId, setSchoolId] = useState('');
   const [identifier, setIdentifier] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const next = async () => {
-    if (!schoolId || !identifier) {
-      Alert.alert('Required', 'Please fill all fields');
-      return;
-    }
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 20, friction: 7, useNativeDriver: true }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
+
+  const sendOtp = async () => {
+    setError(''); setMessage('');
+    const sid = (schoolId || '').trim().toUpperCase();
+    const id  = (identifier || '').trim();
+    if (!sid) { setError('Enter your School Code.'); return; }
+    if (!id)  { setError('Enter email or employee ID.'); return; }
+    setSendingOtp(true);
     try {
-      setLoading(true);
-      const trimmedSchoolId = schoolId.trim();
-      const trimmedIdentifier = identifier.trim();
-      
-      console.log('[ForgotPassword] Requesting OTP with:', { schoolId: trimmedSchoolId, identifier: trimmedIdentifier });
-      
-      await authService.requestOtp(trimmedSchoolId, trimmedIdentifier);
-      navigation.navigate('VerifyOtp', { schoolId: trimmedSchoolId, identifier: trimmedIdentifier });
-    } catch (error: any) {
-      console.error('[ForgotPassword] Error requesting OTP:', error?.response?.data || error?.message);
-      
-      const errorMessage = 
-        formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.response?.data?.error) ||
-        error?.message || 
-        'Failed to send OTP. Please check your school code and email/employee ID.';
-      
-      Alert.alert('Error', errorMessage);
+      const res: any = await authService.requestOtp(sid, id);
+      const otpNote = res?.data?.otp ? ` (Debug: ${res.data.otp})` : '';
+      setMessage(`${res?.data?.detail || 'OTP has been sent to your email.'}${otpNote}`);
+      setOtpSent(true);
+      setOtpVerified(false);
+    } catch (err: any) {
+      setError(formatErrorMessage(err?.response?.data?.detail) || 'Unable to send OTP.');
     } finally {
-      setLoading(false);
+      setSendingOtp(false);
     }
   };
 
+  const verifyOtp = async () => {
+    setError(''); setMessage('');
+    const sid   = (schoolId || '').trim().toUpperCase();
+    const id    = (identifier || '').trim();
+    const otpV  = (otp || '').trim();
+    if (!otpV) { setError('Please enter the OTP.'); return; }
+    setVerifyingOtp(true);
+    try {
+      const res: any = await authService.verifyOtp(sid, id, otpV);
+      const token = String(res?.reset_token || res?.data?.reset_token || '').trim();
+      if (!token) throw new Error('Reset token missing');
+      setMessage(res?.detail || res?.data?.detail || 'OTP verified.');
+      setOtpVerified(true);
+      setResetToken(token);
+    } catch (err: any) {
+      setError(formatErrorMessage(err?.response?.data?.detail) || 'OTP verification failed.');
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  const resetPassword = async () => {
+    setError(''); setMessage('');
+    const sid  = (schoolId || '').trim().toUpperCase();
+    const id   = (identifier || '').trim();
+    const tok  = (resetToken || '').trim();
+    const np   = (newPassword || '').trim();
+    const cp   = (confirmPassword || '').trim();
+    if (!np || !cp) { setError('Fill all password fields.'); return; }
+    if (np !== cp) { setError('Passwords do not match.'); return; }
+    setResettingPassword(true);
+    try {
+      const res: any = await authService.resetPassword(sid, id, tok, np, cp);
+      setMessage(res?.data?.detail || 'Password updated successfully!');
+      setTimeout(() => navigation.navigate('Login'), 2000);
+    } catch (err: any) {
+      setError(formatErrorMessage(err?.response?.data?.detail) || 'Password reset failed.');
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
+  const btnLabel = otpVerified
+    ? (resettingPassword ? 'Updating...' : 'RESET PASSWORD')
+    : otpSent
+      ? (verifyingOtp ? 'Verifying...' : 'VERIFY OTP')
+      : (sendingOtp ? 'Sending...' : 'SEND OTP');
+
+  const btnDisabled = sendingOtp || verifyingOtp || resettingPassword;
+  const btnAction = otpVerified ? resetPassword : otpSent ? verifyOtp : sendOtp;
+
   return (
-    <ScreenContainer contentStyle={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Logo Section */}
-          <View style={styles.headerSection}>
-            <Image
-              source={require('../../assets/logo.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Text style={styles.brandSubtitle}>
-              The next generation of educational management, built with security and scalability
+    <View style={styles.root}>
+      <StatusBar barStyle="dark-content" translucent={true} backgroundColor="transparent" />
+
+      {/* Background decorations matching LoginScreen */}
+      <View style={styles.blob1} />
+      <View style={styles.blob2} />
+
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.kav}>
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 20 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+          <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <ArrowLeft size={24} color="#0f172a" />
+             </TouchableOpacity>
+             <Text style={styles.headerTitle}>Recovery</Text>
+          </Animated.View>
+
+          <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            <Text style={styles.cardTitle}>{otpVerified ? 'New Password' : 'Forgot Password'}</Text>
+            <Text style={styles.cardSubtitle}>
+              {otpVerified
+                ? 'Please set a new secure password for your institution account.'
+                : 'Recover school user passwords by school code and registered identity.'}
             </Text>
-          </View>
 
-          {/* Card */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Forgot Password</Text>
-            <Text style={styles.cardSubtitle}>Recover password by school code and registered email/ID</Text>
+            {(error || message) ? (
+              <View style={[styles.banner, error ? styles.bannerErr : styles.bannerOk]}>
+                <AlertCircle size={16} color={error ? '#dc2626' : '#059669'} />
+                <Text style={[styles.bannerTxt, { color: error ? '#dc2626' : '#059669' }]}>
+                  {error || message}
+                </Text>
+              </View>
+            ) : null}
 
-            <AppInput
-              label="SCHOOL ID"
-              placeholder="XXXXXXXXX"
-              value={schoolId}
-              onChangeText={setSchoolId}
-              autoCapitalize="characters"
-            />
+            <View style={styles.form}>
+              {!otpVerified && (
+                <>
+                  <Field label="School Code">
+                    <View style={[styles.inputGroup, focusedField === 'school' && styles.inputActive]}>
+                      <Building2 size={18} color={focusedField === 'school' ? Theme.colors.primary : "#94a3b8"} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="SSC12345 / CBSE12345"
+                        placeholderTextColor="#94a3b8"
+                        value={schoolId}
+                        onChangeText={t => setSchoolId(t.toUpperCase())}
+                        onFocus={() => setFocusedField('school')}
+                        onBlur={() => setFocusedField(null)}
+                        autoCapitalize="characters"
+                        editable={!otpSent}
+                      />
+                    </View>
+                  </Field>
 
-            <AppInput
-              label="EMAIL / EMPLOYEE ID / STUDENT ID"
-              placeholder="XXXXXXXXX"
-              value={identifier}
-              onChangeText={setIdentifier}
-              autoCapitalize="none"
-            />
+                  <Field label="Email / Employee ID / Roll No.">
+                    <View style={[styles.inputGroup, focusedField === 'user' && styles.inputActive]}>
+                      <User size={18} color={focusedField === 'user' ? Theme.colors.primary : "#94a3b8"} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="teacher@example.com or EMP001"
+                        placeholderTextColor="#94a3b8"
+                        value={identifier}
+                        onChangeText={setIdentifier}
+                        onFocus={() => setFocusedField('user')}
+                        onBlur={() => setFocusedField(null)}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        editable={!otpSent}
+                      />
+                    </View>
+                  </Field>
+                </>
+              )}
 
-            <AppButton
-              title={loading ? "SENDING OTP..." : "SEND OTP"}
-              onPress={next}
-              disabled={loading}
-              style={styles.actionButton}
-            />
+              {otpSent && !otpVerified && (
+                <Field label="Enter OTP">
+                  <View style={[styles.inputGroup, focusedField === 'otp' && styles.inputActive]}>
+                    <ShieldCheck size={18} color={focusedField === 'otp' ? Theme.colors.primary : "#94a3b8"} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="6-digit verification code"
+                      placeholderTextColor="#94a3b8"
+                      value={otp}
+                      onChangeText={setOtp}
+                      onFocus={() => setFocusedField('otp')}
+                      onBlur={() => setFocusedField(null)}
+                      keyboardType="number-pad"
+                      maxLength={8}
+                    />
+                  </View>
+                </Field>
+              )}
+
+              {otpVerified && (
+                <>
+                  <Field label="New Password">
+                    <View style={[styles.inputGroup, focusedField === 'pass1' && styles.inputActive]}>
+                      <Lock size={18} color={focusedField === 'pass1' ? Theme.colors.primary : "#94a3b8"} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="••••••••"
+                        placeholderTextColor="#94a3b8"
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        secureTextEntry={!showNewPassword}
+                        onFocus={() => setFocusedField('pass1')}
+                        onBlur={() => setFocusedField(null)}
+                      />
+                      <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={styles.eyeBtn}>
+                        {showNewPassword ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
+                      </TouchableOpacity>
+                    </View>
+                  </Field>
+
+                  <Field label="Confirm Password">
+                    <View style={[styles.inputGroup, focusedField === 'pass2' && styles.inputActive]}>
+                      <Lock size={18} color={focusedField === 'pass2' ? Theme.colors.primary : "#94a3b8"} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="••••••••"
+                        placeholderTextColor="#94a3b8"
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        secureTextEntry={!showConfirmPassword}
+                        onFocus={() => setFocusedField('pass2')}
+                        onBlur={() => setFocusedField(null)}
+                      />
+                      <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeBtn}>
+                        {showConfirmPassword ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
+                      </TouchableOpacity>
+                    </View>
+                  </Field>
+                </>
+              )}
+            </View>
 
             <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.linkContainer}
+              activeOpacity={0.8}
+              onPress={btnAction}
+              disabled={btnDisabled}
+              style={styles.submitBtnWrapper}
             >
-              <Text style={styles.linkText}>Back to Login</Text>
+              <View style={styles.submitBtn}>
+                {btnDisabled ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.submitTxt}>{btnLabel}</Text>
+                )}
+              </View>
             </TouchableOpacity>
-          </View>
+
+            <View style={styles.dividerLine} />
+
+            <View style={styles.footer}>
+              <Text style={styles.footerNote}>Identity Verification Required</Text>
+            </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </ScreenContainer>
+    </View>
   );
 }
 
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <View style={styles.field}>
+    <Text style={styles.fieldLabel}>{label}</Text>
+    {children}
+  </View>
+);
+
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#F8FAFC',
+  root: { flex: 1, backgroundColor: '#f8fafc' },
+  kav: { flex: 1 },
+  blob1: {
+    position: 'absolute', top: -SCREEN_W * 0.1, right: -SCREEN_W * 0.1,
+    width: SCREEN_W * 0.7, height: SCREEN_W * 0.7, borderRadius: SCREEN_W * 0.35,
+    backgroundColor: '#6648dc', opacity: 0.06,
   },
-  keyboardView: {
-    flex: 1,
+  blob2: {
+    position: 'absolute', bottom: -SCREEN_W * 0.2, left: -SCREEN_W * 0.2,
+    width: SCREEN_W * 0.8, height: SCREEN_W * 0.8, borderRadius: SCREEN_W * 0.4,
+    backgroundColor: '#38bdf8', opacity: 0.04,
   },
-  scrollContent: {
+  scroll: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingVertical: 40,
     justifyContent: 'center',
   },
-  headerSection: {
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
-    marginTop: 20,
-    width: '100%',
+    marginBottom: 32,
   },
-  logo: {
-    width: 300,
-    height: 100,
-    marginBottom: 16,
-    alignSelf: 'center',
-  },
-  brandSubtitle: {
-    fontSize: 14,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 20,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 24,
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    marginRight: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  cardTitle: {
+  headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1E293B',
-    textAlign: 'center',
+    color: '#0f172a',
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 30,
+    padding: 24,
+    shadowColor: '#6648dc',
+    shadowOffset: { width: 0, height: 15 },
+    shadowOpacity: 0.1,
+    shadowRadius: 30,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  cardTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 8,
   },
   cardSubtitle: {
-    fontSize: 14,
-    color: '#94A3B8',
-    textAlign: 'center',
-    marginBottom: 32,
-    marginTop: 4,
-  },
-  actionButton: {
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: '#2563EB',
-    marginTop: 24,
-  },
-  linkContainer: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  linkText: {
-    color: '#64748B',
-    fontSize: 14,
+    fontSize: 13,
+    color: '#64748b',
     fontWeight: '500',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+  },
+  bannerErr: { backgroundColor: '#fef2f2', borderColor: '#fee2e2' },
+  bannerOk: { backgroundColor: '#ecfdf5', borderColor: '#d1fae5' },
+  bannerTxt: { fontSize: 13, fontWeight: '600', marginLeft: 8, flex: 1 },
+  form: { gap: 16 },
+  field: { gap: 8 },
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    marginLeft: 4,
+  },
+  inputGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    height: 54,
+    paddingHorizontal: 16,
+  },
+  inputActive: {
+    borderColor: '#6648dc',
+    backgroundColor: '#fff',
+    shadowColor: '#6648dc',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  input: {
+    flex: 1,
+    height: '100%',
+    marginLeft: 12,
+    fontSize: 15,
+    color: '#0f172a',
+    fontWeight: '500',
+  },
+  eyeBtn: { padding: 4 },
+  submitBtnWrapper: {
+    marginTop: 24,
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#6648dc',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  submitBtn: {
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6648dc',
+  },
+  submitTxt: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  dividerLine: { width: '100%', height: 1, backgroundColor: '#f1f5f9', marginVertical: 24 },
+  footer: { alignItems: 'center' },
+  footerNote: {
+    fontSize: 11,
+    color: '#94a3b8',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 });

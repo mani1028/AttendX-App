@@ -3,7 +3,7 @@ import React from 'react';
 import { AppRole } from '../constants/roles';
 import AccountantStack from './AccountantStack';
 import AdminStack from './AdminStack';
-import HMStack from './HMStack';
+import DirectorStack from './DirectorStack';
 import PrincipalStack from './PrincipalStack';
 import StudentStack from './StudentStack';
 import TeacherStack from './TeacherStack';
@@ -19,10 +19,10 @@ export default function MainStack({ role }: Props) {
       return <StudentStack />;
     case 'teacher':
       return <TeacherStack />;
-    case 'hm':
-      return <HMStack />;
     case 'principal':
       return <PrincipalStack />;
+    case 'director':
+      return <DirectorStack />;
     case 'accountant':
       return <AccountantStack />;
     case 'admin':

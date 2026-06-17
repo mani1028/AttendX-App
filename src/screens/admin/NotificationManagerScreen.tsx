@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
+import { Theme } from '../../theme/theme';
 import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 
@@ -21,7 +22,7 @@ export default function NotificationManagerScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       {/* Standardized Header */}
       <View style={[styles.headerStandard, { paddingTop: insets.top + 20, paddingBottom: 30 }]}>
@@ -51,10 +52,10 @@ export default function NotificationManagerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
     paddingHorizontal: 20,
     paddingBottom: 30,
     flexDirection: 'row',
@@ -86,7 +87,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: colors.textMuted,
+    color: Theme.colors.textMuted,
     marginBottom: 24,
     textAlign: 'center',
   },
@@ -94,14 +95,14 @@ const styles = StyleSheet.create({
     padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: Theme.colors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: Theme.colors.border,
     borderStyle: 'dashed',
   },
   placeholderText: {
-    color: colors.textMuted,
+    color: Theme.colors.textMuted,
     textAlign: 'center',
   },
 });

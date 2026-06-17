@@ -21,26 +21,60 @@ type FeeData = {
   paidFee: number;
   pendingFee: number;
 };
-
 const ATTENDANCE_ENDPOINTS = [
-  'student-dashboard/attendance'
+  'student-dashboard/attendance',
+  'manage/student-dashboard/attendance',
 ];
+
 const MARKS_ENDPOINTS = [
-  'student-dashboard/marks'
+  'student-dashboard/marks',
+  'manage/student-dashboard/marks',
 ];
 const EXAM_LIST_ENDPOINTS = [
-  'student-dashboard/marks/exams'
+  'student-dashboard/marks/exams',
+  'manage/student-dashboard/marks/exams',
 ];
 const PROFILE_PHOTO_ENDPOINT = 'profile-photo/student';
 // Prefer the canonical `student` endpoints first (some backends expose these).
-const QUESTION_PAPER_ENDPOINTS = ['student/question-papers', 'student-dashboard/question-papers', 'student-dashboard/papers'];
-const EXAM_TYPES_ENDPOINTS = ['student/question-papers/exam-types', 'student-dashboard/question-papers/exam-types', 'student-dashboard/papers/exam-types'];
-const SCHOOL_HOLIDAYS_ENDPOINTS = ['student-dashboard/school-holidays', 'student/school-holidays'];
-const STUDENT_REGISTER_REQUEST_ENDPOINTS = ['student-dashboard/register-request', 'student/register-request'];
-const LEAVE_TEACHERS_ENDPOINTS = ['student-dashboard/teachers-for-leave'];
-const LEAVE_REQUESTS_ENDPOINTS = ['student-dashboard/leave-requests'];
-const SUBJECTS_ENDPOINTS = ['student-dashboard/subjects'];
-const HOMEWORK_ENDPOINTS = ['student-dashboard/homework'];
+const QUESTION_PAPER_ENDPOINTS = [
+  'student-dashboard/question-papers',
+  'student/question-papers',
+  'manage/student-dashboard/question-papers',
+];
+const EXAM_TYPES_ENDPOINTS = [
+  'student-dashboard/question-papers/exam-types',
+  'student/question-papers/exam-types',
+  'manage/student-dashboard/question-papers/exam-types',
+];
+
+const SCHOOL_HOLIDAYS_ENDPOINTS = [
+  'student-dashboard/school-holidays',
+  'manage/student-dashboard/school-holidays',
+];
+const STUDENT_REGISTER_REQUEST_ENDPOINTS = [
+  'student-dashboard/register-request',
+  'student/register-request',
+  'manage/student-dashboard/register-request',
+];
+
+const LEAVE_TEACHERS_ENDPOINTS = [
+  'student-dashboard/staff-for-leave',
+  'student-dashboard/teachers-for-leave',
+  'student/teachers-for-leave',
+];
+const LEAVE_REQUESTS_ENDPOINTS = [
+  'student-dashboard/leave-requests',
+  'manage/student-dashboard/leave-requests',
+];
+const SUBJECTS_ENDPOINTS = [
+  'student-dashboard/subjects',
+  'manage/student-dashboard/subjects',
+];
+const HOMEWORK_ENDPOINTS = [
+  'student-dashboard/homework',
+  'manage/student-dashboard/homework',
+];
+
 
 const FALLBACK_404_CONFIG = {
   suppressFallback404Log: true,
@@ -290,9 +324,12 @@ function isHolidayAttendanceItem(item: Record<string, any>): boolean {
  * It also tries prefixes like /api/v1/ and /mobile/ automatically.
  */
 async function getFirstSuccessful<T>(endpoints: string[], additionalParams: any = {}) {
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
+  const schoolCode = (await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId') || '').trim();
   let branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
-  const studentId = await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('studentId');
+  const studentId = (await AsyncStorage.getItem('student_id') || 
+                    await AsyncStorage.getItem('studentId') || 
+                    await AsyncStorage.getItem('roll_no') || 
+                    await AsyncStorage.getItem('roll_number') || '').trim().toUpperCase();
   const perEndpointTimeoutMs = 15000;
 
   // Normalize numeric branch IDs (e.g. "01" -> "1") to avoid strict DB matches
@@ -316,6 +353,8 @@ async function getFirstSuccessful<T>(endpoints: string[], additionalParams: any 
       const headers = {
         'X-School-Code': schoolCode || undefined,
         ...(omitBranch ? {} : { 'X-Branch-Id': branchId || undefined }),
+        'X-Student-Id': studentId || undefined,
+        'X-Roll-No': studentId || undefined,
         ...(additionalParams && additionalParams.headers ? additionalParams.headers : {}),
       };
 
@@ -326,6 +365,7 @@ async function getFirstSuccessful<T>(endpoints: string[], additionalParams: any 
           school_id: schoolCode,
           ...(omitBranch ? {} : { branch_id: branchId }),
           student_id: studentId,
+          roll_no: studentId,
           ...additionalParams,
         },
         headers,
@@ -368,8 +408,8 @@ export async function getStudentAttendance(params: any = {}): Promise<Attendance
         percentage: toNumber(summary.attendance_percentage ?? summary.percentage),
         presentDays: toNumber(summary.present_days ?? summary.present),
         absentDays: toNumber(summary.absent_days ?? summary.absent),
-        halfDays: toNumber(summary.half_days ?? summary.halfDays),
-        totalDays: toNumber(summary.total_days ?? summary.totalDays),
+        halfDays: toNumber(summary.half_day_count ?? summary.half_days ?? summary.halfDays ?? summary.late_days),
+        totalDays: toNumber(summary.total_days ?? summary.totalDays ?? summary.total),
         items: normalizedItems,
       };
     }
@@ -432,16 +472,18 @@ export async function getStudentAttendanceByMonth(month: string, year: string): 
 }
 
 export async function getStudentMarks(examId?: string): Promise<MarksData & { summary?: any; items?: any[] }> {
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
-  const studentId = await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('studentId');
+  const schoolCode = String(await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || '').trim();
+  const studentId = String(await AsyncStorage.getItem('student_id') || 
+                    await AsyncStorage.getItem('studentId') || 
+                    await AsyncStorage.getItem('roll_no') || 
+                    await AsyncStorage.getItem('roll_number') || '').trim().toUpperCase();
   let resolvedExamId = toText(examId, '').trim();
 
   if (!resolvedExamId) {
     const exams = await getStudentExams();
     const firstExam = Array.isArray(exams) ? exams[0] : undefined;
-    resolvedExamId = toText(
-      firstExam?.exam_id ?? firstExam?.id ?? firstExam?.examId,
-      ''
+    resolvedExamId = String(
+      firstExam?.exam_id ?? firstExam?.id ?? firstExam?.examId ?? ''
     ).trim();
   }
 
@@ -453,7 +495,12 @@ export async function getStudentMarks(examId?: string): Promise<MarksData & { su
   for (const endpoint of MARKS_ENDPOINTS) {
     try {
       const response = await API.get<any>(endpoint, {
-        params: { school_code: schoolCode, student_id: studentId, exam_id: resolvedExamId },
+        params: { 
+          school_code: schoolCode, 
+          student_id: studentId, 
+          roll_no: studentId,
+          exam_id: resolvedExamId 
+        },
         ...FALLBACK_404_CONFIG,
       } as any);
 
@@ -493,39 +540,46 @@ export async function getStudentExams(): Promise<any[]> {
 }
 
 export async function getStudentFee(): Promise<FeeData> {
-  const studentId = await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('studentId');
+  const studentId = String(await AsyncStorage.getItem('student_id') || 
+                    await AsyncStorage.getItem('studentId') || 
+                    await AsyncStorage.getItem('roll_no') || 
+                    await AsyncStorage.getItem('roll_number') || '').trim().toUpperCase();
+  
   try {
-    // FIX: Use the student-specific fetcher instead of the bulk list
-    const allFees = await getFeesByStudent(studentId || '');
-    const matchingFees = studentId
-      ? allFees.filter((fee) => String(fee.student_id || '').trim() === String(studentId).trim())
-      : allFees;
-    const fees = matchingFees.length > 0 ? matchingFees : allFees;
+    const allFees = await getFeesByStudent(studentId);
+    const fees = Array.isArray(allFees) ? allFees : [];
 
     if (fees.length === 0) {
       return { totalFee: 0, paidFee: 0, pendingFee: 0 };
     }
 
-    const totalFee = fees.reduce((sum, fee) => sum + toNumber(fee.total_fee), 0);
-    const paidFee = fees.reduce((sum, fee) => sum + toNumber(fee.paid_amount), 0);
-    const pendingFee = fees.reduce((sum, fee) => sum + toNumber(fee.due_amount), 0);
+    const sortedFees = fees.sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime());
+    const latestFee = sortedFees[0];
 
-    return { totalFee, paidFee, pendingFee: Math.max(pendingFee, Math.max(totalFee - paidFee, 0)) };
+    const totalFee = fees.reduce((sum, fee) => sum + toNumber(fee.total_fee || fee.amount), 0);
+    const paidFee = fees.reduce((sum, fee) => sum + toNumber(fee.paid_amount || fee.paid), 0);
+    const pendingFee = fees.reduce((sum, fee) => sum + toNumber(fee.due_amount || fee.balance), 0);
+
+    return {
+      totalFee,
+      paidFee,
+      pendingFee: Math.max(pendingFee, Math.max(totalFee - paidFee, 0)),
+      due_date: latestFee?.due_date || 'N/A'
+    } as any;
   } catch (error) {
     return { totalFee: 0, paidFee: 0, pendingFee: 0 };
   }
 }
 
 export async function getPaymentHistory(): Promise<any[]> {
-  const studentId = await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('studentId');
+  const studentId = String(await AsyncStorage.getItem('student_id') || 
+                    await AsyncStorage.getItem('studentId') || 
+                    await AsyncStorage.getItem('roll_no') || 
+                    await AsyncStorage.getItem('roll_number') || '').trim().toUpperCase();
 
   try {
-    // FIX: Use the student-specific fetcher instead of the bulk list
     const allFees = await getFeesByStudent(studentId || '');
-    const matchingFees = studentId
-      ? allFees.filter((fee) => String(fee.student_id || '').trim() === String(studentId).trim())
-      : allFees;
-    const fees = matchingFees.length > 0 ? matchingFees : allFees;
+    const fees = Array.isArray(allFees) ? allFees : [];
 
     if (fees.length === 0) {
       return [];
@@ -534,11 +588,12 @@ export async function getPaymentHistory(): Promise<any[]> {
     const paymentGroups = await Promise.all(
       fees.map(async (fee) => {
         try {
-          const payments = await getPaymentHistoryByFee(fee.id);
-          return payments.map((payment, index) => ({
-            id: payment.id || `${fee.id}-${index}`,
+          const payments = await getPaymentHistoryByFee(fee.id || fee.fee_id);
+          const pList = Array.isArray(payments) ? payments : [];
+          return pList.map((payment, index) => ({
+            id: payment.id || `${fee.id || 'fee'}-${index}`,
             amount: payment.amount,
-            method: payment.method.toUpperCase(),
+            method: (payment.method || 'CASH').toUpperCase(),
             date: payment.paid_at || payment.created_at || new Date().toISOString(),
             receipt_no: payment.receipt_no || undefined,
             transaction_id: payment.transaction_id || undefined,
@@ -779,6 +834,7 @@ export async function getProfile(studentId: string, schoolCode: string): Promise
     const response = await API.get('student-dashboard/profile', {
       params: {
         student_id: studentId || undefined,
+        roll_no: studentId || undefined,
         school_code: schoolCode || undefined,
       },
       headers: { 'X-School-Code': schoolCode || undefined, 'X-Branch-Id': branchId || undefined },
@@ -940,11 +996,45 @@ export async function getExamTypes(): Promise<any> {
   }
 }
 
+export async function getLinkedProfiles(): Promise<any[]> {
+  try {
+    const data = await getFirstSuccessful<any>(['student-dashboard/linked-profiles'], { __omitBranch: true });
+    return Array.isArray(data?.profiles) ? data.profiles : [];
+  } catch (error) {
+    console.error('[Service] Failed to fetch linked profiles:', error);
+    return [];
+  }
+}
+
+export async function switchProfile(targetRollNo: string): Promise<any> {
+  try {
+    const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
+    const response = await API.post('student-dashboard/switch-profile', {
+      target_roll_no: targetRollNo
+    }, {
+      headers: { 'X-School-Code': schoolCode }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('[Service] Failed to switch profile:', error);
+    throw error;
+  }
+}
+
 export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffer> {
   const encodedPaperId = encodeURIComponent(paperId);
   const endpoints = [
-    `student/question-papers/${encodedPaperId}/download`,
     `student-dashboard/question-papers/${encodedPaperId}/download`,
+    `student/question-papers/${encodedPaperId}/download`,
+    `manage/student-dashboard/question-papers/${encodedPaperId}/download`,
+    `student-dashboard/question-papers/download/${encodedPaperId}`,
+    `student/question-papers/download/${encodedPaperId}`,
+    `student-dashboard/question-papers/${encodedPaperId}`,
+    `student/question-papers/${encodedPaperId}`,
+    // New query-param based fallbacks
+    'student-dashboard/question-papers/download',
+    'student/question-papers/download',
+    'manage/student-dashboard/question-papers/download',
   ];
   const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
   let branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
@@ -958,29 +1048,68 @@ export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffe
   for (const endpoint of endpoints) {
     try {
       console.log('[Service] downloadQuestionPaper trying (arraybuffer) ->', endpoint);
+      const studentId = (await AsyncStorage.getItem('student_id') ||
+                    await AsyncStorage.getItem('studentId') || 
+                    await AsyncStorage.getItem('roll_no') || 
+                    await AsyncStorage.getItem('roll_number') || '').trim().toUpperCase();
       const response = await API.get<ArrayBuffer>(endpoint, {
         responseType: 'arraybuffer',
         params: {
           school_code: schoolCode,
+          branch_id: branchId,
+          student_id: studentId,
+          roll_no: studentId,
+          paper_id: paperId, // Pass paper_id as param even for path-segment routes as some backends use both
+          id: paperId,
         },
         headers: {
           'X-School-Code': schoolCode || undefined,
           'X-Branch-Id': branchId || undefined,
+          'X-Student-Id': studentId || undefined,
+          'X-Roll-No': studentId || undefined,
+          'Authorization': (await AsyncStorage.getItem('token')) ? `Bearer ${await AsyncStorage.getItem('token')}` : undefined,
         },
         ...FALLBACK_404_CONFIG,
       } as any);
 
       console.log('[Service] downloadQuestionPaper response headers:', (response.headers || {}));
-      if (response && response.data) {
+      if (response && response.data && response.status === 200) {
+        // Double check if it's not an error message hidden in a successful response
+        const contentType = (response.headers as any)?.['content-type'] || '';
+        if (contentType.includes('application/json')) {
+          // If we got JSON but asked for arraybuffer, it might be an error or a different response format
+          console.log('[Service] downloadQuestionPaper: Received JSON instead of binary. Falling back to JSON processor.');
+          throw new Error('JSON_RESPONSE_TRIGGER_FALLBACK');
+        }
         return response.data;
       }
     } catch (error: any) {
+      if (error.message === 'JSON_RESPONSE_TRIGGER_FALLBACK') {
+        break; // Stop arraybuffer loop and go to JSON fallback loop
+      }
       const status = error?.response?.status;
-      console.warn('[Service] downloadQuestionPaper arraybuffer attempt failed for', endpoint, 'status=', status, 'message=', error?.message);
-      if (status !== 404 && status !== 405 && error?.code !== 'ERR_NETWORK') {
+      
+      let errorDetail = '';
+      if (error?.response?.data instanceof ArrayBuffer) {
+        try {
+          // Convert array buffer to string (safe for typical error JSON payloads)
+          const text = String.fromCharCode.apply(null, new Uint8Array(error.response.data) as any);
+          const json = JSON.parse(text);
+          if (json.detail) errorDetail = String(json.detail);
+        } catch (e) {}
+      } else if (error?.response?.data?.detail) {
+        errorDetail = String(error.response.data.detail);
+      }
+
+      console.warn('[Service] downloadQuestionPaper arraybuffer attempt failed for', endpoint, 'status=', status, 'message=', error?.message, 'detail=', errorDetail);
+      
+      if (status === 404 && errorDetail && errorDetail.toLowerCase().includes('file not found')) {
+        throw new Error(errorDetail);
+      }
+
+      if (status === 401 || status === 403) {
         throw error;
       }
-      // otherwise continue to next endpoint
     }
   }
 
@@ -989,13 +1118,22 @@ export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffe
     try {
       console.log('[Service] downloadQuestionPaper trying (json/base64/url) ->', endpoint);
       const resp = await API.get<any>(endpoint, {
-        params: { school_code: schoolCode, branch_id: branchId },
+        params: {
+          school_code: schoolCode,
+          branch_id: branchId,
+          student_id: studentId,
+          roll_no: studentId,
+          paper_id: paperId,
+          id: paperId,
+        },
         headers: {
           'X-School-Code': schoolCode || undefined,
           'X-Branch-Id': branchId || undefined,
-          // underscored header fallbacks
+          'X-Student-Id': studentId || undefined,
+          'X-Roll-No': studentId || undefined,
           'x_school_code': schoolCode || undefined,
           'x_branch_id': branchId || undefined,
+          'Authorization': (await AsyncStorage.getItem('token')) ? `Bearer ${await AsyncStorage.getItem('token')}` : undefined,
         },
         ...FALLBACK_404_CONFIG,
       } as any);
@@ -1053,13 +1191,19 @@ export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffe
           console.log('[Service] downloadQuestionPaper fetching remote url ->', remoteUrl);
           const remoteResp = await API.get<ArrayBuffer>(remoteUrl, { responseType: 'arraybuffer' } as any);
           return remoteResp.data;
-        } catch (e) {
+        } catch (e: any) {
           console.warn('[Service] downloadQuestionPaper remote fetch failed', e?.message || e);
         }
       }
     } catch (err: any) {
       const status = err?.response?.status;
-      console.warn('[Service] downloadQuestionPaper fallback attempt failed for', endpoint, 'status=', status, 'err=', err?.message || err);
+      const detail = err?.response?.data?.detail;
+      console.warn('[Service] downloadQuestionPaper fallback attempt failed for', endpoint, 'status=', status, 'err=', err?.message || err, 'detail=', detail);
+
+      if (status === 404 && typeof detail === 'string' && detail.toLowerCase().includes('file not found')) {
+        throw new Error(detail);
+      }
+
       if (status && status !== 404 && status !== 405) {
         // continue to next
       }
@@ -1089,7 +1233,10 @@ export async function getLeaveRequests(): Promise<any[]> {
 
 export async function submitLeaveRequest(requestData: any): Promise<any> {
   const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
-  const studentId = await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('studentId');
+  const studentId = (await AsyncStorage.getItem('student_id') ||
+                    await AsyncStorage.getItem('studentId') || 
+                    await AsyncStorage.getItem('roll_no') || 
+                    await AsyncStorage.getItem('roll_number') || '').trim().toUpperCase();
 
   for (const endpoint of LEAVE_REQUESTS_ENDPOINTS) {
     try {

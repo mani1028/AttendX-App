@@ -1,7 +1,13 @@
 import notifee, { AndroidImportance, AndroidBadgeIconType, AuthorizationStatus, AndroidVisibility } from '@notifee/react-native';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import messaging from '@react-native-firebase/messaging';
+import { 
+  getMessaging, 
+  getToken, 
+  requestPermission, 
+  onMessage, 
+  onTokenRefresh 
+} from '@react-native-firebase/messaging';
 import { safeJsonParse } from '../utils/storage';
 import API from './api';
 
@@ -56,6 +62,8 @@ class NotificationService {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
+    const messaging = getMessaging();
+
     try {
       // Request user permission for notifications (iOS and Android 13+)
       const permission = await notifee.requestPermission();
@@ -65,18 +73,18 @@ class NotificationService {
       }
 
       // Request FCM permission (handles both iOS and Android)
-      const fcmPermission = await messaging().requestPermission();
+      const fcmPermission = await requestPermission(messaging);
       console.log('FCM permission status:', fcmPermission);
 
       // Get and log FCM device token
-      const fcmToken = await messaging().getToken();
+      const fcmToken = await getToken(messaging);
       console.log('[FCM] Device token:', fcmToken);
       // You should send this token to your backend so it knows where to send push notifications
       await AsyncStorage.setItem('fcm_device_token', fcmToken);
       await this.syncFcmTokenWithBackend(fcmToken);
 
       if (!this.tokenRefreshUnsubscribe) {
-        this.tokenRefreshUnsubscribe = messaging().onTokenRefresh(async (newToken) => {
+        this.tokenRefreshUnsubscribe = onTokenRefresh(messaging, async (newToken) => {
           console.log('[FCM] Token refreshed');
           await AsyncStorage.setItem('fcm_device_token', newToken);
           await AsyncStorage.removeItem('fcm_device_token_synced');
@@ -161,6 +169,8 @@ class NotificationService {
    * Called when app is in foreground
    */
   private setupForegroundHandler(): void {
+    const messaging = getMessaging();
+
     try {
       // Notifee foreground event handler
       notifee.onForegroundEvent(({ type, detail }) => {
@@ -174,7 +184,7 @@ class NotificationService {
       });
 
       // FCM foreground message handler (when app is open)
-      messaging().onMessage(async (remoteMessage) => {
+      onMessage(messaging, async (remoteMessage) => {
         console.log('[FCM Foreground] Message received while app is open:', remoteMessage);
 
         if (remoteMessage?.notification || remoteMessage?.data) {
@@ -327,9 +337,18 @@ class NotificationService {
                    (await AsyncStorage.getItem('userRole')) || 
                    'student';
 
-      const endpoint = `/notifications/${role.toLowerCase()}/list`;
-      
-      // This would be called from the hook, just providing the logic here
+      const normalizedRole = role.toLowerCase() === 'teacher' ? 'staff' : role.toLowerCase();
+      const endpoint = `/notifications/${normalizedRole}/list`;
+
+      const response = await API.get(endpoint, {
+        params: { limit: 1 },
+        suppressFallback404Log: true,
+      } as any);
+
+      const data = response.data;
+      if (data && typeof data.unread_count === 'number') {
+        return data.unread_count;
+      }
       return 0;
     } catch (error) {
       console.error('Failed to get unread count:', error);
@@ -364,8 +383,9 @@ class NotificationService {
    * Get FCM device token for sending push notifications
    */
   async getFcmToken(): Promise<string | null> {
+    const messaging = getMessaging();
     try {
-      const token = await messaging().getToken();
+      const token = await getToken(messaging);
       return token || null;
     } catch (error) {
       console.error('Failed to get FCM token:', error);
@@ -378,68 +398,124 @@ class NotificationService {
    * This uses endpoint fallbacks because backend routes can differ by deployment.
    */
   async syncFcmTokenWithBackend(tokenInput?: string | null): Promise<boolean> {
+    const messaging = getMessaging();
     try {
-      const token = (tokenInput || (await messaging().getToken()) || '').trim();
+      const token = (tokenInput || (await getToken(messaging)) || '').trim();
       if (!token) return false;
 
-      const [storedToken, syncedToken, userRole, userId, teacherId, employeeId, studentId, schoolCode, branchId] = await AsyncStorage.multiGet([
+      // Get session data to associate the token with the correct user/branch
+      const storageData = await AsyncStorage.multiGet([
+        'token',
         'fcm_device_token',
         'fcm_device_token_synced',
         'user_role',
+        'role',
+        'userRole',
         'user_id',
+        'userId',
         'teacher_id',
+        'teacherId',
         'employee_id',
+        'employeeId',
         'student_id',
+        'studentId',
         'school_code',
+        'schoolCode',
         'branch_id',
-      ]).then(items => items.map(([, value]) => value || ''));
+        'branchId',
+      ]);
 
-      const finalToken = token || storedToken;
-      if (!finalToken) return false;
+      const dataMap: Record<string, string> = {};
+      storageData.forEach(([key, value]) => {
+        dataMap[key] = value || '';
+      });
 
-      if (syncedToken === finalToken) {
+      const authToken = dataMap['token'];
+      const storedFcmToken = dataMap['fcm_device_token'];
+      const syncedFcmToken = dataMap['fcm_device_token_synced'];
+      
+      const finalFcmToken = token || storedFcmToken;
+      if (!finalFcmToken) return false;
+
+      // Skip sync if we don't have an active auth session
+      if (!authToken) {
+        console.log('[FCM] Skipping token sync: No active session (not logged in)');
+        return false;
+      }
+
+      // Skip if already synced with this token
+      if (syncedFcmToken === finalFcmToken) {
         return true;
       }
+
+      const userRole = dataMap['user_role'] || dataMap['role'] || dataMap['userRole'];
+      const userId = dataMap['user_id'] || dataMap['userId'];
+      const teacherId = dataMap['teacher_id'] || dataMap['teacherId'] || dataMap['employee_id'] || dataMap['employeeId'];
+      const studentId = dataMap['student_id'] || dataMap['studentId'];
+      const schoolCode = dataMap['school_code'] || dataMap['schoolCode'];
+      const branchId = dataMap['branch_id'] || dataMap['branchId'];
 
       const userRaw = await AsyncStorage.getItem('user');
       const user = safeJsonParse<Record<string, any>>(userRaw, {});
 
-      const payload = {
-        token: finalToken,
-        fcm_token: finalToken,
-        device_token: finalToken,
+      const payload: Record<string, any> = {
+        token: finalFcmToken,
+        fcm_token: finalFcmToken,
+        device_token: finalFcmToken,
         platform: 'react-native',
         app_platform: 'mobile',
         os: Platform.OS,
-        role: userRole || user.role || user.user_role || undefined,
+        role: userRole || user.role || user.user_role || 'student',
         user_id: userId || user.user_id || user.id || undefined,
-        teacher_id: teacherId || employeeId || user.teacher_id || user.employee_id || undefined,
-        employee_id: employeeId || user.employee_id || undefined,
+        teacher_id: teacherId || user.teacher_id || user.employee_id || undefined,
+        employee_id: teacherId || user.employee_id || undefined,
         student_id: studentId || user.student_id || undefined,
-        school_code: schoolCode || user.school_code || undefined,
+        school_code: schoolCode || user.school_code || 'default',
         branch_id: branchId || user.branch_id || undefined,
+      };
+
+      // X-Branch-Id is often required by the backend for notification registration
+      // If we don't have it yet, we might want to wait, but we'll try with what we have.
+      const headers: Record<string, string> = {
+        'X-School-Code': payload.school_code,
+        'X-Branch-Id': branchId || user.branch_id || 'default',
       };
 
       for (const endpoint of TOKEN_SYNC_ENDPOINTS) {
         try {
-          await API.post(endpoint, payload, {
+          const response = await API.post(endpoint, payload, {
             suppressFallback404Log: true,
+            headers,
           } as any);
 
-          await AsyncStorage.setItem('fcm_device_token', finalToken);
-          await AsyncStorage.setItem('fcm_device_token_synced', finalToken);
-          console.log(`[FCM] Token synced via ${endpoint}`);
-          return true;
+          if (response.status === 200 || response.status === 201) {
+            await AsyncStorage.setItem('fcm_device_token_synced', finalFcmToken);
+            console.log(`[FCM] Token synced via ${endpoint}`);
+            return true;
+          }
         } catch (error: any) {
           const status = error?.response?.status;
+
+          // If 400 Bad Request, try wrapping the payload in a 'data' object
+          if (status === 400) {
+             try {
+                await API.post(endpoint, { data: payload }, { 
+                  suppressFallback404Log: true,
+                  headers,
+                } as any);
+                await AsyncStorage.setItem('fcm_device_token_synced', finalFcmToken);
+                console.log(`[FCM] Token synced via ${endpoint} (wrapped)`);
+                return true;
+             } catch (e) {}
+          }
+
           if (status && ![404, 405].includes(status)) {
-            console.warn(`[FCM] Token sync failed at ${endpoint} with status ${status}`);
+            console.warn(`[FCM] Token sync failed at ${endpoint} with status ${status}:`, error?.response?.data);
           }
         }
       }
 
-      console.warn('[FCM] Token sync endpoint not available on backend. Token kept locally.');
-      await AsyncStorage.setItem('fcm_device_token', finalToken);
+      console.warn('[FCM] Token sync endpoint not available or rejected by backend. Token kept locally.');
       return false;
     } catch (error) {
       console.error('[FCM] Token sync error:', error);

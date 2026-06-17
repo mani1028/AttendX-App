@@ -16,6 +16,8 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationPanel from '../common/NotificationPanel';
+import AccountSwitcher from '../common/AccountSwitcher';
+import { useAuth } from '../../context/AuthContext';
 import CalendarView from '../common/CalendarView';
 import { colors } from '../../constants/colors';
 
@@ -57,69 +59,69 @@ const MENU_CONFIG: Record<string, RoleConfig> = {
     roleDisplay: 'Accountant',
     menu: [
       { title: 'Overview', route: 'AccountantDashboard', icon: '📊' },
-      { title: 'Fees', route: 'HMFeeManagement', icon: '💰' },
+      { title: 'Fees', route: 'DirectorFeeManagement', icon: '💰' },
       { title: 'Collections', route: 'AccountantPaymentEntry', icon: '💳' },
-      { title: 'Expenses', route: 'HMExpense', icon: '📉' },
-      { title: 'Reports', route: 'HMReports', icon: '📈' },
+      { title: 'Expenses', route: 'DirectorExpense', icon: '📉' },
+      { title: 'Reports', route: 'DirectorReports', icon: '📈' },
       { title: 'Payroll', route: 'AccountantPayroll', icon: '👥' },
       { title: 'Salaries', route: 'AccountantSalaries', icon: '💰' },
       { title: 'Settings', route: 'AccountantSettings', icon: '⚙️' },
     ],
     pageTitles: {
       'AccountantDashboard': 'Finance Workspace - Overview',
-      'HMFeeManagement': 'Fee Management',
+      'DirectorFeeManagement': 'Fee Management',
       'AccountantPaymentEntry': 'Collection Entry',
-      'HMExpense': 'Expense Ledger',
-      'HMReports': 'Reports & Trends',
+      'DirectorExpense': 'Expense Ledger',
+      'DirectorReports': 'Reports & Trends',
       'AccountantPayroll': 'Payroll Management',
       'AccountantSalaries': 'Salaries Management',
       'AccountantSettings': 'Fee Notifications',
     },
   },
 
-  principal: {
-    label: 'Principal Panel',
-    roleDisplay: 'Principal',
+  director: {
+    label: 'Director Panel',
+    roleDisplay: 'Director',
     menu: [
-      { title: 'Dashboard', route: 'PrincipalDashboard', icon: '📊' },
-      { title: 'Branches', route: 'PrincipalDashboard', icon: '🏢' },
-      { title: 'Add Branch', route: 'PrincipalHMRegistration', icon: '➕' },
+      { title: 'Dashboard', route: 'DirectorDashboard', icon: '📊' },
+      { title: 'Branches', route: 'DirectorDashboard', icon: '🏢' },
+      { title: 'Add Branch', route: 'DirectorDirectorRegistration', icon: '➕' },
     ],
     pageTitles: {
-      'PrincipalDashboard': 'Dashboard Overview',
-      'PrincipalBranchDetails': 'Branches',
-      'PrincipalHMRegistration': 'Add Branch',
+      'DirectorDashboard': 'Dashboard Overview',
+      'DirectorBranchDetails': 'Branches',
+      'DirectorDirectorRegistration': 'Add Branch',
     },
   },
 
-  hm: {
-    label: 'HM Panel',
-    roleDisplay: 'Head Master',
+  director: {
+    label: 'Director Panel',
+    roleDisplay: 'Director',
     menu: [
-      { title: 'Dashboard', route: 'HMDashboard', icon: '📊' },
-      { title: 'Staff', route: 'HMTeacherManagement', icon: '👨‍🏫' },
-      { title: 'Students', route: 'HMStudentManagement', icon: '👨‍🎓' },
-      { title: 'Attendance', route: 'HMAttendance', icon: '📅' },
+      { title: 'Dashboard', route: 'DirectorDashboard', icon: '📊' },
+      { title: 'Staff', route: 'DirectorTeacherManagement', icon: '👨‍🏫' },
+      { title: 'Students', route: 'DirectorStudentManagement', icon: '👨‍🎓' },
+      { title: 'Attendance', route: 'DirectorAttendance', icon: '📅' },
       { title: 'Calendar', route: 'CalendarManagement', icon: '📆' },
       { title: 'Teacher Leaves', route: 'TeacherLeaveApproval', icon: '📋' },
-      { title: 'Exams', route: 'HMExams', icon: '📝' },
+      { title: 'Exams', route: 'DirectorExams', icon: '📝' },
       { title: 'Teacher Assignments', route: 'TeacherAssignment', icon: '👥' },
-      { title: 'Announcements', route: 'HMAnnouncements', icon: '📢' },
+      { title: 'Announcements', route: 'DirectorAnnouncements', icon: '📢' },
       { title: 'Visitors', route: 'VisitorDashboard', icon: '👥' },
-      { title: 'Settings', route: 'HMSettings', icon: '⚙️' },
+      { title: 'Settings', route: 'DirectorSettings', icon: '⚙️' },
     ],
     pageTitles: {
-      'HMDashboard': 'HM Dashboard',
-      'HMTeacherManagement': 'Staff Management',
-      'HMStudentManagement': 'Student Management',
-      'HMAttendance': 'Attendance Records',
+      'DirectorDashboard': 'Director Dashboard',
+      'DirectorTeacherManagement': 'Staff Management',
+      'DirectorStudentManagement': 'Student Management',
+      'DirectorAttendance': 'Attendance Records',
       'CalendarManagement': 'Calendar Management',
       'TeacherLeaveApproval': 'Teacher Leave Requests',
-      'HMExams': 'Exam Management',
+      'DirectorExams': 'Exam Management',
       'TeacherAssignment': 'Teacher Assignments',
-      'HMAnnouncements': 'Announcements Manager',
+      'DirectorAnnouncements': 'Announcements Manager',
       'VisitorDashboard': 'Visitor Management',
-      'HMSettings': 'HM Settings',
+      'DirectorSettings': 'Director Settings',
     },
   },
 
@@ -214,9 +216,9 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
     if (!r) return 'teacher';
     const v = String(r).trim().toLowerCase();
     if (v === 'class_teacher' || v === 'class teacher' || v === 'classteacher' || v === 'class-teacher') return 'teacher';
-    if (v === 'hm' || v === 'headmaster' || v === 'head_master') return 'hm';
+    if (v === 'director' || v === 'headmaster' || v === 'head_master') return 'director';
     if (v === 'admin' || v === 'administrator') return 'admin';
-    if (v === 'principal') return 'principal';
+    if (v === 'director') return 'director';
     if (v === 'accountant') return 'accountant';
     if (v === 'student') return 'student';
     return v;
@@ -246,6 +248,10 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   const [dialogOnConfirm, setDialogOnConfirm] = useState<(() => void) | null>(null);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
   const [profilePhotoError, setProfilePhotoError] = useState(false);
+
+  const { savedAccounts, switchToAccount } = useAuth();
+  const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
+  const lastTapRef = useRef<number | null>(null);
 
   const profileRef = useRef<View>(null);
 
@@ -369,19 +375,19 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
         if (branchName) details.push({ label: 'Branch Name', value: branchName });
       }
       
-      if (role === 'hm') {
-        const hmEmployeeId = await AsyncStorage.getItem('hm_employee_id');
-        const hmEmail = await AsyncStorage.getItem('hm_email');
+      if (role === 'director') {
+        const directorEmployeeId = await AsyncStorage.getItem('director_employee_id');
+        const directorEmail = await AsyncStorage.getItem('director_email');
         const branchId = await AsyncStorage.getItem('branch_id');
         const branchName = await AsyncStorage.getItem('branch_name');
         
-        if (hmEmployeeId) details.push({ label: 'HM Employee ID', value: hmEmployeeId });
-        if (hmEmail) details.push({ label: 'HM Email', value: hmEmail });
+        if (directorEmployeeId) details.push({ label: 'Director Employee ID', value: directorEmployeeId });
+        if (directorEmail) details.push({ label: 'Director Email', value: directorEmail });
         if (branchId) details.push({ label: 'Branch ID', value: branchId });
         if (branchName) details.push({ label: 'Branch Name', value: branchName });
       }
       
-      if (role === 'principal') {
+      if (role === 'director') {
         const email = await AsyncStorage.getItem('email');
         if (email) details.push({ label: 'Email', value: email });
       }
@@ -410,6 +416,36 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   const getPageTitle = (): string => {
     const currentPath = route.name;
     return config.pageTitles?.[currentPath] || config.label;
+  };
+
+  const handleAvatarPress = async () => {
+    const now = Date.now();
+    const DOUBLE_PRESS_DELAY = 300;
+    if (lastTapRef.current && now - lastTapRef.current < DOUBLE_PRESS_DELAY) {
+      // Double-tap detected: try to switch to an accountant account directly
+      lastTapRef.current = null;
+      try {
+        const acct = (savedAccounts || []).find(a => String(a.role || '').toLowerCase() === 'accountant');
+        if (acct) {
+          const ok = await switchToAccount(acct);
+          if (!ok) setShowAccountSwitcher(true);
+        } else {
+          setShowAccountSwitcher(true);
+        }
+      } catch (err) {
+        console.warn('Account switch failed:', err);
+        setShowAccountSwitcher(true);
+      }
+    } else {
+      lastTapRef.current = now;
+      // If no second tap within the delay, treat as single tap (toggle profile)
+      setTimeout(() => {
+        if (lastTapRef.current && Date.now() - lastTapRef.current >= DOUBLE_PRESS_DELAY) {
+          setOpenProfile(prev => !prev);
+          lastTapRef.current = null;
+        }
+      }, DOUBLE_PRESS_DELAY + 20);
+    }
   };
 
   const handleLogout = () => {
@@ -574,7 +610,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
                 </TouchableOpacity>
               )}
               <NotificationPanel type={role} />
-              <TouchableOpacity onPress={() => setOpenProfile(!openProfile)} style={styles.profileButton}>
+              <TouchableOpacity onPress={handleAvatarPress} style={styles.profileButton}>
                 <AvatarBubble size={32} textSize={12} />
               </TouchableOpacity>
             </View>
@@ -626,6 +662,9 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
           </ScrollView>
         </View>
       </View>
+
+      {/* Account Switcher (Instagram-like) */}
+      <AccountSwitcher visible={showAccountSwitcher} onClose={() => setShowAccountSwitcher(false)} />
 
       {/* Mobile Drawer */}
       <Modal visible={drawerOpen} transparent animationType="slide" onRequestClose={() => setDrawerOpen(false)}>

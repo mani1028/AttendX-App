@@ -18,12 +18,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import LinearGradient from 'react-native-linear-gradient';
-import Icon from '@react-native-vector-icons/feather';
+import Icon from 'react-native-vector-icons/Feather';
+import { Theme as C } from '../../theme/theme';
 import { getSubjects, getHomework } from '../../services/studentService';
-import { colors } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import BottomSheetModal from '../../components/common/BottomSheetModal';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 
 const { width } = Dimensions.get('window');
 const ALL_SUBJECTS = 'All Subjects';
@@ -281,12 +282,12 @@ export default function HomeworkScreen() {
 
   // Header Section
   const renderHeader = () => (
-    <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+    <View style={[styles.header, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 20 }]}>
       <TouchableOpacity
         style={styles.backButton}
         onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs')}
       >
-        <Icon name="arrow-left" size={24} color="#fff" />
+        <Icon name="arrow-left" size={24} color={C.colors.card} />
       </TouchableOpacity>
       <View style={styles.headerTitleContainer}>
         <Text style={styles.headerTitle}>Home Work</Text>
@@ -295,14 +296,14 @@ export default function HomeworkScreen() {
         style={styles.notificationIcon}
         onPress={() => navigation.navigate('Notifications')}
       >
-        <Icon name="bell" size={24} color="#fff" />
+        <Icon name="bell" size={24} color={C.colors.card} />
       </TouchableOpacity>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
       
       {renderHeader()}
 
@@ -312,7 +313,7 @@ export default function HomeworkScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor="#3b82f6" />
+          <RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor={C.colors.primary} />
         }
       >
         <View style={styles.mainCard}>
@@ -321,13 +322,13 @@ export default function HomeworkScreen() {
             {/* Subject Filter */}
             <TouchableOpacity style={styles.filterChip} onPress={() => setShowSubjectModal(true)}>
               <Text style={styles.filterChipText} numberOfLines={1}>{selectedSubject}</Text>
-              <Icon name="chevron-down" size={16} color="#64748b" />
+              <Icon name="chevron-down" size={16} color={C.colors.textSec} />
             </TouchableOpacity>
 
             {/* Date Filter */}
             <TouchableOpacity style={styles.filterChip} onPress={() => setShowDatePicker(true)}>
               <Text style={styles.filterChipText}>{formatDisplayDate(selectedDate)}</Text>
-              <Icon name="calendar" size={14} color="#64748b" />
+              <Icon name="calendar" size={14} color={C.colors.textSec} />
             </TouchableOpacity>
           </View>
 
@@ -340,12 +341,12 @@ export default function HomeworkScreen() {
         {/* Homework List */}
         {loading ? (
           <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color="#3b82f6" />
+            <ActivityIndicator size="large" color={C.colors.primary} />
             <Text style={styles.loaderText}>Loading homework...</Text>
           </View>
         ) : filteredHomework.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Icon name="book-open" size={48} color="#cbd5e1" />
+            <Icon name="book-open" size={48} color={C.colors.textMuted} />
             <Text style={styles.emptyTitle}>No Homework</Text>
             <Text style={styles.emptyText}>No assignments found for the selected filters</Text>
           </View>
@@ -390,7 +391,7 @@ export default function HomeworkScreen() {
             <View style={styles.pickerHeader}>
               <Text style={styles.pickerTitle}>Select Subject</Text>
               <TouchableOpacity onPress={() => setShowSubjectModal(false)} style={styles.closePickerButton}>
-                <Icon name="x" size={20} color="#64748b" />
+                <Icon name="x" size={20} color={C.colors.textSec} />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false} style={styles.pickerOptionsList}>
@@ -402,8 +403,8 @@ export default function HomeworkScreen() {
                 onPress={() => handleSubjectPress(ALL_SUBJECTS)}
               >
                 <View style={styles.subjectOptionContent}>
-                   <View style={[styles.subjectIconContainer, { backgroundColor: '#f1f5f9' }]}>
-                      <Icon name="grid" size={18} color="#64748b" />
+                   <View style={[styles.subjectIconContainer, { backgroundColor: C.colors.backgroundAlt }]}>
+                      <Icon name="grid" size={18} color={C.colors.textSec} />
                    </View>
                    <Text style={[
                      styles.subjectOptionText,
@@ -412,7 +413,7 @@ export default function HomeworkScreen() {
                 </View>
                 {selectedSubject === ALL_SUBJECTS && (
                   <View style={styles.checkContainer}>
-                    <Icon name="check" size={16} color="#3b82f6" />
+                    <Icon name="check" size={16} color={C.colors.blue} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -426,8 +427,8 @@ export default function HomeworkScreen() {
                   onPress={() => handleSubjectPress(subject.subject_name)}
                 >
                   <View style={styles.subjectOptionContent}>
-                    <View style={[styles.subjectIconContainer, { backgroundColor: '#eff6ff' }]}>
-                       <Icon name="book" size={18} color="#3b82f6" />
+                    <View style={[styles.subjectIconContainer, { backgroundColor: C.colors.blueLight }]}>
+                       <Icon name="book" size={18} color={C.colors.blue} />
                     </View>
                     <Text style={[
                       styles.subjectOptionText,
@@ -436,7 +437,7 @@ export default function HomeworkScreen() {
                   </View>
                   {selectedSubject === subject.subject_name && (
                     <View style={styles.checkContainer}>
-                      <Icon name="check" size={16} color="#3b82f6" />
+                      <Icon name="check" size={16} color={C.colors.blue} />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -453,14 +454,14 @@ export default function HomeworkScreen() {
         sheetStyle={styles.modalContent}
       >
         <LinearGradient
-          colors={['#3b82f6', '#2563eb']}
+          colors={[C.colors.primary, C.colors.primaryDark]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.modalHeader}
         >
           <Text style={styles.modalTitle}>HomeWork Details</Text>
           <TouchableOpacity onPress={() => setShowHomeworkModal(false)}>
-            <Icon name="x" size={24} color="#fff" />
+            <Icon name="x" size={24} color={C.colors.card} />
           </TouchableOpacity>
         </LinearGradient>
 
@@ -481,21 +482,21 @@ export default function HomeworkScreen() {
 
               <View style={styles.modalInfoGrid}>
                 <View style={styles.modalInfoItem}>
-                  <Icon name="calendar" size={16} color="#64748b" />
+                  <Icon name="calendar" size={16} color={C.colors.textSec} />
                   <Text style={styles.modalInfoLabel}>Due Date</Text>
                   <Text style={styles.modalInfoValue}>
                     {formatDisplayDate(selectedHomework.due_date)}
                   </Text>
                 </View>
                 <View style={styles.modalInfoItem}>
-                  <Icon name="user" size={16} color="#64748b" />
+                  <Icon name="user" size={16} color={C.colors.textSec} />
                   <Text style={styles.modalInfoLabel}>Teacher</Text>
                   <Text style={styles.modalInfoValue}>
                     {selectedHomework.teacher_full_name}
                   </Text>
                 </View>
                 <View style={styles.modalInfoItem}>
-                  <Icon name="calendar" size={16} color="#64748b" />
+                  <Icon name="calendar" size={16} color={C.colors.textSec} />
                   <Text style={styles.modalInfoLabel}>Assigned</Text>
                   <Text style={styles.modalInfoValue}>
                     {formatDisplayDate(selectedHomework.assigned_date)}
@@ -505,19 +506,19 @@ export default function HomeworkScreen() {
 
               {selectedHomework.attachment_url && (
                 <TouchableOpacity style={styles.attachmentButton}>
-                  <Icon name="paperclip" size={16} color="#3b82f6" />
+                  <Icon name="paperclip" size={16} color={C.colors.primary} />
                   <Text style={styles.attachmentText}>View Attachment</Text>
                 </TouchableOpacity>
               )}
 
               {/* <TouchableOpacity style={styles.submitButton}>
                 <LinearGradient
-                  colors={['#22c55e', '#16a34a']}
+                  colors={[C.colors.success, C.colors.green]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.submitGradient}
                 >
-                  <Icon name="upload" size={18} color="#fff" />
+                  <Icon name="upload" size={18} color={C.colors.card} />
                   <Text style={styles.submitButtonText}>Submit Assignment</Text>
                 </LinearGradient>
               </TouchableOpacity> */}
@@ -532,7 +533,7 @@ export default function HomeworkScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.colors.background,
   },
   contentContainer: {
     paddingBottom: 40,
@@ -540,7 +541,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   header: {
-    backgroundColor: '#001F3F',
+    backgroundColor: C.colors.primary,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -558,7 +559,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: C.colors.card,
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
@@ -570,14 +571,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mainCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.colors.card,
     borderRadius: 12,
     padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    ...C.shadow.sm,
     marginBottom: 15,
     marginTop: 10,
   },
@@ -591,17 +588,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f8fafc',
+    backgroundColor: C.colors.inputBg,
     paddingHorizontal: 10,
     height: 44,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: C.colors.border,
   },
   filterChipText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#1e293b',
+    color: C.colors.text,
     flex: 1,
   },
   pendingStatusRow: {
@@ -614,28 +611,24 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#f59e0b',
+    backgroundColor: C.colors.amber,
   },
   pendingText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748b',
+    color: C.colors.textSec,
   },
   listContainer: {
     paddingHorizontal: 4,
   },
   homeworkCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.colors.card,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    ...C.shadow.sm,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: C.colors.border,
   },
   cardHeader: {
     marginBottom: 12,
@@ -643,7 +636,7 @@ const styles = StyleSheet.create({
   subjectName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0f172a',
+    color: C.colors.text,
   },
   cardDetails: {
     marginBottom: 16,
@@ -654,17 +647,17 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 14,
-    color: '#64748b',
+    color: C.colors.textSec,
     width: 110,
   },
   detailValue: {
     fontSize: 14,
-    color: '#334155',
+    color: C.colors.text,
     fontWeight: '500',
     flex: 1,
   },
   viewButton: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: C.colors.blueLight,
     paddingVertical: 10,
     borderRadius: 12,
     alignItems: 'center',
@@ -672,7 +665,7 @@ const styles = StyleSheet.create({
   viewButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#3b82f6',
+    color: C.colors.primary,
   },
   loaderContainer: {
     padding: 40,
@@ -681,7 +674,7 @@ const styles = StyleSheet.create({
   loaderText: {
     marginTop: 12,
     fontSize: 13,
-    color: '#64748b',
+    color: C.colors.textSec,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -691,17 +684,17 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0f172a',
+    color: C.colors.text,
     marginTop: 16,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
-    color: '#64748b',
+    color: C.colors.textSec,
     textAlign: 'center',
   },
   modalContent: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
@@ -717,14 +710,14 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#ffffff',
+    color: C.colors.card,
   },
   modalBody: {
     padding: 20,
   },
   modalSubjectBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#eff6ff',
+    backgroundColor: C.colors.blueLight,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -733,12 +726,12 @@ const styles = StyleSheet.create({
   modalSubjectText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#3b82f6',
+    color: C.colors.blue,
   },
   modalHomeworkTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0f172a',
+    color: C.colors.text,
     marginBottom: 20,
   },
   modalDetailSection: {
@@ -747,12 +740,12 @@ const styles = StyleSheet.create({
   modalDetailLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#475569',
+    color: C.colors.textSec,
     marginBottom: 8,
   },
   modalDetailText: {
     fontSize: 14,
-    color: '#64748b',
+    color: C.colors.textSec,
     lineHeight: 20,
   },
   modalInfoGrid: {
@@ -765,19 +758,19 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     padding: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: C.colors.backgroundAlt,
     borderRadius: 12,
     gap: 8,
   },
   modalInfoLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#64748b',
+    color: C.colors.textSec,
   },
   modalInfoValue: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#0f172a',
+    color: C.colors.text,
     textAlign: 'center',
   },
   attachmentButton: {
@@ -787,13 +780,13 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#eff6ff',
+    backgroundColor: C.colors.blueLight,
     marginBottom: 16,
   },
   attachmentText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#3b82f6',
+    color: C.colors.primary,
   },
   submitButton: {
     borderRadius: 12,
@@ -809,16 +802,16 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#ffffff',
+    color: C.colors.card,
   },
   // Subject Picker Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: '#00000080',
     justifyContent: 'flex-end',
   },
   pickerModalContent: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 8,
@@ -827,7 +820,7 @@ const styles = StyleSheet.create({
   pickerIndicator: {
     width: 40,
     height: 4,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: C.colors.border,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 8,
@@ -839,12 +832,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: C.colors.border,
   },
   pickerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0f172a',
+    color: C.colors.text,
   },
   closePickerButton: {
     padding: 4,
@@ -861,7 +854,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   selectedSubjectOption: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: C.colors.blueLight,
   },
   subjectOptionContent: {
     flexDirection: 'row',
@@ -878,17 +871,17 @@ const styles = StyleSheet.create({
   subjectOptionText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#475569',
+    color: C.colors.textSec,
   },
   selectedSubjectOptionText: {
-    color: '#3b82f6',
+    color: C.colors.blue,
     fontWeight: '600',
   },
   checkContainer: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#dbeafe',
+    backgroundColor: C.colors.blueLight,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -6,12 +6,8 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
-  Modal,
   Platform,
   StatusBar,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-  Dimensions,
   Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -26,11 +22,10 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  RefreshCw,
   Search,
   ChevronRight,
   Info,
-  Bell
+  Bell,
 } from 'lucide-react-native';
 import API from '../../services/api';
 import AppButton from '../../components/common/AppButton';
@@ -39,9 +34,8 @@ import AppText from '../../components/common/AppText';
 import BottomSheetModal from '../../components/common/BottomSheetModal';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
-import HM_THEME from '../../constants/hmTheme';
-
-const { width } = Dimensions.get('window');
+import { Theme } from '../../theme/theme';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 
 // Types
 interface LeaveRequest {
@@ -76,8 +70,8 @@ const getSchoolCode = async (): Promise<string> => {
 
 const getTeacherId = async (): Promise<string> => {
   const id = await AsyncStorage.getItem('teacher_id');
-  return id || (await AsyncStorage.getItem('teacherId')) || 
-         (await AsyncStorage.getItem('employee_id')) || 
+  return id || (await AsyncStorage.getItem('teacherId')) ||
+         (await AsyncStorage.getItem('employee_id')) ||
          (await AsyncStorage.getItem('employeeId')) || '';
 };
 
@@ -87,7 +81,9 @@ const getBranchId = async (): Promise<string> => {
 };
 
 const formatDate = (dateString: string): string => {
-  if (!dateString) return '-';
+  if (!dateString) {
+    return '-';
+  }
   const date = new Date(dateString);
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
@@ -128,43 +124,46 @@ const LeaveRequestCard: React.FC<{
   request: LeaveRequest;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
-}> = ({ request, onApprove, onReject }) => {
+  onPress: (request: LeaveRequest) => void;
+}> = ({ request, onApprove, onReject, onPress }) => {
   return (
     <AppCard style={styles.requestCard}>
-      <View style={styles.cardHeader}>
-        <View style={styles.studentInfo}>
-          <View style={styles.avatarPlaceholder}>
-            <User size={20} color="#64748b" />
+      <TouchableOpacity onPress={() => onPress(request)} activeOpacity={0.7}>
+        <View style={styles.cardHeader}>
+          <View style={styles.studentInfo}>
+            <View style={styles.avatarPlaceholder}>
+              <User size={20} color="#64748b" />
+            </View>
+            <View>
+              <AppText weight="bold" style={styles.studentName}>{request.student_full_name}</AppText>
+              <AppText style={styles.rollNumber}>Roll No: {request.roll_number}</AppText>
+            </View>
           </View>
-          <View>
-            <AppText weight="bold" style={styles.studentName}>{request.student_full_name}</AppText>
-            <AppText style={styles.rollNumber}>Roll No: {request.roll_number}</AppText>
-          </View>
-        </View>
-        <StatusBadge status={request.status} />
-      </View>
-
-      <View style={styles.cardDivider} />
-
-      <View style={styles.cardDetails}>
-        <View style={styles.detailGrid}>
-          <View style={styles.detailItem}>
-            <BookOpen size={14} color="#94a3b8" />
-            <AppText weight="semiBold" style={styles.detailValue}>{request.class_grade} - {request.section}</AppText>
-          </View>
-          <View style={styles.detailItem}>
-            <Calendar size={14} color="#94a3b8" />
-            <AppText weight="semiBold" style={styles.detailValue}>
-              {formatDate(request.from_date)} {request.from_date !== request.to_date ? `to ${formatDate(request.to_date)}` : ''}
-            </AppText>
-          </View>
+          <StatusBadge status={request.status} />
         </View>
 
-        <View style={styles.reasonBox}>
-          <Info size={14} color="#64748b" style={{ marginTop: 2 }} />
-          <AppText style={styles.reasonText}>{request.reason}</AppText>
+        <View style={styles.cardDivider} />
+
+        <View style={styles.cardDetails}>
+          <View style={styles.detailGrid}>
+            <View style={styles.detailItem}>
+              <BookOpen size={14} color="#94a3b8" />
+              <AppText weight="semibold" style={styles.detailValue}>{request.class_grade} - {request.section}</AppText>
+            </View>
+            <View style={styles.detailItem}>
+              <Calendar size={14} color="#94a3b8" />
+              <AppText weight="semibold" style={styles.detailValue}>
+                {formatDate(request.from_date)} {request.from_date !== request.to_date ? `to ${formatDate(request.to_date)}` : ''}
+              </AppText>
+            </View>
+          </View>
+
+          <View style={styles.reasonBox}>
+            <Info size={14} color="#64748b" style={styles.infoIcon} />
+            <AppText numberOfLines={2} style={styles.reasonText}>{request.reason}</AppText>
+          </View>
         </View>
-      </View>
+      </TouchableOpacity>
 
       {request.status === 'PENDING' && (
         <View style={styles.actionButtons}>
@@ -211,22 +210,20 @@ export default function LeaveApprovalScreen() {
   const [items, setItems] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
 
   // Filters
   const [classId, setClassId] = useState<string>('');
   const [sectionId, setSectionId] = useState<string>('');
   const [status, setStatus] = useState<string>('PENDING');
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
+  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
 
   // Classes/Sections
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [sections, setSections] = useState<SectionItem[]>([]);
-  const [loadingClassesSections, setLoadingClassesSections] = useState<boolean>(false);
   // Teacher assignments/context
   const [teacherAssignments, setTeacherAssignments] = useState<any[]>([]);
   const [teacherName, setTeacherName] = useState<string>('');
-  const [loadingTeacherContext, setLoadingTeacherContext] = useState<boolean>(false);
 
   // Load credentials with defensive rehydration
   useEffect(() => {
@@ -236,7 +233,9 @@ export default function LeaveApprovalScreen() {
         const tid = await getTeacherId();
         const bid = await getBranchId();
 
-        if (!isMounted.current) return;
+        if (!isMounted.current) {
+          return;
+        }
 
         setSchoolCode(code || '');
         setTeacherId(tid || '');
@@ -248,7 +247,7 @@ export default function LeaveApprovalScreen() {
     loadCredentials();
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
-  }, []);
+  }, [setTabBarVisible]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
@@ -264,14 +263,22 @@ export default function LeaveApprovalScreen() {
   // Resolve teacher ID with fallback protection
   useEffect(() => {
     const resolveTeacherId = async () => {
-      if (!schoolCode || !teacherId) return;
+      if (!schoolCode || !teacherId) {
+        return;
+      }
       try {
-        const res = await API.get('/teacher/marks/teacher-context', {
-          params: { teacher_id: teacherId },
-          headers: { 'x-school-code': schoolCode },
+        const res = await API.get('/staff/marks/staff-context', {
+          params: {
+            school_code: schoolCode,
+            branch_id: branchId,
+            teacher_id: teacherId,
+            employee_id: teacherId,
+          },
         });
 
-        if (!isMounted.current) return;
+        if (!isMounted.current) {
+          return;
+        }
 
         const canonicalTeacherId = String(res.data?.teacher_data?.teacher_id || teacherId || '').trim();
         setResolvedTeacherId(canonicalTeacherId);
@@ -281,24 +288,29 @@ export default function LeaveApprovalScreen() {
         const tName = res.data?.teacher_data?.full_name || res.data?.teacher_data?.teacher_full_name || res.data?.teacher_data?.name || '';
         setTeacherName(String(tName || '').trim());
       } catch (err: any) {
-        if (!isMounted.current) return;
+        if (!isMounted.current) {
+          return;
+        }
         setResolvedTeacherId(teacherId || '');
       }
     };
     resolveTeacherId();
-  }, [schoolCode, teacherId]);
+  }, [schoolCode, teacherId, branchId]);
 
   // Fetch classes and sections with defensive mapping
   useEffect(() => {
     const fetchClassesSections = async () => {
-      if (!schoolCode || !branchId) return;
-      setLoadingClassesSections(true);
+      if (!schoolCode || !branchId) {
+        return;
+      }
       try {
         const res = await API.get('/manage/classes-sections', {
           params: { school_code: schoolCode, branch_id: branchId },
         });
 
-        if (!isMounted.current) return;
+        if (!isMounted.current) {
+          return;
+        }
 
         const fetchedClasses = Array.isArray(res.data?.classes) ? res.data.classes.filter(Boolean) : [];
         const fetchedSections = Array.isArray(res.data?.sections) ? res.data.sections.filter(Boolean) : [];
@@ -307,13 +319,6 @@ export default function LeaveApprovalScreen() {
         setSections(fetchedSections);
       } catch (e: any) {
         console.error('Failed to load classes/sections:', e);
-        if (isMounted.current && e?.response?.status !== 401) {
-          setError('Failed to load filters');
-        }
-      } finally {
-        if (isMounted.current) {
-          setLoadingClassesSections(false);
-        }
       }
     };
     fetchClassesSections();
@@ -321,29 +326,36 @@ export default function LeaveApprovalScreen() {
 
   // Load leave requests with defensive mapping
   const loadRequests = useCallback(async () => {
-    if (!schoolCode || !resolvedTeacherId) return;
+    if (!schoolCode || !resolvedTeacherId) {
+      return;
+    }
     setLoading(true);
-    setError('');
     try {
       const body: any = {
         school_code: schoolCode,
-        teacher_id: resolvedTeacherId,
+        employee_id: resolvedTeacherId,
       };
-      if (classId) body.class_id = Number(classId);
-      if (sectionId) body.section_id = Number(sectionId);
-      if (status) body.status = status;
+      if (classId) {
+        body.class_id = Number(classId);
+      }
+      if (sectionId) {
+        body.section_id = Number(sectionId);
+      }
+      if (status) {
+        body.status = status;
+      }
 
-      const res = await API.post('/manage/teacher/leave-requests', body);
+      const res = await API.post('/manage/staff/leave-requests', body);
 
-      if (!isMounted.current) return;
+      if (!isMounted.current) {
+        return;
+      }
 
       const requests = Array.isArray(res.data?.items) ? res.data.items.filter(Boolean) : [];
       setItems(requests);
     } catch (e: any) {
-      if (!isMounted.current) return;
-
-      if (e?.response?.status !== 401) {
-        setError(e?.response?.data?.detail || 'Failed to load leave requests');
+      if (!isMounted.current) {
+        return;
       }
       setItems([]);
     } finally {
@@ -357,7 +369,7 @@ export default function LeaveApprovalScreen() {
     if (schoolCode && resolvedTeacherId) {
       loadRequests();
     }
-  }, [schoolCode, resolvedTeacherId, classId, sectionId, status]);
+  }, [schoolCode, resolvedTeacherId, classId, sectionId, status, loadRequests]);
 
   const advancedFilterText = useMemo(() => {
     // If explicit class filter selected
@@ -405,19 +417,24 @@ export default function LeaveApprovalScreen() {
           style: isRejectAction ? 'destructive' : 'default',
           onPress: async () => {
             try {
-              await API.put('/manage/teacher/leave-requests/action', {
+              await API.put('/manage/staff/leave-requests/action', {
                 school_code: schoolCode,
-                teacher_id: resolvedTeacherId,
+                employee_id: resolvedTeacherId,
                 leave_id: leaveId,
                 action,
               });
 
-              if (!isMounted.current) return;
+              if (!isMounted.current) {
+                return;
+              }
 
               Alert.alert('Success', `Leave ${actionText}ed successfully`);
+              setSelectedRequest(null);
               loadRequests();
             } catch (e: any) {
-              if (!isMounted.current) return;
+              if (!isMounted.current) {
+                return;
+              }
 
               if (e?.response?.status !== 401) {
                 Alert.alert('Error', e?.response?.data?.detail || 'Failed to update leave status');
@@ -438,13 +455,13 @@ export default function LeaveApprovalScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       {/* Navy Standard Header (animated on scroll) */}
       <Animated.View
         style={[
           styles.headerStandard,
-          { paddingTop: insets.top + 20, paddingBottom: 30 },
+          { paddingTop: insets.top + 16 },
           {
             transform: [
               {
@@ -475,7 +492,7 @@ export default function LeaveApprovalScreen() {
             style={styles.iconButton}
             onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
           >
-            <ChevronLeft size={24} color="#FFFFFF" />
+            <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
             <AppText weight="bold" style={styles.headerTitle}>Leave Approvals</AppText>
@@ -484,41 +501,41 @@ export default function LeaveApprovalScreen() {
             style={styles.iconButton}
             onPress={() => (navigation as any).navigate('Notifications')}
           >
-            <Bell size={22} color="#FFFFFF" />
+            <Bell size={22} color={HEADER_CONSTANTS.TEXT_COLOR} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.headerContent}>
           <AppText weight="bold" style={styles.headerGreeting}>Student Leaves</AppText>
-          <AppText style={styles.headerSubtext}>Review and manage pending leave applications</AppText>
+          <AppText style={[styles.headerSubtext, { color: `rgba(255,255,255,${HEADER_CONSTANTS.SUBTITLE_OPACITY})` }]}>Review and manage pending leave applications</AppText>
         </View>
       </Animated.View>
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: 20 }]}
+        contentContainerStyle={styles.scrollContent}
         onScroll={(e) => { Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })(e); handleScroll(e); }}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={HM_THEME.navy} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
 
         {/* Filter Selection Card */}
         <AppCard style={styles.filterCard}>
           <View style={styles.filterHeader}>
             <View style={styles.filterTitleContainer}>
-              <Filter size={18} color={HM_THEME.navy} />
+              <Filter size={18} color={Theme.colors.primary} />
               <AppText weight="bold" style={styles.filterTitle}>Filters</AppText>
             </View>
             {(classId || sectionId || status !== 'PENDING') && (
               <TouchableOpacity onPress={resetFilters}>
-                <AppText weight="semiBold" style={styles.resetText}>Reset All</AppText>
+                <AppText weight="semibold" style={styles.resetText}>Reset All</AppText>
               </TouchableOpacity>
             )}
           </View>
 
           <View style={styles.filterGrid}>
             <View style={styles.filterItem}>
-              <AppText weight="semiBold" style={styles.filterLabel}>Status</AppText>
+              <AppText weight="semibold" style={styles.filterLabel}>Status</AppText>
               <View style={styles.statusToggle}>
                 {['PENDING', 'APPROVED', 'REJECTED'].map((s) => (
                   <TouchableOpacity
@@ -526,7 +543,7 @@ export default function LeaveApprovalScreen() {
                     style={[styles.statusBtn, status === s && styles.statusBtnActive]}
                     onPress={() => setStatus(s)}
                   >
-                    <AppText weight="semiBold" style={[styles.statusBtnText, status === s && styles.statusBtnTextActive]}>
+                    <AppText weight="semibold" style={[styles.statusBtnText, status === s && styles.statusBtnTextActive]}>
                       {s.charAt(0) + s.slice(1).toLowerCase()}
                     </AppText>
                   </TouchableOpacity>
@@ -539,7 +556,7 @@ export default function LeaveApprovalScreen() {
               onPress={() => setShowFilterModal(true)}
             >
               <Search size={16} color="#64748B" />
-              <AppText weight="semiBold" style={styles.advancedFilterText}>
+              <AppText weight="semibold" style={styles.advancedFilterText}>
                   {advancedFilterText}
               </AppText>
               <ChevronRight size={16} color="#94A3B8" />
@@ -559,7 +576,7 @@ export default function LeaveApprovalScreen() {
         ) : items.length === 0 ? (
           <View style={styles.emptyState}>
             <Calendar size={48} color="#cbd5e1" />
-            <AppText weight="semiBold" style={styles.emptyStateText}>No requests found matching your filters</AppText>
+            <AppText weight="semibold" style={styles.emptyStateText}>No requests found matching your filters</AppText>
           </View>
         ) : (
           <View style={styles.requestsList}>
@@ -569,6 +586,7 @@ export default function LeaveApprovalScreen() {
                 request={request}
                 onApprove={(id) => actOnLeave(id, 'APPROVE')}
                 onReject={(id) => actOnLeave(id, 'REJECTED')}
+                onPress={(req) => setSelectedRequest(req)}
               />
             ))}
           </View>
@@ -591,7 +609,7 @@ export default function LeaveApprovalScreen() {
               style={[styles.chip, !classId && styles.chipActive]}
               onPress={() => setClassId('')}
             >
-              <AppText weight="semiBold" style={[styles.chipText, !classId && styles.chipTextActive]}>All Classes</AppText>
+              <AppText weight="semibold" style={[styles.chipText, !classId && styles.chipTextActive]}>All Classes</AppText>
             </TouchableOpacity>
             {classes.map((cls) => (
               <TouchableOpacity
@@ -599,20 +617,20 @@ export default function LeaveApprovalScreen() {
                 style={[styles.chip, classId === cls.id && styles.chipActive]}
                 onPress={() => setClassId(cls.id)}
               >
-                <AppText weight="semiBold" style={[styles.chipText, classId === cls.id && styles.chipTextActive]}>
+                <AppText weight="semibold" style={[styles.chipText, classId === cls.id && styles.chipTextActive]}>
                   {cls.name || cls.class_grade}
                 </AppText>
               </TouchableOpacity>
             ))}
           </View>
 
-          <AppText weight="bold" style={[styles.modalLabel, { marginTop: 20 }]}>Section</AppText>
+          <AppText weight="bold" style={styles.modalLabelSection}>Section</AppText>
           <View style={styles.chipContainer}>
             <TouchableOpacity
               style={[styles.chip, !sectionId && styles.chipActive]}
               onPress={() => setSectionId('')}
             >
-              <AppText weight="semiBold" style={[styles.chipText, !sectionId && styles.chipTextActive]}>All Sections</AppText>
+              <AppText weight="semibold" style={[styles.chipText, !sectionId && styles.chipTextActive]}>All Sections</AppText>
             </TouchableOpacity>
             {sections.map((sec) => (
               <TouchableOpacity
@@ -620,7 +638,7 @@ export default function LeaveApprovalScreen() {
                 style={[styles.chip, sectionId === sec.id && styles.chipActive]}
                 onPress={() => setSectionId(sec.id)}
               >
-                <AppText weight="semiBold" style={[styles.chipText, sectionId === sec.id && styles.chipTextActive]}>
+                <AppText weight="semibold" style={[styles.chipText, sectionId === sec.id && styles.chipTextActive]}>
                   {sec.name || sec.section}
                 </AppText>
               </TouchableOpacity>
@@ -636,6 +654,110 @@ export default function LeaveApprovalScreen() {
           />
         </View>
       </BottomSheetModal>
+
+      {/* Detailed Leave Request Modal */}
+      <BottomSheetModal
+        visible={selectedRequest !== null}
+        onClose={() => setSelectedRequest(null)}
+        sheetStyle={styles.detailsModalContent}
+      >
+        {selectedRequest && (
+          <View style={styles.detailsModalInner}>
+            <View style={styles.modalHeader}>
+              <AppText weight="bold" style={styles.modalTitle}>Leave Application Details</AppText>
+              <TouchableOpacity onPress={() => setSelectedRequest(null)} style={styles.modalClose}>
+                <XCircle size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.detailsModalBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.detailsStudentSection}>
+                <View style={styles.avatarPlaceholderLarge}>
+                  <User size={32} color="#64748b" />
+                </View>
+                <View style={styles.detailsStudentMeta}>
+                  <AppText weight="bold" style={styles.detailsStudentName}>
+                    {selectedRequest.student_full_name}
+                  </AppText>
+                  <AppText style={styles.detailsRollNumber}>
+                    Roll No: {selectedRequest.roll_number}
+                  </AppText>
+                </View>
+                <StatusBadge status={selectedRequest.status} />
+              </View>
+
+              <View style={styles.detailsDivider} />
+
+              <View style={styles.detailsGrid}>
+                <View style={styles.detailsGridRow}>
+                  <View style={styles.detailsGridItem}>
+                    <AppText style={styles.detailsGridLabel}>Class & Section</AppText>
+                    <View style={styles.detailsGridValContainer}>
+                      <BookOpen size={16} color={Theme.colors.primary} />
+                      <AppText weight="bold" style={styles.detailsGridValue}>
+                        {selectedRequest.class_grade} - {selectedRequest.section}
+                      </AppText>
+                    </View>
+                  </View>
+
+                  <View style={styles.detailsGridItem}>
+                    <AppText style={styles.detailsGridLabel}>Duration</AppText>
+                    <View style={styles.detailsGridValContainer}>
+                      <Calendar size={16} color={Theme.colors.primary} />
+                      <AppText weight="bold" style={styles.detailsGridValue}>
+                        {(() => {
+                          const diffTime = Math.abs(new Date(selectedRequest.to_date).getTime() - new Date(selectedRequest.from_date).getTime());
+                          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                          return `${diffDays} Day${diffDays > 1 ? 's' : ''}`;
+                        })()}
+                      </AppText>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.detailsSingleItem}>
+                  <AppText style={styles.detailsGridLabel}>Leave Dates</AppText>
+                  <AppText weight="semibold" style={styles.detailsDateRange}>
+                    {formatDate(selectedRequest.from_date)} {selectedRequest.from_date !== selectedRequest.to_date ? ` to ${formatDate(selectedRequest.to_date)}` : ''}
+                  </AppText>
+                </View>
+              </View>
+
+              <View style={styles.detailsDivider} />
+
+              <AppText style={styles.detailsGridLabel}>Reason for Leave</AppText>
+              <View style={styles.detailsReasonContainer}>
+                <AppText style={styles.detailsReasonText}>
+                  {selectedRequest.reason}
+                </AppText>
+              </View>
+            </ScrollView>
+
+            {selectedRequest.status === 'PENDING' && (
+              <View style={styles.detailsActionButtons}>
+                <TouchableOpacity
+                  style={[styles.detailsActionBtn, styles.detailsRejectBtn]}
+                  onPress={() => {
+                    actOnLeave(selectedRequest.leave_id, 'REJECTED');
+                  }}
+                >
+                  <XCircle size={18} color="#B91C1C" />
+                  <AppText weight="bold" style={styles.detailsRejectBtnText}>Reject</AppText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.detailsActionBtn, styles.detailsApproveBtn]}
+                  onPress={() => {
+                    actOnLeave(selectedRequest.leave_id, 'APPROVE');
+                  }}
+                >
+                  <CheckCircle2 size={18} color="#FFFFFF" />
+                  <AppText weight="bold" style={styles.detailsApproveBtnText}>Approve</AppText>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+      </BottomSheetModal>
     </View>
   );
 }
@@ -646,11 +768,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   headerStandard: {
-    backgroundColor: HM_THEME.navy,
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
+    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
+    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
+    paddingBottom: 16,
+    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
+    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     ...Platform.select({
       android: { elevation: 10 },
       ios: {},
@@ -667,10 +789,10 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
+    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
+    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
+    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -679,17 +801,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    color: HEADER_CONSTANTS.TEXT_COLOR,
+    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
+    fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
     textAlign: 'center',
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: 12,
   },
   headerGreeting: {
     color: '#FFFFFF',
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
@@ -699,6 +821,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   scrollContent: {
+    paddingTop: 20,
     paddingBottom: 120,
   },
   filterCard: {
@@ -736,7 +859,7 @@ const styles = StyleSheet.create({
   },
   resetText: {
     fontSize: 14,
-    color: '#2563EB',
+    color: Theme.colors.blue,
   },
   filterGrid: {
     gap: 12,
@@ -779,7 +902,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   statusBtnTextActive: {
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
   },
   advancedFilterBtn: {
     flexDirection: 'row',
@@ -907,7 +1030,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   approveBtn: {
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
   },
   rejectBtn: {
     backgroundColor: '#FFFFFF',
@@ -1000,8 +1123,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   chipActive: {
-    backgroundColor: HM_THEME.navy,
-    borderColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
   },
   chipText: {
     fontSize: 14,
@@ -1015,8 +1138,146 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   modalApplyBtn: {
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
     height: 52,
     borderRadius: 12,
+  },
+  detailsModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    maxHeight: '85%',
+  },
+  detailsModalBody: {
+    padding: 24,
+    paddingTop: 16,
+  },
+  detailsStudentSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  avatarPlaceholderLarge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailsStudentMeta: {
+    flex: 1,
+    gap: 4,
+  },
+  detailsStudentName: {
+    fontSize: 18,
+    color: '#0F172A',
+  },
+  detailsRollNumber: {
+    fontSize: 14,
+    color: '#64748B',
+  },
+  detailsDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 20,
+  },
+  detailsGrid: {
+    gap: 16,
+  },
+  detailsGridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  detailsGridItem: {
+    flex: 1,
+    gap: 6,
+  },
+  detailsGridLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  detailsGridValContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  detailsGridValue: {
+    fontSize: 15,
+    color: '#0F172A',
+  },
+  detailsSingleItem: {
+    gap: 4,
+  },
+  detailsDateRange: {
+    fontSize: 15,
+    color: '#0F172A',
+  },
+  detailsReasonContainer: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    padding: 16,
+    borderRadius: 16,
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  detailsReasonText: {
+    fontSize: 15,
+    color: '#334155',
+    lineHeight: 22,
+  },
+  detailsActionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+  },
+  detailsActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 50,
+    borderRadius: 12,
+    gap: 8,
+  },
+  detailsApproveBtn: {
+    backgroundColor: Theme.colors.primary,
+  },
+  detailsRejectBtn: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  detailsApproveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+  },
+  detailsRejectBtnText: {
+    color: '#B91C1C',
+    fontSize: 15,
+  },
+  modalLabelSection: {
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 20,
+  },
+  detailsModalInner: {
+    flex: 1,
+  },
+  infoIcon: {
+    marginTop: 2,
   },
 });

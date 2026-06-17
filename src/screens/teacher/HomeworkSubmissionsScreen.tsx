@@ -26,7 +26,8 @@ import API from '../../services/api';
 import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import AppCard from '../../components/common/AppCard';
-import type { RootStackParamList } from '../../navigation/AppNavigator';
+import { Theme } from '../../theme/theme';
+import type { RootStackParamList } from '../../navigation/types';
 
 const { width } = Dimensions.get('window');
 
@@ -104,7 +105,7 @@ export default function HomeworkSubmissionsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
       
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity 
@@ -121,11 +122,11 @@ export default function HomeworkSubmissionsScreen() {
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#001F3F" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
         {loading ? (
           <View style={styles.loaderContainer}>
-            <Loader size="large" color="#001F3F" />
+            <Loader size="large" color={Theme.colors.primary} />
           </View>
         ) : submissions.length === 0 ? (
           <View style={styles.emptyState}>
@@ -146,7 +147,7 @@ export default function HomeworkSubmissionsScreen() {
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '15' }]}>
                     {getStatusIcon(item.status)}
-                    <AppText weight="semiBold" style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+                    <AppText weight="semibold" style={[styles.statusText, { color: getStatusColor(item.status) }]}>
                       {item.status.toUpperCase()}
                     </AppText>
                   </View>
@@ -161,7 +162,7 @@ export default function HomeworkSubmissionsScreen() {
 
                 {item.attachments && item.attachments.length > 0 && (
                   <View style={styles.attachmentsSection}>
-                    <AppText weight="semiBold" style={styles.attachmentsTitle}>Attachments:</AppText>
+                    <AppText weight="semibold" style={styles.attachmentsTitle}>Attachments:</AppText>
                     {item.attachments.map((file, idx) => (
                       <TouchableOpacity 
                         key={idx} 
@@ -190,7 +191,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   header: {
-    backgroundColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,

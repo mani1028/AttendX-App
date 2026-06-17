@@ -7,7 +7,8 @@ import AppButton from '../../components/common/AppButton';
 import { getStudentRegistrationRequests, approveStudentRegistration, rejectStudentRegistration } from '../../services/teacherService';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BadgeCheck, ChevronLeft, Users, CheckCircle2, XCircle, Eye } from 'lucide-react-native';
+import { BadgeCheck, ChevronLeft, Users, CheckCircle2, XCircle, Eye, CheckCheck } from 'lucide-react-native';
+import { Theme } from '../../theme/theme';
 
 export default function StudentRegistrationRequestsScreen() {
   const insets = useSafeAreaInsets();
@@ -86,7 +87,7 @@ export default function StudentRegistrationRequestsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}> 
         <View style={styles.headerTop}>
@@ -101,7 +102,7 @@ export default function StudentRegistrationRequestsScreen() {
 
         <View style={styles.headerContent}>
           <View style={styles.headerChip}>
-            <BadgeCheck size={14} color="#059669" />
+            <BadgeCheck size={14} color={Theme.colors.success} />
             <AppText weight="bold" style={styles.headerChipText}>Registration Requests</AppText>
           </View>
           <AppText style={styles.headerSubtitle}>Approve or reject new student registrations from one place.</AppText>
@@ -110,7 +111,7 @@ export default function StudentRegistrationRequestsScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         {loading ? (
-          <ActivityIndicator size="large" color="#0f172a" style={{ marginTop: 20 }} />
+          <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 20 }} />
         ) : requests.length === 0 ? (
           <AppCard style={styles.emptyCard}>
             <Users size={40} color="#cbd5e1" style={{ marginBottom: 8 }} />
@@ -122,10 +123,10 @@ export default function StudentRegistrationRequestsScreen() {
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleRow}>
                   <View style={styles.cardIcon}>
-                    <CheckCheck size={16} color="#059669" />
+                    <CheckCheck size={16} color={Theme.colors.success} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <AppText weight="semiBold" style={styles.studentName}>{req.full_name || req.student_full_name || (req.first_name + ' ' + req.last_name) || 'Student'}</AppText>
+                    <AppText weight="semibold" style={styles.studentName}>{req.full_name || req.student_full_name || (req.first_name + ' ' + req.last_name) || 'Student'}</AppText>
                     <AppText style={styles.meta}>{req.class_grade || req.class || '—'} | Section {req.section || '—'}</AppText>
                   </View>
                 </View>
@@ -134,10 +135,10 @@ export default function StudentRegistrationRequestsScreen() {
               <View style={styles.actionsRow}>
                 <TouchableOpacity
                   style={[styles.quickActionBtn, styles.viewBtn]}
-                  onPress={() => navigation.navigate('HMStudentRegistration' as never)}
+                  onPress={() => navigation.navigate('DirectorStudentRegistration' as never)}
                 >
                   <Eye size={16} color="#0f172a" />
-                  <AppText weight="semiBold" style={styles.viewBtnText}>View</AppText>
+                  <AppText weight="semibold" style={styles.viewBtnText}>View</AppText>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -146,7 +147,7 @@ export default function StudentRegistrationRequestsScreen() {
                   disabled={!!processingId}
                 >
                   <CheckCircle2 size={16} color="#fff" />
-                  <AppText weight="semiBold" style={styles.actionText}>Accept</AppText>
+                  <AppText weight="semibold" style={styles.actionText}>Accept</AppText>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -155,7 +156,7 @@ export default function StudentRegistrationRequestsScreen() {
                   disabled={!!processingId}
                 >
                   <XCircle size={16} color="#fff" />
-                  <AppText weight="semiBold" style={styles.actionText}>Reject</AppText>
+                  <AppText weight="semibold" style={styles.actionText}>Reject</AppText>
                 </TouchableOpacity>
               </View>
             </AppCard>
@@ -169,7 +170,7 @@ export default function StudentRegistrationRequestsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   header: {
-    backgroundColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
     paddingHorizontal: 20,
     paddingBottom: 20,
     borderBottomLeftRadius: 28,
@@ -231,9 +232,9 @@ const styles = StyleSheet.create({
   card: { padding: 16, marginBottom: 12 },
   cardHeader: { marginBottom: 8 },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cardIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center' },
-  studentName: { color: '#0f172a' },
-  meta: { fontSize: 12, color: '#94a3b8', marginTop: 4 },
+  cardIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: Theme.colors.successBg, alignItems: 'center', justifyContent: 'center' },
+  studentName: { color: Theme.colors.text },
+  meta: { fontSize: 12, color: Theme.colors.textMuted, marginTop: 4 },
   actionsRow: { flexDirection: 'row', marginTop: 12 },
   quickActionBtn: {
     flex: 1,
@@ -256,10 +257,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   approveBtn: {
-    backgroundColor: '#059669',
+    backgroundColor: Theme.colors.success,
   },
   rejectBtn: {
-    backgroundColor: '#dc2626',
+    backgroundColor: Theme.colors.error,
     marginRight: 0,
   },
   actionText: {

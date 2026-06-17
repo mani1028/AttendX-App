@@ -7,7 +7,7 @@ apply plugin: "com.facebook.react"
  */
 react {
     autolinkLibrariesWithApp()
-    hermesEnabled = false
+    hermesEnabled = true
 }
 
 def enableProguardInReleaseBuilds = true
@@ -77,7 +77,6 @@ configurations.all {
 }
 
 dependencies {
-    implementation project(':amplitude_analytics-react-native')
     implementation("com.facebook.react:react-android")
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.appcompat:appcompat:1.7.0")
@@ -91,3 +90,4 @@ dependencies {
 }
 
 apply plugin: "com.google.gms.google-services"
+apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"

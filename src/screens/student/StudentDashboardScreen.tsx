@@ -11,16 +11,33 @@ import {
   NativeScrollEvent,
   StatusBar,
   Modal,
+  Platform,
+  Alert,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import Icon from '@react-native-vector-icons/ionicons';
+import LinearGradient from 'react-native-linear-gradient';
+import {
+  Bell,
+  ChevronDown,
+  ClipboardList,
+  CalendarDays,
+  FileText,
+  BarChart3,
+  CheckCircle2,
+  XCircle,
+  X,
+  FileBox
+} from 'lucide-react-native';
 import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import AvatarBubble from '../../components/common/AvatarBubble';
-import type { RootStackParamList } from '../../navigation/AppNavigator';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { Theme as C } from '../../theme/theme';
+import type { RootStackParamList } from '../../navigation/types';
 import { safeNavigate } from '../../utils/navigationHelpers';
 import Svg, { Path } from 'react-native-svg';
 import {
@@ -35,6 +52,9 @@ import { buildApiUrl } from '../../services/api';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeJsonParse } from '../../utils/storage';
+import AccountSwitcher from '../../components/common/AccountSwitcher';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const getStudentPhotoCacheKey = (studentId: string, schoolCode: string): string | null => {
   if (!studentId) return null;
@@ -96,6 +116,7 @@ export default function StudentDashboardScreen() {
   const isMounted = useRef(true);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [switcherVisible, setSwitcherVisible] = useState(false);
 
   const lastScrollY = useRef(0);
 
@@ -137,10 +158,21 @@ export default function StudentDashboardScreen() {
     let cacheUsed = false;
 
     try {
+      // First check if we actually have auth token and student role before fetching
+      const token = await AsyncStorage.getItem('token');
+      const role = await AsyncStorage.getItem('role') || await AsyncStorage.getItem('userRole');
+      if (!token || role?.toLowerCase() !== 'student') {
+        if (isMounted.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+        return; // Prevent unauthorized requests if not a student
+      }
+
       refreshUnreadCount();
 
-      const studentId = (await AsyncStorage.getItem('student_id')) || (await AsyncStorage.getItem('studentId')) || '';
-      const schoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
+      const studentId = ((await AsyncStorage.getItem('student_id')) || (await AsyncStorage.getItem('studentId')) || '').trim();
+      const schoolCode = ((await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '').trim();
       const cacheKey = getStudentDashboardCacheKey(schoolCode, studentId);
 
       if (cacheKey) {
@@ -159,48 +191,41 @@ export default function StudentDashboardScreen() {
         }
       }
 
-      const [attendance, papersRes] = await Promise.all([
+      const [attendanceResult, papersResResult] = await Promise.allSettled([
         getStudentAttendance(),
         getQuestionPapers(),
       ]);
 
       if (!isMounted.current) return;
 
-      if (attendance) {
-        const attendanceResponse = attendance as any;
+      const updatedCacheData: any = {};
+      
+      if (attendanceResult.status === 'fulfilled' && attendanceResult.value) {
+        const attendance = attendanceResult.value;
         const attendanceItems = Array.isArray(attendance.items) ? attendance.items : [];
-        const halfDayCount = attendanceItems.filter((item: any) => {
-          const status = String(item?.status || '').toUpperCase();
-          return status === 'LATE' || status === 'HALF_DAY' || status === 'HALF DAY';
-        }).length;
-        const totalDays = Number(
-          attendanceResponse.totalDays ??
-          attendanceResponse.total_days ??
-          attendanceItems.length ??
-          ((attendance.presentDays || 0) + (attendance.absentDays || 0) + halfDayCount)
-        ) || 0;
-        const attendanceData = {
+        const newAttendanceData = {
           percentage: attendance.percentage || 0,
           presentDays: attendance.presentDays || 0,
           absentDays: attendance.absentDays || 0,
-          totalDays,
-          halfDays: Number(attendanceResponse.halfDays ?? attendanceResponse.half_days ?? halfDayCount) || 0,
+          totalDays: attendance.totalDays || 0,
+          halfDays: attendance.halfDays || 0,
         };
-        setAttendanceData(attendanceData);
-        if (attendanceItems.length > 0) {
-          setRecentAttendance(attendanceItems);
-        }
+        setAttendanceData(newAttendanceData);
+        const limitedAttendance = attendanceItems
+          .sort((a, b) => new Date(b.attendance_date).getTime() - new Date(a.attendance_date).getTime())
+          .slice(0, 10);
 
-        if (cacheKey) {
-          await AsyncStorage.setItem(cacheKey, JSON.stringify({
-            attendanceData,
-            recentAttendance: attendanceItems,
-            recentPapers: [],
-          }));
+        if (attendanceItems.length > 0) {
+          setRecentAttendance(limitedAttendance);
         }
+        updatedCacheData.attendanceData = newAttendanceData;
+        updatedCacheData.recentAttendance = limitedAttendance;
+      } else if (attendanceResult.status === 'rejected') {
+        console.warn('Failed to fetch student attendance:', attendanceResult.reason);
       }
 
-      if (papersRes?.subjects) {
+      if (papersResResult.status === 'fulfilled' && papersResResult.value?.subjects) {
+        const papersRes = papersResResult.value;
         const allPapers: any[] = [];
         papersRes.subjects.forEach((sub: any) => {
           if (sub.papers) {
@@ -212,16 +237,20 @@ export default function StudentDashboardScreen() {
         const sortedPapers = allPapers.sort((a, b) =>
           new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
         );
-        setRecentPapers(sortedPapers);
+        const limitedPapers = sortedPapers.slice(0, 2);
+        setRecentPapers(limitedPapers);
+        updatedCacheData.recentPapers = limitedPapers;
+      } else if (papersResResult.status === 'rejected') {
+        console.warn('Failed to fetch question papers:', papersResResult.reason);
+      }
 
-        if (cacheKey) {
-          const cachedValue = await AsyncStorage.getItem(cacheKey);
-          const cachedData = safeJsonParse<Record<string, any>>(cachedValue, {});
-          await AsyncStorage.setItem(cacheKey, JSON.stringify({
-            ...cachedData,
-            recentPapers: sortedPapers,
-          }));
-        }
+      if (cacheKey && Object.keys(updatedCacheData).length > 0) {
+        const cachedValue = await AsyncStorage.getItem(cacheKey);
+        const currentCached = safeJsonParse<Record<string, any>>(cachedValue, {});
+        await AsyncStorage.setItem(cacheKey, JSON.stringify({
+          ...currentCached,
+          ...updatedCacheData,
+        }));
       }
     } catch (error: any) {
       if (error?.response?.status !== 401) {
@@ -249,8 +278,8 @@ export default function StudentDashboardScreen() {
   useEffect(() => {
     const loadProfilePhoto = async () => {
       try {
-        const studentId = (await AsyncStorage.getItem('student_id')) || (await AsyncStorage.getItem('studentId')) || '';
-        const schoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
+        const studentId = ((await AsyncStorage.getItem('student_id')) || (await AsyncStorage.getItem('studentId')) || '').trim();
+        const schoolCode = ((await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '').trim();
         const scopedCacheKey = getStudentPhotoCacheKey(studentId, schoolCode);
 
         const freshProfile = await getStudentProfile();
@@ -308,31 +337,31 @@ export default function StudentDashboardScreen() {
     try {
       const buffer = await downloadQuestionPaper(paperId);
       const base64 = arrayBufferToBase64(buffer);
-      const safeName = (title || `paper_${paperId}`).replace(/[^a-z0-9_.-]/gi, '_');
-      const fileName = `${safeName}.pdf`;
-      const filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
-
-      await RNFS.writeFile(filePath, base64, 'base64');
+      const dataUri = `data:application/pdf;base64,${base64}`;
 
       // Use Share to open with an external PDF viewer (more reliable on mobile)
       try {
         const Share = require('react-native-share').default;
-        const exists = await RNFS.exists(filePath);
-        if (!exists) throw new Error('Written file not found');
-        await Share.open({ url: Platform.OS === 'android' ? `file://${filePath}` : filePath, type: 'application/pdf', title: title || 'Question Paper' });
+
+        await Share.open({
+          url: dataUri,
+          type: 'application/pdf',
+          title: title || 'Question Paper',
+          failOnCancel: false,
+        });
       } catch (shareErr) {
-        const message = String(shareErr?.message || '');
+        const message = String((shareErr as any)?.message || '');
         if (message.includes('User did not share') || message.includes('cancel')) {
           // user cancelled sharing - silently ignore
         } else {
           // Fallback: expose modal with WebView using data URI if Share fails
-          const dataUri = `data:application/pdf;base64,${base64}`;
           setViewingPaperUrl(dataUri);
           setViewerVisible(true);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error viewing paper:', error);
+      Alert.alert('Download Failed', error.message || 'Could not open the question paper. Please try again later.');
     } finally {
       setLoadingViewer(false);
     }
@@ -346,39 +375,39 @@ export default function StudentDashboardScreen() {
   ];
 
   const quickAccess = [
-    { name: 'Homework', icon: 'clipboard', color: '#fdf2f8', iconColor: '#db2777', screen: 'StudentHomework' },
-    { name: 'Attendance', icon: 'list', color: '#fef2f2', iconColor: '#ef4444', screen: 'StudentAttendance' },
-    { name: 'Calendar', icon: 'calendar-outline', color: '#ecfdf5', iconColor: '#10b981', screen: 'CalendarManagement' },
-    { name: 'Marks', icon: 'stats-chart', color: '#ecfeff', iconColor: '#06b6d4', screen: 'StudentMarks' },
-    { name: 'Leaves', icon: 'calendar', color: '#eef2ff', iconColor: '#6366f1', screen: 'StudentLeave' },
-    { name: 'Fees', icon: 'wallet', color: '#fff7ed', iconColor: '#f97316', screen: 'StudentFee' },
-    { name: 'Papers', icon: 'document-text', color: '#f0fdf4', iconColor: '#22c55e', screen: 'StudentQuestionPapers' },
-    { name: 'Notices', icon: 'notifications', color: '#fff1f2', iconColor: '#f43f5e', screen: 'Notifications' },
-    { name: 'Profile', icon: 'person', color: '#f5f3ff', iconColor: '#8b5cf6', screen: 'Profile' },
+    { name: 'Homework', icon: ClipboardList, color: '#EEF2FF', iconColor: '#2563EB', screen: 'StudentHomework' },
+    { name: 'Attendance', icon: CheckCircle2, color: '#FEF2F2', iconColor: '#DC2626', screen: 'StudentAttendance' },
+    { name: 'Holidays', icon: CalendarDays, color: '#F0FDF4', iconColor: '#16A34A', screen: 'PrincipalCalendarManagement' },
+    { name: 'Marks', icon: BarChart3, color: '#FFFBEB', iconColor: '#D97706', screen: 'StudentMarks' },
   ];
 
   if (loading) {
     return (
       <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color="#001a3d" />
+        <ActivityIndicator size="large" color={C.colors.primary} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F50" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 180 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 180, paddingHorizontal: 20 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <View style={[styles.headerContent, { paddingTop: insets.top + 14 }]}>
+        <LinearGradient 
+          colors={['#1E3A8A', '#3B82F6']}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 1}}
+          style={[styles.headerContent, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}
+        >
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={() => navigateRoot('Profile')}>
               {profilePhotoUrl && !profilePhotoError ? (
@@ -391,9 +420,9 @@ export default function StudentDashboardScreen() {
                 /* Use your initials component instead of the random URL */
                 <AvatarBubble
                   displayName={userName || 'Student'}
-                  size={40}
-                  textSize={16}
-                  primaryColor="#2563eb"
+                  size={44}
+                  textSize={18}
+                  primaryColor="#FFF"
                 />
               )}
             </TouchableOpacity>
@@ -401,7 +430,7 @@ export default function StudentDashboardScreen() {
               style={styles.notificationBtn}
               onPress={() => navigateRoot('Notifications')}
             >
-              <Icon name="notifications-outline" size={22} color="#fff" />
+              <Bell size={22} color="#FFF" />
               {unreadCount > 0 && (
                 <View style={styles.badge}>
                   <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
@@ -411,10 +440,19 @@ export default function StudentDashboardScreen() {
           </View>
 
           <View style={styles.welcomeSection}>
-            <View>
-              <AppText style={styles.greeting}>HI {userName?.split(' ')[0] || 'student'} 👋</AppText>
-              <AppText style={styles.subGreeting}>Here's your academic overview.</AppText>
-            </View>
+            <TouchableOpacity 
+              style={styles.headerInfoContainer}
+              onPress={() => setSwitcherVisible(true)}
+              activeOpacity={0.7}
+            >
+              <View>
+                <View style={styles.greetingRow}>
+                  <AppText style={styles.greeting}>HI {userName?.split(' ')[0]?.toUpperCase() || 'STUDENT'} 👋</AppText>
+                  <ChevronDown size={18} color="#FFF" style={styles.chevronIcon} />
+                </View>
+                <AppText style={styles.subGreeting}>Here's your academic overview.</AppText>
+              </View>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.statsGrid}>
@@ -434,15 +472,16 @@ export default function StudentDashboardScreen() {
             <View style={styles.chartPlaceholder}>
                <Svg height="40" width="100" viewBox="0 0 100 40">
                   <Path
-                    d="M0 35 Q 25 35, 50 20 T 100 5"
+                    d="M5 30 Q 30 30, 60 15 T 95 5"
                     fill="none"
-                    stroke="#6366f1"
+                    stroke={C.colors.blue}
                     strokeWidth="3"
+                    strokeLinecap="round"
                   />
                </Svg>
             </View>
           </View>
-        </View>
+        </LinearGradient>
 
 
         <View style={styles.contentContainer}>
@@ -450,14 +489,14 @@ export default function StudentDashboardScreen() {
             <View style={styles.sectionHeader}>
               <AppText style={styles.sectionTitle}>Recent Question Papers</AppText>
               <TouchableOpacity onPress={() => navigation.navigate('StudentQuestionPapers')}>
-                <AppText style={styles.viewAll}>View All</AppText>
+                <AppText style={styles.viewAll}>View All →</AppText>
               </TouchableOpacity>
             </View>
             {recentPapers.length > 0 ? (
               recentPapers.map((paper, index) => (
                 <View key={index} style={styles.paperCardRow}>
-                  <View style={[styles.activityIcon, { backgroundColor: '#eff6ff' }]}>
-                    <Icon name="document-text" size={20} color="#3b82f6" />
+                  <View style={[styles.activityIcon, { backgroundColor: C.colors.blueLight }]}>
+                    <FileText size={22} color={C.colors.blue} />
                   </View>
                   <View style={styles.activityInfo}>
                     <AppText style={styles.activityTitle} numberOfLines={1}>{paper.title}</AppText>
@@ -483,23 +522,22 @@ export default function StudentDashboardScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <AppText style={styles.sectionTitle}>Quick Access</AppText>
-              {/* <TouchableOpacity>
-                <AppText style={styles.viewAll}>View All</AppText>
-              </TouchableOpacity> */}
             </View>
             <View style={styles.quickAccessGrid}>
-                  {quickAccess.map((item, i) => (
+                  {quickAccess.map((item, i) => {
+                    const IconComponent = item.icon;
+                    return (
                 <TouchableOpacity
                   key={`quick-${i}`}
                   style={styles.gridItem}
                       onPress={() => item.screen && navigateRoot(item.screen as any, (item as any).params)}
                 >
                   <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-                    <Icon name={item.icon as any} size={24} color={item.iconColor} />
+                    <IconComponent size={24} color={item.iconColor} />
                   </View>
                   <AppText style={styles.gridLabel}>{item.name}</AppText>
                 </TouchableOpacity>
-              ))}
+              )})}
             </View>
           </View>
 
@@ -511,14 +549,14 @@ export default function StudentDashboardScreen() {
               </TouchableOpacity>
             </View>
             {recentAttendance.length > 0 ? (
-              recentAttendance.slice(0, 3).map((item, index) => (
+              recentAttendance.map((item, index) => (
                 <View key={index} style={styles.activityCardRow}>
-                  <View style={[styles.activityIcon, { backgroundColor: item.status?.toLowerCase() === 'present' ? '#dcfce7' : '#fee2e2' }]}>
-                    <Icon
-                      name={item.status?.toLowerCase() === 'present' ? "checkmark-circle" : "close-circle"}
-                      size={20}
-                      color={item.status?.toLowerCase() === 'present' ? "#15803d" : "#b91c1c"}
-                    />
+                  <View style={[styles.activityIcon, { backgroundColor: item.status?.toLowerCase() === 'present' ? C.colors.successBg : C.colors.errorBg }]}>
+                    {item.status?.toLowerCase() === 'present' ? (
+                      <CheckCircle2 size={22} color={C.colors.success} />
+                    ) : (
+                      <XCircle size={22} color={C.colors.error} />
+                    )}
                   </View>
                   <View style={styles.activityInfo}>
                     <AppText style={styles.activityTitle}>Attendance Marked</AppText>
@@ -526,7 +564,7 @@ export default function StudentDashboardScreen() {
                       {new Date(item.attendance_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </AppText>
                   </View>
-                  <AppText style={[styles.activityStatus, { color: item.status?.toLowerCase() === 'present' ? "#15803d" : "#b91c1c" }]}>
+                  <AppText style={[styles.activityStatus, { color: item.status?.toLowerCase() === 'present' ? C.colors.success : C.colors.error }]}>
                     {item.status}
                   </AppText>
                 </View>
@@ -554,7 +592,7 @@ export default function StudentDashboardScreen() {
               onPress={() => setViewerVisible(false)}
               style={styles.viewerCloseBtn}
             >
-              <Icon name="close" size={24} color="#0f172a" />
+              <X size={24} color={C.colors.text} />
             </TouchableOpacity>
             <AppText style={styles.viewerTitle} numberOfLines={1}>{viewingPaperTitle}</AppText>
             <View style={{ width: 40 }} />
@@ -572,10 +610,15 @@ export default function StudentDashboardScreen() {
 
       {loadingViewer && (
         <View style={styles.loaderOverlay}>
-          <ActivityIndicator size="large" color="#3b82f6" />
+          <ActivityIndicator size="large" color={C.colors.blue} />
           <AppText style={styles.loaderText}>Opening paper...</AppText>
         </View>
       )}
+
+      <AccountSwitcher 
+        visible={switcherVisible} 
+        onClose={() => setSwitcherVisible(false)} 
+      />
     </View>
   );
 }
@@ -583,40 +626,53 @@ export default function StudentDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f5f9',
+    backgroundColor: C.colors.background,
   },
   center: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerContent: {
-    backgroundColor: '#001F50',
+    backgroundColor: C.colors.primary,
     paddingHorizontal: 20,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 36,
-    borderBottomRightRadius: 36,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    marginBottom: 20,
+    marginHorizontal: -20,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 18,
+    marginBottom: 12,
   },
   welcomeSection: {
-    marginBottom: 16,
+    marginBottom: 10,
+  },
+  headerInfoContainer: {
+    alignSelf: 'flex-start',
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chevronIcon: {
+    marginLeft: 6,
+    opacity: 0.8,
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 3,
-    borderColor: '#22c55e',
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: C.colors.background,
   },
   notificationBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -624,81 +680,71 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 5,
     right: 5,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#ef4444',
-    borderWidth: 1,
-    borderColor: '#001F50',
+    borderWidth: 2,
+    borderColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 2,
+    zIndex: 1,
   },
   badgeText: {
-    color: '#fff',
-    fontSize: 8,
-    fontWeight: '800',
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '900',
     textAlign: 'center',
   },
   greeting: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '800',
-    color: '#f8fafc',
-    lineHeight: 36,
+    color: C.colors.background,
+    lineHeight: 32,
   },
   subGreeting: {
     fontSize: 14,
-    color: 'rgba(248,250,252,0.68)',
+    color: C.colors.backgroundAlt + 'AD', // ~0.68 opacity
     marginTop: 2,
     fontWeight: '600',
   },
   statsGrid: {
-    marginTop: 8,
+    marginTop: 16,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
   statCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    width: '48%',
-    minHeight: 84,
-    marginBottom: 12,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.07,
-    shadowRadius: 14,
-    elevation: 3,
+    backgroundColor: C.colors.card,
+    borderRadius: 22,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    width: '46%',
+    marginBottom: 16,
+    ...C.shadow.sm,
   },
   attendancePctCard: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    paddingHorizontal: 16,
+    backgroundColor: C.colors.card,
+    borderRadius: 22,
+    paddingHorizontal: 20,
     paddingVertical: 16,
-    marginTop: 12,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 3,
+    marginTop: 8,
+    ...C.shadow.sm,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   statLabel: {
-    fontSize: 12,
-    color: '#64748b',
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '600',
   },
   statValue: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#0f172a',
+    color: '#111827',
     marginTop: 2,
-    lineHeight: 28,
   },
   chartPlaceholder: {
     width: 110,
@@ -706,29 +752,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   contentContainer: {
-    marginTop: 6,
-    backgroundColor: '#f3f5f9',
-    paddingTop: 6,
+    backgroundColor: C.colors.background,
   },
   section: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
-    lineHeight: 22,
+    color: C.colors.text,
+    lineHeight: 24,
   },
   viewAll: {
-    fontSize: 14,
-    color: '#6366f1',
+    fontSize: 15,
+    color: C.colors.blue,
     fontWeight: '700',
   },
   quickAccessGrid: {
@@ -737,53 +780,41 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   gridItem: {
-    width: '24%',
+    width: (SCREEN_WIDTH - 60) / 4,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    marginBottom: 8,
   },
   gridLabel: {
     fontSize: 11,
-    color: '#64748b',
-    fontWeight: '700',
+    color: C.colors.text,
+    fontWeight: '600',
     textAlign: 'center',
+    lineHeight: 14,
   },
   activityCard: {
-    backgroundColor: '#fff',
+    backgroundColor: C.colors.card,
     borderRadius: 18,
     padding: 20,
     alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    ...C.shadow.sm,
   },
   activityCardRow: {
-    backgroundColor: '#fff',
+    backgroundColor: C.colors.card,
     borderRadius: 18,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    ...C.shadow.sm,
   },
   activityIcon: {
     width: 44,
@@ -797,51 +828,47 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   activityTitle: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#0f172a',
+    color: C.colors.text,
   },
   activityDate: {
-    fontSize: 12,
-    color: '#64748b',
+    fontSize: 14,
+    color: C.colors.textMuted,
     marginTop: 3,
   },
   activityStatus: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   activityDetail: {
-    fontSize: 12,
-    color: '#64748b',
+    fontSize: 14,
+    color: C.colors.textMuted,
   },
   paperCardRow: {
-    backgroundColor: '#fff',
+    backgroundColor: C.colors.card,
     borderRadius: 18,
-    padding: 14,
+    padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    marginBottom: 8,
+    ...C.shadow.sm,
   },
   viewPaperBtn: {
-    backgroundColor: '#eff6ff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 10,
   },
   viewPaperBtnText: {
-    color: '#3b82f6',
-    fontSize: 12,
+    color: C.colors.blue,
+    fontSize: 15,
     fontWeight: '700',
   },
   viewerContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: C.colors.card,
   },
   viewerHeader: {
     flexDirection: 'row',
@@ -849,7 +876,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: C.colors.border,
   },
   viewerCloseBtn: {
     width: 40,
@@ -860,21 +887,21 @@ const styles = StyleSheet.create({
   viewerTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#0f172a',
+    color: C.colors.text,
   },
   loaderOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: C.colors.card + 'CC', // 0.8 opacity
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
   },
   loaderText: {
     marginTop: 12,
-    fontSize: 14,
-    color: '#3b82f6',
+    fontSize: 15,
+    color: C.colors.blue,
     fontWeight: '600',
   },
 });

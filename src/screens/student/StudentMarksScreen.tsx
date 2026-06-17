@@ -16,14 +16,15 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
-import Icon from '@react-native-vector-icons/feather';
+import Icon from 'react-native-vector-icons/Feather';
 import API from '../../services/api';
 import { getStudentMarks, getStudentExams } from '../../services/studentService';
-import { colors } from '../../constants/theme';
+import { Theme as C } from '../../theme/theme';
 import AppText from '../../components/common/AppText';
 import AppCard from '../../components/common/AppCard';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 
 const { width } = Dimensions.get('window');
 
@@ -74,7 +75,7 @@ const ResultBadge: React.FC<{ status: string }> = ({ status }) => {
       <Icon 
         name={isPass ? "check-circle" : "x-circle"} 
         size={12} 
-        color={isPass ? "#22c55e" : "#ef4444"} 
+        color={isPass ? C.colors.success : C.colors.error}
       />
       <AppText style={[styles.badgeText, isPass ? styles.badgeTextPass : styles.badgeTextFail]}>
         {status || 'FAIL'}
@@ -94,7 +95,7 @@ const SummaryCard: React.FC<{
 }> = ({ label, value, icon, trend }) => (
   <View style={styles.summaryCard}>
     <View style={styles.summaryIconContainer}>
-      <Icon name={icon} size={20} color="#3b82f6" />
+      <Icon name={icon} size={20} color={C.colors.blue} />
     </View>
     <View style={styles.summaryContent}>
       <AppText style={styles.summaryLabel}>{label}</AppText>
@@ -104,9 +105,9 @@ const SummaryCard: React.FC<{
           <Icon 
             name={trend >= 0 ? "arrow-up" : "arrow-down"} 
             size={10} 
-            color={trend >= 0 ? "#10b981" : "#ef4444"} 
+            color={trend >= 0 ? C.colors.success : C.colors.error}
           />
-          <AppText style={[styles.trendText, { color: trend >= 0 ? "#10b981" : "#ef4444" }]}>
+          <AppText style={[styles.trendText, { color: trend >= 0 ? C.colors.success : C.colors.error }]}>
             {Math.abs(trend)}%
           </AppText>
         </View>
@@ -121,10 +122,10 @@ const MarksCard: React.FC<{ mark: Mark }> = ({ mark }) => {
   const isPass = mark.result_status?.toUpperCase() === 'PASS';
   
   const getProgressColor = () => {
-    if (percentage >= 75) return '#10b981';
-    if (percentage >= 60) return '#3b82f6';
-    if (percentage >= 45) return '#f59e0b';
-    return '#ef4444';
+    if (percentage >= 75) return C.colors.success;
+    if (percentage >= 60) return C.colors.blue;
+    if (percentage >= 45) return C.colors.warning;
+    return C.colors.error;
   };
 
   return (
@@ -171,7 +172,7 @@ const MarksCard: React.FC<{ mark: Mark }> = ({ mark }) => {
           <ResultBadge status={mark.result_status} />
           {mark.remarks && (
             <View style={styles.remarksContainer}>
-              <Icon name="message-circle" size={12} color="#64748b" />
+              <Icon name="message-circle" size={12} color={C.colors.textMuted} />
               <AppText style={styles.remarksText}>{mark.remarks}</AppText>
             </View>
           )}
@@ -363,14 +364,14 @@ export default function StudentMarksScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
       
-      <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+      <View style={[styles.header, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 20 }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs')}
         >
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <Icon name="arrow-left" size={24} color={C.colors.card} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <AppText style={styles.headerTitle}>Marks & Results</AppText>
@@ -379,7 +380,7 @@ export default function StudentMarksScreen() {
           style={styles.notificationIcon}
           onPress={() => navigation.navigate('Notifications')}
         >
-          <Icon name="bell" size={24} color="#fff" />
+          <Icon name="bell" size={24} color={C.colors.card} />
         </TouchableOpacity>
       </View>
 
@@ -390,7 +391,7 @@ export default function StudentMarksScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />
         }
       >
         <View style={styles.mainCard}>
@@ -403,7 +404,7 @@ export default function StudentMarksScreen() {
               <AppText style={[styles.dropdownText, !selectedExamName && styles.dropdownPlaceholder]}>
                 {selectedExamName || 'Select Exam'}
               </AppText>
-              <Icon name="chevron-down" size={20} color="#64748b" />
+              <Icon name="chevron-down" size={20} color={C.colors.textMuted} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -411,10 +412,10 @@ export default function StudentMarksScreen() {
               onPress={() => loadMarks()}
             >
               {loadingMarks ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={C.colors.card} />
               ) : (
                 <>
-                  <Icon name="refresh-cw" size={16} color="#fff" style={styles.refreshIcon} />
+                  <Icon name="refresh-cw" size={16} color={C.colors.card} style={styles.refreshIcon} />
                   <AppText style={styles.viewMarksText}>View Marks</AppText>
                 </>
               )}
@@ -453,7 +454,7 @@ export default function StudentMarksScreen() {
             </View>
           ) : !loadingMarks && (
             <View style={styles.emptyResults}>
-              <Icon name="info" size={48} color="#cbd5e1" />
+              <Icon name="info" size={48} color={C.colors.border} />
               <AppText style={styles.emptyResultsText}>No marks to display. Please select an exam and click View Marks.</AppText>
             </View>
           )}
@@ -472,7 +473,7 @@ export default function StudentMarksScreen() {
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle}>Select Examination</AppText>
               <TouchableOpacity onPress={() => setShowExamModal(false)}>
-                <Icon name="x" size={24} color="#0f172a" />
+                <Icon name="x" size={24} color={C.colors.primary} />
               </TouchableOpacity>
             </View>
             <View style={styles.modalScrollContainer}>
@@ -502,7 +503,7 @@ export default function StudentMarksScreen() {
                     {exam.exam_name}
                   </AppText>
                   {examId === String(exam.exam_id) && (
-                    <Icon name="check" size={20} color="#3b82f6" />
+                    <Icon name="check" size={20} color={C.colors.blue} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -518,10 +519,10 @@ export default function StudentMarksScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.colors.background,
   },
   header: {
-    backgroundColor: '#001F3F',
+    backgroundColor: C.colors.primary,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -539,7 +540,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: C.colors.card,
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
@@ -558,35 +559,27 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   mainCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.colors.card,
     marginHorizontal: 12,
     borderRadius: 12,
     padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    ...C.shadow.sm,
     minHeight: 200,
     marginTop: 10,
   },
   summaryCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.colors.card,
     borderRadius: 12,
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    ...C.shadow.sm,
   },
   summaryIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: C.colors.blueLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -596,13 +589,13 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: C.colors.textSec,
     marginBottom: 2,
     fontWeight: '600',
   },
   summaryValue: {
     fontSize: 18,
-    color: '#0F172A',
+    color: C.colors.primary,
     fontWeight: '700',
   },
   trendContainer: {
@@ -617,7 +610,7 @@ const styles = StyleSheet.create({
   },
   selectLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: C.colors.textSec,
     marginBottom: 4,
     fontWeight: '600',
   },
@@ -629,10 +622,10 @@ const styles = StyleSheet.create({
   dropdownButton: {
     flex: 1,
     height: 44,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.colors.background,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: C.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -640,14 +633,14 @@ const styles = StyleSheet.create({
   },
   dropdownText: {
     fontSize: 14,
-    color: '#1E293B',
+    color: C.colors.primary,
     fontWeight: '500',
   },
   dropdownPlaceholder: {
-    color: '#94A3B8',
+    color: C.colors.textMuted,
   },
   viewMarksButton: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: C.colors.blue,
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
@@ -656,7 +649,7 @@ const styles = StyleSheet.create({
     height: 44,
   },
   viewMarksText: {
-    color: '#FFFFFF',
+    color: C.colors.card,
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -666,22 +659,22 @@ const styles = StyleSheet.create({
   subjectListContainer: {
     marginTop: 6,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: C.colors.border,
     borderRadius: 10,
     overflow: 'hidden',
   },
   subjectListHeader: {
     flexDirection: 'row',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: C.colors.border,
     paddingVertical: 10,
     paddingHorizontal: 8,
   },
   subjectListHeaderCell: {
     fontSize: 11,
     textTransform: 'uppercase',
-    color: '#94A3B8',
+    color: C.colors.textMuted,
     fontWeight: '700',
     letterSpacing: 0.4,
   },
@@ -691,14 +684,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: C.colors.backgroundAlt,
   },
   subjectListRowAlt: {
-    backgroundColor: '#FCFDFF',
+    backgroundColor: C.colors.cardAlt,
   },
   subjectListCell: {
     fontSize: 13,
-    color: '#1E293B',
+    color: C.colors.primary,
     fontWeight: '600',
   },
   subjectCol: {
@@ -733,15 +726,15 @@ const styles = StyleSheet.create({
   },
   gridItem: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.colors.background,
     borderRadius: 8,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: C.colors.backgroundAlt,
   },
   gridLabel: {
     fontSize: 9,
-    color: '#94A3B8',
+    color: C.colors.textMuted,
     marginBottom: 2,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -750,17 +743,13 @@ const styles = StyleSheet.create({
   gridValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1E293B',
+    color: C.colors.primary,
   },
   marksCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.colors.card,
     borderRadius: 12,
     padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    ...C.shadow.sm,
   },
   marksCardHeader: {
     flexDirection: 'row',
@@ -784,7 +773,7 @@ const styles = StyleSheet.create({
   },
   subjectName: {
     fontSize: 15,
-    color: '#0F172A',
+    color: C.colors.primary,
     fontWeight: '700',
     flexShrink: 1,
   },
@@ -797,15 +786,15 @@ const styles = StyleSheet.create({
   },
   marksItem: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.colors.background,
     borderRadius: 8,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: C.colors.backgroundAlt,
   },
   marksLabel: {
     fontSize: 9,
-    color: '#94A3B8',
+    color: C.colors.textMuted,
     marginBottom: 2,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -814,7 +803,7 @@ const styles = StyleSheet.create({
   marksValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1E293B',
+    color: C.colors.primary,
   },
   progressContainer: {
     flexDirection: 'row',
@@ -825,7 +814,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 8,
     borderRadius: 999,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: C.colors.border,
     overflow: 'hidden',
   },
   progressFill: {
@@ -837,7 +826,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: C.colors.textSec,
   },
   resultContainer: {
     flexDirection: 'row',
@@ -854,7 +843,7 @@ const styles = StyleSheet.create({
   remarksText: {
     flex: 1,
     fontSize: 12,
-    color: '#64748B',
+    color: C.colors.textSec,
   },
   resultBadgeContainer: {
     paddingHorizontal: 10,
@@ -874,20 +863,20 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   badgePass: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: C.colors.successBg,
   },
   badgeFail: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: C.colors.errorBg,
   },
   badgeText: {
     fontSize: 12,
     fontWeight: '700',
   },
   badgeTextPass: {
-    color: '#15803d',
+    color: C.colors.success,
   },
   badgeTextFail: {
-    color: '#b91c1c',
+    color: C.colors.error,
   },
   // grading styles removed
   emptyResults: {
@@ -898,18 +887,18 @@ const styles = StyleSheet.create({
   },
   emptyResultsText: {
     fontSize: 14,
-    color: '#94A3B8',
+    color: C.colors.textMuted,
     textAlign: 'center',
     marginTop: 16,
     lineHeight: 20,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: '#00000080',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
@@ -921,15 +910,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: C.colors.borderLight,
+    backgroundColor: C.colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: C.colors.primary,
   },
   modalScrollContainer: {
     flex: 1,
@@ -952,22 +941,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
+    borderBottomColor: C.colors.background,
   },
   modalItemSelected: {
-    backgroundColor: '#F0F7FF',
+    backgroundColor: C.colors.blueLight,
     borderRadius: 12,
     paddingHorizontal: 12,
     marginHorizontal: -12,
   },
   modalItemText: {
     fontSize: 16,
-    color: '#1E293B',
+    color: C.colors.primary,
     fontWeight: '500',
     flex: 1,
   },
   modalItemTextSelected: {
-    color: '#3B82F6',
+    color: C.colors.blue,
     fontWeight: 'bold',
   },
 });

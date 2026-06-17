@@ -18,13 +18,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Linking } from 'react-native';
-import { useCameraDevice, Camera } from 'react-native-vision-camera';
+import { useCameraDevice, Camera, CameraDevices } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import RNFS from 'react-native-fs';
 import {
   ChevronLeft,
+  ChevronRight,
   ChevronDown,
   Camera as CameraIcon,
   Upload,
@@ -43,7 +44,9 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import * as teacherService from '../../services/teacherService';
 import { colors } from '../../constants/theme';
-import { HM_THEME } from '../../constants/hmTheme';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { Director_THEME } from '../../constants/directorTheme';
+import { Theme } from '../../theme/theme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
@@ -203,7 +206,7 @@ const Toast: React.FC<{
   icon?: string;
   color?: string;
   onClose: () => void;
-}> = ({ visible, title, message, icon = 'ℹ️', color = '#2563eb', onClose }) => {
+}> = ({ visible, title, message, icon = 'ℹ️', color = '#6648dc', onClose }) => {
   useEffect(() => {
     if (visible) {
       const timer = setTimeout(onClose, 4000);
@@ -226,6 +229,9 @@ const Toast: React.FC<{
     </View>
   );
 };
+
+// Global safety check for Vision Camera native module
+const isCameraAvailable = typeof CameraDevices !== 'undefined' && CameraDevices !== null;
 
 export default function TeacherAttendanceScreen() {
   const insets = useSafeAreaInsets();
@@ -282,7 +288,10 @@ export default function TeacherAttendanceScreen() {
     lastScrollY.current = currentScrollY;
   };
   const cameraRef = useRef<Camera>(null);
-  const device = useCameraDevice(cameraPosition);
+  
+  // Safe device acquisition - MUST be at top level
+  // Guard against undefined hook or native module by checking availability
+  const device = isCameraAvailable ? useCameraDevice(cameraPosition) : undefined;
   
   // Form
   const [form, setForm] = useState({
@@ -305,6 +314,7 @@ export default function TeacherAttendanceScreen() {
   const [teacherData, setTeacherData] = useState<TeacherData | null>(null);
   const [assignedClasses, setAssignedClasses] = useState<AssignedClass[]>([]);
   const [selectedClassKey, setSelectedClassKey] = useState<string>('');
+  const [enableManualAttendance, setEnableManualAttendance] = useState<boolean>(false);
   
   // Student attendance
   const [studentImages, setStudentImages] = useState<string[]>([]);
@@ -440,6 +450,7 @@ export default function TeacherAttendanceScreen() {
           const data = await teacherService.getAttendanceSettings({ 'X-School-Code': code, 'X-Branch-Id': bid });
           if (isMounted.current) {
             setDailySessions(data?.daily_sessions === 2 ? 2 : 1);
+            setEnableManualAttendance(Boolean(data?.enable_manual_attendance));
           }
         }
       } catch (e) {
@@ -448,11 +459,13 @@ export default function TeacherAttendanceScreen() {
     };
     load();
     
-    Camera.requestCameraPermission().then(permission => {
-      if (isMounted.current) {
-        setHasPermission(permission === 'granted');
-      }
-    });
+    if (isCameraAvailable) {
+      Camera.requestCameraPermission().then(permission => {
+        if (isMounted.current) {
+          setHasPermission(permission === 'granted');
+        }
+      });
+    }
   }, []);
 
   // Load classes
@@ -612,7 +625,7 @@ export default function TeacherAttendanceScreen() {
 
   const verifyTeacher = async () => {
     if (!teacherImage) {
-      showToast('Image Required', 'Please capture or upload your photo first', '📸', HM_THEME.navy);
+      showToast('Image Required', 'Please capture or upload your photo first', '📸', Theme.colors.primary);
       startCamera('teacher');
       return;
     }
@@ -665,7 +678,7 @@ export default function TeacherAttendanceScreen() {
       }
 
       setCameraActive(false); 
-      setStep(3);
+      setStep(2); // Show "Verified" screen first to allow class confirmation
       showToast('Identity verified!', `Welcome, ${data.teacher_full_name}`, '✅', '#22C55E');
     } catch (err: any) {
       if (!isMounted.current) return;
@@ -757,7 +770,7 @@ export default function TeacherAttendanceScreen() {
         
         // Merge logic: combine present lists, remove promoted students from absent
         const prevPresentIds = new Set((prevResult.present || []).map(s => s.student_id));
-        const newPresentIds = new Set((data.present || []).map(s => s.student_id));
+        const newPresentIds = new Set((data.present || []).map((s: any) => s.student_id));
         
         // Keep all previously present students
         const mergedPresentIds = new Set([...prevPresentIds, ...newPresentIds]);
@@ -767,7 +780,7 @@ export default function TeacherAttendanceScreen() {
         const seenIds = new Set();
         
         // Add from previous result
-        (prevResult.present || []).forEach((student) => {
+        (prevResult.present || []).forEach((student: any) => {
           const id = student.student_id;
           if (id && !seenIds.has(id)) {
             mergedPresent.push(student);
@@ -776,7 +789,7 @@ export default function TeacherAttendanceScreen() {
         });
         
         // Add new students from current result
-        (data.present || []).forEach((student) => {
+        (data.present || []).forEach((student: any) => {
           const id = student.student_id;
           if (id && !seenIds.has(id)) {
             mergedPresent.push(student);
@@ -785,7 +798,7 @@ export default function TeacherAttendanceScreen() {
         });
         
         // Build merged absent list (exclude promoted students)
-        const mergedAbsent = (data.absent || []).filter((student) => {
+        const mergedAbsent = (data.absent || []).filter((student: any) => {
           const id = student.student_id;
           return !mergedPresentIds.has(id);
         });
@@ -1042,10 +1055,11 @@ export default function TeacherAttendanceScreen() {
   }, [assignedClasses, classOptions, form.class_grade]);
 
   const manualRows = useMemo(() => {
-    const presentRows = Array.isArray(result?.present)
+    if (!result) return [];
+    const presentRows = Array.isArray(result.present)
       ? result.present.filter(s => s !== null).map(s => ({ ...s, _defaultStatus: 'PRESENT' as const }))
       : [];
-    const absentRows = Array.isArray(result?.absent)
+    const absentRows = Array.isArray(result.absent)
       ? result.absent.filter(s => s !== null).map(s => ({ ...s, _defaultStatus: 'ABSENT' as const }))
       : [];
     return [...presentRows, ...absentRows].filter(s => s && String(s.student_id || '').trim());
@@ -1121,9 +1135,9 @@ export default function TeacherAttendanceScreen() {
     const groupImages = savedAttendanceData?.image_urls || [];
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
+        <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+          <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
             <View style={styles.headerContent}>
               <TouchableOpacity style={styles.backBtn} onPress={resetFlow}>
                 <ChevronLeft size={24} color="#FFFFFF" />
@@ -1174,7 +1188,7 @@ export default function TeacherAttendanceScreen() {
           {groupImages.length > 0 && (
             <AppCard style={styles.mainCard}>
               <View style={styles.cardHeader}>
-                <CameraIcon size={20} color={HM_THEME.navy} />
+                <CameraIcon size={20} color={Theme.colors.primary} />
                 <AppText style={styles.cardTitle}>Student Images ({groupImages.length})</AppText>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ padding: 16 }}>
@@ -1187,7 +1201,7 @@ export default function TeacherAttendanceScreen() {
             </AppCard>
           )}
 
-          <AppButton title="✓ Done - Start New Attendance" onPress={resetFlow} style={[styles.primaryButton, { marginHorizontal: 16, marginBottom: 30 }]} />
+          <AppButton title="✓ Done - Start New Attendance" onPress={resetFlow} style={[styles.primaryButton as any, { marginHorizontal: 16, marginBottom: 30 }]} />
         </ScrollView>
       </View>
     );
@@ -1195,7 +1209,7 @@ export default function TeacherAttendanceScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       <Toast
         visible={toast.visible}
@@ -1213,7 +1227,7 @@ export default function TeacherAttendanceScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Navy Header */}
-        <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+        <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
           <View style={styles.headerContent}>
             <TouchableOpacity
               style={styles.backBtn}
@@ -1317,7 +1331,7 @@ export default function TeacherAttendanceScreen() {
         {step === 1 && (
           <AppCard style={styles.mainCard}>
             <View style={styles.cardHeader}>
-              <UserCheck size={20} color={HM_THEME.navy} />
+              <UserCheck size={20} color={Theme.colors.primary} />
               <AppText style={styles.cardTitle}>Teacher Face Verification</AppText>
             </View>
 
@@ -1329,13 +1343,13 @@ export default function TeacherAttendanceScreen() {
 
               {!cameraActive && (
                 <View style={styles.buttonGrid}>
-                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: HM_THEME.navy }]} onPress={() => startCamera('teacher')}>
+                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: Theme.colors.primary }]} onPress={() => startCamera('teacher')}>
                     <CameraIcon size={20} color="#fff" />
                     <AppText style={styles.actionBtnText}>Start Camera</AppText>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#F1F5F9' }]} onPress={handleTeacherUpload}>
-                    <Upload size={20} color={HM_THEME.navy} />
-                    <AppText style={[styles.actionBtnText, { color: HM_THEME.navy }]}>Upload</AppText>
+                    <Upload size={20} color={Theme.colors.primary} />
+                    <AppText style={[styles.actionBtnText, { color: Theme.colors.primary }]}>Upload</AppText>
                   </TouchableOpacity>
                 </View>
               )}
@@ -1356,6 +1370,23 @@ export default function TeacherAttendanceScreen() {
                 disabled={loading}
                 style={styles.primaryButton}
               />
+
+              {enableManualAttendance && (
+                <TouchableOpacity 
+                  style={styles.manualFallbackBtn} 
+                  onPress={() => (navigation as any).navigate('MarkAttendance')}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.manualFallbackIconContainer}>
+                    <UserCheck size={20} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.manualFallbackTextContainer}>
+                    <AppText style={styles.manualFallbackBtnText}>Switch to Manual Attendance</AppText>
+                    <AppText style={styles.manualFallbackSubText}>Mark attendance without face verification</AppText>
+                  </View>
+                  <ChevronRight size={20} color={Theme.colors.primary} />
+                </TouchableOpacity>
+              )}
             </View>
           </AppCard>
         )}
@@ -1423,7 +1454,7 @@ export default function TeacherAttendanceScreen() {
               )}
 
               <View style={styles.buttonRow}>
-                <AppButton title="Continue →" onPress={() => setStep(3)} style={[styles.primaryButton, { flex: 1 }]} />
+                <AppButton title="Continue →" onPress={() => setStep(3)} style={[styles.primaryButton as any, { flex: 1 }]} />
                 <AppButton title="Reset" onPress={resetFlow} type="secondary" style={{ flex: 1 }} />
               </View>
             </View>
@@ -1434,7 +1465,7 @@ export default function TeacherAttendanceScreen() {
         {step === 3 && (
           <AppCard style={styles.mainCard}>
             <View style={styles.cardHeader}>
-              <LayoutGrid size={20} color={HM_THEME.navy} />
+              <LayoutGrid size={20} color={Theme.colors.primary} />
               <AppText style={styles.cardTitle}>Student Attendance Setup</AppText>
             </View>
 
@@ -1536,7 +1567,7 @@ export default function TeacherAttendanceScreen() {
               {!cameraActive && (
                 <View style={styles.buttonGrid}>
                   <TouchableOpacity
-                    style={[styles.actionBtn, { backgroundColor: HM_THEME.navy }]}
+                    style={[styles.actionBtn, { backgroundColor: Theme.colors.primary }]}
                     onPress={() => startCamera('student')}
                     disabled={studentImages.length >= MAX_STUDENT_IMAGES}
                   >
@@ -1548,8 +1579,8 @@ export default function TeacherAttendanceScreen() {
                     onPress={handleStudentUpload}
                     disabled={studentImages.length >= MAX_STUDENT_IMAGES}
                   >
-                    <Upload size={20} color={HM_THEME.navy} />
-                    <AppText style={[styles.actionBtnText, { color: HM_THEME.navy }]}>Upload</AppText>
+                    <Upload size={20} color={Theme.colors.primary} />
+                    <AppText style={[styles.actionBtnText, { color: Theme.colors.primary }]}>Upload</AppText>
                   </TouchableOpacity>
                 </View>
               )}
@@ -1653,7 +1684,7 @@ export default function TeacherAttendanceScreen() {
                     onPress={resetManualChanges}
                     disabled={!manualHasChanges}
                   >
-                    <RefreshCw size={16} color={manualHasChanges ? HM_THEME.navy : '#94A3B8'} />
+                    <RefreshCw size={16} color={manualHasChanges ? Theme.colors.primary : '#94A3B8'} />
                     <AppText style={[styles.resetBtnText, !manualHasChanges && { color: '#94A3B8' }]}>
                       Reset to Scan Result
                     </AppText>
@@ -1717,7 +1748,7 @@ export default function TeacherAttendanceScreen() {
                     title={manualSaving ? 'Saving...' : 'Save Attendance'}
                     onPress={saveAttendance}
                     disabled={manualSaving || (isClassTeacher && isCurrentSessionMarked())}
-                    style={[styles.primaryButton, { flex: 1 }]}
+                    style={[styles.primaryButton as any, { flex: 1 }]}
                   />
                   <TouchableOpacity style={styles.retryBtn} onPress={() => {
                     setResult(null);
@@ -1770,10 +1801,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   headerStandard: {
-    backgroundColor: HM_THEME.navy,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    paddingBottom: 30,
+    backgroundColor: Theme.colors.primary,
+    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
+    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
+    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
     elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -1784,7 +1815,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
     paddingBottom: 12,
   },
   backBtn: {
@@ -1831,7 +1862,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   activeTabText: {
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
     fontWeight: '700',
   },
   heroContent: {
@@ -1888,8 +1919,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   stepActive: {
-    backgroundColor: HM_THEME.navy,
-    borderColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
     elevation: 3,
     shadowOpacity: 0.2,
   },
@@ -1911,7 +1942,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   stepLabelActive: {
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
     fontWeight: '700',
   },
   stepConnector: {
@@ -1926,7 +1957,7 @@ const styles = StyleSheet.create({
   },
   mainCard: {
     marginHorizontal: 16,
-    borderRadius: 30,
+    borderRadius: Theme.radius.xxxl,
     backgroundColor: '#FFFFFF',
     borderWidth: 0,
     elevation: 4,
@@ -2046,11 +2077,54 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   primaryButton: {
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
     borderRadius: 14,
     height: 52,
     elevation: 3,
     shadowOpacity: 0.2,
+  },
+  manualFallbackBtn: {
+    marginTop: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  manualFallbackIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: Theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+    shadowColor: Theme.colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  manualFallbackTextContainer: {
+    flex: 1,
+  },
+  manualFallbackBtnText: {
+    color: '#0F172A',
+    fontWeight: '700',
+    fontSize: 15,
+    marginBottom: 2,
+  },
+  manualFallbackSubText: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '500',
   },
   teacherInfo: {
     backgroundColor: '#EFF6FF',
@@ -2089,8 +2163,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   chipActive: {
-    backgroundColor: HM_THEME.navy,
-    borderColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
     elevation: 2,
     shadowOpacity: 0.15,
   },
@@ -2214,8 +2288,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   filterChipActive: {
-    backgroundColor: HM_THEME.navy,
-    borderColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
   },
   filterChipText: {
     fontSize: 12,
@@ -2358,7 +2432,7 @@ const styles = StyleSheet.create({
     elevation: 10,
     zIndex: 9999,
     borderLeftWidth: 5,
-    borderLeftColor: '#2563eb',
+    borderLeftColor: '#6648dc',
   },
   toastIcon: { fontSize: 24, marginRight: 14 },
   toastContent: { flex: 1 },
@@ -2383,7 +2457,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cameraStep: {
-    backgroundColor: 'rgba(0,31,63,0.9)',
+    backgroundColor: 'rgba(0,31,80,0.9)',
     color: '#fff',
     paddingHorizontal: 18,
     paddingVertical: 8,
@@ -2459,7 +2533,7 @@ const styles = StyleSheet.create({
   modalImage: { width: '100%', height: 320, borderRadius: 18, marginBottom: 24, resizeMode: 'cover' },
   modalButtons: { flexDirection: 'row', gap: 14, width: '100%' },
   modalBtn: { flex: 1, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', elevation: 2 },
-  modalBtnPrimary: { backgroundColor: HM_THEME.navy },
+  modalBtnPrimary: { backgroundColor: Theme.colors.primary },
   modalBtnSecondary: { backgroundColor: '#F1F5F9', borderWidth: 1.5, borderColor: '#E2E8F0' },
   modalBtnTextPrimary: { color: '#fff', fontWeight: '600', fontSize: 14 },
   modalBtnTextSecondary: { color: '#475569', fontWeight: '600', fontSize: 14 },
@@ -2496,7 +2570,7 @@ const styles = StyleSheet.create({
   resetBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
   },
   manualStrip: {
     marginBottom: 16,

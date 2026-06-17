@@ -1,5 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Animated } from 'react-native';
+import React, { useRef, useState, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,47 +11,38 @@ import {
   Dimensions,
   Image,
   ActivityIndicator,
-  Platform,
+  Text,
 } from 'react-native';
+import Animated, {
+  useSharedValue
+} from 'react-native-reanimated';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import {
-  Users,
-  CheckCircle2,
-  X,
   Percent,
   CalendarCheck2,
   UserPlus,
-  Users2,
   Heart,
-  FileEdit,
   ClipboardEdit,
   Bell,
-  User,
   BookOpen,
-  Clock,
-  Eye,
-  BadgeCheck
+  BadgeCheck,
+  Scan,
+  ChevronRight,
+  FileText,
+  CalendarOff
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
-import AppText from '../../components/common/AppText';
-import { colors } from '../../constants/theme';
-import type { RootStackParamList } from '../../navigation/AppNavigator';
+import { Theme } from '../../theme/theme';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { safeGoBack } from '../../utils/navigationHelpers';
 import { safeNavigate } from '../../utils/navigationHelpers';
-import { safeJsonParse } from '../../utils/storage';
 import AvatarBubble from '../../components/common/AvatarBubble';
-import API from '../../services/api';
-import { 
-  getAssignedClasses, 
-  getTeacherProfile, 
-  getTeacherCapability,
-  getAttendanceReport,
-  getBranchStats
-} from '../../services/teacherService';
-import teacherMock from '../../services/teacherMock';
+import AccountSwitcher from '../../components/common/AccountSwitcher';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getTeacherProfile, getAssignedClasses, getAttendanceReport } from '../../services/teacherService';
 import { TeacherProfile as ApiTeacherProfile, TeacherCapability } from '../../types/api.types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -68,39 +58,6 @@ interface TeacherProfile extends Partial<ApiTeacherProfile> {
   is_class_teacher?: boolean;
 }
 
-interface AttendanceSummary {
-  classGrade: string;
-  section: string;
-  date: string;
-  present: number;
-  absent: number;
-  half_day?: number;
-  total: number;
-  attendancePct: number;
-  holiday?: boolean;
-  holidayName?: string;
-  total_teachers?: number;
-  total_students?: number;
-  total_classes?: number;
-  today_attendance_pct?: number;
-  today_breakdown?: {
-    teachers: { present: number; absent: number; half_day: number; attendance_pct: number };
-    students: { present: number; absent: number; half_day: number; attendance_pct: number };
-  };
-}
-
-const formatDateLabel = (value: string) => {
-  try {
-    return new Date(`${value}T00:00:00`).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return value;
-  }
-};
-
 export default function TeacherDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
@@ -108,977 +65,352 @@ export default function TeacherDashboardScreen() {
   const isMounted = useRef(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [switcherVisible, setSwitcherVisible] = useState(false);
   const [profile, setProfile] = useState<TeacherProfile | null>(null);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
-  const [profilePhotoError, setProfilePhotoError] = useState(false);
-  const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
-  const [attendanceLoading, setAttendanceLoading] = useState(true);
-  const [assignedClasses, setAssignedClasses] = useState<any[]>([]);
-  const [classesLoading, setClassesLoading] = useState(true);
-  const [capability, setCapability] = useState<TeacherCapability | null | undefined>(undefined);
+  const [capability] = useState<TeacherCapability | null | undefined>(undefined);
   const { unreadCount, refreshUnreadCount } = useUnreadNotifications();
+  const [attendanceStats, setAttendanceStats] = useState<{
+    present: number;
+    absent: number;
+    rate: number;
+    className: string;
+    section: string;
+  }>({
+    present: 0,
+    absent: 0,
+    rate: 0,
+    className: '',
+    section: '',
+  });
 
-  // Determine effective class teacher status: prefer backend capability once fetched.
-  // `capability` undefined = not fetched yet => fallback to local auth/profile.
-  // `capability` null = fetch attempted but failed => treat as not a class teacher.
+  const scrollY = useSharedValue(0);
+  const lastScrollY = useRef(0);
+
   const effectiveIsClassTeacher = (capability !== undefined)
     ? Boolean(capability?.is_class_teacher)
     : Boolean(profile?.is_class_teacher || authIsClassTeacher);
-  const teacherFirstName = (userName || profile?.name || 'Mahesh').split(' ')[0];
-
-  const lastScrollY = useRef(0);
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const headerTranslate = scrollY.interpolate({
-    inputRange: [0, 140],
-    outputRange: [0, -90],
-    extrapolate: 'clamp',
-  });
-
-  const getTeacherDashboardCacheKey = (schoolCode: string, employeeId: string): string | null => {
-    if (!schoolCode || !employeeId) return null;
-    return `teacher_dashboard_cache:${schoolCode}:${employeeId}`;
-  };
+  const teacherFirstName = (userName || profile?.name || 'Teacher').split(' ')[0];
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      const schoolCode =
-        (await AsyncStorage.getItem('school_code')) ||
-        (await AsyncStorage.getItem('schoolCode')) ||
-        '';
-      const storedEmployeeId =
-        (await AsyncStorage.getItem('employee_id')) ||
-        (await AsyncStorage.getItem('employeeId')) ||
-        '';
-      const cacheKey = getTeacherDashboardCacheKey(schoolCode, storedEmployeeId);
-
-      if (cacheKey) {
-        try {
-          const cached = await AsyncStorage.getItem(cacheKey);
-          if (cached && isMounted.current) {
-            const parsed = safeJsonParse<Record<string, any>>(cached, {});
-
-            if (parsed.profile) {
-              setProfile(parsed.profile);
-            }
-            if (parsed.attendanceSummary) {
-              setAttendanceSummary(parsed.attendanceSummary);
-            }
-            if (Array.isArray(parsed.assignedClasses)) {
-              setAssignedClasses(parsed.assignedClasses);
-              setClassesLoading(false);
-            }
-            if (parsed.profilePhotoUrl) {
-              setProfilePhotoUrl(parsed.profilePhotoUrl);
-              setProfilePhotoError(false);
-            }
-
-            setLoading(false);
-          }
-        } catch (cacheError) {
-          console.warn('Failed to load teacher dashboard cache:', cacheError);
-        }
-      }
-
       const responseData = await getTeacherProfile();
       if (responseData && isMounted.current) {
-        // Fetch capability details if possible. Store in state so UI relies on backend result.
-        try {
-          const schoolId = responseData.school_code || schoolCode;
-          const empId = responseData.employee_id || storedEmployeeId;
-          if (schoolId && empId) {
-            const fetchedCapability = await getTeacherCapability(schoolId, empId);
-            setCapability(fetchedCapability ?? null);
-            setProfile({
-              ...responseData,
-              is_class_teacher: fetchedCapability?.is_class_teacher ?? false,
-            });
-          } else {
-            setCapability(null);
-            setProfile({
-              ...responseData,
-              is_class_teacher: false,
-            });
-          }
-        } catch (capErr) {
-          console.log('Capability fetch failed, treating as not class teacher');
-          setCapability(null);
-          setProfile({
-            ...responseData,
-            is_class_teacher: false,
-          });
+        setProfile(responseData);
+        if (responseData.profile_photo_url) {
+          setProfilePhotoUrl(responseData.profile_photo_url);
         }
 
-        const directPhoto = String(responseData.profile_photo_url || responseData.teacher_photograph || '').trim();
-        let resolvedPhoto = directPhoto || null;
+        const schoolCode = responseData.school_code || (await AsyncStorage.getItem('school_code')) || '';
+        const branchId = responseData.branch_id || (await AsyncStorage.getItem('branch_id')) || '';
+        const employeeId = responseData.employee_id || (await AsyncStorage.getItem('employee_id')) || '';
 
-        if (!resolvedPhoto) {
-          const cachedPhoto = await AsyncStorage.getItem('profile_photo_url');
-          if (cachedPhoto) {
-            resolvedPhoto = cachedPhoto;
-          }
-        }
-
-        if (resolvedPhoto) {
-          setProfilePhotoUrl(resolvedPhoto);
-          setProfilePhotoError(false);
-          await AsyncStorage.setItem('profile_photo_url', resolvedPhoto);
-        } else {
-          const cachedPhoto = await AsyncStorage.getItem('profile_photo_url');
-          if (cachedPhoto) {
-            setProfilePhotoUrl(cachedPhoto);
-            setProfilePhotoError(false);
-          }
-        }
-
-        if (cacheKey) {
-          await AsyncStorage.setItem(cacheKey, JSON.stringify({
-            profile: {
-              ...responseData,
-              is_class_teacher: capability?.is_class_teacher ?? false,
-            },
-            attendanceSummary: null,
-            assignedClasses: [],
-            profilePhotoUrl: resolvedPhoto,
-          }));
-        }
-
-        if (isMounted.current) {
-          setAttendanceLoading(true);
-        }
-
-        const attendanceSchoolCode = String(
-          responseData.school_code ||
-          (await AsyncStorage.getItem('school_code')) ||
-          (await AsyncStorage.getItem('schoolCode')) ||
-          ''
-        ).trim();
-        const branchId = String(
-          responseData.branch_id ||
-          (await AsyncStorage.getItem('branch_id')) ||
-          (await AsyncStorage.getItem('branchId')) ||
-          ''
-        ).trim();
-        const employeeId = String(
-          responseData.teacher_id ||
-          responseData.employee_id ||
-          (await AsyncStorage.getItem('employee_id')) ||
-          (await AsyncStorage.getItem('employeeId')) ||
-          ''
-        ).trim();
-
-        if (attendanceSchoolCode && branchId && employeeId) {
+        if (schoolCode && branchId && employeeId) {
           try {
-            // Fetch assigned classes for the schedule section
-            const classes = await getAssignedClasses(attendanceSchoolCode, branchId, employeeId);
-            const resolvedAssigned = (Array.isArray(classes) && classes.length > 0)
-              ? classes
-              : (await teacherMock.getAssignedClassesMock());
-
-            if (isMounted.current) {
-              setAssignedClasses(resolvedAssigned);
-              setClassesLoading(false);
-            }
-
-            if (cacheKey) {
-              const cachedValue = await AsyncStorage.getItem(cacheKey);
-              const cachedData = safeJsonParse<Record<string, any>>(cachedValue, {});
-              await AsyncStorage.setItem(cacheKey, JSON.stringify({
-                ...cachedData,
-                assignedClasses: resolvedAssigned,
-              }));
-            }
-
-            // 1. Fetch Branch-wide stats for "Today's Attendance" section
-            const branchStats = await getBranchStats(attendanceSchoolCode, branchId);
-
-            if (branchStats && branchStats.permissionDenied) {
-              // Teacher role isn't permitted to view branch stats; fallback to class report
-              console.log('Branch stats permission denied for teacher role, falling back to class report');
-            }
-
-            if (branchStats && !branchStats.permissionDenied && isMounted.current) {
-              const studentStats = branchStats.today_breakdown?.students || { present: 0, absent: 0, half_day: 0, attendance_pct: 0, total: 0 };
-              const teacherStats = branchStats.today_breakdown?.teachers || { present: 0, absent: 0, half_day: 0, attendance_pct: 0, total: 0 };
-              const cards = branchStats.cards || {};
-
-              setAttendanceSummary({
-                classGrade: 'All',
-                section: 'Branch',
-                date: new Date().toISOString().split('T')[0],
-                present: studentStats.present || 0,
-                absent: studentStats.absent || 0,
-                half_day: studentStats.half_day || 0,
-                total: studentStats.total || cards.total_students || 0,
-                attendancePct: studentStats.attendance_pct || cards.today_attendance_pct || 0,
-                total_teachers: cards.total_teachers,
-                total_students: cards.total_students,
-                total_classes: cards.total_classes,
-                today_attendance_pct: cards.today_attendance_pct,
-                today_breakdown: {
-                  teachers: teacherStats,
-                  students: studentStats,
-                }
-              });
-
-              if (cacheKey) {
-                const cachedValue = await AsyncStorage.getItem(cacheKey);
-                const cachedData = safeJsonParse<Record<string, any>>(cachedValue, {});
-                await AsyncStorage.setItem(cacheKey, JSON.stringify({
-                  ...cachedData,
-                  attendanceSummary: {
-                    classGrade: 'All',
-                    section: 'Branch',
-                    date: new Date().toISOString().split('T')[0],
-                    present: studentStats.present || 0,
-                    absent: studentStats.absent || 0,
-                    half_day: studentStats.half_day || 0,
-                    total: studentStats.total || cards.total_students || 0,
-                    attendancePct: studentStats.attendance_pct || cards.today_attendance_pct || 0,
-                    total_teachers: cards.total_teachers,
-                    total_students: cards.total_students,
-                    total_classes: cards.total_classes,
-                    today_attendance_pct: cards.today_attendance_pct,
-                    today_breakdown: {
-                      teachers: teacherStats,
-                      students: studentStats,
-                    }
-                  },
-                }));
-              }
-            } else {
-              // 2. Fallback: Fetch Specific Class Attendance if branch stats are missing
-              const activeClass = resolvedAssigned.find((item: any) => item?.class_grade && item?.section) || resolvedAssigned[0];
-
-              if (activeClass?.class_grade && activeClass?.section) {
-                try {
-                  const attendanceDate = new Date().toISOString().split('T')[0];
-                  const report = await getAttendanceReport(
-                    attendanceSchoolCode,
-                    branchId,
-                    attendanceDate,
-                    activeClass.class_grade,
-                    activeClass.section
-                  );
-
-                  const present = Array.isArray(report?.present) ? report.present : [];
-                  const absent = Array.isArray(report?.absent) ? report.absent : [];
-                  const total = present.length + absent.length;
-                  const attendancePct = total > 0 ? Math.round((present.length / total) * 100) : 0;
-                  const attendanceSummaryData = {
-                    classGrade: String(activeClass.class_grade),
-                    section: String(activeClass.section),
-                    date: attendanceDate,
-                    present: present.length,
-                    absent: absent.length,
-                    half_day: 0,
-                    total,
-                    attendancePct,
-                    holiday: Boolean(report?.holiday),
-                    holidayName: report?.holiday_name,
-                  };
-
-                  if (isMounted.current) {
-                    setAttendanceSummary(attendanceSummaryData);
-                  }
-
-                  if (cacheKey) {
-                    const cachedValue = await AsyncStorage.getItem(cacheKey);
-                    const cachedData = safeJsonParse<Record<string, any>>(cachedValue, {});
-                    await AsyncStorage.setItem(cacheKey, JSON.stringify({
-                      ...cachedData,
-                      attendanceSummary: attendanceSummaryData,
-                    }));
-                  }
-                } catch (attendanceError) {
-                  throw attendanceError; // Trigger outer fallback
-                }
+            const classes = await getAssignedClasses(schoolCode, branchId, employeeId);
+            const targetClass = classes.find(c => c.class_grade && c.section) || classes[0];
+            if (targetClass && targetClass.class_grade && targetClass.section) {
+              const todayDateYMD = new Date().toISOString().split('T')[0];
+              const report = await getAttendanceReport(
+                schoolCode,
+                branchId,
+                todayDateYMD,
+                targetClass.class_grade,
+                targetClass.section
+              );
+              
+              const presentList = Array.isArray(report?.present) ? report.present : [];
+              const absentList = Array.isArray(report?.absent) ? report.absent : [];
+              const total = presentList.length + absentList.length;
+              const rate = total > 0 ? Math.round((presentList.length / total) * 100) : 0;
+              
+              if (isMounted.current) {
+                setAttendanceStats({
+                  present: presentList.length,
+                  absent: absentList.length,
+                  rate,
+                  className: targetClass.class_grade,
+                  section: targetClass.section,
+                });
               }
             }
-          } catch (classError: any) {
-            if (isMounted.current) {
-              console.warn('Assigned classes fetch error:', classError?.response?.status, classError?.message);
-              // Show demo data as fallback
-              setAttendanceSummary({
-                classGrade: '1',
-                section: 'A',
-                date: new Date().toISOString().split('T')[0],
-                present: 28,
-                absent: 5,
-                total: 33,
-                attendancePct: 85,
-              });
-            }
+          } catch (err) {
+            console.error('Error fetching stats for dashboard:', err);
           }
-        } else if (isMounted.current) {
-          console.log('Missing school code, branch ID, or employee ID');
-          // Show demo data
-          setAttendanceSummary({
-            classGrade: '1',
-            section: 'A',
-            date: new Date().toISOString().split('T')[0],
-            present: 28,
-            absent: 5,
-            total: 33,
-            attendancePct: 85,
-          });
         }
       }
-    } catch (error: any) {
-      if (error?.response?.status !== 401) {
-        console.error('Error fetching teacher profile:', error);
-      }
+    } catch (error) {
+      console.error(error);
     } finally {
       if (isMounted.current) {
         setLoading(false);
         setRefreshing(false);
-        setAttendanceLoading(false);
-        setClassesLoading(false);
       }
     }
   }, []);
 
-  // Set tab bar visibility on mount
-  useEffect(() => {
-    setTabBarVisible(true);
-    return () => {
-      setTabBarVisible(true);
-    };
-  }, [setTabBarVisible]);
-
-  // Fetch data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       isMounted.current = true;
       fetchDashboardData();
       refreshUnreadCount();
-      return () => {
-        isMounted.current = false;
-      };
-    }, [fetchDashboardData, refreshUnreadCount])
+      setTabBarVisible(true);
+      return () => { isMounted.current = false; };
+    }, [fetchDashboardData, refreshUnreadCount, setTabBarVisible])
   );
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchDashboardData();
-    refreshUnreadCount();
-  }, [fetchDashboardData, refreshUnreadCount]);
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
-    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
+    scrollY.value = currentScrollY;
+    if (currentScrollY > lastScrollY.current + 20 && currentScrollY > 100) {
       setTabBarVisible(false);
-    } else if (currentScrollY < lastScrollY.current - 10) {
+    } else if (currentScrollY < lastScrollY.current - 20) {
       setTabBarVisible(true);
     }
     lastScrollY.current = currentScrollY;
   };
 
   const quickActions = [
-    { label: 'Mark Attendance', icon: CalendarCheck2, color: '#3b82f6', route: 'TeacherAttendance' },
-    { label: 'View Attendance', icon: Eye, color: '#06b6d4', route: 'TeacherViewAttendance' },
-    // Student Enrollment is a Class-Teacher only action; include only if effectiveIsClassTeacher
+    { label: 'Attendance', icon: CalendarCheck2, color: '#3b82f6', route: 'TeacherAttendance' },
+    { label: 'Records', icon: FileText, color: '#0ea5e9', route: 'TeacherViewAttendance' },
+    { label: 'Vital Scan', icon: Heart, color: '#ef4444', route: 'TeacherVitalScan' },
+    { label: 'Homework', icon: BookOpen, color: '#8b5cf6', route: 'TeacherHomeworkManagement' },
+    { label: 'Face Review', icon: Scan, color: '#ec4899', route: 'TeacherFaceReview' },
+    { label: 'Marks', icon: ClipboardEdit, color: '#f59e0b', route: 'TeacherMarksEntry' },
+    { label: 'Leave', icon: CalendarOff, color: '#ef4444', route: 'Leaves' },
     ...(effectiveIsClassTeacher ? [
-      { label: 'Student Enrollment', icon: UserPlus, color: '#10b981', route: 'HMStudentRegistration' },
-      { label: 'Accept Student', icon: BadgeCheck, color: '#059669', route: 'StudentRegistrationRequests' },
-      { label: 'Manage Profiles', icon: Users, color: '#6366f1', route: 'TeacherStudentList' }
-    ] : []),
-    { label: 'Vital Scan AI', icon: Heart, color: '#ef4444', route: 'TeacherVitalScan' },
-    { label: 'Marks Entry', icon: ClipboardEdit, color: '#eab308', route: 'TeacherMarksEntry' },
-    { label: 'Homework', icon: BookOpen, color: '#06b6d4', route: 'TeacherHomeworkManagement' },
-    { label: 'Leave Request', icon: Clock, color: '#f59e0b', route: 'TeacherLeaveRequest' },
-    // Class Teacher specific actions - only show for class teachers
-    ...(effectiveIsClassTeacher ? [
-      { label: 'Leave Approval', icon: FileEdit, color: '#7c3aed', route: 'TeacherLeaveApproval' },
+      { label: 'Enrollment', icon: UserPlus, color: '#10b981', route: 'TeacherStudentRegistration' },
+      { label: 'Approvals', icon: BadgeCheck, color: '#059669', route: 'StudentRegistrationRequests' },
     ] : []),
   ];
 
-  const schedule = Array.isArray(assignedClasses) && assignedClasses.length > 0
-    ? assignedClasses
-        .filter(cls => cls !== null && cls !== undefined)
-        .map((cls: any) => ({
-          title: cls.subject_name || (cls.is_class_teacher ? 'Class Teacher' : 'Subject Teacher'),
-          class: `Class ${cls.class_grade || '?'} • Section ${cls.section || '?'}`,
-          status: 'Today',
-          statusColor: '#3b82f6',
-          statusBg: '#eff6ff',
-        }))
-    : [
-        {
-          title: 'coming up',
-          class: 'Up Coming Feature',
-          status: 'N/A',
-          statusColor: '#64748b',
-          statusBg: '#f1f5f9',
-        },
-      ];
-
-  const attendanceStats = attendanceSummary
-    ? attendanceSummary.holiday
-      ? [
-          {
-            label: 'Holiday',
-            value: attendanceSummary.holidayName || 'Sunday Holiday',
-            sub: 'No academic session today',
-            icon: CalendarCheck2,
-            color: '#f97316',
-          },
-        ]
-      : [
-        {
-          label: 'Present',
-          value: String(attendanceSummary.present ?? 0),
-          sub: 'Today',
-          icon: CheckCircle2,
-          color: '#22c55e',
-        },
-        {
-          label: 'Absent',
-          value: String(attendanceSummary.absent ?? 0),
-          sub: 'Today',
-          icon: X,
-          color: '#ef4444',
-        },
-        {
-          label: 'Attendance %',
-          value: `${attendanceSummary.attendancePct ?? 0}%`,
-          sub: 'Current class',
-          icon: Percent,
-          color: '#3b82f6',
-        },
-        {
-          label: 'Total Students',
-          value: String(attendanceSummary.total ?? 0),
-          sub: 'Today',
-          icon: Users,
-          color: '#8b5cf6',
-        },
-      ]
-    : [];
+  const todayDateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const currentHour = new Date().getHours();
+  const greeting = currentHour < 12 ? 'Good Morning' : currentHour < 17 ? 'Good Afternoon' : 'Good Evening';
 
   if (loading && !refreshing) {
     return (
-      <View style={[styles.container, styles.center, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color="#001F3F" />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Theme.colors.primary} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
-
-      <Animated.ScrollView
-        style={styles.scrollView}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true, listener: handleScroll }
-        )}
+      <ScrollView
+        onScroll={onScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={fetchDashboardData} tintColor={Theme.colors.primary} />}
       >
-        <Animated.View style={[styles.navyHeader, { paddingTop: insets.top + 12, transform: [{ translateY: headerTranslate }] }]}> 
-          <View style={styles.headerTop}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.profileContainer}
-              onPress={() => safeNavigate(navigation as any, 'Profile')}
-            >
-              <View style={styles.profileInner}>
-                {profilePhotoUrl && !profilePhotoError ? (
-                  <Image
-                    source={{ uri: profilePhotoUrl }}
-                    style={styles.profileImage}
-                    onError={() => setProfilePhotoError(true)}
-                  />
+        <Animated.View style={[styles.headerWrapper]}>
+          <LinearGradient
+            colors={['#1E3A8A', '#3B82F6']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 1}}
+            style={[styles.header, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}
+          >
+            <View style={styles.headerTop}>
+              <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.profileBtn}>
+                {profilePhotoUrl ? (
+                  <Image source={{ uri: profilePhotoUrl }} style={styles.avatar} />
                 ) : (
-                  <AvatarBubble
-                    displayName={profile?.name || userName || 'User'}
-                    size={42}
-                    textSize={15}
-                    primaryColor="#2563EB"
-                    primaryGlowColor="rgba(37,99,235,0.28)"
-                  />
+                  <AvatarBubble displayName={userName || 'T'} size={40} primaryColor="#FFF" />
                 )}
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.notificationBtn}
-              onPress={() => navigation.navigate('Notifications')}
-            >
-              <Bell size={20} color="#fff" strokeWidth={1.7} />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <AppText weight="bold" style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-          <View style={styles.welcomeSection}>
-            {effectiveIsClassTeacher ? (
-              <View style={styles.roleBadge}>
-                <AppText weight="bold" style={styles.roleBadgeText}>Class Teacher</AppText>
-              </View>
-            ) : null}
-            <AppText weight="bold" style={styles.hiText}>Hi {teacherFirstName} 👋</AppText>
-            <AppText weight="semiBold" style={styles.subText}>Here&apos;s what&apos;s happening today.</AppText>
-          </View>
-        </Animated.View>
+              </TouchableOpacity>
 
-        <View style={styles.cardsWrap}>
-          <View style={styles.sectionBlock}>
-            <View style={styles.sectionHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <AppText weight="bold" style={styles.sectionTitle}>Today&apos;s Class Attendance</AppText>
-                <AppText weight="semiBold" style={styles.sectionSubTitle}>
-                  {attendanceLoading
-                    ? 'Loading attendance summary…'
-                    : attendanceSummary
-                      ? `Class ${attendanceSummary.classGrade} • Section ${attendanceSummary.section} • ${formatDateLabel(attendanceSummary.date)}`
-                      : 'No assigned class attendance found for today'}
-                </AppText>
+              <View style={styles.headerCenter}>
+                <Text style={styles.welcomeText}>{greeting},</Text>
+                <Text style={styles.nameText}>{teacherFirstName} 👋</Text>
+                <Text style={styles.dateText}>{todayDateStr}</Text>
               </View>
-              <TouchableOpacity onPress={() => navigation.navigate('TeacherViewAttendance')}>
-                <AppText weight="bold" style={styles.viewAllBtn}>View All</AppText>
+
+              <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.iconBtn}>
+                <Bell size={22} color="#FFF" />
+                {unreadCount > 0 && <View style={styles.unreadDot} />}
               </TouchableOpacity>
             </View>
+          </LinearGradient>
+        </Animated.View>
 
-            {attendanceLoading ? (
-              <View style={styles.attendanceLoadingCard}>
-                <ActivityIndicator size="small" color="#001F3F" />
-              </View>
-            ) : attendanceStats.length > 0 ? (
+        {/* Unified Analytics Card */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              {attendanceStats.className ? `Class ${attendanceStats.className}-${attendanceStats.section} Overview` : 'Overview'}
+            </Text>
+            <TouchableOpacity style={styles.viewDetailsBtn} onPress={() => navigation.navigate('TeacherViewAttendance')}>
+              <Text style={styles.linkText}>Details</Text>
+              <ChevronRight size={16} color="#3B82F6" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.analyticsCard}>
+            <View style={styles.analyticsTop}>
               <View>
-                <View style={styles.statsGrid}>
-                  {attendanceStats.map((stat, index) => {
-                    const isPercent = typeof stat.value === 'string' && stat.value.trim().endsWith('%');
-                    const numericValue = isPercent ? stat.value.trim().replace('%', '') : stat.value;
-                    return (
-                      <View key={index} style={styles.statCard}>
-                        <View style={[styles.statIconWrapper, { backgroundColor: `${stat.color}20` }]}>
-                          <stat.icon size={22} color={stat.color} strokeWidth={2} />
-                        </View>
-                        <View style={styles.statContent}>
-                          {isPercent ? (
-                            <View style={styles.percentRow}>
-                              <AppText weight="bold" style={styles.statValue}>{numericValue}</AppText>
-                              <AppText weight="bold" style={styles.percentSign}>%</AppText>
-                            </View>
-                          ) : (
-                            <AppText weight="bold" style={styles.statValue}>{stat.value}</AppText>
-                          )}
-                          <AppText weight="semiBold" style={styles.statLabel}>{stat.label}</AppText>
-                          <AppText weight="semiBold" style={styles.statSub}>{stat.sub}</AppText>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
+                <Text style={styles.analyticsLabel}>Attendance Rate</Text>
+                <Text style={styles.analyticsMainValue}>{attendanceStats.rate}%</Text>
               </View>
-            ) : (
-              <View style={styles.attendanceEmptyState}>
-                <AppText weight="semiBold" style={styles.attendanceEmptyText}>
-                  Attendance summary will appear once a class is assigned for today.
-                </AppText>
+              <View style={[styles.analyticsIconWrap, { backgroundColor: '#EFF6FF' }]}>
+                <Percent size={24} color="#2563EB" />
               </View>
-            )}
-          </View>
-
-          <View style={styles.sectionBlock}>
-            <AppText weight="bold" style={styles.sectionTitle}>Quick Actions</AppText>
-            <View style={styles.quickActionGrid}>
-              {quickActions.map((action, index) => {
-                if (!action || !action.icon) return null;
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.actionCard}
-                    onPress={() => action.route && navigation.navigate(action.route as any)}
-                  >
-                    <View style={[styles.actionIconContainer, { backgroundColor: `${action.color || '#64748B'}10` }]}>
-                      <action.icon size={24} color={action.color || '#64748B'} strokeWidth={2} />
-                    </View>
-                    <AppText weight="bold" style={styles.actionLabel}>{(action.label || '').replace(' ', '\n')}</AppText>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          <View style={styles.sectionBlock}>
-            <View style={styles.sectionHeaderRow}>
-              <AppText weight="bold" style={styles.sectionTitle}>Today&apos;s Schedule</AppText>
             </View>
 
-            {classesLoading ? (
-              <View style={styles.attendanceLoadingCard}>
-                <ActivityIndicator size="small" color="#001F3F" />
-              </View>
-            ) : (
-              schedule.map((item, index) => (
-                <View key={index} style={styles.scheduleCard}>
-                  <View>
-                    <AppText weight="bold" style={styles.scheduleType}>{item.title}</AppText>
-                    <AppText weight="semiBold" style={styles.scheduleInfo}>{item.class}</AppText>
-                  </View>
-                  <View style={[styles.statusBadge, { backgroundColor: item.statusBg }]}>
-                    <AppText weight="bold" style={[styles.statusLabel, { color: item.statusColor }]}>{item.status}</AppText>
-                  </View>
+            {/* Simple Horizontal Progress Bar instead of ring for robustness */}
+            <View style={styles.progressBarContainer}>
+              <View style={[styles.progressBarFill, { width: `${attendanceStats.rate}%` }]} />
+            </View>
+
+            <View style={styles.analyticsDivider} />
+
+            <View style={styles.analyticsBottomRow}>
+              <View style={styles.analyticsStatBox}>
+                <View style={[styles.miniDot, { backgroundColor: '#059669' }]} />
+                <View>
+                  <Text style={styles.analyticsStatValue}>{attendanceStats.present}</Text>
+                  <Text style={styles.analyticsStatLabel}>Present</Text>
                 </View>
-              ))
-            )}
+              </View>
+              
+              <View style={styles.analyticsStatBox}>
+                <View style={[styles.miniDot, { backgroundColor: '#DC2626' }]} />
+                <View>
+                  <Text style={styles.analyticsStatValue}>{attendanceStats.absent}</Text>
+                  <Text style={styles.analyticsStatLabel}>Absent</Text>
+                </View>
+              </View>
+            </View>
           </View>
         </View>
 
-        <View style={{ height: 120 }} />
-      </Animated.ScrollView>
+        {/* Quick Actions Grid */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={{ height: 12 }} /> 
+          <View style={styles.grid}>
+            {quickActions.map((action, i) => {
+              const ActionIcon = action.icon;
+              return (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.gridItem}
+                  onPress={() => safeNavigate(navigation, action.route as any)}
+                  activeOpacity={0.6}
+                >
+                  <View style={[styles.actionIcon, { backgroundColor: action.color + '15' }]}>
+                    <ActionIcon size={26} color={action.color} strokeWidth={2.2} />
+                  </View>
+                  <Text style={styles.actionText}>{action.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={{ height: insets.bottom + 140 }} />
+      </ScrollView>
+      <AccountSwitcher visible={switcherVisible} onClose={() => setSwitcherVisible(false)} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    marginRight: 4,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  center: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingContainer: {
-    backgroundColor: '#F3F6FB',
-  },
-  navyHeader: {
-    backgroundColor: '#001F3F',
-    borderBottomLeftRadius: 34,
-    borderBottomRightRadius: 34,
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-    paddingTop: 6,
-    marginBottom: 18,
-    marginHorizontal: -16,
-    ...Platform.select({
-
-      android: { elevation: 6 },
-
-      ios: {},
-
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 0,
-    paddingBottom: 40,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-  profileContainer: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    padding: 2,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  profileInner: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 27,
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
+  headerWrapper: {
+    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
+    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 27,
-  },
-  notificationBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  // ...existing code...
-  badge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#ef4444',
-    borderWidth: 1.5,
-    borderColor: '#001F3F',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 8,
-  },
-  welcomeSection: {
-    marginBottom: 8,
-  },
-  roleBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: 'rgba(34,197,94,0.14)',
-    marginBottom: 8,
-  },
-  hiText: {
-    fontSize: 24,
-    color: '#FFFFFF',
-    letterSpacing: -0.7,
-    lineHeight: 30,
-  },
-  subText: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.72)',
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  roleBadgeText: {
-    fontSize: 10,
-    color: '#BBF7D0',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-  },
-  cardsWrap: {
-    marginTop: 2,
-  },
-  sectionBlock: {
-    marginTop: 8,
-    marginBottom: 14,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  statCard: {
-    width: (SCREEN_WIDTH - 48) / 2,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
+    shadowColor: '#1E3A8A',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    ...Platform.select({
-
-      android: { elevation: 3 },
-
-      ios: {},
-
-    }),
-    alignItems: 'flex-start',
-    flexDirection: 'row',
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    marginBottom: 20,
+    marginHorizontal: -20,
   },
-  statIconWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
+  header: {
+    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
+    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
   },
-  statContent: {
-    gap: 2,
-    alignItems: 'flex-start',
+  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerCenter: { flex: 1, marginHorizontal: 16 },
+  profileBtn: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    overflow: 'hidden', 
+    borderWidth: 2, 
+    borderColor: 'rgba(255,255,255,0.4)' 
   },
-  statValue: {
-    fontSize: 24,
-    color: '#1E293B',
-    letterSpacing: -0.5,
-    fontWeight: 'bold',
+  avatar: { width: '100%', height: '100%' },
+  welcomeText: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  nameText: { color: '#FFF', fontSize: 28, fontWeight: '800', marginTop: 2 },
+  dateText: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2, fontWeight: '500' },
+  iconBtn: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    backgroundColor: 'rgba(255,255,255,0.2)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
   },
-  statLabel: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 6,
-    fontWeight: '600',
-  },
-  statSub: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  percentRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  percentSign: {
-    fontSize: 14,
-    color: '#1E293B',
-    marginLeft: 4,
-    marginBottom: 2,
-    fontWeight: '700',
-  },
-  sectionTitle: {
-    fontSize: 17,
-    color: '#1E293B',
-    letterSpacing: -0.5,
-    marginBottom: 10,
-  },
-  sectionSubTitle: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: -2,
-    lineHeight: 16,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  quickActionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  actionCard: {
-    width: (SCREEN_WIDTH - 68) / 4,
+  unreadDot: { position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444', borderWidth: 2, borderColor: '#1E3A8A' },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 0 },
+  section: { marginBottom: 26 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionTitle: { fontSize: 22, color: '#0F172A', fontWeight: '800' },
+  viewDetailsBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  linkText: { color: '#3B82F6', fontSize: 14, fontWeight: '700', marginRight: 2 },
+  
+  /* Unified Analytics Card Styles */
+  analyticsCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    ...Platform.select({
-
-      android: { elevation: 2 },
-
-      ios: {},
-
-    }),
-  },
-  actionIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  actionLabel: {
-    fontSize: 9,
-    color: '#334155',
-    textAlign: 'center',
-    lineHeight: 12,
-    paddingHorizontal: 2,
-  },
-  viewAllBtn: {
-    fontSize: 13,
-    color: '#3B82F6',
-  },
-  attendanceLoadingCard: {
-    minHeight: 92,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  attendanceEmptyState: {
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 16,
-  },
-  attendanceEmptyText: {
-    fontSize: 12,
-    color: '#64748B',
-    textAlign: 'center',
-  },
-  scheduleCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+    borderRadius: 24,
+    padding: 20,
     borderWidth: 1,
     borderColor: '#F1F5F9',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
-    ...Platform.select({
+    elevation: 4,
+  },
+  analyticsTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  analyticsLabel: { fontSize: 14, color: '#64748B', fontWeight: '600' },
+  analyticsMainValue: { fontSize: 36, color: '#1E293B', fontWeight: '800', marginTop: 4 },
+  analyticsIconWrap: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
+  progressBarContainer: { height: 10, backgroundColor: '#F1F5F9', borderRadius: 5, marginTop: 20, overflow: 'hidden' },
+  progressBarFill: { height: '100%', backgroundColor: '#2563EB', borderRadius: 5 },
+  analyticsDivider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 20 },
+  analyticsBottomRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  analyticsStatBox: { flexDirection: 'row', alignItems: 'center' },
+  miniDot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
+  analyticsStatValue: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
+  analyticsStatLabel: { fontSize: 13, color: '#64748B', fontWeight: '600', marginTop: 2 },
 
-      android: { elevation: 2 },
-
-      ios: {},
-
-    }),
+  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 16, justifyContent: 'space-between' },
+  gridItem: { 
+    width: (SCREEN_WIDTH - 70) / 4,
+    alignItems: 'center', 
   },
-  scheduleType: {
-    fontSize: 15,
-    color: '#1E293B',
-    letterSpacing: -0.3,
+  actionIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8
   },
-  scheduleInfo: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 4,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-  },
-  statusLabel: {
+  actionText: {
     fontSize: 11,
+    color: '#1E293B',
+    textAlign: 'center',
+    fontWeight: '600',
+    lineHeight: 14
   },
 });

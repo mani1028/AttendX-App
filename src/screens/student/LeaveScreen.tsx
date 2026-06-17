@@ -19,9 +19,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Theme as C } from '../../theme/theme';
 import { getTeachersForLeave, getLeaveRequests, submitLeaveRequest } from '../../services/studentService';
 import { useAuth } from '../../context/AuthContext';
-import Icon from '@react-native-vector-icons/feather';
+import Icon from 'react-native-vector-icons/Feather';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 
 const { width, height } = Dimensions.get('window');
 
@@ -131,28 +133,28 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
         const upperStatus = status?.toUpperCase() || '';
         if (upperStatus === 'APPROVED') {
             return {
-                container: styles.badgeApproved,
-                text: styles.badgeTextApproved,
+                container: { backgroundColor: C.colors.successBg },
+                text: { color: C.colors.success },
                 label: 'APPROVED',
                 icon: 'check-circle',
-                iconColor: '#22c55e',
+                iconColor: C.colors.success,
             };
         }
         if (upperStatus === 'REJECTED') {
             return {
-                container: styles.badgeRejected,
-                text: styles.badgeTextRejected,
+                container: { backgroundColor: C.colors.errorBg },
+                text: { color: C.colors.error },
                 label: 'REJECTED',
                 icon: 'x-circle',
-                iconColor: '#ef4444',
+                iconColor: C.colors.error,
             };
         }
         return {
-            container: styles.badgePending,
-            text: styles.badgeTextPending,
+            container: { backgroundColor: C.colors.warningBg },
+            text: { color: C.colors.warning },
             label: 'PENDING',
             icon: 'clock',
-            iconColor: '#f59e0b',
+            iconColor: C.colors.warning,
         };
     };
 
@@ -191,13 +193,13 @@ const LeaveHistoryCard: React.FC<{ request: LeaveRequest; onView: () => void }> 
             
             <View style={styles.historyCardBody}>
                 <View style={styles.historyDateRange}>
-                    <Icon name="calendar" size={14} color="#64748b" />
+                    <Icon name="calendar" size={14} color={C.colors.textSec} />
                     <Text style={styles.historyDateText}>
                         {formatDateRange(request.from_date, request.to_date)}
                     </Text>
                 </View>
                 <View style={styles.historyReason}>
-                    <Icon name="file-text" size={14} color="#64748b" />
+                    <Icon name="file-text" size={14} color={C.colors.textSec} />
                     <Text style={styles.historyReasonText} numberOfLines={1}>
                         {request.reason}
                     </Text>
@@ -207,7 +209,7 @@ const LeaveHistoryCard: React.FC<{ request: LeaveRequest; onView: () => void }> 
             <View style={styles.historyFooter}>
                 <TouchableOpacity style={styles.viewDetailsBtn} onPress={onView}>
                     <Text style={styles.viewDetailsText}>View Details</Text>
-                    <Icon name="arrow-right" size={14} color="#3b82f6" />
+                    <Icon name="arrow-right" size={14} color={C.colors.blue} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -463,14 +465,14 @@ export default function LeaveScreen({ navigation }: any) {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+            <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
             
-            <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+            <View style={[styles.header, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 20 }]}>
                 <TouchableOpacity
                     style={styles.backButton}
                     onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs')}
                 >
-                    <Icon name="arrow-left" size={24} color="#fff" />
+                    <Icon name="arrow-left" size={24} color={C.colors.card} />
                 </TouchableOpacity>
                 <View style={styles.headerTitleContainer}>
                     <Text style={styles.headerTitle}>Leave Requests</Text>
@@ -480,14 +482,14 @@ export default function LeaveScreen({ navigation }: any) {
                     style={styles.notificationIcon}
                     onPress={() => navigation.navigate('Notifications')}
                 >
-                    <Icon name="bell" size={22} color="#fff" />
+                    <Icon name="bell" size={22} color={C.colors.card} />
                 </TouchableOpacity>
             </View>
 
             <View style={styles.refreshWrapper}>
                 <TouchableOpacity style={styles.refreshPill} onPress={refreshAll}>
                     <Text style={styles.refreshPillText}>Refresh</Text>
-                    <Icon name="refresh-cw" size={14} color="#3b82f6" />
+                    <Icon name="refresh-cw" size={14} color={C.colors.blue} />
                 </TouchableOpacity>
             </View>
 
@@ -497,7 +499,7 @@ export default function LeaveScreen({ navigation }: any) {
                 onScroll={handleScroll}
                 scrollEventThrottle={16}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor="#3b82f6" />
+                    <RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor={C.colors.primary} />
                 }
             >
                 <View style={styles.formCard}>
@@ -538,7 +540,7 @@ export default function LeaveScreen({ navigation }: any) {
                                     {selectedTeacher ? 'Auto-selected for your class' : 'No class teacher available yet'}
                                 </Text>
                             </View>
-                            <Icon name="user-check" size={20} color="#3b82f6" />
+                            <Icon name="user-check" size={20} color={C.colors.blue} />
                         </View>
                     </View>
 
@@ -552,7 +554,7 @@ export default function LeaveScreen({ navigation }: any) {
                             <Text style={[styles.inputText, !fromDate && styles.dropdownPlaceholder]}>
                                 {fromDate ? fromDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }).replace(/\//g, '-') : 'dd-mm-yy'}
                             </Text>
-                            <Icon name="calendar" size={18} color="#64748b" />
+                            <Icon name="calendar" size={18} color={C.colors.textSec} />
                         </TouchableOpacity>
                         {showFromDatePicker && (
                             <DateTimePicker
@@ -576,7 +578,7 @@ export default function LeaveScreen({ navigation }: any) {
                                 <Text style={[styles.inputText, (!toDate || !fromDate) && styles.dropdownPlaceholder]}>
                                     {toDate ? toDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }).replace(/\//g, '-') : 'dd-mm-yy'}
                                 </Text>
-                                <Icon name="calendar" size={18} color="#64748b" />
+                                <Icon name="calendar" size={18} color={C.colors.textSec} />
                             </TouchableOpacity>
                             {showToDatePicker && (
                                 <DateTimePicker
@@ -600,7 +602,7 @@ export default function LeaveScreen({ navigation }: any) {
                             value={reason}
                             onChangeText={setReason}
                             placeholder="Reason"
-                            placeholderTextColor="#94a3b8"
+                            placeholderTextColor={C.colors.textMuted}
                             textAlignVertical="top"
                         />
                     </View>
@@ -612,10 +614,10 @@ export default function LeaveScreen({ navigation }: any) {
                         disabled={submitting}
                     >
                         {submitting ? (
-                            <ActivityIndicator size="small" color="#fff" />
+                            <ActivityIndicator size="small" color={C.colors.card} />
                         ) : (
                             <>
-                                <Icon name="send" size={20} color="#fff" style={styles.submitIcon} />
+                                <Icon name="send" size={20} color={C.colors.card} style={styles.submitIcon} />
                                 <Text style={styles.submitBtnText}>Submit Leave Request</Text>
                             </>
                         )}
@@ -632,7 +634,7 @@ export default function LeaveScreen({ navigation }: any) {
                                 <View style={styles.illuLayer1} />
                                 <View style={styles.illuLayer2} />
                                 <View style={styles.illuLayer3} />
-                                <Icon name="file-text" size={40} color="#3b82f6" style={styles.illuIcon} />
+                                <Icon name="file-text" size={40} color={C.colors.blue} style={styles.illuIcon} />
                             </View>
                             <Text style={styles.emptyHistoryTitle}>No Leave Requests Yet</Text>
                             <Text style={styles.emptyHistorySubtitle}>
@@ -641,9 +643,9 @@ export default function LeaveScreen({ navigation }: any) {
                         </View>
                     ) : (
                         <>
-                            {history.slice(0, showAllHistory ? history.length : initialHistoryLimit).map((request) => (
+                            {history.slice(0, showAllHistory ? history.length : initialHistoryLimit).map((request, index) => (
                                 <LeaveHistoryCard
-                                    key={request.leave_id}
+                                    key={request.leave_id || `leave-${index}-${request.from_date}`}
                                     request={request}
                                     onView={() => {
                                         setSelectedRequest(request);
@@ -672,7 +674,7 @@ export default function LeaveScreen({ navigation }: any) {
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Leave Details</Text>
                             <TouchableOpacity onPress={() => setShowDetailModal(false)}>
-                                <Icon name="x" size={24} color="#0f172a" />
+                                <Icon name="x" size={24} color={C.colors.text} />
                             </TouchableOpacity>
                         </View>
                         {selectedRequest && (
@@ -703,7 +705,7 @@ export default function LeaveScreen({ navigation }: any) {
                                     <View style={styles.detailInfoSection}>
                                         <Text style={styles.detailLabel}>DURATION</Text>
                                         <View style={styles.detailValueContainer}>
-                                            <Icon name="calendar" size={16} color="#64748b" />
+                                            <Icon name="calendar" size={16} color={C.colors.textSec} />
                                             <Text style={styles.detailValueText}>
                                                 {formatDateRange(selectedRequest.from_date, selectedRequest.to_date)}
                                                 {"\n"}<Text style={styles.detailDurationText}>({getDuration(selectedRequest.from_date, selectedRequest.to_date)})</Text>
@@ -721,7 +723,7 @@ export default function LeaveScreen({ navigation }: any) {
                                     {selectedRequest.teacher_comment && (
                                         <View style={styles.detailInfoSection}>
                                             <Text style={styles.detailLabel}>TEACHER'S COMMENT</Text>
-                                            <View style={[styles.detailReasonBox, { backgroundColor: '#F0F7FF' }]}>
+                                            <View style={[styles.detailReasonBox, { backgroundColor: C.colors.blueLight }]}>
                                                 <Text style={styles.detailReasonText}>{selectedRequest.teacher_comment}</Text>
                                             </View>
                                         </View>
@@ -750,13 +752,13 @@ export default function LeaveScreen({ navigation }: any) {
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Select Teacher</Text>
                             <TouchableOpacity onPress={() => setShowTeacherModal(false)}>
-                                <Icon name="x" size={24} color="#0f172a" />
+                                <Icon name="x" size={24} color={C.colors.text} />
                             </TouchableOpacity>
                         </View>
                         <ScrollView style={styles.teacherList}>
-                            {teachers.map((teacher) => (
+                            {teachers.map((teacher, index) => (
                                 <TouchableOpacity
-                                    key={teacher.teacher_id}
+                                    key={teacher.teacher_id || (teacher as any).id || (teacher as any).staff_id || `teacher-${index}`}
                                     style={[
                                         styles.teacherItem,
                                         String(teacherId) === String(teacher.teacher_id) && styles.teacherItemSelected
@@ -776,7 +778,7 @@ export default function LeaveScreen({ navigation }: any) {
                                         {teacher.subject && <Text style={styles.teacherItemSubject}>{teacher.subject}</Text>}
                                     </View>
                                     {String(teacherId) === String(teacher.teacher_id) && (
-                                        <Icon name="check" size={20} color="#3b82f6" style={styles.checkIcon} />
+                                        <Icon name="check" size={20} color={C.colors.blue} style={styles.checkIcon} />
                                     )}
                                 </TouchableOpacity>
                             ))}
@@ -794,7 +796,7 @@ export default function LeaveScreen({ navigation }: any) {
                 <View style={styles.modalOverlayCenter}>
                     <View style={styles.successModal}>
                         <View style={styles.successIconContainer}>
-                            <Icon name="check-circle" size={48} color="#22c55e" />
+                            <Icon name="check-circle" size={48} color={C.colors.success} />
                         </View>
                         <Text style={styles.successTitle}>Request Submitted!</Text>
                         <Text style={styles.successMessage}>
@@ -810,10 +812,10 @@ export default function LeaveScreen({ navigation }: any) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: C.colors.background,
     },
     header: {
-        backgroundColor: '#001F3F',
+        backgroundColor: C.colors.primary,
         paddingHorizontal: 16,
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -831,7 +833,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     headerTitle: {
-        color: '#FFFFFF',
+        color: C.colors.card,
         fontSize: 17,
         fontWeight: '700',
     },
@@ -842,7 +844,7 @@ const styles = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: 'rgba(255, 255, 255, 0.12)',
+        backgroundColor: C.colors.card + '1F', // ~0.12 opacity
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -855,26 +857,16 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
     },
     formCard: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: C.colors.card,
         borderRadius: 12,
         padding: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        ...Platform.select({
-
-          android: { elevation: 2 },
-
-          ios: {},
-
-        }),
+        ...C.shadow.sm,
         marginTop: 10,
     },
     cardTitle: {
         fontSize: 14,
         fontWeight: '700',
-        color: '#1E293B',
+        color: C.colors.text,
         marginBottom: 16,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
@@ -884,7 +876,7 @@ const styles = StyleSheet.create({
     },
     formLabel: {
         fontSize: 14,
-        color: '#64748B',
+        color: C.colors.textSec,
         marginBottom: 8,
         fontWeight: '500',
     },
@@ -897,26 +889,26 @@ const styles = StyleSheet.create({
         height: 44,
         borderRadius: 22,
         borderWidth: 1,
-        borderColor: '#3B82F6',
+        borderColor: C.colors.blue,
         justifyContent: 'center',
         alignItems: 'center',
     },
     toggleButtonActive: {
-        backgroundColor: '#3B82F6',
+        backgroundColor: C.colors.blue,
     },
     toggleButtonText: {
-        color: '#3B82F6',
+        color: C.colors.blue,
         fontWeight: '600',
     },
     toggleButtonTextActive: {
-        color: '#FFFFFF',
+        color: C.colors.card,
     },
     dropdownButton: {
         height: 52,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: C.colors.inputBg,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#E2E8F0',
+        borderColor: C.colors.border,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -924,14 +916,14 @@ const styles = StyleSheet.create({
     },
     dropdownText: {
         fontSize: 15,
-        color: '#1E293B',
+        color: C.colors.text,
     },
     autoTeacherCard: {
         minHeight: 52,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: C.colors.inputBg,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#DBEAFE',
+        borderColor: C.colors.blueLight,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -945,17 +937,17 @@ const styles = StyleSheet.create({
     autoTeacherHint: {
         marginTop: 4,
         fontSize: 12,
-        color: '#64748B',
+        color: C.colors.textSec,
     },
     dropdownPlaceholder: {
-        color: '#94A3B8',
+        color: C.colors.textMuted,
     },
     inputField: {
         height: 52,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: C.colors.inputBg,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#E2E8F0',
+        borderColor: C.colors.border,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -963,20 +955,20 @@ const styles = StyleSheet.create({
     },
     inputText: {
         fontSize: 15,
-        color: '#1E293B',
+        color: C.colors.text,
     },
     textInputArea: {
-        backgroundColor: '#F8FAFC',
+        backgroundColor: C.colors.inputBg,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#E2E8F0',
+        borderColor: C.colors.border,
         padding: 16,
         fontSize: 15,
-        color: '#1E293B',
+        color: C.colors.text,
         minHeight: 120,
     },
     submitBtn: {
-        backgroundColor: '#3B82F6',
+        backgroundColor: C.colors.blue,
         height: 54,
         borderRadius: 12,
         flexDirection: 'row',
@@ -989,26 +981,16 @@ const styles = StyleSheet.create({
         transform: [{ rotate: '-45deg' }, { translateY: -2 }],
     },
     submitBtnText: {
-        color: '#FFFFFF',
+        color: C.colors.card,
         fontSize: 16,
         fontWeight: 'bold',
     },
     historyCardContainer: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: C.colors.card,
         marginTop: 15,
         borderRadius: 12,
         padding: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        ...Platform.select({
-
-          android: { elevation: 2 },
-
-          ios: {},
-
-        }),
+        ...C.shadow.sm,
     },
     emptyHistoryState: {
         alignItems: 'center',
@@ -1024,14 +1006,14 @@ const styles = StyleSheet.create({
     illuLayer1: {
         width: 100,
         height: 100,
-        backgroundColor: '#F1F5F9',
+        backgroundColor: C.colors.backgroundAlt,
         borderRadius: 50,
         position: 'absolute',
     },
     illuLayer2: {
         width: 80,
         height: 80,
-        backgroundColor: '#E2E8F0',
+        backgroundColor: C.colors.border,
         borderRadius: 40,
         position: 'absolute',
         opacity: 0.5,
@@ -1039,20 +1021,10 @@ const styles = StyleSheet.create({
     illuLayer3: {
         width: 60,
         height: 60,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: C.colors.card,
         borderRadius: 30,
         position: 'absolute',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        ...Platform.select({
-
-          android: { elevation: 2 },
-
-          ios: {},
-
-        }),
+        ...C.shadow.sm,
     },
     illuIcon: {
         zIndex: 1,
@@ -1060,12 +1032,12 @@ const styles = StyleSheet.create({
     emptyHistoryTitle: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#1E293B',
+        color: C.colors.text,
         marginBottom: 8,
     },
     emptyHistorySubtitle: {
         fontSize: 13,
-        color: '#64748B',
+        color: C.colors.textSec,
         textAlign: 'center',
     },
     viewMoreBtn: {
@@ -1075,27 +1047,27 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         borderRadius: 999,
         borderWidth: 1,
-        borderColor: '#cbd5e1',
-        backgroundColor: '#fff',
+        borderColor: C.colors.border,
+        backgroundColor: C.colors.card,
     },
     viewMoreText: {
         fontSize: 13,
         fontWeight: '700',
-        color: '#3b82f6',
+        color: C.colors.blue,
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: C.colors.text + '80', // 0.5 opacity
         justifyContent: 'flex-end',
     },
     modalOverlayCenter: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: C.colors.text + '80', // 0.5 opacity
         justifyContent: 'center',
         alignItems: 'center',
     },
     teacherModalContent: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: C.colors.card,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         maxHeight: '80%',
@@ -1107,12 +1079,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
+        borderBottomColor: C.colors.border,
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#1E293B',
+        color: C.colors.text,
     },
     teacherList: {
         padding: 20,
@@ -1122,10 +1094,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#F8FAFC',
+        borderBottomColor: C.colors.backgroundAlt,
     },
     teacherItemSelected: {
-        backgroundColor: '#F0F7FF',
+        backgroundColor: C.colors.blueLight,
         borderRadius: 12,
         paddingHorizontal: 12,
         marginHorizontal: -12,
@@ -1134,31 +1106,31 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: '#3B82F6',
+        backgroundColor: C.colors.blue,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
     },
     teacherItemAvatarText: {
-        color: '#FFFFFF',
+        color: C.colors.card,
         fontSize: 18,
         fontWeight: 'bold',
     },
     teacherItemName: {
         fontSize: 15,
         fontWeight: '600',
-        color: '#1E293B',
+        color: C.colors.text,
     },
     teacherItemSubject: {
         fontSize: 13,
-        color: '#64748B',
+        color: C.colors.textSec,
         marginTop: 2,
     },
     checkIcon: {
         marginLeft: 'auto',
     },
     successModal: {
-        backgroundColor: '#ffffff',
+        backgroundColor: C.colors.card,
         borderRadius: 24,
         padding: 24,
         alignItems: 'center',
@@ -1170,12 +1142,12 @@ const styles = StyleSheet.create({
     successTitle: {
         fontSize: 20,
         fontWeight: '800',
-        color: '#0f172a',
+        color: C.colors.text,
         marginBottom: 8,
     },
     successMessage: {
         fontSize: 14,
-        color: '#64748b',
+        color: C.colors.textSec,
         textAlign: 'center',
         lineHeight: 20,
     },
@@ -1188,34 +1160,34 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     badgeApproved: {
-        backgroundColor: '#f0fdf4',
+        backgroundColor: C.colors.successBg,
     },
     badgeRejected: {
-        backgroundColor: '#fef2f2',
+        backgroundColor: C.colors.errorBg,
     },
     badgePending: {
-        backgroundColor: '#fffbeb',
+        backgroundColor: C.colors.warningBg,
     },
     badgeText: {
         fontSize: 11,
         fontWeight: 'bold',
     },
     badgeTextApproved: {
-        color: '#22c55e',
+        color: C.colors.success,
     },
     badgeTextRejected: {
-        color: '#ef4444',
+        color: C.colors.error,
     },
     badgeTextPending: {
-        color: '#f59e0b',
+        color: C.colors.warning,
     },
     historyCard: {
-        backgroundColor: '#F8FAFC',
+        backgroundColor: C.colors.cardAlt,
         borderRadius: 16,
         padding: 16,
         marginBottom: 16,
         borderWidth: 1,
-        borderColor: '#F1F5F9',
+        borderColor: C.colors.border,
     },
     historyCardHeader: {
         flexDirection: 'row',
@@ -1231,24 +1203,24 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#E2E8F0',
+        backgroundColor: C.colors.border,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,
     },
     historyTeacherAvatarText: {
-        color: '#64748B',
+        color: C.colors.textSec,
         fontSize: 16,
         fontWeight: 'bold',
     },
     historyTeacherName: {
         fontSize: 14,
         fontWeight: 'bold',
-        color: '#1E293B',
+        color: C.colors.text,
     },
     historyDuration: {
         fontSize: 12,
-        color: '#64748B',
+        color: C.colors.textSec,
         marginTop: 2,
     },
     historyCardBody: {
@@ -1261,7 +1233,7 @@ const styles = StyleSheet.create({
     },
     historyDateText: {
         fontSize: 13,
-        color: '#475569',
+        color: C.colors.text,
     },
     historyReason: {
         flexDirection: 'row',
@@ -1270,7 +1242,7 @@ const styles = StyleSheet.create({
     },
     historyReasonText: {
         fontSize: 13,
-        color: '#64748B',
+        color: C.colors.textSec,
         lineHeight: 18,
         flex: 1,
     },
@@ -1278,7 +1250,7 @@ const styles = StyleSheet.create({
         marginTop: 12,
         paddingTop: 12,
         borderTopWidth: 1,
-        borderTopColor: '#F1F5F9',
+        borderTopColor: C.colors.border,
         flexDirection: 'row',
         justifyContent: 'flex-end',
     },
@@ -1289,11 +1261,11 @@ const styles = StyleSheet.create({
     },
     viewDetailsText: {
         fontSize: 13,
-        color: '#3b82f6',
+        color: C.colors.blue,
         fontWeight: '600',
     },
     detailCard: {
-        backgroundColor: '#fff',
+        backgroundColor: C.colors.card,
     },
     detailStatusRow: {
         flexDirection: 'row',
@@ -1303,7 +1275,7 @@ const styles = StyleSheet.create({
     },
     detailDateText: {
         fontSize: 12,
-        color: '#94a3b8',
+        color: C.colors.textMuted,
     },
     detailInfoSection: {
         marginBottom: 20,
@@ -1311,7 +1283,7 @@ const styles = StyleSheet.create({
     detailLabel: {
         fontSize: 11,
         fontWeight: 'bold',
-        color: '#94a3b8',
+        color: C.colors.textMuted,
         marginBottom: 8,
         letterSpacing: 0.5,
     },
@@ -1322,54 +1294,54 @@ const styles = StyleSheet.create({
     },
     detailValueText: {
         fontSize: 15,
-        color: '#1e293b',
+        color: C.colors.text,
         fontWeight: '600',
     },
     detailSubValueText: {
         fontSize: 12,
-        color: '#94a3b8',
+        color: C.colors.textMuted,
         marginTop: 2,
     },
     detailAvatar: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#F0F7FF',
+        backgroundColor: C.colors.blueLight,
         justifyContent: 'center',
         alignItems: 'center',
     },
     detailAvatarText: {
-        color: '#3B82F6',
+        color: C.colors.blue,
         fontSize: 16,
         fontWeight: 'bold',
     },
     detailDurationText: {
         fontSize: 13,
-        color: '#3b82f6',
+        color: C.colors.blue,
         fontWeight: '600',
     },
     detailReasonBox: {
-        backgroundColor: '#F8FAFC',
+        backgroundColor: C.colors.background,
         padding: 16,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#E2E8F0',
+        borderColor: C.colors.border,
     },
     detailReasonText: {
         fontSize: 14,
-        color: '#475569',
+        color: C.colors.text,
         lineHeight: 20,
     },
     modalCloseBtn: {
         margin: 20,
-        backgroundColor: '#F1F5F9',
+        backgroundColor: C.colors.backgroundAlt,
         height: 50,
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
     },
     modalCloseBtnText: {
-        color: '#475569',
+        color: C.colors.textSec,
         fontSize: 16,
         fontWeight: 'bold',
     },

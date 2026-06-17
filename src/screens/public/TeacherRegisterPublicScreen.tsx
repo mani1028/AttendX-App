@@ -927,7 +927,7 @@ export default function TeacherRegisterPublicScreen() {
 
               <FormField label="Designation" required error={fieldErrors.designation}>
                 <View style={styles.pickerContainer}>
-                  {['Teacher', 'Senior Teacher', 'Head of Department', 'Vice Principal', 'Principal', 'Lab Assistant', 'Sports Teacher', 'Special Educator', 'Accountant'].map(opt => (
+                  {['Teacher', 'Senior Teacher', 'Head of Department', 'Vice Director', 'Director', 'Lab Assistant', 'Sports Teacher', 'Special Educator', 'Accountant'].map(opt => (
                     <TouchableOpacity
                       key={opt}
                       style={[styles.pickerOption, formData.designation === opt && styles.pickerOptionActive]}
@@ -1239,7 +1239,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#059669',
   },
   stepActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#6648dc',
   },
   stepIcon: {
     color: '#fff',
@@ -1258,7 +1258,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   stepLabelActive: {
-    color: '#2563eb',
+    color: '#6648dc',
     fontWeight: 'bold',
   },
   stepLabelCompleted: {
@@ -1327,7 +1327,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 10,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#6648dc',
   },
   verifyBtnDisabled: {
     opacity: 0.6,
@@ -1370,8 +1370,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   genderBtnActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#6648dc',
+    borderColor: '#6648dc',
   },
   genderText: {
     color: '#4a5568',
@@ -1405,8 +1405,8 @@ const styles = StyleSheet.create({
     borderColor: '#e4e9f2',
   },
   pickerOptionActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#6648dc',
+    borderColor: '#6648dc',
   },
   pickerText: {
     fontSize: 13,
@@ -1488,7 +1488,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   previewHeader: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#6648dc',
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1554,7 +1554,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    color: '#2563eb',
+    color: '#6648dc',
     padding: 12,
     backgroundColor: '#f8fafc',
     borderBottomWidth: 1,
@@ -1590,7 +1590,7 @@ const styles = StyleSheet.create({
   },
   inlineNoteText: {
     fontSize: 12,
-    color: '#1e40af',
+    color: '#5b3cc4',
   },
   inlineNoteBold: {
     fontWeight: '700',

@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Bell } from 'lucide-react-native';
 import eventEmitter from '../../utils/eventEmitter';
 import { isJwtExpired } from '../../utils/jwt';
 import { useNavigation } from '@react-navigation/native';
@@ -37,7 +38,7 @@ const isNotificationNew = (id: string, readIds: string[]): boolean => {
   return !readIds.includes(id);
 };
 
-export default function NotificationPanel({ type = 'student', isHM = false }) {
+export default function NotificationPanel({ type = 'student', isDirector = false }) {
   const navigation = useNavigation();
   const { refreshUnreadCount } = useUnreadNotifications();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -49,7 +50,7 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
-  const canDelete = type === 'hm' || isHM;
+  const canDelete = type === 'director' || isDirector;
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
@@ -181,17 +182,17 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
   return (
     <>
       <TouchableOpacity style={styles.bellButton} onPress={() => setVisible(true)}>
-        <Text style={styles.bellIcon}>🔔</Text>
+        <Bell size={22} color="#f1f5f9" />
         {unreadCount > 0 && (
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
           </View>
         )}
       </TouchableOpacity>
 
       <BottomSheetModal visible={visible} onClose={() => setVisible(false)} sheetStyle={styles.modalContent}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>{type === 'hm' ? 'Posted Notifications' : 'School Updates'}</Text>
+          <Text style={styles.modalTitle}>{type === 'director' ? 'Posted Notifications' : 'School Updates'}</Text>
           <TouchableOpacity onPress={() => setVisible(false)}>
             <Text style={styles.closeText}>✕</Text>
           </TouchableOpacity>
@@ -232,9 +233,20 @@ export default function NotificationPanel({ type = 'student', isHM = false }) {
 
 const styles = StyleSheet.create({
   bellButton: { position: 'relative', padding: 8 },
-  bellIcon: { fontSize: 20 },
-  badge: { position: 'absolute', top: -4, right: -4, backgroundColor: '#ef4444', borderRadius: 10, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold', paddingHorizontal: 4 },
+  badge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#ef4444',
+    borderRadius: 11,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
   modalContent: { backgroundColor: '#fff' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   modalTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a' },

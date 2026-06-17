@@ -8,6 +8,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { XCircle, CheckCircle2 } from 'lucide-react-native';
+import { Theme } from '../../theme/theme';
 
 interface CustomPickerModalProps {
   visible: boolean;
@@ -26,6 +27,8 @@ const CustomPickerModal: React.FC<CustomPickerModalProps> = ({
   onValueChange,
   onClose,
 }) => {
+  const activeColor = Theme.colors.primary;
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.pickerOverlay}>
@@ -48,13 +51,14 @@ const CustomPickerModal: React.FC<CustomPickerModalProps> = ({
               ) : (
                 options.map((item, index) => {
                   if (!item) return null;
+                  const isSelected = selectedValue === item.value;
                   const itemKey = item.value !== null && item.value !== undefined ? String(item.value) : `item-${index}`;
                   return (
                     <TouchableOpacity
                       key={itemKey}
                       style={[
                         styles.pickerOption,
-                        selectedValue === item.value && styles.pickerOptionActive,
+                        isSelected && styles.pickerOptionActive,
                       ]}
                       onPress={() => {
                         onValueChange(item.value);
@@ -64,12 +68,12 @@ const CustomPickerModal: React.FC<CustomPickerModalProps> = ({
                       <Text
                         style={[
                           styles.pickerOptionText,
-                          selectedValue === item.value && styles.pickerOptionTextActive,
+                          isSelected && { fontWeight: '700', color: activeColor },
                         ]}
                       >
                         {item.label || 'Unknown'}
                       </Text>
-                      {selectedValue === item.value && <CheckCircle2 size={18} color="#4f46e5" />}
+                      {isSelected && <CheckCircle2 size={18} color={activeColor} />}
                     </TouchableOpacity>
                   );
                 })

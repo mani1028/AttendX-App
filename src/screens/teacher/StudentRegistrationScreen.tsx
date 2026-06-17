@@ -36,7 +36,7 @@ import {
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import API from '../../services/api';
-import HM_THEME from '../../constants/hmTheme';
+import Director_THEME from '../../constants/directorTheme';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import { safeGoBack } from '../../utils/navigationHelpers';
@@ -44,6 +44,7 @@ import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import { Theme } from '../../theme/theme';
 
 // Types
 interface ClassOption {
@@ -296,7 +297,7 @@ const FormField: React.FC<{
   children: React.ReactNode;
 }> = ({ label, required, error, children }) => (
   <View style={styles.formGroup}>
-    <AppText weight="semiBold" style={styles.formLabel}>
+    <AppText weight="semibold" style={styles.formLabel}>
       {label}
       {required && <AppText style={styles.requiredStar}> *</AppText>}
     </AppText>
@@ -308,7 +309,7 @@ const FormField: React.FC<{
 // Preview Field Component
 const PreviewField: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <View style={styles.previewField}>
-    <AppText weight="semiBold" style={styles.previewFieldLabel}>{label}</AppText>
+    <AppText weight="semibold" style={styles.previewFieldLabel}>{label}</AppText>
     <AppText weight="regular" style={styles.previewFieldValue}>{value || '—'}</AppText>
   </View>
 );
@@ -346,7 +347,7 @@ export default function StudentRegistrationScreen() {
 
       if (!sc || !bid) return;
 
-      const res = await API.get('/teacher/student-registration-requests', {
+      const res = await API.get('/staff/student-registration-requests', {
         headers: {
           'X-School-Code': sc,
           'X-Branch-Id': bid,
@@ -809,7 +810,7 @@ export default function StudentRegistrationScreen() {
       // so we retry against the public student register endpoint as a fallback.
       let res;
       try {
-        res = await API.post('/teacher/student-registration-requests', formData, {
+        res = await API.post('/staff/student-registration-requests', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
             'X-School-Code': code,
@@ -1010,7 +1011,7 @@ export default function StudentRegistrationScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       <ScrollView
         contentContainerStyle={styles.contentContainer}
@@ -1092,7 +1093,7 @@ export default function StudentRegistrationScreen() {
           {step === 0 && (
             <View>
               <View style={styles.sectionHeader}>
-                <User size={18} color="#001F3F" />
+                <User size={18} color={Theme.colors.primary} />
                 <AppText weight="bold" style={styles.sectionTitle}>Personal Details</AppText>
               </View>
               
@@ -1124,7 +1125,7 @@ export default function StudentRegistrationScreen() {
                       style={[styles.genderBtn, form.gender === g && styles.genderBtnActive]}
                       onPress={() => handleChange('gender', g)}
                     >
-                      <AppText weight="semiBold" style={[styles.genderText, form.gender === g && styles.genderTextActive]}>{g}</AppText>
+                      <AppText weight="semibold" style={[styles.genderText, form.gender === g && styles.genderTextActive]}>{g}</AppText>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -1221,7 +1222,7 @@ export default function StudentRegistrationScreen() {
           {step === 1 && (
             <View>
               <View style={styles.sectionHeader}>
-                <BookOpen size={18} color="#001F3F" />
+                <BookOpen size={18} color={Theme.colors.primary} />
                 <AppText weight="bold" style={styles.sectionTitle}>Academic Details</AppText>
               </View>
 
@@ -1234,7 +1235,7 @@ export default function StudentRegistrationScreen() {
                         style={[styles.chip, form.class_grade === cls.class_name && styles.chipActive]}
                         onPress={() => handleClassChange(cls.class_name)}
                       >
-                        <AppText weight="semiBold" style={[styles.chipText, form.class_grade === cls.class_name && styles.chipTextActive]}>
+                        <AppText weight="semibold" style={[styles.chipText, form.class_grade === cls.class_name && styles.chipTextActive]}>
                           Class {cls.class_name}
                         </AppText>
                       </TouchableOpacity>
@@ -1333,7 +1334,7 @@ export default function StudentRegistrationScreen() {
           {step === 2 && (
             <View>
               <View style={styles.sectionHeader}>
-                <Users size={18} color="#001F3F" />
+                <Users size={18} color={Theme.colors.primary} />
                 <AppText weight="bold" style={styles.sectionTitle}>Parent / Guardian Details</AppText>
               </View>
 
@@ -1419,7 +1420,7 @@ export default function StudentRegistrationScreen() {
           {step === 3 && (
             <View>
               <View style={styles.sectionHeader}>
-                <BookOpen size={18} color="#001F3F" />
+                <BookOpen size={18} color={Theme.colors.primary} />
                 <AppText weight="bold" style={styles.sectionTitle}>Current Address</AppText>
               </View>
 
@@ -1496,7 +1497,7 @@ export default function StudentRegistrationScreen() {
               </FormField>
 
               <View style={[styles.sectionHeader, { marginTop: 20 }]}>
-                <Heart size={18} color="#001F3F" />
+                <Heart size={18} color={Theme.colors.primary} />
                 <AppText weight="bold" style={styles.sectionTitle}>Health, Emergency & Transport</AppText>
               </View>
 
@@ -1588,7 +1589,7 @@ export default function StudentRegistrationScreen() {
           {step === 4 && (
             <View>
               <View style={styles.sectionHeader}>
-                <Camera size={18} color="#001F3F" />
+                <Camera size={18} color={Theme.colors.primary} />
                 <AppText weight="bold" style={styles.sectionTitle}>Student Photograph</AppText>
               </View>
 
@@ -1600,14 +1601,14 @@ export default function StudentRegistrationScreen() {
                 ) : (
                   <View style={styles.photoPlaceholder}>
                     <Camera size={48} color="#CBD5E1" />
-                    <AppText weight="semiBold" style={styles.photoText}>Tap to add photo</AppText>
+                    <AppText weight="semibold" style={styles.photoText}>Tap to add photo</AppText>
                     <AppText style={styles.photoSubtext}>Camera or Gallery</AppText>
                   </View>
                 )}
               </TouchableOpacity>
 
               <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-                <Check size={18} color="#001F3F" />
+                <Check size={18} color={Theme.colors.primary} />
                 <AppText weight="bold" style={styles.sectionTitle}>Login Credentials</AppText>
               </View>
 
@@ -1769,7 +1770,7 @@ export default function StudentRegistrationScreen() {
               </View>
 
               <View style={styles.previewFooter}>
-                <AppText weight="semiBold" style={styles.previewFooterText}>
+                <AppText weight="semibold" style={styles.previewFooterText}>
                   Please review all details carefully before submitting.
                 </AppText>
               </View>
@@ -1819,7 +1820,7 @@ export default function StudentRegistrationScreen() {
               Your student details were saved successfully and a roll number has been assigned.
             </AppText>
             <View style={styles.rollNumberDisplay}>
-              <AppText weight="semiBold" style={styles.rollNumberLabel}>Assigned Roll Number</AppText>
+              <AppText weight="semibold" style={styles.rollNumberLabel}>Assigned Roll Number</AppText>
               <AppText weight="bold" style={styles.rollNumberValue}>{generatedRollNumber || '—'}</AppText>
             </View>
             <AppText style={styles.modalNote}>
@@ -1839,7 +1840,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   headerStandard: {
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
     paddingHorizontal: 20,
     paddingBottom: 30,
     borderBottomLeftRadius: 40,
@@ -1953,7 +1954,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#059669',
   },
   stepActive: {
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
   },
   stepNumber: {
     color: '#64748B',
@@ -1969,7 +1970,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   stepLabelActive: {
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
   },
   stepLabelCompleted: {
     color: '#059669',
@@ -1996,7 +1997,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
   },
   formGroup: {
     marginBottom: 20,
@@ -2042,8 +2043,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   genderBtnActive: {
-    backgroundColor: HM_THEME.navy,
-    borderColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
   },
   genderText: {
     color: '#64748B',
@@ -2080,8 +2081,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   chipActive: {
-    backgroundColor: HM_THEME.navy,
-    borderColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
   },
   chipText: {
     fontSize: 14,
@@ -2174,7 +2175,7 @@ const styles = StyleSheet.create({
   },
   photoText: {
     fontSize: 15,
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
     marginTop: 12,
   },
   photoSubtext: {
@@ -2213,7 +2214,7 @@ const styles = StyleSheet.create({
   },
   previewName: {
     fontSize: 18,
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
   },
   previewMeta: {
     fontSize: 12,
@@ -2249,7 +2250,7 @@ const styles = StyleSheet.create({
   },
   previewCardTitle: {
     fontSize: 12,
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -2295,7 +2296,7 @@ const styles = StyleSheet.create({
   navBtn: {
     flex: 1,
     height: 50,
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Theme.colors.primary,
   },
   footer: {
     marginTop: 16,
@@ -2332,7 +2333,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    color: HM_THEME.navy,
+    color: Theme.colors.primary,
     marginBottom: 12,
   },
   modalMessage: {

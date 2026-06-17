@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import type { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/types';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   instructionText: {
     flex: 1,
     fontSize: 13,
-    color: '#1e40af',
+    color: '#6648dc',
     lineHeight: 18,
   },
   homeBtn: {

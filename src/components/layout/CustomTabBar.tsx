@@ -3,36 +3,66 @@ import {
   View,
   TouchableOpacity,
   StyleSheet,
-  Animated,
   Text,
+  Dimensions,
+  Animated,
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../context/AuthContext';
 import {
   Home,
   BookOpen,
   CalendarCheck,
   GraduationCap,
   Plus,
-  CreditCard,
   FileText,
+  Wallet,
 } from 'lucide-react-native';
+import { useAuth } from '../../context/AuthContext';
+
+const { width } = Dimensions.get('window');
 
 const TAB_BAR_HEIGHT = 70;
-const FAB_SIZE = 60;
+
+const COLORS = {
+  active: '#2563EB',
+  inactive: '#8e8e93',
+  fab: '#2563EB',
+  white: '#FFFFFF',
+  bar: '#FFFFFF',
+};
+
+const getResponsiveSizes = () => {
+  if (width > 430) return { iconSize: 26, centerButtonSize: 68, centerIconSize: 32 };
+  if (width > 390) return { iconSize: 24, centerButtonSize: 64, centerIconSize: 28 };
+  return { iconSize: 22, centerButtonSize: 60, centerIconSize: 26 };
+};
 
 const CustomTabBar = ({ state, navigation }: any) => {
   const insets = useSafeAreaInsets();
-  const { isTabBarVisible, tabBarTranslate } = useAuth();
+  const { tabBarTranslate, isTabBarVisible } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
   const animation = useRef(new Animated.Value(0)).current;
+  const sizes = getResponsiveSizes();
+
+  const tabs = [
+    { name: 'Home', label: 'Home', icon: Home, routeIndex: 0 },
+    { name: 'Homework', label: 'Homework', icon: BookOpen, routeIndex: 1 },
+    { name: 'Leave', label: 'Leave', icon: CalendarCheck, routeIndex: 2 },
+    { name: 'Marks', label: 'Marks', icon: GraduationCap, routeIndex: 3 },
+  ];
+
+  const hiddenPages = [
+    { name: 'Fees', label: 'Fees', icon: Wallet, routeName: 'Fees' },
+    { name: 'Papers', label: 'Papers', icon: FileText, routeName: 'Papers' },
+  ];
 
   const toggleMenu = () => {
     const toValue = isExpanded ? 0 : 1;
     Animated.spring(animation, {
       toValue,
-      friction: 5,
+      friction: 6,
+      tension: 50,
       useNativeDriver: true,
     }).start();
     setIsExpanded(!isExpanded);
@@ -46,186 +76,210 @@ const CustomTabBar = ({ state, navigation }: any) => {
       })
     : 1;
 
-  const renderTab = (index: number, label: string) => {
-    const isFocused = state.index === index;
+  const onNavigate = (routeIndex: number) => {
+    const route = state.routes[routeIndex];
+    if (!route) return;
 
-    const onPress = () => {
-      const event = navigation.emit({
-        type: 'tabPress',
-        target: state.routes[index].key,
-        canPreventDefault: true,
-      });
+    const isFocused = state.index === routeIndex;
+    const event = navigation.emit({
+      type: 'tabPress',
+      target: route.key,
+      canPreventDefault: true,
+    });
 
-      if (!isFocused && !event.defaultPrevented) {
-        navigation.navigate(state.routes[index].name);
-      }
-      if (isExpanded) {
-        toggleMenu();
-      }
-    };
+    if (!isFocused && !event.defaultPrevented) {
+      navigation.navigate(route.name);
+    }
+    if (isExpanded) toggleMenu();
+  };
 
-    const icons: Record<string, any> = {
-      Home: Home,
-      'Home Work': BookOpen,
-      Leave: CalendarCheck,
-      Marks: GraduationCap,
-    };
-    const IconComponent = icons[label] ?? Home;
-
-    return (
-      <TouchableOpacity
-        key={index}
-        onPress={onPress}
-        style={styles.tabItem}
-        activeOpacity={0.7}
-      >
-        <IconComponent
-          size={24}
-          color={isFocused ? '#3498db' : '#8e8e93'}
-          strokeWidth={isFocused ? 2.5 : 2}
-        />
-        <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
-          {label}
-        </Text>
-      </TouchableOpacity>
-    );
+  const navigateToHidden = (routeName: string) => {
+    navigation.navigate(routeName);
+    if (isExpanded) toggleMenu();
   };
 
   const renderSubMenu = (
-    index: number,
-    IconComponent: any,
+    item: { icon: any; routeName: string; label: string },
     translateX: number,
     translateY: number,
-    targetRouteName?: string,
   ) => {
-    const scale = animation.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 1],
-    });
-
-    const moveX = animation.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, translateX],
-    });
-
-    const moveY = animation.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, translateY],
-    });
-
-    const onPress = () => {
-      if (targetRouteName) {
-        const parentNavigation = navigation.getParent?.();
-        if (parentNavigation?.navigate) {
-          parentNavigation.navigate(targetRouteName);
-        } else {
-          navigation.navigate(targetRouteName);
-        }
-      } else {
-        navigation.navigate(state.routes[index].name);
-      }
-      toggleMenu();
-    };
+    const scale = animation.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] });
+    const moveX = animation.interpolate({ inputRange: [0, 1], outputRange: [0, translateX] });
+    const moveY = animation.interpolate({ inputRange: [0, 1], outputRange: [0, translateY] });
+    const opacity = animation.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0, 1] });
+    const IconComponent = item.icon;
 
     return (
       <Animated.View
-        key={`submenu-${index}`}
+        key={item.routeName}
         style={[
-          styles.subMenuItem,
+          styles.subMenuItemWrapper,
           {
-            transform: [
-              { scale },
-              { translateX: moveX },
-              { translateY: moveY },
-            ],
-            opacity: animation,
+            transform: [{ translateX: moveX }, { translateY: moveY }, { scale }],
+            opacity: opacity,
           },
         ]}
       >
-        <TouchableOpacity onPress={onPress} style={styles.subMenuButton}>
-          <IconComponent size={24} color="#fff" />
+        <TouchableOpacity
+          onPress={() => navigateToHidden(item.routeName)}
+          style={styles.subMenuButton}
+          activeOpacity={0.8}
+        >
+          <IconComponent size={20} color="#fff" />
         </TouchableOpacity>
+        <Text style={styles.subMenuLabel}>{item.label}</Text>
       </Animated.View>
     );
   };
 
   return (
-    <Animated.View
-      pointerEvents={isTabBarVisible ? 'auto' : 'none'}
-      style={[
-        styles.container,
-        {
-          paddingBottom: insets.bottom,
-          transform: [{ translateY: tabBarTranslate || new Animated.Value(0) }],
-          opacity: animatedOpacity,
-        },
-      ]}
-    >
-      <View style={styles.subMenuContainer}>
-        {renderSubMenu(4, CreditCard, -70, -40)}
-        {renderSubMenu(5, FileText, 70, -40)}
-      </View>
-
-      <View style={styles.backgroundContainer}>
-        <View style={styles.curvedBar}>
-          {renderTab(0, 'Home')}
-          {renderTab(1, 'Home Work')}
-          <View style={styles.tabItem} />
-          {renderTab(2, 'Leave')}
-          {renderTab(3, 'Marks')}
-        </View>
-      </View>
-
-      <View style={styles.fabContainer}>
+    <>
+      {/* Full screen invisible overlay to dismiss menu */}
+      {isExpanded && (
         <TouchableOpacity
-          activeOpacity={0.8}
+          style={styles.overlay}
+          activeOpacity={1}
           onPress={toggleMenu}
-          style={styles.fab}
-        >
-          <Animated.View
-            style={{
-              transform: [
-                {
-                  rotate: animation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0deg', '45deg'],
-                  }),
-                },
-              ],
-            }}
+        />
+      )}
+      <Animated.View
+        pointerEvents={isTabBarVisible ? 'box-none' : 'none'}
+        style={[
+          styles.container,
+          {
+            paddingBottom: insets.bottom,
+            transform: [{ translateY: tabBarTranslate || new Animated.Value(0) }],
+            opacity: animatedOpacity,
+          },
+        ]}
+      >
+        {/* Sub-menu items fanning out from FAB */}
+        <View style={styles.subMenuContainer}>
+          {renderSubMenu(hiddenPages[0], -65, -75)}
+          {renderSubMenu(hiddenPages[1], 65, -75)}
+        </View>
+
+        {/* Tab bar pill */}
+        <View style={styles.backgroundContainer}>
+          <View style={styles.curvedBar}>
+            {/* Left tabs */}
+            {tabs.slice(0, 2).map((tab) => {
+              const isFocused = state.index === tab.routeIndex;
+              const IconComponent = tab.icon;
+              return (
+                <TouchableOpacity
+                  key={tab.name}
+                  onPress={() => onNavigate(tab.routeIndex)}
+                  style={styles.tabItem}
+                  activeOpacity={0.6}
+                >
+                  <IconComponent
+                    size={sizes.iconSize}
+                    color={isFocused ? COLORS.active : COLORS.inactive}
+                    strokeWidth={isFocused ? 2.5 : 2}
+                  />
+                  <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* Spacer for FAB */}
+            <View style={styles.tabItem} />
+
+            {/* Right tabs */}
+            {tabs.slice(2).map((tab) => {
+              const isFocused = state.index === tab.routeIndex;
+              const IconComponent = tab.icon;
+              return (
+                <TouchableOpacity
+                  key={tab.name}
+                  onPress={() => onNavigate(tab.routeIndex)}
+                  style={styles.tabItem}
+                  activeOpacity={0.6}
+                >
+                  <IconComponent
+                    size={sizes.iconSize}
+                    color={isFocused ? COLORS.active : COLORS.inactive}
+                    strokeWidth={isFocused ? 2.5 : 2}
+                  />
+                  <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Center FAB */}
+        <View style={[styles.fabContainer, { top: -(sizes.centerButtonSize / 2) - 4 }]}>
+          <TouchableOpacity 
+            activeOpacity={0.8} 
+            onPress={toggleMenu} 
+            style={[
+              styles.fab,
+              {
+                width: sizes.centerButtonSize,
+                height: sizes.centerButtonSize,
+                borderRadius: sizes.centerButtonSize / 2,
+              },
+              isExpanded && styles.activeFab,
+            ]}
           >
-            <Plus size={32} color="#fff" />
-          </Animated.View>
-        </TouchableOpacity>
-        <Text style={styles.moreLabel}>More</Text>
-      </View>
-    </Animated.View>
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    rotate: animation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '45deg'],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <Plus size={sizes.centerIconSize} color="#fff" />
+            </Animated.View>
+          </TouchableOpacity>
+          <Text style={styles.moreLabel}>More</Text>
+        </View>
+      </Animated.View>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    zIndex: 998,
+  },
   container: {
     position: 'absolute',
     bottom: 20,
     left: 20,
     right: 20,
     alignItems: 'center',
+    zIndex: 999,
   },
   backgroundContainer: {
     width: '100%',
     height: TAB_BAR_HEIGHT,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 25,
+    backgroundColor: COLORS.bar,
+    borderRadius: 35,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
     ...Platform.select({
-
-      android: { elevation: 10 },
-
+      android: { elevation: 12 },
       ios: {},
-
     }),
   },
   curvedBar: {
@@ -240,79 +294,85 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabLabel: {
-    fontSize: 10,
+    fontSize: 9,
     marginTop: 4,
-    fontWeight: '600',
-    color: '#8e8e93',
+    fontWeight: '500',
+    color: '#6B7280',
   },
   tabLabelActive: {
-    color: '#3498db',
+    color: COLORS.active,
   },
   fabContainer: {
     position: 'absolute',
-    top: -30,
     alignItems: 'center',
   },
   fab: {
-    width: FAB_SIZE,
-    height: FAB_SIZE,
-    borderRadius: FAB_SIZE / 2,
-    backgroundColor: '#2563EB',
+    backgroundColor: COLORS.fab,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: '#fff',
+    borderColor: COLORS.white,
+    shadowColor: COLORS.fab,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
     ...Platform.select({
-
-      android: { elevation: 5 },
-
+      android: { elevation: 8 },
       ios: {},
-
     }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+  },
+  activeFab: {
+    backgroundColor: COLORS.active,
   },
   moreLabel: {
-    color: '#8e8e93',
-    fontSize: 10,
-    marginTop: 4,
-    fontWeight: '600',
+    color: '#6B7280',
+    fontSize: 9,
+    marginTop: 6,
+    fontWeight: '500',
+  },
+  hiddenBar: {
+    display: 'none',
   },
   subMenuContainer: {
     position: 'absolute',
-    top: -20,
-    width: FAB_SIZE,
-    height: FAB_SIZE,
-    justifyContent: 'center',
+    alignSelf: 'center',
+    top: -20, // Adjust relative to FAB
+    width: 0,
+    height: 0,
     alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
   },
-  subMenuItem: {
+  subMenuItemWrapper: {
     position: 'absolute',
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    backgroundColor: '#2563EB',
-    justifyContent: 'center',
     alignItems: 'center',
-    ...Platform.select({
-
-      android: { elevation: 5 },
-
-      ios: {},
-
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    justifyContent: 'center',
   },
   subMenuButton: {
-    width: '100%',
-    height: '100%',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.active,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    ...Platform.select({
+      android: { elevation: 6 },
+    }),
+  },
+  subMenuLabel: {
+    marginTop: 6,
+    color: '#374151',
+    fontSize: 11,
+    fontWeight: 'bold',
+    backgroundColor: '#ffffffaa',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    overflow: 'hidden',
   },
 });
 

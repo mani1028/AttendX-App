@@ -14,7 +14,9 @@ import {
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getStudentAttendanceByMonth } from '../../services/studentService';
-import Icon from '@react-native-vector-icons/feather';
+import Icon from 'react-native-vector-icons/Feather';
+import { Theme as C } from '../../theme/theme';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 
 const { width } = Dimensions.get('window');
 
@@ -104,32 +106,70 @@ export default function StudentAttendanceScreen({ navigation }: any) {
     };
 
     const attendanceStatusColors: Record<string, string> = {
-        PRESENT: '#22C55E',
-        ABSENT: '#EF4444',
-        LATE: '#F59E0B',
-        LEAVE: '#3B82F6',
-        HOLIDAY: '#64748B',
+        PRESENT: C.colors.success,
+        ABSENT: C.colors.error,
+        LATE: C.colors.warning,
+        LEAVE: C.colors.blue,
+        HOLIDAY: C.colors.textMuted,
     };
 
     const markedDates = useMemo(() => {
         const marked: any = {};
         attendance.forEach(item => {
+            const isPresent = item.status === 'PRESENT' || item.status === 'LATE';
+            const isAbsent = item.status === 'ABSENT';
+            const isLeave = item.status === 'LEAVE';
+
+            let bgColor = 'transparent';
+            let textColor = C.colors.text;
+
+            if (isPresent) {
+                bgColor = C.colors.successBg;
+                textColor = C.colors.success;
+            } else if (isAbsent) {
+                bgColor = C.colors.errorBg;
+                textColor = C.colors.error;
+            } else if (isLeave) {
+                bgColor = C.colors.blueLight;
+                textColor = C.colors.blue;
+            }
+
             marked[item.date] = {
-                dots: [
-                    {
-                        key: item.status,
-                        color: attendanceStatusColors[item.status] || '#CBD5E1',
+                customStyles: {
+                    container: {
+                        backgroundColor: bgColor,
+                        borderRadius: 10,
+                        justifyContent: 'center',
+                        alignItems: 'center',
                     },
-                ],
+                    text: {
+                        color: textColor,
+                        fontWeight: '600',
+                    },
+                },
             };
         });
 
+        // Selected date override
         marked[selectedDate] = {
-            ...(marked[selectedDate] || {}),
-            selected: true,
-            selectedColor: '#3B82F6',
-            selectedTextColor: '#FFFFFF',
-            dots: marked[selectedDate]?.dots || [],
+            ...marked[selectedDate],
+            customStyles: {
+                container: {
+                    backgroundColor: C.colors.primary,
+                    borderRadius: 10,
+                    elevation: 3,
+                    shadowColor: C.colors.primary,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 4,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                },
+                text: {
+                    color: '#FFFFFF',
+                    fontWeight: 'bold',
+                },
+            },
         };
 
         return marked;
@@ -152,7 +192,7 @@ export default function StudentAttendanceScreen({ navigation }: any) {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+            <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
             {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
@@ -160,7 +200,7 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                     style={styles.backButton}
                     onPress={() => navigation.goBack()}
                 >
-                    <Icon name="arrow-left" size={24} color="#FFF" />
+                    <Icon name="arrow-left" size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
                 </TouchableOpacity>
                 <View style={styles.headerTitleContainer}>
                     <Text style={styles.headerTitle}>Attendance History</Text>
@@ -169,7 +209,7 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                     style={styles.headerRight}
                     onPress={onRefresh}
                 >
-                    <Icon name="refresh-cw" size={20} color="#FFF" />
+                    <Icon name="refresh-cw" size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
                 </TouchableOpacity>
             </View>
 
@@ -177,7 +217,7 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                 style={styles.scrollView}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3B82F6" />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />
                 }
             >
                 {/* Overall Stats Card */}
@@ -189,17 +229,17 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                     <View style={styles.statsDivider} />
                     <View style={styles.statsRight}>
                         <View style={styles.statRow}>
-                            <View style={[styles.statDot, { backgroundColor: '#22C55E' }]} />
+                            <View style={[styles.statDot, { backgroundColor: C.colors.success }]} />
                             <Text style={styles.statLabel}>Present:</Text>
                             <Text style={styles.statValue}>{stats.present + stats.late}</Text>
                         </View>
                         <View style={styles.statRow}>
-                            <View style={[styles.statDot, { backgroundColor: '#EF4444' }]} />
+                            <View style={[styles.statDot, { backgroundColor: C.colors.error }]} />
                             <Text style={styles.statLabel}>Absent:</Text>
                             <Text style={styles.statValue}>{stats.absent}</Text>
                         </View>
                         <View style={styles.statRow}>
-                            <View style={[styles.statDot, { backgroundColor: '#3B82F6' }]} />
+                            <View style={[styles.statDot, { backgroundColor: C.colors.blue }]} />
                             <Text style={styles.statLabel}>On Leave:</Text>
                             <Text style={styles.statValue}>{stats.leave}</Text>
                         </View>
@@ -212,30 +252,30 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                         current={selectedDate}
                         onDayPress={(day: { dateString: string }) => setSelectedDate(day.dateString)}
                         onMonthChange={handleMonthChange}
-                        markingType={'multi-dot'}
+                        markingType={'custom'}
                         markedDates={markedDates}
                         enableSwipeMonths={true}
                         hideExtraDays={true}
                         theme={{
-                            backgroundColor: '#ffffff',
-                            calendarBackground: '#ffffff',
-                            textSectionTitleColor: '#64748B',
-                            selectedDayBackgroundColor: '#3B82F6',
-                            selectedDayTextColor: '#ffffff',
-                            todayTextColor: '#3B82F6',
-                            dayTextColor: '#1E293B',
-                            textDisabledColor: '#CBD5E1',
-                            dotColor: '#3B82F6',
-                            selectedDotColor: '#ffffff',
-                            arrowColor: '#3B82F6',
-                            monthTextColor: '#1E293B',
+                            backgroundColor: C.colors.card,
+                            calendarBackground: C.colors.card,
+                            textSectionTitleColor: C.colors.textMuted,
+                            selectedDayBackgroundColor: C.colors.primary,
+                            selectedDayTextColor: C.colors.card,
+                            todayTextColor: C.colors.primary,
+                            dayTextColor: C.colors.text,
+                            textDisabledColor: C.colors.border,
+                            dotColor: C.colors.primary,
+                            selectedDotColor: C.colors.card,
+                            arrowColor: C.colors.primary,
+                            monthTextColor: C.colors.text,
                             textDayFontWeight: '500',
                             textMonthFontWeight: '700',
                             textDayHeaderFontWeight: '600',
                             textDayFontSize: 14,
                             textMonthFontSize: 16,
                             textDayHeaderFontSize: 12,
-                            todayBackgroundColor: '#E0F2FE',
+                            todayBackgroundColor: C.colors.primary + '10',
                         }}
                         style={styles.calendar}
                     />
@@ -258,19 +298,19 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                         <View style={styles.statusInfo}>
                             <Text style={styles.statusLabel}>Attendance Status</Text>
                             <Text style={[styles.statusValue, {
-                                color: getStatusText(selectedDate) === 'PRESENT' ? '#22C55E' :
-                                       getStatusText(selectedDate) === 'ABSENT' ? '#EF4444' :
-                                       getStatusText(selectedDate) === 'LATE' ? '#F59E0B' :
-                                       getStatusText(selectedDate) === 'LEAVE' ? '#3B82F6' : '#64748B'
+                                color: getStatusText(selectedDate) === 'PRESENT' ? C.colors.success :
+                                       getStatusText(selectedDate) === 'ABSENT' ? C.colors.error :
+                                       getStatusText(selectedDate) === 'LATE' ? C.colors.warning :
+                                       getStatusText(selectedDate) === 'LEAVE' ? C.colors.blue : C.colors.textMuted
                             }]}>
                                 {getStatusText(selectedDate)}
                             </Text>
                         </View>
                         <View style={[styles.statusIndicator, {
-                            backgroundColor: getStatusText(selectedDate) === 'PRESENT' ? '#22C55E' :
-                                            getStatusText(selectedDate) === 'ABSENT' ? '#EF4444' :
-                                            getStatusText(selectedDate) === 'LATE' ? '#F59E0B' :
-                                            getStatusText(selectedDate) === 'LEAVE' ? '#3B82F6' : '#64748B'
+                            backgroundColor: getStatusText(selectedDate) === 'PRESENT' ? C.colors.success :
+                                            getStatusText(selectedDate) === 'ABSENT' ? C.colors.error :
+                                            getStatusText(selectedDate) === 'LATE' ? C.colors.warning :
+                                            getStatusText(selectedDate) === 'LEAVE' ? C.colors.blue : C.colors.textMuted
                         }]} />
                     </View>
                 </View>
@@ -279,19 +319,19 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                     <Text style={styles.legendTitle}>LEGEND</Text>
                     <View style={styles.legendGrid}>
                         <View style={styles.legendItem}>
-                            <View style={[styles.legendDot, { backgroundColor: '#DCFCE7' }]} />
+                            <View style={[styles.legendDot, { backgroundColor: C.colors.successBg }]} />
                             <Text style={styles.legendText}>Present</Text>
                         </View>
                         <View style={styles.legendItem}>
-                            <View style={[styles.legendDot, { backgroundColor: '#FEE2E2' }]} />
+                            <View style={[styles.legendDot, { backgroundColor: C.colors.errorBg }]} />
                             <Text style={styles.legendText}>Absent</Text>
                         </View>
                         <View style={styles.legendItem}>
-                            <View style={[styles.legendDot, { backgroundColor: '#FEF3C7' }]} />
+                            <View style={[styles.legendDot, { backgroundColor: C.colors.warningBg }]} />
                             <Text style={styles.legendText}>Late</Text>
                         </View>
                         <View style={styles.legendItem}>
-                            <View style={[styles.legendDot, { backgroundColor: '#DBEAFE' }]} />
+                            <View style={[styles.legendDot, { backgroundColor: C.colors.blueLight }]} />
                             <Text style={styles.legendText}>Leave</Text>
                         </View>
                     </View>
@@ -302,7 +342,7 @@ export default function StudentAttendanceScreen({ navigation }: any) {
 
             {loading && !refreshing && (
                 <View style={styles.loaderOverlay}>
-                    <ActivityIndicator size="large" color="#3B82F6" />
+                    <ActivityIndicator size="large" color={C.colors.primary} />
                 </View>
             )}
         </View>
@@ -312,18 +352,18 @@ export default function StudentAttendanceScreen({ navigation }: any) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: C.colors.background,
     },
     header: {
-        backgroundColor: '#001F3F',
-        paddingHorizontal: 20,
+        backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
+        paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
     },
     backButton: {
-        width: 40,
-        height: 40,
+        width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
+        height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
         justifyContent: 'center',
     },
     headerTitleContainer: {
@@ -331,13 +371,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     headerTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#FFFFFF',
+        fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
+        fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
+        color: HEADER_CONSTANTS.TEXT_COLOR,
     },
     headerRight: {
-        width: 40,
-        height: 40,
+        width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
+        height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
         justifyContent: 'center',
         alignItems: 'flex-end',
     },
@@ -348,15 +388,11 @@ const styles = StyleSheet.create({
     },
     statsOverview: {
         flexDirection: 'row',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: C.colors.card,
         borderRadius: 20,
         padding: 20,
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 5,
+        ...C.shadow.sm,
         marginBottom: 20,
     },
     percentageCircle: {
@@ -364,23 +400,23 @@ const styles = StyleSheet.create({
         height: 80,
         borderRadius: 40,
         borderWidth: 6,
-        borderColor: '#3B82F6',
+        borderColor: C.colors.primary,
         justifyContent: 'center',
         alignItems: 'center',
     },
     percentageValue: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#1E293B',
+        color: C.colors.text,
     },
     percentageLabel: {
         fontSize: 10,
-        color: '#64748B',
+        color: C.colors.textMuted,
     },
     statsDivider: {
         width: 1,
         height: 60,
-        backgroundColor: '#E2E8F0',
+        backgroundColor: C.colors.border,
         marginHorizontal: 25,
     },
     statsRight: {
@@ -399,40 +435,32 @@ const styles = StyleSheet.create({
     },
     statLabel: {
         fontSize: 13,
-        color: '#64748B',
+        color: C.colors.textMuted,
         flex: 1,
     },
     statValue: {
         fontSize: 14,
         fontWeight: '700',
-        color: '#1E293B',
+        color: C.colors.text,
     },
     calendarCard: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: C.colors.card,
         borderRadius: 20,
         padding: 10,
         marginBottom: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
+        ...C.shadow.sm,
         overflow: 'hidden',
     },
     calendar: {
         borderRadius: 20,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: C.colors.card,
     },
     detailsCard: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: C.colors.card,
         borderRadius: 20,
         padding: 20,
         marginBottom: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
+        ...C.shadow.sm,
     },
     detailsHeader: {
         flexDirection: 'row',
@@ -440,22 +468,22 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 15,
         borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
+        borderBottomColor: C.colors.border,
         paddingBottom: 10,
     },
     detailsTitle: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#1E293B',
+        color: C.colors.text,
     },
     detailsDate: {
         fontSize: 13,
-        color: '#64748B',
+        color: C.colors.textMuted,
     },
     statusBox: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F8FAFC',
+        backgroundColor: C.colors.background,
         padding: 15,
         borderRadius: 15,
     },
@@ -464,7 +492,7 @@ const styles = StyleSheet.create({
     },
     statusLabel: {
         fontSize: 12,
-        color: '#64748B',
+        color: C.colors.textMuted,
         marginBottom: 4,
     },
     statusValue: {
@@ -477,7 +505,7 @@ const styles = StyleSheet.create({
         borderRadius: 6,
     },
     legendCard: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: C.colors.card,
         borderRadius: 20,
         padding: 20,
         marginBottom: 20,
@@ -485,7 +513,7 @@ const styles = StyleSheet.create({
     legendTitle: {
         fontSize: 12,
         fontWeight: 'bold',
-        color: '#94A3B8',
+        color: C.colors.textMuted,
         letterSpacing: 1,
         marginBottom: 15,
     },
@@ -507,11 +535,11 @@ const styles = StyleSheet.create({
     },
     legendText: {
         fontSize: 13,
-        color: '#475569',
+        color: C.colors.textSec,
     },
     loaderOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(255, 255, 255, 0.7)',
+        backgroundColor: C.colors.card + 'B3', // 70% opacity
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 10,

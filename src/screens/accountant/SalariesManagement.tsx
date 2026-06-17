@@ -436,7 +436,7 @@ const SalaryHistoryModal: React.FC<SalaryHistoryModalProps> = ({
             </View>
 
             {loading ? (
-              <ActivityIndicator size="large" color="#2563eb" style={styles.loader} />
+              <ActivityIndicator size="large" color="#6648dc" style={styles.loader} />
             ) : history.length > 0 ? (
               <View style={styles.historyContainer}>
                 <View style={styles.historyHeader}>
@@ -640,7 +640,7 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
         {/* Loading State */}
         {loading && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2563eb" />
+            <ActivityIndicator size="large" color="#6648dc" />
             <Text style={styles.loadingText}>Loading employees...</Text>
           </View>
         )}
@@ -799,7 +799,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   editButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#6648dc',
   },
   historyButton: {
     backgroundColor: '#0284c7',
@@ -843,7 +843,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   messageTextSuccess: {
-    color: '#1d4ed8',
+    color: '#6648dc',
   },
   messageTextError: {
     color: '#b91c1c',
@@ -1001,7 +1001,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 12,
-    color: '#1d4ed8',
+    color: '#6648dc',
   },
   modalFooter: {
     flexDirection: 'row',
@@ -1026,14 +1026,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   updateButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#6648dc',
   },
   updateButtonText: {
     color: '#fff',
     fontWeight: '500',
   },
   closeButtonFull: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#6648dc',
     flex: 1,
   },
   closeButtonText: {

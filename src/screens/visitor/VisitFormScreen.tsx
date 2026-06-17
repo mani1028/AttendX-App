@@ -18,7 +18,7 @@ import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
-import type { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/types';
 import { formatErrorMessage } from '../../utils/helpers';
 import { safeGoBack } from '../../utils/navigationHelpers';
 
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
   },
   visitorNoValue: {
     fontWeight: '700',
-    color: '#2563eb',
+    color: '#6648dc',
   },
   redirectText: {
     fontSize: 12,
@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
   },
   branchValue: {
     fontWeight: '600',
-    color: '#2563eb',
+    color: '#6648dc',
   },
   formCard: {
     padding: 20,
@@ -668,8 +668,8 @@ const styles = StyleSheet.create({
     borderColor: '#e4e9f2',
   },
   pickerOptionActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#6648dc',
+    borderColor: '#6648dc',
   },
   pickerText: {
     fontSize: 13,
@@ -705,8 +705,8 @@ const styles = StyleSheet.create({
     borderColor: '#e4e9f2',
   },
   chipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: '#6648dc',
+    borderColor: '#6648dc',
   },
   chipText: {
     fontSize: 13,

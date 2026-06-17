@@ -6,7 +6,7 @@ function delay<T>(value: T, ms = 200) {
 }
 
 export async function getTeacherContext(teacherId: string) {
-  const entry = mock['/api/teacher/marks/teacher-context'];
+  const entry = mock['/api/staff/marks/staff-context'];
   if (!entry) return null;
   return delay(entry.response);
 }
@@ -18,7 +18,7 @@ export async function getTeacherCapability(schoolId: string, employeeId: string)
 }
 
 export async function getAssignedClassesMock() {
-  const ctx = mock['/api/teacher/marks/teacher-context'];
+  const ctx = mock['/api/staff/marks/staff-context'];
   const assigned = ctx?.response?.assigned_classes || [];
   return delay(assigned);
 }

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../../constants/theme';
-import { HM_THEME } from '../../constants/hmTheme';
+import { Director_THEME } from '../../constants/directorTheme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import AccountantPageHeader from '../../components/layout/AccountantPageHeader';
@@ -39,7 +39,7 @@ export default function ExpenseScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       <AccountantPageHeader title="Expense Tracking" onBackPress={() => navigation.goBack()} />
 

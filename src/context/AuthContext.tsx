@@ -6,7 +6,9 @@ import { InteractionManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStoredRole, performLogout } from '../utils/authSession';
 import { setAuthToken } from '../services/api';
+import notificationService from '../services/notificationService';
 import eventEmitter from '../utils/eventEmitter';
+import { SavedAccount, getSavedAccounts, switchAccount, addCurrentSessionToSaved, removeAccount } from '../utils/multiAccount';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface AuthContextType {
@@ -22,6 +24,12 @@ interface AuthContextType {
   isTabBarVisible: boolean;
   setTabBarVisible: (visible: boolean) => void;
   tabBarTranslate?: Animated.Value;
+  
+  // Multi-account
+  savedAccounts: SavedAccount[];
+  switchToAccount: (account: SavedAccount) => Promise<boolean>;
+  logoutAccount: (accountId: string) => Promise<void>;
+  addNewAccount: () => void; // Trigger navigation to login without clearing other accounts
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,8 +42,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isClassTeacher, setIsClassTeacher] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isTabBarVisible, setIsTabBarVisible] = useState(true);
+  const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
   const tabBarTranslate = useRef(new Animated.Value(0)).current;
   const tabBarVisibleRef = useRef(true);
+  // Guard flag: prevents re-entrant app-logout handling (performLogout re-emits the event)
+  const isHandlingLogoutRef = useRef(false);
 
   // centralised setter that also animates the shared translate value
   const setTabBarVisible = useCallback((visible: boolean) => {
@@ -57,6 +68,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const token = await AsyncStorage.getItem('token');
       const name = await AsyncStorage.getItem('user_name');
       const classTeacher = await AsyncStorage.getItem('is_class_teacher');
+      const accounts = await getSavedAccounts();
+      setSavedAccounts(accounts);
 
       if (token) {
         setAuthToken(token);
@@ -64,6 +77,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserRole(role || null);
         setUserName(name || null);
         setIsClassTeacher(classTeacher === 'true');
+        
+        // Ensure current session is in saved accounts
+        await addCurrentSessionToSaved();
+        const updatedAccounts = await getSavedAccounts();
+        setSavedAccounts(updatedAccounts);
+
+        // Sync FCM token with the new session
+        notificationService.ensureFcmTokenSynced().catch(err =>
+          console.warn('[AuthContext] FCM sync failed after refresh:', err)
+        );
       } else {
         setUserToken(null);
         setUserRole(null);
@@ -86,19 +109,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsClassTeacher(isClassTeacher);
     // Persist is_class_teacher to AsyncStorage
     await AsyncStorage.setItem('is_class_teacher', String(isClassTeacher));
+    
+    // Multi-account: update saved list
+    await addCurrentSessionToSaved();
+    const accounts = await getSavedAccounts();
+    setSavedAccounts(accounts);
+
+    // Sync FCM token for the newly signed-in user
+    notificationService.ensureFcmTokenSynced().catch(err =>
+      console.warn('[AuthContext] FCM sync failed after sign-in:', err)
+    );
   };
 
   const logout = async () => {
     try {
+      // Find current account ID to remove it from saved accounts if we want full logout
+      // Or we can just performLogout which clears current session
+      const token = await AsyncStorage.getItem('token');
+      const role = await AsyncStorage.getItem('role') || await AsyncStorage.getItem('userRole');
+      const schoolCode = await AsyncStorage.getItem('school_code');
+      const userId = await AsyncStorage.getItem('user_id');
+      const studentId = await AsyncStorage.getItem('student_id');
+      const employeeId = await AsyncStorage.getItem('employee_id');
+
+      if (role && schoolCode) {
+        const accountId = `${role}:${schoolCode}:${userId || studentId || employeeId}`;
+        await removeAccount(accountId);
+      }
+
       await performLogout();
       setUserRole(null);
       setUserToken(null);
       setUserName(null);
       setIsClassTeacher(false);
       await AsyncStorage.removeItem('is_class_teacher');
+      
+      const accounts = await getSavedAccounts();
+      setSavedAccounts(accounts);
     } catch (error) {
       console.error('Logout error:', error);
     }
+  };
+
+  const switchToAccount = async (account: SavedAccount) => {
+    setIsLoading(true);
+    try {
+      const success = await switchAccount(account);
+      if (success) {
+        await refreshAuth();
+      }
+      return success;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logoutAccount = async (accountId: string) => {
+    const currentToken = await AsyncStorage.getItem('token');
+    const currentRole = await AsyncStorage.getItem('role') || await AsyncStorage.getItem('userRole');
+    const currentSchoolCode = await AsyncStorage.getItem('school_code');
+    const currentUserId = await AsyncStorage.getItem('user_id');
+    const currentStudentId = await AsyncStorage.getItem('student_id');
+    const currentEmployeeId = await AsyncStorage.getItem('employee_id');
+    const currentId = `${currentRole}:${currentSchoolCode}:${currentUserId || currentStudentId || currentEmployeeId}`;
+
+    await removeAccount(accountId);
+    
+    if (accountId === currentId) {
+      await logout();
+    } else {
+      const accounts = await getSavedAccounts();
+      setSavedAccounts(accounts);
+    }
+  };
+
+  const addNewAccount = () => {
+    // Just clear current session markers without removing from saved accounts
+    AsyncStorage.removeItem('token').then(() => {
+      setUserToken(null);
+      eventEmitter.emit('auth-change');
+    });
   };
 
   useEffect(() => {
@@ -108,17 +198,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     eventEmitter.on('auth-change', handleAuthChange);
 
     const handleLogout = () => {
-      // Use InteractionManager and a delay to ensure any pending events/renders
-      // finish before clearing auth state which triggers navigation resets.
-      // This prevents "React Native native module communication failure"
-      // during rapid navigation transitions (especially on 401 errors).
+      // Prevent re-entrant execution: performLogout() re-emits 'app-logout', which would
+      // create an infinite loop of token clearing and event emissions.
+      if (isHandlingLogoutRef.current) return;
+      isHandlingLogoutRef.current = true;
+
       InteractionManager.runAfterInteractions(() => {
-        setTimeout(() => {
+        setTimeout(async () => {
+          try {
+            // Only clear the auth token (stops the 401 request loop).
+            // Do NOT call performLogout() here — it re-emits 'app-logout' and
+            // would wipe ALL AsyncStorage including a freshly-stored session.
+            setAuthToken(null);
+            
+            // Mark the account as expired in saved_accounts
+            try {
+              const role = await AsyncStorage.getItem('role') || await AsyncStorage.getItem('userRole');
+              const schoolCode = await AsyncStorage.getItem('school_code');
+              const userId = await AsyncStorage.getItem('user_id') || await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('employee_id');
+              const currentId = `${role}:${schoolCode}:${userId}`;
+              
+              const savedAccountsRaw = await AsyncStorage.getItem('saved_accounts');
+              if (savedAccountsRaw) {
+                const accounts = JSON.parse(savedAccountsRaw);
+                const updated = accounts.filter((a: any) => a.id !== currentId);
+                await AsyncStorage.setItem('saved_accounts', JSON.stringify(updated));
+                setSavedAccounts(updated);
+              }
+            } catch (e) {}
+
+            await AsyncStorage.multiRemove(['token', 'auth_token', 'authToken']);
+          } catch (_) {
+            // Storage errors should not block the UI state update
+          }
           setUserRole(null);
           setUserToken(null);
           setUserName(null);
           setIsClassTeacher(false);
-        }, 500);
+          isHandlingLogoutRef.current = false;
+        }, 300);
       });
     };
 
@@ -144,6 +262,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isTabBarVisible,
       setTabBarVisible,
       tabBarTranslate,
+      savedAccounts,
+      switchToAccount,
+      logoutAccount,
+      addNewAccount,
     }}>
       {children}
     </AuthContext.Provider>

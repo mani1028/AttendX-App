@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -9,115 +8,135 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
-} from "react-native";
+  Animated,
+} from 'react-native';
 import { authService } from '../../api/authService';
 import { AppInput } from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import ScreenContainer from '../../components/ScreenContainer';
 import { formatErrorMessage } from '../../utils/helpers';
+import { Theme } from '../../theme/theme';
+import { ArrowLeft, Key } from 'lucide-react-native';
 
 export default function VerifyOtpScreen({ route, navigation }: any) {
   const { schoolId, identifier } = route.params;
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(28)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   const verify = async () => {
-    if (!otp) {
-      Alert.alert('Required', 'Please enter OTP');
+    if (!otp || otp.trim().length < 4) {
+      setError('Please enter the OTP sent to your registered email.');
       return;
     }
-
+    setError('');
+    setLoading(true);
     try {
-      setLoading(true);
-      console.log('[VerifyOtp] Verifying OTP with:', { schoolId, identifier });
-      
-      const res = await authService.verifyOtp(schoolId, identifier, otp);
-
-      const resetToken =
-        res?.data?.reset_token ||
-        res?.data?.resetToken ||
-        res?.data?.token ||
-        res?.data?.access_token ||
-        res?.data?.data?.reset_token ||
-        res?.data?.data?.resetToken ||
-        res?.data?.data?.token ||
-        res?.data?.data?.access_token ||
-        '';
-
+      const res = await authService.verifyOtp(schoolId, identifier, otp.trim());
+      const resetToken = (res as any)?.reset_token || (res as any)?.data?.reset_token || '';
       if (!resetToken) {
-        console.error('[VerifyOtp] No reset token found in response:', res?.data);
-        Alert.alert('Error', 'Unable to verify OTP. Please try again.');
+        setError('OTP verification failed. No reset token received.');
         return;
       }
-
-      console.log('[VerifyOtp] OTP verified successfully');
-      navigation.navigate('ResetPassword', {
-        schoolId,
-        identifier,
-        resetToken,
-      });
-    } catch (error: any) {
-      console.error('[VerifyOtp] Error verifying OTP:', error?.response?.data || error?.message);
-      
-      const errorMessage = 
-        formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.response?.data?.error) ||
-        error?.message || 
-        'Invalid OTP. Please check and try again.';
-      
-      Alert.alert('Error', errorMessage);
+      navigation.navigate('ResetPassword', { schoolId, identifier, resetToken });
+    } catch (err: any) {
+      const msg = formatErrorMessage(err?.response?.data?.detail || err?.response?.data?.message) || 'Invalid OTP. Please check and try again.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
+  const resendOtp = async () => {
+    if (resendCooldown > 0) return;
+    setError('');
+    try {
+      await authService.requestOtp(schoolId, identifier);
+      setResendCooldown(60);
+    } catch (err: any) {
+      setError('Failed to resend OTP. Please try again.');
+    }
+  };
+
   return (
-    <ScreenContainer contentStyle={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Logo Section */}
-          <View style={styles.headerSection}>
-            <Image
-              source={require('../../assets/logo.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Text style={styles.brandSubtitle}>
-              The next generation of educational management, built with security and scalability
-            </Text>
+    <ScreenContainer bgColor="#f5f7fa" statusBarStyle="dark-content">
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <View style={styles.blobTop} />
+          <View style={styles.blobBottom} />
+
+          <View style={styles.topRow}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <ArrowLeft size={20} color="#0d1b2a" />
+            </TouchableOpacity>
+            <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+            <View style={{ width: 36 }} />
           </View>
 
-          {/* Card */}
-          <View style={styles.card}>
+          <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            <View style={styles.iconCircle}>
+              <Key size={32} color={Theme.colors.primary} />
+            </View>
             <Text style={styles.cardTitle}>Verify OTP</Text>
-            <Text style={styles.cardSubtitle}>Enter the OTP sent to your registered contact</Text>
+            <Text style={styles.cardSubtitle}>
+              Enter the 6-digit code sent to{'\n'}
+              <Text style={styles.identifierText}>{identifier}</Text>
+            </Text>
 
             <AppInput
-              label="OTP"
-              placeholder="XXXXXX"
+              label="ONE-TIME PASSWORD"
+              placeholder="• • • • • •"
               value={otp}
-              onChangeText={setOtp}
+              onChangeText={t => { setOtp(t); setError(''); }}
               keyboardType="number-pad"
               maxLength={6}
               inputStyle={styles.otpInput}
             />
 
+            {error ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
             <AppButton
-              title={loading ? "VERIFYING..." : "VERIFY OTP"}
+              title={loading ? 'Verifying...' : 'Verify OTP'}
               onPress={verify}
               disabled={loading}
-              style={styles.actionButton}
+              loading={loading}
+              size="lg"
+              style={{ marginTop: 8 }}
             />
 
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.linkContainer}
-            >
-              <Text style={styles.linkText}>Back</Text>
+            <TouchableOpacity onPress={resendOtp} disabled={resendCooldown > 0} style={styles.resendRow}>
+              <Text style={styles.resendText}>Didn't receive the code? </Text>
+              <Text style={[styles.resendLink, resendCooldown > 0 && styles.resendDisabled]}>
+                {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
+              </Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
+
+          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.backLink}>
+            <ArrowLeft size={14} color="#8898aa" />
+            <Text style={styles.backLinkText}>Back to Forgot Password</Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
@@ -125,79 +144,24 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#F8FAFC',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    justifyContent: 'center',
-  },
-  headerSection: {
-    alignItems: 'center',
-    marginBottom: 40,
-    marginTop: 20,
-    width: '100%',
-  },
-  logo: {
-    width: 300,
-    height: 100,
-    marginBottom: 16,
-    alignSelf: 'center',
-  },
-  brandSubtitle: {
-    fontSize: 14,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 20,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    padding: 24,
-    borderRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1E293B',
-    textAlign: 'center',
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    color: '#94A3B8',
-    textAlign: 'center',
-    marginBottom: 32,
-    marginTop: 4,
-  },
-  otpInput: {
-    textAlign: 'center',
-    letterSpacing: 8,
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  actionButton: {
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: '#2563EB',
-    marginTop: 24,
-  },
-  linkContainer: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  linkText: {
-    color: '#64748B',
-    fontSize: 14,
-    fontWeight: '500',
-  },
+  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 48 },
+  blobTop: { position: 'absolute', top: -80, right: -60, width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(0,31,80,0.06)' },
+  blobBottom: { position: 'absolute', bottom: -60, left: -80, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(56,189,248,0.05)' },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: 32 },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 },
+  logo: { width: 160, height: 50 },
+  card: { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 28, padding: 28, shadowColor: Theme.colors.primary, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 28, elevation: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', alignItems: 'center' },
+  iconCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(0,31,80,0.08)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  cardTitle: { fontSize: 22, fontWeight: '800', color: '#0d1b2a', textAlign: 'center', letterSpacing: -0.5, marginBottom: 8 },
+  cardSubtitle: { fontSize: 14, color: '#8898aa', textAlign: 'center', marginBottom: 28, lineHeight: 22 },
+  identifierText: { color: Theme.colors.primary, fontWeight: '600' },
+  otpInput: { textAlign: 'center', letterSpacing: 12, fontSize: 22, fontWeight: '700' },
+  errorBox: { backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: 12, padding: 12, marginBottom: 12, alignSelf: 'stretch', borderLeftWidth: 3, borderLeftColor: '#dc2626' },
+  errorText: { color: '#dc2626', fontSize: 13, fontWeight: '500' },
+  resendRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
+  resendText: { fontSize: 14, color: '#8898aa' },
+  resendLink: { fontSize: 14, color: Theme.colors.primary, fontWeight: '600' },
+  resendDisabled: { color: '#8898aa' },
+  backLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 24, gap: 6 },
+  backLinkText: { fontSize: 14, color: '#8898aa', fontWeight: '500' },
 });

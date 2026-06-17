@@ -1,43 +1,75 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   TouchableOpacity,
   StyleSheet,
   Text,
   Dimensions,
-  Platform,
   Animated,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Home,
-  FileText,
-  Scan,
-  CircleAlert,
-  GraduationCap,
-  LayoutGrid,
   BookOpen,
-  UserCheck,
-  ClipboardList
+  ClipboardList,
+  GraduationCap,
+  Scan,
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
-// Responsive sizing for large screens
-const getResponsiveSizes = () => {
-  if (width > 430) {
-    return { iconSize: 28, centerButtonSize: 72, centerIconSize: 32 };
-  } else if (width > 390) {
-    return { iconSize: 26, centerButtonSize: 68, centerIconSize: 30 };
-  }
-  return { iconSize: 24, centerButtonSize: 64, centerIconSize: 28 };
+const TAB_BAR_HEIGHT = 70;
+
+const COLORS = {
+  active: '#3498db',
+  inactive: '#8e8e93',
+  fab: '#2563EB',
+  white: '#FFFFFF',
+  bar: '#FFFFFF',
 };
 
-const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
+const getResponsiveSizes = () => {
+  if (width > 430) {
+    return { iconSize: 26, centerButtonSize: 68, centerIconSize: 32 };
+  }
+  if (width > 390) {
+    return { iconSize: 24, centerButtonSize: 64, centerIconSize: 28 };
+  }
+  return { iconSize: 22, centerButtonSize: 60, centerIconSize: 26 };
+};
+
+const TeacherTabBar = ({ state, navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { tabBarTranslate, isTabBarVisible } = useAuth();
   const sizes = getResponsiveSizes();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.06,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [pulseAnim]);
+
+  const tabs = [
+    { name: 'Home', label: 'Home', icon: Home, routeIndex: 0 },
+    { name: 'Homework', label: 'Homework', icon: BookOpen, routeIndex: 1 },
+    { name: 'Scan', label: 'Verify', icon: Scan, routeIndex: 2, isCenter: true },
+    { name: 'Leaves', label: 'Leave', icon: ClipboardList, routeIndex: 3 },
+    { name: 'Marks', label: 'Marks', icon: GraduationCap, routeIndex: 4 },
+  ];
 
   const animatedOpacity = tabBarTranslate
     ? tabBarTranslate.interpolate({
@@ -47,75 +79,110 @@ const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
       })
     : 1;
 
-  const tabs = [
-    { name: 'Home', label: 'Home', icon: Home },
-    { name: 'Homework', label: 'Home Work', icon: BookOpen },
-    { name: 'Scan', label: 'Verification', icon: Scan, isCenter: true },
-    { name: 'Leaves', label: 'Leave', icon: ClipboardList },
-    { name: 'Marks', label: 'Marks', icon: GraduationCap },
-  ];
+  const onNavigate = (routeIndex: number) => {
+    const route = state.routes[routeIndex];
+    if (!route) {
+      return;
+    }
+
+    const isFocused = state.index === routeIndex;
+    const event = navigation.emit({
+      type: 'tabPress',
+      target: route.key,
+      canPreventDefault: true,
+    });
+
+    if (!isFocused && !event.defaultPrevented) {
+      navigation.navigate(route.name);
+    }
+  };
 
   return (
     <Animated.View
       pointerEvents={isTabBarVisible ? 'auto' : 'none'}
       style={[
         styles.container,
-        { paddingBottom: insets.bottom || 10 },
-        tabBarTranslate ? { transform: [{ translateY: tabBarTranslate }], opacity: animatedOpacity } : null,
+        {
+          paddingBottom: insets.bottom,
+          transform: [{ translateY: tabBarTranslate || new Animated.Value(0) }],
+          opacity: animatedOpacity,
+        },
       ]}
     >
-      <View style={styles.content}>
-        {tabs.map((tab, index) => {
-          const isFocused = state.index === index;
-          const IconComponent = tab.icon;
-
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: state.routes[index].key,
-              canPreventDefault: true,
-            });
-
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(state.routes[index].name);
-            }
-          };
-
-          if (tab.isCenter) {
+      {/* Tab bar pill */}
+      <View style={styles.backgroundContainer}>
+        <View style={styles.curvedBar}>
+          {/* Left tabs */}
+          {tabs.slice(0, 2).map((tab) => {
+            const isFocused = state.index === tab.routeIndex;
+            const IconComponent = tab.icon;
             return (
-              <View key={tab.name} style={styles.centerTabContainer}>
-                <TouchableOpacity
-                  onPress={onPress}
-                  style={[styles.centerButton, { width: sizes.centerButtonSize, height: sizes.centerButtonSize, borderRadius: sizes.centerButtonSize / 2 }]}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.centerIconWrapper, { borderRadius: sizes.centerButtonSize / 2 }]}>
-                    <IconComponent size={sizes.centerIconSize} color="#fff" strokeWidth={2} />
-                  </View>
-                </TouchableOpacity>
-                <Text style={styles.centerLabel}>{tab.label}</Text>
-              </View>
+              <TouchableOpacity
+                key={tab.name}
+                onPress={() => onNavigate(tab.routeIndex)}
+                style={styles.tabItem}
+                activeOpacity={0.6}
+              >
+                <IconComponent
+                  size={sizes.iconSize}
+                  color={isFocused ? COLORS.active : COLORS.inactive}
+                  strokeWidth={isFocused ? 2.5 : 2}
+                />
+                <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
             );
-          }
+          })}
 
-          return (
-            <TouchableOpacity
-              key={tab.name}
-              onPress={onPress}
-              style={styles.tabItem}
-              activeOpacity={0.7}
-            >
-              <IconComponent
-                size={sizes.iconSize}
-                color={isFocused ? '#FFFFFF' : '#94a3b8'}
-                strokeWidth={isFocused ? 2.5 : 2}
-              />
-              <Text style={[styles.tabLabel, { color: isFocused ? '#FFFFFF' : '#94a3b8' }]}> 
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+          {/* Spacer for FAB */}
+          <View style={styles.tabItem} />
+
+          {/* Right tabs */}
+          {tabs.slice(3).map((tab) => {
+            const isFocused = state.index === tab.routeIndex;
+            const IconComponent = tab.icon;
+            return (
+              <TouchableOpacity
+                key={tab.name}
+                onPress={() => onNavigate(tab.routeIndex)}
+                style={styles.tabItem}
+                activeOpacity={0.6}
+              >
+                <IconComponent
+                  size={sizes.iconSize}
+                  color={isFocused ? COLORS.active : COLORS.inactive}
+                  strokeWidth={isFocused ? 2.5 : 2}
+                />
+                <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* FAB */}
+      <View style={[styles.fabContainer, { top: -(sizes.centerButtonSize / 2) - 4 }]}>
+        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => onNavigate(2)}
+            style={[
+              styles.fab,
+              {
+                width: sizes.centerButtonSize,
+                height: sizes.centerButtonSize,
+                borderRadius: sizes.centerButtonSize / 2,
+              },
+              state.index === 2 && styles.activeFab,
+            ]}
+          >
+            <Scan size={sizes.centerIconSize} color="#fff" />
+          </TouchableOpacity>
+        </Animated.View>
+        <Text style={styles.moreLabel}>Scan</Text>
       </View>
     </Animated.View>
   );
@@ -123,72 +190,76 @@ const TeacherTabBar = ({ state, descriptors, navigation }: any) => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#001F3F',
     position: 'absolute',
-    bottom: 0,
-    width: '100%',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    alignItems: 'center',
   },
-  content: {
+  backgroundContainer: {
+    width: '100%',
+    height: TAB_BAR_HEIGHT,
+    backgroundColor: COLORS.bar,
+    borderRadius: 35,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    ...Platform.select({
+      android: { elevation: 12 },
+      ios: {},
+    }),
+  },
+  curvedBar: {
     flexDirection: 'row',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: 4,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 8,
   },
   tabLabel: {
-    fontSize: 10,
-    marginTop: 6,
-    fontWeight: '600',
+    fontSize: 9,
+    marginTop: 4,
+    fontWeight: '500',
+    color: '#6B7280',
   },
-  centerTabContainer: {
-    flex: 1,
+  tabLabelActive: {
+    color: COLORS.active,
+  },
+  fabContainer: {
+    position: 'absolute',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -30,
   },
-  centerButton: {
-    backgroundColor: '#001F3F',
+  fab: {
+    backgroundColor: COLORS.fab,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: '#fff',
+    borderColor: COLORS.white,
+    shadowColor: COLORS.fab,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
     ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-      },
-      android: {
-        ...Platform.select({
-
-          android: { elevation: 8 },
-
-          ios: {},
-
-        }),
-      },
+      android: { elevation: 8 },
+      ios: {},
     }),
   },
-  centerIconWrapper: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+  moreLabel: {
+    color: '#6B7280',
+    fontSize: 9,
+    marginTop: 6,
+    fontWeight: '500',
   },
-  centerLabel: {
-    color: '#94a3b8',
-    fontSize: 10,
-    marginTop: 4,
-    fontWeight: '600',
+  hiddenBar: {
+    display: 'none',
+  },
+  activeFab: {
+    backgroundColor: COLORS.active,
   },
 });
 

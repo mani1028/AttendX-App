@@ -9,11 +9,15 @@ import {
   ActivityIndicator,
   Platform,
   Linking,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
-import type { RootStackParamList } from '../../navigation/AppNavigator';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../navigation/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../constants/colors';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
@@ -33,21 +37,6 @@ interface Plan {
 
 const plans: Plan[] = [
   {
-    id: 'trial',
-    name: 'Basic Attendance',
-    price: 0,
-    duration: '7 Days Trial',
-    icon: '⚡',
-    features: [
-      'Student Attendance Tracking',
-      'Teacher Attendance',
-      'Daily Reports',
-      'Single Branch Access',
-      'Basic Dashboard',
-    ],
-    color: '#3b82f6',
-  },
-  {
     id: 'starter',
     name: 'Smart School',
     price: 4999,
@@ -64,7 +53,7 @@ const plans: Plan[] = [
       'Multi-Class & Section Support',
     ],
     popular: true,
-    color: '#2563eb',
+    color: '#6648dc',
   },
   {
     id: 'professional',
@@ -97,7 +86,7 @@ const PlanCard: React.FC<{
   const displayPrice = plan.price === 0 ? 'Free' : `₹${plan.priceDisplay || plan.price}`;
 
   return (
-    <AppCard style={[styles.planCard, plan.popular && styles.planCardPopular]}>
+    <AppCard style={StyleSheet.flatten([styles.planCard, plan.popular && styles.planCardPopular])}>
       {plan.popular && (
         <View style={styles.popularBadge}>
           <Text style={styles.popularBadgeText}>Most Popular</Text>
@@ -148,13 +137,89 @@ const PlanCard: React.FC<{
 };
 
 export default function PricingScreen() {
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { userToken, setTabBarVisible } = useAuth();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [registrationData, setRegistrationData] = useState<any>(null);
+  const [plansList, setPlansList] = useState<Plan[]>(plans);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    setTabBarVisible(true);
+    return () => setTabBarVisible(true);
+  }, [setTabBarVisible]);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    
+    if (currentScrollY > lastScrollY.current + 10) {
+      if (currentScrollY > 100) {
+        setTabBarVisible(false);
+      }
+      lastScrollY.current = currentScrollY;
+    } else if (currentScrollY < lastScrollY.current - 10) {
+      setTabBarVisible(true);
+      lastScrollY.current = currentScrollY;
+    }
+  };
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        let res;
+        try {
+          res = await API.get('/plans', { suppressFallback404Log: true } as any);
+        } catch (e) {
+          try {
+            res = await API.get('/payment/plans', { suppressFallback404Log: true } as any);
+          } catch (e2) {
+            return; // keep default plans
+          }
+        }
+        
+        if (res && res.data) {
+          const apiPlans = Array.isArray(res.data.plans) ? res.data.plans : Array.isArray(res.data) ? res.data : [];
+          // Filter out explicitly hidden plans
+          const visiblePlans = apiPlans.filter((p: any) => p.is_hidden !== true && p.status !== 'inactive');
+          
+          if (visiblePlans.length > 0) {
+            setPlansList(visiblePlans.map((p: any, idx: number) => ({
+              id: p.id || p.plan_id || p.code || `plan_${idx}`,
+              name: p.name || p.plan_name || p.title || 'Plan',
+              price: p.price !== undefined ? p.price : 0,
+              priceDisplay: p.priceDisplay || p.price,
+              duration: p.duration || p.billing_cycle || 'Monthly',
+              icon: p.icon || '🚀',
+              features: Array.isArray(p.features) ? p.features : (typeof p.features === 'string' ? p.features.split(',') : []),
+              popular: p.popular || p.is_popular || false,
+              color: p.color || '#3b82f6'
+            })));
+          }
+        }
+      } catch (err) {
+        console.log('Failed to fetch plans', err);
+      }
+    };
+    fetchPlans();
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
       try {
+        if (userToken) {
+          // If logged in, fetch details from AsyncStorage to enable plan upgrades
+          const schoolName = await AsyncStorage.getItem('school_name') || await AsyncStorage.getItem('schoolName') || '';
+          const email = await AsyncStorage.getItem('email') || '';
+          const name = await AsyncStorage.getItem('user_name') || '';
+          setRegistrationData({
+            schoolName,
+            email,
+            directorName: name,
+            isLoggedIn: true,
+          });
+          return;
+        }
+
         const data = await AsyncStorage.getItem('registrationData');
         if (data) {
           setRegistrationData(JSON.parse(data));
@@ -170,24 +235,66 @@ export default function PricingScreen() {
       }
     };
     loadData();
-  }, [navigation]);
+  }, [navigation, userToken]);
 
   const handlePlanSelect = async (plan: Plan) => {
     if (!registrationData) {
       Alert.alert('Error', 'Session expired. Please register again.');
-      navigation.replace('RegisterSchool' as never);
+      if (userToken) {
+        navigation.goBack();
+      } else {
+        navigation.replace('RegisterSchool' as never);
+      }
       return;
     }
 
     setLoadingPlan(plan.name);
+
+    if (registrationData.isLoggedIn) {
+      try {
+        const orderRes = await API.post('/payment/create-order-by-plan', {
+          school_name: registrationData.schoolName,
+          plan: plan.id,
+          email: registrationData.email,
+        });
+
+        const { order_id, status, payment_url } = orderRes.data;
+
+        if (status === 'trial') {
+          Alert.alert('Success', 'Trial activated successfully!', [
+            { text: 'OK', onPress: () => navigation.goBack() }
+          ]);
+          return;
+        }
+
+        if (payment_url) {
+          await Linking.openURL(payment_url);
+          Alert.alert(
+            'Payment Initiated',
+            'Complete the payment in your browser. You will be redirected back.',
+            [{ text: 'OK', onPress: () => navigation.goBack() }]
+          );
+        } else {
+          Alert.alert('Success', 'Subscription updated successfully!', [
+            { text: 'OK', onPress: () => navigation.goBack() }
+          ]);
+        }
+      } catch (error: any) {
+        console.error(error);
+        Alert.alert('Error', error?.response?.data?.detail || 'Upgrade failed');
+      } finally {
+        setLoadingPlan(null);
+      }
+      return;
+    }
 
     const payload = {
       schoolName: registrationData.schoolName,
       email: registrationData.email,
       password: registrationData.password,
       address: registrationData.address,
-      hms: [{
-        name: registrationData.hmName,
+      directors: [{
+        name: registrationData.directorName,
         phone: "0000000000",
         email: registrationData.email,
         designation: "Headmaster",
@@ -247,12 +354,16 @@ export default function PricingScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Text style={styles.backBtnText}>←</Text>
-            <Text style={styles.backBtnLabel}>Edit Registration Details</Text>
+            <Text style={styles.backBtnLabel}>
+              {userToken ? 'Back to Billing' : 'Edit Registration Details'}
+            </Text>
           </TouchableOpacity>
           
           <Text style={styles.title}>Choose Your Plan</Text>
@@ -263,7 +374,7 @@ export default function PricingScreen() {
 
         {/* Pricing Cards */}
         <View style={styles.cardsContainer}>
-          {plans.map((plan) => (
+          {plansList.map((plan) => (
             <PlanCard
               key={plan.id}
               plan={plan}
@@ -285,7 +396,7 @@ export default function PricingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#020617',
+    backgroundColor: '#f8fafc',
   },
   background: {
     position: 'absolute',
@@ -293,7 +404,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#020617',
+    backgroundColor: '#f8fafc',
   },
   scrollContent: {
     flexGrow: 1,
@@ -311,57 +422,66 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 20,
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(59,130,246,0.1)',
   },
   backBtnText: {
     fontSize: 14,
-    color: '#64748b',
+    color: '#3b82f6',
+    fontWeight: '700',
   },
   backBtnLabel: {
-    fontSize: 12,
-    color: '#64748b',
+    fontSize: 13,
+    color: '#3b82f6',
+    fontWeight: '600',
   },
   title: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#fff',
+    color: '#0f172a',
     textAlign: 'center',
     marginBottom: 12,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#94a3b8',
+    fontSize: 15,
+    color: '#64748b',
     textAlign: 'center',
     maxWidth: 300,
+    lineHeight: 22,
   },
   cardsContainer: {
     gap: 20,
     marginBottom: 32,
   },
   planCard: {
-    padding: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 24,
+    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 40,
+    borderColor: '#e2e8f0',
+    borderRadius: 30,
     position: 'relative',
+    shadowColor: '#64748b',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.05,
+    shadowRadius: 20,
+    elevation: 3,
   },
   planCardPopular: {
     borderColor: '#3b82f6',
+    borderWidth: 2,
     shadowColor: '#3b82f6',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
   },
   popularBadge: {
     position: 'absolute',
-    top: -12,
+    top: -14,
     left: '50%',
     transform: [{ translateX: -50 }],
-    backgroundColor: '#2563eb',
+    backgroundColor: '#3b82f6',
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 20,
@@ -372,7 +492,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#fff',
     textTransform: 'uppercase',
-    letterSpacing: 2,
+    letterSpacing: 1.5,
   },
   planHeader: {
     flexDirection: 'row',
@@ -382,97 +502,108 @@ const styles = StyleSheet.create({
   },
   planIcon: {
     padding: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: '#eff6ff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: '#dbeafe',
   },
   planIconText: {
-    fontSize: 20,
+    fontSize: 22,
   },
   planHeaderRight: {
     alignItems: 'flex-end',
   },
   planDuration: {
     fontSize: 12,
-    color: '#94a3b8',
+    fontWeight: '600',
+    color: '#3b82f6',
     marginBottom: 4,
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   planName: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#fff',
+    color: '#0f172a',
   },
   planPriceContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   planPrice: {
     fontSize: 36,
     fontWeight: '800',
-    color: '#fff',
+    color: '#0f172a',
+    letterSpacing: -1,
   },
   planPriceSuffix: {
     fontSize: 14,
     color: '#64748b',
     marginLeft: 4,
+    fontWeight: '500',
   },
   featuresContainer: {
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 28,
   },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   featureIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(59,130,246,0.2)',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#eff6ff',
     alignItems: 'center',
     justifyContent: 'center',
   },
   featureIconText: {
-    fontSize: 11,
-    color: '#60a5fa',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#3b82f6',
   },
   featureText: {
     flex: 1,
-    fontSize: 13,
-    color: '#cbd5e1',
+    fontSize: 14,
+    color: '#475569',
+    fontWeight: '500',
+    lineHeight: 20,
   },
   selectBtn: {
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#f8fafc',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: '#e2e8f0',
   },
   selectBtnPopular: {
-    backgroundColor: '#2563eb',
-    borderColor: 'transparent',
-    shadowColor: '#1e40af',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 4,
   },
   selectBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#fff',
+    color: '#64748b',
   },
   selectBtnTextPopular: {
     color: '#fff',
   },
   footerText: {
-    fontSize: 11,
-    color: '#475569',
+    fontSize: 12,
+    color: '#94a3b8',
     textAlign: 'center',
     marginBottom: 20,
+    paddingHorizontal: 20,
   },
 });

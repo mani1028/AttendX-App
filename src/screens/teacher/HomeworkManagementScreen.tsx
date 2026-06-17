@@ -44,6 +44,7 @@ import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { Theme } from '../../theme/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -91,8 +92,8 @@ const getBranchId = async (): Promise<string> => {
 const getTeacherId = async (): Promise<string> => {
   const id = await AsyncStorage.getItem('teacher_id');
   return id || (await AsyncStorage.getItem('teacherId')) ||
-         (await AsyncStorage.getItem('employee_id')) ||
-         (await AsyncStorage.getItem('employeeId')) || '';
+    (await AsyncStorage.getItem('employee_id')) ||
+    (await AsyncStorage.getItem('employeeId')) || '';
 };
 
 const formatDisplayDate = (dateInput: unknown): string => {
@@ -116,7 +117,7 @@ const HomeworkCard: React.FC<{
     <View style={styles.cardHeader}>
       <View style={styles.subjectContainer}>
         <View style={styles.subjectIcon}>
-          <BookOpen size={16} color="#2563EB" />
+          <BookOpen size={16} color={Theme.colors.blue} />
         </View>
         <AppText weight="bold" style={styles.subjectText}>{item.subject_name}</AppText>
       </View>
@@ -129,20 +130,20 @@ const HomeworkCard: React.FC<{
         </TouchableOpacity>
       </View>
     </View>
-    
+
     <AppText weight="bold" style={styles.homeworkTitle}>{item.title}</AppText>
     <AppText style={styles.homeworkDesc} numberOfLines={2}>
       {item.description || 'No description provided.'}
     </AppText>
-    
+
     <View style={styles.cardFooter}>
       <View style={styles.metaItem}>
         <Layout size={14} color="#94A3B8" />
-        <AppText weight="semiBold" style={styles.metaText}>{item.class_name} - {item.section_name}</AppText>
+        <AppText weight="semibold" style={styles.metaText}>{item.class_name} - {item.section_name}</AppText>
       </View>
       <View style={styles.metaItem}>
         <Calendar size={14} color="#94A3B8" />
-        <AppText weight="semiBold" style={styles.metaText}>Due: {formatDisplayDate(item.due_date)}</AppText>
+        <AppText weight="semibold" style={styles.metaText}>Due: {formatDisplayDate(item.due_date)}</AppText>
       </View>
     </View>
 
@@ -160,7 +161,7 @@ export default function HomeworkManagementScreen() {
   const [branchId, setBranchId] = useState<string>('');
   const [teacherId, setTeacherId] = useState<string>('');
   const [resolvedTeacherId, setResolvedTeacherId] = useState<string>('');
-  
+
   // Form state
   const [form, setForm] = useState({
     class_name: '',
@@ -171,7 +172,7 @@ export default function HomeworkManagementScreen() {
     assigned_date: new Date().toISOString().split('T')[0],
     due_date: '',
   });
-  
+
   // Filter state
   const [filterClass, setFilterClass] = useState<string>('');
   const [filterSection, setFilterSection] = useState<string>('');
@@ -183,7 +184,7 @@ export default function HomeworkManagementScreen() {
   const [subjectOptions, setSubjectOptions] = useState<string[]>([]);
   const [teacherAssignments, setTeacherAssignments] = useState<Assignment[]>([]);
   const [teacherSubjects, setTeacherSubjects] = useState<string[]>([]);
-  
+
   // UI state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -287,18 +288,28 @@ export default function HomeworkManagementScreen() {
 
       try {
         // Try the teacher-context endpoint first
-        const res = await API.get(
-          'teacher/marks/teacher-context',
-          {
-            params: { teacher_id: teacherId },
-            headers: { 'x-school-code': schoolCode },
-          }
-        );
+        let resData: any = null;
+        try {
+          const res = await API.get(
+            'staff/marks/staff-context',
+            {
+              params: {
+                school_code: schoolCode,
+                branch_id: branchId,
+                teacher_id: teacherId,
+                employee_id: teacherId,
+              },
+            }
+          );
+          resData = res.data;
+        } catch (e) {
+          if (__DEV__) console.warn('[Homework] initial staff-context call failed', e);
+        }
 
         if (!isMounted.current) return;
 
-        let assignments: Assignment[] = Array.isArray(res.data?.assignments)
-          ? res.data.assignments.filter(Boolean)
+        let assignments: Assignment[] = Array.isArray(resData?.assignments)
+          ? resData.assignments.filter(Boolean)
           : [];
 
         // Fallback: if API didn't return assignments, try service helper which
@@ -318,9 +329,11 @@ export default function HomeworkManagementScreen() {
           const className = String(a.class_name || a.class_grade || '').trim();
           const sectionName = String(a.section_name || a.section || '').trim();
           if (!className || !sectionName) return;
-          const key = className;
-          if (!grouped.has(key)) grouped.set(key, new Set());
-          grouped.get(key)!.add(sectionName);
+
+          if (!grouped.has(className)) {
+            grouped.set(className, new Set());
+          }
+          grouped.get(className)?.add(sectionName);
         });
 
         const classOpts: ClassOption[] = Array.from(grouped.entries())
@@ -330,7 +343,7 @@ export default function HomeworkManagementScreen() {
           }))
           .sort((a, b) => a.class_name.localeCompare(b.class_name));
 
-        const teacherData = res.data?.teacher_data || null;
+        const teacherData = resData?.teacher_data || null;
         const canonicalTeacherId = String(teacherData?.teacher_id || teacherId).trim();
         const departmentSubjectsRaw = String(teacherData?.department_subject || '').trim();
         const departmentSubjects = Array.from(
@@ -348,10 +361,10 @@ export default function HomeworkManagementScreen() {
         setResolvedTeacherId(canonicalTeacherId);
       } catch (error: any) {
         if (error?.response?.status === 401) return;
-        console.error('Failed to load dropdown data:', error);
+        console.warn('Failed to load dropdown data:', error);
       }
     };
-    
+
     loadDropdownData();
   }, [schoolCode, branchId, teacherId]);
 
@@ -363,12 +376,12 @@ export default function HomeworkManagementScreen() {
 
     const className = normalizeText(form.class_name);
     const sectionName = normalizeText(form.section_name);
-    
+
     if (!className || !sectionName) {
       setSubjectOptions([]);
       return;
     }
-    
+
     const assignedSubjects = Array.from(
       new Set(
         teacherAssignments
@@ -380,12 +393,12 @@ export default function HomeworkManagementScreen() {
           .filter(Boolean)
       )
     );
-    
+
     const teacherAllowedSet = new Set(teacherSubjects.map(s => s.toLowerCase()));
     const filteredSubjects = teacherAllowedSet.size
       ? assignedSubjects.filter(s => teacherAllowedSet.has(s.toLowerCase()))
       : assignedSubjects;
-    
+
     setSubjectOptions(filteredSubjects);
   }, [form.class_name, form.section_name, classOptions, teacherAssignments, teacherSubjects]);
 
@@ -398,12 +411,12 @@ export default function HomeworkManagementScreen() {
         branch_id: branchId,
         teacher_id: resolvedTeacherId,
       };
-      
+
       if (filterClass) {
         const match = teacherAssignments.find(a => equalsIgnoreCase(a.class_name, filterClass));
         if (match?.class_id) body.class_id = Number(match.class_id);
       }
-      
+
       if (filterClass && filterSection) {
         const sectionMatch = teacherAssignments.find(a =>
           equalsIgnoreCase(a.class_name, filterClass) &&
@@ -412,7 +425,7 @@ export default function HomeworkManagementScreen() {
         if (sectionMatch?.section_id) body.section_id = Number(sectionMatch.section_id);
       }
 
-      const res = await API.post('/manage/teacher/homework/list', body);
+      const res = await API.post('/manage/staff/homework/list', body);
       if (isMounted.current) {
         const payloadItems = Array.isArray(res.data?.items) ? res.data.items : [];
         // Normalize list payload so render paths never receive unexpected shapes.
@@ -471,11 +484,11 @@ export default function HomeworkManagementScreen() {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
-    
+
     if (isMounted.current) setSubmitting(true);
     try {
       if (editingId) {
-        await API.put('/manage/teacher/homework/update', {
+        await API.put('/manage/staff/homework/update', {
           school_code: schoolCode,
           branch_id: branchId,
           teacher_id: resolvedTeacherId,
@@ -487,7 +500,7 @@ export default function HomeworkManagementScreen() {
         });
         if (isMounted.current) Alert.alert('Success', 'Homework updated successfully');
       } else {
-        await API.post('/manage/teacher/homework/create', {
+        await API.post('/manage/staff/homework/create', {
           school_code: schoolCode,
           branch_id: branchId,
           teacher_id: resolvedTeacherId,
@@ -542,7 +555,7 @@ export default function HomeworkManagementScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await API.delete('/manage/teacher/homework/delete', {
+              await API.delete('/manage/staff/homework/delete', {
                 data: {
                   school_code: schoolCode,
                   branch_id: branchId,
@@ -568,16 +581,16 @@ export default function HomeworkManagementScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#001F3F" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
-        <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}> 
+        <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
           <View style={styles.headerTop}>
             <TouchableOpacity
               style={styles.iconButton}
@@ -595,264 +608,263 @@ export default function HomeworkManagementScreen() {
           </View>
 
           <View style={styles.heroContent}>
-            <AppText weight="bold" style={styles.heroGreeting}>Assign with clarity</AppText>
             <AppText style={styles.heroSubtext}>Create, track and manage homework for your classes</AppText>
           </View>
         </View>
 
         <View style={styles.pageContent}>
-        {/* Create Homework Card */}
-        <View style={styles.createSection}>
-          <TouchableOpacity activeOpacity={0.9} onPress={() => {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setCreateExpanded(prev => !prev);
-          }}>
-            <AppCard style={styles.createCard}>
-              <View style={styles.createCardInner}>
-                <View style={styles.createIconWrapper}>
-                  <Plus size={24} color="#7c3aed" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <AppText weight="bold" style={styles.createTitle}>Create Homework</AppText>
-                  <AppText style={styles.createSubtitle}>Create and assign homework to students</AppText>
-                </View>
-                <View style={{ marginLeft: 12 }}>
-                  <AppText style={{ color: '#64748B' }}>{createExpanded ? 'Hide' : 'Create'}</AppText>
-                </View>
-              </View>
-            </AppCard>
-          </TouchableOpacity>
-
-          {createExpanded && (
-            <>
-              {/* Form Title */}
-              <AppText weight="bold" style={styles.formSectionTitle}>{editingId ? "Edit Homework" : "Create Homework"}</AppText>
-
-              {/* Class Name */}
-              <View style={styles.formGroup}>
-                <AppText weight="semiBold" style={styles.formLabel}>Class Name</AppText>
-                <TouchableOpacity 
-                  style={[styles.dropdown, editingId && styles.disabledDropdown]}
-                  onPress={() => !editingId && toggleClassDropdown()}
-                  disabled={!!editingId}
-                >
-                  <AppText style={[styles.dropdownText, form.class_name && styles.dropdownValueText]}>
-                    {form.class_name || 'Select Class'}
-                  </AppText>
-                  <ChevronRight size={20} color="#94A3B8" />
-                </TouchableOpacity>
-                {!editingId && showClassDropdown && Array.isArray(classOptions) && classOptions.length > 0 && (
-                  <View style={styles.dropdownMenu}>
-                    {classOptions.map((cls, idx) => (
-                      <TouchableOpacity
-                        key={cls?.class_name || `cls-${idx}`}
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          if (cls?.class_name) {
-                            setForm(prev => ({ ...prev, class_name: cls.class_name, section_name: '', subject_name: '' }));
-                            setShowClassDropdown(false);
-                            setShowSectionDropdown(false);
-                            setShowSubjectDropdown(false);
-                          }
-                        }}
-                      >
-                        <AppText style={styles.dropdownItemText}>{cls?.class_name || 'Unknown Class'}</AppText>
-                      </TouchableOpacity>
-                    ))}
+          {/* Create Homework Card */}
+          <View style={styles.createSection}>
+            <TouchableOpacity activeOpacity={0.9} onPress={() => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              setCreateExpanded(prev => !prev);
+            }}>
+              <AppCard style={styles.createCard}>
+                <View style={styles.createCardInner}>
+                  <View style={styles.createIconWrapper}>
+                    <Plus size={24} color={Theme.colors.violet} />
                   </View>
-                )}
-              </View>
-
-              {/* Section Name */}
-              <View style={styles.formGroup}>
-                <AppText weight="semiBold" style={styles.formLabel}>Section Name</AppText>
-                <TouchableOpacity 
-                  style={[styles.dropdown, editingId && styles.disabledDropdown]}
-                  onPress={() => !editingId && form.class_name ? toggleSectionDropdown() : null}
-                  disabled={!!editingId || !form.class_name}
-                >
-                  <AppText style={[styles.dropdownText, form.section_name && styles.dropdownValueText]}>
-                    {form.section_name || (form.class_name ? 'Select Section' : 'Select Class First')}
-                  </AppText>
-                  <ChevronRight size={20} color="#94A3B8" />
-                </TouchableOpacity>
-                {!editingId && showSectionDropdown && Array.isArray(sectionOptions) && sectionOptions.length > 0 && (
-                  <View style={styles.dropdownMenu}>
-                    {sectionOptions.map((sec, idx) => (
-                      <TouchableOpacity
-                        key={sec || `sec-${idx}`}
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          if (sec) {
-                            setForm(prev => ({ ...prev, section_name: sec, subject_name: '' }));
-                            setShowSectionDropdown(false);
-                            setShowSubjectDropdown(false);
-                          }
-                        }}
-                      >
-                        <AppText style={styles.dropdownItemText}>{sec || 'Unknown Section'}</AppText>
-                      </TouchableOpacity>
-                    ))}
+                  <View style={{ flex: 1 }}>
+                    <AppText weight="bold" style={styles.createTitle}>Create Homework</AppText>
+                    <AppText style={styles.createSubtitle}>Create and assign homework to students</AppText>
                   </View>
-                )}
-              </View>
-
-              {/* Subject Name */}
-              <View style={styles.formGroup}>
-                <AppText weight="semiBold" style={styles.formLabel}>Subject Name</AppText>
-                <TouchableOpacity 
-                  style={[styles.dropdown, editingId && styles.disabledDropdown]}
-                  onPress={() => !editingId && form.section_name ? toggleSubjectDropdown() : null}
-                  disabled={!!editingId || !form.section_name}
-                >
-                  <AppText style={[styles.dropdownText, form.subject_name && styles.dropdownValueText]}>
-                    {form.subject_name || (form.section_name ? 'Select Subject' : 'Select Section first')}
-                  </AppText>
-                  <ChevronRight size={20} color="#94A3B8" />
-                </TouchableOpacity>
-                {!editingId && showSubjectDropdown && Array.isArray(subjectOptions) && subjectOptions.length > 0 && (
-                  <View style={styles.dropdownMenu}>
-                    {subjectOptions.map((subj, idx) => (
-                      <TouchableOpacity
-                        key={subj || `subj-${idx}`}
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          if (subj) {
-                            setForm(prev => ({ ...prev, subject_name: subj }));
-                            setShowSubjectDropdown(false);
-                          }
-                        }}
-                      >
-                        <AppText style={styles.dropdownItemText}>{subj || 'Unknown Subject'}</AppText>
-                      </TouchableOpacity>
-                    ))}
+                  <View style={{ marginLeft: 12 }}>
+                    <AppText style={{ color: '#64748B' }}>{createExpanded ? 'Hide' : 'Create'}</AppText>
                   </View>
-                )}
-              </View>
+                </View>
+              </AppCard>
+            </TouchableOpacity>
 
-              {/* Assigned Date */}
-              <View style={styles.formGroup}>
-                <AppText weight="semiBold" style={styles.formLabel}>Assigned date</AppText>
-                <TouchableOpacity style={styles.dropdown} onPress={() => setShowAssignedPicker(true)}>
-                  <AppText style={[styles.dropdownText, form.assigned_date && styles.dropdownValueText]}>
-                    {form.assigned_date || 'select assigned date'}
-                  </AppText>
-                  <Calendar size={20} color="#94A3B8" />
-                </TouchableOpacity>
-              </View>
+            {createExpanded && (
+              <>
+                {/* Form Title */}
+                <AppText weight="bold" style={styles.formSectionTitle}>{editingId ? "Edit Homework" : "Create Homework"}</AppText>
 
-              {/* Due Date */}
-              <View style={styles.formGroup}>
-                <AppText weight="semiBold" style={styles.formLabel}>Due Date</AppText>
-                <TouchableOpacity style={styles.dropdown} onPress={() => setShowDuePicker(true)}>
-                  <AppText style={[styles.dropdownText, form.due_date && styles.dropdownValueText]}>
-                    {form.due_date || 'select due date'}
-                  </AppText>
-                  <Calendar size={20} color="#94A3B8" />
-                </TouchableOpacity>
-              </View>
+                {/* Class Name */}
+                <View style={styles.formGroup}>
+                  <AppText weight="semibold" style={styles.formLabel}>Class Name</AppText>
+                  <TouchableOpacity
+                    style={[styles.dropdown, editingId && styles.disabledDropdown]}
+                    onPress={() => !editingId && toggleClassDropdown()}
+                    disabled={!!editingId}
+                  >
+                    <AppText style={[styles.dropdownText, form.class_name && styles.dropdownValueText]}>
+                      {form.class_name || 'Select Class'}
+                    </AppText>
+                    <ChevronRight size={20} color="#94A3B8" />
+                  </TouchableOpacity>
+                  {!editingId && showClassDropdown && Array.isArray(classOptions) && classOptions.length > 0 && (
+                    <View style={styles.dropdownMenu}>
+                      {classOptions.map((cls, idx) => (
+                        <TouchableOpacity
+                          key={cls?.class_name || `cls-${idx}`}
+                          style={styles.dropdownItem}
+                          onPress={() => {
+                            if (cls?.class_name) {
+                              setForm(prev => ({ ...prev, class_name: cls.class_name, section_name: '', subject_name: '' }));
+                              setShowClassDropdown(false);
+                              setShowSectionDropdown(false);
+                              setShowSubjectDropdown(false);
+                            }
+                          }}
+                        >
+                          <AppText style={styles.dropdownItemText}>{cls?.class_name || 'Unknown Class'}</AppText>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
 
-              {/* Title */}
-              <View style={styles.formGroup}>
-                <AppText weight="semiBold" style={styles.formLabel}>Title</AppText>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Enter title"
-                  placeholderTextColor="#94A3B8"
-                  value={form.title}
-                  onChangeText={t => setForm(p => ({ ...p, title: t }))}
-                />
-              </View>
+                {/* Section Name */}
+                <View style={styles.formGroup}>
+                  <AppText weight="semibold" style={styles.formLabel}>Section Name</AppText>
+                  <TouchableOpacity
+                    style={[styles.dropdown, editingId && styles.disabledDropdown]}
+                    onPress={() => !editingId && form.class_name ? toggleSectionDropdown() : null}
+                    disabled={!!editingId || !form.class_name}
+                  >
+                    <AppText style={[styles.dropdownText, form.section_name && styles.dropdownValueText]}>
+                      {form.section_name || (form.class_name ? 'Select Section' : 'Select Class First')}
+                    </AppText>
+                    <ChevronRight size={20} color="#94A3B8" />
+                  </TouchableOpacity>
+                  {!editingId && showSectionDropdown && Array.isArray(sectionOptions) && sectionOptions.length > 0 && (
+                    <View style={styles.dropdownMenu}>
+                      {sectionOptions.map((sec, idx) => (
+                        <TouchableOpacity
+                          key={sec || `sec-${idx}`}
+                          style={styles.dropdownItem}
+                          onPress={() => {
+                            if (sec) {
+                              setForm(prev => ({ ...prev, section_name: sec, subject_name: '' }));
+                              setShowSectionDropdown(false);
+                              setShowSubjectDropdown(false);
+                            }
+                          }}
+                        >
+                          <AppText style={styles.dropdownItemText}>{sec || 'Unknown Section'}</AppText>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
 
-              {/* Description */}
-              <View style={styles.formGroup}>
-                <AppText weight="semiBold" style={styles.formLabel}>Description</AppText>
-                <TextInput
-                  style={[styles.textInput, styles.textArea]}
-                  placeholder="Enter description"
-                  placeholderTextColor="#94A3B8"
-                  multiline
-                  numberOfLines={3}
-                  value={form.description}
-                  onChangeText={t => setForm(p => ({ ...p, description: t }))}
-                />
-              </View>
+                {/* Subject Name */}
+                <View style={styles.formGroup}>
+                  <AppText weight="semibold" style={styles.formLabel}>Subject Name</AppText>
+                  <TouchableOpacity
+                    style={[styles.dropdown, editingId && styles.disabledDropdown]}
+                    onPress={() => !editingId && form.section_name ? toggleSubjectDropdown() : null}
+                    disabled={!!editingId || !form.section_name}
+                  >
+                    <AppText style={[styles.dropdownText, form.subject_name && styles.dropdownValueText]}>
+                      {form.subject_name || (form.section_name ? 'Select Subject' : 'Select Section first')}
+                    </AppText>
+                    <ChevronRight size={20} color="#94A3B8" />
+                  </TouchableOpacity>
+                  {!editingId && showSubjectDropdown && Array.isArray(subjectOptions) && subjectOptions.length > 0 && (
+                    <View style={styles.dropdownMenu}>
+                      {subjectOptions.map((subj, idx) => (
+                        <TouchableOpacity
+                          key={subj || `subj-${idx}`}
+                          style={styles.dropdownItem}
+                          onPress={() => {
+                            if (subj) {
+                              setForm(prev => ({ ...prev, subject_name: subj }));
+                              setShowSubjectDropdown(false);
+                            }
+                          }}
+                        >
+                          <AppText style={styles.dropdownItemText}>{subj || 'Unknown Subject'}</AppText>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
 
-              {/* Action Buttons */}
-              <View style={styles.actionButtons}>
-                <AppButton
-                  title={editingId ? "Update" : "Create +"}
-                  onPress={handleSubmit}
-                  disabled={submitting}
-                  style={styles.createButton}
-                />
-                {editingId && (
-                  <AppButton
-                    title="Cancel"
-                    type="secondary"
-                    onPress={resetForm}
-                    style={styles.cancelButton}
+                {/* Assigned Date */}
+                <View style={styles.formGroup}>
+                  <AppText weight="semibold" style={styles.formLabel}>Assigned date</AppText>
+                  <TouchableOpacity style={styles.dropdown} onPress={() => setShowAssignedPicker(true)}>
+                    <AppText style={[styles.dropdownText, form.assigned_date && styles.dropdownValueText]}>
+                      {form.assigned_date || 'select assigned date'}
+                    </AppText>
+                    <Calendar size={20} color="#94A3B8" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Due Date */}
+                <View style={styles.formGroup}>
+                  <AppText weight="semibold" style={styles.formLabel}>Due Date</AppText>
+                  <TouchableOpacity style={styles.dropdown} onPress={() => setShowDuePicker(true)}>
+                    <AppText style={[styles.dropdownText, form.due_date && styles.dropdownValueText]}>
+                      {form.due_date || 'select due date'}
+                    </AppText>
+                    <Calendar size={20} color="#94A3B8" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Title */}
+                <View style={styles.formGroup}>
+                  <AppText weight="semibold" style={styles.formLabel}>Title</AppText>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Enter title"
+                    placeholderTextColor="#94A3B8"
+                    value={form.title}
+                    onChangeText={t => setForm(p => ({ ...p, title: t }))}
                   />
-                )}
-              </View>
-            </>
+                </View>
+
+                {/* Description */}
+                <View style={styles.formGroup}>
+                  <AppText weight="semibold" style={styles.formLabel}>Description</AppText>
+                  <TextInput
+                    style={[styles.textInput, styles.textArea]}
+                    placeholder="Enter description"
+                    placeholderTextColor="#94A3B8"
+                    multiline
+                    numberOfLines={3}
+                    value={form.description}
+                    onChangeText={t => setForm(p => ({ ...p, description: t }))}
+                  />
+                </View>
+
+                {/* Action Buttons */}
+                <View style={styles.actionButtons}>
+                  <AppButton
+                    title={editingId ? "Update" : "Create +"}
+                    onPress={handleSubmit}
+                    disabled={submitting}
+                    style={styles.createButton}
+                  />
+                  {editingId && (
+                    <AppButton
+                      title="Cancel"
+                      type="secondary"
+                      onPress={resetForm}
+                      style={styles.cancelButton}
+                    />
+                  )}
+                </View>
+              </>
+            )}
+          </View>
+
+          {/* Existing Homework List */}
+          <View style={styles.sectionHeader}>
+            <AppText weight="bold" style={styles.sectionTitle}>Homework List</AppText>
+          </View>
+
+          {loading ? (
+            <View style={styles.loaderContainer}>
+              <Loader />
+            </View>
+          ) : items.length === 0 ? (
+            <View style={styles.emptyState}>
+              <AppText style={styles.emptyStateText}>No homework found for selected criteria.</AppText>
+            </View>
+          ) : (
+            <View style={styles.homeworkList}>
+              {Array.isArray(items) && items.map((item, idx) => (
+                item && (
+                  <HomeworkCard
+                    key={item.homework_id || `hw-${idx}`}
+                    item={item}
+                    isEditing={editingId === item.homework_id}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                  />
+                )
+              ))}
+            </View>
           )}
-        </View>
 
-        {/* Existing Homework List */}
-        <View style={styles.sectionHeader}>
-          <AppText weight="bold" style={styles.sectionTitle}>Homework List</AppText>
-        </View>
+          {showAssignedPicker && (
+            <DateTimePicker
+              value={form.assigned_date ? new Date(form.assigned_date) : new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              maximumDate={new Date()}
+              onChange={(e, d) => {
+                setShowAssignedPicker(false);
+                if (d) setForm(p => ({ ...p, assigned_date: d.toISOString().split('T')[0] }));
+              }}
+            />
+          )}
 
-        {loading ? (
-          <View style={styles.loaderContainer}>
-            <Loader />
-          </View>
-        ) : items.length === 0 ? (
-          <View style={styles.emptyState}>
-            <AppText style={styles.emptyStateText}>No homework found for selected criteria.</AppText>
-          </View>
-        ) : (
-          <View style={styles.homeworkList}>
-            {Array.isArray(items) && items.map((item, idx) => (
-              item && (
-                <HomeworkCard
-                  key={item.homework_id || `hw-${idx}`}
-                  item={item}
-                  isEditing={editingId === item.homework_id}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                />
-              )
-            ))}
-          </View>
-        )}
-
-        {showAssignedPicker && (
-          <DateTimePicker
-            value={form.assigned_date ? new Date(form.assigned_date) : new Date()}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            maximumDate={new Date()}
-            onChange={(e, d) => {
-              setShowAssignedPicker(false);
-              if (d) setForm(p => ({ ...p, assigned_date: d.toISOString().split('T')[0] }));
-            }}
-          />
-        )}
-
-        {showDuePicker && (
-          <DateTimePicker
-            value={form.due_date ? new Date(form.due_date) : new Date()}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            minimumDate={new Date()}
-            onChange={(e, d) => {
-              setShowDuePicker(false);
-              if (d) setForm(p => ({ ...p, due_date: d.toISOString().split('T')[0] }));
-            }}
-          />
-        )}
+          {showDuePicker && (
+            <DateTimePicker
+              value={form.due_date ? new Date(form.due_date) : new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              minimumDate={new Date()}
+              onChange={(e, d) => {
+                setShowDuePicker(false);
+                if (d) setForm(p => ({ ...p, due_date: d.toISOString().split('T')[0] }));
+              }}
+            />
+          )}
         </View>
       </ScrollView>
     </View>
@@ -865,7 +877,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     paddingBottom: 30,
@@ -949,7 +961,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 14,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: Theme.colors.violetLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -963,7 +975,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   createBtn: {
-    backgroundColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 10,
@@ -1097,7 +1109,7 @@ const styles = StyleSheet.create({
   },
   clearFilterText: {
     fontSize: 12,
-    color: '#2563EB',
+    color: Theme.colors.blue,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1136,7 +1148,7 @@ const styles = StyleSheet.create({
   },
   homeworkCardEditing: {
     borderWidth: 2,
-    borderColor: '#3B82F6',
+    borderColor: Theme.colors.blue,
     backgroundColor: '#F8FAFF',
   },
   cardHeader: {
@@ -1149,7 +1161,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: Theme.colors.blueLight,
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 20,
@@ -1164,7 +1176,7 @@ const styles = StyleSheet.create({
   },
   subjectText: {
     fontSize: 12,
-    color: '#2563EB',
+    color: Theme.colors.blue,
     textTransform: 'uppercase',
   },
   actionIcons: {
@@ -1273,8 +1285,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   chipActive: {
-    backgroundColor: '#001F3F',
-    borderColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
   },
   chipText: {
     fontSize: 13,
@@ -1315,7 +1327,7 @@ const styles = StyleSheet.create({
   submitBtn: {
     height: 52,
     borderRadius: 12,
-    backgroundColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
   },
   filterModalOverlay: {
     flex: 1,

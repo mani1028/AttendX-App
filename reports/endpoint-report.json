@@ -1,0 +1,679 @@
+Total endpoints scanned: 105
+Missing in backend (sample 200):
+- /accountant/dashboard
+- /accountant/employees
+- /accountant/expenses
+- /accountant/expenses/add
+- /accountant/fees
+- /accountant/payments/add
+- /accountant/reports/monthly-collections
+- /accountant/reports/pending-students
+- /admin/schools
+- /admin/schools/all
+- /admin/subscription/stats
+- /api/staff/marks/staff-context
+- /api/teacher/marks/exams
+- /auth/forgot-password/reset-password
+- /auth/forgot-password/verify-otp
+- /auth/request-otp
+- /auth/reset-password
+- /auth/verify-otp
+- /device-tokens/register
+- /fcm/register-token
+- /fcm/token
+- /hm/attendance/settings
+- /hm/calendar
+- /hm/classes
+- /hm/exams/create
+- /hm/exams/list
+- /hm/export/attendance-only
+- /hm/export/combined-with-attendance
+- /hm/export/marks-only
+- /hm/marks-notification/settings
+- /hm/next-employee-id
+- /hm/public/classes-sections
+- /hm/students
+- /hm/students/export
+- /hm/students/register
+- /hm/teacher-assignments/add-subject
+- /hm/teacher-assignments/details
+- /hm/teacher-assignments/save-class-teacher
+- /hm/teacher-assignments/save-subject-teachers
+- /hm/teachers/download
+- /manage/attendance/student/attendance-images
+- /manage/attendance/student/fetch-report
+- /manage/attendance/teacher/images
+- /manage/classes-sections
+- /manage/schools/all
+- /manage/subscription/stats
+- /manage/teacher/homework/create
+- /manage/teacher/homework/delete
+- /manage/teacher/homework/list
+- /manage/teacher/homework/submissions
+- /manage/teacher/homework/update
+- /manage/teacher/leave-requests
+- /manage/teacher/leave-requests/action
+- /manage/teacher/leave-requests/list
+- /manage/teacher/leave-requests/submit
+- /notifications/accountant/list
+- /notifications/admin/list
+- /notifications/device-token
+- /notifications/device-token/register
+- /notifications/hm/create
+- /notifications/hm/list
+- /notifications/principal/list
+- /notifications/register-device
+- /notifications/register-token
+- /notifications/teacher/list
+- /payment/create-order-by-plan
+- /principal/branch/delete
+- /principal/branch/update
+- /principal/branches
+- /principal/dashboard/overview
+- /principal/generate-hm-id
+- /principal/register-hm
+- /principal/register-hm/send-otp
+- /principal/register-hm/verify-otp
+- /schools/subscription/stats
+- /staff/marks/staff-context
+- /teacher-dashboard/enroll
+- /teacher-dashboard/leave-approval
+- /teacher-dashboard/manage
+- /teacher/marks/enter
+- /teacher/marks/exam-subject-config
+- /teacher/marks/exams
+- /teacher/register
+- /teacher/register/send-otp
+- /teacher/register/verify-otp
+- /teacher/student-registration-requests
+- /vitalscan/predict/skin
+
+Full report JSON:
+
+[
+  {
+    "endpoint": "/accountant/dashboard",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/accountant/employees",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/accountant/expenses",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/accountant/expenses/add",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/accountant/fees",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/accountant/payments/add",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/accountant/reports/monthly-collections",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/accountant/reports/pending-students",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/admin/schools",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/admin/schools/all",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/admin/subscription/stats",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/api",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/app/email_utils.py",
+      "/Users/visys/AttendX/backend/app/services/embedding_service.py",
+      "/Users/visys/AttendX/backend/app/validators.py",
+      "/Users/visys/AttendX/backend/attendance_storage_manager.py",
+      "/Users/visys/AttendX/backend/cancel_runpod_jobs.py"
+    ]
+  },
+  {
+    "endpoint": "/api/",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/app/services/embedding_service.py",
+      "/Users/visys/AttendX/backend/app/validators.py",
+      "/Users/visys/AttendX/backend/image_manager.py",
+      "/Users/visys/AttendX/backend/main.py",
+      "/Users/visys/AttendX/backend/routes/attendance_cleanup_routes.py"
+    ]
+  },
+  {
+    "endpoint": "/api/auth/teacher-capability",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/main.py"
+    ]
+  },
+  {
+    "endpoint": "/api/staff/marks/staff-context",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/api/teacher/marks/exams",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/auth/forgot-password",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/main.py"
+    ]
+  },
+  {
+    "endpoint": "/auth/forgot-password/reset-password",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/auth/forgot-password/verify-otp",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/auth/login",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/main.py"
+    ]
+  },
+  {
+    "endpoint": "/auth/request-otp",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/auth/reset-password",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/auth/teacher-capability",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/main.py"
+    ]
+  },
+  {
+    "endpoint": "/auth/verify-otp",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/device-tokens/register",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/fcm/register-token",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/fcm/token",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/attendance/settings",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/calendar",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/classes",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/exams/create",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/exams/list",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/export/attendance-only",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/export/combined-with-attendance",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/export/marks-only",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/marks-notification/settings",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/next-employee-id",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/public/classes-sections",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/students",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/students/export",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/students/register",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/teacher-assignments/add-subject",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/teacher-assignments/details",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/teacher-assignments/save-class-teacher",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/teacher-assignments/save-subject-teachers",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/hm/teachers/download",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/login",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/app/email_utils.py",
+      "/Users/visys/AttendX/backend/database.py",
+      "/Users/visys/AttendX/backend/main.py",
+      "/Users/visys/AttendX/backend/routes/admin_routes.py",
+      "/Users/visys/AttendX/backend/routes/payment_routes.py"
+    ]
+  },
+  {
+    "endpoint": "/manage/attendance/student/attendance-images",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/manage/attendance/student/fetch-report",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/manage/attendance/teacher/images",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/manage/classes-sections",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/manage/schools/all",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/manage/subscription/stats",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/manage/teacher/homework/create",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/manage/teacher/homework/delete",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/manage/teacher/homework/list",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/manage/teacher/homework/submissions",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/manage/teacher/homework/update",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/manage/teacher/leave-requests",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/manage/teacher/leave-requests/action",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/manage/teacher/leave-requests/list",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/manage/teacher/leave-requests/submit",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/month",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/attendance_storage_manager.py",
+      "/Users/visys/AttendX/backend/cleanup_attendance.py",
+      "/Users/visys/AttendX/backend/database.py",
+      "/Users/visys/AttendX/backend/main.py",
+      "/Users/visys/AttendX/backend/routes/accountant_routes.py"
+    ]
+  },
+  {
+    "endpoint": "/notifications/",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/routes/accountant_routes.py",
+      "/Users/visys/AttendX/backend/routes/admin_routes.py",
+      "/Users/visys/AttendX/backend/routes/payment_routes.py",
+      "/Users/visys/AttendX/backend/routes/principal_routes.py"
+    ]
+  },
+  {
+    "endpoint": "/notifications/accountant/list",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/notifications/admin/list",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/notifications/device-token",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/notifications/device-token/register",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/notifications/hm/create",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/notifications/hm/list",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/notifications/principal/list",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/notifications/register-device",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/notifications/register-token",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/notifications/student/list",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/routes/principal_routes.py"
+    ]
+  },
+  {
+    "endpoint": "/notifications/teacher/list",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/payment/create-order",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/routes/payment_routes.py"
+    ]
+  },
+  {
+    "endpoint": "/payment/create-order-by-plan",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/principal/branch/delete",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/principal/branch/update",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/principal/branches",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/principal/dashboard/overview",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/principal/generate-hm-id",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/principal/register-hm",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/principal/register-hm/send-otp",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/principal/register-hm/verify-otp",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/schools",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/attendance_storage_manager.py",
+      "/Users/visys/AttendX/backend/database.py",
+      "/Users/visys/AttendX/backend/main.py",
+      "/Users/visys/AttendX/backend/routes/accountant_routes.py",
+      "/Users/visys/AttendX/backend/routes/admin_routes.py"
+    ]
+  },
+  {
+    "endpoint": "/schools/all",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/routes/admin_routes.py"
+    ]
+  },
+  {
+    "endpoint": "/schools/create",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/main.py",
+      "/Users/visys/AttendX/backend/routes/payment_routes.py"
+    ]
+  },
+  {
+    "endpoint": "/schools/send-otp",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/main.py"
+    ]
+  },
+  {
+    "endpoint": "/schools/subscription/stats",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/schools/verify-otp",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/main.py"
+    ]
+  },
+  {
+    "endpoint": "/staff/marks/staff-context",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/student/register",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/main.py"
+    ]
+  },
+  {
+    "endpoint": "/student/register-request",
+    "found": true,
+    "files": [
+      "/Users/visys/AttendX/backend/main.py"
+    ]
+  },
+  {
+    "endpoint": "/teacher-dashboard/enroll",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/teacher-dashboard/leave-approval",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/teacher-dashboard/manage",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/teacher/marks/enter",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/teacher/marks/exam-subject-config",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/teacher/marks/exams",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/teacher/register",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/teacher/register/send-otp",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/teacher/register/verify-otp",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/teacher/student-registration-requests",
+    "found": false,
+    "files": []
+  },
+  {
+    "endpoint": "/vitalscan/predict/skin",
+    "found": false,
+    "files": []
+  }
+]

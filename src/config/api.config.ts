@@ -3,17 +3,18 @@ import { Platform } from 'react-native';
 export const API_CONFIG = {
   // Development URLs
   dev: {
-    android: 'http://192.168.1.155:8000/api',  // Android Emulator
-    ios: 'http://192.168.1.155:8000/api',      // iOS Simulator
-    device: 'http://192.168.1.155:8000/api',   // Physical device
+    android: 'http://192.168.1.155:8002/api',  // Android Emulator (Localhost)
+    ios: 'http://192.168.1.155:8002/api',      // iOS Simulator
+    device: 'http://192.168.1.155:8002/api',   // Physical device
   },
-  
+
+
   // Production URL
-  production: 'http://192.168.1.155:8000/api',
-  
+  production: 'http://192.168.1.155:8002/api',
+
   // Timeout in milliseconds
   timeout: 30000,
-  
+
   // Endpoints
   endpoints: {
     auth: {
@@ -32,59 +33,59 @@ export const API_CONFIG = {
       getSchools: 'school/list',
       updateSchool: 'school/update',
     },
-    hm: {
-      dashboard: 'hm/dashboard/stats',
-      nextEmployeeId: 'hm/next-employee-id',
-      teachers: 'hm/teachers',
-      teacherAttendance: 'hm/teachers/attendance',
-      classes: 'hm/classes',
-      students: 'hm/students',
-      studentDirectory: 'hm/students/directory',
-      exams: 'hm/exams/list',
-      createExam: 'hm/exams/create',
-      teacherAssignments: 'hm/teacher-assignments/details',
-    },
-    teacher: {
-      // Registration & Auth
-      register: 'teacher/register',
-      sendOtp: 'teacher/register/send-otp',
-      verifyOtp: 'teacher/register/verify-otp',
-      
-      // Context & Classes
-      context: 'teacher/marks/teacher-context',
-      classes: 'teacher/marks/classes',
-      exams: 'teacher/marks/exams',
-      
-      // Student Registration Requests (Class Teacher only)
-      studentRegistrationRequests: 'teacher/student-registration-requests',
-      approveStudentRegistration: 'teacher/student-registration-requests/{id}/accept',
-      rejectStudentRegistration: 'teacher/student-registration-requests/{id}/reject',
-      
-      // Attendance
-      markAttendance: 'teacher/mark-attendance',
-      videoAttendance: 'teacher/video-attendance',
-      attendanceHistory: 'teacher/attendance-history',
-      selfAttendance: 'teacher/self-attendance',
-      
-      // Academics
-      createHomework: 'teacher/homework/create',
-      marksEntry: 'teacher/marks/entry',
-      enterMarks: 'teacher/marks/enter',
-      marksBulk: 'teacher/marks/bulk',
-      uploadQuestionPapers: 'teacher/question-papers/upload',
-      
-      // Leave Management
-      applyLeave: 'teacher/leave/apply',
-      approveStudentLeave: 'teacher/student-leave/approve',
-      
-      // AI Tools
-      skinPrediction: 'teacher/skin-prediction',
-    },
     principal: {
-      registerHm: 'principal/register-hm',
-      branches: 'principal/branches',
-      stats: 'principal/stats',
-      branchStats: 'principal/branch/stats',
+      dashboard: 'principal/dashboard/stats',
+      nextEmployeeId: 'principal/next-employee-id',
+      teachers: 'principal/teachers',
+      teacherAttendance: 'principal/staff/attendance',
+      classes: 'principal/classes',
+      students: 'principal/students',
+      studentDirectory: 'principal/students/directory',
+      exams: 'principal/exams/list',
+      createExam: 'principal/exams/create',
+      teacherAssignments: 'principal/teacher-assignments/details',
+    },
+    staff: {
+      // Registration & Auth
+      register: 'staff/register',
+      sendOtp: 'staff/register/send-otp',
+      verifyOtp: 'staff/register/verify-otp',
+
+      // Context & Classes
+      context: 'staff/marks/staff-context',
+      classes: 'staff/marks/classes',
+      exams: 'staff/marks/exams',
+
+      // Student Registration Requests (Class Teacher only)
+      studentRegistrationRequests: 'staff/student-registration-requests',
+      approveStudentRegistration: 'staff/student-registration-requests/{id}/accept',
+      rejectStudentRegistration: 'staff/student-registration-requests/{id}/reject',
+
+      // Attendance
+      markAttendance: 'staff/mark-attendance',
+      videoAttendance: 'staff/video-attendance',
+      attendanceHistory: 'staff/attendance-history',
+      selfAttendance: 'staff/self-attendance',
+
+      // Academics
+      createHomework: 'staff/homework/create',
+      marksEntry: 'staff/marks/entry',
+      enterMarks: 'staff/marks/enter',
+      marksBulk: 'staff/marks/bulk',
+      uploadQuestionPapers: 'staff/question-papers/upload',
+
+      // Leave Management
+      applyLeave: 'staff/leave/apply',
+      approveStudentLeave: 'staff/student-leave/approve',
+
+      // AI Tools
+      skinPrediction: 'staff/skin-prediction',
+    },
+    director: {
+      registerPrincipal: 'director/register-principal',
+      branches: 'director/branches',
+      stats: 'director/stats',
+      branchStats: 'director/branch/stats',
     },
     student: {
       attendance: 'student-dashboard/attendance',
@@ -92,13 +93,13 @@ export const API_CONFIG = {
       marks: 'student-dashboard/marks',
       exams: 'student-dashboard/marks/exams',
       leave: 'student-dashboard/leave-requests',
-      teachersForLeave: 'student-dashboard/teachers-for-leave',
+      teachersForLeave: 'student-dashboard/staff-for-leave',
       subjects: 'student-dashboard/subjects',
-      profile: 'manage/students',
+      profile: 'student-dashboard/profile',
       profilePhoto: 'profile-photo/student',
-      questionPapers: 'student/question-papers',
-      questionPaperDownload: 'student/question-papers/{paper_id}/download',
-      examTypes: 'student/question-papers/exam-types',
+      questionPapers: 'student-dashboard/question-papers',
+      questionPaperDownload: 'student-dashboard/question-papers/{paper_id}/download',
+      examTypes: 'student-dashboard/question-papers/exam-types',
       schoolHolidays: 'student/school-holidays',
       registerRequest: 'student/register-request',
       register: 'student/register',
@@ -107,13 +108,13 @@ export const API_CONFIG = {
       classesSections: 'manage/classes-sections',
       students: 'manage/students',
       data: 'manage/data',
-      verifyTeacher: 'manage/verify-teacher',
+      verifyTeacher: 'manage/verify-staff',
       studentAttendance: 'manage/attendance/student/view',
       attendanceReport: 'manage/attendance/student/fetch-report',
       nextRollNumber: 'manage/next-roll-number',
-      createHomework: 'manage/teacher/homework/create',
-      homeworkList: 'manage/teacher/homework/list',
-      upsertMarks: 'manage/teacher/marks/upsert',
+      createHomework: 'manage/staff/homework/create',
+      homeworkList: 'manage/staff/homework/list',
+      upsertMarks: 'manage/staff/marks/upsert',
     },
     visitor: {
       generateQr: 'visitor/qr/generate',
@@ -133,7 +134,7 @@ export const API_CONFIG = {
       verify: 'payment/verify',
     },
     notifications: {
-      listTeacher: 'notifications/teacher/list',
+      listTeacher: 'notifications/staff/list',
       listStudent: 'notifications/student/list',
     },
   },
@@ -143,9 +144,9 @@ export const ENV = {
   API_URL: __DEV__
     ? (Platform.OS === 'android' ? API_CONFIG.dev.android : API_CONFIG.dev.ios)
     : API_CONFIG.production,
-  
+
   SOCKET_URL: 'https://socket.attendx.com',
-  
+
   APP_NAME: 'AttendX',
   APP_VERSION: '1.0.0',
 };

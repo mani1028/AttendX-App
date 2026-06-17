@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import type { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/types';
 import API from '../../services/api';
 import AppButton from '../../components/common/AppButton';
 import { AppInput } from '../../components/common/AppInput';
@@ -28,7 +28,7 @@ interface FormData {
   email: string;
   address: string;
   password: string;
-  hmName: string;
+  directorName: string;
 }
 
 interface PaymentPlan {
@@ -112,7 +112,7 @@ export default function RegisterSchoolScreen() {
     email: '',
     address: '',
     password: '',
-    hmName: '',
+    directorName: '',
   });
 
   const generatedSchoolCode = useMemo(() => {
@@ -162,7 +162,7 @@ export default function RegisterSchoolScreen() {
 
   const handleSubmit = () => {
     if (!emailVerified) return Alert.alert('Error', 'Please verify email first');
-    if (!formData.schoolName || !formData.hmName || !formData.schoolCode || !formData.board || !formData.password || !formData.address) {
+    if (!formData.schoolName || !formData.directorName || !formData.schoolCode || !formData.board || !formData.password || !formData.address) {
       return Alert.alert('Error', 'Please fill all fields');
     }
     setShowPaymentModal(true);
@@ -178,7 +178,7 @@ export default function RegisterSchoolScreen() {
       password: formData.password,
       address: formData.address,
       plan: planId,
-      hms: [{ name: formData.hmName, phone: "0000000000", email: formData.email, designation: "Headmaster", position: "Administrator" }]
+      directors: [{ name: formData.directorName, phone: "0000000000", email: formData.email, designation: "Headmaster", position: "Administrator" }]
     };
 
     try {
@@ -208,7 +208,7 @@ export default function RegisterSchoolScreen() {
                 <Text style={styles.cardSubtitle}>Complete the form to onboard your school</Text>
 
                 <AppInput label="SCHOOL NAME" placeholder="St. Mary's Academy" value={formData.schoolName} onChangeText={t => handleChange('schoolName', t)} />
-                <AppInput label="DIRECTOR NAME" placeholder="John Doe" value={formData.hmName} onChangeText={t => handleChange('hmName', t)} />
+                <AppInput label="DIRECTOR NAME" placeholder="John Doe" value={formData.directorName} onChangeText={t => handleChange('directorName', t)} />
 
                 <View style={styles.row}>
                   <View style={{flex: 1}}>

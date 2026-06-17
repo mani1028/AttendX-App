@@ -1,8 +1,8 @@
 export const APP_ROLES = [
   'student',
   'teacher',
-  'hm',
   'principal',
+  'director',
   'accountant',
   'admin',
   'visitor',
@@ -13,8 +13,8 @@ export type AppRole = (typeof APP_ROLES)[number];
 export const ROLE_LABELS: Record<AppRole, string> = {
   student: 'Student',
   teacher: 'Teacher',
-  hm: 'Head Master',
   principal: 'Principal',
+  director: 'Director',
   accountant: 'Accountant',
   admin: 'Admin',
   visitor: 'Visitor',

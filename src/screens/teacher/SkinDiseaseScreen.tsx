@@ -19,7 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+import { Theme } from '../../theme/theme';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
@@ -254,24 +255,24 @@ export default function SkinDiseaseScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       {/* Navy Hero Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
+      <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
         <View style={styles.headerTop}>
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
           >
-            <ChevronLeft size={24} color="#FFFFFF" />
+            <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
           </TouchableOpacity>
           <AppText weight="bold" style={styles.heroTitle}>Skin Analysis</AppText>
-          <View style={{ width: 40 }} />
+          <View style={{ width: HEADER_CONSTANTS.ICON_BUTTON_SIZE }} />
         </View>
 
         <View style={styles.heroContent}>
           <AppText weight="bold" style={styles.heroGreeting}>Health Check</AppText>
-          <AppText style={styles.heroSubtext}>AI-powered detection of dermatological conditions</AppText>
+          <AppText style={[styles.heroSubtext, { color: `rgba(255,255,255,${HEADER_CONSTANTS.SUBTITLE_OPACITY})` }]}>AI-powered detection of dermatological conditions</AppText>
         </View>
       </View>
 
@@ -444,11 +445,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
-    paddingBottom: 30,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
+    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
+    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
+    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
+    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
   },
   headerTop: {
     flexDirection: 'row',
@@ -456,16 +457,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
+    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
+    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
+    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
     justifyContent: 'center',
     alignItems: 'center',
   },
   heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
+    color: HEADER_CONSTANTS.TEXT_COLOR,
+    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
+    fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
   },
   heroContent: {
     marginTop: 20,
@@ -475,8 +477,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
   },
   heroSubtext: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
+    fontSize: HEADER_CONSTANTS.SUBTITLE_FONT_SIZE,
     marginTop: 4,
   },
   mainContent: {
@@ -541,7 +542,7 @@ const styles = StyleSheet.create({
   },
   analyzeBtn: {
     flex: 2,
-    backgroundColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
   },
   loadingCard: {
     padding: 30,

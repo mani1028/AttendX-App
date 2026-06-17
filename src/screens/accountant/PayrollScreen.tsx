@@ -335,8 +335,20 @@ async function generatePayslipPDF(
     const fname = `Payslip_${(result.employee.teacher_full_name || 'Employee').replace(/\s+/g, '_')}_${month}_${year}.pdf`;
     const pdfBase64 = data.pdf_base64;
     const pdfPath = `${RNFS.DocumentDirectoryPath}/${fname}`;
+
+    // Write to local file for persistence
     await RNFS.writeFile(pdfPath, pdfBase64, 'base64');
-    await Share.open({ url: `file://${pdfPath}`, type: 'application/pdf' });
+
+    // Share using base64 on Android to avoid FileUriExposedException/permission issues
+    const shareOptions = {
+      title: 'Share Payslip',
+      url: Platform.OS === 'android'
+        ? `data:application/pdf;base64,${pdfBase64}`
+        : `file://${pdfPath}`,
+      type: 'application/pdf',
+    };
+
+    await Share.open(shareOptions);
   }
   return data.pdf_base64;
 }
@@ -521,7 +533,7 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
     try {
       const [empResponse, leaveResponse] = await Promise.all([
         API.get(`accountant/payroll/employees?school_code=${encodeURIComponent(schoolCode)}`),
-        API.get(`hm/settings/leave-policy?school_code=${encodeURIComponent(schoolCode)}`).catch(() => null)
+        API.get(`director/settings/leave-policy?school_code=${encodeURIComponent(schoolCode)}`).catch(() => null)
       ]);
       const empData = empResponse.data;
       setEmployees(Array.isArray(empData) ? empData : []);
@@ -770,7 +782,7 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
       try {
         const [empResponse, leaveResponse] = await Promise.all([
           API.get(`accountant/payroll/employees?school_code=${encodeURIComponent(schoolCode)}`),
-          API.get(`hm/settings/leave-policy?school_code=${encodeURIComponent(schoolCode)}`).catch(() => null)
+          API.get(`director/settings/leave-policy?school_code=${encodeURIComponent(schoolCode)}`).catch(() => null)
         ]);
         const empData = empResponse.data;
         setEmployees(Array.isArray(empData) ? empData : []);
@@ -1104,8 +1116,8 @@ const styles = StyleSheet.create({
   staffBadgeText: { color: '#155e75', fontSize: 12, fontWeight: '600' },
   modeSection: { marginTop: 10 },
   fixedInfoBox: { backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderWidth: 1, borderRadius: 10, padding: 10 },
-  fixedInfoText: { color: '#1e40af', fontSize: 12, fontWeight: '600' },
-  fixedInfoSubtext: { color: '#1d4ed8', fontSize: 11, marginTop: 4 },
+  fixedInfoText: { color: '#5b3cc4', fontSize: 12, fontWeight: '600' },
+  fixedInfoSubtext: { color: '#6648dc', fontSize: 11, marginTop: 4 },
   fetchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   fetchButton: { backgroundColor: '#eef2ff', borderColor: '#c7d2fe', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, height: 38, justifyContent: 'center' },
   fetchButtonDisabled: { opacity: 0.5 },
@@ -1179,7 +1191,7 @@ const styles = StyleSheet.create({
   resultValueRed: { color: '#b91c1c' },
   resultValueGreen: { color: '#166534' },
   infoBanner: { backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe', borderRadius: 10, padding: 10, marginBottom: 12 },
-  infoBannerText: { color: '#1e40af', fontSize: 12 },
+  infoBannerText: { color: '#5b3cc4', fontSize: 12 },
   hoursConfigRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' },
   applyButton: { backgroundColor: '#4f46e5', borderRadius: 10, paddingHorizontal: 14, height: 40, justifyContent: 'center' },
   applyButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },

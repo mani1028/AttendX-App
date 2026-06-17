@@ -25,13 +25,14 @@ import {
   TrendingUp,
   Users,
   Wallet,
+  CalendarCheck,
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import { colors } from '../../constants/theme';
-import type { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
-import { HM_THEME } from '../../constants/hmTheme';
+import { Director_THEME } from '../../constants/directorTheme';
 import { getDashboardSummary } from '../../services/accountantService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -222,8 +223,8 @@ export default function AccountantDashboardScreen() {
       label: 'Total Fees Collected',
       value: summary.total_fees_collected,
       icon: CircleDollarSign,
-      iconColor: '#2563eb',
-      tint: 'rgba(37, 99, 235, 0.10)',
+      iconColor: '#6648dc',
+      tint: 'rgba(102, 72, 220, 0.10)',
     },
     {
       label: 'Pending Fees',
@@ -249,7 +250,7 @@ export default function AccountantDashboardScreen() {
   ];
 
   const quickActions = [
-    { label: 'Collections', icon: CreditCard, route: 'AccountantPaymentEntry', color: '#2563eb', tint: 'rgba(37, 99, 235, 0.10)' },
+    { label: 'Collections', icon: CreditCard, route: 'AccountantPaymentEntry', color: '#6648dc', tint: 'rgba(102, 72, 220, 0.10)' },
     { label: 'Reports & Trends', icon: BarChart3, route: 'AccountantReports', color: '#a855f7', tint: 'rgba(168, 85, 247, 0.10)' },
     { label: 'Pending Dues', icon: Clock, route: 'AccountantFeeManagement', color: '#f97316', tint: 'rgba(249, 115, 22, 0.10)' },
     { label: 'Fees', icon: CircleDollarSign, route: 'AccountantFeeManagement', color: '#16a34a', tint: 'rgba(22, 163, 74, 0.10)' },
@@ -257,53 +258,15 @@ export default function AccountantDashboardScreen() {
     { label: 'Payroll', icon: Users, route: 'AccountantPayroll', color: '#0ea5e9', tint: 'rgba(14, 165, 233, 0.10)' },
     { label: 'Notifications', icon: Bell, route: 'Notifications', color: '#64748b', tint: 'rgba(100, 116, 139, 0.10)' },
     { label: 'Salaries', icon: Wallet, route: 'Salaries', color: '#ca8a04', tint: 'rgba(202, 138, 4, 0.10)', isTab: true },
-  ];
+    { label: 'Staff Attendance', icon: CalendarCheck, route: 'AccountantStaffAttendance', color: '#ec4899', tint: 'rgba(236, 72, 153, 0.10)' },
+  ] as const;
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={HM_THEME.navy} />
-
-      <View style={[styles.hero, { paddingTop: insets.top + 14 }]}> 
-        <View style={styles.heroGlowOne} />
-        <View style={styles.heroGlowTwo} />
-
-        <View style={styles.heroRow}>
-          <TouchableOpacity
-            style={styles.avatarWrap}
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('AccountantProfile')}
-            accessibilityLabel="Open profile"
-          >
-            <View style={styles.avatarRing}>
-              <View style={styles.avatar}>
-                <AppText style={styles.avatarText} weight="bold">{initials}</AppText>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => navigation.navigate('Notifications')}
-            accessibilityLabel="Notifications"
-          >
-            <Bell size={20} color="#fff" />
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <AppText style={styles.badgeText} weight="bold">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </AppText>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <AppText style={styles.heroKicker} weight="semiBold">Accountant Portal</AppText>
-        <AppText style={styles.heroTitle} weight="bold">Hello, {userName?.split(' ')[0] || 'Accountant'} 👋</AppText>
-        <AppText style={styles.heroSub}>Here&apos;s what&apos;s happening today.</AppText>
-      </View>
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       <ScrollView
-        contentContainerStyle={[styles.contentContainer, { paddingBottom: contentBottomPadding }]}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: contentBottomPadding, paddingTop: 0 }]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
@@ -314,6 +277,45 @@ export default function AccountantDashboardScreen() {
           />
         }
       >
+        <View style={[styles.hero, { paddingTop: insets.top + 32, paddingBottom: 30 }]}>
+          <View style={styles.heroGlowOne} />
+          <View style={styles.heroGlowTwo} />
+
+          <View style={styles.heroRow}>
+            <TouchableOpacity
+              style={styles.avatarWrap}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('AccountantProfile')}
+              accessibilityLabel="Open profile"
+            >
+              <View style={styles.avatarRing}>
+                <View style={styles.avatar}>
+                  <AppText style={styles.avatarText} weight="bold">{initials}</AppText>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.navigate('Notifications')}
+              accessibilityLabel="Notifications"
+            >
+              <Bell size={20} color="#fff" />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <AppText style={styles.badgeText} weight="bold">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </AppText>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <AppText style={styles.heroKicker} weight="semibold">Accountant Portal</AppText>
+          <AppText style={styles.heroTitle} weight="bold">Hello, {userName?.split(' ')[0] || 'Accountant'} 👋</AppText>
+          <AppText style={styles.heroSub}>Here&apos;s what&apos;s happening today.</AppText>
+        </View>
+
         <View style={styles.statsGrid}>
           {summaryCards.map((card, index) => {
             const IconComponent = card.icon;
@@ -325,7 +327,7 @@ export default function AccountantDashboardScreen() {
                 <AppText style={styles.statValue} weight="bold">
                   {loadingSummary ? '—' : formatCompactCurrency(card.value)}
                 </AppText>
-                <AppText style={styles.statLabel} weight="semiBold" numberOfLines={2}>
+                <AppText style={styles.statLabel} weight="semibold" numberOfLines={2}>
                   {card.label}
                 </AppText>
                 {index === 0 && (
@@ -333,7 +335,7 @@ export default function AccountantDashboardScreen() {
                     <View style={styles.rateTrack}>
                         <View style={[styles.rateFill, { width: `${safeCollectionRate}%` }]} />
                     </View>
-                    <AppText style={styles.rateText} weight="semiBold">
+                    <AppText style={styles.rateText} weight="semibold">
                         {safeCollectionRate.toFixed(0)}% collected
                     </AppText>
                   </View>
@@ -356,17 +358,17 @@ export default function AccountantDashboardScreen() {
                 style={[styles.quickCard, { width: QUICK_CARD_WIDTH }]}
                 activeOpacity={0.78}
                 onPress={() => {
-                  if (action.route === 'Salaries') {
-                    navigation.navigate('Salaries' as never);
+                  if (action.label === 'Salaries') {
+                    navigation.navigate('MainTabs', { screen: 'Salaries' } as any);
                   } else {
                     navigation.navigate(action.route as keyof RootStackParamList);
                   }
                 }}
               >
                 <View style={[styles.quickIconWrap, { backgroundColor: action.tint }]}>
-                  <IconComponent size={18} color={action.color} />
+                  <IconComponent size={20} color={action.color} strokeWidth={2.2} />
                 </View>
-                <AppText style={styles.quickLabel} weight="semiBold" numberOfLines={2}>
+                <AppText style={styles.quickLabel} weight="semibold" numberOfLines={2}>
                   {action.label}
                 </AppText>
               </TouchableOpacity>
@@ -379,13 +381,13 @@ export default function AccountantDashboardScreen() {
             <AppText style={styles.sectionTitle} weight="bold">Finance Snapshot</AppText>
             {loadingSummary ? (
               <View style={styles.syncChip}>
-                <ActivityIndicator size="small" color="#2563eb" />
-                <AppText style={styles.syncChipText} weight="semiBold">Syncing</AppText>
+                <ActivityIndicator size="small" color="#6648dc" />
+                <AppText style={styles.syncChipText} weight="semibold">Syncing</AppText>
               </View>
             ) : (
               <View style={styles.syncChip}>
-                <Calendar size={14} color="#2563eb" />
-                <AppText style={styles.syncChipText} weight="semiBold">
+                <Calendar size={14} color="#6648dc" />
+                <AppText style={styles.syncChipText} weight="semibold">
                   {formatDateSafe(new Date())}
                 </AppText>
               </View>
@@ -394,7 +396,7 @@ export default function AccountantDashboardScreen() {
 
           <View style={styles.snapshotItem}>
             <View>
-              <AppText style={styles.snapshotLabel} weight="semiBold">Pending dues exposure</AppText>
+              <AppText style={styles.snapshotLabel} weight="semibold">Pending dues exposure</AppText>
               <AppText style={styles.snapshotHint}>Students with unpaid or partial fees</AppText>
             </View>
             <AppText style={styles.snapshotValue} weight="bold">
@@ -404,7 +406,7 @@ export default function AccountantDashboardScreen() {
 
           <View style={styles.snapshotItem}>
             <View>
-              <AppText style={styles.snapshotLabel} weight="semiBold">Collection rate</AppText>
+              <AppText style={styles.snapshotLabel} weight="semibold">Collection rate</AppText>
               <AppText style={styles.snapshotHint}>Today&apos;s summary against outstanding dues</AppText>
             </View>
             <AppText style={styles.snapshotValue} weight="bold">
@@ -414,7 +416,7 @@ export default function AccountantDashboardScreen() {
 
           <View style={styles.snapshotItem}>
             <View>
-              <AppText style={styles.snapshotLabel} weight="semiBold">Net balance</AppText>
+              <AppText style={styles.snapshotLabel} weight="semibold">Net balance</AppText>
               <AppText style={styles.snapshotHint}>Overall funds after expenses</AppText>
             </View>
             <AppText
@@ -439,13 +441,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   hero: {
-    backgroundColor: HM_THEME.navy,
+    backgroundColor: Director_THEME.navy,
     paddingHorizontal: 16,
-    paddingBottom: 24,
+    paddingBottom: 40,
     borderBottomLeftRadius: 34,
     borderBottomRightRadius: 34,
-    marginBottom: 12,
+    marginBottom: 20,
     overflow: 'hidden',
+    marginHorizontal: -16,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -520,20 +523,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -2,
     right: -2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#ef4444',
-    paddingHorizontal: 2,
-    borderWidth: 1.5,
-    borderColor: HM_THEME.navy,
+    borderWidth: 2,
+    borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
   badgeText: {
     color: '#fff',
-    fontSize: 8,
-    lineHeight: 10,
+    fontSize: 9,
+    fontWeight: '900',
   },
   heroKicker: {
     color: '#dbeafe',
@@ -543,9 +546,10 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: '#fff',
-    fontSize: 34,
-    lineHeight: 40,
+    fontSize: 36,
+    lineHeight: 44,
     marginBottom: 2,
+    marginTop: 4,
   },
   heroSub: {
     color: '#bfdbfe',
@@ -611,7 +615,7 @@ const styles = StyleSheet.create({
   rateFill: {
     height: '100%',
     borderRadius: 999,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#6648dc',
   },
   rateText: {
     marginTop: 6,
@@ -629,47 +633,30 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
   viewAll: {
-    color: '#2563eb',
+    color: '#6648dc',
     fontSize: 14,
   },
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: QUICK_CARD_GAP,
-    marginBottom: 18,
+    rowGap: 16,
+    marginBottom: 20,
   },
   quickCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.14)',
-    minHeight: 104,
-    justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0f172a',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.06,
-        shadowRadius: 14,
-      },
-      android: { elevation: 2 },
-    }),
   },
   quickIconWrap: {
-    width: 44,
-    height: 44,
+    width: 46,
+    height: 46,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 9,
+    marginBottom: 8,
   },
   quickLabel: {
     fontSize: 11,
-    lineHeight: 15,
+    lineHeight: 14,
     color: '#334155',
     textAlign: 'center',
   },
@@ -696,11 +683,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(37, 99, 235, 0.10)',
+    backgroundColor: 'rgba(102, 72, 220, 0.10)',
   },
   syncChipText: {
     fontSize: 11,
-    color: '#2563eb',
+    color: '#6648dc',
   },
   snapshotItem: {
     paddingVertical: 14,

@@ -37,13 +37,13 @@ import {
 } from 'lucide-react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import API from '../../services/api';
-import { colors } from '../../constants/theme';
+import { Theme } from '../../theme/theme';
 import AppButton from '../../components/common/AppButton';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import CustomPickerModal from '../../components/common/CustomPickerModal';
-import type { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -192,10 +192,11 @@ const ExportModal: React.FC<{
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   maximumDate={new Date()}
-                  onChange={(event, date) => {
+                  onValueChange={(event, date) => {
                     setShowStartPicker(false);
                     if (date) setStartDate(date.toISOString().split('T')[0]);
                   }}
+                  onDismiss={() => setShowStartPicker(false)}
                 />
               )}
             </View>
@@ -215,10 +216,11 @@ const ExportModal: React.FC<{
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   maximumDate={new Date()}
-                  onChange={(event, date) => {
+                  onValueChange={(event, date) => {
                     setShowEndPicker(false);
                     if (date) setEndDate(date.toISOString().split('T')[0]);
                   }}
+                  onDismiss={() => setShowEndPicker(false)}
                 />
               )}
             </View>
@@ -391,7 +393,7 @@ export default function ViewAttendanceScreen() {
   const loadClasses = async (code: string, bid: string) => {
     setLoadingClasses(true);
     try {
-      const res = await API.get('/hm/classes', {
+      const res = await API.get('/director/classes', {
         headers: { 'X-School-Code': code, 'X-Branch-Id': bid },
       });
       const items = res.data?.items;
@@ -507,7 +509,7 @@ export default function ViewAttendanceScreen() {
   const handleExport = async (format: 'excel' | 'csv') => {
     setExporting(true);
     try {
-      const response = await API.post('/hm/students/export', {
+      const response = await API.post('/director/students/export', {
         school_code: schoolCode,
         branch_id: branchId,
         class_grade: selClass,
@@ -642,7 +644,7 @@ export default function ViewAttendanceScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       {/* Navy Standard Header */}
       <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
@@ -728,10 +730,11 @@ export default function ViewAttendanceScreen() {
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     maximumDate={new Date()}
-                    onChange={(event, date) => {
+                    onValueChange={(event, date) => {
                       setShowDatePicker(false);
                       if (date) setViewDate(date.toISOString().split('T')[0]);
                     }}
+                    onDismiss={() => setShowDatePicker(false)}
                   />
                 )}
               </View>
@@ -769,15 +772,15 @@ export default function ViewAttendanceScreen() {
             {students && students.length > 0 && (
               <View style={styles.listActions}>
                 <TouchableOpacity style={styles.actionIconButton} onPress={loadTeacherImage}>
-                  <Camera size={20} color="#001F3F" />
+                  <Camera size={20} color={Theme.colors.primary} />
                   <AppText style={styles.actionIconLabel}>Teacher Photo</AppText>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionIconButton} onPress={loadStudentImages}>
-                  <Users size={20} color="#001F3F" />
+                  <Users size={20} color={Theme.colors.primary} />
                   <AppText style={styles.actionIconLabel}>Student Photos</AppText>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionIconButton} onPress={() => setShowExportModal(true)}>
-                  <Download size={20} color="#001F3F" />
+                  <Download size={20} color={Theme.colors.primary} />
                   <AppText style={styles.actionIconLabel}>Export</AppText>
                 </TouchableOpacity>
               </View>
@@ -785,7 +788,7 @@ export default function ViewAttendanceScreen() {
 
             {/* Student List */}
             {loading ? (
-              <ActivityIndicator size="large" color="#001F3F" style={{ marginTop: 40 }} />
+              <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 40 }} />
             ) : students === null ? (
               <View style={styles.emptyState}>
                 <Search size={48} color="#CBD5E1" />
@@ -814,7 +817,7 @@ export default function ViewAttendanceScreen() {
           <View style={styles.overviewContainer}>
             {/* Overview content placeholder - can be expanded later */}
             <View style={styles.emptyState}>
-              <ActivityIndicator size="small" color="#001F3F" />
+              <ActivityIndicator size="small" color={Theme.colors.primary} />
               <AppText style={[styles.emptyStateSub, { marginTop: 10 }]}>Loading statistical overview...</AppText>
             </View>
           </View>
@@ -863,7 +866,7 @@ export default function ViewAttendanceScreen() {
                           ]}>
                             Class {item}
                           </AppText>
-                          {selClass === item && <CheckCircle2 size={18} color="#001F3F" />}
+                          {selClass === item && <CheckCircle2 size={18} color={Theme.colors.primary} />}
                         </TouchableOpacity>
                       ))
                     )}
@@ -893,7 +896,7 @@ export default function ViewAttendanceScreen() {
                           ]}>
                             Section {item}
                           </AppText>
-                          {selSection === item && <CheckCircle2 size={18} color="#001F3F" />}
+                          {selSection === item && <CheckCircle2 size={18} color={Theme.colors.primary} />}
                         </TouchableOpacity>
                       ))
                     )}
@@ -944,7 +947,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
     paddingHorizontal: 20,
     paddingBottom: 30,
     borderBottomLeftRadius: 30,
@@ -1018,7 +1021,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 16,
     alignItems: 'center',
-    backgroundColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
   },
   activeTab: {
     backgroundColor: '#FFFFFF',
@@ -1040,7 +1043,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   activeTabText: {
-    color: '#001F3F',
+    color: Theme.colors.primary,
     fontWeight: '700',
   },
   contentContainer: {
@@ -1121,7 +1124,7 @@ const styles = StyleSheet.create({
   searchBtn: {
     height: 52,
     borderRadius: 14,
-    backgroundColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
     marginTop: 8,
   },
   summaryGrid: {
@@ -1187,7 +1190,7 @@ const styles = StyleSheet.create({
   actionIconLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#001F3F',
+    color: Theme.colors.primary,
     marginTop: 6,
   },
   listContainer: {
@@ -1376,8 +1379,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   formatBtnActive: {
-    backgroundColor: '#001F3F',
-    borderColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
   },
   formatBtnText: {
     fontSize: 14,
@@ -1421,7 +1424,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
   },
   confirmExportBtnText: {
     fontSize: 16,
@@ -1480,7 +1483,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   imageModalThumbActive: {
-    borderColor: '#001F3F',
+    borderColor: Theme.colors.primary,
   },
   imageModalThumbImg: {
     width: '100%',
@@ -1557,7 +1560,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   pickerOptionTextActive: {
-    color: '#001F3F',
+    color: Theme.colors.primary,
     fontWeight: '700',
   },
   pickerActions: {
@@ -1582,7 +1585,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 14,
-    backgroundColor: '#001F3F',
+    backgroundColor: Theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },

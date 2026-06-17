@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "checkJs": false,
+    "jsx": "react"
+  },
+  "exclude": [
+    "node_modules",
+    "android",
+    "ios",
+    "build",
+    "**/Pods"
+  ]
+}

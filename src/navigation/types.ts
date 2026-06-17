@@ -1,52 +1,28 @@
-import { AppRole } from '../constants/roles';
-
-export type AuthStackParamList = {
+export type RootStackParamList = {
+  // Auth
   Login: undefined;
   ForgotPassword: undefined;
-  VerifyOtp: {
-    schoolId: string;
-    identifier: string;
-  };
-  ResetPassword: {
-    schoolId: string;
-    identifier: string;
-    resetToken: string;
-  };
-  MainTabs: undefined;
-  Pricing: undefined;
-  Loading: undefined;
+  VerifyOtp: undefined;
+  ResetPassword: undefined;
   RegisterSchool: undefined;
-  HMRegistrationPublic: undefined;
-  StudentRegisterPublic: undefined;
-  TeacherRegisterPublic: undefined;
-  VisitForm: undefined;
-  VisitSuccess: undefined;
-};
+  Pricing: undefined;
 
-export type CommonStackParamList = {
-  Profile: undefined;
-  Notifications: undefined;
-};
-
-export type StudentStackParamList = {
-  StudentAttendance: undefined;
-  StudentMarks: undefined;
-  StudentFee: undefined;
-};
-
-export type RoleStackParamList = {
-  RoleDashboard: {
-    role: AppRole;
-  };
-};
-
-export type RootStackParamList = AuthStackParamList & CommonStackParamList & {
+  // Main Tabs
   MainTabs: undefined;
-  // Admin Screens
+
+  // Common
+  Notifications: undefined;
+  Loading: undefined;
+  Profile: undefined;
+  PaymentDue: { message?: string; schoolId?: string } | undefined;
+
+  // Admin
+  AdminDashboard: undefined;
   NotificationManager: undefined;
   SchoolDetails: undefined;
   AdminSettings: undefined;
-  // Teacher Screens
+
+  // Teacher
   TeacherDashboard: undefined;
   TeacherAttendance: undefined;
   TeacherMarksEntry: undefined;
@@ -54,45 +30,68 @@ export type RootStackParamList = AuthStackParamList & CommonStackParamList & {
   TeacherLeaveRequest: undefined;
   TeacherLeaveApproval: undefined;
   TeacherStudentList: undefined;
+  StudentRegistrationRequests: undefined;
   TeacherSkinDisease: undefined;
   TeacherVitalScan: undefined;
   TeacherViewAttendance: undefined;
   MarkAttendance: undefined;
-  // Student Screens
+  TeacherFaceReview: undefined;
+  TeacherStudentRegistration: undefined;
+
+  // Student
+  StudentDashboard: undefined;
   StudentAttendance: undefined;
   StudentMarks: undefined;
   StudentHomework: undefined;
   StudentFee: undefined;
   StudentLeave: undefined;
   StudentQuestionPapers: undefined;
-  // HM Screens
-  HMDashboard: undefined;
-  HMAttendance: undefined;
-  HMStudentManagement: undefined;
-  HMTeacherManagement: undefined;
-  HMExams: undefined;
-  HMAnnouncements: undefined;
-  HMReports: undefined;
-  HMFeeManagement: undefined;
-  HMExpense: undefined;
-  HMSettings: undefined;
-  HMStudentRegistration: undefined;
-  StudentAttendanceReport: {
-    studentId: string;
-    studentName: string;
-  };
-  // Principal Screens
+
+  // Principal (Old HM)
   PrincipalDashboard: undefined;
-  PrincipalBranchDetails: undefined;
-  PrincipalHMRegistration: undefined;
-  // Accountant Screens
+  PrincipalAttendance: undefined;
+  PrincipalStudentManagement: undefined;
+  PrincipalTeacherManagement: undefined;
+  PrincipalTeacherAssignment: undefined;
+  PrincipalExams: undefined;
+  PrincipalAnnouncements: undefined;
+  PrincipalReports: undefined;
+  PrincipalFeeManagement: undefined;
+  PrincipalExpense: undefined;
+  PrincipalSettings: undefined;
+  PrincipalStudentRegistration: undefined;
+  PrincipalStudentAttendanceReport: { studentId: string; studentName: string };
+  PrincipalCalendarManagement: undefined;
+  PrincipalTeacherRegistrationRequests: undefined;
+  PrincipalStudentPromotion: undefined;
+  PrincipalFaceReview: undefined;
+
+  // Director (Old Principal)
+  DirectorDashboard: undefined;
+  DirectorBranchDetails: { branchId: string; branchName: string; principalName: string; principalEmail: string; branchStatus: string };
+  DirectorPrincipalRegistration: undefined;
+  DirectorBilling: undefined;
+  RenewalPayment: undefined;
+
+  // Accountant
   AccountantDashboard: undefined;
+  AccountantProfile: undefined;
   AccountantPaymentEntry: undefined;
   AccountantPayroll: undefined;
+  AccountantSalaries: undefined;
   AccountantFeeManagement: undefined;
   AccountantExpense: undefined;
   AccountantReports: undefined;
   AccountantSettings: undefined;
-  // Visitor Screens
+  AccountantStaffAttendance: undefined;
+
+  // Visitor
+  VisitForm: { token: string };
+  VisitSuccess: { visitor_no: string };
   VisitorDashboard: undefined;
+
+  // Public
+  PrincipalRegistrationPublic: { school_code: string; branch_id: string };
+  StudentRegisterPublic: { school_code: string; branch_id: string };
+  TeacherRegisterPublic: { school_code: string; branch_id: string };
 };

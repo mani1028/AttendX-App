@@ -14,7 +14,7 @@ import API from '../../services/api';
 import { formatLocalDateKey, getMonthSundayDates } from '../../utils/holidayUtils';
 
 const Colors = {
-  primary: "#2563eb",
+  primary: "#6648dc",
   primaryLight: "#dbeafe",
   success: "#059669",
   danger: "#dc2626",
@@ -42,7 +42,7 @@ interface Event {
 const EVENT_COLORS: Record<string, string> = {
   holiday: "#dc2626",
   festival: "#d97706",
-  exam: "#2563eb",
+  exam: "#6648dc",
   event: "#059669",
 };
 
@@ -64,7 +64,7 @@ export default function CalendarView({ onEventPress }: CalendarViewProps) {
   const fetchEvents = async (): Promise<void> => {
     try {
       setLoading(true);
-      const response = await API.get('/hm/calendar');
+      const response = await API.get('/director/calendar');
       if (response.data) {
         setEvents(Array.isArray(response.data) ? response.data : response.data.events || []);
       }

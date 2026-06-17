@@ -1,3 +1,3 @@
-import FeeManagementScreen from '../hm/FeeManagementScreen';
+import FeeManagementScreen from '../director/FeeManagementScreen';
 
 export default FeeManagementScreen;

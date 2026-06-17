@@ -3,28 +3,15 @@ import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import {
-  LayoutGrid,
-  Building2,
-  Bell,
-  Settings,
-  UserPlus,
-  Home,
-  Users,
-  GraduationCap,
-  CalendarCheck,
-  Wallet,
-  LogIn,
-  BarChart3,
-  CreditCard,
-  TrendingDown,
-  Coins
-} from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
+
+// ─── Tab Bar Components ───────────────────────────────────────────────────
 import CustomTabBar from '../components/layout/CustomTabBar';
 import AccountantTabBar from '../components/layout/AccountantTabBar';
 import TeacherTabBar from '../components/layout/TeacherTabBar';
-import HMTabBar from '../components/layout/HMTabBar';
+import AdminTabBar from '../components/layout/AdminTabBar';
+import DirectorTabBar from '../components/layout/DirectorTabBar';
+import PrincipalTabBar from '../components/layout/PrincipalTabBar';
 
 // ─── Auth Screens ───────────────────────────────────────────────────────────
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -38,9 +25,12 @@ import NotificationsScreen from '../screens/common/NotificationsScreen';
 import PricingScreen from '../screens/common/PricingScreen';
 import LoadingScreen from '../screens/common/LoadingScreen';
 import ProfileScreen from '../screens/common/ProfileScreen';
+import PaymentDueScreen from '../screens/common/PaymentDueScreen';
 
 // ─── Admin Screens ──────────────────────────────────────────────────────────
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
+import AdminAgentsScreen from '../screens/admin/AdminAgentsScreen';
+import AdminPlansScreen from '../screens/admin/AdminPlansScreen';
 import NotificationManagerScreen from '../screens/admin/NotificationManagerScreen';
 import SchoolDetailsScreen from '../screens/admin/SchoolDetailsScreen';
 import SettingsScreen from '../screens/admin/SettingsScreen';
@@ -53,14 +43,13 @@ import TeacherHomeworkManagementScreen from '../screens/teacher/HomeworkManageme
 import TeacherLeaveRequestScreen from '../screens/teacher/LeaveRequestScreen';
 import TeacherLeaveApprovalScreen from '../screens/teacher/LeaveApprovalScreen';
 import TeacherStudentListScreen from '../screens/teacher/StudentListScreen';
-
 import StudentRegistrationRequestsScreen from '../screens/teacher/StudentRegistrationRequestsScreen';
 import TeacherSkinDiseaseScreen from '../screens/teacher/SkinDiseaseScreen';
 import TeacherVitalScanScreen from '../screens/teacher/VitalScanScreen';
 import TeacherViewAttendanceScreen from '../screens/teacher/ViewAttendanceScreen';
-import MarkAttendanceScreen from '../components/teacher/MarkAttendanceScreen';
-
-
+import MarkAttendanceScreen from '../screens/teacher/MarkAttendanceScreen';
+import TeacherFaceReviewScreen from '../screens/teacher/TeacherFaceReviewScreen';
+import TeacherStudentRegistrationScreen from '../screens/teacher/StudentRegistrationScreen';
 // ─── Student Screens ────────────────────────────────────────────────────────
 import StudentDashboardScreen from '../screens/student/StudentDashboardScreen';
 import StudentAttendanceScreen from '../screens/student/StudentAttendanceScreen';
@@ -68,32 +57,35 @@ import StudentMarksScreen from '../screens/student/StudentMarksScreen';
 import StudentHomeworkScreen from '../screens/student/HomeworkScreen';
 import StudentFeeScreen from '../screens/student/StudentFeeScreen';
 import StudentLeaveScreen from '../screens/student/LeaveScreen';
-
 import StudentQuestionPapersScreen from '../screens/student/QuestionPapersScreen';
 
-// Add the import for CalendarManagement at the top with other HM imports
+// ─── Principal Screens (Old HM) ─────────────────────────────────────────────
 import {
-  HMDashboardScreen,
-  AttendanceScreen as HMAttendanceScreen,
-  StudentManagementScreen as HMStudentManagementScreen,
-  TeacherManagementScreen as HMTeacherManagementScreen,
-  ExamsScreen as HMExamsScreen,
-  AnnouncementsScreen as HMAnnouncementsScreen,
-  ReportsScreen as HMReportsScreen,
-  FeeManagementScreen as HMFeeManagementScreen,
-  ExpenseScreen as HMExpenseScreen,
-  PaymentEntryScreen as HMPaymentEntryScreen,
-  SettingsScreen as HMSettingsScreen,
-  HMTeacherAssignmentsScreen,
-  CalendarManagement // Add this line
-} from '../screens/hm';
-import HMStudentRegistrationScreen from '../screens/teacher/StudentRegistrationScreen';
-import StudentAttendanceReportScreen from '../screens/hm/StudentAttendanceReport';
+  PrincipalDashboardScreen,
+  AttendanceScreen as PrincipalAttendanceScreen,
+  StudentManagementScreen as PrincipalStudentManagementScreen,
+  TeacherManagementScreen as PrincipalTeacherManagementScreen,
+  ExamsScreen as PrincipalExamsScreen,
+  AnnouncementsScreen as PrincipalAnnouncementsScreen,
+  ReportsScreen as PrincipalReportsScreen,
+  FeeManagementScreen as PrincipalFeeManagementScreen,
+  ExpenseScreen as PrincipalExpenseScreen,
+  PaymentEntryScreen as PrincipalPaymentEntryScreen,
+  SettingsScreen as PrincipalSettingsScreen,
+  CalendarManagement as PrincipalCalendarManagement,
+  TeacherAssignmentsScreen as PrincipalTeacherAssignmentsScreen,
+  TeacherRegistrationRequestsScreen as PrincipalTeacherRegistrationRequestsScreen,
+  StudentPromotionScreen as PrincipalStudentPromotionScreen,
+} from '../screens/principal';
+import StudentAttendanceReportScreen from '../screens/principal/StudentAttendanceReport';
+import PrincipalFaceReviewScreen from '../screens/principal/PrincipalFaceReviewScreen';
 
-// ─── Principal Screens ──────────────────────────────────────────────────────
-import PrincipalDashboardScreen from '../screens/principal/PrincipalDashboardScreen';
-import PrincipalBranchDetailsScreen from '../screens/principal/BranchDetailsScreen';
-import PrincipalHMRegistrationScreen from '../screens/principal/HMRegistrationScreen';
+// ─── Director Screens (Old Principal) ───────────────────────────────────────
+import DirectorDashboardScreen from '../screens/director/DirectorDashboardScreen';
+import DirectorBranchDetailsScreen from '../screens/director/BranchDetailsScreen';
+import PrincipalRegistrationScreen from '../screens/director/PrincipalRegistrationScreen';
+import DirectorBillingScreen from '../screens/director/DirectorBillingScreen';
+import RenewalPaymentScreen from '../screens/director/RenewalPaymentScreen';
 
 // ─── Accountant Screens ─────────────────────────────────────────────────────
 import AccountantDashboardScreen from '../screens/accountant/AccountantDashboardScreen';
@@ -101,6 +93,7 @@ import AccountantProfileScreen from '../screens/accountant/AccountantProfileScre
 import AccountantPayrollScreen from '../screens/accountant/PayrollScreen';
 import AccountantSettingsScreen from '../screens/accountant/SettingsScreen';
 import SalariesManagement from '../screens/accountant/SalariesManagement';
+import AccountantStaffAttendanceScreen from '../screens/accountant/StaffAttendanceScreen';
 
 // ─── Visitor Screens ────────────────────────────────────────────────────────
 import VisitFormScreen from '../screens/visitor/VisitFormScreen';
@@ -108,177 +101,23 @@ import VisitSuccessScreen from '../screens/visitor/VisitSuccessScreen';
 import VisitorDashboardScreen from '../screens/visitor/VisitorDashboardScreen';
 
 // ─── Public Screens ─────────────────────────────────────────────────────────
-import HMRegistrationPublicScreen from '../screens/public/HMRegistrationPublicScreen';
+import PrincipalRegistrationPublicScreen from '../screens/public/PrincipalRegistrationPublicScreen';
 import StudentRegisterPublicScreen from '../screens/public/StudentRegisterPublicScreen';
 import TeacherRegisterPublicScreen from '../screens/public/TeacherRegisterPublicScreen';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-export type RootStackParamList = {
-  // Auth
-  Login: undefined;
-  ForgotPassword: undefined;
-  VerifyOtp: undefined;
-  ResetPassword: undefined;
-  RegisterSchool: undefined;
-  Pricing: undefined;
-
-  // Main Tabs
-  MainTabs: undefined;
-
-  // Common
-  Notifications: undefined;
-  Loading: undefined;
-
-  // Admin
-  Profile: undefined;
-  AdminDashboard: undefined;
-  NotificationManager: undefined;
-  SchoolDetails: undefined;
-  AdminSettings: undefined;
-
-  // Teacher
-  TeacherDashboard: undefined;
-  TeacherAttendance: undefined;
-  TeacherMarksEntry: undefined;
-  TeacherHomeworkManagement: undefined;
-  TeacherLeaveRequest: undefined;
-  TeacherLeaveApproval: undefined;
-  TeacherStudentList: undefined;
-  StudentRegistrationRequests: undefined;
-  TeacherSkinDisease: undefined;
-  TeacherVitalScan: undefined;
-  TeacherViewAttendance: undefined;
-  MarkAttendance: undefined;
-
-  // Student
-  StudentDashboard: undefined;
-  StudentAttendance: undefined;
-  StudentMarks: undefined;
-  StudentHomework: undefined;
-  StudentFee: undefined;
-  StudentLeave: undefined;
-  StudentQuestionPapers: undefined;
-
-  // In the HM section of RootStackParamList (around line 120-130)
-  // HM
-  HMDashboard: undefined;
-  HMAttendance: undefined;
-  HMStudentManagement: undefined;
-  HMTeacherManagement: undefined;
-  TeacherAssignment: undefined;
-  HMExams: undefined;
-  HMAnnouncements: undefined;
-  HMReports: undefined;
-  HMFeeManagement: undefined;
-  HMExpense: undefined;
-  HMSettings: undefined;
-  HMStudentRegistration: undefined;
-  StudentAttendanceReport: { studentId: string; studentName: string };
-  CalendarManagement: undefined; // Add this line
-
-  // Principal
-  PrincipalDashboard: undefined;
-  PrincipalBranchDetails: { branchId: string; branchName: string; hmName: string; hmEmail: string; branchStatus: string };
-  PrincipalHMRegistration: undefined;
-
-  // Accountant
-  AccountantDashboard: undefined;
-  AccountantProfile: undefined;
-  AccountantPaymentEntry: undefined;
-  AccountantPayroll: undefined;
-  AccountantSalaries: undefined;
-  AccountantFeeManagement: undefined;
-  AccountantExpense: undefined;
-  AccountantReports: undefined;
-  AccountantSettings: undefined;
-
-  // Visitor
-  VisitForm: { token: string };
-  VisitSuccess: { visitor_no: string };
-  VisitorDashboard: undefined;
-
-  // Public
-  HMRegistrationPublic: { school_code: string; branch_id: string };
-  StudentRegisterPublic: { school_code: string; branch_id: string };
-  TeacherRegisterPublic: { school_code: string; branch_id: string };
-};
+import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
 
-// ─── Role-based Tab Navigators ──────────────────────────────────────────────
+// ─── Wrapper Components ────────────────────────────────────────────────────
 
-const AdminTabNavigator = () => (
-  <Tab.Navigator
-    screenOptions={({ route }) => ({
-      headerShown: false,
-      tabBarIcon: ({ focused, color, size }) => {
-        const icons: Record<string, any> = {
-          Dashboard: LayoutGrid,
-          Schools: Building2,
-          Notifications: Bell,
-          Settings: Settings,
-        };
-        const IconComponent = icons[route.name] ?? LayoutGrid;
-        return <IconComponent size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
-      },
-      tabBarActiveTintColor: '#007AFF',
-      tabBarInactiveTintColor: 'gray',
-    })}
-  >
-    <Tab.Screen name="Dashboard" component={AdminDashboardScreen} />
-    <Tab.Screen name="Schools" component={AdminDashboardScreen} />
-    <Tab.Screen name="Notifications" component={NotificationManagerScreen} />
-    <Tab.Screen name="Settings" component={SettingsScreen} />
-  </Tab.Navigator>
-);
-
-const PrincipalTabNavigator = () => (
-  <Tab.Navigator
-    screenOptions={({ route }) => ({
-      headerShown: false,
-      tabBarIcon: ({ focused, color, size }) => {
-        const icons: Record<string, any> = {
-          Dashboard: LayoutGrid,
-          Branches: Building2,
-          'HM Registration': UserPlus,
-        };
-        const IconComponent = icons[route.name] ?? LayoutGrid;
-        return <IconComponent size={size} color={color} strokeWidth={focused ? 2.5 : 2} />;
-      },
-      tabBarActiveTintColor: '#007AFF',
-      tabBarInactiveTintColor: 'gray',
-    })}
-  >
-    <Tab.Screen name="Dashboard" component={PrincipalDashboardScreen} />
-    <Tab.Screen name="Branches" component={PrincipalDashboardScreen} />
-    <Tab.Screen name="HM Registration" component={PrincipalHMRegistrationScreen} />
-  </Tab.Navigator>
-);
-
-const HMTabNavigator = () => (
-  <Tab.Navigator
-    tabBar={(props) => <HMTabBar {...props} />}
-    screenOptions={{
-      headerShown: false,
-    }}
-  >
-    <Tab.Screen name="Home" component={HMDashboardScreen} />
-    <Tab.Screen name="Staff" component={HMTeacherManagementScreen} />
-    <Tab.Screen name="TeacherAssignment" component={HMTeacherAssignmentsScreen} />
-    <Tab.Screen name="Students" component={HMStudentManagementScreen} />
-    <Tab.Screen name="Settings" component={HMSettingsScreen} />
-  </Tab.Navigator>
-);
-
-// Wrapper components for conditional Teacher Leaves screen
 const TeacherLeavesWrapper = React.memo(() => {
   const { isClassTeacher } = useAuth();
   return isClassTeacher ? <TeacherLeaveApprovalScreen /> : <TeacherLeaveRequestScreen />;
 });
 TeacherLeavesWrapper.displayName = 'TeacherLeavesWrapper';
-// Wrapper component for Salaries screen with schoolCode
+
 const SalariesWrapper = React.memo(() => {
   const [schoolCode, setSchoolCode] = useState('');
 
@@ -296,27 +135,66 @@ const SalariesWrapper = React.memo(() => {
 });
 SalariesWrapper.displayName = 'SalariesWrapper';
 
+// ─── Role-based Tab Navigators ──────────────────────────────────────────────
 
-const TeacherTabNavigator = () => {
-  return (
-    <Tab.Navigator
-      tabBar={(props) => <TeacherTabBar {...props} />}
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Tab.Screen name="Home" component={TeacherDashboardScreen} />
-      <Tab.Screen name="Homework" component={TeacherHomeworkManagementScreen} />
-      <Tab.Screen name="Scan" component={TeacherAttendanceScreen} />
-      {/* Leaves tab: Show Leave Approval for Class Teachers, Leave Request for Subject Teachers */}
-      <Tab.Screen
-        name="Leaves"
-        component={TeacherLeavesWrapper}
-      />
-      <Tab.Screen name="Marks" component={TeacherMarksEntryScreen} />
-    </Tab.Navigator>
-  );
-};
+const AdminTabNavigator = () => (
+  <Tab.Navigator
+    tabBar={(props) => <AdminTabBar {...props} />}
+    screenOptions={{
+      headerShown: false,
+    }}
+  >
+    <Tab.Screen name="Dashboard" component={AdminDashboardScreen} />
+    <Tab.Screen name="Agents" component={AdminAgentsScreen} />
+    <Tab.Screen name="Plans" component={AdminPlansScreen} />
+    <Tab.Screen name="Settings" component={SettingsScreen} />
+  </Tab.Navigator>
+);
+
+const PrincipalTabNavigator = () => (
+  <Tab.Navigator
+    tabBar={(props) => <PrincipalTabBar {...props} />}
+    screenOptions={{
+      headerShown: false,
+    }}
+  >
+    <Tab.Screen name="Home" component={PrincipalDashboardScreen} />
+    <Tab.Screen name="Staff" component={PrincipalTeacherManagementScreen} />
+    <Tab.Screen name="TeacherAssignment" component={PrincipalTeacherAssignmentsScreen} />
+    <Tab.Screen name="Students" component={PrincipalStudentManagementScreen} />
+    <Tab.Screen name="Reports" component={PrincipalReportsScreen} />
+  </Tab.Navigator>
+);
+
+const DirectorTabNavigator = () => (
+  <Tab.Navigator
+    tabBar={(props) => <DirectorTabBar {...props} />}
+    screenOptions={{
+      headerShown: false,
+    }}
+  >
+    <Tab.Screen name="Home" component={DirectorDashboardScreen} />
+    <Tab.Screen name="Branches" component={DirectorDashboardScreen} />
+    <Tab.Screen name="AddBranch" component={PrincipalRegistrationScreen} />
+    <Tab.Screen name="Billing" component={DirectorBillingScreen} />
+    <Tab.Screen name="Profile" component={ProfileScreen} />
+  </Tab.Navigator>
+);
+
+const TeacherTabNavigator = () => (
+  <Tab.Navigator
+    tabBar={(props) => <TeacherTabBar {...props} />}
+    screenOptions={{
+      headerShown: false,
+    }}
+  >
+    <Tab.Screen name="Home" component={TeacherDashboardScreen} />
+    <Tab.Screen name="Homework" component={TeacherHomeworkManagementScreen} />
+    <Tab.Screen name="Scan" component={TeacherAttendanceScreen} />
+    <Tab.Screen name="Leaves" component={TeacherLeavesWrapper} />
+    <Tab.Screen name="Marks" component={TeacherMarksEntryScreen} />
+  </Tab.Navigator>
+);
 
 const StudentTabNavigator = () => (
   <Tab.Navigator
@@ -334,40 +212,40 @@ const StudentTabNavigator = () => (
   </Tab.Navigator>
 );
 
-const AccountantTabNavigator = () => {
-  return (
-    <Tab.Navigator
-      tabBar={(props) => <AccountantTabBar {...props} />}
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Tab.Screen name="Dashboard" component={AccountantDashboardScreen} />
-      <Tab.Screen name="Fees" component={HMFeeManagementScreen} />
-      <Tab.Screen name="Salaries" component={SalariesWrapper} />
-      <Tab.Screen name="Payroll" component={AccountantPayrollScreen} />
-      <Tab.Screen name="Expenses" component={HMExpenseScreen} />
-    </Tab.Navigator>
-  );
-};
+const AccountantTabNavigator = () => (
+  <Tab.Navigator
+    tabBar={(props) => <AccountantTabBar {...props} />}
+    screenOptions={{
+      headerShown: false,
+    }}
+  >
+    <Tab.Screen name="Dashboard" component={AccountantDashboardScreen} />
+    <Tab.Screen name="Fees" component={PrincipalFeeManagementScreen} />
+    <Tab.Screen name="Salaries" component={SalariesWrapper} />
+    <Tab.Screen name="Payroll" component={AccountantPayrollScreen} />
+    <Tab.Screen name="Expenses" component={PrincipalExpenseScreen} />
+  </Tab.Navigator>
+);
 
 // ─── Role-based Tab Switcher ────────────────────────────────────────────────
 
 const MainTabs = () => {
   const { userRole } = useAuth();
 
+  if (!userRole) return null;
+
   switch (userRole?.toLowerCase()) {
     case 'admin': return <AdminTabNavigator />;
     case 'principal': return <PrincipalTabNavigator />;
-    case 'hm': return <HMTabNavigator />;
-    case 'teacher': return <TeacherTabNavigator />;
+    case 'director': return <DirectorTabNavigator />;
+    case 'teacher':
     case 'class_teacher':
     case 'class teacher':
     case 'classteacher':
       return <TeacherTabNavigator />;
     case 'student': return <StudentTabNavigator />;
     case 'accountant': return <AccountantTabNavigator />;
-    default: return <StudentTabNavigator />;
+    default: return null;
   }
 };
 
@@ -398,7 +276,7 @@ export default function AppNavigator() {
           <Stack.Screen name="Loading" component={LoadingScreen} />
 
           {/* Public Registration Routes */}
-          <Stack.Screen name="HMRegistrationPublic" component={HMRegistrationPublicScreen} />
+          <Stack.Screen name="PrincipalRegistrationPublic" component={PrincipalRegistrationPublicScreen} />
           <Stack.Screen name="StudentRegisterPublic" component={StudentRegisterPublicScreen} />
           <Stack.Screen name="TeacherRegisterPublic" component={TeacherRegisterPublicScreen} />
 
@@ -410,57 +288,65 @@ export default function AppNavigator() {
         // ─── Main Application Stack (Logged In) ────────────────────────────
         <>
           <Stack.Screen name="MainTabs" component={MainTabs} />
-          <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="NotificationManager" component={NotificationManagerScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="SchoolDetails" component={SchoolDetailsScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="AdminSettings" component={SettingsScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="PaymentDue" component={PaymentDueScreen} />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          <Stack.Screen name="NotificationManager" component={NotificationManagerScreen} />
+          <Stack.Screen name="SchoolDetails" component={SchoolDetailsScreen} />
+          <Stack.Screen name="AdminSettings" component={SettingsScreen} />
           <Stack.Screen name="TeacherDashboard" component={TeacherDashboardScreen} />
           <Stack.Screen name="TeacherAttendance" component={TeacherAttendanceScreen} />
           <Stack.Screen name="TeacherMarksEntry" component={TeacherMarksEntryScreen} />
           <Stack.Screen name="TeacherHomeworkManagement" component={TeacherHomeworkManagementScreen} />
           <Stack.Screen name="StudentRegistrationRequests" component={StudentRegistrationRequestsScreen} />
-          <Stack.Screen name="TeacherLeaveRequest" component={TeacherLeaveRequestScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="TeacherLeaveApproval" component={TeacherLeaveApprovalScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="TeacherStudentList" component={TeacherStudentListScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="TeacherSkinDisease" component={TeacherSkinDiseaseScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="TeacherVitalScan" component={TeacherVitalScanScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="TeacherViewAttendance" component={TeacherViewAttendanceScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="TeacherLeaveRequest" component={TeacherLeaveRequestScreen} />
+          <Stack.Screen name="TeacherLeaveApproval" component={TeacherLeaveApprovalScreen} />
+          <Stack.Screen name="TeacherStudentList" component={TeacherStudentListScreen} />
+          <Stack.Screen name="TeacherSkinDisease" component={TeacherSkinDiseaseScreen} />
+          <Stack.Screen name="TeacherVitalScan" component={TeacherVitalScanScreen} />
+          <Stack.Screen name="TeacherViewAttendance" component={TeacherViewAttendanceScreen} />
+          <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} />
+          <Stack.Screen name="TeacherFaceReview" component={TeacherFaceReviewScreen} />
+          <Stack.Screen name="TeacherStudentRegistration" component={TeacherStudentRegistrationScreen} />
           <Stack.Screen name="StudentAttendance" component={StudentAttendanceScreen} />
           <Stack.Screen name="StudentMarks" component={StudentMarksScreen} />
           <Stack.Screen name="StudentHomework" component={StudentHomeworkScreen} />
           <Stack.Screen name="StudentFee" component={StudentFeeScreen} />
           <Stack.Screen name="StudentLeave" component={StudentLeaveScreen} />
-          <Stack.Screen name="StudentQuestionPapers" component={StudentQuestionPapersScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="HMDashboard" component={HMDashboardScreen} />
-          <Stack.Screen name="HMAttendance" component={HMAttendanceScreen} />
-          <Stack.Screen name="HMStudentManagement" component={HMStudentManagementScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="HMTeacherManagement" component={HMTeacherManagementScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="TeacherAssignment" component={HMTeacherAssignmentsScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="HMExams" component={HMExamsScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="HMAnnouncements" component={HMAnnouncementsScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="HMReports" component={HMReportsScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="HMFeeManagement" component={HMFeeManagementScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="HMExpense" component={HMExpenseScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="HMSettings" component={HMSettingsScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="HMStudentRegistration" component={HMStudentRegistrationScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="StudentAttendanceReport" component={StudentAttendanceReportScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="CalendarManagement" component={CalendarManagement} options={{ headerShown: false }} />
+          <Stack.Screen name="StudentQuestionPapers" component={StudentQuestionPapersScreen} />
           <Stack.Screen name="PrincipalDashboard" component={PrincipalDashboardScreen} />
-          <Stack.Screen name="PrincipalBranchDetails" component={PrincipalBranchDetailsScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="PrincipalHMRegistration" component={PrincipalHMRegistrationScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="PrincipalAttendance" component={PrincipalAttendanceScreen} />
+          <Stack.Screen name="PrincipalStudentManagement" component={PrincipalStudentManagementScreen} />
+          <Stack.Screen name="PrincipalTeacherManagement" component={PrincipalTeacherManagementScreen} />
+          <Stack.Screen name="PrincipalTeacherAssignment" component={PrincipalTeacherAssignmentsScreen} />
+          <Stack.Screen name="PrincipalExams" component={PrincipalExamsScreen} />
+          <Stack.Screen name="PrincipalAnnouncements" component={PrincipalAnnouncementsScreen} />
+          <Stack.Screen name="PrincipalReports" component={PrincipalReportsScreen} />
+          <Stack.Screen name="PrincipalFeeManagement" component={PrincipalFeeManagementScreen} />
+          <Stack.Screen name="PrincipalExpense" component={PrincipalExpenseScreen} />
+          <Stack.Screen name="PrincipalSettings" component={PrincipalSettingsScreen} />
+          <Stack.Screen name="PrincipalStudentRegistration" component={PrincipalDashboardScreen} />
+          <Stack.Screen name="PrincipalStudentAttendanceReport" component={StudentAttendanceReportScreen} />
+          <Stack.Screen name="PrincipalCalendarManagement" component={PrincipalCalendarManagement} />
+          <Stack.Screen name="PrincipalTeacherRegistrationRequests" component={PrincipalTeacherRegistrationRequestsScreen} />
+          <Stack.Screen name="PrincipalStudentPromotion" component={PrincipalStudentPromotionScreen} />
+          <Stack.Screen name="PrincipalFaceReview" component={PrincipalFaceReviewScreen} />
+          <Stack.Screen name="DirectorDashboard" component={DirectorDashboardScreen} />
+          <Stack.Screen name="DirectorBranchDetails" component={DirectorBranchDetailsScreen} />
+          <Stack.Screen name="DirectorPrincipalRegistration" component={PrincipalRegistrationScreen} />
+          <Stack.Screen name="DirectorBilling" component={DirectorBillingScreen} />
+          <Stack.Screen name="RenewalPayment" component={RenewalPaymentScreen} />
+          <Stack.Screen name="Pricing" component={PricingScreen} />
           <Stack.Screen name="AccountantDashboard" component={AccountantDashboardScreen} />
-          <Stack.Screen name="AccountantProfile" component={AccountantProfileScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="AccountantPaymentEntry" component={HMPaymentEntryScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="AccountantPayroll" component={AccountantPayrollScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="AccountantFeeManagement" component={HMFeeManagementScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="AccountantExpense" component={HMExpenseScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="AccountantReports" component={HMReportsScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="AccountantSettings" component={AccountantSettingsScreen} options={{ headerShown: false }} />
-
-          {/* Visitor Screens (Logged In) */}
-          <Stack.Screen name="VisitorDashboard" component={VisitorDashboardScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="AccountantProfile" component={AccountantProfileScreen} />
+          <Stack.Screen name="AccountantPaymentEntry" component={PrincipalPaymentEntryScreen} />
+          <Stack.Screen name="AccountantPayroll" component={AccountantPayrollScreen} />
+          <Stack.Screen name="AccountantFeeManagement" component={PrincipalFeeManagementScreen} />
+          <Stack.Screen name="AccountantExpense" component={PrincipalExpenseScreen} />
+          <Stack.Screen name="AccountantReports" component={PrincipalReportsScreen} />
+          <Stack.Screen name="AccountantSettings" component={AccountantSettingsScreen} />
+          <Stack.Screen name="AccountantStaffAttendance" component={AccountantStaffAttendanceScreen} />
+          <Stack.Screen name="VisitorDashboard" component={VisitorDashboardScreen} />
         </>
       )}
     </Stack.Navigator>

@@ -1,0 +1,22 @@
+export { default as PrincipalDashboardScreen } from './PrincipalDashboardScreen';
+export { default as TeacherManagementScreen } from './TeacherManagementScreen';
+export { default as StudentManagementScreen } from './StudentManagementScreen';
+export { default as AttendanceScreen } from './AttendanceScreen';
+export { default as FeeManagementScreen } from './FeeManagementScreen';
+export { default as ReportsScreen } from './ReportsScreen';
+export { default as ExamsScreen } from './ExamsScreen';
+export { default as ExpenseScreen } from './ExpenseScreen';
+export { default as SettingsScreen } from './SettingsScreen';
+export { default as AnnouncementsScreen } from './AnnouncementsScreen';
+export { default as DataExportScreen } from './DataExportScreen';
+export { default as AccountantScreen } from './AccountantScreen';
+export { default as PaymentEntryScreen } from './PaymentEntryScreen';
+export { default as SummaryCardsScreen } from './SummaryCardsScreen';
+export { default as TeacherLeaveScreen } from './TeacherLeaveScreen';
+export { default as PendingStudentsScreen } from './PendingStudentsScreen';
+export { default as CalendarManagement } from './CalendarManagement';
+export { default as TeacherAssignmentsScreen } from './TeacherAssignmentsScreen';
+export { default as TeacherRegistrationRequestsScreen } from './TeacherRegistrationRequestsScreen';
+export { default as StudentPromotionScreen } from './StudentPromotionScreen';
+// src/screens/principal/index.ts
+export { default as PrincipalFaceReviewScreen } from './PrincipalFaceReviewScreen';

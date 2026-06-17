@@ -15,7 +15,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon from '@react-native-vector-icons/feather';
+import Icon from 'react-native-vector-icons/Feather';
 import { Bell } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { visitorApi, qrApi } from '../../services/visitorApi';
@@ -26,7 +26,7 @@ import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 import QRCode from 'react-native-qrcode-svg';
-import type { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import { formatErrorMessage } from '../../utils/helpers';
 
@@ -506,7 +506,7 @@ export default function VisitorDashboardScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#001F3F" />
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       {/* Standardized Navy Header */}
       <View style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 30 }]}>
@@ -1036,7 +1036,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
+    backgroundColor: '#6648dc',
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1071,17 +1071,17 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: colors.error,
-    borderWidth: 1.5,
-    borderColor: '#001F3F',
+    backgroundColor: '#ef4444',
+    borderWidth: 2,
+    borderColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 2,
   },
   badgeTextNotification: {
-    color: '#fff',
-    fontSize: 8,
-    fontWeight: '800',
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '900',
     textAlign: 'center',
   },
   modalMessage: {

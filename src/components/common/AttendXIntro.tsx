@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import Svg, { Text as SvgText, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
+import { Theme } from '../../theme/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -127,7 +128,7 @@ const AttendXIntro: React.FC<AttendXIntroProps> = ({ onComplete, duration = 3200
 
   return (
     <Animated.View style={[styles.container, { opacity: containerOpacity }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <StatusBar barStyle="dark-content" translucent={true} backgroundColor="transparent" />
 
       <View style={styles.content}>
         {/* Cloud Logo */}
@@ -211,6 +212,8 @@ const AttendXIntro: React.FC<AttendXIntroProps> = ({ onComplete, duration = 3200
           </Animated.Text>
         </View>
       </View>
+
+      <Text style={styles.poweredBy}>Powered By Visys Cloud Technologies</Text>
     </Animated.View>
   );
 };
@@ -262,6 +265,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#3a9fd6',
     marginTop: 6,
+  },
+  poweredBy: {
+    position: 'absolute',
+    bottom: 60,
+    width: '100%',
+    textAlign: 'center',
+    fontSize: 13,
+    color: '#475569', // Darker slate for better contrast on white
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
 });
 
