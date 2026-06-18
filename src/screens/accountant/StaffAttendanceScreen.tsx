@@ -26,6 +26,7 @@ import {
   ChevronLeft as ChevronLeftSmall,
   ChevronRight,
 } from 'lucide-react-native';
+import AccountantPageHeader from '../../components/layout/AccountantPageHeader';
 import API from '../../services/api';
 import { Theme } from '../../theme/theme';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
@@ -417,21 +418,15 @@ export default function StaffAttendanceScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft size={22} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Staff Attendance</Text>
-          <Text style={styles.headerSub}>Mark daily attendance for all staff</Text>
-        </View>
-        <TouchableOpacity onPress={fetchStaff} style={styles.refreshBtn}>
-          <RefreshCw size={18} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      <AccountantPageHeader 
+        title="Staff Attendance" 
+        greeting="Staff Attendance"
+        subtext="Manage daily staff attendance and leaves"
+        onBackPress={() => navigation.goBack()} 
+      />
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.contentOverlap}>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Date picker row */}
         <View style={styles.dateRow}>
           <Text style={styles.dateLabel}>Date:</Text>
@@ -497,7 +492,8 @@ export default function StaffAttendanceScreen() {
             </View>
           )}
         </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       {/* Calendar modal */}
       {calendarTeacher ? (
@@ -514,6 +510,10 @@ export default function StaffAttendanceScreen() {
 /* ─── Styles ─── */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
+  contentOverlap: {
+    flex: 1,
+    marginTop: -20,
+  },
 
   header: {
     backgroundColor: Theme.colors.primary,

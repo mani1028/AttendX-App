@@ -6,6 +6,7 @@ export const APP_ROLES = [
   'accountant',
   'admin',
   'visitor',
+  'agent',
 ] as const;
 
 export type AppRole = (typeof APP_ROLES)[number];
@@ -18,4 +19,5 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   accountant: 'Accountant',
   admin: 'Admin',
   visitor: 'Visitor',
+  agent: 'Agent',
 };

@@ -46,8 +46,9 @@ interface MonthlyCollection {
 const Reports = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { setTabBarVisible } = useAuth();
+  const { setTabBarVisible, userRole } = useAuth();
   const lastScrollY = useRef(0);
+  const isMounted = useRef(true);
   const [collections, setCollections] = useState<MonthlyCollection[]>([]);
   const [maxCollection, setMaxCollection] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -168,27 +169,35 @@ const Reports = () => {
       <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       {/* Standardized Header */}
-      <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
-          >
-            <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>Financial Reports</AppText>
-          </View>
-          <TouchableOpacity style={styles.iconButton} onPress={() => fetchReports()}>
-            <RefreshCw size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
-          </TouchableOpacity>
-        </View>
+      {(() => {
+        const isAccountant = userRole?.toLowerCase() === 'accountant';
+        return (
+          <View style={[styles.headerStandard, { 
+            paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
+            backgroundColor: isAccountant ? '#1e3a8a' : HEADER_CONSTANTS.BACKGROUND_COLOR
+          }]}>
+            <View style={styles.headerTop}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
+              >
+                <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
+              </TouchableOpacity>
+              <View style={styles.headerTitleContainer}>
+                <AppText weight="bold" style={styles.headerTitle}>Financial Reports</AppText>
+              </View>
+              <TouchableOpacity style={styles.iconButton} onPress={() => fetchReports()}>
+                <RefreshCw size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
+              </TouchableOpacity>
+            </View>
 
-        <View style={styles.headerContent}>
-          <AppText weight="bold" style={styles.headerGreeting}>Analytics & Insights</AppText>
-          <AppText style={styles.headerSubtext}>Visualize collection trends and financial health</AppText>
-        </View>
-      </View>
+            <View style={styles.headerContent}>
+              <AppText weight="bold" style={styles.headerGreeting}>Analytics & Insights</AppText>
+              <AppText style={styles.headerSubtext}>Visualize collection trends and financial health</AppText>
+            </View>
+          </View>
+        );
+      })()}
 
       <View style={styles.contentOverlap}>
         <ScrollView

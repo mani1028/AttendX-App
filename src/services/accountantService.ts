@@ -1,4 +1,5 @@
 import API from './api';
+import Storage from '@react-native-async-storage/async-storage';
 
 export type PaymentMethod = 'cash' | 'online';
 
@@ -9,6 +10,7 @@ export interface StudentDirectoryItem {
   student_full_name?: string;
   class_grade?: string;
   section?: string;
+  roll_number?: string;
 }
 
 export interface FeeRecord {
@@ -22,6 +24,7 @@ export interface FeeRecord {
   due_date: string;
   created_at?: string;
   academic_year?: string;
+  roll_number?: string;
 }
 
 export interface PaymentRecord {
@@ -138,7 +141,7 @@ function normalizeFee(item: unknown): FeeRecord {
   );
 
   return {
-    id: toText(row.id ?? row.fee_id),
+    id: toText(row.id ?? row.fee_id ?? row._id),
     student_id: toText(row.student_id),
     student_name: toText(row.student_name ?? row.name ?? row.student_full_name, ''),
     total_fee: total,
@@ -148,6 +151,7 @@ function normalizeFee(item: unknown): FeeRecord {
     due_date: toText(row.due_date),
     created_at: toText(row.created_at, ''),
     academic_year: toText(row.academic_year, ''),
+    roll_number: toText(row.roll_number ?? row.roll_no ?? row.rollNo ?? row.student_roll_number ?? row.student_roll_no, ''),
   };
 }
 
@@ -156,7 +160,7 @@ function normalizePayment(item: unknown): PaymentRecord {
   const method = String(row.method ?? row.payment_method ?? '').toLowerCase() === 'online' ? 'online' : 'cash';
 
   return {
-    id: toText(row.id ?? row.payment_id ?? row.txn_id),
+    id: toText(row.id ?? row.payment_id ?? row.txn_id ?? row._id),
     fee_id: toText(row.fee_id),
     amount: toNumber(row.amount),
     method,
@@ -181,19 +185,23 @@ function pickList(data: unknown, keys: string[]): any[] {
 }
 
 export async function getSchoolStudents(schoolCode?: string): Promise<StudentDirectoryItem[]> {
-  const response = await API.get<any>('manage/students', {
-    params: schoolCode ? { school_code: schoolCode } : undefined,
-  });
+  const branchId = await Storage.getItem('branch_id') || await Storage.getItem('branchId') || '';
+  const params: any = {};
+  if (schoolCode) params.school_code = schoolCode;
+  if (branchId) params.branch_id = branchId;
+  
+  const response = await API.get<any>('manage/students', { params });
   const rows = pickList(response.data, ['students', 'data']);
   return rows.map((row: any) => {
     const item = asRecord(row);
     return {
-      id: toText(item.id ?? item.student_id),
+      id: toText(item.id ?? item.student_id ?? item._id),
       student_id: toText(item.student_id, ''),
       name: toText(item.name, ''),
       student_full_name: toText(item.student_full_name, ''),
       class_grade: toText(item.class_grade, ''),
       section: toText(item.section, ''),
+      roll_number: toText(item.roll_number ?? item.roll_no ?? item.rollNo ?? item.student_roll_number ?? item.student_roll_no, ''),
     };
   });
 }

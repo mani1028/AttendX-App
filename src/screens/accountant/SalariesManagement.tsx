@@ -12,11 +12,15 @@ import {
   RefreshControl,
   SafeAreaView,
   Platform,
+  StatusBar,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import AccountantPageHeader from '../../components/layout/AccountantPageHeader';
 import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ENV } from '../../config/api.config';
 import { useAuth } from '../../context/AuthContext';
+import * as principalService from '../../services/principalService';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -492,6 +496,7 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
   const [salaryHistory, setSalaryHistory] = useState<SalaryHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
+  const navigation = useNavigation();
 
   // Load employees
   useEffect(() => {
@@ -507,14 +512,21 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
                        await AsyncStorage.getItem('branchId') ||
                        '';
 
-      const response = await API.get('/accountant/employees', {
-        params: {
-          school_code: schoolCode,
-          branch_id: branchId
-        }
+      const items = await principalService.getPrincipalTeachers({
+        'school-code': schoolCode,
+        ...(branchId ? { 'branch-id': branchId } : {})
       });
+      
+      // Transform keys to match expected Employee interface if needed, but getPrincipalTeachers
+      // usually returns teacher objects. We just map teacher_full_name if it's missing but we have name.
+      const empList = items.map(t => ({
+        ...t,
+        id: t.teacher_id || t.id,
+        teacher_full_name: t.teacher_full_name || t.name || t.full_name,
+        teacher_id: t.teacher_id || t.id,
+        employee_id: t.employee_id || t.id,
+      }));
 
-      const empList = response.employees || [];
       setEmployees(empList);
       setMessage('');
       setIsError(false);
@@ -544,7 +556,7 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
 
     try {
       setUpdateLoading(true);
-      await API.put(`/accountant/employees/${selectedEmployee.id}/salary`, {
+      await API.put(`/accountant/payroll/employees/${selectedEmployee.id}/salary`, {
         salary: salary,
         reason: reason
       }, {
@@ -575,7 +587,7 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
   const handleViewHistory = async (employee: Employee) => {
     try {
       setHistoryLoading(true);
-      const response = await API.get(`/accountant/employees/${employee.id}/salary-history`, {
+      const response = await API.get(`/accountant/payroll/employees/${employee.id}/salary-history`, {
         params: { school_code: schoolCode }
       });
 
@@ -604,15 +616,24 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
   });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-      >
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+      <AccountantPageHeader 
+        title="Staff Salaries" 
+        greeting="Salaries & Payroll"
+        subtext="Manage employee compensation"
+        onBackPress={() => navigation.goBack()} 
+      />
+      <View style={styles.contentOverlap}>
+        <ScrollView
+          style={styles.scrollView}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+        >
         {/* Message Box */}
         <MessageBox
           message={message}
@@ -620,21 +641,15 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
           onClose={() => setMessage('')}
         />
 
-        {/* Header Section */}
-        <View style={styles.headerSection}>
-          <Text style={styles.headerTitle}>Employee Salaries Management</Text>
-          <Text style={styles.headerSubtitle}>
-            View and manage existing employees' salaries
-          </Text>
-        </View>
-
         {/* Search Section */}
         <View style={styles.searchSection}>
-          <SearchInput
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-            placeholder="Search by name, employee ID, or position..."
-          />
+          <View style={styles.searchContainer}>
+            <SearchInput
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+              placeholder="Search by name, employee ID, or position..."
+            />
+          </View>
         </View>
 
         {/* Loading State */}
@@ -674,6 +689,7 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
           </View>
         )}
       </ScrollView>
+      </View>
 
       {/* Edit Salary Modal */}
       <EditSalaryModal
@@ -692,7 +708,7 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
         loading={historyLoading}
         onClose={() => setShowHistoryModal(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -702,6 +718,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f3f4f6',
+  },
+  contentOverlap: {
+    flex: 1,
+    marginTop: -20,
   },
   scrollView: {
     flex: 1,
@@ -723,9 +743,12 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   searchSection: {
-    backgroundColor: '#f8fbff',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    padding: 16,
+    paddingTop: 0,
+    marginTop: -20,
+    backgroundColor: '#f3f4f6',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
   },
   employeesList: {
     padding: 16,

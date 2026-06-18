@@ -56,7 +56,7 @@ export type RootStackParamList = {
   PrincipalExams: undefined;
   PrincipalAnnouncements: undefined;
   PrincipalReports: undefined;
-  PrincipalFeeManagement: undefined;
+  PrincipalFeeManagement: { student_id?: string; studentId?: string } | undefined;
   PrincipalExpense: undefined;
   PrincipalSettings: undefined;
   PrincipalStudentRegistration: undefined;
@@ -79,7 +79,7 @@ export type RootStackParamList = {
   AccountantPaymentEntry: undefined;
   AccountantPayroll: undefined;
   AccountantSalaries: undefined;
-  AccountantFeeManagement: undefined;
+  AccountantFeeManagement: { student_id?: string; studentId?: string } | undefined;
   AccountantExpense: undefined;
   AccountantReports: undefined;
   AccountantSettings: undefined;

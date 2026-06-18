@@ -8,35 +8,46 @@ import CalendarView from '../common/CalendarView';
 
 type AccountantPageHeaderProps = {
   title: string;
+  greeting?: string;
+  subtext?: string;
   onBackPress: () => void;
 };
 
-const AccountantPageHeader: React.FC<AccountantPageHeaderProps> = ({ title, onBackPress }) => {
+const AccountantPageHeader: React.FC<AccountantPageHeaderProps> = ({ title, greeting, subtext, onBackPress }) => {
   const insets = useSafeAreaInsets();
   const [showCalendar, setShowCalendar] = useState(false);
 
   return (
     <>
       <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}> 
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={onBackPress}
-          accessibilityLabel="Go back"
-        >
-          <ChevronLeft size={24} color="#fff" />
-        </TouchableOpacity>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={onBackPress}
+            accessibilityLabel="Go back"
+          >
+            <ChevronLeft size={24} color="#fff" />
+          </TouchableOpacity>
 
-        <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle} numberOfLines={1}>{title}</AppText>
+          <View style={styles.headerTitleContainer}>
+            <AppText style={styles.headerTitle} numberOfLines={1}>{title}</AppText>
+          </View>
+
+          <TouchableOpacity
+            style={styles.calendarButton}
+            onPress={() => setShowCalendar(true)}
+            accessibilityLabel="Open academic calendar"
+          >
+            <CalendarDays size={20} color="#fff" />
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={styles.calendarButton}
-          onPress={() => setShowCalendar(true)}
-          accessibilityLabel="Open academic calendar"
-        >
-          <CalendarDays size={20} color="#fff" />
-        </TouchableOpacity>
+        {(greeting || subtext) && (
+          <View style={styles.headerContent}>
+            {greeting && <AppText weight="bold" style={styles.headerGreeting}>{greeting}</AppText>}
+            {subtext && <AppText style={styles.headerSubtext}>{subtext}</AppText>}
+          </View>
+        )}
       </View>
 
       <Modal visible={showCalendar} transparent animationType="fade" onRequestClose={() => setShowCalendar(false)}>
@@ -58,14 +69,29 @@ const AccountantPageHeader: React.FC<AccountantPageHeaderProps> = ({ title, onBa
 
 const styles = StyleSheet.create({
   headerStandard: {
-    backgroundColor: Director_THEME.navy,
-    paddingBottom: 40,
-    paddingHorizontal: 16,
+    backgroundColor: '#1e3a8a',
+    paddingBottom: 60,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingHorizontal: 16,
+  },
+  headerContent: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+  },
+  headerGreeting: {
+    fontSize: 28,
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  headerSubtext: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
   },
   headerTitleContainer: {
     flex: 1,

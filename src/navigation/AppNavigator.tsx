@@ -135,21 +135,28 @@ const SalariesWrapper = React.memo(() => {
 });
 SalariesWrapper.displayName = 'SalariesWrapper';
 
-// ─── Role-based Tab Navigators ──────────────────────────────────────────────
+const AgentDummyScreen = () => null;
 
-const AdminTabNavigator = () => (
-  <Tab.Navigator
-    tabBar={(props) => <AdminTabBar {...props} />}
-    screenOptions={{
-      headerShown: false,
-    }}
-  >
-    <Tab.Screen name="Dashboard" component={AdminDashboardScreen} />
-    <Tab.Screen name="Agents" component={AdminAgentsScreen} />
-    <Tab.Screen name="Plans" component={AdminPlansScreen} />
-    <Tab.Screen name="Settings" component={SettingsScreen} />
-  </Tab.Navigator>
-);
+const AdminTabNavigator = () => {
+  const { userRole } = useAuth();
+  const isAgent = userRole?.toLowerCase() === 'agent';
+  
+  return (
+    <Tab.Navigator
+      tabBar={(props) => <AdminTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Tab.Screen name="Dashboard" component={AdminDashboardScreen} />
+      {!isAgent && <Tab.Screen name="Agents" component={AdminAgentsScreen} />}
+      {!isAgent && <Tab.Screen name="Plans" component={AdminPlansScreen} />}
+      {isAgent && <Tab.Screen name="RegisterSchool" component={AgentDummyScreen} />}
+      {!isAgent && <Tab.Screen name="Settings" component={SettingsScreen} />}
+      {isAgent && <Tab.Screen name="Profile" component={ProfileScreen} />}
+    </Tab.Navigator>
+  );
+};
 
 const PrincipalTabNavigator = () => (
   <Tab.Navigator
@@ -235,7 +242,9 @@ const MainTabs = () => {
   if (!userRole) return null;
 
   switch (userRole?.toLowerCase()) {
-    case 'admin': return <AdminTabNavigator />;
+    case 'admin':
+    case 'agent':
+      return <AdminTabNavigator />;
     case 'principal': return <PrincipalTabNavigator />;
     case 'director': return <DirectorTabNavigator />;
     case 'teacher':

@@ -14,7 +14,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,12 +27,11 @@ import {
   CreditCard,
   X,
   Calendar,
-  IndianRupee,
   LayoutDashboard,
   CheckCircle2,
-  AlertCircle,
   FileText,
   User,
+  Search,
 } from 'lucide-react-native';
 import {
   addPayment,
@@ -43,7 +42,6 @@ import {
   downloadReceipt,
   PaymentRecord,
 } from '../../services/accountantService';
-import { colors } from '../../constants/theme';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { Principal_THEME as C } from '../../constants/principalTheme';
@@ -57,6 +55,7 @@ interface Student {
   student_full_name?: string;
   class_grade?: string;
   section?: string;
+  roll_number?: string;
 }
 
 interface Fee {
@@ -77,18 +76,11 @@ interface FormData {
   due_date: string;
 }
 
-interface Payment {
-  id: string;
-  amount: number;
-  method: string;
-  paid_at?: string;
-  created_at?: string;
-}
-
 const FeeManagement = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const insets = useSafeAreaInsets();
-  const { setTabBarVisible } = useAuth();
+  const { setTabBarVisible, userRole } = useAuth();
   const isMounted = useRef(true);
   const lastScrollY = useRef(0);
   const [students, setStudents] = useState<Student[]>([]);
@@ -101,6 +93,10 @@ const FeeManagement = () => {
     total_fee: "",
     due_date: "",
   });
+  const [showStudentSearchModal, setShowStudentSearchModal] = useState(false);
+  const [modalSearchText, setModalSearchText] = useState('');
+  const [feeSearchQuery, setFeeSearchQuery] = useState('');
+  const [feeStatusFilter, setFeeStatusFilter] = useState<'all' | 'pending' | 'partial' | 'paid'>('all');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedFee, setSelectedFee] = useState<Fee | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -112,6 +108,25 @@ const FeeManagement = () => {
   const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
+  const lastProcessedStudentId = useRef<string | null>(null);
+
+  // Pre-select student if passed via route params
+  useEffect(() => {
+    const sId = route?.params?.student_id || route?.params?.studentId;
+    if (!sId || lastProcessedStudentId.current === sId) return;
+    if (students.length > 0) {
+      const found = students.find(s => s.id === sId);
+      if (found) {
+        setFormData(prev => ({ ...prev, student_id: sId }));
+        lastProcessedStudentId.current = sId;
+        if (navigation?.setParams) {
+          navigation.setParams({ student_id: undefined, studentId: undefined });
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route?.params, students]);
+
   // Load school code from storage
   useEffect(() => {
     isMounted.current = true;
@@ -121,6 +136,7 @@ const FeeManagement = () => {
       isMounted.current = false;
       setTabBarVisible(true);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -136,9 +152,8 @@ const FeeManagement = () => {
   };
 
   useEffect(() => {
-    if (schoolCode) {
-      fetchStudentsAndFees();
-    }
+    fetchStudentsAndFees();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolCode]);
 
   const loadSchoolCode = async () => {
@@ -157,16 +172,12 @@ const FeeManagement = () => {
   };
 
   const fetchStudentsAndFees = async () => {
-    if (!schoolCode) {
-      return;
-    }
-
     try {
       setLoading(true);
 
       const [studentRows, feeRows] = await Promise.all([
-        getSchoolStudents(schoolCode),
-        getAllFees(schoolCode),
+        getSchoolStudents(schoolCode || undefined),
+        getAllFees(schoolCode || undefined),
       ]);
 
       if (isMounted.current) {
@@ -403,7 +414,10 @@ const FeeManagement = () => {
         activeOpacity={0.7}
       >
         <View style={styles.feeInfo}>
-          <AppText style={styles.studentName} weight="bold">{item.student_name || 'N/A'}</AppText>
+          <AppText style={styles.studentName} weight="bold">
+            {item.student_name || 'N/A'}
+            {Boolean((item as any).roll_number) && ` (Roll: ${(item as any).roll_number})`}
+          </AppText>
           <View style={styles.feeDetails}>
             <AppText style={styles.feeAmount} weight="semibold">Total: {formatAmount(item.total_fee)}</AppText>
             <AppText style={styles.paidAmount} weight="semibold">Paid: {formatAmount(item.paid_amount)}</AppText>
@@ -442,25 +456,33 @@ const FeeManagement = () => {
       <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       {/* Standardized Header */}
-      <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
-          >
-            <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>Fee Management</AppText>
-          </View>
-          <View style={styles.headerSpacer} />
-        </View>
+      {(() => {
+        const isAccountant = userRole?.toLowerCase() === 'accountant';
+        return (
+          <View style={[styles.headerStandard, { 
+            paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
+            backgroundColor: isAccountant ? '#1e3a8a' : HEADER_CONSTANTS.BACKGROUND_COLOR 
+          }]}>
+            <View style={styles.headerTop}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
+              >
+                <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
+              </TouchableOpacity>
+              <View style={styles.headerTitleContainer}>
+                <AppText weight="bold" style={styles.headerTitle}>Fee Management</AppText>
+              </View>
+              <View style={styles.headerSpacer} />
+            </View>
 
-        <View style={styles.headerContent}>
-          <AppText weight="bold" style={styles.headerGreeting}>Accounts & Fees</AppText>
-          <AppText style={styles.headerSubtext}>Manage student dues and payment records</AppText>
-        </View>
-      </View>
+            <View style={styles.headerContent}>
+              <AppText weight="bold" style={styles.headerGreeting}>Accounts & Fees</AppText>
+              <AppText style={styles.headerSubtext}>Manage student dues and payment records</AppText>
+            </View>
+          </View>
+        );
+      })()}
 
       <View style={styles.contentOverlap}>
         <ScrollView
@@ -502,30 +524,54 @@ const FeeManagement = () => {
                   <User size={16} color={C.textMuted} />
                   <AppText style={styles.label} weight="semibold">Student</AppText>
                 </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.studentScroll}>
-                  <View style={styles.studentContainer}>
+                {(() => {
+                  const selectedStudent = students.find(s => s.id === formData.student_id);
+                  if (selectedStudent) {
+                    return (
+                      <View style={styles.selectedStudentBadge}>
+                        <TouchableOpacity
+                          style={styles.selectedStudentBadgeLeft}
+                          onPress={() => {
+                            setModalSearchText('');
+                            setShowStudentSearchModal(true);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <CheckCircle2 size={18} color={C.success} />
+                          <AppText style={styles.selectedStudentText} weight="semibold">
+                            {getStudentName(selectedStudent)}
+                            {selectedStudent.roll_number ? ` (Roll: ${selectedStudent.roll_number})` : ''}
+                            {getStudentClass(selectedStudent) && ` (${getStudentClass(selectedStudent)})`}
+                          </AppText>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => {
+                            handleInputChange('student_id', '');
+                          }}
+                          style={styles.clearSelectedStudentBtn}
+                        >
+                          <X size={18} color={C.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  }
+                  
+                  return (
                     <TouchableOpacity
-                      style={[styles.studentOption, !formData.student_id && styles.studentOptionSelected]}
-                      onPress={() => handleInputChange('student_id', '')}
+                      style={styles.searchTriggerInput}
+                      onPress={() => {
+                        setModalSearchText('');
+                        setShowStudentSearchModal(true);
+                      }}
+                      activeOpacity={0.7}
                     >
-                      <AppText style={[styles.studentOptionText, !formData.student_id && styles.studentOptionTextSelected]}>
-                        Select Student
+                      <AppText style={styles.searchTriggerText}>
+                        Search student by name, class, or roll number...
                       </AppText>
+                      <Search size={18} color={C.textMuted} />
                     </TouchableOpacity>
-                    {students.map((student) => (
-                      <TouchableOpacity
-                        key={student.id}
-                        style={[styles.studentOption, formData.student_id === student.id && styles.studentOptionSelected]}
-                        onPress={() => handleInputChange('student_id', student.id)}
-                      >
-                        <AppText style={[styles.studentOptionText, formData.student_id === student.id && styles.studentOptionTextSelected]}>
-                          {getStudentName(student)}
-                          {getStudentClass(student) && ` (${getStudentClass(student)})`}
-                        </AppText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
+                  );
+                })()}
               </View>
 
               <View>
@@ -576,8 +622,55 @@ const FeeManagement = () => {
                 <AppText style={styles.listTitle} weight="bold">All Fees</AppText>
               </View>
               <View style={styles.countBadge}>
-                <AppText style={styles.feeCount} weight="bold">{fees.length} Records</AppText>
+                <AppText style={styles.feeCount} weight="bold">
+                  {(() => {
+                    const filteredFees = fees.filter(fee => {
+                      const matchesSearch = !feeSearchQuery.trim() || 
+                        (fee.student_name || '').toLowerCase().includes(feeSearchQuery.toLowerCase()) ||
+                        ((fee as any).roll_number || '').toLowerCase().includes(feeSearchQuery.toLowerCase()) ||
+                        ((fee as any).roll_no || '').toLowerCase().includes(feeSearchQuery.toLowerCase());
+                      const matchesStatus = feeStatusFilter === 'all' || fee.status === feeStatusFilter;
+                      return matchesSearch && matchesStatus;
+                    });
+                    return filteredFees.length;
+                  })()} Records
+                </AppText>
               </View>
+            </View>
+
+            {/* Filter Section */}
+            <View style={styles.filterSection}>
+              <TextInput
+                style={styles.filterSearchInput}
+                placeholder="Search by student name or roll no..."
+                placeholderTextColor={C.textMuted}
+                value={feeSearchQuery}
+                onChangeText={setFeeSearchQuery}
+              />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusFilterScroll}>
+                <View style={styles.statusFilterContainer}>
+                  {(['all', 'pending', 'partial', 'paid'] as const).map((status) => (
+                    <TouchableOpacity
+                      key={status}
+                      style={[
+                        styles.statusFilterOption,
+                        feeStatusFilter === status && styles.statusFilterOptionSelected
+                      ]}
+                      onPress={() => setFeeStatusFilter(status)}
+                    >
+                      <AppText
+                        style={[
+                          styles.statusFilterOptionText,
+                          feeStatusFilter === status && styles.statusFilterOptionTextSelected
+                        ]}
+                        weight="semibold"
+                      >
+                        {status.toUpperCase()}
+                      </AppText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             </View>
 
             {loading && fees.length === 0 ? (
@@ -585,19 +678,40 @@ const FeeManagement = () => {
                 <ActivityIndicator size="large" color={C.primary} />
                 <AppText style={styles.loadingText}>Loading fees...</AppText>
               </View>
-            ) : fees.length > 0 ? (
-              <View style={styles.feesList}>
-                {fees.map((fee) => (
-                  <React.Fragment key={fee.id}>
-                    {renderFeeItem({ item: fee })}
-                  </React.Fragment>
-                ))}
-              </View>
             ) : (
-              <View style={styles.emptyContainer}>
-                <AppText style={styles.emptyText}>No fees found.</AppText>
-                <AppText style={styles.emptySubtext}>Assign fees to students to get started</AppText>
-              </View>
+              (() => {
+                const filteredFees = fees.filter(fee => {
+                  const matchesSearch = !feeSearchQuery.trim() || 
+                    (fee.student_name || '').toLowerCase().includes(feeSearchQuery.toLowerCase()) ||
+                    ((fee as any).roll_number || '').toLowerCase().includes(feeSearchQuery.toLowerCase()) ||
+                    ((fee as any).roll_no || '').toLowerCase().includes(feeSearchQuery.toLowerCase());
+                  const matchesStatus = feeStatusFilter === 'all' || fee.status === feeStatusFilter;
+                  return matchesSearch && matchesStatus;
+                });
+
+                if (filteredFees.length > 0) {
+                  return (
+                    <View style={styles.feesList}>
+                      {filteredFees.map((fee, index) => (
+                        <React.Fragment key={fee.id || `fee-${index}`}>
+                          {renderFeeItem({ item: fee })}
+                        </React.Fragment>
+                      ))}
+                    </View>
+                  );
+                }
+
+                return (
+                  <View style={styles.emptyContainer}>
+                    <AppText style={styles.emptyText}>
+                      {fees.length === 0 ? 'No fees found.' : 'No matching records found.'}
+                    </AppText>
+                    <AppText style={styles.emptySubtext}>
+                      {fees.length === 0 ? 'Assign fees to students to get started' : 'Try adjusting your search or status filter'}
+                    </AppText>
+                  </View>
+                );
+              })()
             )}
           </View>
         </ScrollView>
@@ -809,6 +923,86 @@ const FeeManagement = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Student Search Modal */}
+      <Modal
+        visible={showStudentSearchModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowStudentSearchModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '80%', padding: 20 }]}>
+            <View style={styles.modalHeader}>
+              <AppText style={styles.modalTitle} weight="bold">Select Student</AppText>
+              <TouchableOpacity onPress={() => setShowStudentSearchModal(false)}>
+                <X size={24} color={C.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalSearchContainer}>
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder="Type name, class, or roll number..."
+                placeholderTextColor={C.textMuted}
+                value={modalSearchText}
+                onChangeText={setModalSearchText}
+                autoFocus={true}
+              />
+            </View>
+
+            <ScrollView style={styles.modalStudentList} keyboardShouldPersistTaps="always">
+              {(() => {
+                const search = modalSearchText.trim().toLowerCase();
+                const filtered = students.filter(student => {
+                  const name = getStudentName(student).toLowerCase();
+                  const cls = getStudentClass(student).toLowerCase();
+                  const id = (student.id || '').toLowerCase();
+                  const roll = (student.roll_number || '').toLowerCase();
+                  return name.includes(search) || cls.includes(search) || id.includes(search) || roll.includes(search);
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <View style={styles.noSuggestionItem}>
+                      <AppText style={styles.noSuggestionText}>No students match "{modalSearchText}"</AppText>
+                    </View>
+                  );
+                }
+
+                return filtered.map((student, index) => (
+                  <TouchableOpacity
+                    key={student.id || `search-student-${index}`}
+                    style={styles.suggestionItem}
+                    onPress={() => {
+                      handleInputChange('student_id', student.id);
+                      setShowStudentSearchModal(false);
+                    }}
+                  >
+                    <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <AppText style={styles.suggestionItemText} weight="semibold">
+                          {getStudentName(student)}
+                        </AppText>
+                        {Boolean(student.roll_number) && (
+                          <AppText style={styles.suggestionItemSubtext}>
+                            Roll No: {student.roll_number}
+                          </AppText>
+                        )}
+                      </View>
+                      {getStudentClass(student) ? (
+                        <AppText style={styles.suggestionItemSubtext}>
+                          {getStudentClass(student)}
+                        </AppText>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                ));
+              })()}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -929,33 +1123,109 @@ const styles = StyleSheet.create({
     color: C.text,
     fontSize: 14,
   },
-  studentScroll: {
+  selectedStudentBadge: {
     flexDirection: 'row',
-  },
-  studentContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  studentOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: C.successSoft,
+    borderWidth: 1,
+    borderColor: C.success,
     borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  selectedStudentBadgeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  selectedStudentText: {
+    color: C.success,
+    fontSize: 14,
+    flexShrink: 1,
+  },
+  clearSelectedStudentBtn: {
+    padding: 4,
+  },
+  searchContainer: {
+    position: 'relative',
+    zIndex: 10,
+  },
+  suggestionsContainer: {
     backgroundColor: C.bg,
     borderWidth: 1,
     borderColor: C.border,
-    marginRight: 8,
-    marginBottom: 8,
+    borderRadius: 8,
+    marginTop: 4,
+    overflow: 'hidden',
   },
-  studentOptionSelected: {
-    backgroundColor: C.primary,
-    borderColor: C.primary,
+  suggestionItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
   },
-  studentOptionText: {
+  suggestionItemText: {
     fontSize: 14,
     color: C.text,
   },
-  studentOptionTextSelected: {
+  suggestionItemSubtext: {
+    fontSize: 12,
+    color: C.textMuted,
+  },
+  noSuggestionItem: {
+    padding: 12,
+    alignItems: 'center',
+  },
+  noSuggestionText: {
+    fontSize: 12,
+    color: C.textMuted,
+    fontStyle: 'italic',
+  },
+  filterSection: {
+    backgroundColor: C.card,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+    gap: 8,
+  },
+  filterSearchInput: {
+    padding: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 8,
+    fontSize: 14,
+    backgroundColor: C.bg,
+    color: C.text,
+  },
+  statusFilterScroll: {
+    marginTop: 4,
+  },
+  statusFilterContainer: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  statusFilterOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.bg,
+  },
+  statusFilterOptionSelected: {
+    backgroundColor: C.primary,
+    borderColor: C.primary,
+  },
+  statusFilterOptionText: {
+    fontSize: 11,
+    color: C.textMuted,
+  },
+  statusFilterOptionTextSelected: {
     color: '#ffffff',
   },
   input: {
@@ -1036,6 +1306,10 @@ const styles = StyleSheet.create({
   listSection: {
     marginHorizontal: 16,
     marginTop: 8,
+  },
+  listTitle: {
+    fontSize: 18,
+    color: C.text,
   },
   listHeader: {
     flexDirection: 'row',
@@ -1278,6 +1552,37 @@ const styles = StyleSheet.create({
   },
   payButtonText: {
     color: '#ffffff',
+  },
+  searchTriggerInput: {
+    padding: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 8,
+    backgroundColor: C.bg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  searchTriggerText: {
+    fontSize: 14,
+    color: C.textMuted,
+    flex: 1,
+  },
+  modalSearchContainer: {
+    marginBottom: 16,
+  },
+  modalSearchInput: {
+    padding: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 8,
+    fontSize: 14,
+    backgroundColor: C.bg,
+    color: C.text,
+  },
+  modalStudentList: {
+    maxHeight: 350,
   },
 });
 

@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LayoutDashboard, User, Settings, ShieldAlert, Users, ClipboardList } from 'lucide-react-native';
+import { LayoutDashboard, User, Settings, ShieldAlert, Users, ClipboardList, Plus } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
@@ -35,13 +35,17 @@ const AdminTabBar = ({ state, navigation }: any) => {
   const { tabBarTranslate, isTabBarVisible } = useAuth();
   const sizes = getResponsiveSizes();
   
-  // Admin only has 3 tabs currently. We can map them differently or keep a center FAB.
-  const tabs = [
-    { name: 'Dashboard', label: 'Home', icon: LayoutDashboard, routeIndex: 0 },
-    { name: 'Agents', label: 'Agents', icon: Users, routeIndex: 1 },
-    { name: 'Plans', label: 'Plans', icon: ClipboardList, routeIndex: 2 },
-    { name: 'Settings', label: 'Settings', icon: Settings, routeIndex: 3 },
-  ];
+  const getTabConfig = (routeName: string) => {
+    switch (routeName) {
+      case 'Dashboard': return { label: 'Home', icon: LayoutDashboard };
+      case 'Agents': return { label: 'Agents', icon: Users };
+      case 'Plans': return { label: 'Plans', icon: ClipboardList };
+      case 'Settings': return { label: 'Settings', icon: Settings };
+      case 'Profile': return { label: 'Profile', icon: User };
+      case 'RegisterSchool': return { label: 'Register', icon: Plus, isFab: true };
+      default: return { label: routeName, icon: LayoutDashboard };
+    }
+  };
 
   
   const animatedOpacity = tabBarTranslate
@@ -52,11 +56,13 @@ const AdminTabBar = ({ state, navigation }: any) => {
       })
     : 1;
 
-  const handlePress = (tab: any) => {
-    const route = state.routes[tab.routeIndex];
-    if (!route) return;
-
-    const isFocused = state.index === tab.routeIndex;
+  const handlePress = (route: any, index: number) => {
+    if (route.name === 'RegisterSchool') {
+      navigation.navigate('Dashboard', { openCreateModal: Date.now() });
+      return;
+    }
+    
+    const isFocused = state.index === index;
     const event = navigation.emit({
       type: 'tabPress',
       target: route.key,
@@ -84,13 +90,37 @@ const AdminTabBar = ({ state, navigation }: any) => {
     >
       <View style={styles.backgroundContainer}>
         <View style={styles.curvedBar}>
-          {tabs.map(tab => {
-            const IconComponent = tab.icon;
-            const isFocused = state.index === tab.routeIndex;
+          {state.routes.map((route: any, index: number) => {
+            const config = getTabConfig(route.name);
+            const IconComponent = config.icon;
+            const isFocused = state.index === index;
+            if (config.isFab) {
+              return (
+                <View key={route.key} style={styles.fabContainer}>
+                  <TouchableOpacity
+                    onPress={() => handlePress(route, index)}
+                    style={[
+                      styles.fab,
+                      {
+                        width: sizes.centerButtonSize,
+                        height: sizes.centerButtonSize,
+                        borderRadius: sizes.centerButtonSize / 2,
+                        marginTop: -25,
+                      }
+                    ]}
+                    activeOpacity={0.8}
+                  >
+                    <IconComponent size={sizes.centerIconSize} color={COLORS.white} strokeWidth={2.5} />
+                  </TouchableOpacity>
+                  <Text style={styles.moreLabel}>{config.label}</Text>
+                </View>
+              );
+            }
+
             return (
               <TouchableOpacity
-                key={tab.name}
-                onPress={() => handlePress(tab)}
+                key={route.key}
+                onPress={() => handlePress(route, index)}
                 style={styles.tabItem}
                 activeOpacity={0.6}
               >
@@ -100,7 +130,7 @@ const AdminTabBar = ({ state, navigation }: any) => {
                   strokeWidth={isFocused ? 2.5 : 2}
                 />
                 <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
-                  {tab.label}
+                  {config.label}
                 </Text>
               </TouchableOpacity>
             );
@@ -156,8 +186,9 @@ const styles = StyleSheet.create({
     color: COLORS.active,
   },
   fabContainer: {
-    position: 'absolute',
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   fab: {
     backgroundColor: COLORS.fab,

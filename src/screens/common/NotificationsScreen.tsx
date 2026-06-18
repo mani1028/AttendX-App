@@ -254,6 +254,9 @@ export default function NotificationsScreen() {
   const { setTabBarVisible, userRole } = useAuth();
   const { refreshUnreadCount } = useUnreadNotifications();
   const lastScrollY = useRef(0);
+  const isAccountant = userRole?.toLowerCase() === 'accountant';
+  const headerColors = isAccountant ? ['#6648dc', '#818cf8'] : ['#1e3a8a', '#2563eb'];
+  const primaryColor = isAccountant ? '#6648dc' : Theme.colors.primary;
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -279,10 +282,9 @@ export default function NotificationsScreen() {
         'student';
 
       let endpoint = '/notifications/student/list';
-      if (role.toLowerCase() === 'teacher') endpoint = '/notifications/staff/list';
+      if (role.toLowerCase() === 'teacher' || role.toLowerCase() === 'accountant') endpoint = '/notifications/staff/list';
       else if (role.toLowerCase() === 'director') endpoint = '/notifications/director/list';
       else if (role.toLowerCase() === 'admin') endpoint = '/notifications/admin/list';
-      else if (role.toLowerCase() === 'accountant') endpoint = '/notifications/accountant/list';
 
       const response = await API.get(endpoint);
       if (!isMounted.current) return;
@@ -448,7 +450,7 @@ export default function NotificationsScreen() {
 
       {/* ── Hero Header ── */}
       <LinearGradient
-        colors={['#1e3a8a', '#2563eb']}
+        colors={headerColors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 10 }]}
@@ -504,23 +506,23 @@ export default function NotificationsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Theme.colors.primary}
-            colors={[Theme.colors.primary]}
+            tintColor={primaryColor}
+            colors={[primaryColor]}
           />
         }
       >
         {loading ? (
           <View style={styles.centeredState}>
-            <ActivityIndicator size="large" color={Theme.colors.primary} />
+            <ActivityIndicator size="large" color={primaryColor} />
             <AppText style={styles.loadingText}>Loading notifications…</AppText>
           </View>
         ) : notifications.length === 0 ? (
           <View style={styles.emptyState}>
             <LinearGradient
-              colors={['#eff6ff', '#dbeafe']}
+              colors={isAccountant ? ['#f3e8ff', '#f5f3ff'] : ['#eff6ff', '#dbeafe']}
               style={styles.emptyIconRing}
             >
-              <BellOff size={40} color="#3b82f6" />
+              <BellOff size={40} color={primaryColor} />
             </LinearGradient>
             <AppText style={styles.emptyTitle}>No Notifications</AppText>
             <AppText style={styles.emptySubtitle}>
@@ -531,8 +533,8 @@ export default function NotificationsScreen() {
           <>
             {/* Section header */}
             <View style={styles.sectionHeader}>
-              <Sparkles size={14} color={Theme.colors.primary} />
-              <AppText style={styles.sectionHeaderText}>
+              <Sparkles size={14} color={primaryColor} />
+              <AppText style={[styles.sectionHeaderText, { color: primaryColor }]}>
                 {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
               </AppText>
             </View>

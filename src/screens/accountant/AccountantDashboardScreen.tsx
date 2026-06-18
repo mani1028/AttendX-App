@@ -266,20 +266,31 @@ export default function AccountantDashboardScreen() {
       <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       <ScrollView
-        contentContainerStyle={[styles.contentContainer, { paddingBottom: contentBottomPadding, paddingTop: 0 }]}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: 0, paddingTop: 0 }]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.accent}
+            tintColor="#fff"
           />
         }
       >
         <View style={[styles.hero, { paddingTop: insets.top + 32, paddingBottom: 30 }]}>
-          <View style={styles.heroGlowOne} />
-          <View style={styles.heroGlowTwo} />
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                overflow: 'hidden',
+                borderBottomLeftRadius: 34,
+                borderBottomRightRadius: 34,
+              },
+            ]}
+          >
+            <View style={styles.heroGlowOne} />
+            <View style={styles.heroGlowTwo} />
+          </View>
 
           <View style={styles.heroRow}>
             <TouchableOpacity
@@ -361,7 +372,7 @@ export default function AccountantDashboardScreen() {
                   if (action.label === 'Salaries') {
                     navigation.navigate('MainTabs', { screen: 'Salaries' } as any);
                   } else {
-                    navigation.navigate(action.route as keyof RootStackParamList);
+                    navigation.navigate(action.route as any);
                   }
                 }}
               >
@@ -430,18 +441,28 @@ export default function AccountantDashboardScreen() {
             </AppText>
           </View>
         </View>
+        <View style={[styles.bottomBackground, { paddingBottom: contentBottomPadding }]} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  bottomBackground: {
+    backgroundColor: colors.background,
+    position: 'absolute',
+    top: 300, // roughly below hero
+    bottom: -1000,
+    left: 0,
+    right: 0,
+    zIndex: -1,
+  },
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#1e3a8a',
   },
   hero: {
-    backgroundColor: Director_THEME.navy,
+    backgroundColor: '#1e3a8a',
     paddingHorizontal: 16,
     paddingBottom: 40,
     borderBottomLeftRadius: 34,

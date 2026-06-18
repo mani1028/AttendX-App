@@ -19,6 +19,10 @@ const ROLE_ALIAS_MAP: Record<string, AppRole> = {
   accounts: 'accountant',
   admin: 'admin',
   administrator: 'admin',
+  agent: 'agent',
+  marketing: 'agent',
+  'marketing agent': 'agent',
+  marketing_agent: 'agent',
   visitor: 'visitor',
 };
 

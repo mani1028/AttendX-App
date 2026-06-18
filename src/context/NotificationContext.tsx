@@ -88,14 +88,8 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
         return;
       }
 
-      // Skip notification polling for roles that don't support it
-      if (role.toLowerCase() === 'accountant') {
-        setUnreadCount(0);
-        return;
-      }
-
       let normalizedRole = role.toLowerCase();
-      if (['teacher', 'admin', 'director', 'accountant'].includes(normalizedRole)) {
+      if (['teacher', 'accountant'].includes(normalizedRole)) {
         normalizedRole = 'staff';
       }
       const endpoint = `/notifications/${normalizedRole}/list`;

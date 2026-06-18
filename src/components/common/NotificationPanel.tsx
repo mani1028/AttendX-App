@@ -67,7 +67,8 @@ export default function NotificationPanel({ type = 'student', isDirector = false
       const branchId = await getBranchId();
 
       // Use role-based endpoint pattern consistent with useUnreadNotifications hook
-      const endpoint = `/notifications/${type.toLowerCase()}/list`;
+      const normalizedType = (type.toLowerCase() === 'accountant' || type.toLowerCase() === 'teacher') ? 'staff' : type.toLowerCase();
+      const endpoint = `/notifications/${normalizedType}/list`;
 
       const res = await API.get(endpoint, {
         headers: {

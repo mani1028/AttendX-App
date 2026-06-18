@@ -166,29 +166,31 @@ export default function AccountantProfileScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
-      <View style={[styles.hero, { paddingTop: insets.top + 14 }]}>
-        <View style={styles.heroRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-            <ArrowLeft size={20} color="#fff" />
-          </TouchableOpacity>
-          <AppText style={styles.heroTitle} weight="bold">Accountant Profile</AppText>
-          <View style={styles.backButtonSpacer} />
-        </View>
-
-        <View style={styles.avatarShell}>
-          <View style={styles.avatarInner}>
-            <AppText style={styles.avatarText} weight="bold">{initials}</AppText>
-          </View>
-        </View>
-
-        <AppText style={styles.name} weight="bold">{profile.name || 'Accountant'}</AppText>
-        <AppText style={styles.role}>{profile.designation || 'Accountant'}</AppText>
-      </View>
-
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={{ position: 'absolute', top: -1000, left: 0, right: 0, height: 1000, backgroundColor: '#1e3a8a' }} />
+        
+        <View style={[styles.hero, { paddingTop: insets.top + 14 }]}>
+          <View style={styles.heroRow}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} accessibilityLabel="Go back">
+              <ArrowLeft size={20} color="#fff" />
+            </TouchableOpacity>
+            <AppText style={styles.heroTitle} weight="bold">Accountant Profile</AppText>
+            <View style={styles.backButtonSpacer} />
+          </View>
+
+          <View style={styles.avatarShell}>
+            <View style={styles.avatarInner}>
+              <AppText style={styles.avatarText} weight="bold">{initials}</AppText>
+            </View>
+          </View>
+
+          <AppText style={styles.name} weight="bold">{profile.name || 'Accountant'}</AppText>
+          <AppText style={styles.role}>{profile.designation || 'Accountant'}</AppText>
+        </View>
+
         {loading ? (
           <View style={styles.loadingBlock}>
-            <ActivityIndicator size="large" color={Director_THEME.navy} />
+            <ActivityIndicator size="large" color="#1e3a8a" />
             <AppText style={styles.loadingText}>Loading profile...</AppText>
           </View>
         ) : (
@@ -196,7 +198,7 @@ export default function AccountantProfileScreen() {
             <AppCard style={styles.summaryCard}>
               <View style={styles.summaryRow}>
                 <View style={styles.summaryPill}>
-                  <CalendarDays size={14} color="#6648dc" />
+                  <CalendarDays size={14} color="#1e3a8a" />
                   <AppText style={styles.summaryPillText} weight="semibold">Finance Team</AppText>
                 </View>
                 <View style={styles.summaryPillSoft}>
@@ -216,7 +218,7 @@ export default function AccountantProfileScreen() {
                 return (
                   <AppCard key={field.label} style={styles.fieldCard}>
                     <View style={styles.fieldIconWrap}>
-                      <IconComponent size={16} color="#6648dc" />
+                      <IconComponent size={16} color="#1e3a8a" />
                     </View>
                     <AppText style={styles.fieldLabel} weight="semibold">{field.label}</AppText>
                     <AppText style={styles.fieldValue} numberOfLines={2}>{field.value}</AppText>
@@ -257,13 +259,14 @@ export default function AccountantProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#1e3a8a',
   },
   hero: {
-    backgroundColor: Director_THEME.navy,
+    backgroundColor: '#1e3a8a',
     paddingHorizontal: 16,
     paddingBottom: 24,
     alignItems: 'center',
+    marginHorizontal: -16,
   },
   heroRow: {
     width: '100%',
@@ -303,7 +306,7 @@ const styles = StyleSheet.create({
     width: 74,
     height: 74,
     borderRadius: 37,
-    backgroundColor: '#2f6bff',
+    backgroundColor: '#1e3a8a',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -326,6 +329,10 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 36,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    minHeight: '100%',
   },
   loadingBlock: {
     alignItems: 'center',
@@ -354,7 +361,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: 'rgba(102, 72, 220, 0.10)',
+    backgroundColor: 'rgba(30, 58, 138, 0.10)',
   },
   summaryPillSoft: {
     flexDirection: 'row',
@@ -366,7 +373,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(22, 163, 74, 0.10)',
   },
   summaryPillText: {
-    color: '#6648dc',
+    color: '#1e3a8a',
     fontSize: 12,
   },
   summaryPillTextSoft: {
@@ -403,7 +410,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(102, 72, 220, 0.10)',
+    backgroundColor: 'rgba(30, 58, 138, 0.10)',
     marginBottom: 12,
   },
   fieldLabel: {

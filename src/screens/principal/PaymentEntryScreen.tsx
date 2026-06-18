@@ -27,7 +27,8 @@ import {
   Clock,
   CircleDollarSign,
   ScrollText,
-  ReceiptText
+  ReceiptText,
+  CheckCircle2
 } from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../constants/theme';
@@ -66,10 +67,11 @@ interface FormData {
 }
 
 const PaymentEntry = () => {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { setTabBarVisible } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { setTabBarVisible, userRole } = useAuth();
   const lastScrollY = useRef(0);
+  const isMounted = useRef(true);
   const [fees, setFees] = useState<Fee[]>([]);
   const [formData, setFormData] = useState<FormData>({
     fee_id: "",
@@ -83,6 +85,7 @@ const PaymentEntry = () => {
   const [selectedFee, setSelectedFee] = useState<Fee | null>(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [lastPayment, setLastPayment] = useState<Payment | null>(null);
+  const [feeSearchText, setFeeSearchText] = useState('');
 
   // Load school code from storage
   useEffect(() => {
@@ -220,6 +223,7 @@ const PaymentEntry = () => {
       Alert.alert('Success', 'Payment added successfully');
       setFormData({ fee_id: "", amount: "", method: "cash" });
       setSelectedFee(null);
+      setFeeSearchText('');
       await fetchFees();
     } catch (error: any) {
       console.error("Error adding payment:", error);
@@ -270,25 +274,33 @@ const PaymentEntry = () => {
       <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
       {/* Standardized Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
-          >
-            <ChevronLeft size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>Payment Entry</AppText>
-          </View>
-          <View style={styles.headerSpacer} />
-        </View>
+      {(() => {
+        const isAccountant = userRole?.toLowerCase() === 'accountant';
+        return (
+          <View style={[styles.headerStandard, { 
+            paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
+            backgroundColor: isAccountant ? '#1e3a8a' : HEADER_CONSTANTS.BACKGROUND_COLOR
+          }]}>
+            <View style={styles.headerTop}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
+              >
+                <ChevronLeft size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+              <View style={styles.headerTitleContainer}>
+                <AppText weight="bold" style={styles.headerTitle}>Payment Entry</AppText>
+              </View>
+              <View style={styles.headerSpacer} />
+            </View>
 
-        <View style={styles.headerContent}>
-          <AppText weight="bold" style={styles.headerGreeting}>Fees & Payments</AppText>
-          <AppText style={styles.headerSubtext}>Record student fees and track payment history</AppText>
-        </View>
-      </View>
+            <View style={styles.headerContent}>
+              <AppText weight="bold" style={styles.headerGreeting}>Fees & Payments</AppText>
+              <AppText style={styles.headerSubtext}>Record student fees and track payment history</AppText>
+            </View>
+          </View>
+        );
+      })()}
 
       <View style={styles.contentOverlap}>
         <ScrollView
@@ -310,37 +322,99 @@ const PaymentEntry = () => {
             <View style={styles.formGroup}>
               <View>
                 <AppText style={styles.label} weight="semibold">Select Fee</AppText>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.feeScroll}>
-                  <View style={styles.feeContainer}>
-                    <TouchableOpacity
-                      style={[styles.feeOption, !formData.fee_id && styles.feeOptionSelected]}
-                      onPress={() => handleFeeChange('')}
-                    >
-                      <AppText style={[styles.feeOptionText, !formData.fee_id && styles.feeOptionTextSelected]}>
-                        Select Fee
+                {selectedFee ? (
+                  <View style={styles.selectedFeeBadge}>
+                    <View style={styles.selectedFeeBadgeLeft}>
+                      <CheckCircle2 size={18} color={C.success} />
+                      <AppText style={styles.selectedFeeText} weight="semibold">
+                        {selectedFee.student_name}
+                        {Boolean((selectedFee as any).roll_number) && ` (Roll: ${(selectedFee as any).roll_number})`} (Due: {formatAmount(selectedFee.due_amount)})
                       </AppText>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        handleFeeChange('');
+                        setFeeSearchText('');
+                      }}
+                      style={styles.clearSelectedFeeBtn}
+                    >
+                      <X size={18} color={C.textMuted} />
                     </TouchableOpacity>
-                    {fees.map((fee) => (
-                      <TouchableOpacity
-                        key={fee.id}
-                        style={[styles.feeOption, formData.fee_id === fee.id && styles.feeOptionSelected]}
-                        onPress={() => handleFeeChange(fee.id)}
-                      >
-                        <AppText style={[styles.feeOptionText, formData.fee_id === fee.id && styles.feeOptionTextSelected]}>
-                          {fee.student_name} - {formatAmount(fee.due_amount)} due
-                        </AppText>
-                      </TouchableOpacity>
-                    ))}
                   </View>
-                </ScrollView>
+                ) : (
+                  <View style={styles.searchContainer}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Search student name or roll number..."
+                      placeholderTextColor={C.textMuted}
+                      value={feeSearchText}
+                      onChangeText={setFeeSearchText}
+                    />
+                    {feeSearchText.trim().length > 0 && (
+                      <View style={styles.suggestionsContainer}>
+                        {fees
+                          .filter(fee => {
+                            const nameMatch = (fee.student_name || '').toLowerCase().includes(feeSearchText.toLowerCase());
+                            const rollMatch = ((fee as any).roll_number || '').toLowerCase().includes(feeSearchText.toLowerCase()) ||
+                                              ((fee as any).roll_no || '').toLowerCase().includes(feeSearchText.toLowerCase());
+                            return nameMatch || rollMatch;
+                          })
+                          .slice(0, 5)
+                          .map((fee, index) => (
+                            <TouchableOpacity
+                              key={fee.id || `fee-${index}`}
+                              style={styles.suggestionItem}
+                              onPress={() => {
+                                handleFeeChange(fee.id);
+                                setFeeSearchText('');
+                              }}
+                            >
+                              <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <View style={{ flex: 1, marginRight: 8 }}>
+                                  <AppText style={styles.suggestionItemText} weight="semibold">
+                                    {fee.student_name}
+                                  </AppText>
+                                  {Boolean((fee as any).roll_number) && (
+                                    <AppText style={styles.suggestionItemSubtext}>
+                                      Roll No: {(fee as any).roll_number}
+                                    </AppText>
+                                  )}
+                                </View>
+                                <AppText style={styles.suggestionItemSubtext}>
+                                  Due: {formatAmount(fee.due_amount)}
+                                </AppText>
+                              </View>
+                            </TouchableOpacity>
+                          ))
+                        }
+                        {fees.filter(fee => {
+                          const nameMatch = (fee.student_name || '').toLowerCase().includes(feeSearchText.toLowerCase());
+                          const rollMatch = ((fee as any).roll_number || '').toLowerCase().includes(feeSearchText.toLowerCase()) ||
+                                            ((fee as any).roll_no || '').toLowerCase().includes(feeSearchText.toLowerCase());
+                          return nameMatch || rollMatch;
+                        }).length === 0 && (
+                          <View style={styles.noSuggestionItem}>
+                            <AppText style={styles.noSuggestionText}>No student fees match "{feeSearchText}"</AppText>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                )}
               </View>
-
+ 
               {selectedFee && (
                 <View style={styles.feeDetails}>
                   <View style={styles.detailRow}>
                     <AppText style={styles.detailLabel} weight="semibold">Student:</AppText>
                     <AppText style={styles.detailValue} weight="semibold">{selectedFee.student_name}</AppText>
                   </View>
+                  {Boolean((selectedFee as any).roll_number) && (
+                    <View style={styles.detailRow}>
+                      <AppText style={styles.detailLabel} weight="semibold">Roll Number:</AppText>
+                      <AppText style={styles.detailValue} weight="semibold">{(selectedFee as any).roll_number}</AppText>
+                    </View>
+                  )}
                   <View style={styles.detailRow}>
                     <AppText style={styles.detailLabel} weight="semibold">Total Fee:</AppText>
                     <AppText style={styles.detailValue} weight="semibold">{formatAmount(selectedFee.total_fee)}</AppText>
@@ -965,6 +1039,67 @@ const styles = StyleSheet.create({
   },
   closeButtonText: {
     color: C.text,
+  },
+  selectedFeeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: C.successSoft,
+    borderWidth: 1,
+    borderColor: C.success,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  selectedFeeBadgeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  selectedFeeText: {
+    color: C.success,
+    fontSize: 14,
+    flexShrink: 1,
+  },
+  clearSelectedFeeBtn: {
+    padding: 4,
+  },
+  searchContainer: {
+    position: 'relative',
+    zIndex: 10,
+  },
+  suggestionsContainer: {
+    backgroundColor: C.bg,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 8,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  suggestionItemText: {
+    fontSize: 14,
+    color: C.text,
+  },
+  suggestionItemSubtext: {
+    fontSize: 12,
+    color: C.textMuted,
+  },
+  noSuggestionItem: {
+    padding: 12,
+    alignItems: 'center',
+  },
+  noSuggestionText: {
+    fontSize: 12,
+    color: C.textMuted,
+    fontStyle: 'italic',
   },
 });
 

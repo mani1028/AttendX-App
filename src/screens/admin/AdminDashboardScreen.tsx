@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useNavigation, NavigationProp, useRoute } from '@react-navigation/native';
 import {
   Bell,
   RefreshCw,
@@ -432,6 +432,15 @@ const SchoolFormModal: React.FC<{
           email: formData.email,
           address: formData.address,
           status: formData.status,
+          director_name: formData.director_name,
+          enable_manual_attendance: formData.enable_manual_attendance,
+          enable_photo_attendance: formData.enable_photo_attendance,
+          enable_video_attendance: formData.enable_video_attendance,
+          aadhaar_verification_required: formData.aadhaar_verification_required,
+          reports: formData.reports,
+          save_attendance_media: formData.save_attendance_media,
+          enable_storage_timeline: formData.enable_storage_timeline,
+          media_retention_timeline: formData.media_retention_timeline,
         });
         Alert.alert('Success', 'School registered successfully');
       } else {
@@ -530,9 +539,8 @@ const SchoolFormModal: React.FC<{
             </TouchableOpacity>
           </View>
 
-          {/* Modal Tabs - Edit Mode Only */}
-          {mode === 'edit' && (
-            <View style={styles.modalTabBar}>
+          {/* Modal Tabs */}
+          <View style={styles.modalTabBar}>
               <TouchableOpacity
                 style={[styles.modalTabBtn, activeTab === 'general' && styles.modalTabBtnActive]}
                 onPress={() => setActiveTab('general')}
@@ -557,83 +565,12 @@ const SchoolFormModal: React.FC<{
                   Data & Limits
                 </AppText>
               </TouchableOpacity>
-            </View>
-          )}
+          </View>
 
           <ScrollView style={styles.modalBody}>
             {loadingSub ? (
               <View style={{ padding: 40, alignItems: 'center' }}><ActivityIndicator color={colors.accent} /></View>
-            ) : mode === 'create' ? (
-              // ── CREATE SCHOOL FORM ──
-              <View style={{ paddingBottom: 20 }}>
-                <View style={styles.formGroup}>
-                  <AppText style={styles.formLabel}>School ID</AppText>
-                  <TextInput
-                    style={[styles.formInput, errors.school_id && styles.formInputError]}
-                    placeholder="e.g. SCH00123"
-                    placeholderTextColor={colors.textMuted}
-                    value={formData.school_id}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, school_id: text.toUpperCase() }))}
-                    editable={true}
-                  />
-                  {errors.school_id && <AppText style={styles.formError}>{errors.school_id}</AppText>}
-                </View>
-
-                <View style={styles.formGroup}>
-                  <AppText style={styles.formLabel}>School Name</AppText>
-                  <TextInput
-                    style={[styles.formInput, errors.name && styles.formInputError]}
-                    placeholder="e.g. Greenwood International School"
-                    placeholderTextColor={colors.textMuted}
-                    value={formData.name}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
-                  />
-                  {errors.name && <AppText style={styles.formError}>{errors.name}</AppText>}
-                </View>
-
-                <View style={styles.formGroup}>
-                  <AppText style={styles.formLabel}>Official Email</AppText>
-                  <TextInput
-                    style={[styles.formInput, errors.email && styles.formInputError]}
-                    placeholder="admin@school.com"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    value={formData.email}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, email: text }))}
-                  />
-                  {errors.email && <AppText style={styles.formError}>{errors.email}</AppText>}
-                </View>
-
-                <View style={styles.formGroup}>
-                  <AppText style={styles.formLabel}>Address</AppText>
-                  <TextInput
-                    style={[styles.formInput, styles.textArea, errors.address && styles.formInputError]}
-                    placeholder="Full address..."
-                    placeholderTextColor={colors.textMuted}
-                    multiline
-                    numberOfLines={3}
-                    value={formData.address}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, address: text }))}
-                  />
-                  {errors.address && <AppText style={styles.formError}>{errors.address}</AppText>}
-                </View>
-
-                <View style={styles.formGroup}>
-                  <AppText style={styles.formLabel}>Status</AppText>
-                  <View style={styles.switchRow}>
-                    <AppText style={styles.switchLabel}>Active</AppText>
-                    <Switch
-                      value={formData.status === 'active'}
-                      onValueChange={(val) => setFormData(prev => ({ ...prev, status: val ? 'active' : 'inactive' }))}
-                      trackColor={{ false: colors.border, true: colors.accent }}
-                      thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
-                    />
-                  </View>
-                </View>
-              </View>
             ) : (
-              // ── EDIT SCHOOL TABS ──
               <View style={{ paddingBottom: 24 }}>
                 {activeTab === 'general' && (
                   <View style={{ gap: 16 }}>
@@ -641,10 +578,13 @@ const SchoolFormModal: React.FC<{
                       <View style={[styles.formGroup, { flex: 1 }]}>
                         <AppText style={styles.formLabel}>School ID</AppText>
                         <TextInput
-                          style={[styles.formInput, { backgroundColor: '#f8fafc', color: colors.accent, fontWeight: '700' }]}
+                          style={[styles.formInput, mode === 'edit' && { backgroundColor: '#f8fafc', color: colors.accent, fontWeight: '700' }, errors.school_id && styles.formInputError]}
                           value={formData.school_id}
-                          editable={false}
+                          onChangeText={(text) => setFormData(prev => ({ ...prev, school_id: text.toUpperCase() }))}
+                          editable={mode === 'create'}
+                          placeholder="e.g. SCH00123"
                         />
+                        {errors.school_id && <AppText style={styles.formError}>{errors.school_id}</AppText>}
                       </View>
                       <View style={[styles.formGroup, { flex: 2 }]}>
                         <AppText style={styles.formLabel}>* School Name</AppText>
@@ -680,6 +620,20 @@ const SchoolFormModal: React.FC<{
                         />
                         {errors.email && <AppText style={styles.formError}>{errors.email}</AppText>}
                       </View>
+                    </View>
+
+                    <View style={styles.formGroup}>
+                      <AppText style={styles.formLabel}>* Address</AppText>
+                      <TextInput
+                        style={[styles.formInput, styles.textArea, errors.address && styles.formInputError]}
+                        placeholder="Full address..."
+                        placeholderTextColor={colors.textMuted}
+                        multiline
+                        numberOfLines={3}
+                        value={formData.address}
+                        onChangeText={(text) => setFormData(prev => ({ ...prev, address: text }))}
+                      />
+                      {errors.address && <AppText style={styles.formError}>{errors.address}</AppText>}
                     </View>
 
                     {/* Section: Subscription & Status */}
@@ -1208,7 +1162,9 @@ const DeleteConfirmModal: React.FC<{
 export default function AdminDashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { userName, setTabBarVisible } = useAuth();
+  const route = useRoute<any>();
+  const { userName, setTabBarVisible, userRole } = useAuth();
+  const isAgent = userRole?.toLowerCase() === 'agent';
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -1299,6 +1255,13 @@ export default function AdminDashboardScreen() {
     fetchStats();
     return () => setTabBarVisible(true);
   }, []);
+
+  useEffect(() => {
+    if (route.params?.openCreateModal) {
+      setCreateModalOpen(true);
+      navigation.setParams({ openCreateModal: undefined } as any);
+    }
+  }, [route.params?.openCreateModal]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -1419,7 +1382,7 @@ export default function AdminDashboardScreen() {
           />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle} weight="bold">Admin Portal</AppText>
+          <AppText style={styles.headerTitle} weight="bold">{isAgent ? 'Agent Portal' : 'Admin Portal'}</AppText>
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity style={styles.refreshIconBtn} onPress={() => (navigation as any).navigate('Notifications')}>

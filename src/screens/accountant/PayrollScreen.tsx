@@ -14,6 +14,7 @@ import {
   SafeAreaView,
   Platform,
   FlatList,
+  StatusBar,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
@@ -21,10 +22,12 @@ import Share from 'react-native-share';
 import { WebView } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { XCircle, CheckCircle2, ChevronDown } from 'lucide-react-native';
+import { XCircle, CheckCircle2, ChevronDown, AlertTriangle, Users, Info, Clock, User, Trash2 } from 'lucide-react-native';
 import CustomPickerModal from '../../components/common/CustomPickerModal';
+import AccountantPageHeader from '../../components/layout/AccountantPageHeader';
 import { ENV } from '../../config/api.config';
 import { useAuth } from '../../context/AuthContext';
+import * as principalService from '../../services/principalService';
 import API from '../../services/api';
 
 // ==================== HELPER FUNCTIONS ====================
@@ -357,8 +360,8 @@ async function generatePayslipPDF(
 
 // ==================== SHARED UI COMPONENTS ====================
 
-const Field: React.FC<{ label: string; hint?: string; children: React.ReactNode }> = ({ label, hint, children }) => (
-  <View style={styles.fieldContainer}>
+const Field: React.FC<{ label: string; hint?: string; width?: '48%' | '100%'; children: React.ReactNode }> = ({ label, hint, width = '100%', children }) => (
+  <View style={[styles.fieldContainer, { width }]}>
     <Text style={styles.fieldLabel}>{label}</Text>
     {children}
     {hint && <Text style={styles.fieldHint}>{hint}</Text>}
@@ -382,12 +385,22 @@ const RupeeInput: React.FC<{ value: number; onChange: (value: number) => void }>
 const PayrollTypeToggle: React.FC<{ mode: string; onChange: (mode: string) => void }> = ({ mode, onChange }) => (
   <View style={styles.toggleContainer}>
     <TouchableOpacity style={[styles.toggleOption, mode === 'fixed' && styles.toggleOptionActive]} onPress={() => onChange('fixed')}>
-      <Text style={[styles.toggleOptionTitle, mode === 'fixed' && styles.toggleOptionTitleActive]}>Fixed Payroll</Text>
-      <Text style={[styles.toggleOptionDesc, mode === 'fixed' && styles.toggleOptionDescActive]}>Basic pay only. LOP for absences.</Text>
+      <View style={[styles.radioOuter, mode === 'fixed' && { borderColor: '#1e3a8a' }]}>
+        {mode === 'fixed' && <View style={styles.radioInner} />}
+      </View>
+      <View style={styles.toggleTextContainer}>
+        <Text style={[styles.toggleOptionTitle, mode === 'fixed' && styles.toggleOptionTitleActive]}>Fixed Payroll</Text>
+        <Text style={[styles.toggleOptionDesc, mode === 'fixed' && styles.toggleOptionDescActive]}>Basic pay only. LOP for absences.</Text>
+      </View>
     </TouchableOpacity>
     <TouchableOpacity style={[styles.toggleOption, mode === 'corporate' && styles.toggleOptionActive]} onPress={() => onChange('corporate')}>
-      <Text style={[styles.toggleOptionTitle, mode === 'corporate' && styles.toggleOptionTitleActive]}>Corporate Payroll</Text>
-      <Text style={[styles.toggleOptionDesc, mode === 'corporate' && styles.toggleOptionDescActive]}>Full structure: HRA, DA, TA, PF, ESI.</Text>
+      <View style={[styles.radioOuter, mode === 'corporate' && { borderColor: '#1e3a8a' }]}>
+        {mode === 'corporate' && <View style={styles.radioInner} />}
+      </View>
+      <View style={styles.toggleTextContainer}>
+        <Text style={[styles.toggleOptionTitle, mode === 'corporate' && styles.toggleOptionTitleActive]}>Corporate Payroll</Text>
+        <Text style={[styles.toggleOptionDesc, mode === 'corporate' && styles.toggleOptionDescActive]}>Full structure: HRA, DA, TA, PF, ESI.</Text>
+      </View>
     </TouchableOpacity>
   </View>
 );
@@ -406,46 +419,81 @@ const CorporateConfigForm: React.FC<{ cfg: CorporateConfig; onChange: (cfg: Corp
 
   return (
     <ScrollView style={styles.configForm}>
-      <Field label="Basic % of CTC"><PctInput value={cfg.basic_pct} onChange={(v) => onChange({ ...cfg, basic_pct: v })} /></Field>
+      <Field label="Basic % of CTC" width="100%"><PctInput value={cfg.basic_pct} onChange={(v) => onChange({ ...cfg, basic_pct: v })} /></Field>
       <View style={styles.divider} />
       <View>
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Allowances — % of CTC</Text><TouchableOpacity style={styles.addButton} onPress={() => onChange({ ...cfg, extra_allowances: [...extras, { id: uid(), label: 'Extra Allowance', pct: 0 }] })}><Text style={styles.addButtonText}>+ Add Allowance</Text></TouchableOpacity></View>
         <View style={styles.allowancesGrid}>
-          <Field label="HRA %"><PctInput value={cfg.hra_pct} onChange={(v) => onChange({ ...cfg, hra_pct: v })} /></Field>
-          <Field label="DA %"><PctInput value={cfg.da_pct} onChange={(v) => onChange({ ...cfg, da_pct: v })} /></Field>
-          <Field label="TA %"><PctInput value={cfg.ta_pct} onChange={(v) => onChange({ ...cfg, ta_pct: v })} /></Field>
-          <Field label="Other %"><PctInput value={cfg.other_allowance_pct} onChange={(v) => onChange({ ...cfg, other_allowance_pct: v })} /></Field>
+          <Field label="HRA %" width="48%"><PctInput value={cfg.hra_pct} onChange={(v) => onChange({ ...cfg, hra_pct: v })} /></Field>
+          <Field label="DA %" width="48%"><PctInput value={cfg.da_pct} onChange={(v) => onChange({ ...cfg, da_pct: v })} /></Field>
+          <Field label="TA %" width="48%"><PctInput value={cfg.ta_pct} onChange={(v) => onChange({ ...cfg, ta_pct: v })} /></Field>
+          <Field label="Other %" width="48%"><PctInput value={cfg.other_allowance_pct} onChange={(v) => onChange({ ...cfg, other_allowance_pct: v })} /></Field>
         </View>
-        {extras.map((ea) => (<View key={ea.id} style={styles.extraItemContainer}><TextInput style={styles.extraItemInput} value={ea.label} onChangeText={(text) => onChange({ ...cfg, extra_allowances: extras.map(a => a.id === ea.id ? { ...a, label: text } : a) })} placeholder="Allowance label" /><PctInput value={ea.pct} onChange={(v) => onChange({ ...cfg, extra_allowances: extras.map(a => a.id === ea.id ? { ...a, pct: v } : a) })} /><TouchableOpacity style={styles.removeButton} onPress={() => onChange({ ...cfg, extra_allowances: extras.filter(a => a.id !== ea.id) })}><Text style={styles.removeButtonText}>−</Text></TouchableOpacity></View>))}
+        {extras.map((ea) => (
+          <View key={ea.id} style={styles.extraItemContainer}>
+            <TextInput style={styles.extraItemInput} value={ea.label} onChangeText={(text) => onChange({ ...cfg, extra_allowances: extras.map(a => a.id === ea.id ? { ...a, label: text } : a) })} placeholder="Allowance label" />
+            <PctInput value={ea.pct} onChange={(v) => onChange({ ...cfg, extra_allowances: extras.map(a => a.id === ea.id ? { ...a, pct: v } : a) })} />
+            <TouchableOpacity style={styles.removeButton} onPress={() => onChange({ ...cfg, extra_allowances: extras.filter(a => a.id !== ea.id) })}>
+              <Trash2 size={16} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
+        ))}
       </View>
       <View style={styles.divider} />
       <View>
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Deductions</Text><TouchableOpacity style={[styles.addButton, styles.addButtonRed]} onPress={() => onChange({ ...cfg, extra_deductions: [...extraDeds, { id: uid(), label: 'Extra Deduction', pct: 0 }] })}><Text style={[styles.addButtonText, styles.addButtonTextRed]}>+ Add Deduction</Text></TouchableOpacity></View>
         <View style={styles.deductionsGrid}>
-          <Field label="PF % of Basic"><PctInput value={cfg.pf_pct} onChange={(v) => onChange({ ...cfg, pf_pct: v })} /></Field>
-          <Field label="ESI % of Basic"><PctInput value={cfg.esi_pct} onChange={(v) => onChange({ ...cfg, esi_pct: v })} /></Field>
-          <Field label="Professional Tax ₹"><RupeeInput value={cfg.professional_tax} onChange={(v) => onChange({ ...cfg, professional_tax: v })} /></Field>
-          <Field label="Other Ded %"><PctInput value={cfg.other_deduction_pct} onChange={(v) => onChange({ ...cfg, other_deduction_pct: v })} /></Field>
+          <Field label="PF % of Basic" width="48%"><PctInput value={cfg.pf_pct} onChange={(v) => onChange({ ...cfg, pf_pct: v })} /></Field>
+          <Field label="ESI % of Basic" width="48%"><PctInput value={cfg.esi_pct} onChange={(v) => onChange({ ...cfg, esi_pct: v })} /></Field>
+          <Field label="Prof. Tax ₹" width="48%"><RupeeInput value={cfg.professional_tax} onChange={(v) => onChange({ ...cfg, professional_tax: v })} /></Field>
+          <Field label="Other Ded %" width="48%"><PctInput value={cfg.other_deduction_pct} onChange={(v) => onChange({ ...cfg, other_deduction_pct: v })} /></Field>
         </View>
-        {extraDeds.map((ed) => (<View key={ed.id} style={[styles.extraItemContainer, styles.extraItemContainerRed]}><TextInput style={styles.extraItemInput} value={ed.label} onChangeText={(text) => onChange({ ...cfg, extra_deductions: extraDeds.map(d => d.id === ed.id ? { ...d, label: text } : d) })} placeholder="Deduction label" /><PctInput value={ed.pct} onChange={(v) => onChange({ ...cfg, extra_deductions: extraDeds.map(d => d.id === ed.id ? { ...d, pct: v } : d) })} /><TouchableOpacity style={styles.removeButton} onPress={() => onChange({ ...cfg, extra_deductions: extraDeds.filter(d => d.id !== ed.id) })}><Text style={styles.removeButtonText}>−</Text></TouchableOpacity></View>))}
+        {extraDeds.map((ed) => (
+          <View key={ed.id} style={[styles.extraItemContainer, styles.extraItemContainerRed]}>
+            <TextInput style={styles.extraItemInput} value={ed.label} onChangeText={(text) => onChange({ ...cfg, extra_deductions: extraDeds.map(d => d.id === ed.id ? { ...d, label: text } : d) })} placeholder="Deduction label" />
+            <PctInput value={ed.pct} onChange={(v) => onChange({ ...cfg, extra_deductions: extraDeds.map(d => d.id === ed.id ? { ...d, pct: v } : d) })} />
+            <TouchableOpacity style={styles.removeButton} onPress={() => onChange({ ...cfg, extra_deductions: extraDeds.filter(d => d.id !== ed.id) })}>
+              <Trash2 size={16} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
+        ))}
       </View>
       <View style={styles.previewContainer}>
-        <Text style={styles.previewTitle}>Live Preview — ₹{fmt(sampleCTC)} CTC</Text>
-        <View style={styles.previewRow}>
-          <View style={styles.previewColumn}>
-            <Text style={styles.previewSubtitle}>Earnings</Text>
-            <View style={styles.previewLine}><Text style={styles.previewLabel}>Basic ({cfg.basic_pct}%)</Text><Text style={styles.previewValue}>₹{fmt(sampleBasic)}</Text></View>
-            {cfg.hra_pct > 0 && <View style={styles.previewLine}><Text style={styles.previewLabel}>HRA ({cfg.hra_pct}%)</Text><Text style={styles.previewValue}>₹{fmt(sampleCTC * cfg.hra_pct / 100)}</Text></View>}
-            {cfg.da_pct > 0 && <View style={styles.previewLine}><Text style={styles.previewLabel}>DA ({cfg.da_pct}%)</Text><Text style={styles.previewValue}>₹{fmt(sampleCTC * cfg.da_pct / 100)}</Text></View>}
-            {cfg.ta_pct > 0 && <View style={styles.previewLine}><Text style={styles.previewLabel}>TA ({cfg.ta_pct}%)</Text><Text style={styles.previewValue}>₹{fmt(sampleCTC * cfg.ta_pct / 100)}</Text></View>}
-            <View style={[styles.previewLine, styles.previewTotalLine]}><Text style={styles.previewTotalLabel}>Gross</Text><Text style={styles.previewTotalValue}>₹{fmt(sampleGross)}</Text></View>
-          </View>
-          <View style={styles.previewColumn}>
-            <Text style={styles.previewSubtitle}>Deductions</Text>
-            {cfg.pf_pct > 0 && <View style={styles.previewLine}><Text style={styles.previewLabel}>PF ({cfg.pf_pct}%)</Text><Text style={[styles.previewValue, styles.previewValueRed]}>₹{fmt(samplePF)}</Text></View>}
-            {cfg.esi_pct > 0 && <View style={styles.previewLine}><Text style={styles.previewLabel}>ESI ({cfg.esi_pct}%)</Text><Text style={[styles.previewValue, styles.previewValueRed]}>₹{fmt(sampleESI)}</Text></View>}
-            {cfg.professional_tax > 0 && <View style={styles.previewLine}><Text style={styles.previewLabel}>Prof. Tax</Text><Text style={[styles.previewValue, styles.previewValueRed]}>₹{fmt(cfg.professional_tax)}</Text></View>}
-            <View style={[styles.previewLine, styles.previewTotalLine]}><Text style={styles.previewTotalLabel}>Net Pay</Text><Text style={styles.previewTotalValue}>₹{fmt(sampleNet)}</Text></View>
+        <View style={styles.previewHeader}>
+          <Text style={styles.previewHeaderTitle}>Live Preview — ₹{fmt(sampleCTC)} CTC</Text>
+        </View>
+        <View style={styles.previewContent}>
+          <View style={styles.previewRow}>
+            <View style={styles.previewColumn}>
+              <Text style={styles.previewSubtitle}>Earnings</Text>
+              <View style={styles.previewLine}><Text style={styles.previewLabel}>Basic ({cfg.basic_pct}%)</Text><Text style={styles.previewValue}>₹{fmt(sampleBasic)}</Text></View>
+              {cfg.hra_pct > 0 && <View style={styles.previewLine}><Text style={styles.previewLabel}>HRA ({cfg.hra_pct}%)</Text><Text style={styles.previewValue}>₹{fmt(sampleCTC * cfg.hra_pct / 100)}</Text></View>}
+              {cfg.da_pct > 0 && <View style={styles.previewLine}><Text style={styles.previewLabel}>DA ({cfg.da_pct}%)</Text><Text style={styles.previewValue}>₹{fmt(sampleCTC * cfg.da_pct / 100)}</Text></View>}
+              {cfg.ta_pct > 0 && <View style={styles.previewLine}><Text style={styles.previewLabel}>TA ({cfg.ta_pct}%)</Text><Text style={styles.previewValue}>₹{fmt(sampleCTC * cfg.ta_pct / 100)}</Text></View>}
+              {cfg.other_allowance_pct > 0 && <View style={styles.previewLine}><Text style={styles.previewLabel}>{cfg.other_allowance_label || 'Other'} ({cfg.other_allowance_pct}%)</Text><Text style={styles.previewValue}>₹{fmt(sampleCTC * cfg.other_allowance_pct / 100)}</Text></View>}
+              {extras.map((ea) => ea.pct > 0 && (
+                <View key={ea.id} style={styles.previewLine}>
+                  <Text style={styles.previewLabel} numberOfLines={1}>{ea.label || 'Extra'} ({ea.pct}%)</Text>
+                  <Text style={styles.previewValue}>₹{fmt(sampleCTC * ea.pct / 100)}</Text>
+                </View>
+              ))}
+              <View style={[styles.previewLine, styles.previewTotalLine]}><Text style={styles.previewTotalLabel}>Gross</Text><Text style={styles.previewTotalValue}>₹{fmt(sampleGross)}</Text></View>
+            </View>
+            <View style={styles.previewColDivider} />
+            <View style={styles.previewColumn}>
+              <Text style={styles.previewSubtitle}>Deductions</Text>
+              {cfg.pf_pct > 0 && <View style={styles.previewLine}><Text style={styles.previewLabel}>PF ({cfg.pf_pct}%)</Text><Text style={[styles.previewValue, styles.previewValueRed]}>₹{fmt(samplePF)}</Text></View>}
+              {cfg.esi_pct > 0 && <View style={styles.previewLine}><Text style={styles.previewLabel}>ESI ({cfg.esi_pct}%)</Text><Text style={[styles.previewValue, styles.previewValueRed]}>₹{fmt(sampleESI)}</Text></View>}
+              {cfg.professional_tax > 0 && <View style={styles.previewLine}><Text style={styles.previewLabel}>Prof. Tax</Text><Text style={[styles.previewValue, styles.previewValueRed]}>₹{fmt(cfg.professional_tax)}</Text></View>}
+              {cfg.other_deduction_pct > 0 && <View style={styles.previewLine}><Text style={styles.previewLabel}>{cfg.other_deduction_label || 'Other Ded'} ({cfg.other_deduction_pct}%)</Text><Text style={[styles.previewValue, styles.previewValueRed]}>₹{fmt(sampleBasic * cfg.other_deduction_pct / 100)}</Text></View>}
+              {extraDeds.map((ed) => ed.pct > 0 && (
+                <View key={ed.id} style={styles.previewLine}>
+                  <Text style={styles.previewLabel} numberOfLines={1}>{ed.label || 'Extra Ded'} ({ed.pct}%)</Text>
+                  <Text style={[styles.previewValue, styles.previewValueRed]}>₹{fmt(sampleBasic * ed.pct / 100)}</Text>
+                </View>
+              ))}
+              <View style={[styles.previewLine, styles.previewTotalLine]}><Text style={styles.previewTotalLabel}>Net Pay</Text><Text style={[styles.previewTotalValue, styles.previewTotalValueGreen]}>₹{fmt(sampleNet)}</Text></View>
+            </View>
           </View>
         </View>
       </View>
@@ -500,6 +548,7 @@ const PayslipModal: React.FC<{ result: PayrollResult; month: string; year: strin
 // ==================== BULK PAYROLL TAB (COMPLETE) ====================
 
 const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({ schoolCode, companyName }) => {
+  const insets = useSafeAreaInsets();
   const handleScroll = useTabBarScrollVisibility();
   const now = new Date();
   const [month, setMonth] = useState(MONTHS[now.getMonth()]);
@@ -531,12 +580,25 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
     if (!schoolCode) { setEmployees([]); return; }
     setLoadingEmps(true);
     try {
-      const [empResponse, leaveResponse] = await Promise.all([
-        API.get(`accountant/payroll/employees?school_code=${encodeURIComponent(schoolCode)}`),
+      const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId') || '';
+      
+      const [empData, leaveResponse] = await Promise.all([
+        principalService.getPrincipalTeachers({
+          'school-code': schoolCode,
+          ...(branchId ? { 'branch-id': branchId } : {})
+        }),
         API.get(`director/settings/leave-policy?school_code=${encodeURIComponent(schoolCode)}`).catch(() => null)
       ]);
-      const empData = empResponse.data;
-      setEmployees(Array.isArray(empData) ? empData : []);
+      
+      const mappedEmps = empData.map(t => ({
+        ...t,
+        id: t.teacher_id || t.id,
+        teacher_full_name: t.teacher_full_name || t.name || t.full_name,
+        teacher_id: t.teacher_id || t.id,
+        employee_id: t.employee_id || t.id,
+      }));
+      setEmployees(mappedEmps);
+
       if (leaveResponse) {
         const leavePolicyData = leaveResponse.data;
         if (leavePolicyData) setLeavePolicy({ casual_leave: Number(leavePolicyData.casual_leave || 1), sick_leave: Number(leavePolicyData.sick_leave || 1), paid_leave: Number(leavePolicyData.paid_leave || 1), comp_off: Number(leavePolicyData.comp_off || 0) });
@@ -620,6 +682,7 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
   return (
     <FlatList
       style={styles.tabContainer}
+      contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 120, 140) }}
       onScroll={handleScroll}
       scrollEventThrottle={16}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -629,7 +692,7 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
             <View style={styles.cardSection}>
               <Text style={styles.sectionHeaderText}>Pay Period & Settings</Text>
               <View style={styles.configGrid}>
-                <Field label="Month">
+                <Field label="Month" width="48%">
                   <TouchableOpacity
                     style={styles.pickerTrigger}
                     onPress={() => setPickerModal({
@@ -644,7 +707,7 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
                     <ChevronDown size={18} color="#64748B" />
                   </TouchableOpacity>
                 </Field>
-                <Field label="Year">
+                <Field label="Year" width="48%">
                   <TouchableOpacity
                     style={styles.pickerTrigger}
                     onPress={() => setPickerModal({
@@ -659,26 +722,98 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
                     <ChevronDown size={18} color="#64748B" />
                   </TouchableOpacity>
                 </Field>
-                <Field label="Working Days" hint="Days in pay period"><TextInput style={styles.input} value={String(wDays)} onChangeText={(text) => { const v = Number(text) || 26; if (mode === 'fixed') setFixedCfg(p => ({ ...p, working_days: v })); else setCorpCfg(p => ({ ...p, working_days: v })); resetCalc(); }} keyboardType="numeric" /></Field>
+                <Field label="Working Days" hint="Days in pay period" width="100%">
+                  <TextInput 
+                    style={styles.input} 
+                    value={String(wDays)} 
+                    onChangeText={(text) => { 
+                      const v = Number(text) || 26; 
+                      if (mode === 'fixed') setFixedCfg(p => ({ ...p, working_days: v })); 
+                      else setCorpCfg(p => ({ ...p, working_days: v })); 
+                      resetCalc(); 
+                    }} 
+                    keyboardType="numeric" 
+                  />
+                </Field>
               </View>
-              {isPeriodFuture && <View style={styles.warningBox}><Text style={styles.warningText}>⚠️ {month} {year} is a future period — payroll cannot be generated yet.</Text></View>}
-              {loadingEmps ? <View style={styles.loadingRow}><ActivityIndicator size="small" color="#4f46e5" /><Text style={styles.loadingText}>Loading staff…</Text></View> : employees.length > 0 ? <View style={styles.staffBadge}><Text style={styles.staffBadgeText}>👥 {employees.length} active staff members</Text></View> : null}
+              {isPeriodFuture && (
+                <View style={styles.warningBox}>
+                  <AlertTriangle size={16} color="#f97316" />
+                  <Text style={[styles.warningText, { flex: 1 }]}>
+                    {month} {year} is a future period — payroll cannot be generated yet.
+                  </Text>
+                </View>
+              )}
+              {loadingEmps ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator size="small" color="#4f46e5" />
+                  <Text style={styles.loadingText}>Loading staff…</Text>
+                </View>
+              ) : employees.length > 0 ? (
+                <View style={styles.staffBadge}>
+                  <Users size={14} color="#0891b2" style={{ marginRight: 6 }} />
+                  <Text style={styles.staffBadgeText}>{employees.length} active staff members</Text>
+                </View>
+              ) : null}
               <View style={styles.modeSection}><Text style={styles.sectionHeaderText}>Payroll Type</Text><PayrollTypeToggle mode={mode} onChange={m => { setMode(m); resetCalc(); }} /></View>
             </View>
             <View style={styles.cardSection}>
-              {mode === 'fixed' ? <View style={styles.fixedInfoBox}><Text style={styles.fixedInfoText}>📋 Formula: Net = Basic Salary − (Absent Days × Per-day Rate)</Text><Text style={styles.fixedInfoSubtext}>No allowances, no PF/ESI deductions.</Text></View> : <CorporateConfigForm cfg={corpCfg} onChange={c => { setCorpCfg(c); resetCalc(); }} />}
+              {mode === 'fixed' ? (
+                <View style={styles.fixedInfoBox}>
+                  <Info size={16} color="#3b82f6" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fixedInfoText}>Formula: Net = Basic Salary − (Absent Days × Per-day Rate)</Text>
+                    <Text style={styles.fixedInfoSubtext}>No allowances, no PF/ESI deductions.</Text>
+                  </View>
+                </View>
+              ) : (
+                <CorporateConfigForm cfg={corpCfg} onChange={c => { setCorpCfg(c); resetCalc(); }} />
+              )}
             </View>
             {employees.length > 0 && (<View style={styles.cardSection}><View style={styles.fetchRow}><TouchableOpacity style={[styles.fetchButton, (loadingAtt || isPeriodFuture) && styles.fetchButtonDisabled]} onPress={fetchAttendance} disabled={loadingAtt || isPeriodFuture}>{loadingAtt ? <ActivityIndicator size="small" color="#4f46e5" /> : <Text style={styles.fetchButtonText}>Fetch {month} {year} Attendance</Text>}</TouchableOpacity>{attFetched && (<><TouchableOpacity style={styles.viewAttButton} onPress={() => setShowAttTable(!showAttTable)}><Text style={styles.viewAttButtonText}>{showAttTable ? 'Hide' : 'View'} Attendance Summary</Text></TouchableOpacity><View style={styles.attLoadedBadge}><Text style={styles.attLoadedText}>✓ Attendance loaded for {Object.keys(attMap).length} staff</Text></View></>)}</View></View>)}
           </View>
           {attFetched && employees.length > 0 && genCount === 0 && !isPeriodFuture && (<View style={styles.generatePrompt}><View><Text style={styles.generatePromptTitle}>Ready to Generate Payroll</Text><Text style={styles.generatePromptDesc}>{month} {year} · {employees.length} staff members with attendance loaded</Text></View><TouchableOpacity style={styles.generateButton} onPress={generateAll}><Text style={styles.generateButtonText}>Generate All Payroll</Text></TouchableOpacity></View>)}
           {attFetched && employees.length > 0 && (<View style={styles.resultsContainer}>
             {genCount > 0 && (<View style={styles.summaryBar}><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Generated</Text><Text style={styles.summaryValue}>{genCount}/{employees.length}</Text></View><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Total Gross</Text><Text style={styles.summaryValue}>₹{fmt(totalGross)}</Text></View><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Total Deductions</Text><Text style={[styles.summaryValue, styles.summaryValueRed]}>₹{fmt(totalDed)}</Text></View><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Total Net</Text><Text style={[styles.summaryValue, styles.summaryValueGreen]}>₹{fmt(totalNet)}</Text></View></View>)}
-            <View style={styles.actionBar}><TextInput style={styles.searchInput} placeholder="Search staff…" value={searchQuery} onChangeText={setSearchQuery} placeholderTextColor="#9ca3af" /><View style={styles.actionButtonsRow}>{genCount < employees.length && genCount > 0 && (<TouchableOpacity style={styles.generateAllButton} onPress={generateAll}><Text style={styles.generateAllButtonText}>Generate All ({employees.length})</Text></TouchableOpacity>)}{genCount > 0 && (<><TouchableOpacity style={styles.saveAllButton} onPress={handleSaveAll} disabled={savingAll}>{savingAll ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveAllButtonText}>Save All ({genCount})</Text>}</TouchableOpacity><TouchableOpacity style={styles.emailAllButton} onPress={handleSendEmails} disabled={sendingEmails}>{sendingEmails ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.emailAllButtonText}>Send Mail ({genCount})</Text>}</TouchableOpacity></>)}</View></View>
+            <View style={styles.actionBar}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search staff…"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor="#9ca3af"
+              />
+              <View style={styles.actionButtonsRow}>
+                {genCount < employees.length && genCount > 0 && (
+                  <TouchableOpacity style={styles.generateAllButton} onPress={generateAll}>
+                    <Text style={styles.generateAllButtonText}>Generate All ({employees.length})</Text>
+                  </TouchableOpacity>
+                )}
+                {genCount > 0 && (
+                  <>
+                    <TouchableOpacity style={styles.saveAllButton} onPress={handleSaveAll} disabled={savingAll}>
+                      {savingAll ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={styles.saveAllButtonText}>Save All ({genCount})</Text>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.emailAllButton} onPress={handleSendEmails} disabled={sendingEmails}>
+                      {sendingEmails ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={styles.emailAllButtonText}>Send Mail ({genCount})</Text>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </View>
           </View>)}
         </>
       }
       data={filteredEmps}
-      keyExtractor={(item) => item.teacher_id}
+      keyExtractor={(item, index) => item.teacher_id || item.employee_id || (item as any).id || (item as any)._id || `employee-${index}`}
       renderItem={({ item: emp }) => { 
         const att = attMap[emp.teacher_id]; 
         const result = generatedMap[emp.teacher_id]; 
@@ -732,7 +867,7 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
               ) : (
                 <View style={styles.actionButtonsGroup}>
                   <TouchableOpacity style={[styles.actionBtn, styles.viewBtn]} onPress={() => result && setOpenPayslip(result)}>
-                    <Text style={styles.actionBtnText}>View</Text>
+                    <Text style={styles.actionBtnTextBlue}>View</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.actionBtn, styles.pdfBtn]} onPress={() => result && handleDownloadPDF(result, emp.teacher_id)} disabled={downloadingId === emp.teacher_id}>
                     {downloadingId === emp.teacher_id ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionBtnText}>PDF</Text>}
@@ -760,6 +895,7 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
 // ==================== INDIVIDUAL PAYROLL TAB ====================
 
 const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({ schoolCode, companyName }) => {
+  const insets = useSafeAreaInsets();
   const handleScroll = useTabBarScrollVisibility();
   const now = new Date();
   const [month, setMonth] = useState(MONTHS[now.getMonth()]);
@@ -780,12 +916,22 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
     setLoadingEmps(true);
     (async () => {
       try {
-        const [empResponse, leaveResponse] = await Promise.all([
-          API.get(`accountant/payroll/employees?school_code=${encodeURIComponent(schoolCode)}`),
+        const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId') || '';
+        const [empData, leaveResponse] = await Promise.all([
+          principalService.getPrincipalTeachers({
+            'school-code': schoolCode,
+            ...(branchId ? { 'branch-id': branchId } : {})
+          }),
           API.get(`director/settings/leave-policy?school_code=${encodeURIComponent(schoolCode)}`).catch(() => null)
         ]);
-        const empData = empResponse.data;
-        setEmployees(Array.isArray(empData) ? empData : []);
+        const mappedEmps = empData.map(t => ({
+          ...t,
+          id: t.teacher_id || t.id,
+          teacher_full_name: t.teacher_full_name || t.name || t.full_name,
+          teacher_id: t.teacher_id || t.id,
+          employee_id: t.employee_id || t.id,
+        }));
+        setEmployees(mappedEmps);
         if (leaveResponse) { const leavePolicyData = leaveResponse.data; if (leavePolicyData) setLeavePolicy({ casual_leave: Number(leavePolicyData.casual_leave || 1), sick_leave: Number(leavePolicyData.sick_leave || 1), paid_leave: Number(leavePolicyData.paid_leave || 1), comp_off: Number(leavePolicyData.comp_off || 0) }); }
       } catch (err) { setEmployees([]); } finally { setLoadingEmps(false); }
     })();
@@ -828,59 +974,157 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
   };
 
   return (
-    <ScrollView style={styles.tabContainer} onScroll={handleScroll} scrollEventThrottle={16}>
-      <View style={styles.card}><View style={styles.cardSection}><Text style={styles.sectionHeaderText}>Select Staff Member & Period</Text>
-      <View style={styles.configGrid}>
-        <Field label="Month">
-          <TouchableOpacity
-            style={styles.pickerTrigger}
-            onPress={() => setPickerModal({
-              visible: true,
-              title: 'Select Month',
-              options: MONTHS.map(m => ({ label: m, value: m })),
-              selectedValue: month,
-              onValueChange: setMonth
-            })}
-          >
-            <Text style={styles.pickerTriggerText}>{month}</Text>
-            <ChevronDown size={18} color="#64748B" />
-          </TouchableOpacity>
-        </Field>
-        <Field label="Year">
-          <TouchableOpacity
-            style={styles.pickerTrigger}
-            onPress={() => setPickerModal({
-              visible: true,
-              title: 'Select Year',
-              options: years.map(y => ({ label: String(y), value: y })),
-              selectedValue: year,
-              onValueChange: (v) => setYear(Number(v))
-            })}
-          >
-            <Text style={styles.pickerTriggerText}>{year}</Text>
-            <ChevronDown size={18} color="#64748B" />
-          </TouchableOpacity>
-        </Field>
-        <Field label="Staff Member" hint="Select to configure">
-          <TouchableOpacity
-            style={styles.pickerTrigger}
-            onPress={() => setPickerModal({
-              visible: true,
-              title: 'Select Staff Member',
-              options: employees.map(e => ({ label: `${e.teacher_full_name} (${e.employee_id})`, value: e.teacher_id })),
-              selectedValue: selectedId,
-              onValueChange: (v) => { setSelectedId(v); setEmpConfig({ mode: 'fixed', fixedCfg: DEFAULT_FIXED, corpCfg: DEFAULT_CORP, result: null, attFetched: false, att: null, loadingAtt: false }); }
-            })}
-          >
-            <Text style={styles.pickerTriggerText} numberOfLines={1}>
-              {selectedEmp ? `${selectedEmp.teacher_full_name}` : '— Select staff —'}
-            </Text>
-            <ChevronDown size={18} color="#64748B" />
-          </TouchableOpacity>
-        </Field>
-        <Field label="Working Days"><TextInput style={styles.input} value={String(wDays)} onChangeText={(text) => { const v = Number(text) || 26; if (empConfig.mode === 'fixed') setEmpConfig(c => ({ ...c, fixedCfg: { ...c.fixedCfg, working_days: v } })); else setEmpConfig(c => ({ ...c, corpCfg: { ...c.corpCfg, working_days: v } })); }} keyboardType="numeric" /></Field>
-      </View></View></View>
-      {selectedEmp && (<View style={styles.card}><View style={styles.cardSection}><View style={styles.employeeHeader}><View style={styles.avatarLarge}><Text style={styles.avatarLargeText}>{selectedEmp.teacher_full_name?.charAt(0) || 'T'}</Text></View><View><Text style={styles.employeeNameLarge}>{selectedEmp.teacher_full_name}</Text><Text style={styles.employeeDetailsText}>{selectedEmp.employee_id} · {selectedEmp.designation} · Salary: ₹{fmt(selectedEmp.salary_amount || 0)}/month</Text></View></View><View style={styles.modeSection}><Text style={styles.sectionHeaderText}>Payroll Type</Text><PayrollTypeToggle mode={empConfig.mode} onChange={m => setEmpConfig(c => ({ ...c, mode: m, result: null, attFetched: false }))} /></View>{empConfig.mode === 'corporate' && <CorporateConfigForm cfg={empConfig.corpCfg} onChange={c => setEmpConfig(prev => ({ ...prev, corpCfg: c, result: null }))} />}{empConfig.mode === 'fixed' && (<View style={styles.fixedInfoBox}><Text style={styles.fixedInfoText}>📋 Net = Basic − (LOP days × Per-day rate). No allowances or PF.</Text></View>)}<View style={styles.fetchRow}>{isPeriodInFuture(month, year) ? (<View style={styles.warningBox}><Text style={styles.warningText}>⚠️ Cannot generate payroll for future period</Text></View>) : (<><TouchableOpacity style={styles.fetchButton} onPress={fetchAttForEmp} disabled={empConfig.loadingAtt}>{empConfig.loadingAtt ? <ActivityIndicator size="small" color="#4f46e5" /> : <Text style={styles.fetchButtonText}>Fetch {month} {year} Attendance</Text>}</TouchableOpacity>{empConfig.attFetched && (<><View style={styles.attLoadedBadge}><Text style={styles.attLoadedText}>✓ Present: {empConfig.att?.present_days ?? 0} · Absent: {empConfig.att?.absent_days ?? 0}</Text></View><TouchableOpacity style={styles.generateButton} onPress={generate}><Text style={styles.generateButtonText}>{empConfig.result ? 'Recalculate' : 'Generate Payroll'}</Text></TouchableOpacity></>)}</>)}</View>{empConfig.result && (<><View style={styles.resultSummary}><View style={styles.resultItem}><Text style={styles.resultLabel}>Gross</Text><Text style={styles.resultValue}>₹{fmt(empConfig.result.gross)}</Text></View><View style={styles.resultItem}><Text style={styles.resultLabel}>Deductions</Text><Text style={[styles.resultValue, styles.resultValueRed]}>–₹{fmt(empConfig.result.total_deductions)}</Text></View><View style={styles.resultItem}><Text style={styles.resultLabel}>Net Pay</Text><Text style={[styles.resultValue, styles.resultValueGreen]}>₹{fmt(empConfig.result.net)}</Text></View></View><View style={styles.actionButtonsGroup}><TouchableOpacity style={[styles.actionBtn, styles.viewBtn]} onPress={() => setOpenPayslip(empConfig.result!)}><Text style={styles.actionBtnText}>View Payslip</Text></TouchableOpacity><TouchableOpacity style={[styles.actionBtn, styles.pdfBtn]} onPress={async () => { setDownloadingId(selectedId); try { await generatePayslipPDF(empConfig.result!, month, String(year), schoolCode, true, companyName); } catch { Alert.alert('Error', 'PDF download failed.'); } finally { setDownloadingId(null); } }} disabled={downloadingId === selectedId}>{downloadingId === selectedId ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionBtnText}>Download PDF</Text>}</TouchableOpacity><TouchableOpacity style={[styles.actionBtn, styles.emailBtn]} onPress={handleSendSingleEmail} disabled={sendingEmail}>{sendingEmail ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionBtnText}>Send Mail</Text>}</TouchableOpacity></View></>)}</View></View>)}
+    <ScrollView 
+      style={styles.tabContainer} 
+      contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 120, 140) }}
+      onScroll={handleScroll} 
+      scrollEventThrottle={16}
+    >
+      <View style={styles.card}>
+        <View style={styles.cardSection}>
+          <Text style={styles.sectionHeaderText}>Select Staff Member & Period</Text>
+          <View style={styles.configGrid}>
+            <Field label="Month" width="48%">
+              <TouchableOpacity
+                style={styles.pickerTrigger}
+                onPress={() => setPickerModal({
+                  visible: true,
+                  title: 'Select Month',
+                  options: MONTHS.map(m => ({ label: m, value: m })),
+                  selectedValue: month,
+                  onValueChange: setMonth
+                })}
+              >
+                <Text style={styles.pickerTriggerText}>{month}</Text>
+                <ChevronDown size={18} color="#64748B" />
+              </TouchableOpacity>
+            </Field>
+            <Field label="Year" width="48%">
+              <TouchableOpacity
+                style={styles.pickerTrigger}
+                onPress={() => setPickerModal({
+                  visible: true,
+                  title: 'Select Year',
+                  options: years.map(y => ({ label: String(y), value: y })),
+                  selectedValue: year,
+                  onValueChange: (v) => setYear(Number(v))
+                })}
+              >
+                <Text style={styles.pickerTriggerText}>{year}</Text>
+                <ChevronDown size={18} color="#64748B" />
+              </TouchableOpacity>
+            </Field>
+            <Field label="Staff Member" hint="Select to configure" width="100%">
+              <TouchableOpacity
+                style={styles.pickerTrigger}
+                onPress={() => setPickerModal({
+                  visible: true,
+                  title: 'Select Staff Member',
+                  options: employees.map(e => ({ label: `${e.teacher_full_name} (${e.employee_id})`, value: e.teacher_id })),
+                  selectedValue: selectedId,
+                  onValueChange: (v) => { setSelectedId(v); setEmpConfig({ mode: 'fixed', fixedCfg: DEFAULT_FIXED, corpCfg: DEFAULT_CORP, result: null, attFetched: false, att: null, loadingAtt: false }); }
+                })}
+              >
+                <Text style={styles.pickerTriggerText} numberOfLines={1}>
+                  {selectedEmp ? `${selectedEmp.teacher_full_name}` : '— Select staff —'}
+                </Text>
+                <ChevronDown size={18} color="#64748B" />
+              </TouchableOpacity>
+            </Field>
+            <Field label="Working Days" width="100%">
+              <TextInput 
+                style={styles.input} 
+                value={String(wDays)} 
+                onChangeText={(text) => { 
+                  const v = Number(text) || 26; 
+                  if (empConfig.mode === 'fixed') setEmpConfig(c => ({ ...c, fixedCfg: { ...c.fixedCfg, working_days: v } })); 
+                  else setEmpConfig(c => ({ ...c, corpCfg: { ...c.corpCfg, working_days: v } })); 
+                }} 
+                keyboardType="numeric" 
+              />
+            </Field>
+          </View>
+        </View>
+      </View>
+      {selectedEmp && (
+        <View style={styles.card}>
+          <View style={styles.cardSection}>
+            <View style={styles.employeeHeader}>
+              <View style={styles.avatarLarge}>
+                <Text style={styles.avatarLargeText}>{selectedEmp.teacher_full_name?.charAt(0) || 'T'}</Text>
+              </View>
+              <View>
+                <Text style={styles.employeeNameLarge}>{selectedEmp.teacher_full_name}</Text>
+                <Text style={styles.employeeDetailsText}>{selectedEmp.employee_id} · {selectedEmp.designation} · Salary: ₹{fmt(selectedEmp.salary_amount || 0)}/month</Text>
+              </View>
+            </View>
+            <View style={styles.modeSection}>
+              <Text style={styles.sectionHeaderText}>Payroll Type</Text>
+              <PayrollTypeToggle mode={empConfig.mode} onChange={m => setEmpConfig(c => ({ ...c, mode: m, result: null, attFetched: false }))} />
+            </View>
+            {empConfig.mode === 'corporate' && <CorporateConfigForm cfg={empConfig.corpCfg} onChange={c => setEmpConfig(prev => ({ ...prev, corpCfg: c, result: null }))} />}
+            {empConfig.mode === 'fixed' && (
+              <View style={styles.fixedInfoBox}>
+                <Info size={16} color="#3b82f6" />
+                <Text style={[styles.fixedInfoText, { flex: 1 }]}>Net = Basic − (LOP days × Per-day rate). No allowances or PF.</Text>
+              </View>
+            )}
+            <View style={styles.fetchRow}>
+              {isPeriodInFuture(month, year) ? (
+                <View style={styles.warningBox}>
+                  <AlertTriangle size={16} color="#f97316" />
+                  <Text style={[styles.warningText, { flex: 1 }]}>Cannot generate payroll for future period</Text>
+                </View>
+              ) : (
+                <>
+                  <TouchableOpacity style={styles.fetchButton} onPress={fetchAttForEmp} disabled={empConfig.loadingAtt}>
+                    {empConfig.loadingAtt ? <ActivityIndicator size="small" color="#4f46e5" /> : <Text style={styles.fetchButtonText}>Fetch {month} {year} Attendance</Text>}
+                  </TouchableOpacity>
+                  {empConfig.attFetched && (
+                    <>
+                      <View style={styles.attLoadedBadge}>
+                        <Text style={styles.attLoadedText}>✓ Present: {empConfig.att?.present_days ?? 0} · Absent: {empConfig.att?.absent_days ?? 0}</Text>
+                      </View>
+                      <TouchableOpacity style={styles.generateButton} onPress={generate}>
+                        <Text style={styles.generateButtonText}>{empConfig.result ? 'Recalculate' : 'Generate Payroll'}</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </>
+              )}
+            </View>
+            {empConfig.result && (
+              <>
+                <View style={styles.resultSummary}>
+                  <View style={styles.resultItem}>
+                    <Text style={styles.resultLabel}>Gross</Text>
+                    <Text style={styles.resultValue}>₹{fmt(empConfig.result.gross)}</Text>
+                  </View>
+                  <View style={styles.resultItem}>
+                    <Text style={styles.resultLabel}>Deductions</Text>
+                    <Text style={[styles.resultValue, styles.resultValueRed]}>–₹{fmt(empConfig.result.total_deductions)}</Text>
+                  </View>
+                  <View style={styles.resultItem}>
+                    <Text style={styles.resultLabel}>Net Pay</Text>
+                    <Text style={[styles.resultValue, styles.resultValueGreen]}>₹{fmt(empConfig.result.net)}</Text>
+                  </View>
+                </View>
+                <View style={styles.actionButtonsGroup}>
+                  <TouchableOpacity style={[styles.actionBtn, styles.viewBtn]} onPress={() => setOpenPayslip(empConfig.result!)}>
+                    <Text style={styles.actionBtnTextBlue}>View Payslip</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.actionBtn, styles.pdfBtn]} onPress={async () => { setDownloadingId(selectedId); try { await generatePayslipPDF(empConfig.result!, month, String(year), schoolCode, true, companyName); } catch { Alert.alert('Error', 'PDF download failed.'); } finally { setDownloadingId(null); } }} disabled={downloadingId === selectedId}>
+                    {downloadingId === selectedId ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionBtnText}>Download PDF</Text>}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.actionBtn, styles.emailBtn]} onPress={handleSendSingleEmail} disabled={sendingEmail}>
+                    {sendingEmail ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionBtnText}>Send Mail</Text>}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      )}
       {!selectedId && employees.length > 0 && (<View style={styles.emptyStateLarge}><Text style={styles.emptyStateLargeText}>Select a staff member to generate their payslip</Text></View>)}
       {loadingEmps && (<View style={styles.loadingContainer}><ActivityIndicator size="large" color="#4f46e5" /><Text style={styles.loadingText}>Loading staff…</Text></View>)}
       {openPayslip && <PayslipModal result={openPayslip} month={month} year={String(year)} companyName={companyName} schoolCode={schoolCode} onClose={() => setOpenPayslip(null)} />}
@@ -892,6 +1136,7 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
 // ==================== HOURS-BASED PAYROLL TAB ====================
 
 const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({ schoolCode, companyName }) => {
+  const insets = useSafeAreaInsets();
   const handleScroll = useTabBarScrollVisibility();
   const now = new Date();
   const [month, setMonth] = useState(MONTHS[now.getMonth()]);
@@ -907,11 +1152,26 @@ const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }
     setLoadingEmps(true);
     (async () => {
       try {
-        const response = await API.get(`accountant/payroll/employees?school_code=${encodeURIComponent(schoolCode)}`);
-        const data = response.data;
-        if (Array.isArray(data)) {
-          setEmployees(data.filter(e => (e.employment_type || '').toLowerCase().includes('part')).map(e => ({ ...e, totalHours: 0, attFetched: false, loadingAtt: false, hourlyRate: globalRate, gross: null, net: null })));
-        }
+        const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId') || '';
+        const empData = await principalService.getPrincipalTeachers({
+          'school-code': schoolCode,
+          ...(branchId ? { 'branch-id': branchId } : {})
+        });
+        
+        const mappedEmps = empData.filter(e => (e.employment_type || '').toLowerCase().includes('part')).map(t => ({
+          ...t,
+          id: t.teacher_id || t.id,
+          teacher_full_name: t.teacher_full_name || t.name || t.full_name,
+          teacher_id: t.teacher_id || t.id,
+          employee_id: t.employee_id || t.id,
+          totalHours: 0,
+          attFetched: false,
+          loadingAtt: false,
+          hourlyRate: t.hourly_rate || 0,
+          gross: null,
+          net: null
+        }));
+        setEmployees(mappedEmps);
       } catch (err) { setEmployees([]); } finally { setLoadingEmps(false); }
     })();
   }, [schoolCode, month, year]);
@@ -940,40 +1200,113 @@ const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }
   return (
     <ScrollView style={styles.tabContainer} onScroll={handleScroll} scrollEventThrottle={16}>
       <View style={styles.infoBanner}><Text style={styles.infoBannerText}>⏰ Hours-Based Payroll — Only Part-Time staff appear here. Attendance is estimated at 8 hours/present day for the selected period.</Text></View>
-      <View style={styles.card}><View style={styles.cardSection}><View style={styles.hoursConfigRow}>
-        <Field label="Month">
-          <TouchableOpacity
-            style={styles.pickerTrigger}
-            onPress={() => setPickerModal({
-              visible: true,
-              title: 'Select Month',
-              options: MONTHS.map(m => ({ label: m, value: m })),
-              selectedValue: month,
-              onValueChange: setMonth
-            })}
-          >
-            <Text style={styles.pickerTriggerText}>{month}</Text>
-            <ChevronDown size={18} color="#64748B" />
-          </TouchableOpacity>
-        </Field>
-        <Field label="Year">
-          <TouchableOpacity
-            style={styles.pickerTrigger}
-            onPress={() => setPickerModal({
-              visible: true,
-              title: 'Select Year',
-              options: years.map(y => ({ label: String(y), value: y })),
-              selectedValue: year,
-              onValueChange: (v) => setYear(Number(v))
-            })}
-          >
-            <Text style={styles.pickerTriggerText}>{year}</Text>
-            <ChevronDown size={18} color="#64748B" />
-          </TouchableOpacity>
-        </Field>
-        <Field label="Rate per Hour (₹)"><RupeeInput value={globalRate} onChange={setGlobalRate} /></Field><TouchableOpacity style={styles.applyButton} onPress={applyGlobalRate} disabled={!globalRate}><Text style={styles.applyButtonText}>Apply to All</Text></TouchableOpacity></View></View></View>
+      <View style={styles.card}>
+        <View style={styles.cardSection}>
+          <View style={styles.configGrid}>
+            <Field label="Month" width="48%">
+              <TouchableOpacity
+                style={styles.pickerTrigger}
+                onPress={() => setPickerModal({
+                  visible: true,
+                  title: 'Select Month',
+                  options: MONTHS.map(m => ({ label: m, value: m })),
+                  selectedValue: month,
+                  onValueChange: setMonth
+                })}
+              >
+                <Text style={styles.pickerTriggerText}>{month}</Text>
+                <ChevronDown size={18} color="#64748B" />
+              </TouchableOpacity>
+            </Field>
+            <Field label="Year" width="48%">
+              <TouchableOpacity
+                style={styles.pickerTrigger}
+                onPress={() => setPickerModal({
+                  visible: true,
+                  title: 'Select Year',
+                  options: years.map(y => ({ label: String(y), value: y })),
+                  selectedValue: year,
+                  onValueChange: (v) => setYear(Number(v))
+                })}
+              >
+                <Text style={styles.pickerTriggerText}>{year}</Text>
+                <ChevronDown size={18} color="#64748B" />
+              </TouchableOpacity>
+            </Field>
+            <Field label="Rate per Hour (₹)" width="100%">
+              <View style={styles.applyRateRow}>
+                <View style={{ flex: 1 }}><RupeeInput value={globalRate} onChange={setGlobalRate} /></View>
+                <TouchableOpacity style={[styles.applyButton, !globalRate && styles.applyButtonDisabled]} onPress={applyGlobalRate} disabled={!globalRate}>
+                  <Text style={styles.applyButtonText}>Apply to All</Text>
+                </TouchableOpacity>
+              </View>
+            </Field>
+          </View>
+        </View>
+      </View>
       {generatedCount > 0 && (<View style={styles.summaryBarHours}><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Part-Time Staff</Text><Text style={styles.summaryValueLarge}>{generatedCount}</Text></View><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Est. Total Hours</Text><Text style={styles.summaryValueLarge}>{totalHoursAll.toFixed(1)}h</Text></View><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Total Net Payable</Text><Text style={[styles.summaryValueLarge, styles.summaryValueGreen]}>₹{fmt(totalNet)}</Text></View></View>)}
-      {employees.length > 0 ? (<View style={styles.card}><View style={styles.hoursHeader}><Text style={styles.hoursHeaderTitle}>Part-Time Staff — {month} {year}</Text><Text style={styles.hoursHeaderCount}>{employees.length} staff member(s)</Text></View>{employees.map(emp => (<View key={emp.teacher_id} style={[styles.hoursRow, emp.gross !== null && styles.hoursRowGenerated]}><View style={styles.hoursAvatar}><Text style={styles.hoursAvatarText}>{emp.teacher_full_name.charAt(0)}</Text></View><View style={styles.hoursInfo}><Text style={styles.hoursName}>{emp.teacher_full_name}</Text><Text style={styles.hoursId}>{emp.employee_id} · Part-Time</Text></View><View style={styles.hoursRateContainer}><RupeeInput value={emp.hourlyRate} onChange={(rate) => setEmployees(prev => prev.map(e2 => e2.teacher_id === emp.teacher_id ? { ...e2, hourlyRate: rate, gross: e2.attFetched ? e2.totalHours * rate : null, net: e2.attFetched ? e2.totalHours * rate : null } : e2))} /></View>{emp.attFetched ? <Text style={styles.hoursTotal}>{emp.totalHours.toFixed(1)}h</Text> : <TouchableOpacity style={styles.fetchHoursButton} onPress={() => fetchAttForEmp(emp.teacher_id)} disabled={emp.loadingAtt}>{emp.loadingAtt ? <ActivityIndicator size="small" color="#4f46e5" /> : <Text style={styles.fetchHoursButtonText}>Fetch</Text>}</TouchableOpacity>}{emp.gross !== null && (<View style={styles.hoursGross}><Text style={styles.hoursGrossAmount}>₹{fmt(emp.gross)}</Text><Text style={styles.hoursGrossDetail}>{emp.totalHours.toFixed(1)}h × ₹{fmt(emp.hourlyRate)}</Text></View>)}</View>))}</View>) : (<View style={styles.emptyStateLarge}><Text style={styles.emptyStateLargeText}>No Part-Time staff found</Text><Text style={styles.emptyStateSubtext}>Staff with "Part-Time" employment type appear here</Text></View>)}
+      {employees.length > 0 ? (
+        <View style={styles.hoursListContainer}>
+          <View style={styles.hoursHeader}>
+            <Text style={styles.hoursHeaderTitle}>Part-Time Staff — {month} {year}</Text>
+            <Text style={styles.hoursHeaderCount}>{employees.length} staff member(s)</Text>
+          </View>
+          {employees.map((emp, index) => {
+            const itemKey = emp.teacher_id || emp.employee_id || (emp as any).id || (emp as any)._id || `emp-${index}`;
+            return (
+              <View key={itemKey} style={[styles.hoursRow, emp.gross !== null && styles.hoursRowGenerated]}>
+                <View style={styles.hoursHeaderRow}>
+                  <View style={styles.hoursAvatar}>
+                    <Text style={styles.hoursAvatarText}>{(emp.teacher_full_name || 'T').charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <View style={styles.hoursInfo}>
+                    <Text style={styles.hoursName}>{emp.teacher_full_name}</Text>
+                    <Text style={styles.hoursId}>{emp.employee_id || 'Part-Time'}</Text>
+                  </View>
+                  {emp.gross !== null && (
+                    <View style={styles.hoursGross}>
+                      <Text style={styles.hoursGrossAmount}>₹{fmt(emp.gross)}</Text>
+                      <Text style={styles.hoursGrossDetail}>{emp.totalHours.toFixed(1)}h × ₹{fmt(emp.hourlyRate)}</Text>
+                    </View>
+                  )}
+                </View>
+                
+                <View style={styles.hoursBodyRow}>
+                  <View style={styles.hoursRateCol}>
+                    <Text style={styles.hoursRateLabel}>Rate / Hour</Text>
+                    <RupeeInput 
+                      value={emp.hourlyRate} 
+                      onChange={(rate) => setEmployees(prev => prev.map(e2 => e2.teacher_id === emp.teacher_id ? { ...e2, hourlyRate: rate, gross: e2.attFetched ? e2.totalHours * rate : null, net: e2.attFetched ? e2.totalHours * rate : null } : e2))} 
+                    />
+                  </View>
+                  
+                  <View style={styles.hoursStatusCol}>
+                    <Text style={styles.hoursRateLabel}>Hours Worked</Text>
+                    {emp.attFetched ? (
+                      <View style={styles.hoursBadge}>
+                        <Text style={styles.hoursBadgeText}>{emp.totalHours.toFixed(1)}h</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity 
+                        style={styles.fetchHoursButton} 
+                        onPress={() => fetchAttForEmp(emp.teacher_id)} 
+                        disabled={emp.loadingAtt}
+                      >
+                        {emp.loadingAtt ? <ActivityIndicator size="small" color="#1e3a8a" /> : <Text style={styles.fetchHoursButtonText}>Fetch Hours</Text>}
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <View style={styles.emptyStateLarge}>
+          <Text style={styles.emptyStateLargeText}>No Part-Time staff found</Text>
+          <Text style={styles.emptyStateSubtext}>Staff with "Part-Time" employment type appear here</Text>
+        </View>
+      )}
       {pickerModal && <CustomPickerModal {...pickerModal} onClose={() => setPickerModal(null)} />}
     </ScrollView>
   );
@@ -1005,24 +1338,41 @@ export default function PayrollScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.mainContainer}>
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}><Text style={styles.backButtonText}>←</Text></TouchableOpacity>
-        <View><Text style={styles.headerTitle}>💰 Payroll Management</Text><Text style={styles.headerSubtitle}>Manage monthly salary for {companyName}</Text></View>
-        <View style={{ width: 40 }} />
+    <View style={styles.mainContainer}>
+      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+      <AccountantPageHeader 
+        title="Payroll Processing" 
+        greeting="Staff Payroll"
+        subtext="Calculate and manage salaries"
+        onBackPress={() => navigation.goBack()} 
+      />
+      <View style={styles.contentOverlap}>
+        <View style={styles.tabsContainer}>
+          {tabs.map(tab => {
+            const isActive = activeTab === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tab, isActive && styles.tabActive]}
+                onPress={() => setActiveTab(tab.key)}
+              >
+                {tab.key === 'bulk' && <Users size={16} color={isActive ? '#1e3a8a' : '#64748b'} />}
+                {tab.key === 'individual' && <User size={16} color={isActive ? '#1e3a8a' : '#64748b'} />}
+                {tab.key === 'hours' && <Clock size={16} color={isActive ? '#1e3a8a' : '#64748b'} />}
+                <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <View style={styles.contentContainer}>
+          {activeTab === 'bulk' && <BulkPayrollTab schoolCode={schoolCode} companyName={companyName} />}
+          {activeTab === 'individual' && <IndividualPayrollTab schoolCode={schoolCode} companyName={companyName} />}
+          {activeTab === 'hours' && <HoursBasedPayrollTab schoolCode={schoolCode} companyName={companyName} />}
+        </View>
       </View>
-      <View style={styles.tabsContainer}>{tabs.map(tab => (<TouchableOpacity key={tab.key} style={[styles.tab, activeTab === tab.key && styles.tabActive]} onPress={() => setActiveTab(tab.key)}><Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>{tab.label}</Text><Text style={[styles.tabDesc, activeTab === tab.key && styles.tabDescActive]}>{tab.desc}</Text></TouchableOpacity>))}</View>
-      <ScrollView
-        style={styles.contentContainer}
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 120, 140) }}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-      >
-        {activeTab === 'bulk' && <BulkPayrollTab schoolCode={schoolCode} companyName={companyName} />}
-        {activeTab === 'individual' && <IndividualPayrollTab schoolCode={schoolCode} companyName={companyName} />}
-        {activeTab === 'hours' && <HoursBasedPayrollTab schoolCode={schoolCode} companyName={companyName} />}
-      </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -1030,201 +1380,309 @@ export default function PayrollScreen() {
 
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: '#f3f4f6' },
-  header: { backgroundColor: '#1e293b', paddingHorizontal: 16, paddingBottom: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 },
-  backButtonText: { fontSize: 20, color: '#fff' },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
-  headerSubtitle: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
-  tabsContainer: { backgroundColor: '#fff', flexDirection: 'row', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
-  tab: { paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 2, borderBottomColor: 'transparent', marginRight: 8 },
-  tabActive: { borderBottomColor: '#4f46e5' },
-  tabLabel: { fontSize: 14, fontWeight: '600', color: '#6b7280' },
-  tabLabelActive: { color: '#4f46e5' },
-  tabDesc: { fontSize: 10, color: '#9ca3af', marginTop: 2 },
-  tabDescActive: { color: '#818cf8' },
+  contentOverlap: {
+    flex: 1,
+    marginTop: -28,
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  tabsContainer: {
+    backgroundColor: '#f1f5f9',
+    flexDirection: 'row',
+    borderRadius: 16,
+    padding: 4,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  tabActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tabLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  tabLabelActive: {
+    color: '#1e3a8a',
+    fontWeight: '700',
+  },
+  tabDesc: { display: 'none' },
+  tabDescActive: { display: 'none' },
   contentContainer: { flex: 1, padding: 16 },
   tabContainer: { flex: 1 },
-  card: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 16, overflow: 'hidden' },
-  cardSection: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
-  sectionHeaderText: { fontSize: 12, fontWeight: 'bold', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
-  configGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 16 },
-  fieldContainer: { flex: 1, minWidth: 100 },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: '#6b7280', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  fieldHint: { fontSize: 10, color: '#9ca3af', marginTop: 4 },
-  pickerContainer: { borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, backgroundColor: '#fff' },
-  pickerContainerSmall: { borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, backgroundColor: '#fff', minWidth: 120 },
+  card: { backgroundColor: '#fff', borderRadius: 24, borderWidth: 1, borderColor: '#f1f5f9', marginBottom: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
+  cardSection: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  sectionHeaderText: { fontSize: 11, fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
+  configGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 16, marginBottom: 16 },
+  fieldContainer: { minWidth: 100 },
+  fieldLabel: { fontSize: 10, fontWeight: '700', color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  fieldHint: { fontSize: 9, color: '#94a3b8', marginTop: 4 },
+  pickerContainer: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, backgroundColor: '#fff' },
+  pickerContainerSmall: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, backgroundColor: '#fff', minWidth: 120 },
   picker: { height: 48 },
-  input: { borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingHorizontal: 12, height: 44, color: '#111827', backgroundColor: '#fff' },
-  pctInputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, backgroundColor: '#fff', paddingHorizontal: 10 },
-  pctInput: { flex: 1, height: 44, color: '#111827' },
-  pctInputSymbol: { color: '#6b7280', fontWeight: '700' },
-  rupeeInputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, backgroundColor: '#fff', paddingHorizontal: 10 },
-  rupeeInputSymbol: { color: '#6b7280', marginRight: 4, fontWeight: '700' },
-  rupeeInput: { flex: 1, height: 44, color: '#111827' },
-  toggleContainer: { flexDirection: 'row', gap: 12 },
-  toggleOption: { flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10, padding: 12, backgroundColor: '#f9fafb' },
-  toggleOptionActive: { borderColor: '#4f46e5', backgroundColor: '#eef2ff' },
-  toggleOptionTitle: { fontWeight: '700', color: '#374151', fontSize: 13 },
-  toggleOptionTitleActive: { color: '#3730a3' },
-  toggleOptionDesc: { marginTop: 4, color: '#6b7280', fontSize: 11 },
-  toggleOptionDescActive: { color: '#4338ca' },
+  input: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, paddingHorizontal: 12, height: 44, color: '#0f172a', backgroundColor: '#f8fafc' },
+  pctInputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, backgroundColor: '#f8fafc', paddingHorizontal: 10 },
+  pctInput: { flex: 1, height: 44, color: '#0f172a' },
+  pctInputSymbol: { color: '#64748b', fontWeight: '700' },
+  rupeeInputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, backgroundColor: '#f8fafc', paddingHorizontal: 10 },
+  rupeeInputSymbol: { color: '#64748b', marginRight: 4, fontWeight: '700' },
+  rupeeInput: { flex: 1, height: 44, color: '#0f172a' },
+  toggleContainer: { flexDirection: 'column', gap: 12, marginTop: 8 },
+  toggleOption: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 16, padding: 16, backgroundColor: '#ffffff' },
+  toggleOptionActive: { borderColor: '#1e3a8a', backgroundColor: '#f8faff' },
+  radioOuter: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#cbd5e1', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#1e3a8a' },
+  toggleTextContainer: { flex: 1 },
+  toggleOptionTitle: { fontWeight: '700', color: '#334155', fontSize: 14 },
+  toggleOptionTitleActive: { color: '#1e3a8a' },
+  toggleOptionDesc: { marginTop: 2, color: '#64748b', fontSize: 11 },
+  toggleOptionDescActive: { color: '#3b82f6' },
   configForm: { maxHeight: 720 },
-  divider: { height: 1, backgroundColor: '#e5e7eb', marginVertical: 12 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  sectionTitle: { fontSize: 13, fontWeight: '700', color: '#374151' },
-  addButton: { backgroundColor: '#eef2ff', borderColor: '#c7d2fe', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
-  addButtonRed: { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
-  addButtonText: { color: '#4338ca', fontWeight: '700', fontSize: 12 },
-  addButtonTextRed: { color: '#b91c1c' },
-  allowancesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  deductionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  extraItemContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8, backgroundColor: '#f8fafc', borderRadius: 10, padding: 8 },
-  extraItemContainerRed: { backgroundColor: '#fef2f2' },
-  extraItemInput: { flex: 1, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingHorizontal: 10, height: 42, backgroundColor: '#fff' },
-  removeButton: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ef4444' },
-  removeButtonText: { color: '#fff', fontWeight: '700', fontSize: 18, lineHeight: 18 },
-  previewContainer: { marginTop: 14, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, backgroundColor: '#fafafa' },
-  previewTitle: { fontSize: 13, fontWeight: '700', marginBottom: 10, color: '#111827' },
+  divider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 12 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionTitle: { fontSize: 12, fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5 },
+  addButton: { backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
+  addButtonRed: { backgroundColor: '#fff5f5', borderColor: '#feb2b2' },
+  addButtonText: { color: '#1e3a8a', fontWeight: '700', fontSize: 11 },
+  addButtonTextRed: { color: '#c53030' },
+  allowancesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, marginBottom: 8 },
+  deductionsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, marginBottom: 8 },
+  extraItemContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8, backgroundColor: '#f8fafc', borderRadius: 12, padding: 8, borderWidth: 1, borderColor: '#e2e8f0' },
+  extraItemContainerRed: { backgroundColor: '#fff5f5', borderColor: '#feb2b2' },
+  extraItemInput: { flex: 1, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, paddingHorizontal: 10, height: 42, backgroundColor: '#fff' },
+  removeButton: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fee2e2' },
+  removeButtonText: { color: '#ef4444', fontWeight: '700', fontSize: 18, lineHeight: 18 },
+  previewContainer: { marginTop: 20, borderRadius: 20, backgroundColor: '#ffffff', borderWidth: 1.5, borderColor: '#e2e8f0', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
+  previewHeader: { backgroundColor: '#1e3a8a', paddingVertical: 12, paddingHorizontal: 16 },
+  previewHeaderTitle: { color: '#ffffff', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  previewContent: { padding: 16 },
   previewRow: { flexDirection: 'row', gap: 16 },
   previewColumn: { flex: 1 },
-  previewSubtitle: { fontSize: 12, fontWeight: '700', marginBottom: 8, color: '#374151' },
+  previewSubtitle: { fontSize: 11, fontWeight: '700', marginBottom: 8, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5 },
   previewLine: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  previewLabel: { color: '#6b7280', fontSize: 12 },
-  previewValue: { color: '#111827', fontWeight: '600', fontSize: 12 },
+  previewLabel: { color: '#64748b', fontSize: 12 },
+  previewValue: { color: '#0f172a', fontWeight: '600', fontSize: 12 },
   previewValueRed: { color: '#b91c1c' },
   previewValueGreen: { color: '#166534' },
-  previewTotalLine: { borderTopWidth: 1, borderTopColor: '#e5e7eb', marginTop: 4, paddingTop: 8 },
-  previewTotalLabel: { color: '#111827', fontWeight: '700' },
-  previewTotalValue: { color: '#111827', fontWeight: '800' },
+  previewColDivider: { width: 1, backgroundColor: '#f1f5f9' },
+  previewTotalLine: { backgroundColor: '#f8fafc', borderRadius: 8, padding: 8, marginTop: 8, borderWidth: 1, borderColor: '#e2e8f0' },
+  previewTotalLabel: { color: '#475569', fontWeight: '700' },
+  previewTotalValue: { color: '#0f172a', fontWeight: '800', fontSize: 14, marginTop: 2 },
+  previewTotalValueGreen: { color: '#16a34a' },
   modalContainer: { flex: 1, backgroundColor: '#fff' },
-  modalHeader: { padding: 14, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
-  modalSubtitle: { fontSize: 12, color: '#6b7280', marginTop: 2 },
+  modalHeader: { padding: 14, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
+  modalSubtitle: { fontSize: 12, color: '#64748b', marginTop: 2 },
   modalActions: { flexDirection: 'row', gap: 8 },
-  modalButton: { borderRadius: 8, borderWidth: 1, borderColor: '#d1d5db', paddingHorizontal: 12, height: 36, justifyContent: 'center', backgroundColor: '#fff' },
-  modalButtonPrimary: { backgroundColor: '#4f46e5', borderColor: '#4f46e5' },
+  modalButton: { borderRadius: 10, borderWidth: 1, borderColor: '#cbd5e1', paddingHorizontal: 12, height: 38, justifyContent: 'center', backgroundColor: '#fff' },
+  modalButtonPrimary: { backgroundColor: '#1e3a8a', borderColor: '#1e3a8a' },
   modalButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  modalButtonTextClose: { color: '#374151', fontWeight: '600', fontSize: 12 },
+  modalButtonTextClose: { color: '#334155', fontWeight: '600', fontSize: 12 },
   webviewContainer: { flex: 1 },
   webview: { flex: 1 },
-  warningBox: { marginTop: 10, backgroundColor: '#fff7ed', borderColor: '#fdba74', borderWidth: 1, borderRadius: 10, padding: 10 },
-  warningText: { color: '#9a3412', fontSize: 12 },
+  warningBox: { marginTop: 10, backgroundColor: '#fff7ed', borderColor: '#fdba74', borderWidth: 1, borderRadius: 12, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  warningText: { color: '#c2410c', fontSize: 12 },
   loadingRow: { marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  loadingText: { color: '#6b7280', fontSize: 12 },
+  loadingText: { color: '#64748b', fontSize: 12 },
   loadingContainer: { padding: 22, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  staffBadge: { marginTop: 10, alignSelf: 'flex-start', backgroundColor: '#ecfeff', borderColor: '#a5f3fc', borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
-  staffBadgeText: { color: '#155e75', fontSize: 12, fontWeight: '600' },
+  staffBadge: { marginTop: 10, alignSelf: 'flex-start', backgroundColor: '#ecfeff', borderColor: '#a5f3fc', borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center' },
+  staffBadgeText: { color: '#0891b2', fontSize: 12, fontWeight: '600' },
   modeSection: { marginTop: 10 },
-  fixedInfoBox: { backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderWidth: 1, borderRadius: 10, padding: 10 },
-  fixedInfoText: { color: '#5b3cc4', fontSize: 12, fontWeight: '600' },
-  fixedInfoSubtext: { color: '#6648dc', fontSize: 11, marginTop: 4 },
-  fetchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
-  fetchButton: { backgroundColor: '#eef2ff', borderColor: '#c7d2fe', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, height: 38, justifyContent: 'center' },
+  fixedInfoBox: { backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderWidth: 1, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  fixedInfoText: { color: '#1e3a8a', fontSize: 12, fontWeight: '600' },
+  fixedInfoSubtext: { color: '#3b82f6', fontSize: 11, marginTop: 4 },
+  fetchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 12 },
+  fetchButton: { backgroundColor: '#1e3a8a', borderRadius: 12, paddingHorizontal: 16, height: 44, justifyContent: 'center', shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
   fetchButtonDisabled: { opacity: 0.5 },
-  fetchButtonText: { color: '#3730a3', fontWeight: '700', fontSize: 12 },
-  viewAttButton: { backgroundColor: '#e0f2fe', borderRadius: 10, paddingHorizontal: 12, height: 38, justifyContent: 'center' },
-  viewAttButtonText: { color: '#0369a1', fontWeight: '700', fontSize: 12 },
-  attLoadedBadge: { backgroundColor: '#ecfdf5', borderColor: '#bbf7d0', borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+  fetchButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  viewAttButton: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, paddingHorizontal: 16, height: 44, justifyContent: 'center' },
+  viewAttButtonText: { color: '#334155', fontWeight: '700', fontSize: 13 },
+  attLoadedBadge: { backgroundColor: '#ecfdf5', borderColor: '#bbf7d0', borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   attLoadedText: { color: '#166534', fontSize: 11, fontWeight: '600' },
-  generatePrompt: { marginBottom: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  generatePromptTitle: { fontSize: 14, fontWeight: '700', color: '#111827' },
-  generatePromptDesc: { color: '#6b7280', fontSize: 12, marginTop: 2 },
-  generateButton: { backgroundColor: '#4f46e5', borderRadius: 10, paddingHorizontal: 14, height: 40, justifyContent: 'center' },
-  generateButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  resultsContainer: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', padding: 12, marginBottom: 20 },
-  summaryBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
-  summaryBarHours: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  summaryItem: { backgroundColor: '#f8fafc', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#e5e7eb', minWidth: 120 },
-  summaryLabel: { color: '#6b7280', fontSize: 11 },
-  summaryValue: { color: '#111827', fontSize: 14, fontWeight: '700', marginTop: 4 },
-  summaryValueLarge: { color: '#111827', fontSize: 18, fontWeight: '800', marginTop: 4 },
+  generatePrompt: { marginBottom: 16, backgroundColor: '#ffffff', borderWidth: 1.5, borderColor: '#1e3a8a', borderRadius: 16, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  generatePromptTitle: { fontSize: 14, fontWeight: '700', color: '#0f172a' },
+  generatePromptDesc: { color: '#64748b', fontSize: 12, marginTop: 2 },
+  generateButton: { backgroundColor: '#16a34a', borderRadius: 12, paddingHorizontal: 16, height: 44, justifyContent: 'center' },
+  generateButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  resultsContainer: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0', padding: 16, marginBottom: 20 },
+  summaryBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  summaryBarHours: { flexDirection: 'row', gap: 10, marginBottom: 16, flexWrap: 'wrap' },
+  summaryItem: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#e2e8f0', flex: 1, minWidth: 100 },
+  summaryLabel: { color: '#64748b', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
+  summaryValue: { color: '#0f172a', fontSize: 14, fontWeight: '700', marginTop: 4 },
+  summaryValueLarge: { color: '#0f172a', fontSize: 16, fontWeight: '800', marginTop: 4 },
   summaryValueRed: { color: '#b91c1c' },
   summaryValueGreen: { color: '#166534' },
   actionBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10, flexWrap: 'wrap' },
-  searchInput: { flex: 1, minWidth: 220, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, height: 40, paddingHorizontal: 12, backgroundColor: '#fff' },
+  searchInput: { flex: 1, minWidth: 220, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, height: 44, paddingHorizontal: 14, backgroundColor: '#f8fafc', color: '#0f172a' },
   actionButtonsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  generateAllButton: { backgroundColor: '#e0e7ff', borderRadius: 10, paddingHorizontal: 12, height: 38, justifyContent: 'center' },
-  generateAllButtonText: { color: '#3730a3', fontWeight: '700', fontSize: 12 },
-  saveAllButton: { backgroundColor: '#16a34a', borderRadius: 10, paddingHorizontal: 12, height: 38, justifyContent: 'center' },
+  generateAllButton: { backgroundColor: '#eff6ff', borderRadius: 12, paddingHorizontal: 14, height: 44, justifyContent: 'center', borderWidth: 1, borderColor: '#bfdbfe' },
+  generateAllButtonText: { color: '#1e3a8a', fontWeight: '700', fontSize: 12 },
+  saveAllButton: { backgroundColor: '#16a34a', borderRadius: 12, paddingHorizontal: 14, height: 44, justifyContent: 'center' },
   saveAllButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  emailAllButton: { backgroundColor: '#0284c7', borderRadius: 10, paddingHorizontal: 12, height: 38, justifyContent: 'center' },
+  emailAllButton: { backgroundColor: '#0284c7', borderRadius: 12, paddingHorizontal: 14, height: 44, justifyContent: 'center' },
   emailAllButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  employeeCard: { borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, backgroundColor: '#fff', padding: 12, marginBottom: 10 },
-  employeeCardGenerated: { borderColor: '#a5b4fc', backgroundColor: '#f8faff' },
-  employeeInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#4f46e5', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#fff', fontWeight: '700' },
-  employeeNameText: { fontWeight: '700', color: '#111827', fontSize: 13 },
-  employeeIdText: { color: '#6b7280', fontSize: 11, marginTop: 2 },
-  employeeStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  statItem: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, minWidth: 86 },
-  statLabel: { color: '#6b7280', fontSize: 10 },
-  statValue: { color: '#111827', fontSize: 12, fontWeight: '700', marginTop: 2 },
+  employeeCard: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 20, backgroundColor: '#fff', padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 8, elevation: 1 },
+  employeeCardGenerated: { borderColor: '#1e3a8a', backgroundColor: '#f8faff', borderWidth: 1.5 },
+  employeeInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1e3a8a', alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  employeeNameText: { fontWeight: '700', color: '#0f172a', fontSize: 14 },
+  employeeIdText: { color: '#64748b', fontSize: 11, marginTop: 2 },
+  employeeStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  statItem: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, flex: 1, minWidth: 72 },
+  statLabel: { color: '#64748b', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 },
+  statValue: { color: '#0f172a', fontSize: 12, fontWeight: '700', marginTop: 2 },
   statValueBold: { fontWeight: '800' },
   statValueRed: { color: '#b91c1c' },
   statValueGreen: { color: '#166534' },
-  employeeActionsRow: { marginTop: 10, alignItems: 'flex-end' },
-  generateEmpButton: { backgroundColor: '#4f46e5', borderRadius: 8, paddingHorizontal: 14, height: 34, justifyContent: 'center' },
+  employeeActionsRow: { marginTop: 12, alignItems: 'flex-end' },
+  generateEmpButton: { backgroundColor: '#1e3a8a', borderRadius: 12, paddingHorizontal: 16, height: 38, justifyContent: 'center' },
   generateEmpButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   actionButtonsGroup: { flexDirection: 'row', gap: 8 },
-  actionBtn: { borderRadius: 8, paddingHorizontal: 12, height: 34, justifyContent: 'center' },
-  viewBtn: { backgroundColor: '#e0f2fe' },
-  pdfBtn: { backgroundColor: '#4f46e5' },
-  recalcBtn: { backgroundColor: '#f3f4f6' },
+  actionBtn: { borderRadius: 12, paddingHorizontal: 14, height: 38, justifyContent: 'center' },
+  viewBtn: { backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe' },
+  pdfBtn: { backgroundColor: '#1e3a8a' },
+  recalcBtn: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#cbd5e1' },
   emailBtn: { backgroundColor: '#0284c7' },
   actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 11 },
-  recalcBtnText: { color: '#111827', fontWeight: '700', fontSize: 14 },
+  actionBtnTextBlue: { color: '#1e3a8a', fontWeight: '700', fontSize: 11 },
+  recalcBtnText: { color: '#334155', fontWeight: '700', fontSize: 14 },
   emptyState: { alignItems: 'center', justifyContent: 'center', padding: 28 },
-  emptyStateText: { color: '#6b7280' },
-  emptyStateLarge: { alignItems: 'center', justifyContent: 'center', padding: 30, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12 },
-  emptyStateLargeText: { color: '#111827', fontWeight: '600' },
-  emptyStateSubtext: { color: '#6b7280', marginTop: 4, fontSize: 12 },
-  employeeHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  avatarLarge: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#4f46e5', alignItems: 'center', justifyContent: 'center' },
-  avatarLargeText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  employeeNameLarge: { fontWeight: '700', color: '#111827', fontSize: 15 },
-  employeeDetailsText: { color: '#6b7280', marginTop: 2, fontSize: 12 },
-  resultSummary: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  resultItem: { flex: 1, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 10, backgroundColor: '#f9fafb' },
-  resultLabel: { color: '#6b7280', fontSize: 11 },
-  resultValue: { color: '#111827', fontWeight: '700', marginTop: 4 },
+  emptyStateText: { color: '#64748b' },
+  emptyStateLarge: { alignItems: 'center', justifyContent: 'center', padding: 30, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 16 },
+  emptyStateLargeText: { color: '#0f172a', fontWeight: '600' },
+  emptyStateSubtext: { color: '#64748b', marginTop: 4, fontSize: 12 },
+  employeeHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  avatarLarge: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#1e3a8a', alignItems: 'center', justifyContent: 'center' },
+  avatarLargeText: { color: '#fff', fontWeight: '700', fontSize: 18 },
+  employeeNameLarge: { fontWeight: '700', color: '#0f172a', fontSize: 16 },
+  employeeDetailsText: { color: '#64748b', marginTop: 2, fontSize: 12 },
+  resultSummary: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' },
+  resultItem: { flex: 1, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, padding: 12, backgroundColor: '#f8fafc', minWidth: 90 },
+  resultLabel: { color: '#64748b', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
+  resultValue: { color: '#0f172a', fontWeight: '700', marginTop: 4 },
   resultValueRed: { color: '#b91c1c' },
   resultValueGreen: { color: '#166534' },
-  infoBanner: { backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe', borderRadius: 10, padding: 10, marginBottom: 12 },
-  infoBannerText: { color: '#5b3cc4', fontSize: 12 },
-  hoursConfigRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' },
-  applyButton: { backgroundColor: '#4f46e5', borderRadius: 10, paddingHorizontal: 14, height: 40, justifyContent: 'center' },
+  infoBanner: { backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe', borderRadius: 12, padding: 12, marginBottom: 16 },
+  infoBannerText: { color: '#1e3a8a', fontSize: 12, lineHeight: 16 },
+  hoursConfigRow: { display: 'none' },
+  applyRateRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  applyButton: { backgroundColor: '#1e3a8a', borderRadius: 10, paddingHorizontal: 16, height: 44, justifyContent: 'center' },
+  applyButtonDisabled: { opacity: 0.5 },
   applyButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  hoursHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
-  hoursHeaderTitle: { fontWeight: '700', color: '#111827' },
-  hoursHeaderCount: { color: '#6b7280', fontSize: 12 },
-  hoursRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
-  hoursRowGenerated: { backgroundColor: '#f8fafc' },
-  hoursAvatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#0284c7', alignItems: 'center', justifyContent: 'center' },
-  hoursAvatarText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  hoursInfo: { flex: 1 },
-  hoursName: { color: '#111827', fontWeight: '600' },
-  hoursId: { color: '#6b7280', fontSize: 11, marginTop: 2 },
-  hoursRateContainer: { width: 170 },
-  hoursTotal: { color: '#111827', fontWeight: '700', minWidth: 64, textAlign: 'right' },
-  fetchHoursButton: { backgroundColor: '#eef2ff', borderRadius: 8, paddingHorizontal: 10, height: 32, justifyContent: 'center' },
-  fetchHoursButtonText: { color: '#3730a3', fontWeight: '700', fontSize: 11 },
-  hoursGross: { alignItems: 'flex-end', minWidth: 115 },
-  hoursGrossAmount: { color: '#166534', fontWeight: '700' },
-  hoursGrossDetail: { color: '#6b7280', fontSize: 10, marginTop: 1 },
+  hoursListContainer: { gap: 12, marginBottom: 20 },
+  hoursHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 4 },
+  hoursHeaderTitle: { fontWeight: '700', color: '#0f172a', fontSize: 14 },
+  hoursHeaderCount: { color: '#64748b', fontSize: 12 },
+  hoursRow: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  hoursRowGenerated: { backgroundColor: '#f8faff', borderColor: '#bfdbfe' },
+  hoursAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#0284c7', alignItems: 'center', justifyContent: 'center' },
+  hoursAvatarText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  hoursInfo: { flex: 1, marginLeft: 8 },
+  hoursName: { color: '#0f172a', fontWeight: '600', fontSize: 14 },
+  hoursId: { color: '#64748b', fontSize: 11, marginTop: 2 },
+  hoursRateContainer: { display: 'none' },
+  hoursTotal: { display: 'none' },
+  fetchHoursButton: { backgroundColor: '#eff6ff', borderRadius: 10, paddingHorizontal: 12, height: 36, justifyContent: 'center', borderWidth: 1, borderColor: '#bfdbfe' },
+  fetchHoursButtonText: { color: '#1e3a8a', fontWeight: '700', fontSize: 11 },
+  hoursGross: { alignItems: 'flex-end' },
+  hoursGrossAmount: { color: '#166534', fontWeight: '800', fontSize: 15 },
+  hoursGrossDetail: { color: '#64748b', fontSize: 9, marginTop: 2 },
   pickerTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
     paddingHorizontal: 12,
     height: 44,
     backgroundColor: '#fff',
   },
   pickerTriggerText: {
     fontSize: 14,
-    color: '#111827',
+    color: '#0f172a',
+  },
+  hoursHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    paddingBottom: 12,
+    marginBottom: 12,
+  },
+  hoursBodyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  hoursRateCol: {
+    flex: 1.2,
+  },
+  hoursStatusCol: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  hoursRateLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748b',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  hoursBadge: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 50,
+  },
+  hoursBadgeText: {
+    color: '#1e3a8a',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

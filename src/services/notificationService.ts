@@ -337,7 +337,7 @@ class NotificationService {
                    (await AsyncStorage.getItem('userRole')) || 
                    'student';
 
-      const normalizedRole = role.toLowerCase() === 'teacher' ? 'staff' : role.toLowerCase();
+      const normalizedRole = (role.toLowerCase() === 'teacher' || role.toLowerCase() === 'accountant') ? 'staff' : role.toLowerCase();
       const endpoint = `/notifications/${normalizedRole}/list`;
 
       const response = await API.get(endpoint, {
