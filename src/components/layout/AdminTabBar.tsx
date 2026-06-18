@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -30,6 +30,47 @@ const getResponsiveSizes = () => {
   return { iconSize: 22, centerButtonSize: 60, centerIconSize: 26 };
 };
 
+const TabItem = ({ route, config, isFocused, onPress, sizes }: any) => {
+  const scaleValue = useRef(new Animated.Value(isFocused ? 1.15 : 1)).current;
+  const translateY = useRef(new Animated.Value(isFocused ? -4 : 0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleValue, {
+        toValue: isFocused ? 1.15 : 1,
+        useNativeDriver: true,
+        friction: 5,
+      }),
+      Animated.spring(translateY, {
+        toValue: isFocused ? -4 : 0,
+        useNativeDriver: true,
+        friction: 5,
+      })
+    ]).start();
+  }, [isFocused]);
+
+  const IconComponent = config.icon;
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={styles.tabItem}
+      activeOpacity={0.6}
+    >
+      <Animated.View style={{ transform: [{ scale: scaleValue }, { translateY }] }}>
+        <IconComponent
+          size={sizes.iconSize}
+          color={isFocused ? COLORS.active : COLORS.inactive}
+          strokeWidth={isFocused ? 2.5 : 2}
+        />
+      </Animated.View>
+      <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
+        {config.label}
+      </Text>
+    </TouchableOpacity>
+  );
+};
+
 const AdminTabBar = ({ state, navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { tabBarTranslate, isTabBarVisible } = useAuth();
@@ -50,7 +91,7 @@ const AdminTabBar = ({ state, navigation }: any) => {
   
   const animatedOpacity = tabBarTranslate
     ? tabBarTranslate.interpolate({
-        inputRange: [0, 120],
+        inputRange: [0, 200],
         outputRange: [1, 0.92],
         extrapolate: 'clamp',
       })
@@ -74,10 +115,8 @@ const AdminTabBar = ({ state, navigation }: any) => {
     }
   };
 
-  
-
   return (
-        <Animated.View
+    <Animated.View
       pointerEvents={isTabBarVisible ? 'auto' : 'none'}
       style={[
         styles.container,
@@ -118,21 +157,14 @@ const AdminTabBar = ({ state, navigation }: any) => {
             }
 
             return (
-              <TouchableOpacity
+              <TabItem
                 key={route.key}
+                route={route}
+                config={config}
+                isFocused={isFocused}
                 onPress={() => handlePress(route, index)}
-                style={styles.tabItem}
-                activeOpacity={0.6}
-              >
-                <IconComponent
-                  size={sizes.iconSize}
-                  color={isFocused ? COLORS.active : COLORS.inactive}
-                  strokeWidth={isFocused ? 2.5 : 2}
-                />
-                <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
-                  {config.label}
-                </Text>
-              </TouchableOpacity>
+                sizes={sizes}
+              />
             );
           })}
         </View>

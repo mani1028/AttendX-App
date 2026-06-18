@@ -2,4 +2,4 @@
 #import <React/RCTBridgeDelegate.h>
 #import <React/RCTRootView.h>
 #import <RCTDeprecation/RCTDeprecation.h>
-#import <React-RCTAppDelegate/RCTAppDelegate.h>
+#import <React_RCTAppDelegate/RCTAppDelegate.h>

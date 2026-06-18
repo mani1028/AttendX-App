@@ -14,6 +14,7 @@ import {
   StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -1163,8 +1164,17 @@ export default function AdminDashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<any>();
-  const { userName, setTabBarVisible, userRole } = useAuth();
+  const { userName, setTabBarVisible, userRole, isTabBarVisible } = useAuth();
   const isAgent = userRole?.toLowerCase() === 'agent';
+  const headerTranslateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(headerTranslateY, {
+      toValue: isTabBarVisible ? 0 : -200,
+      duration: 260,
+      useNativeDriver: true,
+    }).start();
+  }, [isTabBarVisible]);
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -1271,16 +1281,17 @@ export default function AdminDashboardScreen() {
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
+    const deltaY = currentScrollY - lastScrollY.current;
     
-    if (currentScrollY > lastScrollY.current + 10) {
-      if (currentScrollY > 100) {
-        setTabBarVisible(false);
-      }
-      lastScrollY.current = currentScrollY;
-    } else if (currentScrollY < lastScrollY.current - 10) {
+    if (currentScrollY <= 20) {
       setTabBarVisible(true);
-      lastScrollY.current = currentScrollY;
+    } else if (currentScrollY > 100 && deltaY > 10) {
+      setTabBarVisible(false);
+    } else if (deltaY < -10) {
+      setTabBarVisible(true);
     }
+    
+    lastScrollY.current = currentScrollY;
   };
 
 
@@ -1362,46 +1373,57 @@ export default function AdminDashboardScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
-      {/* Standardized Header - Now Fixed outside ScrollView */}
-      <LinearGradient
-        colors={['#1e3a8a', '#3b82f6']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 20 }]}
+      {/* Standardized Header - Animated Slide In/Out */}
+      <Animated.View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          transform: [{ translateY: headerTranslateY }],
+        }}
       >
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => (navigation as any).navigate('Profile')}
-          style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }}
+        <LinearGradient
+          colors={['#1e3a8a', '#3b82f6']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 20 }]}
         >
-          <AvatarBubble
-            displayName={userName || 'Admin'}
-            size={34}
-            textSize={13}
-            primaryColor="#fff"
-          />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle} weight="bold">{isAgent ? 'Agent Portal' : 'Admin Portal'}</AppText>
-        </View>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.refreshIconBtn} onPress={() => (navigation as any).navigate('Notifications')}>
-            <Bell size={20} color="#fff" />
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
-              </View>
-            )}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => (navigation as any).navigate('Profile')}
+            style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }}
+          >
+            <AvatarBubble
+              displayName={userName || 'Admin'}
+              size={34}
+              textSize={13}
+              primaryColor="#fff"
+            />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
-            <RefreshCw size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
+          <View style={styles.headerTitleContainer}>
+            <AppText style={styles.headerTitle} weight="bold">{isAgent ? 'Agent Portal' : 'Admin Portal'}</AppText>
+          </View>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.refreshIconBtn} onPress={() => (navigation as any).navigate('Notifications')}>
+              <Bell size={20} color="#fff" />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
+              <RefreshCw size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </Animated.View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.contentContainer]}
+        contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 80 }]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}

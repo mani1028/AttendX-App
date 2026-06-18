@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     tabBarVisibleRef.current = visible;
     setIsTabBarVisible(visible);
     Animated.timing(tabBarTranslate, {
-      toValue: visible ? 0 : 120,
+      toValue: visible ? 0 : 200,
       duration: 260,
       useNativeDriver: true,
     }).start();

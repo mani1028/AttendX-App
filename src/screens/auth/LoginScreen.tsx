@@ -121,7 +121,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* LOGIN CARD */}
           <Animated.View style={[styles.cardContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-            <LinearGradient colors={['#6A5AF9', '#4AB3FF']} start={{x:0, y:0}} end={{x:1, y:0}} style={styles.cardTopGradient} />
+            <LinearGradient colors={['#1e3a8a', '#3b82f6']} start={{x:0, y:0}} end={{x:1, y:0}} style={styles.cardTopGradient} />
             <View style={styles.cardInner}>
 
               {savedAccounts.length > 0 && showSavedOnly ? (
@@ -158,7 +158,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                         {acc.photoUrl ? (
                           <Image source={{ uri: acc.photoUrl }} style={styles.avatarImg} />
                         ) : (
-                          <User size={24} color="#6648dc" />
+                          <User size={24} color="#1e3a8a" />
                         )}
                       </View>
                       <View style={styles.savedInfo}>
@@ -187,7 +187,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                   <View style={styles.form}>
                     <Field label="School ID">
                       <View style={[styles.inputGroup, focusedField === 'school' && styles.inputActive]}>
-                        <Building2 size={20} color={focusedField === 'school' ? '#6648dc' : '#8B9BB4'} />
+                        <Building2 size={20} color={focusedField === 'school' ? '#1e3a8a' : '#8B9BB4'} />
                         <TextInput
                           style={styles.input}
                           placeholder="SSC1111"
@@ -204,7 +204,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
                     <Field label="Email / ID / Roll No">
                       <View style={[styles.inputGroup, focusedField === 'user' && styles.inputActive]}>
-                        <User size={20} color={focusedField === 'user' ? '#6648dc' : '#8B9BB4'} />
+                        <User size={20} color={focusedField === 'user' ? '#1e3a8a' : '#8B9BB4'} />
                         <TextInput
                           style={styles.input}
                           placeholder="name@school.com / EMP001"
@@ -222,7 +222,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
                     <Field label="Password">
                       <View style={[styles.inputGroup, focusedField === 'pass' && styles.inputActive]}>
-                        <Lock size={20} color={focusedField === 'pass' ? '#6648dc' : '#8B9BB4'} />
+                        <Lock size={20} color={focusedField === 'pass' ? '#1e3a8a' : '#8B9BB4'} />
                         <TextInput
                           style={styles.input}
                           placeholder="••••••••"
@@ -289,7 +289,7 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
 );
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F8F7FD' },
+  root: { flex: 1, backgroundColor: '#F5F7FA' },
   kav: { flex: 1 },
   scroll: {
     flexGrow: 1,
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     top: -SCREEN_W * 0.18,
     right: -SCREEN_W * 0.08,
     borderRadius: SCREEN_W * 0.4,
-    backgroundColor: '#6A5AF9',
+    backgroundColor: '#1e3a8a',
     opacity: 0.12,
   },
   cornerBottomLeft: {
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     bottom: -SCREEN_W * 0.15,
     left: -SCREEN_W * 0.12,
     borderRadius: SCREEN_W * 0.4,
-    backgroundColor: '#8A3FFC',
+    backgroundColor: '#3b82f6',
     opacity: 0.08,
   },
   brand: { marginBottom: isSmallDevice ? 15 : 25, alignItems: 'center' },
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',
-    shadowColor: '#6A5AF9',
+    shadowColor: '#1e3a8a',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   inputActive: {
-    borderColor: '#6648dc',
+    borderColor: '#1e3a8a',
     backgroundColor: '#fff',
   },
   input: {
@@ -393,11 +393,11 @@ const styles = StyleSheet.create({
   actionRow: { marginTop: 8 },
   signInBtn: { width: '100%', height: 56, borderRadius: 12 },
   forgotBtn: { alignSelf: 'center', marginTop: 16 },
-  forgotTxt: { color: '#6648dc', fontSize: 14, fontWeight: '700' },
+  forgotTxt: { color: '#1e3a8a', fontSize: 14, fontWeight: '700' },
   dividerLine: { width: '100%', height: 1, backgroundColor: '#f1f5f9', marginVertical: 20 },
   registerBtn: { alignItems: 'center' },
   registerTxt: { fontSize: 14, color: '#64748b' },
-  registerLink: { color: '#6648dc', fontWeight: '800' },
+  registerLink: { color: '#1e3a8a', fontWeight: '800' },
   viewSavedBtn: {
     marginTop: 12,
     paddingVertical: 12,
@@ -407,6 +407,64 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   viewSavedTxt: { color: '#111827', fontWeight: '700', fontSize: 12, letterSpacing: 1 },
+  savedAccountsContainer: {
+    gap: 12,
+    marginTop: 8,
+  },
+  savedAccountsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  savedAccountCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  savedAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#eff6ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarImg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  savedInfo: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  savedName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  savedRole: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8B9BB4',
+    marginTop: 2,
+  },
+  loginAnotherBtn: {
+    marginTop: 16,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  loginAnotherTxt: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1e3a8a',
+  },
 });
 
 export default LoginScreen;

@@ -70,7 +70,7 @@ const CustomTabBar = ({ state, navigation }: any) => {
 
   const animatedOpacity = tabBarTranslate
     ? tabBarTranslate.interpolate({
-        inputRange: [0, 120],
+        inputRange: [0, 200],
         outputRange: [1, 0.92],
         extrapolate: 'clamp',
       })

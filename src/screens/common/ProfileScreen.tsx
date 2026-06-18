@@ -88,6 +88,10 @@ interface UserProfile {
   roll_number?: string;
   class_grade?: string;
   section?: string;
+  username?: string;
+  can_register_school?: boolean;
+  can_view_payments?: boolean;
+  can_edit_features?: boolean;
 }
 
 interface AppSettings {
@@ -164,7 +168,7 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number = 8000): P
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { logout, userToken, userName } = useAuth();
+  const { logout, userToken, userName, setTabBarVisible, isTabBarVisible } = useAuth();
   const [loading, setLoading] = useState(true);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [profilePhotoError, setProfilePhotoError] = useState(false);
@@ -174,10 +178,12 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     isMounted.current = true;
+    setTabBarVisible(true);
     return () => {
       isMounted.current = false;
+      setTabBarVisible(true);
     };
-  }, []);
+  }, [setTabBarVisible]);
 
   const [userInfo, setUserInfo] = useState<UserProfile>({
     name: '', email: '', phone: '', employee_id: '', teacher_id: '', student_id: '',
@@ -188,12 +194,17 @@ export default function ProfileScreen() {
     emergency_contact_name: '', emergency_contact_number: '', father_guardian_name: '',
     father_guardian_mobile: '', mother_guardian_name: '', mother_guardian_mobile: '',
     parent_guardian_email: '',
+    username: '',
+    can_register_school: false,
+    can_view_payments: false,
+    can_edit_features: false,
   });
 
   const roleKey = String(userInfo.role || '').trim().toLowerCase();
-  const isStudent = roleKey === 'student' || roleKey === 'students';
-  const isDirector = roleKey === 'director' || roleKey === 'principal' || roleKey === 'admin';
-  const isTeacher = roleKey === 'teacher' || roleKey === 'teachers' || roleKey === 'staff';
+  const isAgent = roleKey === 'agent' || roleKey === 'marketing agent' || roleKey === 'marketing_agent';
+  const isStudent = !isAgent && (roleKey === 'student' || roleKey === 'students');
+  const isDirector = !isAgent && (roleKey === 'director' || roleKey === 'principal' || roleKey === 'admin');
+  const isTeacher = !isAgent && (roleKey === 'teacher' || roleKey === 'teachers' || roleKey === 'staff');
 
   const systemSettingsRoute = (() => {
     switch (roleKey) {
@@ -296,6 +307,8 @@ export default function ProfileScreen() {
                 console.warn('Failed to fetch director overview:', err2);
               }
             }
+          } else if (normalizedRole === 'agent') {
+            freshData = null;
           } else if (normalizedRole === 'principal' || (normalizedRole !== 'admin')) {
             freshData = await withTimeout(getTeacherProfile(), 5000);
           }
@@ -452,6 +465,14 @@ export default function ProfileScreen() {
           father_guardian_mobile: firstNonEmptyText(profileSource?.father_guardian_mobile, profileSource?.father_mobile, profileSource?.father_phone, storedUser?.father_guardian_mobile),
           mother_guardian_name: firstNonEmptyText(profileSource?.mother_guardian_name, profileSource?.mother_name, profileSource?.motherName, storedUser?.mother_guardian_name),
           mother_guardian_mobile: firstNonEmptyText(profileSource?.mother_guardian_mobile, profileSource?.mother_mobile, profileSource?.mother_phone, storedUser?.mother_guardian_mobile),
+          username: firstNonEmptyText(
+            profileSource?.username,
+            storedUser?.username,
+            storedUser?.user_name
+          ),
+          can_register_school: profileSource?.can_register_school ?? storedUser?.can_register_school ?? false,
+          can_view_payments: profileSource?.can_view_payments ?? storedUser?.can_view_payments ?? false,
+          can_edit_features: profileSource?.can_edit_features ?? storedUser?.can_edit_features ?? false,
         };
 
         if (isMounted.current) {
@@ -776,51 +797,70 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
-      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
-            <ChevronLeft size={24} color="#fff" />
-          </TouchableOpacity>
-          <AppText style={styles.headerTitle}>My Profile</AppText>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-            <LogOut size={20} color="#fff" />
-          </TouchableOpacity>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        style={styles.content}
+        contentContainerStyle={{ paddingBottom: 140 }}
+      >
+        {/* Header - now scrolls with page */}
+        <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
+              <ChevronLeft size={24} color="#fff" />
+            </TouchableOpacity>
+            <AppText style={styles.headerTitle}>My Profile</AppText>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+              <LogOut size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.profileSummary}>
+            {profilePhotoUrl && !profilePhotoError ? (
+              <Image
+                source={{
+                  uri: profilePhotoUrl,
+                  headers: userToken ? { Authorization: `Bearer ${userToken}` } : undefined
+                }}
+                style={styles.profileAvatarImage}
+                onError={() => setProfilePhotoError(true)}
+              />
+            ) : (
+              <AvatarBubble
+                displayName={userInfo.name || 'User'}
+                size={80}
+                textSize={28}
+                primaryColor={Theme.colors.blue}
+              />
+            )}
+            <TouchableOpacity style={styles.profileTextInfo} onPress={() => setShowAccountSwitcher(true)}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <AppText style={styles.userName}>{userInfo.name}</AppText>
+                <ChevronDown size={20} color="#fff" style={{ marginLeft: 6 }} />
+              </View>
+              <AppText style={styles.userRole}>
+                {userInfo.role?.toUpperCase() || 'STUDENT'}
+                {isAgent 
+                  ? (userInfo.username ? ` • @${userInfo.username}` : '')
+                  : ` • ID: ${userInfo.student_id || userInfo.employee_id}`
+                }
+              </AppText>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.profileSummary}>
-          {profilePhotoUrl && !profilePhotoError ? (
-            <Image
-              source={{
-                uri: profilePhotoUrl,
-                headers: userToken ? { Authorization: `Bearer ${userToken}` } : undefined
-              }}
-              style={styles.profileAvatarImage}
-              onError={() => setProfilePhotoError(true)}
-            />
-          ) : (
-            <AvatarBubble
-              displayName={userInfo.name || 'User'}
-              size={80}
-              textSize={28}
-              primaryColor={Theme.colors.blue}
-            />
-          )}
-          <TouchableOpacity style={styles.profileTextInfo} onPress={() => setShowAccountSwitcher(true)}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <AppText style={styles.userName}>{userInfo.name}</AppText>
-              <ChevronDown size={20} color="#fff" style={{ marginLeft: 6 }} />
-            </View>
-            <AppText style={styles.userRole}>
-              {userInfo.role?.toUpperCase() || 'STUDENT'} • ID: {userInfo.student_id || userInfo.employee_id}
-            </AppText>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.content}>
+        <View style={styles.innerContent}>
         <View style={styles.section}>
           <AppText style={styles.sectionTitle}>Basic Information</AppText>
           <AppCard style={styles.infoCard}>
+            {isAgent && (
+              <>
+                {renderInfoRow('Full Name', userInfo.name, User)}
+                <View style={styles.divider} />
+                {renderInfoRow('Username', userInfo.username, User)}
+                <View style={styles.divider} />
+                {renderInfoRow('Email', userInfo.email, Mail)}
+              </>
+            )}
             {isDirector && (
               <>
                 {renderInfoRow('Full Name', userInfo.name, User, 'name')}
@@ -848,7 +888,7 @@ export default function ProfileScreen() {
                 {renderInfoRow('Blood Group', userInfo.blood_group, Droplet)}
               </>
             )}
-            {!isStudent && !isDirector && (
+            {!isStudent && !isDirector && !isAgent && (
               <>
                 {renderInfoRow('Blood Group', userInfo.blood_group, Droplet)}
               </>
@@ -856,7 +896,7 @@ export default function ProfileScreen() {
           </AppCard>
         </View>
 
-        {!isStudent && !isDirector && (
+        {!isStudent && !isDirector && !isAgent && (
           <View style={styles.section}>
             <AppText style={styles.sectionTitle}>Professional Details</AppText>
             <AppCard style={styles.infoCard}>
@@ -880,7 +920,7 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {!isStudent && !isDirector && (
+        {!isStudent && !isDirector && !isAgent && (
           <View style={styles.section}>
             <AppText style={styles.sectionTitle}>Contact Information</AppText>
             <AppCard style={styles.infoCard}>
@@ -892,7 +932,7 @@ export default function ProfileScreen() {
             </AppCard>
           </View>
         )}
-        {(!isDirector || roleKey === 'principal') && (
+        {(!isDirector || roleKey === 'principal') && !isAgent && (
           <View style={styles.section}>
             <AppText style={styles.sectionTitle}>Organization</AppText>
             <AppCard style={styles.infoCard}>
@@ -901,6 +941,61 @@ export default function ProfileScreen() {
               {renderInfoRow('Branch', userInfo.branch_name, MapPin)}
               <View style={styles.divider} />
               {renderInfoRow('Branch ID', userInfo.branch_id, Hash)}
+            </AppCard>
+          </View>
+        )}
+
+        {isAgent && (
+          <View style={styles.section}>
+            <AppText style={styles.sectionTitle}>Capabilities</AppText>
+            <AppCard style={styles.infoCard}>
+              <View style={styles.infoRow}>
+                <View style={[styles.iconCircle, { backgroundColor: userInfo.can_register_school ? '#d1fae5' : '#fee2e2' }]}>
+                  {userInfo.can_register_school ? (
+                    <Check size={18} color="#059669" />
+                  ) : (
+                    <X size={18} color="#dc2626" />
+                  )}
+                </View>
+                <View style={styles.infoContent}>
+                  <AppText style={styles.infoLabel}>Can Register Schools</AppText>
+                  <AppText style={styles.infoValue}>
+                    {userInfo.can_register_school ? 'Enabled' : 'Disabled'}
+                  </AppText>
+                </View>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.infoRow}>
+                <View style={[styles.iconCircle, { backgroundColor: userInfo.can_view_payments ? '#d1fae5' : '#fee2e2' }]}>
+                  {userInfo.can_view_payments ? (
+                    <Check size={18} color="#059669" />
+                  ) : (
+                    <X size={18} color="#dc2626" />
+                  )}
+                </View>
+                <View style={styles.infoContent}>
+                  <AppText style={styles.infoLabel}>Can View Payments</AppText>
+                  <AppText style={styles.infoValue}>
+                    {userInfo.can_view_payments ? 'Enabled' : 'Disabled'}
+                  </AppText>
+                </View>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.infoRow}>
+                <View style={[styles.iconCircle, { backgroundColor: userInfo.can_edit_features ? '#d1fae5' : '#fee2e2' }]}>
+                  {userInfo.can_edit_features ? (
+                    <Check size={18} color="#059669" />
+                  ) : (
+                    <X size={18} color="#dc2626" />
+                  )}
+                </View>
+                <View style={styles.infoContent}>
+                  <AppText style={styles.infoLabel}>Can Edit School Features</AppText>
+                  <AppText style={styles.infoValue}>
+                    {userInfo.can_edit_features ? 'Enabled' : 'Disabled'}
+                  </AppText>
+                </View>
+              </View>
             </AppCard>
           </View>
         )}
@@ -948,6 +1043,7 @@ export default function ProfileScreen() {
         </View>
 
         <View style={{ height: 40 }} />
+        </View>
       </ScrollView>
 
       {/* Edit Modal */}
@@ -1270,7 +1366,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  innerContent: {
     paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   section: {
     marginTop: 25,

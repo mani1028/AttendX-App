@@ -3,14 +3,20 @@ require_relative '../node_modules/react-native/scripts/react_native_pods'
 # Keep iOS pod generation aligned with AppDelegate/Info.plist (legacy architecture).
 ENV['RCT_NEW_ARCH_ENABLED'] = '0'
 
+# Enable static frameworks for Swift compatibility (Firebase, VisionCamera, etc.)
+use_frameworks! :linkage => :static
+$RNFirebaseAsStaticFramework = true
+
 platform :ios, '16.0'
 
 target 'AttendX' do
+  pod 'Firebase', :modular_headers => true
+  pod 'FirebaseCore', :modular_headers => true
   pod 'FirebaseCoreInternal', :modular_headers => true
+  pod 'FirebaseCoreExtension', :modular_headers => true
   pod 'GoogleUtilities', :modular_headers => true
-  # Ensure modular headers for VisionCamera and Amplitude to avoid missing modulemap during archive
+  # Ensure modular headers for VisionCamera to avoid missing modulemap during archive
   pod 'VisionCamera', :path => '../node_modules/react-native-vision-camera', :modular_headers => true
-  pod 'amplitude-react-native', :path => '../node_modules/@amplitude/analytics-react-native', :modular_headers => true
 
   config = use_native_modules!
   use_react_native!(:path => config[:reactNativePath])
@@ -24,7 +30,10 @@ target 'AttendX' do
         config.build_settings['SWIFT_ACTIVE_COMPILATION_CONDITIONS'] ||= '$(inherited)'
         config.build_settings['SWIFT_VERSION'] = '5.0'
         config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
       end
     end
+
+    system("chmod u+w Pods/fmt/include/fmt/base.h && sed -i '' 's/#  define FMT_USE_CONSTEVAL 1/#  define FMT_USE_CONSTEVAL 0/g' Pods/fmt/include/fmt/base.h")
   end
 end
