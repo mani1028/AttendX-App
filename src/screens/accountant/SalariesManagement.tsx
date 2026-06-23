@@ -1,3 +1,5 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+import { Theme } from '../../theme/tokens';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -12,15 +14,17 @@ import {
   RefreshControl,
   SafeAreaView,
   Platform,
-  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import AccountantPageHeader from '../../components/layout/AccountantPageHeader';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ENV } from '../../config/api.config';
 import { useAuth } from '../../context/AuthContext';
 import * as principalService from '../../services/principalService';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -53,12 +57,12 @@ interface SalariesManagementProps {
 const formatDateSafe = (dateString: string): string => {
   try {
     const d = new Date(dateString);
-    if (isNaN(d.getTime())) return '—';
-    
+    if (isNaN(d.getTime())) {return '—';}
+
     const day = d.getDate();
     const month = d.getMonth() + 1;
     const year = d.getFullYear();
-    
+
     return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
   } catch {
     return '—';
@@ -81,28 +85,7 @@ const formatCurrencySafe = (value: number): string => {
   return `${groupedWhole}.${fractionPart}`;
 };
 
-const useTabBarScrollVisibility = () => {
-  const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
 
-  useEffect(() => {
-    setTabBarVisible(true);
-    return () => setTabBarVisible(true);
-  }, [setTabBarVisible]);
-
-  return useCallback((event: any) => {
-    const currentScrollY = event?.nativeEvent?.contentOffset?.y ?? 0;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-
-    lastScrollY.current = currentScrollY;
-  }, [setTabBarVisible]);
-};
 
 // ─── API Service ────────────────────────────────────────────────────────────
 
@@ -110,7 +93,7 @@ const API_BASE_URL = `${ENV.API_URL.replace(/\/$/, '')}/api`;
 
 const API = {
   get: async (endpoint: string, config?: { params?: Record<string, string> }) => {
-    const token = await AsyncStorage.getItem('token');
+    const token = await storage.getSecure(StorageKeys.AUTH_TOKEN);
     let url = `${API_BASE_URL}${endpoint}`;
 
     if (config?.params) {
@@ -135,7 +118,7 @@ const API = {
   },
 
   put: async (endpoint: string, data: any, config?: { params?: Record<string, string> }) => {
-    const token = await AsyncStorage.getItem('token');
+    const token = await storage.getSecure(StorageKeys.AUTH_TOKEN);
     let url = `${API_BASE_URL}${endpoint}`;
 
     if (config?.params) {
@@ -183,7 +166,7 @@ const SearchInput: React.FC<SearchInputProps> = ({ value, onChangeText, placehol
   <View style={styles.searchContainer}>
     <TextInput
       style={styles.searchInput}
-      placeholder={placeholder || "Search..."}
+      placeholder={placeholder || 'Search...'}
       value={value}
       onChangeText={onChangeText}
       placeholderTextColor="#9ca3af"
@@ -228,13 +211,13 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({ employee, onEdit, onHistory
       </View>
 
       <View style={styles.actionButtons}>
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={[styles.actionButton, styles.editButton]}
           onPress={() => onEdit(employee)}
         >
           <Text style={styles.actionButtonText}>✏️ Edit Salary</Text>
         </TouchableOpacity>
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={[styles.actionButton, styles.historyButton]}
           onPress={() => onHistory(employee)}
         >
@@ -252,7 +235,7 @@ interface MessageBoxProps {
 }
 
 const MessageBox: React.FC<MessageBoxProps> = ({ message, isError = false, onClose }) => {
-  if (!message) return null;
+  if (!message) {return null;}
 
   return (
     <View style={[styles.messageBox, isError ? styles.messageBoxError : styles.messageBoxSuccess]}>
@@ -260,7 +243,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({ message, isError = false, onClo
         {message}
       </Text>
       {onClose && (
-        <TouchableOpacity onPress={onClose} style={styles.messageClose}>
+        <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.messageClose}>
           <Text style={styles.messageCloseText}>✕</Text>
         </TouchableOpacity>
       )}
@@ -304,7 +287,7 @@ const EditSalaryModal: React.FC<EditSalaryModalProps> = ({
     onUpdate(newSalary, reason);
   };
 
-  if (!employee) return null;
+  if (!employee) {return null;}
 
   return (
     <Modal
@@ -317,7 +300,7 @@ const EditSalaryModal: React.FC<EditSalaryModalProps> = ({
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Update Salary</Text>
-            <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+            <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.modalCloseButton}>
               <Text style={styles.modalCloseText}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -372,16 +355,16 @@ const EditSalaryModal: React.FC<EditSalaryModalProps> = ({
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={onClose}>
+            <TouchableOpacity accessibilityRole="button" style={[styles.modalButton, styles.cancelButton]} onPress={onClose}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.modalButton, styles.updateButton, loading && styles.disabledButton]}
               onPress={handleUpdate}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={Theme.colors.card} />
               ) : (
                 <Text style={styles.updateButtonText}>Update Salary</Text>
               )}
@@ -410,7 +393,7 @@ const SalaryHistoryModal: React.FC<SalaryHistoryModalProps> = ({
   loading,
   onClose,
 }) => {
-  if (!employee) return null;
+  if (!employee) {return null;}
 
   return (
     <Modal
@@ -423,7 +406,7 @@ const SalaryHistoryModal: React.FC<SalaryHistoryModalProps> = ({
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Salary History</Text>
-            <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+            <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.modalCloseButton}>
               <Text style={styles.modalCloseText}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -448,8 +431,8 @@ const SalaryHistoryModal: React.FC<SalaryHistoryModalProps> = ({
                   <Text style={[styles.historyHeaderText, { flex: 3 }]}>Change</Text>
                   <Text style={[styles.historyHeaderText, { flex: 2 }]}>Reason</Text>
                 </View>
-                {history.map((item) => (
-                  <View key={item.id} style={styles.historyItem}>
+                {history.map((item, idx) => (
+                  <View key={item.id || `hist-${idx}`} style={styles.historyItem}>
                     <Text style={[styles.historyItemText, { flex: 2 }]}>
                       {formatDateSafe(item.effective_date)}
                     </Text>
@@ -470,7 +453,7 @@ const SalaryHistoryModal: React.FC<SalaryHistoryModalProps> = ({
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <TouchableOpacity style={[styles.modalButton, styles.closeButtonFull]} onPress={onClose}>
+            <TouchableOpacity accessibilityRole="button" style={[styles.modalButton, styles.closeButtonFull]} onPress={onClose}>
               <Text style={styles.closeButtonText}>Close</Text>
             </TouchableOpacity>
           </View>
@@ -483,7 +466,7 @@ const SalaryHistoryModal: React.FC<SalaryHistoryModalProps> = ({
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) => {
-  const handleScroll = useTabBarScrollVisibility();
+  const handleScroll = useScrollTabBar();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -508,24 +491,31 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
   const loadEmployees = async () => {
     try {
       setLoading(true);
-      const branchId = await AsyncStorage.getItem('branch_id') ||
-                       await AsyncStorage.getItem('branchId') ||
+      const branchId = await storage.getString(StorageKeys.BRANCH_ID) ||
+                       await storage.getString(StorageKeys.BRANCH_ID) ||
                        '';
 
       const items = await principalService.getPrincipalTeachers({
         'school-code': schoolCode,
-        ...(branchId ? { 'branch-id': branchId } : {})
+        ...(branchId ? { 'branch-id': branchId } : {}),
       });
-      
-      // Transform keys to match expected Employee interface if needed, but getPrincipalTeachers
-      // usually returns teacher objects. We just map teacher_full_name if it's missing but we have name.
-      const empList = items.map(t => ({
-        ...t,
-        id: t.teacher_id || t.id,
-        teacher_full_name: t.teacher_full_name || t.name || t.full_name,
-        teacher_id: t.teacher_id || t.id,
-        employee_id: t.employee_id || t.id,
-      }));
+
+      // Transform keys to match expected Employee interface, providing fallbacks for name and id
+      const empList = items.map((t, idx) => {
+        const id = t.teacher_id || t.id || t.employee_id || `emp-${idx}`;
+        const name = t.teacher_full_name || t.name || t.full_name || 'Staff Member';
+        return {
+          ...t,
+          id: String(id),
+          name: String(name),
+          teacher_full_name: String(name),
+          teacher_id: t.teacher_id ? String(t.teacher_id) : String(id),
+          employee_id: t.employee_id ? String(t.employee_id) : t.teacher_id ? String(t.teacher_id) : String(id),
+          employment_type: t.employment_type || t.teacher_status || 'Full-Time',
+          position: t.position || t.designation || 'Staff',
+          salary: typeof t.salary === 'number' ? t.salary : parseFloat(t.salary) || 0,
+        };
+      });
 
       setEmployees(empList);
       setMessage('');
@@ -552,15 +542,15 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
   };
 
   const handleUpdateSalary = async (salary: number, reason: string) => {
-    if (!selectedEmployee) return;
+    if (!selectedEmployee) {return;}
 
     try {
       setUpdateLoading(true);
-      await API.put(`/accountant/payroll/employees/${selectedEmployee.id}/salary`, {
+      await API.put(`/accountant/employees/${selectedEmployee.id}/salary`, {
         salary: salary,
-        reason: reason
+        reason: reason,
       }, {
-        params: { school_code: schoolCode }
+        params: { school_code: schoolCode },
       });
 
       setMessage('Salary updated successfully');
@@ -587,8 +577,8 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
   const handleViewHistory = async (employee: Employee) => {
     try {
       setHistoryLoading(true);
-      const response = await API.get(`/accountant/payroll/employees/${employee.id}/salary-history`, {
-        params: { school_code: schoolCode }
+      const response = await API.get(`/accountant/employees/${employee.id}/salary-history`, {
+        params: { school_code: schoolCode },
       });
 
       const history = response.salary_history || [];
@@ -617,12 +607,12 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
-      <AccountantPageHeader 
-        title="Staff Salaries" 
+
+      <StandardPageHeader
+        title="Staff Salaries"
         greeting="Salaries & Payroll"
-        subtext="Manage employee compensation"
-        onBackPress={() => navigation.goBack()} 
+        greetingSubtext="Manage employee compensation"
+        onBackPress={() => navigation.goBack()}
       />
       <View style={styles.contentOverlap}>
         <ScrollView
@@ -663,9 +653,9 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
         {/* Employees List */}
         {!loading && filteredEmployees.length > 0 && (
           <View style={styles.employeesList}>
-            {filteredEmployees.map((employee) => (
+            {filteredEmployees.map((employee, idx) => (
               <EmployeeCard
-                key={employee.id}
+                key={employee.id || `emp-card-${idx}`}
                 employee={employee}
                 onEdit={handleOpenEdit}
                 onHistory={handleViewHistory}
@@ -721,43 +711,44 @@ const styles = StyleSheet.create({
   },
   contentOverlap: {
     flex: 1,
-    marginTop: -20,
+    marginTop: -30,
+    backgroundColor: '#f3f4f6',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    overflow: 'hidden',
+    zIndex: 10,
   },
   scrollView: {
     flex: 1,
   },
   headerSection: {
     backgroundColor: '#f8fbff',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: '#dbe6f5',
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    ...Theme.typography.h4,
     color: '#123358',
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   headerSubtitle: {
     fontSize: 13,
     color: '#666',
   },
   searchSection: {
-    padding: 16,
-    paddingTop: 0,
-    marginTop: -20,
+    padding: Theme.spacing.md,
+    paddingTop: Theme.spacing.lg,
     backgroundColor: '#f3f4f6',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
   },
   employeesList: {
-    padding: 16,
+    padding: Theme.spacing.md,
     gap: 12,
   },
   employeeCard: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.card,
     borderRadius: 12,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     marginBottom: 12,
@@ -780,12 +771,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   employeeName: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...Theme.typography.h4,
     color: '#111827',
   },
   employeeId: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#6b7280',
     marginTop: 2,
   },
@@ -808,12 +798,12 @@ const styles = StyleSheet.create({
   },
   salaryValue: {
     fontWeight: '600',
-    color: '#059669',
+    color: Theme.colors.success,
   },
   actionButtons: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   actionButton: {
     flex: 1,
@@ -828,18 +818,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#0284c7',
   },
   actionButtonText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 13,
     fontWeight: '500',
   },
   statusBadge: {
     backgroundColor: '#d1fae5',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 20,
   },
   statusBadgeText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '600',
     color: '#065f46',
   },
@@ -848,7 +838,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 12,
-    margin: 16,
+    margin: Theme.spacing.md,
     borderRadius: 10,
     borderWidth: 1,
   },
@@ -872,10 +862,10 @@ const styles = StyleSheet.create({
     color: '#b91c1c',
   },
   messageClose: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   messageCloseText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#6b7280',
   },
   loadingContainer: {
@@ -884,11 +874,11 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#6b7280',
   },
   emptyStateContainer: {
-    padding: 48,
+    padding: Theme.spacing.xxl,
     alignItems: 'center',
   },
   emptyStateIcon: {
@@ -896,10 +886,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   emptyStateTitle: {
-    fontSize: 16,
-    fontWeight: '500',
+    ...Theme.typography.h4,
     color: '#6b7280',
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   emptyStateSubtitle: {
     fontSize: 13,
@@ -912,7 +901,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     width: '90%',
     maxHeight: '80%',
     borderRadius: 16,
@@ -933,39 +922,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    ...Theme.typography.h3,
     color: '#111827',
   },
   modalCloseButton: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   modalCloseText: {
     fontSize: 18,
     color: '#6b7280',
   },
   modalBody: {
-    padding: 16,
+    padding: Theme.spacing.md,
     maxHeight: 500,
   },
   modalSubtitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...Theme.typography.h4,
     color: '#111827',
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   employeeIdText: {
     fontSize: 13,
     color: '#6b7280',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   inputLabel: {
     fontSize: 13,
@@ -979,8 +966,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 14,
-    backgroundColor: '#fff',
+    ...Theme.typography.body,
+    backgroundColor: Theme.colors.background,
   },
   currentSalaryContainer: {
     backgroundColor: '#f3f4f6',
@@ -990,26 +977,25 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
   },
   currentSalaryText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '500',
     color: '#374151',
   },
   currentSalaryLabel: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '500',
     color: '#374151',
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   currentSalaryValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#059669',
+    ...Theme.typography.h3,
+    color: Theme.colors.success,
   },
   pickerContainer: {
     borderWidth: 1,
     borderColor: '#d1d5db',
     borderRadius: 8,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
   },
   picker: {
     height: 50,
@@ -1020,22 +1006,22 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#bfdbfe',
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   infoText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#6648dc',
   },
   modalFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
     gap: 10,
   },
   modalButton: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     borderRadius: 8,
     minWidth: 100,
@@ -1052,7 +1038,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#6648dc',
   },
   updateButtonText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontWeight: '500',
   },
   closeButtonFull: {
@@ -1060,7 +1046,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   closeButtonText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontWeight: '500',
   },
   disabledButton: {
@@ -1070,7 +1056,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   historyContainer: {
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     borderRadius: 8,
@@ -1078,14 +1064,14 @@ const styles = StyleSheet.create({
   },
   historyHeader: {
     flexDirection: 'row',
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
   historyHeaderText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: '#374151',
   },
@@ -1097,31 +1083,31 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f0f0f0',
   },
   historyItemText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#4b5563',
   },
   historyReason: {
     color: '#6b7280',
   },
   emptyState: {
-    padding: 32,
+    padding: Theme.spacing.xl,
     alignItems: 'center',
   },
   emptyStateText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#9ca3af',
   },
   searchContainer: {
     marginBottom: 12,
   },
   searchInput: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
     borderColor: '#cfdbeb',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 14,
+    ...Theme.typography.body,
   },
 });
 

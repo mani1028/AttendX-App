@@ -1,3 +1,5 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+import { Theme } from '../../theme/tokens';
 // PayrollScreen.tsx - COMPLETE FULL CODE with all 3 tabs
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -14,7 +16,6 @@ import {
   SafeAreaView,
   Platform,
   FlatList,
-  StatusBar,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
@@ -24,11 +25,14 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { XCircle, CheckCircle2, ChevronDown, AlertTriangle, Users, Info, Clock, User, Trash2 } from 'lucide-react-native';
 import CustomPickerModal from '../../components/common/CustomPickerModal';
-import AccountantPageHeader from '../../components/layout/AccountantPageHeader';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { ENV } from '../../config/api.config';
 import { useAuth } from '../../context/AuthContext';
 import * as principalService from '../../services/principalService';
 import API from '../../services/api';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
 
 // ==================== HELPER FUNCTIONS ====================
 
@@ -39,12 +43,12 @@ import API from '../../services/api';
 const formatDateSafe = (date: Date | string, locale: string = 'en-IN'): string => {
   try {
     const d = typeof date === 'string' ? new Date(date) : date;
-    if (isNaN(d.getTime())) return '—';
-    
+    if (isNaN(d.getTime())) {return '—';}
+
     const day = d.getDate();
     const month = d.getMonth() + 1;
     const year = d.getFullYear();
-    
+
     // Return DD/MM/YYYY format as fallback
     return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
   } catch {
@@ -56,7 +60,7 @@ const formatDateSafe = (date: Date | string, locale: string = 'en-IN'): string =
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
+  'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
 interface ExtraItem {
@@ -191,28 +195,7 @@ function uid(): string {
   return Math.random().toString(36).slice(2, 8);
 }
 
-const useTabBarScrollVisibility = () => {
-  const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
 
-  useEffect(() => {
-    setTabBarVisible(true);
-    return () => setTabBarVisible(true);
-  }, [setTabBarVisible]);
-
-  return useCallback((event: any) => {
-    const currentScrollY = event?.nativeEvent?.contentOffset?.y ?? 0;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-
-    lastScrollY.current = currentScrollY;
-  }, [setTabBarVisible]);
-};
 
 // ==================== CALCULATORS ====================
 
@@ -223,7 +206,7 @@ function calcFixed(emp: Employee, att: Attendance, cfg: FixedConfig, leavePolicy
   const paid_leave_used = att.paid_leave_days || 0;
   const lop_deduction = perDay * lop_days;
   const net = Math.max(0, basic - lop_deduction);
-  
+
   return {
     employee: emp,
     present_days: att.present_days,
@@ -247,7 +230,7 @@ function calcFixed(emp: Employee, att: Attendance, cfg: FixedConfig, leavePolicy
     total_deductions: lop_deduction,
     net,
     mode: 'fixed',
-    cfg: cfg as any
+    cfg: cfg as any,
   };
 }
 
@@ -261,7 +244,7 @@ function calcCorporate(emp: Employee, att: Attendance, cfg: CorporateConfig, lea
   const extra_allowances_total = (cfg.extra_allowances || [])
     .reduce((s: number, a: ExtraItem) => s + ctc * a.pct / 100, 0);
   const gross = basic + hra + da + ta + other_allowance + extra_allowances_total;
-  
+
   const lop_days = att.absent_days || 0;
   const paid_leave_used = att.paid_leave_days || 0;
   const perDayGross = cfg.working_days > 0 ? gross / cfg.working_days : 0;
@@ -274,7 +257,7 @@ function calcCorporate(emp: Employee, att: Attendance, cfg: CorporateConfig, lea
   const total_deductions = lop_deduction + pf + esi + cfg.professional_tax
     + other_deduction + extra_deductions_total;
   const net = Math.max(0, gross - total_deductions);
-  
+
   return {
     employee: emp,
     present_days: att.present_days,
@@ -298,7 +281,7 @@ function calcCorporate(emp: Employee, att: Attendance, cfg: CorporateConfig, lea
     total_deductions,
     net,
     mode: 'corporate',
-    cfg
+    cfg,
   };
 }
 
@@ -332,7 +315,7 @@ async function generatePayslipPDF(
     },
   });
   const data = response.data;
-  if (!data.success) throw new Error(data.message || 'PDF generation failed');
+  if (!data.success) {throw new Error(data.message || 'PDF generation failed');}
 
   if (saveFile) {
     const fname = `Payslip_${(result.employee.teacher_full_name || 'Employee').replace(/\s+/g, '_')}_${month}_${year}.pdf`;
@@ -384,8 +367,8 @@ const RupeeInput: React.FC<{ value: number; onChange: (value: number) => void }>
 
 const PayrollTypeToggle: React.FC<{ mode: string; onChange: (mode: string) => void }> = ({ mode, onChange }) => (
   <View style={styles.toggleContainer}>
-    <TouchableOpacity style={[styles.toggleOption, mode === 'fixed' && styles.toggleOptionActive]} onPress={() => onChange('fixed')}>
-      <View style={[styles.radioOuter, mode === 'fixed' && { borderColor: '#1e3a8a' }]}>
+    <TouchableOpacity accessibilityRole="button" style={[styles.toggleOption, mode === 'fixed' && styles.toggleOptionActive]} onPress={() => onChange('fixed')}>
+      <View style={[styles.radioOuter, mode === 'fixed' && { borderColor: Theme.colors.primary }]}>
         {mode === 'fixed' && <View style={styles.radioInner} />}
       </View>
       <View style={styles.toggleTextContainer}>
@@ -393,8 +376,8 @@ const PayrollTypeToggle: React.FC<{ mode: string; onChange: (mode: string) => vo
         <Text style={[styles.toggleOptionDesc, mode === 'fixed' && styles.toggleOptionDescActive]}>Basic pay only. LOP for absences.</Text>
       </View>
     </TouchableOpacity>
-    <TouchableOpacity style={[styles.toggleOption, mode === 'corporate' && styles.toggleOptionActive]} onPress={() => onChange('corporate')}>
-      <View style={[styles.radioOuter, mode === 'corporate' && { borderColor: '#1e3a8a' }]}>
+    <TouchableOpacity accessibilityRole="button" style={[styles.toggleOption, mode === 'corporate' && styles.toggleOptionActive]} onPress={() => onChange('corporate')}>
+      <View style={[styles.radioOuter, mode === 'corporate' && { borderColor: Theme.colors.primary }]}>
         {mode === 'corporate' && <View style={styles.radioInner} />}
       </View>
       <View style={styles.toggleTextContainer}>
@@ -422,7 +405,7 @@ const CorporateConfigForm: React.FC<{ cfg: CorporateConfig; onChange: (cfg: Corp
       <Field label="Basic % of CTC" width="100%"><PctInput value={cfg.basic_pct} onChange={(v) => onChange({ ...cfg, basic_pct: v })} /></Field>
       <View style={styles.divider} />
       <View>
-        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Allowances — % of CTC</Text><TouchableOpacity style={styles.addButton} onPress={() => onChange({ ...cfg, extra_allowances: [...extras, { id: uid(), label: 'Extra Allowance', pct: 0 }] })}><Text style={styles.addButtonText}>+ Add Allowance</Text></TouchableOpacity></View>
+        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Allowances — % of CTC</Text><TouchableOpacity accessibilityRole="button" style={styles.addButton} onPress={() => onChange({ ...cfg, extra_allowances: [...extras, { id: uid(), label: 'Extra Allowance', pct: 0 }] })}><Text style={styles.addButtonTextRed}>+ Add Allowance</Text></TouchableOpacity></View>
         <View style={styles.allowancesGrid}>
           <Field label="HRA %" width="48%"><PctInput value={cfg.hra_pct} onChange={(v) => onChange({ ...cfg, hra_pct: v })} /></Field>
           <Field label="DA %" width="48%"><PctInput value={cfg.da_pct} onChange={(v) => onChange({ ...cfg, da_pct: v })} /></Field>
@@ -433,15 +416,15 @@ const CorporateConfigForm: React.FC<{ cfg: CorporateConfig; onChange: (cfg: Corp
           <View key={ea.id} style={styles.extraItemContainer}>
             <TextInput style={styles.extraItemInput} value={ea.label} onChangeText={(text) => onChange({ ...cfg, extra_allowances: extras.map(a => a.id === ea.id ? { ...a, label: text } : a) })} placeholder="Allowance label" />
             <PctInput value={ea.pct} onChange={(v) => onChange({ ...cfg, extra_allowances: extras.map(a => a.id === ea.id ? { ...a, pct: v } : a) })} />
-            <TouchableOpacity style={styles.removeButton} onPress={() => onChange({ ...cfg, extra_allowances: extras.filter(a => a.id !== ea.id) })}>
-              <Trash2 size={16} color="#ef4444" />
+            <TouchableOpacity accessibilityRole="button" style={styles.removeButton} onPress={() => onChange({ ...cfg, extra_allowances: extras.filter(a => a.id !== ea.id) })}>
+              <Trash2 size={16} color={Theme.colors.error} />
             </TouchableOpacity>
           </View>
         ))}
       </View>
       <View style={styles.divider} />
       <View>
-        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Deductions</Text><TouchableOpacity style={[styles.addButton, styles.addButtonRed]} onPress={() => onChange({ ...cfg, extra_deductions: [...extraDeds, { id: uid(), label: 'Extra Deduction', pct: 0 }] })}><Text style={[styles.addButtonText, styles.addButtonTextRed]}>+ Add Deduction</Text></TouchableOpacity></View>
+        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Deductions</Text><TouchableOpacity accessibilityRole="button" style={[styles.addButton, styles.addButtonRed]} onPress={() => onChange({ ...cfg, extra_deductions: [...extraDeds, { id: uid(), label: 'Extra Deduction', pct: 0 }] })}><Text style={[styles.addButtonTextRed, styles.addButtonTextRed]}>+ Add Deduction</Text></TouchableOpacity></View>
         <View style={styles.deductionsGrid}>
           <Field label="PF % of Basic" width="48%"><PctInput value={cfg.pf_pct} onChange={(v) => onChange({ ...cfg, pf_pct: v })} /></Field>
           <Field label="ESI % of Basic" width="48%"><PctInput value={cfg.esi_pct} onChange={(v) => onChange({ ...cfg, esi_pct: v })} /></Field>
@@ -452,8 +435,8 @@ const CorporateConfigForm: React.FC<{ cfg: CorporateConfig; onChange: (cfg: Corp
           <View key={ed.id} style={[styles.extraItemContainer, styles.extraItemContainerRed]}>
             <TextInput style={styles.extraItemInput} value={ed.label} onChangeText={(text) => onChange({ ...cfg, extra_deductions: extraDeds.map(d => d.id === ed.id ? { ...d, label: text } : d) })} placeholder="Deduction label" />
             <PctInput value={ed.pct} onChange={(v) => onChange({ ...cfg, extra_deductions: extraDeds.map(d => d.id === ed.id ? { ...d, pct: v } : d) })} />
-            <TouchableOpacity style={styles.removeButton} onPress={() => onChange({ ...cfg, extra_deductions: extraDeds.filter(d => d.id !== ed.id) })}>
-              <Trash2 size={16} color="#ef4444" />
+            <TouchableOpacity accessibilityRole="button" style={styles.removeButton} onPress={() => onChange({ ...cfg, extra_deductions: extraDeds.filter(d => d.id !== ed.id) })}>
+              <Trash2 size={16} color={Theme.colors.error} />
             </TouchableOpacity>
           </View>
         ))}
@@ -512,12 +495,12 @@ const PayslipModal: React.FC<{ result: PayrollResult; month: string; year: strin
 
   const handleExport = async () => {
     setExporting(true);
-    try { await generatePayslipPDF(result, month, String(year), schoolCode, true, companyName); } 
-    catch { Alert.alert('Error', 'PDF export failed.'); } 
+    try { await generatePayslipPDF(result, month, String(year), schoolCode, true, companyName); }
+    catch { Alert.alert('Error', 'PDF export failed.'); }
     finally { setExporting(false); }
   };
 
-  const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Payslip – ${empName}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui, -apple-system, sans-serif;background:#fff;color:#111;font-size:12px;padding:20px}.header{padding:20px 16px;border-bottom:2px solid #111;display:flex;justify-content:space-between}.franchise-name{font-size:18px;font-weight:800}.slip-label{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#555;margin-top:3px}.period-box{text-align:right}.period-month{font-size:14px;font-weight:700}.period-gen{font-size:8px;color:#777;margin-top:3px}.info-grid{display:grid;grid-template-columns:repeat(3,1fr);border-left:1px solid #d1d5db;border-top:1px solid #d1d5db}.info-cell{padding:8px 12px;border-right:1px solid #d1d5db;border-bottom:1px solid #d1d5db}.info-label{font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#777;margin-bottom:2px}.info-value{font-size:12px;font-weight:600}.att-grid{display:grid;grid-template-columns:repeat(5,1fr);border-left:1px solid #d1d5db;border-bottom:1px solid #d1d5db}.att-cell{padding:10px 6px;text-align:center;border-right:1px solid #d1d5db}.att-num{font-size:18px;font-weight:800}.att-label{font-size:7px;text-transform:uppercase;letter-spacing:1px;color:#777;margin-top:3px}.earn-ded-grid{display:grid;grid-template-columns:1fr 1fr;border-left:1px solid #d1d5db}.col-header{padding:6px 12px;font-size:8px;font-weight:800;letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid #d1d5db;border-top:1px solid #d1d5db;background:#f9fafb}.row{display:flex;justify-content:space-between;padding:5px 12px;border-bottom:1px solid #ececec}.total-row{display:flex;justify-content:space-between;padding:6px 12px;font-weight:700;border-top:2px solid #111;border-bottom:1px solid #d1d5db}.net-band{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border:2px solid #111;margin:12px}.net-label{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#555;margin-bottom:4px}.net-amt{font-size:24px;font-weight:800}.net-side{text-align:right;font-size:9px}.footer{display:flex;justify-content:space-between;align-items:flex-end;padding:14px 20px;border-top:1px solid #d1d5db;font-size:9px;color:#666}.sig-box{border:1px dashed #aaa;padding:12px 20px;text-align:center;min-width:100px}</style></head><body>
+  const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Payslip – ${empName}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui, -apple-system, sans-serif;background:#fff;color:#111;font-size:12px;padding:20px}.header{padding:20px 16px;border-bottom:2px solid #111;display:flex;justify-content:space-between}.franchise-name{font-size:18px;font-weight:800}.slip-label{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#555;margin-top:3px}.period-box{text-align:right}.period-month{font-size:14px;font-weight:700}.period-gen{font-size:8px;color:#777;margin-top:3px}.info-grid{display:grid;grid-template-columns:repeat(3,1fr);border-left:1px solid #d1d5db;border-top:1px solid #d1d5db}.info-cell{padding: Theme.spacing.smpx 12px;border-right:1px solid #d1d5db;border-bottom:1px solid #d1d5db}.info-label{font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#777;margin-bottom:2px}.info-value{font-size:12px;font-weight:600}.att-grid{display:grid;grid-template-columns:repeat(5,1fr);border-left:1px solid #d1d5db;border-bottom:1px solid #d1d5db}.att-cell{padding:10px 6px;text-align:center;border-right:1px solid #d1d5db}.att-num{font-size:18px;font-weight:800}.att-label{font-size:7px;text-transform:uppercase;letter-spacing:1px;color:#777;margin-top:3px}.earn-ded-grid{display:grid;grid-template-columns:1fr 1fr;border-left:1px solid #d1d5db}.col-header{padding:6px 12px;font-size:8px;font-weight:800;letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid #d1d5db;border-top:1px solid #d1d5db;background:#f9fafb}.row{display:flex;justify-content:space-between;padding:5px 12px;border-bottom:1px solid #ececec}.total-row{display:flex;justify-content:space-between;padding:6px 12px;font-weight:700;border-top:2px solid #111;border-bottom:1px solid #d1d5db}.net-band{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border:2px solid #111;margin:12px}.net-label{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#555;margin-bottom:4px}.net-amt{font-size:24px;font-weight:800}.net-side{text-align:right;font-size:9px}.footer{display:flex;justify-content:space-between;align-items:flex-end;padding:14px 20px;border-top:1px solid #d1d5db;font-size:9px;color:#666}.sig-box{border:1px dashed #aaa;padding:12px 20px;text-align:center;min-width:100px}</style></head><body>
 <div class="header"><div><div class="franchise-name">${companyName || 'Organization'}</div><div class="slip-label">SALARY SLIP · ${mode === 'fixed' ? 'FIXED PAYROLL' : 'CORPORATE PAYROLL'}</div></div><div class="period-box"><div class="period-month">${month} ${year}</div><div class="period-gen">Generated: ${formatDateSafe(new Date())}</div></div></div>
 <div class="info-grid"><div class="info-cell"><div class="info-label">EMPLOYEE NAME</div><div class="info-value">${emp.teacher_full_name || 'N/A'}</div></div><div class="info-cell"><div class="info-label">EMPLOYEE ID</div><div class="info-value">${emp.employee_id || 'N/A'}</div></div><div class="info-cell"><div class="info-label">DESIGNATION</div><div class="info-value">${emp.designation || '—'}</div></div><div class="info-cell"><div class="info-label">DATE OF JOINING</div><div class="info-value">${emp.date_of_joining ? formatDateSafe(emp.date_of_joining) : '—'}</div></div><div class="info-cell"><div class="info-label">EMPLOYMENT TYPE</div><div class="info-value">${emp.employment_type || '—'}</div></div><div class="info-cell"><div class="info-label">PAY PERIOD</div><div class="info-value">${month} ${year}</div></div></div>
 <div class="att-grid"><div class="att-cell"><div class="att-num">${result.cfg.working_days}</div><div class="att-label">WORKING DAYS</div></div><div class="att-cell"><div class="att-num">${result.present_days}</div><div class="att-label">DAYS PRESENT</div></div><div class="att-cell"><div class="att-num">${result.late_days || 0}</div><div class="att-label">LATE DAYS</div></div><div class="att-cell"><div class="att-num">${result.paid_leave_used}</div><div class="att-label">PAID LEAVE USED</div></div><div class="att-cell"><div class="att-num">${result.lop_days}</div><div class="att-label">LOP DAYS</div></div></div>
@@ -533,10 +516,10 @@ const PayslipModal: React.FC<{ result: PayrollResult; month: string; year: strin
         <View style={styles.modalHeader}>
           <View><Text style={styles.modalTitle}>{empName}</Text><Text style={styles.modalSubtitle}>{month} {year} · {mode === 'fixed' ? 'Fixed' : 'Corporate'} Payroll</Text></View>
           <View style={styles.modalActions}>
-            <TouchableOpacity style={[styles.modalButton, styles.modalButtonPrimary]} onPress={handleExport} disabled={exporting}>
-              {exporting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.modalButtonText}>Download PDF</Text>}
+            <TouchableOpacity accessibilityRole="button" style={[styles.modalButton, styles.modalButtonPrimary]} onPress={handleExport} disabled={exporting}>
+              {exporting ? <ActivityIndicator size="small" color={Theme.colors.card} /> : <Text style={styles.modalButtonText}>Download PDF</Text>}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.modalButton} onPress={onClose}><Text style={styles.modalButtonTextClose}>Close</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" style={styles.modalButton} onPress={onClose}><Text style={styles.modalButtonTextClose}>Close</Text></TouchableOpacity>
           </View>
         </View>
         <View style={styles.webviewContainer}><WebView originWhitelist={['*']} source={{ html: htmlContent }} style={styles.webview} /></View>
@@ -549,7 +532,7 @@ const PayslipModal: React.FC<{ result: PayrollResult; month: string; year: strin
 
 const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({ schoolCode, companyName }) => {
   const insets = useSafeAreaInsets();
-  const handleScroll = useTabBarScrollVisibility();
+  const handleScroll = useScrollTabBar();
   const now = new Date();
   const [month, setMonth] = useState(MONTHS[now.getMonth()]);
   const [year, setYear] = useState(now.getFullYear());
@@ -580,16 +563,16 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
     if (!schoolCode) { setEmployees([]); return; }
     setLoadingEmps(true);
     try {
-      const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId') || '';
-      
+      const branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID) || '';
+
       const [empData, leaveResponse] = await Promise.all([
         principalService.getPrincipalTeachers({
           'school-code': schoolCode,
-          ...(branchId ? { 'branch-id': branchId } : {})
+          ...(branchId ? { 'branch-id': branchId } : {}),
         }),
-        API.get(`director/settings/leave-policy?school_code=${encodeURIComponent(schoolCode)}`).catch(() => null)
+        API.get(`director/settings/leave-policy?school_code=${encodeURIComponent(schoolCode)}`, { suppressFallback404Log: true } as any).catch(() => null),
       ]);
-      
+
       const mappedEmps = empData.map(t => ({
         ...t,
         id: t.teacher_id || t.id,
@@ -601,7 +584,7 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
 
       if (leaveResponse) {
         const leavePolicyData = leaveResponse.data;
-        if (leavePolicyData) setLeavePolicy({ casual_leave: Number(leavePolicyData.casual_leave || 1), sick_leave: Number(leavePolicyData.sick_leave || 1), paid_leave: Number(leavePolicyData.paid_leave || 1), comp_off: Number(leavePolicyData.comp_off || 0) });
+        if (leavePolicyData) {setLeavePolicy({ casual_leave: Number(leavePolicyData.casual_leave || 1), sick_leave: Number(leavePolicyData.sick_leave || 1), paid_leave: Number(leavePolicyData.paid_leave || 1), comp_off: Number(leavePolicyData.comp_off || 0) });}
       }
     } catch (err) { setEmployees([]); } finally { setLoadingEmps(false); }
   };
@@ -611,7 +594,7 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
   function resetCalc() { setAttMap({}); setAttFetched(false); setGeneratedMap({}); }
 
   const fetchAttendance = async () => {
-    if (!schoolCode || employees.length === 0) return;
+    if (!schoolCode || employees.length === 0) {return;}
     if (isPeriodInFuture(month, year)) { Alert.alert('Error', `Cannot fetch attendance for future period (${month} ${year}).`); return; }
     setLoadingAtt(true); setAttFetched(false); setGeneratedMap({});
     const mi = MONTHS.indexOf(month);
@@ -624,7 +607,7 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
       const map: Record<string, Attendance> = {};
       if (Array.isArray(data)) {
         data.forEach((att: Attendance) => { map[att.teacher_id] = att; });
-        employees.forEach(emp => { if (!map[emp.teacher_id]) map[emp.teacher_id] = { teacher_id: emp.teacher_id, present_days: 0, absent_days: wDays, late_days: 0, paid_leave_days: 0, total_days: wDays, attendance_percentage: 0 }; });
+        employees.forEach(emp => { if (!map[emp.teacher_id]) {map[emp.teacher_id] = { teacher_id: emp.teacher_id, present_days: 0, absent_days: wDays, late_days: 0, paid_leave_days: 0, total_days: wDays, attendance_percentage: 0 };} });
       }
       setAttMap(map); setAttFetched(true);
     } catch (err) { Alert.alert('Error', 'Failed to fetch attendance data'); } finally { setLoadingAtt(false); }
@@ -644,9 +627,9 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
     setSavingAll(true);
     try {
       const records = Object.values(generatedMap).map(result => ({ teacher_id: result.employee.teacher_id, employee_id: result.employee.employee_id, teacher_name: result.employee.teacher_full_name, email: result.employee.email_id, designation: result.employee.designation, employment_type: result.employee.employment_type, doj: result.employee.date_of_joining, salary: result.basic, present_days: result.present_days, absent_days: result.absent_days, lop_days: result.lop_days, lop_deduction: result.lop_deduction, gross_salary: result.gross, pf: result.pf || 0, esi: result.esi || 0, professional_tax: result.professional_tax || 0, other_deduction: result.other_deduction || 0, net_salary: result.net, mode: result.mode, working_days: wDays }));
-      const response = await API.post(`accountant/payroll/save-all`, { school_code: schoolCode, pay_month: month, pay_year: year, working_days: wDays, records: records });
+      const response = await API.post('accountant/payroll/save-all', { school_code: schoolCode, pay_month: month, pay_year: year, working_days: wDays, records: records });
       const data = response.data;
-      if (data.success) Alert.alert('Success', `✅ ${data.saved_count} payroll records saved!`);
+      if (data.success) {Alert.alert('Success', `✅ ${data.saved_count} payroll records saved!`);}
     } catch (err) { Alert.alert('Error', 'Error saving payroll records.'); } finally { setSavingAll(false); }
   };
 
@@ -657,17 +640,17 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
       setSendingEmails(true);
       try {
         const records = Object.values(generatedMap).map(result => ({ teacher_id: result.employee.teacher_id, teacher_name: result.employee.teacher_full_name, email: result.employee.email_id || result.employee.email, present_days: result.present_days, absent_days: result.absent_days, lop_days: result.lop_days, lop_deduction: result.lop_deduction, gross_salary: result.gross, net_salary: result.net, total_deductions: result.total_deductions, mode: result.mode }));
-        const response = await API.post(`accountant/payroll/send-email-bulk`, { school_code: schoolCode, pay_month: month, pay_year: year, company_name: companyName, records: records });
+        const response = await API.post('accountant/payroll/send-email-bulk', { school_code: schoolCode, pay_month: month, pay_year: year, company_name: companyName, records: records });
         const data = response.data;
-        if (data.success) Alert.alert('Success', `📧 Emails are being sent!`);
+        if (data.success) {Alert.alert('Success', '📧 Emails are being sent!');}
       } catch (err) { Alert.alert('Error', 'Error sending emails.'); } finally { setSendingEmails(false); }
     } }]);
   };
 
   const handleDownloadPDF = async (result: PayrollResult, empId: string) => {
     setDownloadingId(empId);
-    try { await generatePayslipPDF(result, month, String(year), schoolCode, true, companyName); } 
-    catch { Alert.alert('Error', 'PDF download failed.'); } 
+    try { await generatePayslipPDF(result, month, String(year), schoolCode, true, companyName); }
+    catch { Alert.alert('Error', 'PDF download failed.'); }
     finally { setDownloadingId(null); }
   };
 
@@ -693,46 +676,46 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
               <Text style={styles.sectionHeaderText}>Pay Period & Settings</Text>
               <View style={styles.configGrid}>
                 <Field label="Month" width="48%">
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={styles.pickerTrigger}
                     onPress={() => setPickerModal({
                       visible: true,
                       title: 'Select Month',
                       options: MONTHS.map(m => ({ label: m, value: m })),
                       selectedValue: month,
-                      onValueChange: (v) => { setMonth(v); resetCalc(); }
+                      onValueChange: (v) => { setMonth(v); resetCalc(); },
                     })}
                   >
                     <Text style={styles.pickerTriggerText}>{month}</Text>
-                    <ChevronDown size={18} color="#64748B" />
+                    <ChevronDown size={18} color={Theme.colors.textSec} />
                   </TouchableOpacity>
                 </Field>
                 <Field label="Year" width="48%">
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={styles.pickerTrigger}
                     onPress={() => setPickerModal({
                       visible: true,
                       title: 'Select Year',
                       options: years.map(y => ({ label: String(y), value: y })),
                       selectedValue: year,
-                      onValueChange: (v) => { setYear(v); resetCalc(); }
+                      onValueChange: (v) => { setYear(v); resetCalc(); },
                     })}
                   >
                     <Text style={styles.pickerTriggerText}>{year}</Text>
-                    <ChevronDown size={18} color="#64748B" />
+                    <ChevronDown size={18} color={Theme.colors.textSec} />
                   </TouchableOpacity>
                 </Field>
                 <Field label="Working Days" hint="Days in pay period" width="100%">
-                  <TextInput 
-                    style={styles.input} 
-                    value={String(wDays)} 
-                    onChangeText={(text) => { 
-                      const v = Number(text) || 26; 
-                      if (mode === 'fixed') setFixedCfg(p => ({ ...p, working_days: v })); 
-                      else setCorpCfg(p => ({ ...p, working_days: v })); 
-                      resetCalc(); 
-                    }} 
-                    keyboardType="numeric" 
+                  <TextInput
+                    style={styles.input}
+                    value={String(wDays)}
+                    onChangeText={(text) => {
+                      const v = Number(text) || 26;
+                      if (mode === 'fixed') {setFixedCfg(p => ({ ...p, working_days: v }));}
+                      else {setCorpCfg(p => ({ ...p, working_days: v }));}
+                      resetCalc();
+                    }}
+                    keyboardType="numeric"
                   />
                 </Field>
               </View>
@@ -760,7 +743,7 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
             <View style={styles.cardSection}>
               {mode === 'fixed' ? (
                 <View style={styles.fixedInfoBox}>
-                  <Info size={16} color="#3b82f6" />
+                  <Info size={16} color={Theme.colors.blue} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.fixedInfoText}>Formula: Net = Basic Salary − (Absent Days × Per-day Rate)</Text>
                     <Text style={styles.fixedInfoSubtext}>No allowances, no PF/ESI deductions.</Text>
@@ -770,9 +753,9 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
                 <CorporateConfigForm cfg={corpCfg} onChange={c => { setCorpCfg(c); resetCalc(); }} />
               )}
             </View>
-            {employees.length > 0 && (<View style={styles.cardSection}><View style={styles.fetchRow}><TouchableOpacity style={[styles.fetchButton, (loadingAtt || isPeriodFuture) && styles.fetchButtonDisabled]} onPress={fetchAttendance} disabled={loadingAtt || isPeriodFuture}>{loadingAtt ? <ActivityIndicator size="small" color="#4f46e5" /> : <Text style={styles.fetchButtonText}>Fetch {month} {year} Attendance</Text>}</TouchableOpacity>{attFetched && (<><TouchableOpacity style={styles.viewAttButton} onPress={() => setShowAttTable(!showAttTable)}><Text style={styles.viewAttButtonText}>{showAttTable ? 'Hide' : 'View'} Attendance Summary</Text></TouchableOpacity><View style={styles.attLoadedBadge}><Text style={styles.attLoadedText}>✓ Attendance loaded for {Object.keys(attMap).length} staff</Text></View></>)}</View></View>)}
+            {employees.length > 0 && (<View style={styles.cardSection}><View style={styles.fetchRow}><TouchableOpacity accessibilityRole="button" style={[styles.fetchButton, (loadingAtt || isPeriodFuture) && styles.fetchButtonDisabled]} onPress={fetchAttendance} disabled={loadingAtt || isPeriodFuture}>{loadingAtt ? <ActivityIndicator size="small" color="#4f46e5" /> : <Text style={styles.fetchButtonText}>Fetch {month} {year} Attendance</Text>}</TouchableOpacity>{attFetched && (<><TouchableOpacity accessibilityRole="button" style={styles.viewAttButton} onPress={() => setShowAttTable(!showAttTable)}><Text style={styles.viewAttButtonText}>{showAttTable ? 'Hide' : 'View'} Attendance Summary</Text></TouchableOpacity><View style={styles.attLoadedBadge}><Text style={styles.attLoadedText}>✓ Attendance loaded for {Object.keys(attMap).length} staff</Text></View></>)}</View></View>)}
           </View>
-          {attFetched && employees.length > 0 && genCount === 0 && !isPeriodFuture && (<View style={styles.generatePrompt}><View><Text style={styles.generatePromptTitle}>Ready to Generate Payroll</Text><Text style={styles.generatePromptDesc}>{month} {year} · {employees.length} staff members with attendance loaded</Text></View><TouchableOpacity style={styles.generateButton} onPress={generateAll}><Text style={styles.generateButtonText}>Generate All Payroll</Text></TouchableOpacity></View>)}
+          {attFetched && employees.length > 0 && genCount === 0 && !isPeriodFuture && (<View style={styles.generatePrompt}><View><Text style={styles.generatePromptTitle}>Ready to Generate Payroll</Text><Text style={styles.generatePromptDesc}>{month} {year} · {employees.length} staff members with attendance loaded</Text></View><TouchableOpacity accessibilityRole="button" style={styles.generateButton} onPress={generateAll}><Text style={styles.generateButtonText}>Generate All Payroll</Text></TouchableOpacity></View>)}
           {attFetched && employees.length > 0 && (<View style={styles.resultsContainer}>
             {genCount > 0 && (<View style={styles.summaryBar}><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Generated</Text><Text style={styles.summaryValue}>{genCount}/{employees.length}</Text></View><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Total Gross</Text><Text style={styles.summaryValue}>₹{fmt(totalGross)}</Text></View><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Total Deductions</Text><Text style={[styles.summaryValue, styles.summaryValueRed]}>₹{fmt(totalDed)}</Text></View><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Total Net</Text><Text style={[styles.summaryValue, styles.summaryValueGreen]}>₹{fmt(totalNet)}</Text></View></View>)}
             <View style={styles.actionBar}>
@@ -785,22 +768,22 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
               />
               <View style={styles.actionButtonsRow}>
                 {genCount < employees.length && genCount > 0 && (
-                  <TouchableOpacity style={styles.generateAllButton} onPress={generateAll}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.generateAllButton} onPress={generateAll}>
                     <Text style={styles.generateAllButtonText}>Generate All ({employees.length})</Text>
                   </TouchableOpacity>
                 )}
                 {genCount > 0 && (
                   <>
-                    <TouchableOpacity style={styles.saveAllButton} onPress={handleSaveAll} disabled={savingAll}>
+                    <TouchableOpacity accessibilityRole="button" style={styles.saveAllButton} onPress={handleSaveAll} disabled={savingAll}>
                       {savingAll ? (
-                        <ActivityIndicator size="small" color="#fff" />
+                        <ActivityIndicator size="small" color={Theme.colors.card} />
                       ) : (
                         <Text style={styles.saveAllButtonText}>Save All ({genCount})</Text>
                       )}
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.emailAllButton} onPress={handleSendEmails} disabled={sendingEmails}>
+                    <TouchableOpacity accessibilityRole="button" style={styles.emailAllButton} onPress={handleSendEmails} disabled={sendingEmails}>
                       {sendingEmails ? (
-                        <ActivityIndicator size="small" color="#fff" />
+                        <ActivityIndicator size="small" color={Theme.colors.card} />
                       ) : (
                         <Text style={styles.emailAllButtonText}>Send Mail ({genCount})</Text>
                       )}
@@ -814,10 +797,10 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
       }
       data={filteredEmps}
       keyExtractor={(item, index) => item.teacher_id || item.employee_id || (item as any).id || (item as any)._id || `employee-${index}`}
-      renderItem={({ item: emp }) => { 
-        const att = attMap[emp.teacher_id]; 
-        const result = generatedMap[emp.teacher_id]; 
-        const isGen = !!result; 
+      renderItem={({ item: emp }) => {
+        const att = attMap[emp.teacher_id];
+        const result = generatedMap[emp.teacher_id];
+        const isGen = !!result;
         return (
           <View style={[styles.employeeCard, isGen && styles.employeeCardGenerated]}>
             <View style={styles.employeeInfo}>
@@ -861,25 +844,25 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
             </View>
             <View style={styles.employeeActionsRow}>
               {!isGen ? (
-                <TouchableOpacity style={styles.generateEmpButton} onPress={() => generateForEmployee(emp)} disabled={isPeriodFuture || !attFetched}>
+                <TouchableOpacity accessibilityRole="button" style={styles.generateEmpButton} onPress={() => generateForEmployee(emp)} disabled={isPeriodFuture || !attFetched}>
                   <Text style={styles.generateEmpButtonText}>Generate</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={styles.actionButtonsGroup}>
-                  <TouchableOpacity style={[styles.actionBtn, styles.viewBtn]} onPress={() => result && setOpenPayslip(result)}>
-                    <Text style={styles.actionBtnTextBlue}>View</Text>
+                  <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.viewBtn]} onPress={() => result && setOpenPayslip(result)}>
+                    <Text style={styles.actionBtn}>View</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionBtn, styles.pdfBtn]} onPress={() => result && handleDownloadPDF(result, emp.teacher_id)} disabled={downloadingId === emp.teacher_id}>
-                    {downloadingId === emp.teacher_id ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionBtnText}>PDF</Text>}
+                  <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.pdfBtn]} onPress={() => result && handleDownloadPDF(result, emp.teacher_id)} disabled={downloadingId === emp.teacher_id}>
+                    {downloadingId === emp.teacher_id ? <ActivityIndicator size="small" color={Theme.colors.card} /> : <Text style={styles.actionBtn}>PDF</Text>}
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionBtn, styles.recalcBtn]} onPress={() => generateForEmployee(emp)}>
+                  <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.recalcBtn]} onPress={() => generateForEmployee(emp)}>
                     <Text style={styles.recalcBtnText}>⟳</Text>
                   </TouchableOpacity>
                 </View>
               )}
             </View>
           </View>
-        ); 
+        );
       }}
       ListEmptyComponent={<View style={styles.emptyState}><Text style={styles.emptyStateText}>No staff members found</Text></View>}
       ListFooterComponent={
@@ -896,7 +879,7 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
 
 const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({ schoolCode, companyName }) => {
   const insets = useSafeAreaInsets();
-  const handleScroll = useTabBarScrollVisibility();
+  const handleScroll = useScrollTabBar();
   const now = new Date();
   const [month, setMonth] = useState(MONTHS[now.getMonth()]);
   const [year, setYear] = useState(now.getFullYear());
@@ -916,13 +899,13 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
     setLoadingEmps(true);
     (async () => {
       try {
-        const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId') || '';
+        const branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID) || '';
         const [empData, leaveResponse] = await Promise.all([
           principalService.getPrincipalTeachers({
             'school-code': schoolCode,
-            ...(branchId ? { 'branch-id': branchId } : {})
+            ...(branchId ? { 'branch-id': branchId } : {}),
           }),
-          API.get(`director/settings/leave-policy?school_code=${encodeURIComponent(schoolCode)}`).catch(() => null)
+          API.get(`director/settings/leave-policy?school_code=${encodeURIComponent(schoolCode)}`, { suppressFallback404Log: true } as any).catch(() => null),
         ]);
         const mappedEmps = empData.map(t => ({
           ...t,
@@ -932,7 +915,7 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
           employee_id: t.employee_id || t.id,
         }));
         setEmployees(mappedEmps);
-        if (leaveResponse) { const leavePolicyData = leaveResponse.data; if (leavePolicyData) setLeavePolicy({ casual_leave: Number(leavePolicyData.casual_leave || 1), sick_leave: Number(leavePolicyData.sick_leave || 1), paid_leave: Number(leavePolicyData.paid_leave || 1), comp_off: Number(leavePolicyData.comp_off || 0) }); }
+        if (leaveResponse) { const leavePolicyData = leaveResponse.data; if (leavePolicyData) {setLeavePolicy({ casual_leave: Number(leavePolicyData.casual_leave || 1), sick_leave: Number(leavePolicyData.sick_leave || 1), paid_leave: Number(leavePolicyData.paid_leave || 1), comp_off: Number(leavePolicyData.comp_off || 0) });} }
       } catch (err) { setEmployees([]); } finally { setLoadingEmps(false); }
     })();
   }, [schoolCode]);
@@ -941,7 +924,7 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
   const wDays = empConfig.mode === 'fixed' ? empConfig.fixedCfg.working_days : empConfig.corpCfg.working_days;
 
   const fetchAttForEmp = async () => {
-    if (!selectedEmp) return;
+    if (!selectedEmp) {return;}
     setEmpConfig(c => ({ ...c, loadingAtt: true, attFetched: false, result: null }));
     const mi = MONTHS.indexOf(month);
     const startDateStr = `${year}-${String(mi + 1).padStart(2, '0')}-01`;
@@ -950,7 +933,7 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
     try {
       const response = await API.get(`accountant/payroll/attendance?school_code=${encodeURIComponent(schoolCode)}&teacher_id=${encodeURIComponent(selectedId!)}&start_date=${startDateStr}&end_date=${endDateStr}`);
       const data = response.data;
-      if (Array.isArray(data)) { const att = data.find(a => a.teacher_id === selectedId); setEmpConfig(c => ({ ...c, att: att || { teacher_id: selectedId, present_days: 0, absent_days: wDays, late_days: 0, paid_leave_days: 0, total_days: wDays, attendance_percentage: 0 }, attFetched: true, loadingAtt: false })); } 
+      if (Array.isArray(data)) { const att = data.find(a => a.teacher_id === selectedId); setEmpConfig(c => ({ ...c, att: att || { teacher_id: selectedId, present_days: 0, absent_days: wDays, late_days: 0, paid_leave_days: 0, total_days: wDays, attendance_percentage: 0 }, attFetched: true, loadingAtt: false })); }
       else { setEmpConfig(c => ({ ...c, att: { teacher_id: selectedId!, present_days: 0, absent_days: wDays, late_days: 0, paid_leave_days: 0, total_days: wDays, attendance_percentage: 0 }, attFetched: true, loadingAtt: false })); }
     } catch (err) { setEmpConfig(c => ({ ...c, attFetched: true, loadingAtt: false })); Alert.alert('Error', 'Failed to fetch attendance data'); }
   };
@@ -960,24 +943,24 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
     setSendingEmail(true);
     try {
       const record = { teacher_id: selectedEmp!.teacher_id, teacher_name: selectedEmp!.teacher_full_name, email: selectedEmp!.email_id, present_days: empConfig.att?.present_days || 0, absent_days: empConfig.att?.absent_days || 0, lop_days: empConfig.result.lop_days, lop_deduction: empConfig.result.lop_deduction, gross_salary: empConfig.result.gross, net_salary: empConfig.result.net, total_deductions: empConfig.result.total_deductions, mode: empConfig.mode };
-      const response = await API.post(`accountant/payroll/send-email-single`, { school_code: schoolCode, pay_month: month, pay_year: year, company_name: companyName, record: record });
+      const response = await API.post('accountant/payroll/send-email-single', { school_code: schoolCode, pay_month: month, pay_year: year, company_name: companyName, record: record });
       const data = response.data;
-      if (data.success) Alert.alert('Success', `✅ Payslip sent to ${selectedEmp!.teacher_full_name}!`);
-      else Alert.alert('Error', 'Failed to send email.');
+      if (data.success) {Alert.alert('Success', `✅ Payslip sent to ${selectedEmp!.teacher_full_name}!`);}
+      else {Alert.alert('Error', 'Failed to send email.');}
     } catch (err) { Alert.alert('Error', 'Error sending email.'); } finally { setSendingEmail(false); }
   };
 
   const generate = () => {
-    if (!selectedEmp || !empConfig.att) return;
+    if (!selectedEmp || !empConfig.att) {return;}
     const result = empConfig.mode === 'fixed' ? calcFixed(selectedEmp, empConfig.att, empConfig.fixedCfg, leavePolicy) : calcCorporate(selectedEmp, empConfig.att, empConfig.corpCfg, leavePolicy);
     setEmpConfig(c => ({ ...c, result }));
   };
 
   return (
-    <ScrollView 
-      style={styles.tabContainer} 
+    <ScrollView
+      style={styles.tabContainer}
       contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 120, 140) }}
-      onScroll={handleScroll} 
+      onScroll={handleScroll}
       scrollEventThrottle={16}
     >
       <View style={styles.card}>
@@ -985,62 +968,62 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
           <Text style={styles.sectionHeaderText}>Select Staff Member & Period</Text>
           <View style={styles.configGrid}>
             <Field label="Month" width="48%">
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.pickerTrigger}
                 onPress={() => setPickerModal({
                   visible: true,
                   title: 'Select Month',
                   options: MONTHS.map(m => ({ label: m, value: m })),
                   selectedValue: month,
-                  onValueChange: setMonth
+                  onValueChange: setMonth,
                 })}
               >
                 <Text style={styles.pickerTriggerText}>{month}</Text>
-                <ChevronDown size={18} color="#64748B" />
+                <ChevronDown size={18} color={Theme.colors.textSec} />
               </TouchableOpacity>
             </Field>
             <Field label="Year" width="48%">
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.pickerTrigger}
                 onPress={() => setPickerModal({
                   visible: true,
                   title: 'Select Year',
                   options: years.map(y => ({ label: String(y), value: y })),
                   selectedValue: year,
-                  onValueChange: (v) => setYear(Number(v))
+                  onValueChange: (v) => setYear(Number(v)),
                 })}
               >
                 <Text style={styles.pickerTriggerText}>{year}</Text>
-                <ChevronDown size={18} color="#64748B" />
+                <ChevronDown size={18} color={Theme.colors.textSec} />
               </TouchableOpacity>
             </Field>
             <Field label="Staff Member" hint="Select to configure" width="100%">
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.pickerTrigger}
                 onPress={() => setPickerModal({
                   visible: true,
                   title: 'Select Staff Member',
                   options: employees.map(e => ({ label: `${e.teacher_full_name} (${e.employee_id})`, value: e.teacher_id })),
                   selectedValue: selectedId,
-                  onValueChange: (v) => { setSelectedId(v); setEmpConfig({ mode: 'fixed', fixedCfg: DEFAULT_FIXED, corpCfg: DEFAULT_CORP, result: null, attFetched: false, att: null, loadingAtt: false }); }
+                  onValueChange: (v) => { setSelectedId(v); setEmpConfig({ mode: 'fixed', fixedCfg: DEFAULT_FIXED, corpCfg: DEFAULT_CORP, result: null, attFetched: false, att: null, loadingAtt: false }); },
                 })}
               >
                 <Text style={styles.pickerTriggerText} numberOfLines={1}>
                   {selectedEmp ? `${selectedEmp.teacher_full_name}` : '— Select staff —'}
                 </Text>
-                <ChevronDown size={18} color="#64748B" />
+                <ChevronDown size={18} color={Theme.colors.textSec} />
               </TouchableOpacity>
             </Field>
             <Field label="Working Days" width="100%">
-              <TextInput 
-                style={styles.input} 
-                value={String(wDays)} 
-                onChangeText={(text) => { 
-                  const v = Number(text) || 26; 
-                  if (empConfig.mode === 'fixed') setEmpConfig(c => ({ ...c, fixedCfg: { ...c.fixedCfg, working_days: v } })); 
-                  else setEmpConfig(c => ({ ...c, corpCfg: { ...c.corpCfg, working_days: v } })); 
-                }} 
-                keyboardType="numeric" 
+              <TextInput
+                style={styles.input}
+                value={String(wDays)}
+                onChangeText={(text) => {
+                  const v = Number(text) || 26;
+                  if (empConfig.mode === 'fixed') {setEmpConfig(c => ({ ...c, fixedCfg: { ...c.fixedCfg, working_days: v } }));}
+                  else {setEmpConfig(c => ({ ...c, corpCfg: { ...c.corpCfg, working_days: v } }));}
+                }}
+                keyboardType="numeric"
               />
             </Field>
           </View>
@@ -1065,7 +1048,7 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
             {empConfig.mode === 'corporate' && <CorporateConfigForm cfg={empConfig.corpCfg} onChange={c => setEmpConfig(prev => ({ ...prev, corpCfg: c, result: null }))} />}
             {empConfig.mode === 'fixed' && (
               <View style={styles.fixedInfoBox}>
-                <Info size={16} color="#3b82f6" />
+                <Info size={16} color={Theme.colors.blue} />
                 <Text style={[styles.fixedInfoText, { flex: 1 }]}>Net = Basic − (LOP days × Per-day rate). No allowances or PF.</Text>
               </View>
             )}
@@ -1077,7 +1060,7 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
                 </View>
               ) : (
                 <>
-                  <TouchableOpacity style={styles.fetchButton} onPress={fetchAttForEmp} disabled={empConfig.loadingAtt}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.fetchButton} onPress={fetchAttForEmp} disabled={empConfig.loadingAtt}>
                     {empConfig.loadingAtt ? <ActivityIndicator size="small" color="#4f46e5" /> : <Text style={styles.fetchButtonText}>Fetch {month} {year} Attendance</Text>}
                   </TouchableOpacity>
                   {empConfig.attFetched && (
@@ -1085,7 +1068,7 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
                       <View style={styles.attLoadedBadge}>
                         <Text style={styles.attLoadedText}>✓ Present: {empConfig.att?.present_days ?? 0} · Absent: {empConfig.att?.absent_days ?? 0}</Text>
                       </View>
-                      <TouchableOpacity style={styles.generateButton} onPress={generate}>
+                      <TouchableOpacity accessibilityRole="button" style={styles.generateButton} onPress={generate}>
                         <Text style={styles.generateButtonText}>{empConfig.result ? 'Recalculate' : 'Generate Payroll'}</Text>
                       </TouchableOpacity>
                     </>
@@ -1110,14 +1093,14 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
                   </View>
                 </View>
                 <View style={styles.actionButtonsGroup}>
-                  <TouchableOpacity style={[styles.actionBtn, styles.viewBtn]} onPress={() => setOpenPayslip(empConfig.result!)}>
-                    <Text style={styles.actionBtnTextBlue}>View Payslip</Text>
+                  <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.viewBtn]} onPress={() => setOpenPayslip(empConfig.result!)}>
+                    <Text style={styles.actionBtn}>View Payslip</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionBtn, styles.pdfBtn]} onPress={async () => { setDownloadingId(selectedId); try { await generatePayslipPDF(empConfig.result!, month, String(year), schoolCode, true, companyName); } catch { Alert.alert('Error', 'PDF download failed.'); } finally { setDownloadingId(null); } }} disabled={downloadingId === selectedId}>
-                    {downloadingId === selectedId ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionBtnText}>Download PDF</Text>}
+                  <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.pdfBtn]} onPress={async () => { setDownloadingId(selectedId); try { await generatePayslipPDF(empConfig.result!, month, String(year), schoolCode, true, companyName); } catch { Alert.alert('Error', 'PDF download failed.'); } finally { setDownloadingId(null); } }} disabled={downloadingId === selectedId}>
+                    {downloadingId === selectedId ? <ActivityIndicator size="small" color={Theme.colors.card} /> : <Text style={styles.actionBtn}>Download PDF</Text>}
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionBtn, styles.emailBtn]} onPress={handleSendSingleEmail} disabled={sendingEmail}>
-                    {sendingEmail ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionBtnText}>Send Mail</Text>}
+                  <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.emailBtn]} onPress={handleSendSingleEmail} disabled={sendingEmail}>
+                    {sendingEmail ? <ActivityIndicator size="small" color={Theme.colors.card} /> : <Text style={styles.actionBtn}>Send Mail</Text>}
                   </TouchableOpacity>
                 </View>
               </>
@@ -1137,7 +1120,7 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
 
 const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({ schoolCode, companyName }) => {
   const insets = useSafeAreaInsets();
-  const handleScroll = useTabBarScrollVisibility();
+  const handleScroll = useScrollTabBar();
   const now = new Date();
   const [month, setMonth] = useState(MONTHS[now.getMonth()]);
   const [year, setYear] = useState(now.getFullYear());
@@ -1152,12 +1135,12 @@ const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }
     setLoadingEmps(true);
     (async () => {
       try {
-        const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId') || '';
+        const branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID) || '';
         const empData = await principalService.getPrincipalTeachers({
           'school-code': schoolCode,
-          ...(branchId ? { 'branch-id': branchId } : {})
+          ...(branchId ? { 'branch-id': branchId } : {}),
         });
-        
+
         const mappedEmps = empData.filter(e => (e.employment_type || '').toLowerCase().includes('part')).map(t => ({
           ...t,
           id: t.teacher_id || t.id,
@@ -1169,7 +1152,7 @@ const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }
           loadingAtt: false,
           hourlyRate: t.hourly_rate || 0,
           gross: null,
-          net: null
+          net: null,
         }));
         setEmployees(mappedEmps);
       } catch (err) { setEmployees([]); } finally { setLoadingEmps(false); }
@@ -1189,7 +1172,7 @@ const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }
       const data = response.data;
       const att = Array.isArray(data) ? data.find(a => a.teacher_id === empId) : null;
       const totalHours = att ? (att.present_days || 0) * 8 : 0;
-      setEmployees(prev => prev.map(e => { if (e.teacher_id !== empId) return e; const gross = totalHours * e.hourlyRate; return { ...e, totalHours, attFetched: true, loadingAtt: false, gross, net: gross }; }));
+      setEmployees(prev => prev.map(e => { if (e.teacher_id !== empId) {return e;} const gross = totalHours * e.hourlyRate; return { ...e, totalHours, attFetched: true, loadingAtt: false, gross, net: gross }; }));
     } catch { setEmployees(prev => prev.map(e => e.teacher_id === empId ? { ...e, loadingAtt: false } : e)); }
   };
 
@@ -1204,39 +1187,39 @@ const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }
         <View style={styles.cardSection}>
           <View style={styles.configGrid}>
             <Field label="Month" width="48%">
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.pickerTrigger}
                 onPress={() => setPickerModal({
                   visible: true,
                   title: 'Select Month',
                   options: MONTHS.map(m => ({ label: m, value: m })),
                   selectedValue: month,
-                  onValueChange: setMonth
+                  onValueChange: setMonth,
                 })}
               >
                 <Text style={styles.pickerTriggerText}>{month}</Text>
-                <ChevronDown size={18} color="#64748B" />
+                <ChevronDown size={18} color={Theme.colors.textSec} />
               </TouchableOpacity>
             </Field>
             <Field label="Year" width="48%">
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.pickerTrigger}
                 onPress={() => setPickerModal({
                   visible: true,
                   title: 'Select Year',
                   options: years.map(y => ({ label: String(y), value: y })),
                   selectedValue: year,
-                  onValueChange: (v) => setYear(Number(v))
+                  onValueChange: (v) => setYear(Number(v)),
                 })}
               >
                 <Text style={styles.pickerTriggerText}>{year}</Text>
-                <ChevronDown size={18} color="#64748B" />
+                <ChevronDown size={18} color={Theme.colors.textSec} />
               </TouchableOpacity>
             </Field>
             <Field label="Rate per Hour (₹)" width="100%">
               <View style={styles.applyRateRow}>
                 <View style={{ flex: 1 }}><RupeeInput value={globalRate} onChange={setGlobalRate} /></View>
-                <TouchableOpacity style={[styles.applyButton, !globalRate && styles.applyButtonDisabled]} onPress={applyGlobalRate} disabled={!globalRate}>
+                <TouchableOpacity accessibilityRole="button" style={[styles.applyButton, !globalRate && styles.applyButtonDisabled]} onPress={applyGlobalRate} disabled={!globalRate}>
                   <Text style={styles.applyButtonText}>Apply to All</Text>
                 </TouchableOpacity>
               </View>
@@ -1265,21 +1248,21 @@ const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }
                   </View>
                   {emp.gross !== null && (
                     <View style={styles.hoursGross}>
-                      <Text style={styles.hoursGrossAmount}>₹{fmt(emp.gross)}</Text>
+                      <Text style={styles.hoursGross}>₹{fmt(emp.gross)}</Text>
                       <Text style={styles.hoursGrossDetail}>{emp.totalHours.toFixed(1)}h × ₹{fmt(emp.hourlyRate)}</Text>
                     </View>
                   )}
                 </View>
-                
+
                 <View style={styles.hoursBodyRow}>
                   <View style={styles.hoursRateCol}>
                     <Text style={styles.hoursRateLabel}>Rate / Hour</Text>
-                    <RupeeInput 
-                      value={emp.hourlyRate} 
-                      onChange={(rate) => setEmployees(prev => prev.map(e2 => e2.teacher_id === emp.teacher_id ? { ...e2, hourlyRate: rate, gross: e2.attFetched ? e2.totalHours * rate : null, net: e2.attFetched ? e2.totalHours * rate : null } : e2))} 
+                    <RupeeInput
+                      value={emp.hourlyRate}
+                      onChange={(rate) => setEmployees(prev => prev.map(e2 => e2.teacher_id === emp.teacher_id ? { ...e2, hourlyRate: rate, gross: e2.attFetched ? e2.totalHours * rate : null, net: e2.attFetched ? e2.totalHours * rate : null } : e2))}
                     />
                   </View>
-                  
+
                   <View style={styles.hoursStatusCol}>
                     <Text style={styles.hoursRateLabel}>Hours Worked</Text>
                     {emp.attFetched ? (
@@ -1287,12 +1270,12 @@ const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }
                         <Text style={styles.hoursBadgeText}>{emp.totalHours.toFixed(1)}h</Text>
                       </View>
                     ) : (
-                      <TouchableOpacity 
-                        style={styles.fetchHoursButton} 
-                        onPress={() => fetchAttForEmp(emp.teacher_id)} 
+                      <TouchableOpacity accessibilityRole="button"
+                        style={styles.fetchHoursButton}
+                        onPress={() => fetchAttForEmp(emp.teacher_id)}
                         disabled={emp.loadingAtt}
                       >
-                        {emp.loadingAtt ? <ActivityIndicator size="small" color="#1e3a8a" /> : <Text style={styles.fetchHoursButtonText}>Fetch Hours</Text>}
+                        {emp.loadingAtt ? <ActivityIndicator size="small" color={Theme.colors.primary} /> : <Text style={styles.fetchHoursButton}>Fetch Hours</Text>}
                       </TouchableOpacity>
                     )}
                   </View>
@@ -1317,14 +1300,14 @@ const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }
 export default function PayrollScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const handleScroll = useTabBarScrollVisibility();
+  const handleScroll = useScrollTabBar();
   const [activeTab, setActiveTab] = useState('bulk');
   const [schoolCode, setSchoolCode] = useState('');
   const [companyName, setCompanyName] = useState('School');
 
   useEffect(() => {
     (async () => {
-      const code = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || '';
+      const code = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || '';
       setSchoolCode(code);
       const name = await AsyncStorage.getItem('company_name') || await AsyncStorage.getItem('school_name') || 'School';
       setCompanyName(name);
@@ -1339,26 +1322,26 @@ export default function PayrollScreen() {
 
   return (
     <View style={styles.mainContainer}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
-      <AccountantPageHeader 
-        title="Payroll Processing" 
+
+      <StandardPageHeader
+        title="Payroll Processing"
         greeting="Staff Payroll"
-        subtext="Calculate and manage salaries"
-        onBackPress={() => navigation.goBack()} 
+        greetingSubtext="Calculate and manage salaries"
+        onBackPress={() => navigation.goBack()}
       />
       <View style={styles.contentOverlap}>
         <View style={styles.tabsContainer}>
           {tabs.map(tab => {
             const isActive = activeTab === tab.key;
             return (
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 key={tab.key}
                 style={[styles.tab, isActive && styles.tabActive]}
                 onPress={() => setActiveTab(tab.key)}
               >
-                {tab.key === 'bulk' && <Users size={16} color={isActive ? '#1e3a8a' : '#64748b'} />}
-                {tab.key === 'individual' && <User size={16} color={isActive ? '#1e3a8a' : '#64748b'} />}
-                {tab.key === 'hours' && <Clock size={16} color={isActive ? '#1e3a8a' : '#64748b'} />}
+                {tab.key === 'bulk' && <Users size={16} color={isActive ? Theme.colors.primary : Theme.colors.textSec} />}
+                {tab.key === 'individual' && <User size={16} color={isActive ? Theme.colors.primary : Theme.colors.textSec} />}
+                {tab.key === 'hours' && <Clock size={16} color={isActive ? Theme.colors.primary : Theme.colors.textSec} />}
                 <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
                   {tab.label}
                 </Text>
@@ -1383,7 +1366,7 @@ const styles = StyleSheet.create({
   contentOverlap: {
     flex: 1,
     marginTop: -28,
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingTop: 12,
@@ -1394,15 +1377,15 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   tabsContainer: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
     flexDirection: 'row',
     borderRadius: 16,
-    padding: 4,
-    marginHorizontal: 16,
+    padding: Theme.spacing.xs,
+    marginHorizontal: Theme.spacing.md,
     marginTop: 12,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
   },
   tab: {
     flex: 1,
@@ -1414,7 +1397,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tabActive: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -1424,187 +1407,184 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.textSec,
   },
   tabLabelActive: {
-    color: '#1e3a8a',
+    color: Theme.colors.primary,
     fontWeight: '700',
   },
   tabDesc: { display: 'none' },
   tabDescActive: { display: 'none' },
-  contentContainer: { flex: 1, padding: 16 },
+  contentContainer: { flex: 1, padding: Theme.spacing.md },
   tabContainer: { flex: 1 },
-  card: { backgroundColor: '#fff', borderRadius: 24, borderWidth: 1, borderColor: '#f1f5f9', marginBottom: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
-  cardSection: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  sectionHeaderText: { fontSize: 11, fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
-  configGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 16, marginBottom: 16 },
+  card: { backgroundColor: Theme.colors.card, borderRadius: 24, borderWidth: 1, borderColor: Theme.colors.background, marginBottom: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
+  cardSection: { padding: 20, borderBottomWidth: 1, borderBottomColor: Theme.colors.background },
+  sectionHeaderText: { ...Theme.typography.label, fontWeight: 'bold', color: Theme.colors.textSec, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
+  configGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 16, marginBottom: Theme.spacing.md },
   fieldContainer: { minWidth: 100 },
-  fieldLabel: { fontSize: 10, fontWeight: '700', color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  fieldHint: { fontSize: 9, color: '#94a3b8', marginTop: 4 },
-  pickerContainer: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, backgroundColor: '#fff' },
-  pickerContainerSmall: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, backgroundColor: '#fff', minWidth: 120 },
+  fieldLabel: { fontSize: 10, fontWeight: '700', color: Theme.colors.textSec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  fieldHint: { fontSize: 9, color: '#94a3b8', marginTop: Theme.spacing.xs },
+  pickerContainer: { borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 10, backgroundColor: Theme.colors.background },
+  pickerContainerSmall: { borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 10, backgroundColor: Theme.colors.background, minWidth: 120 },
   picker: { height: 48 },
-  input: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, paddingHorizontal: 12, height: 44, color: '#0f172a', backgroundColor: '#f8fafc' },
-  pctInputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, backgroundColor: '#f8fafc', paddingHorizontal: 10 },
-  pctInput: { flex: 1, height: 44, color: '#0f172a' },
-  pctInputSymbol: { color: '#64748b', fontWeight: '700' },
-  rupeeInputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, backgroundColor: '#f8fafc', paddingHorizontal: 10 },
-  rupeeInputSymbol: { color: '#64748b', marginRight: 4, fontWeight: '700' },
-  rupeeInput: { flex: 1, height: 44, color: '#0f172a' },
-  toggleContainer: { flexDirection: 'column', gap: 12, marginTop: 8 },
-  toggleOption: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 16, padding: 16, backgroundColor: '#ffffff' },
-  toggleOptionActive: { borderColor: '#1e3a8a', backgroundColor: '#f8faff' },
+  input: { borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 10, paddingHorizontal: 12, height: 44, color: Theme.colors.text, backgroundColor: Theme.colors.background },
+  pctInputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 10, backgroundColor: Theme.colors.background, paddingHorizontal: 10 },
+  pctInput: { flex: 1, height: 44, color: Theme.colors.text },
+  pctInputSymbol: { color: Theme.colors.textSec, fontWeight: '700' },
+  rupeeInputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 10, backgroundColor: Theme.colors.background, paddingHorizontal: 10 },
+  rupeeInputSymbol: { color: Theme.colors.textSec, marginRight: Theme.spacing.xs, fontWeight: '700' },
+  rupeeInput: { flex: 1, height: 44, color: Theme.colors.text },
+  toggleContainer: { flexDirection: 'column', gap: 12, marginTop: Theme.spacing.sm },
+  toggleOption: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: Theme.colors.border, borderRadius: 16, padding: Theme.spacing.md, backgroundColor: Theme.colors.background },
+  toggleOptionActive: { borderColor: Theme.colors.primary, backgroundColor: '#f8faff' },
   radioOuter: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#cbd5e1', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#1e3a8a' },
+  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: Theme.colors.primary },
   toggleTextContainer: { flex: 1 },
-  toggleOptionTitle: { fontWeight: '700', color: '#334155', fontSize: 14 },
-  toggleOptionTitleActive: { color: '#1e3a8a' },
-  toggleOptionDesc: { marginTop: 2, color: '#64748b', fontSize: 11 },
-  toggleOptionDescActive: { color: '#3b82f6' },
+  toggleOptionTitle: { ...Theme.typography.body, fontWeight: '700', color: '#334155' },
+  toggleOptionTitleActive: { color: Theme.colors.primary },
+  toggleOptionDesc: { marginTop: 2, color: Theme.colors.textSec, ...Theme.typography.label },
+  toggleOptionDescActive: { color: Theme.colors.blue },
   configForm: { maxHeight: 720 },
-  divider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 12 },
+  divider: { height: 1, backgroundColor: Theme.colors.background, marginVertical: 12 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 12, fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle: { ...Theme.typography.caption, fontWeight: '700', color: Theme.colors.textSec, textTransform: 'uppercase', letterSpacing: 0.5 },
   addButton: { backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
   addButtonRed: { backgroundColor: '#fff5f5', borderColor: '#feb2b2' },
-  addButtonText: { color: '#1e3a8a', fontWeight: '700', fontSize: 11 },
   addButtonTextRed: { color: '#c53030' },
-  allowancesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, marginBottom: 8 },
-  deductionsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, marginBottom: 8 },
-  extraItemContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8, backgroundColor: '#f8fafc', borderRadius: 12, padding: 8, borderWidth: 1, borderColor: '#e2e8f0' },
+  allowancesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, marginBottom: Theme.spacing.sm },
+  deductionsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, marginBottom: Theme.spacing.sm },
+  extraItemContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: Theme.spacing.sm, backgroundColor: Theme.colors.background, borderRadius: 12, padding: Theme.spacing.sm, borderWidth: 1, borderColor: Theme.colors.border },
   extraItemContainerRed: { backgroundColor: '#fff5f5', borderColor: '#feb2b2' },
-  extraItemInput: { flex: 1, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, paddingHorizontal: 10, height: 42, backgroundColor: '#fff' },
+  extraItemInput: { flex: 1, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 10, paddingHorizontal: 10, height: 42, backgroundColor: Theme.colors.background },
   removeButton: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fee2e2' },
-  removeButtonText: { color: '#ef4444', fontWeight: '700', fontSize: 18, lineHeight: 18 },
-  previewContainer: { marginTop: 20, borderRadius: 20, backgroundColor: '#ffffff', borderWidth: 1.5, borderColor: '#e2e8f0', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
-  previewHeader: { backgroundColor: '#1e3a8a', paddingVertical: 12, paddingHorizontal: 16 },
-  previewHeaderTitle: { color: '#ffffff', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  previewContent: { padding: 16 },
+  removeButtonText: { color: Theme.colors.error, ...Theme.typography.h3, lineHeight: 18 },
+  previewContainer: { marginTop: 20, borderRadius: 20, backgroundColor: Theme.colors.background, borderWidth: 1.5, borderColor: Theme.colors.border, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
+  previewHeader: { backgroundColor: Theme.colors.primary, paddingVertical: 12, paddingHorizontal: Theme.spacing.md },
+  previewHeaderTitle: { color: Theme.colors.card, ...Theme.typography.caption, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  previewContent: { padding: Theme.spacing.md },
   previewRow: { flexDirection: 'row', gap: 16 },
   previewColumn: { flex: 1 },
-  previewSubtitle: { fontSize: 11, fontWeight: '700', marginBottom: 8, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5 },
-  previewLine: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  previewLabel: { color: '#64748b', fontSize: 12 },
-  previewValue: { color: '#0f172a', fontWeight: '600', fontSize: 12 },
+  previewSubtitle: { ...Theme.typography.label, fontWeight: '700', marginBottom: Theme.spacing.sm, color: Theme.colors.textSec, textTransform: 'uppercase', letterSpacing: 0.5 },
+  previewLine: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: Theme.spacing.xs },
+  previewLabel: { color: Theme.colors.textSec, ...Theme.typography.caption },
+  previewValue: { color: Theme.colors.text, ...Theme.typography.caption, fontWeight: '600' },
   previewValueRed: { color: '#b91c1c' },
   previewValueGreen: { color: '#166534' },
-  previewColDivider: { width: 1, backgroundColor: '#f1f5f9' },
-  previewTotalLine: { backgroundColor: '#f8fafc', borderRadius: 8, padding: 8, marginTop: 8, borderWidth: 1, borderColor: '#e2e8f0' },
-  previewTotalLabel: { color: '#475569', fontWeight: '700' },
-  previewTotalValue: { color: '#0f172a', fontWeight: '800', fontSize: 14, marginTop: 2 },
+  previewColDivider: { width: 1, backgroundColor: Theme.colors.background },
+  previewTotalLine: { backgroundColor: Theme.colors.background, borderRadius: 8, padding: Theme.spacing.sm, marginTop: Theme.spacing.sm, borderWidth: 1, borderColor: Theme.colors.border },
+  previewTotalLabel: { color: Theme.colors.textSec, fontWeight: '700' },
+  previewTotalValue: { color: Theme.colors.text, ...Theme.typography.body, fontWeight: '800', marginTop: 2 },
   previewTotalValueGreen: { color: '#16a34a' },
-  modalContainer: { flex: 1, backgroundColor: '#fff' },
-  modalHeader: { padding: 14, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
-  modalSubtitle: { fontSize: 12, color: '#64748b', marginTop: 2 },
+  modalContainer: { flex: 1, backgroundColor: Theme.colors.background },
+  modalHeader: { padding: 14, borderBottomWidth: 1, borderBottomColor: Theme.colors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: Theme.colors.text },
+  modalSubtitle: { ...Theme.typography.caption, color: Theme.colors.textSec, marginTop: 2 },
   modalActions: { flexDirection: 'row', gap: 8 },
-  modalButton: { borderRadius: 10, borderWidth: 1, borderColor: '#cbd5e1', paddingHorizontal: 12, height: 38, justifyContent: 'center', backgroundColor: '#fff' },
-  modalButtonPrimary: { backgroundColor: '#1e3a8a', borderColor: '#1e3a8a' },
-  modalButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  modalButtonTextClose: { color: '#334155', fontWeight: '600', fontSize: 12 },
+  modalButton: { borderRadius: 10, borderWidth: 1, borderColor: '#cbd5e1', paddingHorizontal: 12, height: 38, justifyContent: 'center', backgroundColor: Theme.colors.background },
+  modalButtonPrimary: { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary },
+  modalButtonText: { color: Theme.colors.card, ...Theme.typography.caption, fontWeight: '700' },
+  modalButtonTextClose: { color: '#334155', ...Theme.typography.caption, fontWeight: '600' },
   webviewContainer: { flex: 1 },
   webview: { flex: 1 },
   warningBox: { marginTop: 10, backgroundColor: '#fff7ed', borderColor: '#fdba74', borderWidth: 1, borderRadius: 12, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  warningText: { color: '#c2410c', fontSize: 12 },
+  warningText: { color: '#c2410c', ...Theme.typography.caption },
   loadingRow: { marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  loadingText: { color: '#64748b', fontSize: 12 },
+  loadingText: { color: Theme.colors.textSec, ...Theme.typography.caption },
   loadingContainer: { padding: 22, alignItems: 'center', justifyContent: 'center', gap: 8 },
   staffBadge: { marginTop: 10, alignSelf: 'flex-start', backgroundColor: '#ecfeff', borderColor: '#a5f3fc', borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center' },
-  staffBadgeText: { color: '#0891b2', fontSize: 12, fontWeight: '600' },
+  staffBadgeText: { color: '#0891b2', ...Theme.typography.caption, fontWeight: '600' },
   modeSection: { marginTop: 10 },
   fixedInfoBox: { backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderWidth: 1, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  fixedInfoText: { color: '#1e3a8a', fontSize: 12, fontWeight: '600' },
-  fixedInfoSubtext: { color: '#3b82f6', fontSize: 11, marginTop: 4 },
+  fixedInfoText: { color: Theme.colors.primary, ...Theme.typography.caption, fontWeight: '600' },
+  fixedInfoSubtext: { color: Theme.colors.blue, ...Theme.typography.label, marginTop: Theme.spacing.xs },
   fetchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 12 },
-  fetchButton: { backgroundColor: '#1e3a8a', borderRadius: 12, paddingHorizontal: 16, height: 44, justifyContent: 'center', shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
+  fetchButton: { backgroundColor: Theme.colors.primary, borderRadius: 12, paddingHorizontal: Theme.spacing.md, height: 44, justifyContent: 'center', shadowColor: Theme.colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
   fetchButtonDisabled: { opacity: 0.5 },
-  fetchButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  viewAttButton: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, paddingHorizontal: 16, height: 44, justifyContent: 'center' },
+  fetchButtonText: { color: Theme.colors.card, fontWeight: '700', fontSize: 13 },
+  viewAttButton: { backgroundColor: Theme.colors.background, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, paddingHorizontal: Theme.spacing.md, height: 44, justifyContent: 'center' },
   viewAttButtonText: { color: '#334155', fontWeight: '700', fontSize: 13 },
   attLoadedBadge: { backgroundColor: '#ecfdf5', borderColor: '#bbf7d0', borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
-  attLoadedText: { color: '#166534', fontSize: 11, fontWeight: '600' },
-  generatePrompt: { marginBottom: 16, backgroundColor: '#ffffff', borderWidth: 1.5, borderColor: '#1e3a8a', borderRadius: 16, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  generatePromptTitle: { fontSize: 14, fontWeight: '700', color: '#0f172a' },
-  generatePromptDesc: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  generateButton: { backgroundColor: '#16a34a', borderRadius: 12, paddingHorizontal: 16, height: 44, justifyContent: 'center' },
-  generateButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  resultsContainer: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0', padding: 16, marginBottom: 20 },
-  summaryBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
-  summaryBarHours: { flexDirection: 'row', gap: 10, marginBottom: 16, flexWrap: 'wrap' },
-  summaryItem: { backgroundColor: '#f8fafc', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#e2e8f0', flex: 1, minWidth: 100 },
-  summaryLabel: { color: '#64748b', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
-  summaryValue: { color: '#0f172a', fontSize: 14, fontWeight: '700', marginTop: 4 },
-  summaryValueLarge: { color: '#0f172a', fontSize: 16, fontWeight: '800', marginTop: 4 },
+  attLoadedText: { color: '#166534', ...Theme.typography.label, fontWeight: '600' },
+  generatePrompt: { marginBottom: Theme.spacing.md, backgroundColor: Theme.colors.background, borderWidth: 1.5, borderColor: Theme.colors.primary, borderRadius: 16, padding: Theme.spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  generatePromptTitle: { ...Theme.typography.body, fontWeight: '700', color: Theme.colors.text },
+  generatePromptDesc: { color: Theme.colors.textSec, ...Theme.typography.caption, marginTop: 2 },
+  generateButton: { backgroundColor: '#16a34a', borderRadius: 12, paddingHorizontal: Theme.spacing.md, height: 44, justifyContent: 'center' },
+  generateButtonText: { color: Theme.colors.card, fontWeight: '700', fontSize: 13 },
+  resultsContainer: { backgroundColor: Theme.colors.background, borderRadius: 16, borderWidth: 1, borderColor: Theme.colors.border, padding: Theme.spacing.md, marginBottom: 20 },
+  summaryBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: Theme.spacing.md },
+  summaryBarHours: { flexDirection: 'row', gap: 10, marginBottom: Theme.spacing.md, flexWrap: 'wrap' },
+  summaryItem: { backgroundColor: Theme.colors.background, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Theme.colors.border, flex: 1, minWidth: 100 },
+  summaryLabel: { color: Theme.colors.textSec, ...Theme.typography.label, textTransform: 'uppercase', letterSpacing: 0.5 },
+  summaryValue: { ...Theme.typography.body, color: Theme.colors.text, fontWeight: '700', marginTop: Theme.spacing.xs },
+  summaryValueLarge: { color: Theme.colors.text, fontSize: 16, fontWeight: '800', marginTop: Theme.spacing.xs },
   summaryValueRed: { color: '#b91c1c' },
   summaryValueGreen: { color: '#166534' },
   actionBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10, flexWrap: 'wrap' },
-  searchInput: { flex: 1, minWidth: 220, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, height: 44, paddingHorizontal: 14, backgroundColor: '#f8fafc', color: '#0f172a' },
+  searchInput: { flex: 1, minWidth: 220, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 12, height: 44, paddingHorizontal: 14, backgroundColor: Theme.colors.background, color: Theme.colors.text },
   actionButtonsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   generateAllButton: { backgroundColor: '#eff6ff', borderRadius: 12, paddingHorizontal: 14, height: 44, justifyContent: 'center', borderWidth: 1, borderColor: '#bfdbfe' },
-  generateAllButtonText: { color: '#1e3a8a', fontWeight: '700', fontSize: 12 },
+  generateAllButtonText: { ...Theme.typography.caption, color: Theme.colors.primary, fontWeight: '700' },
   saveAllButton: { backgroundColor: '#16a34a', borderRadius: 12, paddingHorizontal: 14, height: 44, justifyContent: 'center' },
-  saveAllButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  saveAllButtonText: { ...Theme.typography.caption, color: Theme.colors.card, fontWeight: '700' },
   emailAllButton: { backgroundColor: '#0284c7', borderRadius: 12, paddingHorizontal: 14, height: 44, justifyContent: 'center' },
-  emailAllButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  employeeCard: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 20, backgroundColor: '#fff', padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 8, elevation: 1 },
-  employeeCardGenerated: { borderColor: '#1e3a8a', backgroundColor: '#f8faff', borderWidth: 1.5 },
+  emailAllButtonText: { ...Theme.typography.caption, color: Theme.colors.card, fontWeight: '700' },
+  employeeCard: { borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 20, backgroundColor: Theme.colors.card, padding: Theme.spacing.md, marginBottom: Theme.spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 8, elevation: 1 },
+  employeeCardGenerated: { borderColor: Theme.colors.primary, backgroundColor: '#f8faff', borderWidth: 1.5 },
   employeeInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1e3a8a', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  employeeNameText: { fontWeight: '700', color: '#0f172a', fontSize: 14 },
-  employeeIdText: { color: '#64748b', fontSize: 11, marginTop: 2 },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: Theme.colors.primary, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { ...Theme.typography.body, color: Theme.colors.card, fontWeight: '700' },
+  employeeNameText: { ...Theme.typography.body, fontWeight: '700', color: Theme.colors.text },
+  employeeIdText: { color: Theme.colors.textSec, ...Theme.typography.label, marginTop: 2 },
   employeeStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  statItem: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, flex: 1, minWidth: 72 },
-  statLabel: { color: '#64748b', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 },
-  statValue: { color: '#0f172a', fontSize: 12, fontWeight: '700', marginTop: 2 },
+  statItem: { backgroundColor: Theme.colors.background, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: Theme.spacing.sm, flex: 1, minWidth: 72 },
+  statLabel: { color: Theme.colors.textSec, fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 },
+  statValue: { ...Theme.typography.caption, color: Theme.colors.text, fontWeight: '700', marginTop: 2 },
   statValueBold: { fontWeight: '800' },
   statValueRed: { color: '#b91c1c' },
   statValueGreen: { color: '#166534' },
   employeeActionsRow: { marginTop: 12, alignItems: 'flex-end' },
-  generateEmpButton: { backgroundColor: '#1e3a8a', borderRadius: 12, paddingHorizontal: 16, height: 38, justifyContent: 'center' },
-  generateEmpButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  generateEmpButton: { backgroundColor: Theme.colors.primary, borderRadius: 12, paddingHorizontal: Theme.spacing.md, height: 38, justifyContent: 'center' },
+  generateEmpButtonText: { ...Theme.typography.caption, color: Theme.colors.card, fontWeight: '700' },
   actionButtonsGroup: { flexDirection: 'row', gap: 8 },
   actionBtn: { borderRadius: 12, paddingHorizontal: 14, height: 38, justifyContent: 'center' },
   viewBtn: { backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe' },
-  pdfBtn: { backgroundColor: '#1e3a8a' },
-  recalcBtn: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#cbd5e1' },
+  pdfBtn: { backgroundColor: Theme.colors.primary },
+  recalcBtn: { backgroundColor: Theme.colors.background, borderWidth: 1, borderColor: '#cbd5e1' },
   emailBtn: { backgroundColor: '#0284c7' },
-  actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 11 },
-  actionBtnTextBlue: { color: '#1e3a8a', fontWeight: '700', fontSize: 11 },
-  recalcBtnText: { color: '#334155', fontWeight: '700', fontSize: 14 },
+  recalcBtnText: { ...Theme.typography.body, color: '#334155', fontWeight: '700' },
   emptyState: { alignItems: 'center', justifyContent: 'center', padding: 28 },
-  emptyStateText: { color: '#64748b' },
-  emptyStateLarge: { alignItems: 'center', justifyContent: 'center', padding: 30, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 16 },
-  emptyStateLargeText: { color: '#0f172a', fontWeight: '600' },
-  emptyStateSubtext: { color: '#64748b', marginTop: 4, fontSize: 12 },
+  emptyStateText: { color: Theme.colors.textSec },
+  emptyStateLarge: { alignItems: 'center', justifyContent: 'center', padding: 30, backgroundColor: Theme.colors.background, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 16 },
+  emptyStateLargeText: { color: Theme.colors.text, fontWeight: '600' },
+  emptyStateSubtext: { color: Theme.colors.textSec, marginTop: Theme.spacing.xs, ...Theme.typography.caption },
   employeeHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  avatarLarge: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#1e3a8a', alignItems: 'center', justifyContent: 'center' },
-  avatarLargeText: { color: '#fff', fontWeight: '700', fontSize: 18 },
-  employeeNameLarge: { fontWeight: '700', color: '#0f172a', fontSize: 16 },
-  employeeDetailsText: { color: '#64748b', marginTop: 2, fontSize: 12 },
+  avatarLarge: { width: 48, height: 48, borderRadius: 24, backgroundColor: Theme.colors.primary, alignItems: 'center', justifyContent: 'center' },
+  avatarLargeText: { color: Theme.colors.card, ...Theme.typography.h3 },
+  employeeNameLarge: { fontWeight: '700', color: Theme.colors.text, fontSize: 16 },
+  employeeDetailsText: { color: Theme.colors.textSec, marginTop: 2, ...Theme.typography.caption },
   resultSummary: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' },
-  resultItem: { flex: 1, borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, padding: 12, backgroundColor: '#f8fafc', minWidth: 90 },
-  resultLabel: { color: '#64748b', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
-  resultValue: { color: '#0f172a', fontWeight: '700', marginTop: 4 },
+  resultItem: { flex: 1, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 12, padding: 12, backgroundColor: Theme.colors.background, minWidth: 90 },
+  resultLabel: { color: Theme.colors.textSec, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
+  resultValue: { color: Theme.colors.text, fontWeight: '700', marginTop: Theme.spacing.xs },
   resultValueRed: { color: '#b91c1c' },
   resultValueGreen: { color: '#166534' },
-  infoBanner: { backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe', borderRadius: 12, padding: 12, marginBottom: 16 },
-  infoBannerText: { color: '#1e3a8a', fontSize: 12, lineHeight: 16 },
+  infoBanner: { backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe', borderRadius: 12, padding: 12, marginBottom: Theme.spacing.md },
+  infoBannerText: { color: Theme.colors.primary, ...Theme.typography.caption, lineHeight: 16 },
   hoursConfigRow: { display: 'none' },
   applyRateRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  applyButton: { backgroundColor: '#1e3a8a', borderRadius: 10, paddingHorizontal: 16, height: 44, justifyContent: 'center' },
+  applyButton: { backgroundColor: Theme.colors.primary, borderRadius: 10, paddingHorizontal: Theme.spacing.md, height: 44, justifyContent: 'center' },
   applyButtonDisabled: { opacity: 0.5 },
-  applyButtonText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  applyButtonText: { ...Theme.typography.caption, color: Theme.colors.card, fontWeight: '700' },
   hoursListContainer: { gap: 12, marginBottom: 20 },
-  hoursHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 4 },
-  hoursHeaderTitle: { fontWeight: '700', color: '#0f172a', fontSize: 14 },
-  hoursHeaderCount: { color: '#64748b', fontSize: 12 },
+  hoursHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Theme.spacing.sm, paddingHorizontal: Theme.spacing.xs },
+  hoursHeaderTitle: { ...Theme.typography.body, fontWeight: '700', color: Theme.colors.text },
+  hoursHeaderCount: { color: Theme.colors.textSec, ...Theme.typography.caption },
   hoursRow: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 20,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.02,
@@ -1613,38 +1593,36 @@ const styles = StyleSheet.create({
   },
   hoursRowGenerated: { backgroundColor: '#f8faff', borderColor: '#bfdbfe' },
   hoursAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#0284c7', alignItems: 'center', justifyContent: 'center' },
-  hoursAvatarText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  hoursInfo: { flex: 1, marginLeft: 8 },
-  hoursName: { color: '#0f172a', fontWeight: '600', fontSize: 14 },
-  hoursId: { color: '#64748b', fontSize: 11, marginTop: 2 },
+  hoursAvatarText: { ...Theme.typography.body, color: Theme.colors.card, fontWeight: '700' },
+  hoursInfo: { flex: 1, marginLeft: Theme.spacing.sm },
+  hoursName: { ...Theme.typography.body, color: Theme.colors.text, fontWeight: '600' },
+  hoursId: { color: Theme.colors.textSec, ...Theme.typography.label, marginTop: 2 },
   hoursRateContainer: { display: 'none' },
   hoursTotal: { display: 'none' },
   fetchHoursButton: { backgroundColor: '#eff6ff', borderRadius: 10, paddingHorizontal: 12, height: 36, justifyContent: 'center', borderWidth: 1, borderColor: '#bfdbfe' },
-  fetchHoursButtonText: { color: '#1e3a8a', fontWeight: '700', fontSize: 11 },
   hoursGross: { alignItems: 'flex-end' },
-  hoursGrossAmount: { color: '#166534', fontWeight: '800', fontSize: 15 },
-  hoursGrossDetail: { color: '#64748b', fontSize: 9, marginTop: 2 },
+  hoursGrossDetail: { color: Theme.colors.textSec, fontSize: 9, marginTop: 2 },
   pickerTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 44,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
   },
   pickerTriggerText: {
-    fontSize: 14,
-    color: '#0f172a',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
   },
   hoursHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: Theme.colors.background,
     paddingBottom: 12,
     marginBottom: 12,
   },
@@ -1664,7 +1642,7 @@ const styles = StyleSheet.create({
   hoursRateLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#64748b',
+    color: Theme.colors.textSec,
     marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1673,7 +1651,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#eff6ff',
     borderRadius: 10,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderWidth: 1,
     borderColor: '#bfdbfe',
     alignItems: 'center',
@@ -1681,8 +1659,8 @@ const styles = StyleSheet.create({
     minWidth: 50,
   },
   hoursBadgeText: {
-    color: '#1e3a8a',
-    fontSize: 12,
+    color: Theme.colors.primary,
+    ...Theme.typography.caption,
     fontWeight: '700',
   },
 });

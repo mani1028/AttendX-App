@@ -3,10 +3,10 @@ import API from './api';
 async function getFirstSuccessful<T>(endpoints: string[], params: any = {}) {
   for (const endpoint of endpoints) {
     try {
-      const response = await API.get<T>(endpoint, { 
-        ...params, 
+      const response = await API.get<T>(endpoint, {
+        ...params,
         suppressFallback404Log: true,
-        suppressNetworkErrorLog: true 
+        suppressNetworkErrorLog: true,
       });
       return response.data;
     } catch (error) {
@@ -21,7 +21,7 @@ export async function getAllSchools(): Promise<any[]> {
     '/schools/all',
     '/admin/schools/all',
     '/manage/schools/all',
-    'schools/all'
+    'schools/all',
   ];
   try {
     const data = await getFirstSuccessful<any>(endpoints);
@@ -35,7 +35,7 @@ export async function getSubscriptionStats(): Promise<any> {
   const endpoints = [
     '/schools/subscription/stats',
     '/admin/subscription/stats',
-    '/manage/subscription/stats'
+    '/manage/subscription/stats',
   ];
   try {
     const data = await getFirstSuccessful<any>(endpoints);
@@ -124,7 +124,7 @@ export async function sendReminder(id: string): Promise<any> {
 export async function getSchoolSubscription(id: string): Promise<any> {
   const endpoints = [
     `/schools/${id}/subscription`,
-    `/admin/schools/${id}/subscription`
+    `/admin/schools/${id}/subscription`,
   ];
   try {
     const data = await getFirstSuccessful<any>(endpoints);
@@ -137,7 +137,7 @@ export async function getSchoolSubscription(id: string): Promise<any> {
 export async function getSchoolPayments(id: string): Promise<any[]> {
   const endpoints = [
     `/schools/${id}/payments`,
-    `/admin/schools/${id}/payments`
+    `/admin/schools/${id}/payments`,
   ];
   try {
     const data = await getFirstSuccessful<any>(endpoints);
@@ -150,7 +150,7 @@ export async function getSchoolPayments(id: string): Promise<any[]> {
 export async function updateSubscription(id: string, payload: any): Promise<any> {
   const endpoints = [
     `/schools/${id}/subscription`,
-    `/admin/schools/${id}/subscription`
+    `/admin/schools/${id}/subscription`,
   ];
   for (const endpoint of endpoints) {
     try {
@@ -166,7 +166,7 @@ export async function getAllAgents(): Promise<any[]> {
     '/schools/agents/all',
     '/admin/schools/agents/all',
     '/manage/schools/agents/all',
-    'schools/agents/all'
+    'schools/agents/all',
   ];
   try {
     const data = await getFirstSuccessful<any>(endpoints);
@@ -213,7 +213,7 @@ export async function getRevenueStats(): Promise<any> {
   const endpoints = [
     '/schools/revenue/stats',
     '/admin/schools/revenue/stats',
-    '/manage/schools/revenue/stats'
+    '/manage/schools/revenue/stats',
   ];
   try {
     const data = await getFirstSuccessful<any>(endpoints);

@@ -11,8 +11,10 @@ import {
   Linking,
 } from 'react-native';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+
 import AppButton from './AppButton';
+import { Theme } from '../../theme/tokens';
+
 
 interface Plan {
   id: string;
@@ -72,7 +74,7 @@ export default function PaymentModal({ isOpen, onClose, onSelectPlan, schoolName
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
   return (
     <Modal visible={isOpen} transparent animationType="fade">
@@ -80,13 +82,13 @@ export default function PaymentModal({ isOpen, onClose, onSelectPlan, schoolName
         <View style={styles.modal}>
           <View style={styles.header}>
             <Text style={styles.title}>Choose Your Plan</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.closeBtn}>
               <Text style={styles.closeText}>✕</Text>
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.plansContainer}>
             {plans.map(plan => (
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 key={plan.id}
                 style={[styles.planCard, selectedPlan === plan.id && styles.selectedPlan]}
                 onPress={() => setSelectedPlan(plan.id)}
@@ -120,22 +122,22 @@ export default function PaymentModal({ isOpen, onClose, onSelectPlan, schoolName
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modal: { backgroundColor: '#0f172a', borderRadius: 24, width: '100%', maxHeight: '90%', padding: 20 },
+  modal: { backgroundColor: Theme.colors.text, borderRadius: 24, width: '100%', maxHeight: '90%', padding: 20 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  title: { fontSize: 20, fontWeight: '800', color: '#fff' },
-  closeBtn: { padding: 4 },
+  title: { fontSize: 20, fontWeight: '800', color: Theme.colors.card },
+  closeBtn: { padding: Theme.spacing.xs },
   closeText: { fontSize: 20, color: '#94a3b8' },
-  plansContainer: { gap: 16, paddingBottom: 16 },
-  planCard: { borderWidth: 2, borderColor: '#334155', borderRadius: 16, padding: 16, backgroundColor: '#1e293b' },
-  selectedPlan: { borderColor: '#3b82f6', backgroundColor: '#1e3a8a' },
-  recommendedBadge: { position: 'absolute', top: -10, left: '50%', transform: [{ translateX: -50 }], backgroundColor: '#8b5cf6', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 },
-  recommendedText: { fontSize: 10, fontWeight: '700', color: '#fff' },
-  planName: { fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 8 },
-  planPrice: { fontSize: 24, fontWeight: '800', color: '#3b82f6', marginBottom: 12 },
-  period: { fontSize: 12, fontWeight: '400', color: '#94a3b8' },
+  plansContainer: { gap: 16, paddingBottom: Theme.spacing.md },
+  planCard: { borderWidth: 2, borderColor: '#334155', borderRadius: 16, padding: Theme.spacing.md, backgroundColor: '#1e293b' },
+  selectedPlan: { borderColor: Theme.colors.blue, backgroundColor: Theme.colors.primary },
+  recommendedBadge: { position: 'absolute', top: -10, left: '50%', transform: [{ translateX: -50 }], backgroundColor: '#8b5cf6', paddingHorizontal: 12, paddingVertical: Theme.spacing.xs, borderRadius: 20 },
+  recommendedText: { fontSize: 10, fontWeight: '700', color: Theme.colors.card },
+  planName: { ...Theme.typography.h3, color: Theme.colors.card, marginBottom: Theme.spacing.sm },
+  planPrice: { fontSize: 24, fontWeight: '800', color: Theme.colors.blue, marginBottom: 12 },
+  period: { ...Theme.typography.caption, fontWeight: '400', color: '#94a3b8' },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  check: { fontSize: 14, color: '#10b981' },
+  check: { ...Theme.typography.body, color: Theme.colors.success },
   featureText: { fontSize: 13, color: '#cbd5e1' },
   buttons: { flexDirection: 'row', gap: 12, marginTop: 20 },
-  infoText: { textAlign: 'center', fontSize: 11, color: '#64748b', marginTop: 16 },
+  infoText: { textAlign: 'center', ...Theme.typography.label, color: Theme.colors.textSec, marginTop: Theme.spacing.md },
 });

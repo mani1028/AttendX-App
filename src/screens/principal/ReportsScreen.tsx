@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -7,10 +8,7 @@ import {
   RefreshControl,
   DimensionValue,
   Platform,
-  StatusBar,
   TouchableOpacity,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -26,14 +24,21 @@ import {
   Activity,
   FileText,
 } from 'lucide-react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import API from '../../services/api';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
-import { Theme } from '../../theme/theme';
+
 import { safeGoBack } from '../../utils/navigationHelpers';
+import { Theme, C } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
+
 
 // Local theme bridge
 
@@ -47,7 +52,6 @@ const Reports = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible, userRole } = useAuth();
-  const lastScrollY = useRef(0);
   const isMounted = useRef(true);
   const [collections, setCollections] = useState<MonthlyCollection[]>([]);
   const [maxCollection, setMaxCollection] = useState(0);
@@ -62,18 +66,8 @@ const Reports = () => {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   useEffect(() => {
     if (schoolCode) {
@@ -83,10 +77,10 @@ const Reports = () => {
 
   const loadSchoolCode = async () => {
     try {
-      const code = await AsyncStorage.getItem('school_code') ||
-        await AsyncStorage.getItem('schoolCode') ||
-        await AsyncStorage.getItem('school_id') ||
-        await AsyncStorage.getItem('schoolId') || '';
+      const code = await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) || '';
       setSchoolCode(code);
     } catch (error) {
       console.error('Error loading school code:', error);
@@ -94,22 +88,22 @@ const Reports = () => {
   };
 
   const fetchReports = async () => {
-    if (!schoolCode) return;
+    if (!schoolCode) {return;}
 
     try {
       setLoading(true);
-      const response = await API.get("/accountant/reports/monthly-collections", {
+      const response = await API.get('/accountant/reports/monthly-collections', {
         params: { school_code: schoolCode },
       });
       const data = Array.isArray(response.data) ? response.data.filter(Boolean) : [];
       setCollections(data);
-      
+
       if (data && data.length > 0) {
         const max = Math.max(...data.map((c: MonthlyCollection) => c.total));
         setMaxCollection(max);
       }
     } catch (error) {
-      console.error("Error fetching reports:", error);
+      console.error('Error fetching reports:', error);
     } finally {
       setLoading(false);
     }
@@ -123,7 +117,7 @@ const Reports = () => {
 
   const formatMonth = (monthStr: string) => {
     // Handle format like "2024-01" or "01-2024"
-    const parts = monthStr.split("-");
+    const parts = monthStr.split('-');
     if (parts.length === 2) {
       // Check if first part is year (4 digits) or month
       if (parts[0].length === 4) {
@@ -154,30 +148,30 @@ const Reports = () => {
   };
 
   const getBarWidth = (total: number) => {
-    if (maxCollection === 0) return '0%';
+    if (maxCollection === 0) {return '0%';}
     const percentage = (total / maxCollection) * 100;
     return (percentage + '%') as DimensionValue;
   };
 
   const totalCollections = collections.reduce((sum, c) => sum + c.total, 0);
-  const averageCollection = collections.length > 0 
-    ? totalCollections / collections.length 
+  const averageCollection = collections.length > 0
+    ? totalCollections / collections.length
     : 0;
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Standardized Header */}
       {(() => {
         const isAccountant = userRole?.toLowerCase() === 'accountant';
         return (
-          <View style={[styles.headerStandard, { 
+          <View style={[styles.headerStandard, {
             paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
-            backgroundColor: isAccountant ? '#1e3a8a' : HEADER_CONSTANTS.BACKGROUND_COLOR
+            backgroundColor: isAccountant ? Theme.colors.primary : HEADER_CONSTANTS.BACKGROUND_COLOR,
           }]}>
             <View style={styles.headerTop}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.iconButton}
                 onPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
               >
@@ -186,7 +180,7 @@ const Reports = () => {
               <View style={styles.headerTitleContainer}>
                 <AppText weight="bold" style={styles.headerTitle}>Financial Reports</AppText>
               </View>
-              <TouchableOpacity style={styles.iconButton} onPress={() => fetchReports()}>
+              <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={() => fetchReports()}>
                 <RefreshCw size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
               </TouchableOpacity>
             </View>
@@ -210,7 +204,7 @@ const Reports = () => {
         >
         <View style={styles.subHeader}>
           <View style={styles.subHeaderRow}>
-            <FileText size={16} color="#64748b" />
+            <FileText size={16} color={Theme.colors.primary} />
             <AppText style={styles.subHeaderText} weight="semibold">Monthly fee collection analysis</AppText>
           </View>
         </View>
@@ -221,7 +215,7 @@ const Reports = () => {
             <BarChart2 size={20} color={C.primary} />
             <AppText style={styles.sectionTitle} weight="bold">Monthly Collections</AppText>
           </View>
-          
+
           {loading && collections.length === 0 ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={C.primary} />
@@ -231,13 +225,18 @@ const Reports = () => {
             <View style={styles.chartContainer}>
               {collections.map((collection, index) => (
                 <View key={collection.month} style={styles.barChart}>
-                  <AppText style={styles.label}>{formatMonth(collection.month)}</AppText>
+                  <AppText style={styles.label} weight="semibold">{formatMonth(collection.month)}</AppText>
                   <View style={styles.barWrapper}>
-                    <View style={[styles.bar, { width: getBarWidth(collection.total) }]}>
-                      <AppText style={styles.barValue}>
+                    <LinearGradient
+                      colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.bar, { width: getBarWidth(collection.total) }]}
+                    >
+                      <AppText style={styles.barValue} weight="bold">
                         {formatAmountCompact(collection.total)}
                       </AppText>
-                    </View>
+                    </LinearGradient>
                   </View>
                 </View>
               ))}
@@ -262,21 +261,21 @@ const Reports = () => {
               <AppText style={styles.summaryLabel} weight="semibold">Total Months</AppText>
               <AppText style={styles.summaryValue}>{collections.length}</AppText>
             </View>
-            
+
             <View style={styles.summaryRow}>
               <AppText style={styles.summaryLabel} weight="semibold">Highest Collection</AppText>
               <AppText style={[styles.summaryValue, styles.highlightValue]} weight="bold">
                 {formatAmount(maxCollection)}
               </AppText>
             </View>
-            
+
             <View style={styles.summaryRow}>
               <AppText style={styles.summaryLabel} weight="semibold">Average Collection</AppText>
               <AppText style={styles.summaryValue} weight="semibold">
                 {formatAmount(averageCollection)}
               </AppText>
             </View>
-            
+
             <View style={styles.summaryRow}>
               <AppText style={styles.summaryLabel} weight="semibold">Total Collection</AppText>
               <AppText style={[styles.summaryValue, styles.totalValue]} weight="bold">
@@ -289,20 +288,26 @@ const Reports = () => {
         {/* Additional Stats Cards */}
         {collections.length > 0 && (
           <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <Calendar size={24} color={C.primary} />
-              <AppText style={styles.statNumber} weight="bold">{collections.length}</AppText>
-              <AppText style={styles.statLabel} weight="semibold">Months</AppText>
+            <View style={[styles.statCard, styles.statCardMonths]}>
+              <View style={[styles.statIconContainer, { backgroundColor: 'rgba(30, 58, 138, 0.08)' }]}>
+                <Calendar size={20} color={C.primary} />
+              </View>
+              <AppText style={[styles.statNumber, { color: C.primary }]} weight="bold">{collections.length}</AppText>
+              <AppText style={styles.statLabel} weight="bold">Months</AppText>
             </View>
-            <View style={styles.statCard}>
-              <TrendingUp size={24} color={C.success} />
-              <AppText style={styles.statNumber} weight="bold">{formatAmountCompact(maxCollection)}</AppText>
-              <AppText style={styles.statLabel} weight="semibold">Highest</AppText>
+            <View style={[styles.statCard, styles.statCardHighest]}>
+              <View style={[styles.statIconContainer, { backgroundColor: 'rgba(5, 150, 105, 0.08)' }]}>
+                <TrendingUp size={20} color={C.success} />
+              </View>
+              <AppText style={[styles.statNumber, { color: C.success }]} weight="bold">{formatAmountCompact(maxCollection)}</AppText>
+              <AppText style={styles.statLabel} weight="bold">Highest</AppText>
             </View>
-            <View style={styles.statCard}>
-              <Activity size={24} color={C.warning} />
-              <AppText style={styles.statNumber} weight="bold">{formatAmountCompact(averageCollection)}</AppText>
-              <AppText style={styles.statLabel} weight="semibold">Average</AppText>
+            <View style={[styles.statCard, styles.statCardAverage]}>
+              <View style={[styles.statIconContainer, { backgroundColor: 'rgba(217, 119, 6, 0.08)' }]}>
+                <Activity size={20} color={C.warning} />
+              </View>
+              <AppText style={[styles.statNumber, { color: C.warning }]} weight="bold">{formatAmountCompact(averageCollection)}</AppText>
+              <AppText style={styles.statLabel} weight="bold">Average</AppText>
             </View>
           </View>
         )}
@@ -314,17 +319,17 @@ const Reports = () => {
             <View style={styles.trendGrid}>
               <View style={styles.trendItem}>
                 <AppText style={styles.trendLabel} weight="semibold">Best Month</AppText>
-                {collections.reduce((best, current) => 
+                {collections.reduce((best, current) =>
                   current.total > best.total ? current : best, collections[0]
                 ).month && (
                   <>
                     <AppText style={styles.trendValue} weight="bold">
-                      {formatMonth(collections.reduce((best, current) => 
+                      {formatMonth(collections.reduce((best, current) =>
                         current.total > best.total ? current : best, collections[0]
                       ).month)}
                     </AppText>
                     <AppText style={styles.trendAmount} weight="semibold">
-                      {formatAmount(collections.reduce((best, current) => 
+                      {formatAmount(collections.reduce((best, current) =>
                         current.total > best.total ? current : best, collections[0]
                       ).total)}
                     </AppText>
@@ -347,6 +352,8 @@ const Reports = () => {
             </View>
           </View>
         )}
+        {/* Bottom Spacer for Tab Bar */}
+        <View style={{ height: insets.bottom + 140 }} />
       </ScrollView>
     </View>
     </View>
@@ -407,7 +414,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
@@ -417,18 +424,18 @@ const styles = StyleSheet.create({
   headerSubtext: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
     opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   subHeader: {
-    backgroundColor: '#fff',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    marginBottom: 8,
-    marginTop: 10,
-    marginHorizontal: 16,
+    backgroundColor: C.primarySoft,
+    paddingVertical: 12,
+    paddingHorizontal: Theme.spacing.md,
+    borderWidth: 1,
+    borderColor: C.primaryBorder,
+    marginBottom: Theme.spacing.sm,
+    marginTop: 14,
+    marginHorizontal: Theme.spacing.md,
     borderRadius: 12,
   },
   subHeaderRow: {
@@ -437,33 +444,42 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   subHeaderText: {
-    fontSize: 14,
-    color: '#64748b',
+    ...Theme.typography.body,
+    color: Theme.colors.primary,
   },
   scrollView: {
     flex: 1,
   },
   reportSection: {
     backgroundColor: C.card,
-    margin: 16,
-    marginBottom: 8,
-    padding: 16,
-    borderRadius: 8,
-    borderTopWidth: 4,
-    borderTopColor: C.primary,
+    margin: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
+    padding: Theme.spacing.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+    ...Platform.select({
+      android: { elevation: 2 },
+      ios: {
+        shadowColor: Theme.colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+      },
+    }),
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   sectionTitle: {
     fontSize: 18,
     color: C.text,
   },
   loadingContainer: {
-    padding: 32,
+    padding: Theme.spacing.xl,
     alignItems: 'center',
   },
   loadingText: {
@@ -471,13 +487,13 @@ const styles = StyleSheet.create({
     color: C.textMuted,
   },
   emptyContainer: {
-    padding: 32,
+    padding: Theme.spacing.xl,
     alignItems: 'center',
   },
   emptyText: {
     marginTop: 12,
     color: C.textMuted,
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   chartContainer: {
     gap: 12,
@@ -494,26 +510,25 @@ const styles = StyleSheet.create({
   },
   barWrapper: {
     flex: 1,
-    backgroundColor: C.bg,
-    borderRadius: 4,
+    backgroundColor: C.bgAlt,
+    borderRadius: 8,
     overflow: 'hidden',
-    height: 30,
+    height: 34,
   },
   bar: {
-    backgroundColor: C.primary,
     height: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    paddingRight: 8,
-    borderRadius: 4,
+    paddingRight: Theme.spacing.sm,
+    borderRadius: 8,
   },
   barValue: {
-    color: '#ffffff',
-    fontSize: 11,
+    color: Theme.colors.card,
+    ...Theme.typography.label,
   },
   summaryTable: {
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -525,10 +540,10 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     color: C.textMuted,
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   summaryValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   highlightValue: {
@@ -540,42 +555,70 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    margin: 16,
+    margin: Theme.spacing.md,
     marginTop: 0,
     gap: 12,
   },
   statCard: {
     flex: 1,
-    backgroundColor: C.card,
-    padding: 16,
-    borderRadius: 12,
+    padding: Theme.spacing.md,
+    borderRadius: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: C.border,
+  },
+  statCardMonths: {
+    backgroundColor: C.primarySoft,
+    borderColor: C.primaryBorder,
+  },
+  statCardHighest: {
+    backgroundColor: C.successSoft,
+    borderColor: C.successBorder,
+  },
+  statCardAverage: {
+    backgroundColor: C.warningSoft,
+    borderColor: C.warningSoft,
+  },
+  statIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.xs,
   },
   statNumber: {
-    fontSize: 20,
-    color: C.text,
-    marginTop: 8,
+    fontSize: 18,
+    marginTop: Theme.spacing.xs,
   },
   statLabel: {
-    fontSize: 12,
-    color: C.textMuted,
-    marginTop: 4,
+    fontSize: 11,
+    color: C.text3,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   trendSection: {
     backgroundColor: C.card,
-    margin: 16,
+    margin: Theme.spacing.md,
     marginTop: 0,
-    padding: 16,
-    borderRadius: 8,
+    padding: Theme.spacing.md,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: C.border,
+    ...Platform.select({
+      android: { elevation: 2 },
+      ios: {
+        shadowColor: Theme.colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+      },
+    }),
   },
   trendTitle: {
     fontSize: 16,
     color: C.text,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   trendGrid: {
     flexDirection: 'row',
@@ -588,18 +631,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   trendLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   trendValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   trendAmount: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
 });
 

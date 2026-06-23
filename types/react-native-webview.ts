@@ -1,13 +1,2 @@
-declare module 'react-native-webview' {
-  import { ComponentType } from 'react';
-  import { ViewProps } from 'react-native';
-
-  export interface WebViewProps extends ViewProps {
-    source?: { uri?: string; html?: string };
-    originWhitelist?: string[];
-  }
-
-  export const WebView: ComponentType<WebViewProps>;
-}
-
+// Redundant, types are loaded directly from react-native-webview package.
 export {};

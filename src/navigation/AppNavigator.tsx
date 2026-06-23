@@ -1,17 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
+import { ActivityIndicator, View, StatusBar } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 // ─── Tab Bar Components ───────────────────────────────────────────────────
-import CustomTabBar from '../components/layout/CustomTabBar';
-import AccountantTabBar from '../components/layout/AccountantTabBar';
-import TeacherTabBar from '../components/layout/TeacherTabBar';
-import AdminTabBar from '../components/layout/AdminTabBar';
-import DirectorTabBar from '../components/layout/DirectorTabBar';
-import PrincipalTabBar from '../components/layout/PrincipalTabBar';
+import RoleTabBar from '../components/layout/RoleTabBar';
+import {
+  accountantTabs,
+  adminTabs,
+  directorTabs,
+  principalTabs,
+  teacherTabs,
+  studentTabs,
+} from '../components/layout/tabBarConfigs';
+import { Theme } from '../theme/tokens';
 
 // ─── Auth Screens ───────────────────────────────────────────────────────────
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -34,12 +39,17 @@ import AdminPlansScreen from '../screens/admin/AdminPlansScreen';
 import NotificationManagerScreen from '../screens/admin/NotificationManagerScreen';
 import SchoolDetailsScreen from '../screens/admin/SchoolDetailsScreen';
 import SettingsScreen from '../screens/admin/SettingsScreen';
+import AutoPayTrackerScreen from '../screens/admin/AutoPayTrackerScreen';
+import ManualAttendanceManagerScreen from '../screens/admin/ManualAttendanceManagerScreen';
+import PricingManagerScreen from '../screens/admin/PricingManagerScreen';
+import PaymentHistoryScreen from '../screens/admin/PaymentHistoryScreen';
 
 // ─── Teacher Screens ────────────────────────────────────────────────────────
 import TeacherDashboardScreen from '../screens/teacher/TeacherDashboardScreen';
 import TeacherAttendanceScreen from '../screens/teacher/AttendanceScreen';
 import TeacherMarksEntryScreen from '../screens/teacher/MarksEntryScreen';
 import TeacherHomeworkManagementScreen from '../screens/teacher/HomeworkManagementScreen';
+import HomeworkSubmissionsScreen from '../screens/teacher/HomeworkSubmissionsScreen';
 import TeacherLeaveRequestScreen from '../screens/teacher/LeaveRequestScreen';
 import TeacherLeaveApprovalScreen from '../screens/teacher/LeaveApprovalScreen';
 import TeacherStudentListScreen from '../screens/teacher/StudentListScreen';
@@ -60,23 +70,21 @@ import StudentLeaveScreen from '../screens/student/LeaveScreen';
 import StudentQuestionPapersScreen from '../screens/student/QuestionPapersScreen';
 
 // ─── Principal Screens (Old HM) ─────────────────────────────────────────────
-import {
-  PrincipalDashboardScreen,
-  AttendanceScreen as PrincipalAttendanceScreen,
-  StudentManagementScreen as PrincipalStudentManagementScreen,
-  TeacherManagementScreen as PrincipalTeacherManagementScreen,
-  ExamsScreen as PrincipalExamsScreen,
-  AnnouncementsScreen as PrincipalAnnouncementsScreen,
-  ReportsScreen as PrincipalReportsScreen,
-  FeeManagementScreen as PrincipalFeeManagementScreen,
-  ExpenseScreen as PrincipalExpenseScreen,
-  PaymentEntryScreen as PrincipalPaymentEntryScreen,
-  SettingsScreen as PrincipalSettingsScreen,
-  CalendarManagement as PrincipalCalendarManagement,
-  TeacherAssignmentsScreen as PrincipalTeacherAssignmentsScreen,
-  TeacherRegistrationRequestsScreen as PrincipalTeacherRegistrationRequestsScreen,
-  StudentPromotionScreen as PrincipalStudentPromotionScreen,
-} from '../screens/principal';
+import PrincipalDashboardScreen from '../screens/principal/PrincipalDashboardScreen';
+import PrincipalAttendanceScreen from '../screens/principal/AttendanceScreen';
+import PrincipalStudentManagementScreen from '../screens/principal/StudentManagementScreen';
+import PrincipalTeacherManagementScreen from '../screens/principal/TeacherManagementScreen';
+import PrincipalExamsScreen from '../screens/principal/ExamsScreen';
+import PrincipalAnnouncementsScreen from '../screens/principal/AnnouncementsScreen';
+import PrincipalReportsScreen from '../screens/principal/ReportsScreen';
+import PrincipalFeeManagementScreen from '../screens/principal/FeeManagementScreen';
+import PrincipalExpenseScreen from '../screens/principal/ExpenseScreen';
+import PrincipalPaymentEntryScreen from '../screens/principal/PaymentEntryScreen';
+import PrincipalSettingsScreen from '../screens/principal/SettingsScreen';
+import PrincipalCalendarManagement from '../screens/principal/CalendarManagement';
+import PrincipalTeacherAssignmentsScreen from '../screens/principal/TeacherAssignmentsScreen';
+import PrincipalTeacherRegistrationRequestsScreen from '../screens/principal/TeacherRegistrationRequestsScreen';
+import PrincipalStudentPromotionScreen from '../screens/principal/StudentPromotionScreen';
 import StudentAttendanceReportScreen from '../screens/principal/StudentAttendanceReport';
 import PrincipalFaceReviewScreen from '../screens/principal/PrincipalFaceReviewScreen';
 
@@ -106,6 +114,9 @@ import StudentRegisterPublicScreen from '../screens/public/StudentRegisterPublic
 import TeacherRegisterPublicScreen from '../screens/public/TeacherRegisterPublicScreen';
 
 import { RootStackParamList } from './types';
+import { storage } from '../storage/storage';
+import { StorageKeys } from '../storage/StorageKeys';
+
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
@@ -123,9 +134,9 @@ const SalariesWrapper = React.memo(() => {
 
   useEffect(() => {
     const loadSchoolCode = async () => {
-      const code = await AsyncStorage.getItem('school_code') ||
-        await AsyncStorage.getItem('schoolCode') ||
-        await AsyncStorage.getItem('school_id') || '';
+      const code = await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) || '';
       setSchoolCode(code);
     };
     loadSchoolCode();
@@ -140,10 +151,10 @@ const AgentDummyScreen = () => null;
 const AdminTabNavigator = () => {
   const { userRole } = useAuth();
   const isAgent = userRole?.toLowerCase() === 'agent';
-  
+
   return (
     <Tab.Navigator
-      tabBar={(props) => <AdminTabBar {...props} />}
+      tabBar={(props) => <RoleTabBar {...props} tabs={adminTabs} accentColor={Theme.colors.primary} />}
       screenOptions={{
         headerShown: false,
       }}
@@ -160,7 +171,7 @@ const AdminTabNavigator = () => {
 
 const PrincipalTabNavigator = () => (
   <Tab.Navigator
-    tabBar={(props) => <PrincipalTabBar {...props} />}
+    tabBar={(props) => <RoleTabBar {...props} tabs={principalTabs} accentColor={Theme.colors.accentPrincipal} />}
     screenOptions={{
       headerShown: false,
     }}
@@ -175,7 +186,7 @@ const PrincipalTabNavigator = () => (
 
 const DirectorTabNavigator = () => (
   <Tab.Navigator
-    tabBar={(props) => <DirectorTabBar {...props} />}
+    tabBar={(props) => <RoleTabBar {...props} tabs={directorTabs} accentColor={Theme.colors.accentDirector} />}
     screenOptions={{
       headerShown: false,
     }}
@@ -190,7 +201,7 @@ const DirectorTabNavigator = () => (
 
 const TeacherTabNavigator = () => (
   <Tab.Navigator
-    tabBar={(props) => <TeacherTabBar {...props} />}
+    tabBar={(props) => <RoleTabBar {...props} tabs={teacherTabs} accentColor={Theme.colors.accentTeacher} />}
     screenOptions={{
       headerShown: false,
     }}
@@ -205,7 +216,7 @@ const TeacherTabNavigator = () => (
 
 const StudentTabNavigator = () => (
   <Tab.Navigator
-    tabBar={(props) => <CustomTabBar {...props} />}
+    tabBar={(props) => <RoleTabBar {...props} tabs={studentTabs} accentColor={Theme.colors.accentStudent} />}
     screenOptions={{
       headerShown: false,
     }}
@@ -221,7 +232,7 @@ const StudentTabNavigator = () => (
 
 const AccountantTabNavigator = () => (
   <Tab.Navigator
-    tabBar={(props) => <AccountantTabBar {...props} />}
+    tabBar={(props) => <RoleTabBar {...props} tabs={accountantTabs} accentColor={Theme.colors.accentAccountant} />}
     screenOptions={{
       headerShown: false,
     }}
@@ -239,21 +250,21 @@ const AccountantTabNavigator = () => (
 const MainTabs = () => {
   const { userRole } = useAuth();
 
-  if (!userRole) return null;
+  if (!userRole) {return null;}
 
   switch (userRole?.toLowerCase()) {
     case 'admin':
     case 'agent':
-      return <AdminTabNavigator />;
-    case 'principal': return <PrincipalTabNavigator />;
-    case 'director': return <DirectorTabNavigator />;
+      return <ErrorBoundary><Suspense fallback={null}><AdminTabNavigator /></Suspense></ErrorBoundary>;
+    case 'principal': return <ErrorBoundary><Suspense fallback={null}><PrincipalTabNavigator /></Suspense></ErrorBoundary>;
+    case 'director': return <ErrorBoundary><Suspense fallback={null}><DirectorTabNavigator /></Suspense></ErrorBoundary>;
     case 'teacher':
     case 'class_teacher':
     case 'class teacher':
     case 'classteacher':
-      return <TeacherTabNavigator />;
-    case 'student': return <StudentTabNavigator />;
-    case 'accountant': return <AccountantTabNavigator />;
+      return <ErrorBoundary><Suspense fallback={null}><TeacherTabNavigator /></Suspense></ErrorBoundary>;
+    case 'student': return <ErrorBoundary><Suspense fallback={null}><StudentTabNavigator /></Suspense></ErrorBoundary>;
+    case 'accountant': return <ErrorBoundary><Suspense fallback={null}><AccountantTabNavigator /></Suspense></ErrorBoundary>;
     default: return null;
   }
 };
@@ -272,7 +283,9 @@ export default function AppNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
       {userToken === null ? (
         // ─── Auth Stack (Not Logged In) ─────────────────────────────────────
         <>
@@ -303,10 +316,15 @@ export default function AppNavigator() {
           <Stack.Screen name="NotificationManager" component={NotificationManagerScreen} />
           <Stack.Screen name="SchoolDetails" component={SchoolDetailsScreen} />
           <Stack.Screen name="AdminSettings" component={SettingsScreen} />
+          <Stack.Screen name="AutoPayTracker" component={AutoPayTrackerScreen} />
+          <Stack.Screen name="ManualAttendanceManager" component={ManualAttendanceManagerScreen} />
+          <Stack.Screen name="PricingManager" component={PricingManagerScreen} />
+          <Stack.Screen name="PaymentHistory" component={PaymentHistoryScreen} />
           <Stack.Screen name="TeacherDashboard" component={TeacherDashboardScreen} />
           <Stack.Screen name="TeacherAttendance" component={TeacherAttendanceScreen} />
           <Stack.Screen name="TeacherMarksEntry" component={TeacherMarksEntryScreen} />
           <Stack.Screen name="TeacherHomeworkManagement" component={TeacherHomeworkManagementScreen} />
+          <Stack.Screen name="TeacherHomeworkSubmissions" component={HomeworkSubmissionsScreen} />
           <Stack.Screen name="StudentRegistrationRequests" component={StudentRegistrationRequestsScreen} />
           <Stack.Screen name="TeacherLeaveRequest" component={TeacherLeaveRequestScreen} />
           <Stack.Screen name="TeacherLeaveApproval" component={TeacherLeaveApprovalScreen} />
@@ -359,5 +377,6 @@ export default function AppNavigator() {
         </>
       )}
     </Stack.Navigator>
+    </>
   );
 }

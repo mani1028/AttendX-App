@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View, ScrollView, TouchableOpacity, TextInput,
-  Modal, ActivityIndicator, StyleSheet, Alert, StatusBar, Platform,
-  NativeSyntheticEvent, NativeScrollEvent, Animated,
+  Modal, ActivityIndicator, StyleSheet, Alert, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import {
   ChevronLeft,
+  ChevronRight,
   Bell,
   RefreshCw,
   School,
@@ -27,28 +27,36 @@ import {
   Settings,
   Trash2,
 } from 'lucide-react-native';
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import API from '../../services/api';
 import * as principalService from '../../services/principalService';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+import { Theme, C } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import AppButton from '../../components/common/AppButton';
+
+
+
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 async function getSchoolCode() {
-  return (await AsyncStorage.getItem('school_code')) ||
-    (await AsyncStorage.getItem('schoolCode')) || '';
+  return (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+    (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
 }
 
 async function getBranchId() {
-  return (await AsyncStorage.getItem('branch_id')) ||
-    (await AsyncStorage.getItem('branchId')) || '';
+  return (await storage.getString(StorageKeys.BRANCH_ID)) ||
+    (await storage.getString(StorageKeys.BRANCH_ID)) || '';
 }
 
 function teacherLabel(t: any) {
-  if (!t) return '';
+  if (!t) {return '';}
   const name = t.staff_full_name || t.teacher_full_name || t.name;
   const id = t.employee_id || t.teacher_id || t.id;
   return `${id} - ${name}`;
@@ -59,8 +67,6 @@ export default function PrincipalTeacherAssignmentsScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
-  const scrollY = useRef(new Animated.Value(0)).current;
 
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
@@ -101,6 +107,7 @@ export default function PrincipalTeacherAssignmentsScreen() {
   // Teacher picker modal (replaces <select>)
   const [teacherPickerVisible, setTeacherPickerVisible] = useState(false);
   const [teacherPickerTarget, setTeacherPickerTarget] = useState<'class' | string>('class');
+  const [teacherSearchText, setTeacherSearchText] = useState('');
 
   const isBusy = loading || detailsLoading || classTeacherSaving || subjectTeacherSaving;
   const clearMessage = () => setMessage({ type: '', text: '' });
@@ -120,6 +127,16 @@ export default function PrincipalTeacherAssignmentsScreen() {
     [...new Set(subjects.map(s => String(s).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
     [subjects]);
 
+  const filteredTeachers = useMemo(() => {
+    if (!teacherSearchText.trim()) {return teachers;}
+    const query = teacherSearchText.toLowerCase();
+    return teachers.filter(t => {
+      const name = (t.staff_full_name || t.teacher_full_name || t.name || '').toLowerCase();
+      const id = String(t.employee_id || t.teacher_id || t.id || '').toLowerCase();
+      return name.includes(query) || id.includes(query);
+    });
+  }, [teachers, teacherSearchText]);
+
   // ── Init ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
@@ -132,24 +149,14 @@ export default function PrincipalTeacherAssignmentsScreen() {
     return () => setTabBarVisible(true);
   }, []);
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const y = event.nativeEvent.contentOffset.y;
-    const deltaY = y - lastScrollY.current;
-    scrollY.setValue(y);
-    if (y > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10 || y < 10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = y;
-  };
+  const handleScroll = useScrollTabBar();
 
   useEffect(() => {
-    if (schoolCode && branchId) loadMeta();
+    if (schoolCode && branchId) {loadMeta();}
   }, [schoolCode, branchId]);
 
   useEffect(() => {
-    if (selectedClass && selectedSection) loadDetails(selectedClass, selectedSection);
+    if (selectedClass && selectedSection) {loadDetails(selectedClass, selectedSection);}
   }, [selectedClass, selectedSection]);
 
   // ── API calls ───────────────────────────────────────────────────────────────
@@ -160,9 +167,9 @@ export default function PrincipalTeacherAssignmentsScreen() {
       const [classesRes, staffRes, poolRes] = await Promise.all([
         API.get('/principal/classes', { headers }),
         principalService.getPrincipalTeachers(headers),
-        API.get('/principal/subjects/pool', { headers }).catch(() => ({ data: { ok: false, subjects: [] } }))
+        API.get('/principal/subjects/pool', { headers }).catch(() => ({ data: { ok: false, subjects: [] } })),
       ]);
-      
+
       if (poolRes.data?.ok) {
         setGlobalSubjects(poolRes.data.subjects || []);
       }
@@ -173,9 +180,9 @@ export default function PrincipalTeacherAssignmentsScreen() {
       classItems.forEach((item: any) => {
         const cg = String(item.class_grade || '').trim();
         const sec = String(item.section || '').trim().toUpperCase();
-        if (!cg || !sec) return;
-        if (!grouped[cg]) grouped[cg] = [];
-        if (!grouped[cg].includes(sec)) grouped[cg].push(sec);
+        if (!cg || !sec) {return;}
+        if (!grouped[cg]) {grouped[cg] = [];}
+        if (!grouped[cg].includes(sec)) {grouped[cg].push(sec);}
       });
 
       Object.keys(grouped).forEach(cg => {
@@ -202,7 +209,7 @@ export default function PrincipalTeacherAssignmentsScreen() {
   };
 
   const loadDetails = async (cg: string, sec: string) => {
-    if (!cg || !sec) return;
+    if (!cg || !sec) {return;}
     setDetailsLoading(true);
     clearMessage();
     try {
@@ -307,11 +314,11 @@ export default function PrincipalTeacherAssignmentsScreen() {
 
   const addSubjectToGlobalPool = async () => {
     const sname = newGlobalSubject.trim();
-    if (!sname) return;
+    if (!sname) {return;}
     try {
       await API.post('/principal/subjects/pool/add', { subject_name: sname }, { headers });
       const poolRes = await API.get('/principal/subjects/pool', { headers });
-      if (poolRes.data?.ok) setGlobalSubjects(poolRes.data.subjects);
+      if (poolRes.data?.ok) {setGlobalSubjects(poolRes.data.subjects);}
       setNewGlobalSubject('');
     } catch (err: any) {
       Alert.alert('Error', 'Failed to add subject: ' + (err.response?.data?.detail || err.message));
@@ -325,22 +332,22 @@ export default function PrincipalTeacherAssignmentsScreen() {
         try {
           await API.post('/principal/subjects/pool/delete', { subject_name: sname }, { headers });
           const poolRes = await API.get('/principal/subjects/pool', { headers });
-          if (poolRes.data?.ok) setGlobalSubjects(poolRes.data.subjects);
+          if (poolRes.data?.ok) {setGlobalSubjects(poolRes.data.subjects);}
         } catch (err: any) {
           Alert.alert('Error', 'Failed to delete subject: ' + (err.response?.data?.detail || err.message));
         }
-      }}
+      }},
     ]);
   };
 
   const importToClass = async () => {
-    if (selectedGlobalSubjects.length === 0) return;
+    if (selectedGlobalSubjects.length === 0) {return;}
     setSubjectTeacherSaving(true);
     try {
       await API.post('/principal/subjects/import-to-class', {
         class_grade: selectedClass,
         section: selectedSection,
-        subject_names: selectedGlobalSubjects
+        subject_names: selectedGlobalSubjects,
       }, { headers });
       await loadDetails(selectedClass, selectedSection);
       setSelectedGlobalSubjects([]);
@@ -356,11 +363,12 @@ export default function PrincipalTeacherAssignmentsScreen() {
   // ── Teacher picker ──────────────────────────────────────────────────────────
   const openTeacherPicker = (target: 'class' | string) => {
     setTeacherPickerTarget(target);
+    setTeacherSearchText('');
     setTeacherPickerVisible(true);
   };
 
   const onPickTeacher = (teacher: any) => {
-    const id = String(teacher.teacher_id);
+    const id = teacher.employee_id || String(teacher.teacher_id);
     if (teacherPickerTarget === 'class') {
       setClassTeacherId(id);
     } else if (teacherPickerTarget === 'modal') {
@@ -372,58 +380,31 @@ export default function PrincipalTeacherAssignmentsScreen() {
   };
 
   const getTeacherName = (id: string) => {
-    const t = teachers.find(t => String(t.teacher_id) === id);
+    const t = teachers.find(t => String(t.teacher_id) === id || String(t.employee_id) === id);
     return t ? teacherLabel(t) : 'Select Teacher';
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+      <StandardPageHeader
+        title="Staff Assignment"
+        onBackPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('PrincipalDashboard' as never)}
+        rightIcon={<BookOpen size={20} color={Theme.colors.card} />}
+        onRightIconPress={() => setShowGlobalPoolManager(true)}
+      />
 
-      <Animated.ScrollView
+      <ScrollView
         style={styles.page}
         contentContainerStyle={styles.pageContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        <Animated.View
-          style={[
-            styles.navHeader,
-            { paddingTop: insets.top + 8 },
-            {
-              transform: [{ translateY: scrollY.interpolate({ inputRange: [0, 140], outputRange: [0, -100], extrapolate: 'clamp' }) }],
-              opacity: scrollY.interpolate({ inputRange: [0, 140], outputRange: [1, 0.92], extrapolate: 'clamp' }),
-            },
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('PrincipalDashboard' as never)}
-          >
-            <ChevronLeft size={22} color="#fff" />
-          </TouchableOpacity>
-          <AppText style={styles.navTitle} weight="bold">Staff Assignment</AppText>
-          <TouchableOpacity style={styles.notificationBtn} onPress={() => setShowGlobalPoolManager(true)}>
-            <BookOpen size={20} color="#fff" />
-          </TouchableOpacity>
-        </Animated.View>
 
         {/* Header (Section Title) */}
         <View style={styles.header}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <View style={{ flex: 1 }}>
-              <AppText style={styles.title} weight="bold">Staff Assignment Management</AppText>
-              <AppText style={styles.subtitle}>Assign class staff and subject staff for each class-section</AppText>
-            </View>
-            <TouchableOpacity 
-              style={[styles.btnOutline, { height: 40, paddingHorizontal: 12 }]} 
-              onPress={() => setShowGlobalPoolManager(true)}
-            >
-              <BookOpen size={16} color={C.primary} />
-              <AppText style={[styles.btnOutlineText, { color: C.primary, fontSize: 12 }]} weight="bold">Global Pool</AppText>
-            </TouchableOpacity>
-          </View>
+          <AppText style={styles.title} weight="bold">Staff Assignment Management</AppText>
+          <AppText style={styles.subtitle}>Assign class staff and subject staff for each class-section</AppText>
         </View>
 
       {/* Info Bar */}
@@ -464,7 +445,7 @@ export default function PrincipalTeacherAssignmentsScreen() {
           <AppText style={{ color: message.type === 'success' ? C.success : message.type === 'error' ? C.danger : C.warning, flex: 1 }} weight="bold">
             {message.text}
           </AppText>
-          <TouchableOpacity onPress={clearMessage}>
+          <TouchableOpacity accessibilityRole="button" onPress={clearMessage}>
             <X size={18} color={message.type === 'success' ? C.success : message.type === 'error' ? C.danger : C.warning} />
           </TouchableOpacity>
         </View>
@@ -488,7 +469,7 @@ export default function PrincipalTeacherAssignmentsScreen() {
                   <AppText style={styles.sectionTitleSmall} weight="bold">Classes</AppText>
                   <View style={styles.classGrid}>
                     {classNames.map(cls => (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={cls}
                         style={[styles.classCard, selectedClass === cls && styles.classCardActive]}
                         onPress={() => {
@@ -515,7 +496,7 @@ export default function PrincipalTeacherAssignmentsScreen() {
                   <AppText style={styles.sectionTitleSmall} weight="bold">Section</AppText>
                   <View style={styles.sectionList}>
                     {(classesMap[selectedClass] || []).map(sec => (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={sec}
                         style={[styles.sectionBtn, selectedSection === sec && styles.sectionBtnActive]}
                         onPress={() => setSelectedSection(sec)}
@@ -557,12 +538,12 @@ export default function PrincipalTeacherAssignmentsScreen() {
                       </View>
                       <View style={styles.cardBody}>
                         <AppText style={styles.label} weight="bold">Select Staff</AppText>
-                        <TouchableOpacity
+                        <TouchableOpacity accessibilityRole="button"
                           style={styles.picker}
                           onPress={() => openTeacherPicker('class')}
                           disabled={isBusy}
                         >
-                          <AppText style={{ color: classTeacherId ? C.text : C.text3, fontSize: 14 }}>
+                          <AppText style={{ color: classTeacherId ? C.text : C.text3, ...Theme.typography.body }}>
                             {classTeacherId ? getTeacherName(classTeacherId) : 'Select Staff'}
                           </AppText>
                           <ChevronDown size={16} color={C.text3} />
@@ -583,15 +564,13 @@ export default function PrincipalTeacherAssignmentsScreen() {
                           </AppText>
                         </View>
 
-                        <TouchableOpacity
-                          style={[styles.btnPrimary, isBusy && styles.btnDisabled]}
+                        <AppButton
+                          title="Save Class Staff"
+                          type="primary"
                           onPress={() => saveClassTeacher('normal')}
+                          loading={classTeacherSaving}
                           disabled={isBusy}
-                        >
-                          {classTeacherSaving
-                            ? <ActivityIndicator color="#fff" size="small" />
-                            : <AppText style={styles.btnPrimaryText} weight="bold">Save Class Staff</AppText>}
-                        </TouchableOpacity>
+                        />
                       </View>
                     </View>
 
@@ -605,22 +584,23 @@ export default function PrincipalTeacherAssignmentsScreen() {
                           </View>
                           <AppText style={styles.cardSub}>Save subject-staff mappings</AppText>
                         </View>
-                        <TouchableOpacity
-                          style={styles.btnOutline}
+                        <AppButton
+                          title="Add"
+                          type="outline"
+                          size="sm"
+                          leftIcon={<Plus size={14} color={C.primary} />}
                           onPress={() => {
                             setSubjectModalMode('create');
                             setSubjectModalNewSubject('');
                             setSubjectModalError('');
                             setSubjectModalOpen(true);
                           }}
-                        >
-                          <Plus size={16} color={C.text2} />
-                          <AppText style={styles.btnOutlineText} weight="bold">Add</AppText>
-                        </TouchableOpacity>
+                          disabled={isBusy}
+                        />
                       </View>
                       <View style={styles.cardBody}>
                         {subjects.length === 0 ? (
-                          <AppText style={{ color: C.text2, fontSize: 14 }}>
+                          <AppText style={{ color: C.text2, ...Theme.typography.body }}>
                             No subjects found. Use "Global Pool" to import subjects first.
                           </AppText>
                         ) : (
@@ -628,7 +608,7 @@ export default function PrincipalTeacherAssignmentsScreen() {
                             {subjects.map(subject => (
                               <View key={subject} style={styles.subjectRow}>
                                 <AppText style={styles.subjectName} weight="bold">{subject}</AppText>
-                                <TouchableOpacity
+                                <TouchableOpacity accessibilityRole="button"
                                   style={styles.picker}
                                   onPress={() => openTeacherPicker(subject)}
                                   disabled={isBusy}
@@ -640,15 +620,14 @@ export default function PrincipalTeacherAssignmentsScreen() {
                                 </TouchableOpacity>
                               </View>
                             ))}
-                            <TouchableOpacity
-                              style={[styles.btnPrimary, { marginTop: 16 }, isBusy && styles.btnDisabled]}
+                            <AppButton
+                              title="Save Subject Staff"
+                              type="primary"
+                              style={{ marginTop: Theme.spacing.md }}
                               onPress={saveSubjectTeachers}
+                              loading={subjectTeacherSaving}
                               disabled={isBusy}
-                            >
-                              {subjectTeacherSaving
-                                ? <ActivityIndicator color="#fff" size="small" />
-                                : <AppText style={styles.btnPrimaryText} weight="bold">Save Subject Staff</AppText>}
-                            </TouchableOpacity>
+                            />
                           </>
                         )}
                       </View>
@@ -666,7 +645,7 @@ export default function PrincipalTeacherAssignmentsScreen() {
           )}
         </>
       )}
-      </Animated.ScrollView>
+      </ScrollView>
 
       {/* ── Global Pool Manager Modal ────────────────────────────────────── */}
       <Modal visible={showGlobalPoolManager} transparent animationType="slide">
@@ -677,51 +656,51 @@ export default function PrincipalTeacherAssignmentsScreen() {
                 <BookOpen size={20} color={C.text} />
                 <AppText style={styles.modalTitle} weight="bold">Global Subject Pool</AppText>
               </View>
-              <TouchableOpacity onPress={() => setShowGlobalPoolManager(false)} style={styles.backButton}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setShowGlobalPoolManager(false)} style={{ padding: 6 }}>
                 <X size={22} color={C.text} />
               </TouchableOpacity>
             </View>
             <View style={styles.modalBody}>
-              <AppText style={{ fontSize: 13, color: C.text2, marginBottom: 16 }}>
+              <AppText style={{ fontSize: 13, color: C.text2, marginBottom: Theme.spacing.md }}>
                 Add subjects here once, then import them into any class/section.
               </AppText>
-              
+
               <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
-                <TextInput 
-                  style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                  placeholder="New Subject Name" 
-                  value={newGlobalSubject} 
-                  onChangeText={setNewGlobalSubject} 
+                <TextInput
+                  style={[styles.input, { flex: 1, marginBottom: 0, height: 50 }]}
+                  placeholder="New Subject Name"
+                  value={newGlobalSubject}
+                  onChangeText={setNewGlobalSubject}
                   placeholderTextColor={C.text3}
                 />
-                <TouchableOpacity 
-                  style={[styles.btnPrimary, { height: 58, width: 80, paddingHorizontal: 0 }]} 
+                <AppButton
+                  title=""
+                  leftIcon={<Plus size={20} color={Theme.colors.card} />}
                   onPress={addSubjectToGlobalPool}
-                >
-                  <Plus size={20} color="#fff" />
-                </TouchableOpacity>
+                  style={{ width: 50, height: 50 }}
+                />
               </View>
 
               <AppText style={[styles.label, { marginBottom: 12 }]} weight="bold">
                 Import to Class {selectedClass}-{selectedSection || '?'}
               </AppText>
-              
-              <ScrollView style={{ maxHeight: 300, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 12 }}>
+
+              <ScrollView style={{ maxHeight: 260, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 12 }}>
                 {globalSubjects.length === 0 ? (
                   <View style={{ padding: 20, alignItems: 'center' }}>
                     <AppText style={{ color: C.text3 }}>No global subjects yet.</AppText>
                   </View>
                 ) : (
                   globalSubjects.map(s => (
-                    <TouchableOpacity 
-                      key={s.pool_id} 
-                      style={{ 
-                        flexDirection: 'row', 
-                        alignItems: 'center', 
-                        justifyContent: 'space-between', 
-                        padding: 16, 
-                        borderBottomWidth: 1, 
-                        borderBottomColor: C.borderSoft 
+                    <TouchableOpacity accessibilityRole="button"
+                      key={s.pool_id}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: Theme.spacing.md,
+                        borderBottomWidth: 1,
+                        borderBottomColor: C.borderSoft,
                       }}
                       onPress={() => {
                         if (selectedGlobalSubjects.includes(s.subject_name)) {
@@ -732,17 +711,17 @@ export default function PrincipalTeacherAssignmentsScreen() {
                       }}
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-                        <View style={{ 
-                          width: 20, height: 20, borderRadius: 4, borderWidth: 2, 
+                        <View style={{
+                          width: 20, height: 20, borderRadius: 4, borderWidth: 2,
                           borderColor: selectedGlobalSubjects.includes(s.subject_name) ? C.primary : C.border,
                           backgroundColor: selectedGlobalSubjects.includes(s.subject_name) ? C.primary : 'transparent',
-                          justifyContent: 'center', alignItems: 'center'
+                          justifyContent: 'center', alignItems: 'center',
                         }}>
-                          {selectedGlobalSubjects.includes(s.subject_name) && <Plus size={14} color="#fff" />}
+                          {selectedGlobalSubjects.includes(s.subject_name) && <Plus size={14} color={Theme.colors.card} />}
                         </View>
                         <AppText style={{ color: C.text }}>{s.subject_name}</AppText>
                       </View>
-                      <TouchableOpacity onPress={() => deleteFromGlobalPool(s.subject_name)} style={{ padding: 4 }}>
+                      <TouchableOpacity accessibilityRole="button" onPress={() => deleteFromGlobalPool(s.subject_name)} style={{ padding: Theme.spacing.xs }}>
                         <Trash2 size={16} color={C.danger} />
                       </TouchableOpacity>
                     </TouchableOpacity>
@@ -751,16 +730,19 @@ export default function PrincipalTeacherAssignmentsScreen() {
               </ScrollView>
             </View>
             <View style={styles.modalFoot}>
-              <TouchableOpacity style={styles.btnOutline} onPress={() => { setShowGlobalPoolManager(false); setSelectedGlobalSubjects([]); }}>
-                <AppText style={styles.btnOutlineText} weight="bold">Cancel</AppText>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.btnPrimary, (selectedGlobalSubjects.length === 0 || !selectedClass) && styles.btnDisabled]} 
-                disabled={selectedGlobalSubjects.length === 0 || !selectedClass} 
+              <AppButton
+                title="Cancel"
+                type="secondary"
+                onPress={() => { setShowGlobalPoolManager(false); setSelectedGlobalSubjects([]); }}
+                style={{ marginRight: 8, flex: 1 }}
+              />
+              <AppButton
+                title={`Import (${selectedGlobalSubjects.length})`}
+                type="primary"
+                disabled={selectedGlobalSubjects.length === 0 || !selectedClass}
                 onPress={importToClass}
-              >
-                <AppText style={styles.btnPrimaryText} weight="bold">Import ({selectedGlobalSubjects.length})</AppText>
-              </TouchableOpacity>
+                style={{ flex: 1 }}
+              />
             </View>
           </View>
         </View>
@@ -772,14 +754,29 @@ export default function PrincipalTeacherAssignmentsScreen() {
           <View style={[styles.modal, styles.pickerModal]}>
             <View style={styles.modalHead}>
               <AppText style={styles.modalTitle} weight="bold">Select Teacher</AppText>
-              <TouchableOpacity onPress={() => setTeacherPickerVisible(false)} style={styles.backButton}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setTeacherPickerVisible(false)} style={{ padding: 6 }}>
                 <X size={22} color={C.text} />
               </TouchableOpacity>
             </View>
-            {teachers && teachers.length > 0 ? (
+
+            {teachers && teachers.length > 5 && (
+              <View style={{ paddingHorizontal: Theme.spacing.lg, paddingBottom: Theme.spacing.sm }}>
+                <TextInput
+                  style={[styles.input, { height: 45, fontSize: 14 }]}
+                  placeholder="Search teacher by name or ID..."
+                  placeholderTextColor={C.text3}
+                  value={teacherSearchText}
+                  onChangeText={setTeacherSearchText}
+                  autoCapitalize="none"
+                  clearButtonMode="while-editing"
+                />
+              </View>
+            )}
+
+            {filteredTeachers && filteredTeachers.length > 0 ? (
               <ScrollView style={styles.pickerScrollView}>
-                {teachers.map(teacher => (
-                  <TouchableOpacity
+                {filteredTeachers.map(teacher => (
+                  <TouchableOpacity accessibilityRole="button"
                     key={String(teacher.teacher_id)}
                     style={styles.pickerOption}
                     onPress={() => onPickTeacher(teacher)}
@@ -791,13 +788,15 @@ export default function PrincipalTeacherAssignmentsScreen() {
                       <AppText style={styles.pickerOptionText} weight="bold">{teacher.teacher_full_name}</AppText>
                       <AppText style={styles.pickerOptionSub}>{teacher.employee_id || teacher.teacher_id}</AppText>
                     </View>
-                    <ChevronLeft size={18} color={C.text3} style={{ transform: [{ rotate: '180deg' }] }} />
+                    <ChevronRight size={18} color={C.text3} />
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             ) : (
               <View style={styles.emptyPickerList}>
-                <AppText style={styles.emptyPickerText}>No teachers available</AppText>
+                <AppText style={styles.emptyPickerText}>
+                  {teachers.length === 0 ? 'No teachers available' : 'No matching teachers'}
+                </AppText>
               </View>
             )}
           </View>
@@ -813,34 +812,37 @@ export default function PrincipalTeacherAssignmentsScreen() {
                 <BookOpen size={20} color={C.text} />
                 <AppText style={styles.modalTitle} weight="bold">Add Subject</AppText>
               </View>
-              <TouchableOpacity onPress={() => setSubjectModalOpen(false)} style={styles.backButton}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setSubjectModalOpen(false)} style={{ padding: 6 }}>
                 <X size={22} color={C.text} />
               </TouchableOpacity>
             </View>
             <View style={styles.modalBody}>
               <AppText style={styles.label} weight="bold">Subject Name</AppText>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { height: 50 }]}
                 value={subjectModalNewSubject}
                 onChangeText={setSubjectModalNewSubject}
                 placeholder="Enter subject name"
                 placeholderTextColor={C.text3}
               />
               {subjectModalError ? (
-                <AppText style={{ color: C.danger, fontSize: 13, marginTop: 8 }}>{subjectModalError}</AppText>
+                <AppText style={{ color: C.danger, fontSize: 13, marginTop: Theme.spacing.sm }}>{subjectModalError}</AppText>
               ) : null}
             </View>
             <View style={styles.modalFoot}>
-              <TouchableOpacity style={styles.btnOutline} onPress={() => setSubjectModalOpen(false)}>
-                <AppText style={styles.btnOutlineText} weight="bold">Cancel</AppText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.btnPrimary, !subjectModalNewSubject.trim() && styles.btnDisabled]}
-                onPress={handleCreateSubject}
+              <AppButton
+                title="Cancel"
+                type="secondary"
+                onPress={() => setSubjectModalOpen(false)}
+                style={{ marginRight: 8, flex: 1 }}
+              />
+              <AppButton
+                title="Add Subject"
+                type="primary"
                 disabled={!subjectModalNewSubject.trim() || subjectTeacherSaving}
-              >
-                <AppText style={styles.btnPrimaryText} weight="bold">Add Subject</AppText>
-              </TouchableOpacity>
+                onPress={handleCreateSubject}
+                style={{ flex: 1 }}
+              />
             </View>
           </View>
         </View>
@@ -868,26 +870,26 @@ export default function PrincipalTeacherAssignmentsScreen() {
               </AppText>
             </View>
             <View style={styles.modalFoot}>
-              <TouchableOpacity
-                style={styles.btnOutline}
+              <AppButton
+                title="Cancel"
+                type="secondary"
                 onPress={() => { setOverrideOpen(false); setOverrideConflict(null); }}
-              >
-                <AppText style={styles.btnOutlineText} weight="bold">Cancel</AppText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.btnOutline}
+                style={{ flex: 1, marginRight: 6 }}
+              />
+              <AppButton
+                title="Assign Both"
+                type="outline"
                 onPress={() => saveClassTeacher('keep_both')}
                 disabled={classTeacherSaving}
-              >
-                <AppText style={styles.btnOutlineText} weight="bold">Assign For ALL</AppText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.btnPrimary}
+                style={{ flex: 1, marginRight: 6 }}
+              />
+              <AppButton
+                title="Move"
+                type="primary"
                 onPress={() => saveClassTeacher('move')}
                 disabled={classTeacherSaving}
-              >
-                <AppText style={styles.btnPrimaryText} weight="bold">Move</AppText>
-              </TouchableOpacity>
+                style={{ flex: 1 }}
+              />
             </View>
           </View>
         </View>
@@ -909,8 +911,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 40,
-    borderBottomLeftRadius: 35,
-    borderBottomRightRadius: 35,
+
+
     ...Platform.select({
       android: { elevation: 12 },
       ios: {
@@ -931,7 +933,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   navTitle: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 20,
     flex: 1,
     textAlign: 'center',
@@ -946,28 +948,25 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   page: { flex: 1, backgroundColor: C.bg },
-  pageContent: { paddingHorizontal: 16, paddingBottom: 120 },
+  pageContent: { paddingHorizontal: Theme.spacing.md, paddingBottom: 120 },
   header: {
-    paddingTop: 24,
-    paddingBottom: 16,
-    paddingHorizontal: 4,
+    paddingTop: Theme.spacing.lg,
+    paddingBottom: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.xs,
   },
   title: { fontSize: 28, color: C.text, lineHeight: 36, letterSpacing: -0.5 },
-  subtitle: { fontSize: 15, color: C.text2, marginTop: 6, lineHeight: 22 },
+  subtitle: { ...Theme.typography.bodyMd, color: C.text2, marginTop: 6, lineHeight: 22 },
 
   infoBar: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    backgroundColor: C.white,
-    borderRadius: 24,
-    padding: 16,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    backgroundColor: C.bgAlt,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.lg,
     gap: 20,
   },
   infoItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -979,81 +978,86 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  infoLabel: { fontSize: 11, color: C.text3, textTransform: 'uppercase', letterSpacing: 0.5 },
-  infoValue: { fontSize: 14, color: C.text },
+  infoLabel: { ...Theme.typography.label, color: C.text3, textTransform: 'uppercase', letterSpacing: 0.5 },
+  infoValue: { ...Theme.typography.body, color: C.text },
 
   messageBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 20,
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
     borderWidth: 1,
-    gap: 12
+    gap: 12,
   },
 
   panel: {
     backgroundColor: C.white,
-    borderRadius: 30,
-    marginBottom: 24,
+    borderRadius: 24,
+    marginBottom: Theme.spacing.lg,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 3,
     overflow: 'hidden',
     borderWidth: Platform.OS === 'ios' ? 1 : 0,
     borderColor: C.borderSoft,
   },
   panelHead: {
-    padding: 24,
+    padding: Theme.spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: C.borderSoft,
     backgroundColor: C.white,
   },
   panelTitle: { fontSize: 20, color: C.text, letterSpacing: -0.3 },
-  panelSub: { fontSize: 14, color: C.text2, marginTop: 4 },
+  panelSub: { ...Theme.typography.body, color: C.text2, marginTop: Theme.spacing.xs },
   panelBody: { padding: 20 },
 
   classGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   classCard: {
     width: '48%',
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 16,
+    padding: 16,
     backgroundColor: C.white,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: C.borderSoft,
+    marginBottom: Theme.spacing.md,
+    borderWidth: 1,
+    borderColor: C.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 1,
   },
-  classCardActive: { borderColor: C.primary, backgroundColor: C.primarySoft },
-  className: { fontSize: 18, color: C.text },
-  classMeta: { fontSize: 13, color: C.text3, marginTop: 8 },
+  classCardActive: {
+    borderColor: C.primary,
+    backgroundColor: '#eff6ff',
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  className: { fontSize: 16, color: C.text },
+  classMeta: { fontSize: 12, color: C.text3, marginTop: 4 },
 
   sectionWrap: { marginTop: 12, paddingTop: 20, borderTopWidth: 1, borderTopColor: C.borderSoft },
   sectionTitleSmall: {
     fontSize: 16,
     color: C.text,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   sectionList: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   sectionBtn: {
-    minWidth: 56,
-    height: 56,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: C.borderSoft,
+    minWidth: 50,
+    height: 50,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
     backgroundColor: C.white,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16
+    paddingHorizontal: Theme.spacing.md,
   },
   sectionBtnActive: { borderColor: C.primary, backgroundColor: C.primary },
-  sectionBtnText: { color: C.text2, fontSize: 16 },
+  sectionBtnText: { color: C.text, fontSize: 15 },
 
   card: {
     borderRadius: 24,
@@ -1073,31 +1077,31 @@ const styles = StyleSheet.create({
   },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   cardTitle: { fontSize: 17, color: C.text },
-  cardSub: { fontSize: 13, color: C.text2, marginTop: 4 },
+  cardSub: { fontSize: 13, color: C.text2, marginTop: Theme.spacing.xs },
   cardBody: { padding: 20 },
 
-  label: { fontSize: 14, color: C.text, marginBottom: 10, marginLeft: 4, opacity: 0.8 },
+  label: { ...Theme.typography.body, color: C.text, marginBottom: 10, marginLeft: Theme.spacing.xs, opacity: 0.8 },
   picker: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 58,
-    borderWidth: 1.5,
-    borderColor: C.borderSoft,
-    borderRadius: 18,
-    paddingHorizontal: 16,
+    height: 50,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 12,
+    paddingHorizontal: Theme.spacing.md,
     backgroundColor: C.bgAlt,
-    marginBottom: 16
+    marginBottom: Theme.spacing.md,
   },
   input: {
-    height: 58,
-    borderWidth: 1.5,
-    borderColor: C.borderSoft,
-    borderRadius: 18,
-    paddingHorizontal: 16,
+    height: 50,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 12,
+    paddingHorizontal: Theme.spacing.md,
     fontSize: 16,
     color: C.text,
-    backgroundColor: C.bgAlt
+    backgroundColor: C.bgAlt,
   },
 
   currentBadge: {
@@ -1116,7 +1120,7 @@ const styles = StyleSheet.create({
   noteBox: {
     backgroundColor: '#FFFBEB',
     borderRadius: 16,
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#FEF3C7',
@@ -1124,7 +1128,7 @@ const styles = StyleSheet.create({
   noteText: { fontSize: 13, color: '#92400E', lineHeight: 20 },
 
   subjectRow: { marginBottom: 20 },
-  subjectName: { fontSize: 15, color: C.text, marginBottom: 10, marginLeft: 4 },
+  subjectName: { ...Theme.typography.bodyMd, color: C.text, marginBottom: 10, marginLeft: Theme.spacing.xs },
 
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80, gap: 16 },
   emptyTitle: { color: C.text, fontSize: 20 },
@@ -1135,7 +1139,7 @@ const styles = StyleSheet.create({
     height: 58,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: Theme.spacing.lg,
     flexDirection: 'row',
     gap: 12,
     shadowColor: C.primary,
@@ -1144,7 +1148,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
-  btnPrimaryText: { color: '#fff', fontSize: 16, letterSpacing: 0.2 },
+  btnPrimaryText: { color: Theme.colors.card, fontSize: 16, letterSpacing: 0.2 },
   btnOutline: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1154,12 +1158,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: C.borderSoft,
-    backgroundColor: C.white
+    backgroundColor: C.white,
   },
-  btnOutlineText: { color: C.text, fontSize: 14 },
+  btnOutlineText: { color: C.text, ...Theme.typography.body },
   btnDisabled: { opacity: 0.5 },
 
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.5)', justifyContent: 'flex-end' },
   modal: {
     width: '100%',
     backgroundColor: C.white,
@@ -1171,23 +1175,23 @@ const styles = StyleSheet.create({
   modalHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 24,
+    padding: Theme.spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: C.borderSoft,
   },
   modalTitle: { fontSize: 20, color: C.text, flex: 1 },
-  modalBody: { padding: 24 },
+  modalBody: { padding: Theme.spacing.lg },
   modalFoot: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 12,
-    padding: 24,
+    padding: Theme.spacing.lg,
     borderTopWidth: 1,
     borderTopColor: C.borderSoft,
   },
 
   pickerModal: { maxHeight: '85%' },
-  pickerScrollView: { flex: 1 },
+  pickerScrollView: { maxHeight: 450 },
   pickerOption: {
     padding: 20,
     borderBottomWidth: 1,

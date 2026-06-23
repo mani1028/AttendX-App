@@ -20,7 +20,7 @@ export function useApi<T = any>() {
     data?: any
   ) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
-    
+
     try {
       let response: any;
       switch (method) {
@@ -40,7 +40,7 @@ export function useApi<T = any>() {
           response = await API.patch(endpoint, data);
           break;
       }
-      
+
       const responseData = response?.data as T;
       setState({ data: responseData, loading: false, error: null });
       return responseData;

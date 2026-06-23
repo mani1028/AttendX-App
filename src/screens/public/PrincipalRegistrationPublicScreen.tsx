@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import {
   View,
   Text,
@@ -12,10 +13,12 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import { Theme } from '../../theme/tokens';
+
 
 // Types
 interface FormData {
@@ -52,7 +55,7 @@ const BranchStep: React.FC<{
 }> = ({ form, onChange, errors }) => (
   <View>
     <Text style={styles.sectionTitle}>🏢 Branch Information</Text>
-    
+
     <View style={styles.formGroup}>
       <Text style={styles.label}>Branch ID</Text>
       <TextInput
@@ -78,7 +81,7 @@ const BranchStep: React.FC<{
       <Text style={styles.label}>Status <Text style={styles.required}>*</Text></Text>
       <View style={styles.pickerContainer}>
         {['ACTIVE', 'INACTIVE'].map(opt => (
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             key={opt}
             style={[styles.pickerOption, form.status === opt && styles.pickerOptionActive]}
             onPress={() => onChange('status', opt)}
@@ -163,7 +166,7 @@ const PrincipalDetailsStep: React.FC<{
           onChangeText={(text) => onChange('principal_email', text)}
           editable={!emailVerified}
         />
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={[styles.verifyBtn, (otpSending || emailVerified) && styles.verifyBtnDisabled]}
           onPress={onSendOtp}
           disabled={otpSending || emailVerified}
@@ -187,7 +190,7 @@ const PrincipalDetailsStep: React.FC<{
             value={otp}
             onChangeText={setOtp}
           />
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.verifyBtn, styles.verifyOtpBtn]}
             onPress={onVerifyOtp}
             disabled={otpVerifying}
@@ -293,13 +296,13 @@ const ClassesStep: React.FC<{
           </View>
         ))}
 
-        <TouchableOpacity style={styles.addSectionBtn} onPress={() => onAddSection(ci)}>
+        <TouchableOpacity accessibilityRole="button" style={styles.addSectionBtn} onPress={() => onAddSection(ci)}>
           <Text style={styles.addSectionBtnText}>+ Add Section</Text>
         </TouchableOpacity>
       </View>
     ))}
 
-    <TouchableOpacity style={styles.addClassBtn} onPress={onAddClass}>
+    <TouchableOpacity accessibilityRole="button" style={styles.addClassBtn} onPress={onAddClass}>
       <Text style={styles.addClassBtnText}>+ Add Another Class</Text>
     </TouchableOpacity>
   </View>
@@ -319,13 +322,13 @@ const Toast: React.FC<{
     }
   }, [visible]);
 
-  if (!visible) return null;
+  if (!visible) {return null;}
 
   return (
     <View style={[styles.toast, type === 'success' ? styles.toastSuccess : styles.toastError]}>
       <Text style={styles.toastIcon}>{type === 'success' ? '✅' : '❌'}</Text>
       <Text style={styles.toastMessage}>{message}</Text>
-      <TouchableOpacity onPress={onClose}>
+      <TouchableOpacity accessibilityRole="button" onPress={onClose}>
         <Text style={styles.toastClose}>✕</Text>
       </TouchableOpacity>
     </View>
@@ -335,7 +338,7 @@ const Toast: React.FC<{
 export default function PrincipalRegistrationPublicScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  
+
   // Get params from route
   const params = route.params as any;
   const schoolCode = params?.school_code || '';
@@ -343,7 +346,7 @@ export default function PrincipalRegistrationPublicScreen() {
 
   const [activeStep, setActiveStep] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
-  
+
   // Form state
   const [form, setForm] = useState<FormData>({
     branch_id: publicBranchId,
@@ -354,20 +357,20 @@ export default function PrincipalRegistrationPublicScreen() {
     password: '',
     status: 'ACTIVE',
   });
-  
+
   // Classes state
   const [classes, setClasses] = useState<ClassSection[]>([{ class_name: '', sections: [''] }]);
-  
+
   // Password confirmation
   const [confirmPassword, setConfirmPassword] = useState<string>('');
-  
+
   // OTP state
   const [otp, setOtp] = useState<string>('');
   const [otpSent, setOtpSent] = useState<boolean>(false);
   const [emailVerified, setEmailVerified] = useState<boolean>(false);
   const [otpSending, setOtpSending] = useState<boolean>(false);
   const [otpVerifying, setOtpVerifying] = useState<boolean>(false);
-  
+
   // UI state
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
@@ -470,7 +473,7 @@ export default function PrincipalRegistrationPublicScreen() {
 
     setOtpSending(true);
     try {
-      const res = await API.post('/director/register-principal/send-otp', 
+      const res = await API.post('/director/register-principal/send-otp',
         { principal_email: email },
         { headers: { 'x-school-code': schoolCode } }
       );
@@ -513,26 +516,26 @@ export default function PrincipalRegistrationPublicScreen() {
     const errors: Record<string, string> = {};
 
     if (activeStep === 0) {
-      if (!safeTrim(form.branch_name)) errors.branch_name = 'Branch Name is required';
-      if (!form.status) errors.status = 'Please select a status';
+      if (!safeTrim(form.branch_name)) {errors.branch_name = 'Branch Name is required';}
+      if (!form.status) {errors.status = 'Please select a status';}
     }
 
     if (activeStep === 1) {
-      if (!safeTrim(form.principal_name)) errors.principal_name = 'Full Name is required';
-      if (!safeTrim(form.principal_email)) errors.principal_email = 'Email is required';
-      else if (!isValidEmail(form.principal_email)) errors.principal_email = 'Enter a valid email';
-      if (!safeTrim(form.password)) errors.password = 'Password is required';
-      else if (form.password.length < 6) errors.password = 'Minimum 6 characters';
-      if (!safeTrim(confirmPassword)) errors.confirm_password = 'Please confirm password';
-      else if (form.password !== confirmPassword) errors.confirm_password = 'Passwords do not match';
-      if (!emailVerified) errors.principal_email = errors.principal_email || 'Please verify Principal email first';
+      if (!safeTrim(form.principal_name)) {errors.principal_name = 'Full Name is required';}
+      if (!safeTrim(form.principal_email)) {errors.principal_email = 'Email is required';}
+      else if (!isValidEmail(form.principal_email)) {errors.principal_email = 'Enter a valid email';}
+      if (!safeTrim(form.password)) {errors.password = 'Password is required';}
+      else if (form.password.length < 6) {errors.password = 'Minimum 6 characters';}
+      if (!safeTrim(confirmPassword)) {errors.confirm_password = 'Please confirm password';}
+      else if (form.password !== confirmPassword) {errors.confirm_password = 'Passwords do not match';}
+      if (!emailVerified) {errors.principal_email = errors.principal_email || 'Please verify Principal email first';}
     }
 
     if (activeStep === 2) {
       classes.forEach((cls, ci) => {
-        if (!safeTrim(cls.class_name)) errors[`class_name_${ci}`] = 'Class name is required';
+        if (!safeTrim(cls.class_name)) {errors[`class_name_${ci}`] = 'Class name is required';}
         cls.sections.forEach((sec, si) => {
-          if (!safeTrim(sec)) errors[`section_${ci}_${si}`] = 'Section cannot be empty';
+          if (!safeTrim(sec)) {errors[`section_${ci}_${si}`] = 'Section cannot be empty';}
         });
       });
     }
@@ -652,7 +655,7 @@ export default function PrincipalRegistrationPublicScreen() {
           : 'Principal registered successfully!',
         'success'
       );
-      
+
       resetForm();
       if (navigation.canGoBack()) {
         setTimeout(() => navigation.goBack(), 2000);
@@ -686,6 +689,8 @@ export default function PrincipalRegistrationPublicScreen() {
 
   return (
     <View style={styles.container}>
+      <StandardPageHeader title="Principal Registration" onBackPress={() => navigation.goBack()} />
+
       <Toast
         visible={toast.visible}
         message={toast.message}
@@ -818,10 +823,10 @@ export default function PrincipalRegistrationPublicScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
   },
   contentContainer: {
-    padding: 16,
+    padding: Theme.spacing.md,
     paddingBottom: 40,
   },
   errorContainer: {
@@ -833,12 +838,12 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#dc2626',
-    marginBottom: 8,
+    color: Theme.colors.error,
+    marginBottom: Theme.spacing.sm,
   },
   errorDescription: {
-    fontSize: 14,
-    color: '#64748b',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -848,17 +853,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   subtitle: {
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 4,
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+    marginTop: Theme.spacing.xs,
   },
   stepper: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   stepItem: {
     alignItems: 'center',
@@ -868,19 +873,19 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#e4e9f2',
+    backgroundColor: Theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepCompleted: {
-    backgroundColor: '#059669',
+    backgroundColor: Theme.colors.success,
   },
   stepActive: {
     backgroundColor: '#6648dc',
   },
   stepIcon: {
-    color: '#fff',
-    fontSize: 14,
+    color: Theme.colors.card,
+    ...Theme.typography.body,
     fontWeight: 'bold',
   },
   stepNumber: {
@@ -888,7 +893,7 @@ const styles = StyleSheet.create({
   },
   stepLabel: {
     fontSize: 10,
-    color: '#64748b',
+    color: Theme.colors.textSec,
     marginTop: 6,
     textAlign: 'center',
   },
@@ -897,34 +902,34 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   stepLabelCompleted: {
-    color: '#059669',
+    color: Theme.colors.success,
   },
   formCard: {
     overflow: 'hidden',
   },
   cardHeader: {
-    padding: 16,
+    padding: Theme.spacing.md,
     backgroundColor: '#6648dc',
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: Theme.colors.card,
   },
   cardBadges: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   cardBadge: {
     backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 6,
   },
   cardBadgeText: {
     fontSize: 10,
-    color: '#fff',
+    color: Theme.colors.card,
     fontWeight: '600',
   },
   publicBanner: {
@@ -934,7 +939,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#a7f3d0',
   },
   publicBannerText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#166534',
     fontWeight: '600',
   },
@@ -942,45 +947,45 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   sectionTitle: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '800',
-    color: '#059669',
+    color: Theme.colors.success,
     textTransform: 'uppercase',
     letterSpacing: 1.2,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   formGroup: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   label: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.textSec,
     marginBottom: 6,
   },
   required: {
-    color: '#dc2626',
+    color: Theme.colors.error,
   },
   input: {
     borderWidth: 1.5,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     borderRadius: 10,
     padding: 12,
-    fontSize: 14,
-    backgroundColor: '#f8fafc',
-    color: '#0f172a',
+    ...Theme.typography.body,
+    backgroundColor: Theme.colors.background,
+    color: Theme.colors.text,
   },
   inputError: {
-    borderColor: '#dc2626',
+    borderColor: Theme.colors.error,
   },
   disabledInput: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
     color: '#94a3b8',
   },
   errorText: {
-    fontSize: 11,
-    color: '#dc2626',
-    marginTop: 4,
+    ...Theme.typography.label,
+    color: Theme.colors.error,
+    marginTop: Theme.spacing.xs,
   },
   rowWithButton: {
     flexDirection: 'row',
@@ -1000,12 +1005,12 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   verifyBtnText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontWeight: '600',
     fontSize: 13,
   },
   verifyOtpBtn: {
-    backgroundColor: '#059669',
+    backgroundColor: Theme.colors.success,
   },
   pickerContainer: {
     flexDirection: 'row',
@@ -1015,9 +1020,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     alignItems: 'center',
   },
   pickerOptionActive: {
@@ -1025,39 +1030,39 @@ const styles = StyleSheet.create({
     borderColor: '#6648dc',
   },
   pickerText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.textSec,
   },
   pickerTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   warningBox: {
     backgroundColor: '#fef2f2',
     padding: 12,
     borderRadius: 10,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     borderWidth: 1,
     borderColor: '#fecaca',
   },
   warningText: {
-    color: '#dc2626',
+    color: Theme.colors.error,
     fontSize: 13,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   classCard: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.card,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     borderRadius: 14,
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 12,
   },
   classHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   classNumber: {
     width: 32,
@@ -1068,7 +1073,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   classNumberText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '800',
     color: '#6648dc',
   },
@@ -1080,49 +1085,49 @@ const styles = StyleSheet.create({
   },
   sectionInput: {
     borderWidth: 1.5,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     borderRadius: 10,
     padding: 10,
-    fontSize: 14,
-    backgroundColor: '#fff',
+    ...Theme.typography.body,
+    backgroundColor: Theme.colors.background,
   },
   addSectionBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
     backgroundColor: '#dbeafe',
     borderRadius: 10,
     alignSelf: 'flex-start',
   },
   addSectionBtnText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     color: '#6648dc',
   },
   addClassBtn: {
     width: '100%',
     paddingVertical: 14,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderWidth: 2,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     borderStyle: 'dashed',
     borderRadius: 14,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   addClassBtnText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.textSec,
   },
   hintBox: {
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     padding: 12,
     backgroundColor: '#eff6ff',
     borderRadius: 10,
     alignItems: 'center',
   },
   hintText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#0369a1',
     textAlign: 'center',
   },
@@ -1133,17 +1138,17 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   footer: {
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     padding: 12,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
   },
   footerText: {
-    fontSize: 11,
-    color: '#64748b',
+    ...Theme.typography.label,
+    color: Theme.colors.textSec,
   },
   toast: {
     position: 'absolute',
@@ -1152,7 +1157,7 @@ const styles = StyleSheet.create({
     right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
     padding: 12,
     shadowColor: '#000',
@@ -1169,7 +1174,7 @@ const styles = StyleSheet.create({
   },
   toastError: {
     borderLeftWidth: 4,
-    borderLeftColor: '#ef4444',
+    borderLeftColor: Theme.colors.error,
   },
   toastIcon: {
     fontSize: 18,
@@ -1177,11 +1182,11 @@ const styles = StyleSheet.create({
   toastMessage: {
     flex: 1,
     fontSize: 13,
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   toastClose: {
     fontSize: 16,
     color: '#94a3b8',
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
 });

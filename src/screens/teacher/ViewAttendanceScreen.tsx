@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -11,7 +12,6 @@ import {
   Image,
   Alert,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Dimensions,
@@ -33,17 +33,18 @@ import {
   Search,
   ChevronRight,
   Filter,
-  LayoutGrid
+  LayoutGrid,
 } from 'lucide-react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import API from '../../services/api';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
 import AppButton from '../../components/common/AppButton';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import CustomPickerModal from '../../components/common/CustomPickerModal';
 import type { RootStackParamList } from '../../navigation/types';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -94,16 +95,16 @@ const fmtDate = (dateString: string): string => {
 
 // Student Card Component
 const StudentCard: React.FC<{ student: Student; index: number }> = ({
-  student, 
-  index, 
+  student,
+  index,
 }) => {
   const present = student.presentDays > 0;
-  
+
   return (
     <View style={styles.studentCard}>
       <View style={styles.studentInfo}>
         <View style={[styles.studentAvatar, { backgroundColor: present ? '#ecfdf5' : '#fef2f2' }]}>
-          <AppText style={[styles.studentAvatarText, { color: present ? '#10b981' : '#ef4444' }]}>
+          <AppText style={[styles.studentAvatarText, { color: present ? Theme.colors.success : Theme.colors.error }]}>
             {(student.name || '?')[0].toUpperCase()}
           </AppText>
         </View>
@@ -172,18 +173,18 @@ const ExportModal: React.FC<{
               </AppText>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <XCircle size={24} color="#64748B" />
+              <XCircle size={24} color={Theme.colors.textSec} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.modalBody}>
             <View style={styles.modalField}>
               <AppText style={styles.modalLabel}>Start Date</AppText>
-              <TouchableOpacity 
-                style={styles.modalDateBtn} 
+              <TouchableOpacity
+                style={styles.modalDateBtn}
                 onPress={() => setShowStartPicker(true)}
               >
-                <Calendar size={18} color="#64748B" style={{ marginRight: 10 }} />
+                <Calendar size={18} color={Theme.colors.textSec} style={{ marginRight: 10 }} />
                 <AppText style={styles.modalDateText}>{fmtDate(startDate)}</AppText>
               </TouchableOpacity>
               {showStartPicker && (
@@ -194,7 +195,7 @@ const ExportModal: React.FC<{
                   maximumDate={new Date()}
                   onValueChange={(event, date) => {
                     setShowStartPicker(false);
-                    if (date) setStartDate(date.toISOString().split('T')[0]);
+                    if (date) {setStartDate(date.toISOString().split('T')[0]);}
                   }}
                   onDismiss={() => setShowStartPicker(false)}
                 />
@@ -203,11 +204,11 @@ const ExportModal: React.FC<{
 
             <View style={styles.modalField}>
               <AppText style={styles.modalLabel}>End Date</AppText>
-              <TouchableOpacity 
-                style={styles.modalDateBtn} 
+              <TouchableOpacity
+                style={styles.modalDateBtn}
                 onPress={() => setShowEndPicker(true)}
               >
-                <Calendar size={18} color="#64748B" style={{ marginRight: 10 }} />
+                <Calendar size={18} color={Theme.colors.textSec} style={{ marginRight: 10 }} />
                 <AppText style={styles.modalDateText}>{fmtDate(endDate)}</AppText>
               </TouchableOpacity>
               {showEndPicker && (
@@ -218,7 +219,7 @@ const ExportModal: React.FC<{
                   maximumDate={new Date()}
                   onValueChange={(event, date) => {
                     setShowEndPicker(false);
-                    if (date) setEndDate(date.toISOString().split('T')[0]);
+                    if (date) {setEndDate(date.toISOString().split('T')[0]);}
                   }}
                   onDismiss={() => setShowEndPicker(false)}
                 />
@@ -284,10 +285,10 @@ const ImageModal: React.FC<{
   const [activeIndex, setActiveIndex] = useState<number>(0);
 
   useEffect(() => {
-    if (visible) setActiveIndex(0);
+    if (visible) {setActiveIndex(0);}
   }, [visible]);
 
-  if (!visible) return null;
+  if (!visible) {return null;}
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -296,7 +297,7 @@ const ImageModal: React.FC<{
           <View style={styles.imageModalHeader}>
             <AppText style={styles.imageModalTitle}>{title}</AppText>
             <TouchableOpacity onPress={onClose} style={styles.imageModalClose}>
-              <XCircle size={24} color="#64748B" />
+              <XCircle size={24} color={Theme.colors.textSec} />
             </TouchableOpacity>
           </View>
 
@@ -339,13 +340,11 @@ export default function ViewAttendanceScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const today = new Date().toISOString().split('T')[0];
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
-
   const [activeTab, setActiveTab] = useState<'attendance' | 'overview'>('attendance');
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
   const [employeeId, setEmployeeId] = useState<string>('');
-  
+
   // Class/Section
   const [classItems, setClassItems] = useState<ClassItem[]>([]);
   const [classOptions, setClassOptions] = useState<string[]>([]);
@@ -385,7 +384,7 @@ export default function ViewAttendanceScreen() {
       setSchoolCode(code);
       setBranchId(bid);
       setEmployeeId(eid);
-      if (code && bid) loadClasses(code, bid);
+      if (code && bid) {loadClasses(code, bid);}
     };
     load();
   }, []);
@@ -459,7 +458,7 @@ export default function ViewAttendanceScreen() {
 
     try {
       const { presentIds, allStudents } = await fetchOneDay(selClass, selSection, viewDate);
-      
+
       if (Array.isArray(allStudents)) {
         allStudents.forEach(s => {
           if (s && s.id && !studentMap.has(s.id)) {
@@ -467,7 +466,7 @@ export default function ViewAttendanceScreen() {
           }
         });
       }
-      
+
       if (presentIds instanceof Set) {
         presentIds.forEach(id => {
           if (id && studentMap.has(id)) {
@@ -531,15 +530,15 @@ export default function ViewAttendanceScreen() {
         };
         reader.readAsDataURL(response.data);
       });
-      
+
       await RNFS.writeFile(fileUri, base64, 'base64');
-      
+
       await RNShare.open({
         url: `file://${fileUri}`,
         type: format === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv',
         title: 'Share Attendance Report',
       });
-      
+
       setShowExportModal(false);
     } catch (error) {
       Alert.alert('Error', 'Failed to export attendance');
@@ -567,7 +566,7 @@ export default function ViewAttendanceScreen() {
           attendance_date: viewDate,
         },
       });
-      
+
       const images = response.data?.images;
       if (!Array.isArray(images) || images.length === 0) {
         Alert.alert('No Image', `No teacher verification image found for ${viewDate}`);
@@ -605,7 +604,7 @@ export default function ViewAttendanceScreen() {
           attendance_date: viewDate,
         },
       });
-      
+
       const images = response.data?.images;
       if (!Array.isArray(images) || images.length === 0) {
         Alert.alert('No Images', `No student images found for ${viewDate}`);
@@ -622,18 +621,8 @@ export default function ViewAttendanceScreen() {
       setLoadingStudentImages(false);
     }
   };
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   const totalStudents = Array.isArray(students) ? students.length : 0;
   const totalPresent = Array.isArray(students) ? students.reduce((sum, s) => sum + (s?.presentDays || 0), 0) : 0;
@@ -644,31 +633,10 @@ export default function ViewAttendanceScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Navy Standard Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
-          >
-            <ChevronLeft size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <AppText weight="bold" style={styles.headerTitle}>Attendance</AppText>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => (navigation as any).navigate('Notifications')}
-          >
-            <Bell size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.headerContent}>
-          <AppText weight="bold" style={styles.headerGreeting}>View Records</AppText>
-          <AppText style={styles.headerSubtext}>Review and export student attendance logs</AppText>
-        </View>
-      </View>
+      <StandardPageHeader title="View Attendance" onBackPress={() => navigation.goBack()} />
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         onScroll={handleScroll}
@@ -687,18 +655,18 @@ export default function ViewAttendanceScreen() {
                     style={styles.dropdown}
                     onPress={() => setPickerMode('class')}
                   >
-                    <Users size={18} color="#64748B" style={{ marginRight: 8 }} />
+                    <Users size={18} color={Theme.colors.textSec} style={{ marginRight: Theme.spacing.sm }} />
                     <AppText style={styles.dropdownText} aria-label="Select Class">
                       {selClass ? `Class ${selClass}` : 'Select Class'}
                     </AppText>
-                    <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
+                    <ChevronRight size={16} color={Theme.colors.textSec} style={{ transform: [{ rotate: '90deg' }] }} />
                   </TouchableOpacity>
                   <AppText style={styles.helperText}>
                     {loadingClasses ? 'Loading classes…' : 'Tap to choose a class'}
                   </AppText>
                 </View>
 
-                <View style={[styles.field, { flex: 1 }]}> 
+                <View style={[styles.field, { flex: 1 }]}>
                   <AppText style={styles.label}>Section</AppText>
                   <TouchableOpacity
                     style={[styles.dropdown, !selClass && styles.dropdownDisabled]}
@@ -706,11 +674,11 @@ export default function ViewAttendanceScreen() {
                     disabled={!selClass}
                     aria-label="Select Section"
                   >
-                    <LayoutGrid size={18} color="#64748B" style={{ marginRight: 8 }} />
+                    <LayoutGrid size={18} color={Theme.colors.textSec} style={{ marginRight: Theme.spacing.sm }} />
                     <AppText style={styles.dropdownText} aria-label="Select Section">
                       {selSection ? `Section ${selSection}` : 'Select Section'}
                     </AppText>
-                    <ChevronRight size={16} color="#64748B" style={{ transform: [{ rotate: '90deg' }] }} />
+                    <ChevronRight size={16} color={Theme.colors.textSec} style={{ transform: [{ rotate: '90deg' }] }} />
                   </TouchableOpacity>
                   <AppText style={styles.helperText}>
                     {selClass ? `${selSectionOptions.length} section${selSectionOptions.length === 1 ? '' : 's'} available` : 'Pick a class first'}
@@ -721,7 +689,7 @@ export default function ViewAttendanceScreen() {
               <View style={styles.field}>
                 <AppText style={styles.label}>Date</AppText>
                 <TouchableOpacity style={styles.dateInput} onPress={() => setShowDatePicker(true)}>
-                  <Calendar size={18} color="#64748B" style={{ marginRight: 10 }} />
+                  <Calendar size={18} color={Theme.colors.textSec} style={{ marginRight: 10 }} />
                   <AppText style={styles.dateInputText}>{fmtDate(viewDate)}</AppText>
                 </TouchableOpacity>
                 {showDatePicker && (
@@ -732,7 +700,7 @@ export default function ViewAttendanceScreen() {
                     maximumDate={new Date()}
                     onValueChange={(event, date) => {
                       setShowDatePicker(false);
-                      if (date) setViewDate(date.toISOString().split('T')[0]);
+                      if (date) {setViewDate(date.toISOString().split('T')[0]);}
                     }}
                     onDismiss={() => setShowDatePicker(false)}
                   />
@@ -756,12 +724,12 @@ export default function ViewAttendanceScreen() {
                   <AppText style={styles.summaryLabel}>Present</AppText>
                 </View>
                 <View style={[styles.summaryTile, { backgroundColor: '#fef2f2' }]}>
-                  <XCircle size={24} color="#ef4444" />
+                  <XCircle size={24} color={Theme.colors.error} />
                   <AppText style={styles.summaryValue}>{totalAbsent}</AppText>
                   <AppText style={styles.summaryLabel}>Absent</AppText>
                 </View>
                 <View style={[styles.summaryTile, { backgroundColor: '#f0fdf4' }]}>
-                  <Users size={24} color="#10b981" />
+                  <Users size={24} color={Theme.colors.success} />
                   <AppText style={styles.summaryValue}>{overallPct}%</AppText>
                   <AppText style={styles.summaryLabel}>Attendance</AppText>
                 </View>
@@ -835,7 +803,7 @@ export default function ViewAttendanceScreen() {
                 </AppText>
               </View>
               <TouchableOpacity onPress={() => setPickerMode(null)} style={styles.pickerCloseBtn}>
-                <XCircle size={22} color="#64748B" />
+                <XCircle size={22} color={Theme.colors.textSec} />
               </TouchableOpacity>
             </View>
 
@@ -845,7 +813,7 @@ export default function ViewAttendanceScreen() {
                   <>
                     {!Array.isArray(classOptions) || classOptions.length === 0 ? (
                       <View style={{ padding: 20, alignItems: 'center' }}>
-                        <AppText style={{ color: '#64748B' }}>No classes available</AppText>
+                        <AppText style={{ color: Theme.colors.textSec }}>No classes available</AppText>
                       </View>
                     ) : (
                       classOptions.filter(Boolean).map((item) => (
@@ -853,7 +821,7 @@ export default function ViewAttendanceScreen() {
                           key={item}
                           style={[
                             styles.pickerOption,
-                            selClass === item && styles.pickerOptionActive
+                            selClass === item && styles.pickerOptionActive,
                           ]}
                           onPress={() => {
                             handleClassChange(item);
@@ -862,7 +830,7 @@ export default function ViewAttendanceScreen() {
                         >
                           <AppText style={[
                             styles.pickerOptionText,
-                            selClass === item && styles.pickerOptionTextActive
+                            selClass === item && styles.pickerOptionTextActive,
                           ]}>
                             Class {item}
                           </AppText>
@@ -875,7 +843,7 @@ export default function ViewAttendanceScreen() {
                   <>
                     {!Array.isArray(selSectionOptions) || selSectionOptions.length === 0 ? (
                       <View style={{ padding: 20, alignItems: 'center' }}>
-                        <AppText style={{ color: '#64748B' }}>No sections available</AppText>
+                        <AppText style={{ color: Theme.colors.textSec }}>No sections available</AppText>
                       </View>
                     ) : (
                       selSectionOptions.filter(Boolean).map((item) => (
@@ -883,7 +851,7 @@ export default function ViewAttendanceScreen() {
                           key={item}
                           style={[
                             styles.pickerOption,
-                            selSection === item && styles.pickerOptionActive
+                            selSection === item && styles.pickerOptionActive,
                           ]}
                           onPress={() => {
                             setSelSection(item);
@@ -892,7 +860,7 @@ export default function ViewAttendanceScreen() {
                         >
                           <AppText style={[
                             styles.pickerOptionText,
-                            selSection === item && styles.pickerOptionTextActive
+                            selSection === item && styles.pickerOptionTextActive,
                           ]}>
                             Section {item}
                           </AppText>
@@ -944,14 +912,12 @@ export default function ViewAttendanceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   headerStandard: {
     backgroundColor: Theme.colors.primary,
     paddingHorizontal: 20,
     paddingBottom: 30,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
     ...Platform.select({
 
       android: { elevation: 10 },
@@ -979,23 +945,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    color: Theme.colors.card,
+    ...Theme.typography.h3,
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '800',
+    color: Theme.colors.card,
+    ...Theme.typography.h1,
     letterSpacing: -0.5,
   },
   headerSubtext: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   tabWrapper: {
     flexDirection: 'row',
@@ -1024,7 +988,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.primary,
   },
   activeTab: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     ...Platform.select({
 
       android: { elevation: 4 },
@@ -1038,21 +1002,21 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   tabText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: Theme.colors.card,
   },
   activeTabText: {
     color: Theme.colors.primary,
     fontWeight: '700',
   },
   contentContainer: {
-    padding: 16,
+    padding: Theme.spacing.md,
     paddingTop: 6,
     paddingBottom: 120,
   },
   selectionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 28,
     padding: 20,
     shadowColor: '#000',
@@ -1070,23 +1034,23 @@ const styles = StyleSheet.create({
   },
   fieldRow: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   field: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   label: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
     color: '#1E293B',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   dropdown: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 48,
@@ -1096,28 +1060,28 @@ const styles = StyleSheet.create({
   },
   dropdownText: {
     flex: 1,
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#1E293B',
     fontWeight: '500',
   },
   helperText: {
-    marginTop: 8,
-    fontSize: 12,
-    color: '#64748B',
+    marginTop: Theme.spacing.sm,
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     fontWeight: '500',
   },
   dateInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 48,
   },
   dateInputText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#1E293B',
     fontWeight: '500',
   },
@@ -1125,7 +1089,7 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 14,
     backgroundColor: Theme.colors.primary,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   summaryGrid: {
     flexDirection: 'row',
@@ -1134,7 +1098,7 @@ const styles = StyleSheet.create({
   },
   summaryTile: {
     flex: 1,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 28,
     alignItems: 'center',
     ...Platform.select({
@@ -1153,12 +1117,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     color: '#1E293B',
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   summaryLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
-    color: '#64748B',
+    color: Theme.colors.textSec,
     marginTop: 2,
   },
   listActions: {
@@ -1169,12 +1133,12 @@ const styles = StyleSheet.create({
   },
   actionIconButton: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
@@ -1194,7 +1158,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   listContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 28,
     padding: 20,
     shadowColor: '#000',
@@ -1213,8 +1177,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 4,
+    marginBottom: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.xs,
   },
   listHeaderText: {
     fontSize: 16,
@@ -1224,10 +1188,10 @@ const styles = StyleSheet.create({
   listHeaderCount: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
-    backgroundColor: '#F1F5F9',
+    color: Theme.colors.textSec,
+    backgroundColor: Theme.colors.background,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 8,
   },
   studentCard: {
@@ -1235,7 +1199,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: Theme.colors.background,
   },
   studentInfo: {
     flex: 1,
@@ -1257,13 +1221,13 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   studentName: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
     color: '#1E293B',
   },
   studentRoll: {
-    fontSize: 12,
-    color: '#64748B',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     marginTop: 2,
     fontWeight: '500',
   },
@@ -1279,14 +1243,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#fef2f2',
   },
   statusText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
   },
   statusTextPresent: {
-    color: '#10b981',
+    color: Theme.colors.success,
   },
   statusTextAbsent: {
-    color: '#ef4444',
+    color: Theme.colors.error,
   },
   emptyState: {
     alignItems: 'center',
@@ -1297,12 +1261,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: '#1E293B',
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   emptyStateSub: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 8,
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
+    marginTop: Theme.spacing.sm,
     textAlign: 'center',
     paddingHorizontal: 40,
   },
@@ -1312,17 +1276,17 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    padding: 24,
+    padding: Theme.spacing.lg,
     maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   modalTitle: {
     fontSize: 20,
@@ -1330,37 +1294,37 @@ const styles = StyleSheet.create({
     color: '#1E293B',
   },
   modalSubtitle: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 4,
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
+    marginTop: Theme.spacing.xs,
   },
   modalClose: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   modalBody: {
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   modalField: {
     marginBottom: 20,
   },
   modalLabel: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
     color: '#1E293B',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   modalDateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     paddingHorizontal: 14,
     height: 48,
   },
   modalDateText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#1E293B',
     fontWeight: '500',
   },
@@ -1373,33 +1337,33 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   formatBtnActive: {
     backgroundColor: Theme.colors.primary,
     borderColor: Theme.colors.primary,
   },
   formatBtnText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
-    color: '#64748B',
+    color: Theme.colors.textSec,
   },
   formatBtnTextActive: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
   },
   modalPreview: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     padding: 12,
     borderRadius: 10,
     alignItems: 'center',
   },
   modalPreviewText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
-    color: '#475569',
+    color: Theme.colors.textSec,
   },
   modalFooter: {
     flexDirection: 'row',
@@ -1411,12 +1375,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
   },
   cancelBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#475569',
+    color: Theme.colors.textSec,
   },
   confirmExportBtn: {
     flex: 2,
@@ -1429,7 +1393,7 @@ const styles = StyleSheet.create({
   confirmExportBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: Theme.colors.card,
   },
   imageModalOverlay: {
     flex: 1,
@@ -1439,7 +1403,7 @@ const styles = StyleSheet.create({
   },
   imageModalContent: {
     width: '90%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 24,
     overflow: 'hidden',
   },
@@ -1449,7 +1413,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: Theme.colors.background,
   },
   imageModalTitle: {
     fontSize: 18,
@@ -1457,7 +1421,7 @@ const styles = StyleSheet.create({
     color: '#1E293B',
   },
   imageModalClose: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   imageModalBody: {
     padding: 20,
@@ -1467,11 +1431,11 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 300,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
   },
   imageModalThumbs: {
     flexDirection: 'row',
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   imageModalThumb: {
     width: 60,
@@ -1479,7 +1443,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginRight: 10,
     borderWidth: 2,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     overflow: 'hidden',
   },
   imageModalThumbActive: {
@@ -1490,18 +1454,18 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   imageModalCounter: {
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: Theme.colors.textSec,
   },
   imageModalEmpty: {
     alignItems: 'center',
     paddingVertical: 40,
   },
   imageModalEmptyText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     marginTop: 12,
     fontWeight: '500',
   },
@@ -1512,7 +1476,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   pickerCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 24,
     padding: 20,
   },
@@ -1520,7 +1484,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   pickerTitle: {
     fontSize: 18,
@@ -1528,34 +1492,34 @@ const styles = StyleSheet.create({
     color: '#1E293B',
   },
   pickerSubtitle: {
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
     fontSize: 13,
-    color: '#64748B',
+    color: Theme.colors.textSec,
   },
   pickerCloseBtn: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   pickerShell: {
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
+    borderColor: Theme.colors.border,
+    backgroundColor: Theme.colors.background,
   },
   pickerOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: Theme.colors.background,
   },
   pickerOptionActive: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
   },
   pickerOptionText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: '#1E293B',
     fontWeight: '500',
   },
@@ -1572,14 +1536,14 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
   pickerCancelText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
-    color: '#475569',
+    color: Theme.colors.textSec,
   },
   pickerDoneBtn: {
     flex: 1,
@@ -1590,9 +1554,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pickerDoneText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: Theme.colors.card,
   },
   overviewContainer: {
     paddingTop: 40,

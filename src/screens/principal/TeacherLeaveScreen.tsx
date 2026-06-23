@@ -1,3 +1,5 @@
+import { Theme, C } from '../../theme/tokens';
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -8,10 +10,10 @@ import {
   RefreshControl,
   ActivityIndicator,
   Modal,
-  StatusBar,
   Animated,
   Dimensions,
   Alert,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,11 +26,9 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  ArrowLeft
 } from 'lucide-react-native';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import API from '../../services/api';
-import { Principal_THEME as C } from '../../constants/principalTheme';
 import { formatErrorMessage } from '../../utils/helpers';
 import AppText from '../../components/common/AppText';
 import { safeGoBack } from '../../utils/navigationHelpers';
@@ -52,7 +52,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   const getStatusConfig = () => {
     switch (status.toUpperCase()) {
       case 'APPROVED':
-        return { bg: '#ECFDF5', text: '#059669', label: 'Approved', icon: CheckCircle2 };
+        return { bg: '#ECFDF5', text: Theme.colors.success, label: 'Approved', icon: CheckCircle2 };
       case 'REJECTED':
         return { bg: '#FEF2F2', text: '#DC2626', label: 'Rejected', icon: XCircle };
       default:
@@ -64,7 +64,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   const StatusIcon = config.icon;
   return (
     <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
-      <StatusIcon size={12} color={config.text} style={{ marginRight: 4 }} />
+      <StatusIcon size={12} color={config.text} style={{ marginRight: Theme.spacing.xs }} />
       <AppText weight="bold" style={[styles.statusBadgeText, { color: config.text }]}>{config.label}</AppText>
     </View>
   );
@@ -83,12 +83,12 @@ export default function TeacherLeaveScreen({ navigation }: any) {
   const [stats, setStats] = useState({
     pending: 0,
     approved: 0,
-    rejected: 0
+    rejected: 0,
   });
   const totalLeaves = leaves.length;
 
   const loadLeaves = useCallback(async (showLoader = true) => {
-    if (showLoader) setLoading(true);
+    if (showLoader) {setLoading(true);}
     try {
       const schoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
       const response = await API.post('/manage/principal/staff-leave-requests', {
@@ -140,7 +140,7 @@ export default function TeacherLeaveScreen({ navigation }: any) {
   };
 
   const filteredLeaves = leaves.filter(leave => {
-    if (filter === 'ALL') return true;
+    if (filter === 'ALL') {return true;}
     return leave.status === filter;
   });
 
@@ -165,7 +165,7 @@ export default function TeacherLeaveScreen({ navigation }: any) {
 
       <View style={styles.cardBody}>
         <View style={styles.dateInfo}>
-          <Calendar size={14} color="#64748B" />
+          <Calendar size={14} color={Theme.colors.textSec} />
           <Text style={styles.dateText}>
             {new Date(leave.from_date).toLocaleDateString()} - {new Date(leave.to_date).toLocaleDateString()}
           </Text>
@@ -188,7 +188,7 @@ export default function TeacherLeaveScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
         <View style={styles.headerTop}>
@@ -245,7 +245,7 @@ export default function TeacherLeaveScreen({ navigation }: any) {
               </View>
             ) : (
               <View style={styles.emptyContainer}>
-                <FileText size={64} color="#E2E8F0" />
+                <FileText size={64} color={Theme.colors.border} />
                 <AppText style={styles.emptyText}>No {filter.toLowerCase()} leave requests found</AppText>
               </View>
             )}
@@ -303,9 +303,9 @@ export default function TeacherLeaveScreen({ navigation }: any) {
                       onPress={() => handleStatusUpdate(selectedLeave.leave_id, 'REJECTED')}
                       disabled={actionLoading}
                     >
-                      {actionLoading ? <ActivityIndicator color="#FFF" /> : (
+                      {actionLoading ? <ActivityIndicator color={Theme.colors.card} /> : (
                         <>
-                          <XCircle size={20} color="#FFF" style={{ marginRight: 8 }} />
+                          <XCircle size={20} color={Theme.colors.card} style={{ marginRight: Theme.spacing.sm }} />
                           <Text style={styles.actionBtnText}>Reject</Text>
                         </>
                       )}
@@ -315,9 +315,9 @@ export default function TeacherLeaveScreen({ navigation }: any) {
                       onPress={() => handleStatusUpdate(selectedLeave.leave_id, 'APPROVED')}
                       disabled={actionLoading}
                     >
-                      {actionLoading ? <ActivityIndicator color="#FFF" /> : (
+                      {actionLoading ? <ActivityIndicator color={Theme.colors.card} /> : (
                         <>
-                          <CheckCircle2 size={20} color="#FFF" style={{ marginRight: 8 }} />
+                          <CheckCircle2 size={20} color={Theme.colors.card} style={{ marginRight: Theme.spacing.sm }} />
                           <Text style={styles.actionBtnText}>Approve</Text>
                         </>
                       )}
@@ -337,6 +337,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
+  },
+  contentOverlap: {
+    flex: 1,
+    marginTop: -20,
   },
   headerStandard: {
     backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
@@ -378,27 +382,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: 28,
-    fontWeight: '800',
+    ...Theme.typography.h1,
     letterSpacing: -0.5,
   },
   headerSubtext: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
     opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   headerSpacer: {
     width: 40,
   },
   heroCard: {
-    backgroundColor: '#FFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 18,
-    padding: 16,
+    padding: Theme.spacing.md,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -411,9 +414,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   heroCardValue: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#64748B',
+    marginTop: Theme.spacing.xs,
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     fontWeight: '500',
   },
   heroCardPills: {
@@ -434,17 +437,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#ECFDF5',
   },
   heroPillText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
   },
   filterLabel: {
-    fontSize: 12,
-    color: '#64748B',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     fontWeight: '600',
     marginBottom: 10,
   },
   filterTabs: {
-    backgroundColor: '#FFF',
+    backgroundColor: Theme.colors.card,
     paddingVertical: 12,
     marginHorizontal: 20,
     marginTop: 15,
@@ -459,11 +462,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   filterTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 20,
-    marginRight: 8,
-    backgroundColor: '#F1F5F9',
+    marginRight: Theme.spacing.sm,
+    backgroundColor: Theme.colors.background,
   },
   filterTabActive: {
     backgroundColor: '#3B82F6',
@@ -471,10 +474,10 @@ const styles = StyleSheet.create({
   filterTabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: Theme.colors.textSec,
   },
   filterTabTextActive: {
-    color: '#FFF',
+    color: Theme.colors.card,
   },
   content: {
     flex: 1,
@@ -486,20 +489,20 @@ const styles = StyleSheet.create({
   },
   leavesList: {
     paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingTop: Theme.spacing.xs,
   },
   leaveCard: {
-    backgroundColor: '#FFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 18,
-    padding: 16,
-    marginBottom: 16,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 3,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: Theme.colors.background,
     borderLeftWidth: 4,
     borderLeftColor: C.primary,
   },
@@ -524,46 +527,45 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: '#3B82F6',
-    fontWeight: 'bold',
-    fontSize: 16,
+    ...Theme.typography.h4,
   },
   teacherName: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: 'bold',
     color: '#1E293B',
   },
   teacherSubject: {
-    fontSize: 12,
-    color: '#64748B',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 12,
   },
   statusBadgeText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
   },
   cardBody: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   dateInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   dateText: {
     fontSize: 13,
-    color: '#64748B',
+    color: Theme.colors.textSec,
     marginLeft: 6,
     fontWeight: '500',
   },
   reasonText: {
-    fontSize: 14,
-    color: '#475569',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     lineHeight: 20,
   },
   cardFooter: {
@@ -575,8 +577,8 @@ const styles = StyleSheet.create({
     borderTopColor: '#EEF2F7',
   },
   appliedOn: {
-    fontSize: 12,
-    color: '#94A3B8',
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
   },
   viewDetailsBtn: {
     flexDirection: 'row',
@@ -595,9 +597,9 @@ const styles = StyleSheet.create({
     paddingTop: 100,
   },
   emptyText: {
-    marginTop: 16,
-    fontSize: 15,
-    color: '#94A3B8',
+    marginTop: Theme.spacing.md,
+    ...Theme.typography.bodyMd,
+    color: Theme.colors.textMuted,
   },
   modalOverlay: {
     flex: 1,
@@ -605,7 +607,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFF',
+    backgroundColor: Theme.colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '85%',
@@ -617,11 +619,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: Theme.colors.background,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    ...Theme.typography.h3,
     color: '#1E293B',
   },
   modalScroll: {
@@ -629,7 +630,7 @@ const styles = StyleSheet.create({
   },
   detailTeacherInfo: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   largeAvatar: {
     width: 64,
@@ -646,46 +647,45 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
   },
   detailTeacherName: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    ...Theme.typography.h3,
     color: '#1E293B',
   },
   detailTeacherSubject: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 4,
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
+    marginTop: Theme.spacing.xs,
   },
   detailSection: {
     marginBottom: 20,
   },
   detailLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: 'bold',
-    color: '#94A3B8',
+    color: Theme.colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   detailValue: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: '#1E293B',
     marginLeft: 10,
     fontWeight: '500',
   },
   reasonBox: {
-    backgroundColor: '#F8FAFC',
-    padding: 16,
+    backgroundColor: Theme.colors.background,
+    padding: Theme.spacing.md,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   detailReasonText: {
-    fontSize: 15,
-    color: '#475569',
+    ...Theme.typography.bodyMd,
+    color: Theme.colors.textSec,
     lineHeight: 24,
   },
   actionButtons: {
@@ -709,8 +709,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981',
   },
   actionBtnText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
+    color: Theme.colors.card,
+    ...Theme.typography.h4,
   },
 });

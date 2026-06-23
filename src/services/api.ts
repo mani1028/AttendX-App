@@ -65,7 +65,7 @@ const normalizeStorageKey = async (keys: string[]) => {
 };
 
 const normalizeUrl = (configUrl?: string) => {
-  if (!configUrl) return configUrl;
+  if (!configUrl) {return configUrl;}
   let normalized = configUrl.replace(/\/+/g, '/');
   if (normalized.toLowerCase().startsWith('/api/')) {
     normalized = normalized.replace(/^\/api\//i, '/');
@@ -114,55 +114,55 @@ API.interceptors.request.use(async config => {
 
   if (token && !finalSchoolCode) {
     const decoded = decodeJwt(token);
-    if (decoded?.school_code) finalSchoolCode = String(decoded.school_code);
-    else if (decoded?.schoolId) finalSchoolCode = String(decoded.schoolId);
+    if (decoded?.school_code) {finalSchoolCode = String(decoded.school_code);}
+    else if (decoded?.schoolId) {finalSchoolCode = String(decoded.schoolId);}
   }
 
   if (finalSchoolCode || true) {
     const sc = (finalSchoolCode || 'default').trim();
     config.headers['X-School-Code'] = sc;
-    
+
     // Ensure school_code is in params for routes that require it (Accountant, Student Dashboard, etc.)
     const lowerUrl = config.url?.toLowerCase() || '';
     if (
-      lowerUrl.includes('accountant') || 
-      lowerUrl.includes('student-dashboard') || 
+      lowerUrl.includes('accountant') ||
+      lowerUrl.includes('student-dashboard') ||
       lowerUrl.includes('student/') ||
       lowerUrl.includes('profile-photo')
     ) {
-      if (!config.params) config.params = {};
-      if (!config.params.school_code) config.params.school_code = sc;
-      if (!config.params.school_id) config.params.school_id = sc;
+      if (!config.params) {config.params = {};}
+      if (!config.params.school_code) {config.params.school_code = sc;}
+      if (!config.params.school_id) {config.params.school_id = sc;}
     }
   }
 
   const rawStudentId = await normalizeStorageKey(['student_id', 'studentId']);
   let finalStudentId = rawStudentId;
-  
+
   if (token && !finalStudentId) {
     const decoded = decodeJwt(token);
-    if (decoded?.roll_no) finalStudentId = String(decoded.roll_no);
-    else if (decoded?.sub) finalStudentId = String(decoded.sub);
+    if (decoded?.roll_no) {finalStudentId = String(decoded.roll_no);}
+    else if (decoded?.sub) {finalStudentId = String(decoded.sub);}
   }
 
   if (finalStudentId) {
     const sid = finalStudentId.trim();
     const sidUpper = sid.toUpperCase();
-    
+
     config.headers['X-Student-Id'] = sidUpper;
     config.headers['X-Roll-No'] = sidUpper;
-    
+
     // Also ensure roll_no is in params for dashboard routes if missing, and always uppercase
     const lowerUrl = config.url?.toLowerCase() || '';
     if (lowerUrl.includes('student-dashboard') || lowerUrl.includes('student/')) {
-      if (!config.params) config.params = {};
-      
+      if (!config.params) {config.params = {};}
+
       if (config.params.roll_no) {
         config.params.roll_no = String(config.params.roll_no).toUpperCase();
       } else {
         config.params.roll_no = sidUpper;
       }
-      
+
       if (config.params.student_id) {
         config.params.student_id = String(config.params.student_id).toUpperCase();
       } else {
@@ -176,12 +176,12 @@ API.interceptors.request.use(async config => {
 
   if (token && !finalBranchId) {
     const decoded = decodeJwt(token);
-    if (decoded?.branch_id) finalBranchId = String(decoded.branch_id);
-    else if (decoded?.branchId) finalBranchId = String(decoded.branchId);
+    if (decoded?.branch_id) {finalBranchId = String(decoded.branch_id);}
+    else if (decoded?.branchId) {finalBranchId = String(decoded.branchId);}
   }
 
   config.headers['X-Branch-Id'] = (finalBranchId || 'default').trim();
-  
+
   // Add Academic Year header if available, or try to guess/default
   const academicYear = await normalizeStorageKey(['academic_year', 'academicYear', 'active_year']);
   if (academicYear) {
@@ -191,7 +191,7 @@ API.interceptors.request.use(async config => {
   config.url = normalizeUrl(config.url);
 
   if ((config as any).suppressFallback404Log) {
-    if (!config.headers) config.headers = {} as any;
+    if (!config.headers) {config.headers = {} as any;}
     config.headers['X-Suppress-Fallback-404-Log'] = 'true';
   }
 
@@ -218,13 +218,13 @@ API.interceptors.response.use(
       // Attach a flag for callers that want to handle this specially
       (res as any).__receivedHtmlResponse = true;
     }
-    
+
     // ENHANCED LOGGING for notifications endpoints
     if (res.config.url?.includes('/notifications/')) {
       console.log(`[NOTIFICATION API] ${res.config.method?.toUpperCase()} ${res.config.baseURL}${res.config.url}`);
       console.log(`[NOTIFICATION Response] Status: ${res.status}, Items: ${res.data?.items?.length || 0}`);
       if (res.data?.items?.length > 0) {
-        console.log(`[NOTIFICATION Data Sample] First notification:`, {
+        console.log('[NOTIFICATION Data Sample] First notification:', {
           id: res.data.items[0].id,
           title: res.data.items[0].title,
           created_at: res.data.items[0].created_at,
@@ -232,7 +232,7 @@ API.interceptors.response.use(
         });
       }
     }
-    
+
     // Cache successful GET responses
     if (res.config.method === 'get' && res.status === 200) {
       requestQueueManager.setCacheResponse(
@@ -242,7 +242,7 @@ API.interceptors.response.use(
         (res.config as any)?.cacheTTL || 5 * 60 * 1000 // Default 5 min cache
       );
     }
-    
+
     return res;
   },
   err => {
@@ -280,8 +280,8 @@ API.interceptors.response.use(
           console.warn(`[API] 401 Unauthorized | url=${safeError.config?.url} | hadToken=${hadAuth} | detail=${JSON.stringify(detail)}`);
           eventEmitter.emit('app-logout');
         } else {
-          if (isLoginRequest) console.log('[API] 401 Unauthorized on login request. Skipping global logout.');
-          if (suppress) console.log('[API] 401 Unauthorized suppressed by request config (suppressLogoutOn401).');
+          if (isLoginRequest) {console.log('[API] 401 Unauthorized on login request. Skipping global logout.');}
+          if (suppress) {console.log('[API] 401 Unauthorized suppressed by request config (suppressLogoutOn401).');}
         }
       }
 
@@ -307,10 +307,10 @@ API.interceptors.response.use(
           safeError.config?.data,
           safeError.config?.params
         ).catch(e => console.error('Failed to queue offline request:', e));
-        
+
         console.log('[Offline] Request queued for retry:', safeError.config?.url);
       }
-      
+
       const suppressNetworkErrorLog = (safeError.config as any)?.suppressNetworkErrorLog;
       if (!suppressNetworkErrorLog) {
         console.error('[API No Response]:', {

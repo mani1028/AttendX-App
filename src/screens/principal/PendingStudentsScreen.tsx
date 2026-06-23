@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -6,7 +7,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  StatusBar,
   Platform,
   TouchableOpacity,
   Modal,
@@ -24,15 +24,21 @@ import {
   AlertTriangle,
   CheckCircle,
   X,
-  Bell
+  Bell,
 } from 'lucide-react-native';
 import API from '../../services/api';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import { Theme, C } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
+
 
 // Local theme bridge
 
@@ -52,7 +58,6 @@ const PendingStudents = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
   const [students, setStudents] = useState<PendingStudent[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -66,18 +71,8 @@ const PendingStudents = () => {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   useEffect(() => {
     if (schoolCode) {
@@ -87,10 +82,10 @@ const PendingStudents = () => {
 
   const loadSchoolCode = async () => {
     try {
-      const code = await AsyncStorage.getItem('school_code') ||
-        await AsyncStorage.getItem('schoolCode') ||
-        await AsyncStorage.getItem('school_id') ||
-        await AsyncStorage.getItem('schoolId') || '';
+      const code = await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) || '';
       setSchoolCode(code);
     } catch (error) {
       console.error('Error loading school code:', error);
@@ -106,13 +101,13 @@ const PendingStudents = () => {
 
     try {
       setLoading(true);
-      const response = await API.get("/accountant/reports/pending-students", {
+      const response = await API.get('/accountant/reports/pending-students', {
         params: { school_code: schoolCode },
       });
       setStudents(response.data || []);
     } catch (error: any) {
-      console.error("Error fetching pending students:", error);
-      const errorMsg = error?.response?.data?.message || error?.message || "Failed to fetch pending students";
+      console.error('Error fetching pending students:', error);
+      const errorMsg = error?.response?.data?.message || error?.message || 'Failed to fetch pending students';
       Alert.alert('Error', errorMsg);
     } finally {
       setLoading(false);
@@ -152,7 +147,7 @@ const PendingStudents = () => {
   };
 
   const formatDate = (dateStr?: string) => {
-    if (!dateStr) return 'N/A';
+    if (!dateStr) {return 'N/A';}
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-IN', {
       day: 'numeric',
@@ -161,8 +156,8 @@ const PendingStudents = () => {
     });
   };
 
-  const unpaidCount = students.filter(s => s.status === "unpaid").length;
-  const partialCount = students.filter(s => s.status === "partial").length;
+  const unpaidCount = students.filter(s => s.status === 'unpaid').length;
+  const partialCount = students.filter(s => s.status === 'partial').length;
   const totalPending = students.reduce((sum, s) => sum + s.due_amount, 0);
   const totalFees = students.reduce((sum, s) => sum + s.total_fee, 0);
   const totalPaid = students.reduce((sum, s) => sum + s.paid_amount, 0);
@@ -175,7 +170,7 @@ const PendingStudents = () => {
     const StatusIcon = statusStyle.icon;
 
     return (
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         style={styles.studentRow}
         onPress={() => {
           setSelectedStudent(item);
@@ -188,7 +183,7 @@ const PendingStudents = () => {
             <AppText style={styles.studentName} weight="semibold">{item.student_name}</AppText>
             {isUrgent && (
               <View style={styles.urgentBadge}>
-                <Clock size={12} color="#dc2626" />
+                <Clock size={12} color={Theme.colors.error} />
                 <AppText style={styles.urgentText} weight="semibold">Overdue</AppText>
               </View>
             )}
@@ -223,16 +218,16 @@ const PendingStudents = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Standardized Header */}
       <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
         <View style={styles.headerTop}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.iconButton}
             onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
           >
-            <ChevronLeft size={24} color="#FFFFFF" />
+            <ChevronLeft size={24} color={Theme.colors.card} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
             <AppText weight="bold" style={styles.headerTitle}>Pending Fees</AppText>
@@ -257,7 +252,7 @@ const PendingStudents = () => {
         >
           <View style={styles.header}>
             <View style={styles.headerRow}>
-              <AlertCircle size={24} color="#dc2626" />
+              <AlertCircle size={24} color={Theme.colors.error} />
               <AppText style={styles.title} weight="bold">Pending Fees Alert</AppText>
             </View>
             <AppText style={styles.subtitle} weight="regular">Monitor student fee status</AppText>
@@ -267,7 +262,7 @@ const PendingStudents = () => {
         {students.length > 0 && (
           <View style={styles.summaryContainer}>
             <View style={[styles.summaryCard, styles.unpaidCard]}>
-              <AlertCircle size={24} color="#dc2626" />
+              <AlertCircle size={24} color={Theme.colors.error} />
               <AppText style={styles.summaryNumber} weight="bold">{unpaidCount}</AppText>
               <AppText style={styles.summaryLabel} weight="regular">Unpaid Students</AppText>
             </View>
@@ -277,7 +272,7 @@ const PendingStudents = () => {
               <AppText style={styles.summaryLabel} weight="regular">Partial Payments</AppText>
             </View>
             <View style={[styles.summaryCard, styles.pendingCard]}>
-              <CircleDollarSign size={24} color="#059669" />
+              <CircleDollarSign size={24} color={Theme.colors.success} />
               <AppText style={styles.summaryNumber} weight="bold">{formatAmount(totalPending)}</AppText>
               <AppText style={styles.summaryLabel} weight="regular">Total Pending</AppText>
             </View>
@@ -289,7 +284,7 @@ const PendingStudents = () => {
           <View style={styles.alertBanner}>
             <AlertTriangle size={20} color="#7f1d1d" />
             <AppText style={styles.alertText} weight="semibold">
-              {unpaidCount} student{unpaidCount !== 1 ? 's' : ''} with unpaid fees | 
+              {unpaidCount} student{unpaidCount !== 1 ? 's' : ''} with unpaid fees |
               Total Pending: {formatAmount(totalPending)}
             </AppText>
           </View>
@@ -312,7 +307,7 @@ const PendingStudents = () => {
         {/* Students List */}
         {loading && students.length === 0 ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#059669" />
+            <ActivityIndicator size="large" color={Theme.colors.success} />
             <AppText style={styles.loadingText} weight="regular">Loading pending students...</AppText>
           </View>
         ) : students.length > 0 ? (
@@ -329,7 +324,7 @@ const PendingStudents = () => {
           </View>
         ) : (
           <View style={styles.emptyContainer}>
-            <CheckCircle size={64} color="#059669" />
+            <CheckCircle size={64} color={Theme.colors.success} />
             <AppText style={styles.emptyTitle} weight="bold">All Clear!</AppText>
             <AppText style={styles.emptyText} weight="regular">No pending fees! All students are up-to-date. ✓</AppText>
           </View>
@@ -348,7 +343,7 @@ const PendingStudents = () => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle} weight="bold">Student Fee Details</AppText>
-              <TouchableOpacity onPress={() => setShowDetailsModal(false)}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setShowDetailsModal(false)}>
                 <X size={24} color="#4a5568" />
               </TouchableOpacity>
             </View>
@@ -407,7 +402,7 @@ const PendingStudents = () => {
 
                 {selectedStudent.status !== 'paid' && (
                   <View style={styles.actionButtons}>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={styles.reminderButton}
                       onPress={() => {
                         Alert.alert(
@@ -425,7 +420,7 @@ const PendingStudents = () => {
                         );
                       }}
                     >
-                      <Bell size={16} color="#fff" />
+                      <Bell size={16} color={Theme.colors.card} />
                       <AppText style={styles.reminderButtonText} weight="semibold">Send Reminder</AppText>
                     </TouchableOpacity>
                   </View>
@@ -434,7 +429,7 @@ const PendingStudents = () => {
             )}
 
             <View style={styles.modalFooter}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.closeModalButton}
                 onPress={() => setShowDetailsModal(false)}
               >
@@ -496,24 +491,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    color: Theme.colors.card,
+    ...Theme.typography.h3,
     textAlign: 'center',
+    flex: 1,
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '800',
+    color: Theme.colors.card,
+    ...Theme.typography.h1,
     letterSpacing: -0.5,
   },
   headerSubtext: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   headerSpacer: {
     width: 40,
@@ -523,12 +517,6 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    color: '#ffffff',
-    textAlign: 'center',
-    flex: 1,
   },
   scrollView: {
     flex: 1,
@@ -541,7 +529,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    color: '#0d1b2a',
+    color: Theme.colors.text,
   },
   headerRow: {
     flexDirection: 'row',
@@ -549,26 +537,26 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   subtitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#4a5568',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   summaryContainer: {
     flexDirection: 'row',
-    margin: 16,
+    margin: Theme.spacing.md,
     gap: 12,
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
     padding: 12,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
   },
   unpaidCard: {
-    borderTopColor: '#dc2626',
+    borderTopColor: Theme.colors.error,
     borderTopWidth: 3,
   },
   partialCard: {
@@ -576,22 +564,22 @@ const styles = StyleSheet.create({
     borderTopWidth: 3,
   },
   pendingCard: {
-    borderTopColor: '#059669',
+    borderTopColor: Theme.colors.success,
     borderTopWidth: 3,
   },
   summaryNumber: {
     fontSize: 20,
-    color: '#0d1b2a',
-    marginTop: 8,
+    color: Theme.colors.text,
+    marginTop: Theme.spacing.sm,
   },
   summaryLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#4a5568',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   alertBanner: {
     backgroundColor: '#fee2e2',
-    margin: 16,
+    margin: Theme.spacing.md,
     marginTop: 0,
     padding: 12,
     borderRadius: 8,
@@ -599,7 +587,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#dc2626',
+    borderLeftColor: Theme.colors.error,
   },
   alertText: {
     flex: 1,
@@ -607,61 +595,61 @@ const styles = StyleSheet.create({
     color: '#7f1d1d',
   },
   collectionCard: {
-    backgroundColor: '#ffffff',
-    margin: 16,
+    backgroundColor: Theme.colors.card,
+    margin: Theme.spacing.md,
     marginTop: 0,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
   },
   collectionTitle: {
-    fontSize: 14,
-    color: '#0d1b2a',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
     marginBottom: 12,
   },
   progressBarContainer: {
     height: 8,
-    backgroundColor: '#e4e9f2',
+    backgroundColor: Theme.colors.border,
     borderRadius: 4,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#059669',
+    backgroundColor: Theme.colors.success,
     borderRadius: 4,
   },
   collectionRate: {
     fontSize: 24,
-    color: '#059669',
-    marginTop: 8,
+    color: Theme.colors.success,
+    marginTop: Theme.spacing.sm,
   },
   collectionDetails: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#4a5568',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   studentsList: {
-    margin: 16,
+    margin: Theme.spacing.md,
     marginTop: 0,
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     overflow: 'hidden',
   },
   listHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
     backgroundColor: '#f7f9fc',
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: Theme.colors.border,
   },
   listTitle: {
     fontSize: 16,
-    color: '#0d1b2a',
+    color: Theme.colors.text,
   },
   studentCount: {
     fontSize: 13,
@@ -671,9 +659,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: Theme.colors.border,
   },
   studentInfo: {
     flex: 1,
@@ -682,11 +670,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   studentName: {
     fontSize: 16,
-    color: '#0d1b2a',
+    color: Theme.colors.text,
   },
   urgentBadge: {
     flexDirection: 'row',
@@ -699,46 +687,46 @@ const styles = StyleSheet.create({
   },
   urgentText: {
     fontSize: 10,
-    color: '#dc2626',
+    color: Theme.colors.error,
   },
   studentClass: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#4a5568',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   feeDetails: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   feeText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#4a5568',
   },
   paidText: {
-    fontSize: 12,
-    color: '#059669',
+    ...Theme.typography.caption,
+    color: Theme.colors.success,
   },
   dueText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
   },
   dueDate: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#8898aa',
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 12,
   },
   statusText: {
-    fontSize: 11,
+    ...Theme.typography.label,
   },
   loadingContainer: {
-    padding: 32,
+    padding: Theme.spacing.xl,
     alignItems: 'center',
   },
   loadingText: {
@@ -746,23 +734,23 @@ const styles = StyleSheet.create({
     color: '#8898aa',
   },
   emptyContainer: {
-    padding: 48,
+    padding: Theme.spacing.xxl,
     alignItems: 'center',
-    margin: 16,
-    backgroundColor: '#ffffff',
+    margin: Theme.spacing.md,
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
   },
   emptyTitle: {
     fontSize: 18,
-    color: '#059669',
-    marginTop: 16,
+    color: Theme.colors.success,
+    marginTop: Theme.spacing.md,
   },
   emptyText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#4a5568',
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
     textAlign: 'center',
   },
   modalOverlay: {
@@ -772,7 +760,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
     width: '90%',
     maxWidth: 400,
@@ -782,31 +770,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: Theme.colors.border,
   },
   modalTitle: {
     fontSize: 18,
-    color: '#0d1b2a',
+    color: Theme.colors.text,
   },
   modalBody: {
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   detailSection: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   detailLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#8898aa',
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   detailValue: {
     fontSize: 16,
-    color: '#0d1b2a',
+    color: Theme.colors.text,
   },
   paidDetail: {
-    color: '#059669',
+    color: Theme.colors.success,
   },
   dueDetail: {
     // moved to weight="bold"
@@ -824,10 +812,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   actionButtons: {
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   reminderButton: {
-    backgroundColor: '#059669',
+    backgroundColor: Theme.colors.success,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -836,12 +824,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   reminderButtonText: {
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   modalFooter: {
-    padding: 16,
+    padding: Theme.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#e4e9f2',
+    borderTopColor: Theme.colors.border,
   },
   closeModalButton: {
     backgroundColor: '#f3f4f6',

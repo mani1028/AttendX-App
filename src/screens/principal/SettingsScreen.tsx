@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
@@ -7,7 +8,6 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
-  StatusBar,
   Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -28,19 +28,24 @@ import {
   CheckCircle2,
 } from 'lucide-react-native';
 import API from '../../services/api';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import { Theme, C } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
+
 
 
 export default function PrincipalSettingsPage() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
   const [dailySessions, setDailySessions] = useState<1 | 2>(1);
@@ -59,18 +64,8 @@ export default function PrincipalSettingsPage() {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   useEffect(() => {
     if (schoolCode && branchId) {
@@ -80,16 +75,16 @@ export default function PrincipalSettingsPage() {
 
   const loadCredentials = async () => {
     try {
-      const code = await AsyncStorage.getItem('school_code') ||
-        await AsyncStorage.getItem('schoolCode') ||
-        await AsyncStorage.getItem('school_id') ||
-        await AsyncStorage.getItem('schoolId') || '';
-      
-      const branch = await AsyncStorage.getItem('branch_id') ||
-        await AsyncStorage.getItem('branchId') ||
+      const code = await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) || '';
+
+      const branch = await storage.getString(StorageKeys.BRANCH_ID) ||
+        await storage.getString(StorageKeys.BRANCH_ID) ||
         await AsyncStorage.getItem('branch_code') ||
         await AsyncStorage.getItem('branchCode') || '';
-      
+
       setSchoolCode(code);
       setBranchId(branch);
     } catch (error) {
@@ -107,7 +102,7 @@ export default function PrincipalSettingsPage() {
   });
 
   const loadSettings = async () => {
-    if (!schoolCode || !branchId) return;
+    if (!schoolCode || !branchId) {return;}
 
     setLoading(true);
     try {
@@ -149,17 +144,17 @@ export default function PrincipalSettingsPage() {
 
     setSaving(true);
     setMsg('');
-    
+
     try {
       const value = Number(dailySessions) === 2 ? 2 : 1;
       await Promise.all([
-        API.put('/principal/attendance/settings', { 
+        API.put('/principal/attendance/settings', {
           daily_sessions: value,
-          enable_manual_attendance: Boolean(manualAttendanceEnabled)
+          enable_manual_attendance: Boolean(manualAttendanceEnabled),
         }, { headers: getHeaders() }),
         API.put('/principal/marks-notification/settings', { enabled: Boolean(marksNotificationEnabled) }, { headers: getHeaders() }),
       ]);
-      
+
       const appSettingsStr = await AsyncStorage.getItem('app_settings');
       let appSettings = {
         notifications: true, emailAlerts: true, pushNotifications: true,
@@ -170,13 +165,13 @@ export default function PrincipalSettingsPage() {
       }
       appSettings.notifications = pushNotificationsEnabled;
       await AsyncStorage.setItem('app_settings', JSON.stringify(appSettings));
-      
+
       setMsgType('success');
       setMsg(
         `Attendance set to ${value} time${value === 2 ? 's' : ''} per day. ` +
         `Manual attendance is ${manualAttendanceEnabled ? 'enabled' : 'disabled'}.`
       );
-      
+
       // Auto clear message after 5 seconds
       setTimeout(() => {
         setMsg('');
@@ -192,12 +187,12 @@ export default function PrincipalSettingsPage() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Standardized Header */}
       <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
         <View style={styles.headerTop}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.iconButton}
             onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
           >
@@ -241,14 +236,14 @@ export default function PrincipalSettingsPage() {
                     </View>
                   </View>
                   <View style={styles.segmentedControl}>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.segment, dailySessions === 1 && styles.segmentActive]}
                       onPress={() => setDailySessions(1)}
                       disabled={loading || saving}
                     >
                       <AppText weight={dailySessions === 1 ? 'bold' : 'regular'} style={[styles.segmentText, dailySessions === 1 && styles.segmentTextActive]}>Once</AppText>
                     </TouchableOpacity>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.segment, dailySessions === 2 && styles.segmentActive]}
                       onPress={() => setDailySessions(2)}
                       disabled={loading || saving}
@@ -272,7 +267,7 @@ export default function PrincipalSettingsPage() {
                       onValueChange={setManualAttendanceEnabled}
                       disabled={loading || saving}
                       trackColor={{ false: '#cbd5e1', true: C.primary }}
-                      thumbColor={Platform.OS === 'ios' ? '#ffffff' : manualAttendanceEnabled ? '#ffffff' : '#f8fafc'}
+                      thumbColor={Platform.OS === 'ios' ? Theme.colors.card : manualAttendanceEnabled ? Theme.colors.card : Theme.colors.background}
                     />
                   </View>
                 </View>
@@ -291,7 +286,7 @@ export default function PrincipalSettingsPage() {
                       onValueChange={setMarksNotificationEnabled}
                       disabled={loading || saving}
                       trackColor={{ false: '#cbd5e1', true: C.primary }}
-                      thumbColor={Platform.OS === 'ios' ? '#ffffff' : marksNotificationEnabled ? '#ffffff' : '#f8fafc'}
+                      thumbColor={Platform.OS === 'ios' ? Theme.colors.card : marksNotificationEnabled ? Theme.colors.card : Theme.colors.background}
                     />
                   </View>
                 </View>
@@ -310,23 +305,23 @@ export default function PrincipalSettingsPage() {
                       onValueChange={setPushNotificationsEnabled}
                       disabled={loading || saving}
                       trackColor={{ false: '#cbd5e1', true: C.primary }}
-                      thumbColor={Platform.OS === 'ios' ? '#ffffff' : pushNotificationsEnabled ? '#ffffff' : '#f8fafc'}
+                      thumbColor={Platform.OS === 'ios' ? Theme.colors.card : pushNotificationsEnabled ? Theme.colors.card : Theme.colors.background}
                     />
                   </View>
                 </View>
 
                 {/* Action Buttons */}
                 <View style={styles.actionRow}>
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={[styles.saveButton, (loading || saving) && styles.saveButtonDisabled]}
                     onPress={saveSettings}
                     disabled={loading || saving}
                   >
                     {saving ? (
-                      <ActivityIndicator size="small" color="#fff" />
+                      <ActivityIndicator size="small" color={Theme.colors.card} />
                     ) : (
                       <>
-                        <Save size={16} color="#fff" />
+                        <Save size={16} color={Theme.colors.card} />
                         <AppText style={styles.saveButtonText} weight="bold">Save Settings</AppText>
                       </>
                     )}
@@ -417,22 +412,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 18,
     textAlign: 'center',
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 28,
     letterSpacing: -0.5,
   },
   headerSubtext: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   headerSpacer: {
     width: 40,
@@ -449,7 +444,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: C.border,
-    margin: 16,
+    margin: Theme.spacing.md,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -458,7 +453,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   header: {
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
     flexDirection: 'row',
@@ -471,7 +466,7 @@ const styles = StyleSheet.create({
     color: C.text,
   },
   body: {
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   settingRowContainer: {
     paddingVertical: 14,
@@ -489,32 +484,32 @@ const styles = StyleSheet.create({
   },
   settingTextContainer: {
     flex: 1,
-    paddingRight: 16,
+    paddingRight: Theme.spacing.md,
   },
   settingTitle: {
-    fontSize: 15,
-    color: '#0f172a',
-    marginBottom: 4,
+    ...Theme.typography.bodyMd,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.xs,
   },
   settingDescription: {
     fontSize: 13,
-    color: '#64748b',
+    color: Theme.colors.textSec,
     lineHeight: 18,
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
     borderRadius: 8,
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   segment: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     alignItems: 'center',
     borderRadius: 6,
   },
   segmentActive: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -522,15 +517,15 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   segmentText: {
-    fontSize: 14,
-    color: '#64748b',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
   },
   segmentTextActive: {
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   divider: {
     height: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
   },
   actionRow: {
     marginTop: 20,
@@ -550,12 +545,12 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   saveButtonText: {
-    color: '#fff',
-    fontSize: 15,
+    color: Theme.colors.card,
+    ...Theme.typography.bodyMd,
   },
   infoRow: {
     gap: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   infoItem: {
     flexDirection: 'row',
@@ -564,7 +559,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
   },
   messageContainer: {
@@ -573,7 +568,7 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 12,
     borderRadius: 10,
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   successMessage: {
     backgroundColor: C.successBg,
@@ -604,7 +599,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.textMuted,
   },
 });

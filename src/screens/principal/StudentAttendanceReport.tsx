@@ -1,3 +1,6 @@
+import { Theme, C } from '../../theme/tokens';
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -11,7 +14,6 @@ import {
   Image,
   Alert,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Dimensions,
@@ -30,12 +32,11 @@ import {
   Clock,
   Search,
   Filter,
-  FileText
+  FileText,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import API from '../../services/api';
-import { colors } from '../../constants/theme';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+import { colors } from '../../theme/tokens';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
 import AppButton from '../../components/common/AppButton';
@@ -56,19 +57,17 @@ const fmtDate = (dateString: string): string => {
 
 interface AttendanceRecord {
   date: string;
-  status: 'PRESENT' | 'ABSENT' | 'LATE';
+  status: 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY';
   remarks?: string;
 }
 
 export default function StudentAttendanceReport() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const route = useRoute<RouteProp<RootStackParamList, 'StudentAttendanceReport'>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'PrincipalStudentAttendanceReport'>>();
   const { studentId, studentName } = route.params;
   const today = new Date().toISOString().split('T')[0];
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
-
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -86,7 +85,7 @@ export default function StudentAttendanceReport() {
       const bid = await AsyncStorage.getItem('branch_id') || '';
       setSchoolCode(code);
       setBranchId(bid);
-      if (code && bid) fetchReport(code, bid);
+      if (code && bid) {fetchReport(code, bid);}
     };
     load();
   }, []);
@@ -100,8 +99,8 @@ export default function StudentAttendanceReport() {
         headers: { 'X-School-Code': code, 'X-Branch-Id': bid },
         params: {
           start_date: startDate,
-          end_date: endDate
-        }
+          end_date: endDate,
+        },
       });
       setRecords(response.data?.records || []);
     } catch (error) {
@@ -124,30 +123,20 @@ export default function StudentAttendanceReport() {
     await fetchReport(schoolCode, branchId);
     setRefreshing(false);
   }, [schoolCode, branchId, startDate, endDate]);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   const stats = {
     present: records.filter(r => r.status === 'PRESENT').length,
     absent: records.filter(r => r.status === 'ABSENT').length,
     late: records.filter(r => r.status === 'LATE' || r.status === 'HALF_DAY').length,
     total: records.length,
-    percentage: records.length > 0 ? Math.round(((records.filter(r => r.status === 'PRESENT').length + records.filter(r => r.status === 'LATE' || r.status === 'HALF_DAY').length) / records.length) * 100) : 0
+    percentage: records.length > 0 ? Math.round(((records.filter(r => r.status === 'PRESENT').length + records.filter(r => r.status === 'LATE' || r.status === 'HALF_DAY').length) / records.length) * 100) : 0,
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Navy Standard Header */}
       <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
@@ -156,7 +145,7 @@ export default function StudentAttendanceReport() {
             style={styles.iconButton}
             onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
           >
-            <ChevronLeft size={24} color="#FFFFFF" />
+            <ChevronLeft size={24} color={Theme.colors.card} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
             <AppText weight="bold" style={styles.headerTitle}>Attendance Report</AppText>
@@ -184,7 +173,7 @@ export default function StudentAttendanceReport() {
               <View style={[styles.field, { flex: 1, marginRight: 10 }]}>
                 <AppText style={styles.label}>From</AppText>
                 <TouchableOpacity style={styles.dateInput} onPress={() => setShowStartPicker(true)}>
-                  <Calendar size={18} color="#64748B" style={{ marginRight: 10 }} />
+                  <Calendar size={18} color={Theme.colors.textSec} style={{ marginRight: 10 }} />
                   <AppText style={styles.dateInputText}>{fmtDate(startDate)}</AppText>
                 </TouchableOpacity>
                 {showStartPicker && (
@@ -195,7 +184,7 @@ export default function StudentAttendanceReport() {
                     maximumDate={new Date()}
                     onChange={(event, date) => {
                       setShowStartPicker(false);
-                      if (date) setStartDate(date.toISOString().split('T')[0]);
+                      if (date) {setStartDate(date.toISOString().split('T')[0]);}
                     }}
                   />
                 )}
@@ -204,7 +193,7 @@ export default function StudentAttendanceReport() {
               <View style={[styles.field, { flex: 1 }]}>
                 <AppText style={styles.label}>To</AppText>
                 <TouchableOpacity style={styles.dateInput} onPress={() => setShowEndPicker(true)}>
-                  <Calendar size={18} color="#64748B" style={{ marginRight: 10 }} />
+                  <Calendar size={18} color={Theme.colors.textSec} style={{ marginRight: 10 }} />
                   <AppText style={styles.dateInputText}>{fmtDate(endDate)}</AppText>
                 </TouchableOpacity>
                 {showEndPicker && (
@@ -215,7 +204,7 @@ export default function StudentAttendanceReport() {
                     maximumDate={new Date()}
                     onChange={(event, date) => {
                       setShowEndPicker(false);
-                      if (date) setEndDate(date.toISOString().split('T')[0]);
+                      if (date) {setEndDate(date.toISOString().split('T')[0]);}
                     }}
                   />
                 )}
@@ -285,13 +274,13 @@ export default function StudentAttendanceReport() {
                     styles.statusBadge,
                     record.status === 'PRESENT' ? styles.statusPresent :
                     record.status === 'ABSENT' ? styles.statusAbsent :
-                    styles.statusLate
+                    styles.statusLate,
                   ]}>
                     <AppText style={[
                       styles.statusText,
                       record.status === 'PRESENT' ? styles.statusTextPresent :
                       record.status === 'ABSENT' ? styles.statusTextAbsent :
-                      styles.statusTextLate
+                      styles.statusTextLate,
                     ]}>
                       {record.status}
                     </AppText>
@@ -309,7 +298,7 @@ export default function StudentAttendanceReport() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   headerStandard: {
     backgroundColor: C.navy,
@@ -325,7 +314,7 @@ const styles = StyleSheet.create({
   },
   contentOverlap: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderTopLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     borderTopRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     marginTop: -HEADER_CONSTANTS.BORDER_RADIUS,
@@ -351,34 +340,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    color: Theme.colors.card,
+    ...Theme.typography.h3,
     textAlign: 'center',
   },
   headerSpacer: {
     width: 40,
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 24,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   headerSubtext: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   contentContainer: {
-    padding: 16,
+    padding: Theme.spacing.md,
     paddingBottom: 40,
   },
   selectionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 24,
     padding: 20,
     shadowColor: '#000',
@@ -391,29 +379,29 @@ const styles = StyleSheet.create({
   },
   fieldRow: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   field: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   label: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
     color: '#1E293B',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   dateInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 48,
   },
   dateInputText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#1E293B',
     fontWeight: '500',
   },
@@ -421,7 +409,7 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 14,
     backgroundColor: C.navy,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   summaryGrid: {
     flexDirection: 'row',
@@ -430,7 +418,7 @@ const styles = StyleSheet.create({
   },
   summaryTile: {
     flex: 1,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 24,
     alignItems: 'center',
     elevation: 3,
@@ -443,16 +431,16 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     color: '#1E293B',
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   summaryLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
-    color: '#64748B',
+    color: Theme.colors.textSec,
     marginTop: 2,
   },
   listContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 24,
     padding: 20,
     shadowColor: '#000',
@@ -465,7 +453,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   listHeaderText: {
     fontSize: 16,
@@ -475,10 +463,10 @@ const styles = StyleSheet.create({
   listHeaderCount: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
-    backgroundColor: '#F1F5F9',
+    color: Theme.colors.textSec,
+    backgroundColor: Theme.colors.background,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 8,
   },
   recordItem: {
@@ -486,7 +474,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: Theme.colors.background,
   },
   recordInfo: {
     flex: 1,
@@ -502,13 +490,13 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   recordDate: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '600',
     color: '#1E293B',
   },
   recordRemarks: {
-    fontSize: 12,
-    color: '#64748B',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     marginTop: 2,
   },
   statusBadge: {
@@ -519,7 +507,7 @@ const styles = StyleSheet.create({
   statusPresent: { backgroundColor: C.successSoft },
   statusAbsent: { backgroundColor: C.errorSoft },
   statusLate: { backgroundColor: C.warningSoft },
-  statusText: { fontSize: 11, fontWeight: '700' },
+  statusText: { ...Theme.typography.label, fontWeight: '700' },
   statusTextPresent: { color: C.success },
   statusTextAbsent: { color: C.error },
   statusTextLate: { color: C.warning },
@@ -532,12 +520,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: '#1E293B',
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   emptyStateSub: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 8,
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
+    marginTop: Theme.spacing.sm,
     textAlign: 'center',
     paddingHorizontal: 40,
   },

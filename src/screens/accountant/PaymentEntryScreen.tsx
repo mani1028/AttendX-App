@@ -1,24 +1,24 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { colors } from '../../constants/theme';
-import { Director_THEME } from '../../constants/directorTheme';
+import { colors } from '../../theme/tokens';
+
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-import AccountantPageHeader from '../../components/layout/AccountantPageHeader';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { Theme } from '../../theme/tokens';
+
 
 export default function PaymentEntryScreen() {
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
-
   useEffect(() => {
     setTabBarVisible(true);
     const unsubscribe = navigation.addListener('focus', () => {
@@ -26,22 +26,14 @@ export default function PaymentEntryScreen() {
     });
     return unsubscribe;
   }, [navigation, setTabBarVisible]);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
-      setTabBarVisible(false);
-    } else if (currentScrollY < lastScrollY.current - 10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
-      <AccountantPageHeader title="Payment Entry" onBackPress={() => navigation.goBack()} />
+
+      <StandardPageHeader title="Payment Entry" onBackPress={() => navigation.goBack()} />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -62,13 +54,13 @@ export default function PaymentEntryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
   },
   content: {
     padding: 20,
     paddingBottom: 100,
     marginTop: -20,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
   },
@@ -76,12 +68,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   subtitle: {
     fontSize: 16,
     color: colors.textMuted,
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   placeholder: {
     padding: 40,

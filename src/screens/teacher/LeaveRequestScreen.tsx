@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -7,7 +8,6 @@ import {
   TextInput,
   Alert,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -23,7 +23,10 @@ import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 
 // Types
 interface LeaveRequest {
@@ -37,26 +40,26 @@ interface LeaveRequest {
 
 // Helper functions
 const getSchoolCode = async (): Promise<string> => {
-  const code = await AsyncStorage.getItem('school_code');
-  return code || (await AsyncStorage.getItem('schoolCode')) || '';
+  const code = await storage.getString(StorageKeys.SCHOOL_CODE);
+  return code || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
 };
 
 const getTeacherId = async (): Promise<string> => {
   const id = await AsyncStorage.getItem('teacher_id');
-  return id || (await AsyncStorage.getItem('teacherId')) || 
-         (await AsyncStorage.getItem('employee_id')) || 
-         (await AsyncStorage.getItem('employeeId')) || '';
+  return id || (await AsyncStorage.getItem('teacherId')) ||
+         (await storage.getString(StorageKeys.EMPLOYEE_ID)) ||
+         (await storage.getString(StorageKeys.EMPLOYEE_ID)) || '';
 };
 
 const getBranchId = async (): Promise<string> => {
-  const id = await AsyncStorage.getItem('branch_id');
-  return id || (await AsyncStorage.getItem('branchId')) || '';
+  const id = await storage.getString(StorageKeys.BRANCH_ID);
+  return id || (await storage.getString(StorageKeys.BRANCH_ID)) || '';
 };
 
 const isValidYear = (dateString: string): boolean => {
-  if (!dateString) return true;
+  if (!dateString) {return true;}
   const date = new Date(dateString);
-  if (isNaN(date.getTime())) return false;
+  if (isNaN(date.getTime())) {return false;}
   const year = date.getFullYear();
   return year >= 1000 && year <= new Date().getFullYear() + 1;
 };
@@ -95,7 +98,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 // Leave History Card Component
 const LeaveHistoryCard: React.FC<{ request: LeaveRequest }> = ({ request }) => {
   const formatDate = (dateString: string) => {
-    if (!dateString) return '-';
+    if (!dateString) {return '-';}
     const date = new Date(dateString);
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
@@ -104,7 +107,7 @@ const LeaveHistoryCard: React.FC<{ request: LeaveRequest }> = ({ request }) => {
     <AppCard style={styles.historyCard}>
       <View style={styles.historyHeader}>
         <View style={styles.dateRangeContainer}>
-          <Calendar size={16} color="#64748b" />
+          <Calendar size={16} color={Theme.colors.textSec} />
           <AppText weight="semibold" style={styles.dateText}>{formatDate(request.from_date)}</AppText>
           {request.from_date !== request.to_date && (
             <>
@@ -115,12 +118,12 @@ const LeaveHistoryCard: React.FC<{ request: LeaveRequest }> = ({ request }) => {
         </View>
         <StatusBadge status={request.status} />
       </View>
-      
+
       <View style={styles.reasonContainer}>
         <FileText size={14} color="#94a3b8" style={{ marginTop: 2 }} />
         <AppText style={styles.reasonText} numberOfLines={2}>{request.reason}</AppText>
       </View>
-      
+
       <View style={styles.cardFooter}>
         <AppText style={styles.appliedDate}>
           Applied on {formatDate(request.created_at)}
@@ -134,7 +137,6 @@ export default function LeaveRequestScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [teacherId, setTeacherId] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
@@ -145,13 +147,13 @@ export default function LeaveRequestScreen() {
   const [fromDate, setFromDate] = useState<Date | null>(null);
   const [toDate, setToDate] = useState<Date | null>(null);
   const [reason, setReason] = useState<string>('');
-  
+
   // UI states
   const isMounted = useRef(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [history, setHistory] = useState<LeaveRequest[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
-  
+
   // Date picker states
   const [showFromDatePicker, setShowFromDatePicker] = useState<boolean>(false);
   const [showToDatePicker, setShowToDatePicker] = useState<boolean>(false);
@@ -175,22 +177,12 @@ export default function LeaveRequestScreen() {
       setTabBarVisible(true);
     };
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-    // Toggle tab bar visibility based on scroll direction
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   useEffect(() => {
     const resolveTeacherId = async () => {
-      if (!schoolCode || !teacherId) return;
+      if (!schoolCode || !teacherId) {return;}
       try {
         const res = await API.get('/staff/marks/staff-context', {
           params: {
@@ -201,12 +193,12 @@ export default function LeaveRequestScreen() {
           },
         });
 
-        if (!isMounted.current) return;
+        if (!isMounted.current) {return;}
 
         const canonicalTeacherId = String(res.data?.teacher_data?.teacher_id || teacherId).trim();
         setResolvedTeacherId(canonicalTeacherId);
       } catch (err: any) {
-        if (!isMounted.current) return;
+        if (!isMounted.current) {return;}
         setResolvedTeacherId(teacherId);
       }
     };
@@ -222,7 +214,7 @@ export default function LeaveRequestScreen() {
   const hasDuplicateLeave = (newFromDate: string, newToDate: string): boolean => {
     return history.some((leave) => {
       const status = (leave.status || '').toUpperCase();
-      if (status !== 'PENDING' && status !== 'APPROVED') return false;
+      if (status !== 'PENDING' && status !== 'APPROVED') {return false;}
       return leave.from_date === newFromDate && leave.to_date === newToDate;
     });
   };
@@ -257,7 +249,7 @@ export default function LeaveRequestScreen() {
   };
 
   const loadHistory = async () => {
-    if (!schoolCode || !resolvedTeacherId) return;
+    if (!schoolCode || !resolvedTeacherId) {return;}
     setLoadingHistory(true);
     try {
       let res;
@@ -363,7 +355,7 @@ export default function LeaveRequestScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       <ScrollView
         style={styles.scrollView}
@@ -376,29 +368,7 @@ export default function LeaveRequestScreen() {
         // Make sure keyboard handling / inertia still works
       >
         {/* Navy Hero Header - scrolls with page */}
-        <View
-          style={[
-            styles.headerStandard,
-            { paddingTop: insets.top + 12, paddingBottom: 20 },
-          ]}
-        >
-          <View style={styles.headerTop}>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('TeacherDashboard')}
-              activeOpacity={0.7}
-            >
-              <ChevronLeft size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <AppText weight="bold" style={styles.heroTitle}>Leave Request</AppText>
-            <View style={{ width: 40 }} />
-          </View>
-
-          <View style={styles.heroContent}>
-            <AppText weight="bold" style={styles.heroGreeting}>Request Time Off</AppText>
-            <AppText style={styles.heroSubtext}>Submit and track your leave applications</AppText>
-          </View>
-        </View>
+        <StandardPageHeader title="Leave Request" onBackPress={() => navigation.goBack()} />
         {/* Form Card */}
         <AppCard style={styles.mainCard}>
           <View style={styles.cardHeader}>
@@ -407,13 +377,13 @@ export default function LeaveRequestScreen() {
           </View>
 
           <View style={styles.typeSelector}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.typeBtn, leaveType === 'one-day' && styles.typeBtnActive]}
               onPress={() => setLeaveType('one-day')}
             >
               <AppText weight="semibold" style={[styles.typeBtnText, leaveType === 'one-day' && styles.typeBtnTextActive]}>Single Day</AppText>
             </TouchableOpacity>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.typeBtn, leaveType === 'multiple' && styles.typeBtnActive]}
               onPress={() => setLeaveType('multiple')}
             >
@@ -424,7 +394,7 @@ export default function LeaveRequestScreen() {
           <View style={styles.formRow}>
             <View style={styles.inputGroup}>
               <AppText weight="semibold" style={styles.inputLabel}>{leaveType === 'one-day' ? 'Date' : 'From Date'}</AppText>
-              <TouchableOpacity style={styles.dateSelector} onPress={() => setShowFromDatePicker(true)}>
+              <TouchableOpacity accessibilityRole="button" style={styles.dateSelector} onPress={() => setShowFromDatePicker(true)}>
                 <AppText weight="semibold" style={fromDate ? styles.dateValue : styles.datePlaceholder}>
                   {fromDate ? formatDateToYMD(fromDate) : 'YYYY-MM-DD'}
                 </AppText>
@@ -435,7 +405,7 @@ export default function LeaveRequestScreen() {
             {leaveType === 'multiple' && (
               <View style={styles.inputGroup}>
                 <AppText weight="semibold" style={styles.inputLabel}>To Date</AppText>
-                <TouchableOpacity style={styles.dateSelector} onPress={() => setShowToDatePicker(true)}>
+                <TouchableOpacity accessibilityRole="button" style={styles.dateSelector} onPress={() => setShowToDatePicker(true)}>
                   <AppText weight="semibold" style={toDate ? styles.dateValue : styles.datePlaceholder}>
                     {toDate ? formatDateToYMD(toDate) : 'YYYY-MM-DD'}
                   </AppText>
@@ -462,14 +432,14 @@ export default function LeaveRequestScreen() {
             title={submitting ? 'Submitting...' : 'Submit Application'}
             onPress={handleSubmit}
             disabled={submitting}
-            style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+            style={StyleSheet.flatten([styles.submitButton, submitting && styles.submitButtonDisabled])}
           />
         </AppCard>
 
         {/* History Section */}
         <View style={styles.sectionHeader}>
           <AppText weight="bold" style={styles.sectionTitle}>Application History</AppText>
-          <TouchableOpacity onPress={refreshAll}>
+          <TouchableOpacity accessibilityRole="button" onPress={refreshAll}>
             <AppText weight="semibold" style={styles.refreshText}>Refresh</AppText>
           </TouchableOpacity>
         </View>
@@ -486,8 +456,8 @@ export default function LeaveRequestScreen() {
           </View>
         ) : (
           <View style={styles.historyList}>
-            {history.map((request) => (
-              <LeaveHistoryCard key={request.leave_id} request={request} />
+            {history.map((request, idx) => (
+              <LeaveHistoryCard key={request.leave_id || `leave-${idx}`} request={request} />
             ))}
           </View>
         )}
@@ -522,13 +492,11 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   headerStandard: {
     backgroundColor: Theme.colors.primary,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
     position: 'relative',
     zIndex: 1,
   },
@@ -547,30 +515,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heroTitle: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 18,
   },
   heroContent: {
     marginBottom: 0,
   },
   heroGreeting: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 24,
   },
   heroSubtext: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   scrollContent: {
     paddingBottom: 130,
   },
   mainCard: {
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     marginHorizontal: 20,
     borderRadius: 24,
     padding: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     marginBottom: 20,
     ...Platform.select({
       android: { elevation: 4 },
@@ -590,13 +558,13 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 18,
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   typeSelector: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
-    padding: 4,
+    padding: Theme.spacing.xs,
     marginBottom: 20,
   },
   typeBtn: {
@@ -606,7 +574,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   typeBtnActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     ...Platform.select({
 
       android: { elevation: 2 },
@@ -620,8 +588,8 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   typeBtnText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
   },
   typeBtnTextActive: {
     color: Theme.colors.primary,
@@ -633,44 +601,44 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     flex: 1,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     minWidth: Platform.OS === 'ios' ? 150 : 140,
   },
   inputLabel: {
     fontSize: 13,
-    color: '#64748B',
-    marginBottom: 8,
+    color: Theme.colors.textSec,
+    marginBottom: Theme.spacing.sm,
   },
   dateSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     height: 52,
     minHeight: 52,
   },
   dateValue: {
-    fontSize: 14,
-    color: '#0F172A',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
   },
   datePlaceholder: {
-    fontSize: 14,
-    color: '#94A3B8',
+    ...Theme.typography.body,
+    color: Theme.colors.textMuted,
   },
   reasonInput: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     padding: 12,
     height: 80,
     textAlignVertical: 'top',
-    fontSize: 14,
-    color: '#0F172A',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
   },
   submitButton: {
@@ -692,10 +660,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   refreshText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: Theme.colors.blue,
   },
   historyList: {
@@ -704,10 +672,10 @@ const styles = StyleSheet.create({
   },
   historyCard: {
     borderRadius: 20,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
+    padding: Theme.spacing.md,
+    backgroundColor: Theme.colors.card,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: Theme.colors.background,
     ...Platform.select({
       android: { elevation: 2 },
       ios: {
@@ -730,12 +698,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dateText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#334155',
   },
   dateArrow: {
-    fontSize: 12,
-    color: '#94A3B8',
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
   },
   reasonContainer: {
     flexDirection: 'row',
@@ -744,18 +712,18 @@ const styles = StyleSheet.create({
   },
   reasonText: {
     flex: 1,
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     lineHeight: 20,
   },
   cardFooter: {
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: Theme.colors.background,
     paddingTop: 10,
   },
   appliedDate: {
-    fontSize: 12,
-    color: '#94A3B8',
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
     fontStyle: 'italic',
   },
   badge: {
@@ -767,7 +735,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   badgeText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -786,19 +754,19 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   emptyStateTitle: {
     fontSize: 18,
     color: '#334155',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   emptyStateSubtext: {
-    color: '#94A3B8',
-    fontSize: 14,
+    color: Theme.colors.textMuted,
+    ...Theme.typography.body,
     textAlign: 'center',
   },
 });

@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
@@ -10,7 +11,6 @@ import {
   Modal,
   Alert,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
   useWindowDimensions,
@@ -38,18 +38,24 @@ import {
   ChevronRight,
   X,
   BookOpen,
-  Users2
+  Users2,
 } from 'lucide-react-native';
 import API from '../../services/api';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme/tokens';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+
 import { safeGoBack } from '../../utils/navigationHelpers';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { Theme, C } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
+
 
 // Local theme bridge
 
@@ -108,19 +114,19 @@ interface SectionGroup {
 
 // Helper functions
 const getSchoolCode = async (): Promise<string> => {
-  const code = await AsyncStorage.getItem('school_code');
-  return code || (await AsyncStorage.getItem('schoolCode')) || '';
+  const code = await storage.getString(StorageKeys.SCHOOL_CODE);
+  return code || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
 };
 
 const getBranchId = async (): Promise<string> => {
-  const id = await AsyncStorage.getItem('branch_id');
-  return id || (await AsyncStorage.getItem('branchId')) || '';
+  const id = await storage.getString(StorageKeys.BRANCH_ID);
+  return id || (await storage.getString(StorageKeys.BRANCH_ID)) || '';
 };
 
 const iso = (date: Date): string => date.toISOString().split('T')[0];
 
 const CLASS_COLORS = [
-  '#6648dc', '#7c3aed', '#db2777', '#059669', '#d97706', '#0891b2', '#4f46e5', '#16a34a', '#dc2626', '#9333ea',
+  '#6648dc', '#7c3aed', '#db2777', Theme.colors.success, '#d97706', '#0891b2', '#4f46e5', '#16a34a', Theme.colors.error, '#9333ea',
 ];
 
 const classColor = (grade: string): string => {
@@ -134,23 +140,23 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const isHalfDay = status === 'HALF_DAY' || status === 'LATE';
 
   const getStyle = () => {
-    if (isPresent) return styles.badgePresent;
-    if (isHalfDay) return styles.badgeHalfDay;
+    if (isPresent) {return styles.badgePresent;}
+    if (isHalfDay) {return styles.badgeHalfDay;}
     return styles.badgeAbsent;
   };
   const getTextStyle = () => {
-    if (isPresent) return styles.badgePresentText;
-    if (isHalfDay) return styles.badgeHalfDayText;
+    if (isPresent) {return styles.badgePresentText;}
+    if (isHalfDay) {return styles.badgeHalfDayText;}
     return styles.badgeAbsentText;
   };
   const getText = () => {
-    if (isPresent) return 'PRESENT';
-    if (isHalfDay) return 'HALF DAY';
+    if (isPresent) {return 'PRESENT';}
+    if (isHalfDay) {return 'HALF DAY';}
     return 'ABSENT';
   };
   const getIcon = () => {
-    if (isPresent) return <CheckCircle2 size={12} color={C.success} />;
-    if (isHalfDay) return <Clock size={12} color={C.warning} />;
+    if (isPresent) {return <CheckCircle2 size={12} color={C.success} />;}
+    if (isHalfDay) {return <Clock size={12} color={C.warning} />;}
     return <XCircle size={12} color={C.error} />;
   };
 
@@ -165,7 +171,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 // Teacher Card Component
 const TeacherCard: React.FC<{ teacher: Teacher }> = ({ teacher }) => {
   const isActive = teacher.teacher_status?.toUpperCase() === 'ACTIVE';
-  
+
   return (
     <AppCard style={styles.teacherCard}>
       <View style={styles.teacherHeader}>
@@ -187,7 +193,7 @@ const TeacherCard: React.FC<{ teacher: Teacher }> = ({ teacher }) => {
         </View>
         <StatusBadge status={teacher.status || 'ABSENT'} />
       </View>
-      
+
       <View style={styles.teacherMetaGrid}>
         <View style={styles.metaCol}>
           <AppText style={styles.metaLabel}>EMP ID</AppText>
@@ -232,11 +238,11 @@ const ExportModal: React.FC<{
   }, []);
 
   const groups = useMemo(() => {
-    if (type !== 'students' || !classItems) return [];
+    if (type !== 'students' || !classItems) {return [];}
     const map: Record<string, SectionGroup[]> = {};
     classItems.forEach((c) => {
       const grade = String(c.class_grade);
-      if (!map[grade]) map[grade] = [];
+      if (!map[grade]) {map[grade] = [];}
       map[grade].push({ class_grade: grade, section: c.section, students_total: c.students_total, present: c.present });
     });
     return Object.entries(map).sort((a, b) => {
@@ -249,8 +255,8 @@ const ExportModal: React.FC<{
   const toggleSection = (grade: string, section: string) => {
     const key = `${grade}:${section}`;
     const newSet = new Set(selectedSections);
-    if (newSet.has(key)) newSet.delete(key);
-    else newSet.add(key);
+    if (newSet.has(key)) {newSet.delete(key);}
+    else {newSet.add(key);}
     setSelectedSections(newSet);
   };
 
@@ -259,8 +265,8 @@ const ExportModal: React.FC<{
     const newSet = new Set(selectedSections);
     sections.forEach(s => {
       const key = `${grade}:${s.section}`;
-      if (allSelected) newSet.delete(key);
-      else newSet.add(key);
+      if (allSelected) {newSet.delete(key);}
+      else {newSet.add(key);}
     });
     setSelectedSections(newSet);
   };
@@ -339,12 +345,12 @@ const ExportModal: React.FC<{
         title: 'Export Attendance',
       });
 
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
       showToast(`${type === 'teachers' ? 'Teachers' : 'Students'} export completed`);
       onClose();
     } catch (error: any) {
-      if (!isMounted.current) return;
-      if (error?.response?.status === 401) return;
+      if (!isMounted.current) {return;}
+      if (error?.response?.status === 401) {return;}
       console.error('Export Error:', error);
       if (error.message !== 'User did not share') {
         showToast('Export failed', 'error');
@@ -372,7 +378,7 @@ const ExportModal: React.FC<{
             <AppText style={styles.modalTitle} weight="bold">
               Export {type === 'teachers' ? 'Teacher' : 'Student'} Attendance
             </AppText>
-            <TouchableOpacity onPress={onClose} style={styles.modalClose}>
+            <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.modalClose}>
               <X size={20} color={C.muted} />
             </TouchableOpacity>
           </View>
@@ -380,12 +386,12 @@ const ExportModal: React.FC<{
           <ScrollView style={styles.modalBody}>
             <AppText style={styles.modalLabel} weight="semibold">Date Range</AppText>
             <View style={styles.dateRangeRow}>
-              <TouchableOpacity style={styles.dateBtn} onPress={() => setShowStartPicker(true)}>
+              <TouchableOpacity accessibilityRole="button" style={styles.dateBtn} onPress={() => setShowStartPicker(true)}>
                 <Calendar size={14} color={C.primary} style={{ marginRight: 6 }} />
                 <AppText style={styles.dateText}>{iso(startDate)}</AppText>
               </TouchableOpacity>
               <ArrowRight size={16} color={C.muted} />
-              <TouchableOpacity style={styles.dateBtn} onPress={() => setShowEndPicker(true)}>
+              <TouchableOpacity accessibilityRole="button" style={styles.dateBtn} onPress={() => setShowEndPicker(true)}>
                 <Calendar size={14} color={C.primary} style={{ marginRight: 6 }} />
                 <AppText style={styles.dateText}>{iso(endDate)}</AppText>
               </TouchableOpacity>
@@ -400,7 +406,7 @@ const ExportModal: React.FC<{
                   setShowStartPicker(false);
                   if (date) {
                     setStartDate(date);
-                    if (date > endDate) setEndDate(date);
+                    if (date > endDate) {setEndDate(date);}
                   }
                 }}
               />
@@ -413,7 +419,7 @@ const ExportModal: React.FC<{
                 maximumDate={new Date()}
                 onChange={(event, date) => {
                   setShowEndPicker(false);
-                  if (date) setEndDate(date);
+                  if (date) {setEndDate(date);}
                 }}
               />
             )}
@@ -424,10 +430,10 @@ const ExportModal: React.FC<{
                 <View style={styles.sectionHeader}>
                   <AppText style={styles.modalLabel} weight="semibold">Classes & Sections</AppText>
                   <View style={styles.sectionActions}>
-                    <TouchableOpacity style={styles.selectAllBtn} onPress={selectAll}>
+                    <TouchableOpacity accessibilityRole="button" style={styles.selectAllBtn} onPress={selectAll}>
                       <AppText style={styles.selectAllText} weight="semibold">Select All</AppText>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.clearAllBtn} onPress={clearAll}>
+                    <TouchableOpacity accessibilityRole="button" style={styles.clearAllBtn} onPress={clearAll}>
                       <AppText style={styles.clearAllText} weight="semibold">Clear All</AppText>
                     </TouchableOpacity>
                   </View>
@@ -439,7 +445,7 @@ const ExportModal: React.FC<{
                   const color = classColor(grade);
                   return (
                     <View key={grade} style={styles.classGroup}>
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         style={styles.classHeader}
                         onPress={() => toggleClass(grade, sections)}
                       >
@@ -454,13 +460,13 @@ const ExportModal: React.FC<{
                         const key = `${grade}:${sec.section}`;
                         const isSelected = selectedSections.has(key);
                         return (
-                          <TouchableOpacity
+                          <TouchableOpacity accessibilityRole="button"
                             key={key}
                             style={[styles.sectionRow, isSelected && styles.sectionRowSelected]}
                             onPress={() => toggleSection(grade, sec.section)}
                           >
                             <View style={[styles.checkboxSmall, isSelected && styles.checkboxSmallChecked]}>
-                              {isSelected && <CheckCircle2 size={12} color="#fff" />}
+                              {isSelected && <CheckCircle2 size={12} color={Theme.colors.card} />}
                             </View>
                             <AppText style={styles.sectionText}>Section {sec.section}</AppText>
                             <AppText style={styles.sectionCount}>{sec.students_total || 0} students</AppText>
@@ -515,7 +521,7 @@ const StudentsView: React.FC<{
     const map: Record<string, SectionGroup[]> = {};
     classItems.forEach((c) => {
       const grade = String(c.class_grade);
-      if (!map[grade]) map[grade] = [];
+      if (!map[grade]) {map[grade] = [];}
       map[grade].push({ class_grade: grade, section: c.section, students_total: c.students_total, present: c.present });
     });
     return Object.entries(map).sort((a, b) => {
@@ -539,7 +545,7 @@ const StudentsView: React.FC<{
   }, []);
 
   const loadStudents = useCallback(async (sec: SectionGroup) => {
-    if (!sec) return;
+    if (!sec) {return;}
     setLoading(true);
     try {
       const res = await API.get('principal/students', {
@@ -553,8 +559,8 @@ const StudentsView: React.FC<{
         setStudents(res.data?.items || []);
       }
     } catch (error: any) {
-      if (!isMounted.current) return;
-      if (error?.response?.status === 401) return;
+      if (!isMounted.current) {return;}
+      if (error?.response?.status === 401) {return;}
       Alert.alert('Error', 'Failed to load students');
     } finally {
       if (isMounted.current) {
@@ -571,7 +577,7 @@ const StudentsView: React.FC<{
       if (groupMatch) {
         const [grade, secs] = groupMatch;
         const secMatch = secs.find(sec => sec.section === targetSection);
-        if (secMatch) onSelectedSectionChange(secMatch);
+        if (secMatch) {onSelectedSectionChange(secMatch);}
       }
       onPreselectedApplied();
     }
@@ -580,12 +586,12 @@ const StudentsView: React.FC<{
   useEffect(() => {
     if (groups.length && !selectedSection) {
       const [grade, secs] = groups[0];
-      if (secs.length) onSelectedSectionChange(secs[0]);
+      if (secs.length) {onSelectedSectionChange(secs[0]);}
     }
   }, [groups, selectedSection, onSelectedSectionChange]);
 
   useEffect(() => {
-    if (selectedSection) loadStudents(selectedSection);
+    if (selectedSection) {loadStudents(selectedSection);}
   }, [selectedSection, loadStudents]);
 
   const filteredStudents = useMemo(() => {
@@ -657,7 +663,7 @@ const StudentsView: React.FC<{
 
         <View style={styles.searchFilterContainer}>
           <View style={styles.searchBoxWrapper}>
-            <Search size={16} color={C.muted} style={{ marginRight: 8 }} />
+            <Search size={16} color={C.muted} style={{ marginRight: Theme.spacing.sm }} />
             <TextInput
               style={styles.searchInputField}
               placeholder="Search by name, roll no..."
@@ -666,14 +672,14 @@ const StudentsView: React.FC<{
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.searchClearBtn}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setSearchQuery('')} style={styles.searchClearBtn}>
                 <X size={16} color={C.muted} />
               </TouchableOpacity>
             )}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChipsScroll}>
             {['', 'PRESENT', 'HALF_DAY', 'ABSENT'].map(status => (
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 key={status || 'all'}
                 style={[styles.filterChipItem, statusFilter === status && styles.filterChipItemActive]}
                 onPress={() => setStatusFilter(status)}
@@ -746,14 +752,14 @@ const StudentsView: React.FC<{
                   const isSelected = selectedSection?.class_grade === sec.class_grade && selectedSection?.section === sec.section;
                   const presentPct = sec.students_total ? Math.round(((sec.present || 0) / sec.students_total) * 100) : 0;
                   return (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={`${sec.class_grade}-${sec.section}`}
                       style={[styles.sectionItem, isSelected && styles.sectionItemSelected]}
-                      onPress={() => setSelectedSection(sec)}
+                      onPress={() => onSelectedSectionChange(sec)}
                     >
                       <View style={[styles.radio, isSelected && styles.radioSelected]} />
                       <View style={styles.sectionInfo}>
-                        <AppText style={[styles.sectionName, isSelected && styles.sectionNameSelected]} weight={isSelected ? "bold" : "regular"}>
+                        <AppText style={[styles.sectionName, isSelected && styles.sectionNameSelected]} weight={isSelected ? 'bold' : 'regular'}>
                           Section {sec.section}
                         </AppText>
                         <AppText style={styles.sectionSubtitle}>{sec.students_total || 0} students</AppText>
@@ -805,35 +811,33 @@ const StudentsView: React.FC<{
 
         {/* Search & Filter */}
         <View style={styles.searchFilterBar}>
-          <View style={styles.searchContainer}>
-            <Search size={18} color={C.muted} style={{ marginRight: 8 }} />
+          <View style={styles.searchBoxWrapper}>
+            <Search size={18} color={C.muted} style={{ marginRight: Theme.spacing.sm }} />
             <TextInput
-              style={styles.searchInput}
+              style={styles.searchInputField}
               placeholder="Search by name, roll no..."
               placeholderTextColor={C.muted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setSearchQuery('')} style={styles.searchClearBtn}>
                 <X size={14} color={C.muted} />
               </TouchableOpacity>
             )}
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.filterChips}>
-              {['', 'PRESENT', 'HALF_DAY', 'ABSENT'].map(status => (
-                <TouchableOpacity
-                  key={status || 'all'}
-                  style={[styles.filterChip, statusFilter === status && styles.filterChipActive]}
-                  onPress={() => setStatusFilter(status)}
-                >
-                  <AppText style={[styles.filterChipText, statusFilter === status && styles.filterChipTextActive]} weight="semibold">
-                    {status || 'All'}
-                  </AppText>
-                </TouchableOpacity>
-              ))}
-            </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChipsScroll}>
+            {['', 'PRESENT', 'HALF_DAY', 'ABSENT'].map(status => (
+              <TouchableOpacity accessibilityRole="button"
+                key={status || 'all'}
+                style={[styles.filterChipItem, statusFilter === status && styles.filterChipItemActive]}
+                onPress={() => setStatusFilter(status)}
+              >
+                <AppText style={[styles.filterChipItemText, statusFilter === status && styles.filterChipItemTextActive]} weight="semibold">
+                  {status || 'All'}
+                </AppText>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
         </View>
 
@@ -900,7 +904,6 @@ export default function PrincipalAttendanceScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
   const [view, setView] = useState<'teachers' | 'students'>('teachers');
@@ -909,11 +912,11 @@ export default function PrincipalAttendanceScreen() {
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [page, setPage] = useState<number>(1);
-  
+
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState<boolean>(false);
-  
+
   const [classItems, setClassItems] = useState<ClassItem[]>([]);
   const [loadingClasses, setLoadingClasses] = useState<boolean>(false);
   const [preselectedSection, setPreselectedSection] = useState<{ class_grade: string; section: string } | null>(null);
@@ -937,7 +940,7 @@ export default function PrincipalAttendanceScreen() {
     const map: Record<string, SectionGroup[]> = {};
     classItems.forEach((c) => {
       const grade = String(c.class_grade);
-      if (!map[grade]) map[grade] = [];
+      if (!map[grade]) {map[grade] = [];}
       map[grade].push({ class_grade: grade, section: c.section, students_total: c.students_total, present: c.present });
     });
     return Object.entries(map).sort((a, b) => {
@@ -948,7 +951,7 @@ export default function PrincipalAttendanceScreen() {
   }, [classItems]);
 
   const availableSections = useMemo(() => {
-    if (!selectedSection) return [] as SectionGroup[];
+    if (!selectedSection) {return [] as SectionGroup[];}
     return studentGroups.find(([grade]) => grade === selectedSection.class_grade)?.[1] || [];
   }, [studentGroups, selectedSection]);
 
@@ -994,21 +997,11 @@ export default function PrincipalAttendanceScreen() {
       setTabBarVisible(true);
     };
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   const loadTeachers = useCallback(async () => {
-    if (!schoolCode || !branchId) return;
+    if (!schoolCode || !branchId) {return;}
     setLoadingTeachers(true);
     try {
       const res = await API.get('principal/staff/attendance', {
@@ -1019,8 +1012,8 @@ export default function PrincipalAttendanceScreen() {
         setTeachers(items);
       }
     } catch (error: any) {
-      if (!isMounted.current) return;
-      if (error?.response?.status === 401) return;
+      if (!isMounted.current) {return;}
+      if (error?.response?.status === 401) {return;}
       showToast('Failed to load teachers', 'error');
     } finally {
       if (isMounted.current) {
@@ -1030,7 +1023,7 @@ export default function PrincipalAttendanceScreen() {
   }, [schoolCode, branchId, date]);
 
   const loadClasses = useCallback(async () => {
-    if (!schoolCode || !branchId) return;
+    if (!schoolCode || !branchId) {return;}
     setLoadingClasses(true);
     try {
       const res = await API.get('principal/classes', {
@@ -1041,8 +1034,8 @@ export default function PrincipalAttendanceScreen() {
         setClassItems(items);
       }
     } catch (error: any) {
-      if (!isMounted.current) return;
-      if (error?.response?.status === 401) return;
+      if (!isMounted.current) {return;}
+      if (error?.response?.status === 401) {return;}
       showToast('Failed to load classes', 'error');
     } finally {
       if (isMounted.current) {
@@ -1052,7 +1045,7 @@ export default function PrincipalAttendanceScreen() {
   }, [schoolCode, branchId, date]);
 
   const loadStatement = useCallback(async () => {
-    if (!schoolCode || !branchId) return;
+    if (!schoolCode || !branchId) {return;}
     setLoadingStatement(true);
     try {
       const res = await API.get('principal/attendance/statements', {
@@ -1062,8 +1055,8 @@ export default function PrincipalAttendanceScreen() {
         setStatement(res.data);
       }
     } catch (error: any) {
-      if (!isMounted.current) return;
-      if (error?.response?.status === 401) return;
+      if (!isMounted.current) {return;}
+      if (error?.response?.status === 401) {return;}
       console.error('Failed to load statement:', error);
     } finally {
       if (isMounted.current) {
@@ -1085,7 +1078,7 @@ export default function PrincipalAttendanceScreen() {
       setView('students');
       setPreselectedSection({
         class_grade: route.params.class_grade,
-        section: route.params.section
+        section: route.params.section,
       });
     } else if (route.params?.view) {
       setView(route.params.view);
@@ -1133,27 +1126,27 @@ export default function PrincipalAttendanceScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Standardized Header with Gradient Background */}
       <LinearGradient
-        colors={[C.primaryDark || '#172554', C.primary || '#1e3a8a']}
+        colors={[C.primaryDark || '#172554', C.primary || Theme.colors.primary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}
       >
         <View style={styles.headerTop}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.iconButton}
             onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
           >
-            <ChevronLeft size={24} color="#FFFFFF" />
+            <ChevronLeft size={24} color={Theme.colors.card} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
             <AppText weight="bold" style={styles.headerTitle}>Attendance Management</AppText>
           </View>
-          <TouchableOpacity style={styles.iconButton} onPress={onRefresh}>
-            <RefreshCw size={20} color="#FFFFFF" />
+          <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={onRefresh}>
+            <RefreshCw size={20} color={Theme.colors.card} />
           </TouchableOpacity>
         </View>
 
@@ -1172,7 +1165,7 @@ export default function PrincipalAttendanceScreen() {
 
       {view === 'students' && (
         <View style={styles.fixedPickerBar}>
-          <TouchableOpacity style={styles.pickerPill} onPress={() => setShowClassDropdown(true)} activeOpacity={0.85}>
+          <TouchableOpacity accessibilityRole="button" style={styles.pickerPill} onPress={() => setShowClassDropdown(true)} activeOpacity={0.85}>
             <View style={styles.pickerPillContent}>
               <View style={styles.pickerTextGroup}>
                 <AppText style={styles.pickerLabel}>Class</AppText>
@@ -1181,7 +1174,7 @@ export default function PrincipalAttendanceScreen() {
               <ChevronRight size={16} color={C.muted} />
             </View>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.pickerPill} onPress={() => setShowSectionDropdown(true)} activeOpacity={0.85}>
+          <TouchableOpacity accessibilityRole="button" style={styles.pickerPill} onPress={() => setShowSectionDropdown(true)} activeOpacity={0.85}>
             <View style={styles.pickerPillContent}>
               <View style={styles.pickerTextGroup}>
                 <AppText style={styles.pickerLabel}>Section</AppText>
@@ -1208,7 +1201,7 @@ export default function PrincipalAttendanceScreen() {
       >
         {/* Full-width Segmented View Tab Switcher */}
         <View style={styles.segmentedTabContainer}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.segmentedTab, view === 'teachers' && styles.segmentedTabActive]}
             onPress={() => setView('teachers')}
             activeOpacity={0.8}
@@ -1218,7 +1211,7 @@ export default function PrincipalAttendanceScreen() {
               Teachers
             </AppText>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.segmentedTab, view === 'students' && styles.segmentedTabActive]}
             onPress={() => setView('students')}
             activeOpacity={0.8}
@@ -1232,7 +1225,7 @@ export default function PrincipalAttendanceScreen() {
 
         {/* Clean Controls: Date selection, Scope Selection, and context-aware Export */}
         <View style={styles.controlsRow}>
-          <TouchableOpacity style={styles.controlPill} onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
+          <TouchableOpacity accessibilityRole="button" style={styles.controlPill} onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
             <Calendar size={15} color={C.primary} style={{ marginRight: 6 }} />
             <AppText style={styles.controlPillText} weight="bold">
               {iso(date)}
@@ -1240,7 +1233,7 @@ export default function PrincipalAttendanceScreen() {
           </TouchableOpacity>
 
           <View style={styles.scopeSwitcher}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.scopeSwitcherBtn, stmtScope === 'weekly' && styles.scopeSwitcherBtnActive]}
               onPress={() => setStmtScope('weekly')}
               activeOpacity={0.8}
@@ -1249,7 +1242,7 @@ export default function PrincipalAttendanceScreen() {
                 Weekly
               </AppText>
             </TouchableOpacity>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.scopeSwitcherBtn, stmtScope === 'monthly' && styles.scopeSwitcherBtnActive]}
               onPress={() => setStmtScope('monthly')}
               activeOpacity={0.8}
@@ -1260,7 +1253,7 @@ export default function PrincipalAttendanceScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.exportPill}
             onPress={() => {
               if (view === 'teachers') {
@@ -1284,7 +1277,7 @@ export default function PrincipalAttendanceScreen() {
             maximumDate={new Date()}
             onChange={(event, selectedDate) => {
               setShowDatePicker(false);
-              if (selectedDate) setDate(selectedDate);
+              if (selectedDate) {setDate(selectedDate);}
             }}
           />
         )}
@@ -1297,7 +1290,7 @@ export default function PrincipalAttendanceScreen() {
                 {stmtScope === 'monthly' ? 'Monthly' : 'Weekly'} Attendance Statement
               </AppText>
               {loadingStatement ? (
-                <ActivityIndicator size="small" color={C.primary} style={{ marginLeft: 8 }} />
+                <ActivityIndicator size="small" color={C.primary} style={{ marginLeft: Theme.spacing.sm }} />
               ) : (
                 <AppText style={styles.statementRange}>
                   {statement?.period?.start_date && statement?.period?.end_date
@@ -1331,7 +1324,7 @@ export default function PrincipalAttendanceScreen() {
                 </AppText>
               </View>
               <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: `${statement?.students?.attendance_pct ?? 0}%`, backgroundColor: '#10b981' }]} />
+                <View style={[styles.progressBarFill, { width: `${statement?.students?.attendance_pct ?? 0}%`, backgroundColor: Theme.colors.success }]} />
               </View>
               <AppText style={styles.statementItemSub}>
                 Present: {statement?.students?.present_equivalent ?? 0} • Half: {statement?.students?.half_day_equivalent ?? 0}
@@ -1345,7 +1338,7 @@ export default function PrincipalAttendanceScreen() {
             {/* Unified Search & Status Filters */}
             <View style={styles.searchFilterContainer}>
               <View style={styles.searchBoxWrapper}>
-                <Search size={16} color={C.muted} style={{ marginRight: 8 }} />
+                <Search size={16} color={C.muted} style={{ marginRight: Theme.spacing.sm }} />
                 <TextInput
                   style={styles.searchInputField}
                   placeholder="Search by name or employee ID..."
@@ -1354,14 +1347,14 @@ export default function PrincipalAttendanceScreen() {
                   onChangeText={setSearch}
                 />
                 {search.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearch('')} style={styles.searchClearBtn}>
+                  <TouchableOpacity accessibilityRole="button" onPress={() => setSearch('')} style={styles.searchClearBtn}>
                     <X size={16} color={C.muted} />
                   </TouchableOpacity>
                 )}
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChipsScroll}>
                 {['', 'PRESENT', 'HALF_DAY', 'ABSENT'].map(status => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={status || 'all'}
                     style={[styles.filterChipItem, statusFilter === status && styles.filterChipItemActive]}
                     onPress={() => setStatusFilter(status)}
@@ -1390,7 +1383,7 @@ export default function PrincipalAttendanceScreen() {
                 ))}
                 {totalPages > 1 && (
                   <View style={styles.pagination}>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.pageBtn, page === 1 && styles.pageBtnDisabled]}
                       onPress={() => setPage(p => Math.max(1, p - 1))}
                       disabled={page === 1}
@@ -1398,7 +1391,7 @@ export default function PrincipalAttendanceScreen() {
                       <ChevronLeft size={20} color={C.text} />
                     </TouchableOpacity>
                     <AppText style={styles.pageInfo} weight="semibold">Page {page} of {totalPages}</AppText>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.pageBtn, page === totalPages && styles.pageBtnDisabled]}
                       onPress={() => setPage(p => Math.min(totalPages, p + 1))}
                       disabled={page === totalPages}
@@ -1458,12 +1451,12 @@ export default function PrincipalAttendanceScreen() {
       />
 
       <Modal visible={showClassDropdown} transparent animationType="fade" onRequestClose={() => setShowClassDropdown(false)}>
-        <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowClassDropdown(false)}>
+        <TouchableOpacity accessibilityRole="button" style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowClassDropdown(false)}>
           <View style={styles.pickerSheet}>
             <AppText style={styles.pickerSheetTitle} weight="bold">Select Class</AppText>
             <ScrollView>
               {studentGroups.map(([grade, sections]) => (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   key={grade}
                   style={styles.pickerRow}
                   onPress={() => {
@@ -1484,14 +1477,14 @@ export default function PrincipalAttendanceScreen() {
       </Modal>
 
       <Modal visible={showSectionDropdown} transparent animationType="fade" onRequestClose={() => setShowSectionDropdown(false)}>
-        <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowSectionDropdown(false)}>
+        <TouchableOpacity accessibilityRole="button" style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowSectionDropdown(false)}>
           <View style={styles.pickerSheet}>
             <AppText style={styles.pickerSheetTitle} weight="bold">Select Section</AppText>
             <ScrollView>
               {availableSections.map(section => {
                 const presentPct = section.students_total ? Math.round(((section.present || 0) / section.students_total) * 100) : 0;
                 return (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={`${section.class_grade}-${section.section}`}
                     style={styles.pickerRow}
                     onPress={() => {
@@ -1556,7 +1549,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 16,
     textAlign: 'center',
   },
@@ -1569,7 +1562,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerGreeting: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 26,
     letterSpacing: -0.5,
   },
@@ -1582,13 +1575,13 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   headerCountBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+    color: Theme.colors.card,
+    ...Theme.typography.label,
   },
   headerSubtext: {
     color: 'rgba(255,255,255,0.75)',
     fontSize: 13,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   scrollView: {
     flex: 1,
@@ -1600,10 +1593,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: 'rgba(226, 232, 240, 0.5)',
     borderRadius: 14,
-    padding: 4,
-    marginHorizontal: 16,
+    padding: Theme.spacing.xs,
+    marginHorizontal: Theme.spacing.md,
     marginTop: 18,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   segmentedTab: {
     flex: 1,
@@ -1636,8 +1629,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    paddingHorizontal: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     gap: 8,
   },
   controlPill: {
@@ -1661,7 +1654,7 @@ const styles = StyleSheet.create({
     }),
   },
   controlPillText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text,
   },
   scopeSwitcher: {
@@ -1691,7 +1684,7 @@ const styles = StyleSheet.create({
     }),
   },
   scopeSwitcherBtnText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
   },
   scopeSwitcherBtnTextActive: {
@@ -1716,15 +1709,15 @@ const styles = StyleSheet.create({
     }),
   },
   exportPillText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.white,
   },
   fixedPickerBar: {
     flexDirection: 'row',
     gap: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingTop: 14,
-    paddingBottom: 8,
+    paddingBottom: Theme.spacing.sm,
     backgroundColor: C.bg,
   },
   pickerPill: {
@@ -1766,12 +1759,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.35)',
     justifyContent: 'flex-end',
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   pickerSheet: {
     backgroundColor: C.card,
     borderRadius: 20,
-    padding: 16,
+    padding: Theme.spacing.md,
     maxHeight: '70%',
   },
   pickerSheetTitle: {
@@ -1788,17 +1781,17 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   pickerRowTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   pickerRowSubtitle: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
     marginTop: 2,
   },
   pickerPct: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 999,
   },
   toast: {
@@ -1817,11 +1810,11 @@ const styles = StyleSheet.create({
     backgroundColor: C.error,
   },
   toastText: {
-    color: '#fff',
+    color: Theme.colors.card,
     textAlign: 'center',
   },
   header: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   title: {
     fontSize: 22,
@@ -1833,16 +1826,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   statementCard: {
-    marginHorizontal: 16,
-    padding: 16,
-    marginBottom: 16,
+    marginHorizontal: Theme.spacing.md,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     backgroundColor: C.white,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: C.border,
   },
   statementHeader: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   statementTitleContainer: {
     flexDirection: 'row',
@@ -1852,11 +1845,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statementTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   statementRange: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
   },
   statementGrid: {
@@ -1875,10 +1868,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   statementItemLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text2,
   },
   statementItemValue: {
@@ -1890,7 +1883,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(226, 232, 240, 0.8)',
     borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   progressBarFill: {
     height: '100%',
@@ -1901,8 +1894,8 @@ const styles = StyleSheet.create({
     color: C.muted,
   },
   searchFilterContainer: {
-    marginHorizontal: 16,
-    marginBottom: 16,
+    marginHorizontal: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     backgroundColor: C.white,
     padding: 12,
     borderRadius: 16,
@@ -1933,10 +1926,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: C.text,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
   },
   searchClearBtn: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   filterChipsScroll: {
     gap: 8,
@@ -1954,20 +1947,20 @@ const styles = StyleSheet.create({
     borderColor: C.primary,
   },
   filterChipItemText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
   },
   filterChipItemTextActive: {
     color: C.white,
   },
   teacherCard: {
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     marginBottom: 12,
     backgroundColor: C.white,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: C.border,
-    padding: 16,
+    padding: Theme.spacing.md,
     ...Platform.select({
       android: { elevation: 1 },
       ios: {
@@ -2005,11 +1998,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   teacherName: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: C.text,
   },
   teacherEmail: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
     marginTop: 2,
   },
@@ -2050,11 +2043,11 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   metaValue: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.text,
   },
   badge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 5,
     borderRadius: 8,
     flexDirection: 'row',
@@ -2084,7 +2077,7 @@ const styles = StyleSheet.create({
     color: C.error,
   },
   emptyStateCard: {
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     padding: 40,
     backgroundColor: C.white,
     borderRadius: 18,
@@ -2096,7 +2089,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     color: C.text,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   emptyText: {
     fontSize: 13,
@@ -2108,7 +2101,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 16,
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   pageBtn: {
     width: 40,
@@ -2124,7 +2117,7 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   pageBtnText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   pageInfo: {
@@ -2144,13 +2137,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   mobilePanelCard: {
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     marginBottom: 12,
     backgroundColor: C.white,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: C.border,
-    padding: 16,
+    padding: Theme.spacing.md,
     ...Platform.select({
       android: { elevation: 1 },
       ios: {
@@ -2176,7 +2169,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.errorSoft,
   },
   statChipValueText: {
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   statChipLabelText: {
     fontSize: 8,
@@ -2190,7 +2183,7 @@ const styles = StyleSheet.create({
   miniStatBox: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 10,
   },
   statTotalBg: {
@@ -2206,7 +2199,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.errorSoft,
   },
   miniStatVal: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: C.text,
   },
   miniStatLabel: {
@@ -2222,7 +2215,7 @@ const styles = StyleSheet.create({
   },
   sidebarTitle: {
     padding: 12,
-    fontSize: 11,
+    ...Theme.typography.label,
     textTransform: 'uppercase',
     color: C.muted,
     borderBottomWidth: 1,
@@ -2249,8 +2242,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   classDotText: {
-    fontSize: 12,
-    color: '#fff',
+    ...Theme.typography.caption,
+    color: Theme.colors.card,
   },
   classTitle: {
     fontSize: 13,
@@ -2265,7 +2258,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 10,
-    paddingLeft: 16,
+    paddingLeft: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
     borderLeftWidth: 3,
@@ -2303,7 +2296,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   sectionPct: {
-    paddingHorizontal: 8,
+    paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 2,
     borderRadius: 12,
   },
@@ -2314,14 +2307,14 @@ const styles = StyleSheet.create({
     backgroundColor: C.errorSoft,
   },
   sectionPctText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.text,
   },
   mainPanel: {
     flex: 1,
   },
   panelHeader: {
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
     flexDirection: 'row',
@@ -2331,11 +2324,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   panelTitle: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: C.text,
   },
   panelSubtitle: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
     marginTop: 2,
   },
@@ -2397,7 +2390,7 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   tableHeaderText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
     textTransform: 'uppercase',
   },
@@ -2438,8 +2431,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   studentAvatarText: {
-    fontSize: 12,
-    color: '#fff',
+    ...Theme.typography.caption,
+    color: Theme.colors.card,
   },
   studentNameText: {
     color: C.text,
@@ -2454,7 +2447,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   attendanceLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
   },
   attendanceTrack: {
@@ -2488,7 +2481,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   footerText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
   },
   modalOverlay: {
@@ -2496,7 +2489,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   modalContent: {
     backgroundColor: C.card,
@@ -2510,7 +2503,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
@@ -2531,10 +2524,10 @@ const styles = StyleSheet.create({
     color: C.muted,
   },
   modalBody: {
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   modalLabel: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
     marginBottom: 12,
   },
@@ -2542,16 +2535,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
+  },
+  dateBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 8,
+    backgroundColor: C.bg,
+  },
+  dateText: {
+    ...Theme.typography.body,
+    color: C.text,
+  },
+  sectionActions: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
   },
   dateArrow: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.muted,
   },
   modalHint: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -2561,24 +2574,24 @@ const styles = StyleSheet.create({
   },
   selectAllBtn: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: C.primary,
   },
   selectAllText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.primary,
   },
   clearAllBtn: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: C.error,
   },
   clearAllText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.error,
   },
   checkbox: {
@@ -2612,7 +2625,7 @@ const styles = StyleSheet.create({
   sectionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     paddingLeft: 20,
     paddingRight: 12,
     borderBottomWidth: 1,
@@ -2627,12 +2640,12 @@ const styles = StyleSheet.create({
     color: C.text,
   },
   sectionCount: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
   },
   selectedCount: {
     marginTop: 12,
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.primary,
   },
   progressWrap: {
@@ -2642,7 +2655,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.primary + '20',
     padding: 12,
     borderRadius: 10,
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   progressText: {
     fontSize: 13,
@@ -2651,13 +2664,13 @@ const styles = StyleSheet.create({
   modalFooter: {
     flexDirection: 'row',
     gap: 12,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: C.border,
   },
   mobileStudentList: {
     gap: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingBottom: 20,
   },
   mobileStudentCard: {

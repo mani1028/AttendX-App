@@ -1,15 +1,18 @@
 import notifee, { AndroidImportance, AndroidBadgeIconType, AuthorizationStatus, AndroidVisibility } from '@notifee/react-native';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { 
-  getMessaging, 
-  getToken, 
-  requestPermission, 
-  onMessage, 
-  onTokenRefresh 
+import {
+  getMessaging,
+  getToken,
+  requestPermission,
+  onMessage,
+  onTokenRefresh,
 } from '@react-native-firebase/messaging';
 import { safeJsonParse } from '../utils/storage';
 import API from './api';
+import { storage } from '../storage/storage';
+import { StorageKeys } from '../storage/StorageKeys';
+
 
 const TOKEN_SYNC_ENDPOINTS = [
   '/notifications/device-token/register',
@@ -33,13 +36,13 @@ class NotificationService {
   private tokenRefreshUnsubscribe: (() => void) | null = null;
 
   private toSafeString(value: unknown, fallback: string): string {
-    if (typeof value === 'string' && value.trim()) return value;
-    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (typeof value === 'string' && value.trim()) {return value;}
+    if (typeof value === 'number' || typeof value === 'boolean') {return String(value);}
     return fallback;
   }
 
   private normalizeNotificationData(data?: Record<string, any>): Record<string, string> {
-    if (!data || typeof data !== 'object') return {};
+    if (!data || typeof data !== 'object') {return {};}
 
     const normalized: Record<string, string> = {};
     Object.entries(data).forEach(([key, value]) => {
@@ -60,14 +63,14 @@ class NotificationService {
    * Set up channels and request permissions
    */
   async initialize(): Promise<void> {
-    if (this.initialized) return;
+    if (this.initialized) {return;}
 
     const messaging = getMessaging();
 
     try {
       // Request user permission for notifications (iOS and Android 13+)
       const permission = await notifee.requestPermission();
-      
+
       if (permission.authorizationStatus !== AuthorizationStatus.AUTHORIZED) {
         console.log('Notification permission not fully granted');
       }
@@ -94,10 +97,10 @@ class NotificationService {
 
       // Create Android notification channels
       await this.createNotificationChannels();
-      
+
       // Set up foreground notification handler
       this.setupForegroundHandler();
-      
+
       this.initialized = true;
       console.log('Notification service initialized with Firebase');
     } catch (error) {
@@ -175,7 +178,7 @@ class NotificationService {
       // Notifee foreground event handler
       notifee.onForegroundEvent(({ type, detail }) => {
         console.log('Foreground notification received:', detail);
-        
+
         // Handle notification pressed
         if (type === 1) { // PRESS
           const data = detail?.notification?.data as Record<string, string> | undefined;
@@ -222,12 +225,12 @@ class NotificationService {
     try {
       notifee.onBackgroundEvent(async ({ type, detail }) => {
         console.log('[Background Notification]', type, detail);
-        
+
         // Handle notification press while app is closed/background
         if (type === 1) { // PRESS
           const data = detail?.notification?.data as Record<string, string> | undefined;
           console.log('[Background] Notification pressed:', data);
-          
+
           // Store the press action for the app to handle when it opens
           try {
             await AsyncStorage.setItem(
@@ -308,10 +311,10 @@ class NotificationService {
       const readIds = safeJsonParse<string[]>(readStatus, [], () => {
         AsyncStorage.setItem('read_notifications', JSON.stringify([])).catch(() => {});
       });
-      
+
       // Don't mark new notifications as read automatically
       // They will be marked as read when user views them
-      
+
       // Update unread count (optional: trigger a refresh event)
       await AsyncStorage.setItem('notification_updated', JSON.stringify({ timestamp: Date.now() }));
     } catch (error) {
@@ -333,11 +336,14 @@ class NotificationService {
    */
   async getUnreadCount(): Promise<number> {
     try {
-      const role = (await AsyncStorage.getItem('user_role')) || 
-                   (await AsyncStorage.getItem('userRole')) || 
+      const role = (await AsyncStorage.getItem('user_role')) ||
+                   (await storage.getString(StorageKeys.USER_ROLE)) ||
                    'student';
 
-      const normalizedRole = (role.toLowerCase() === 'teacher' || role.toLowerCase() === 'accountant') ? 'staff' : role.toLowerCase();
+      let normalizedRole = role.toLowerCase();
+      if (normalizedRole !== 'principal' && normalizedRole !== 'student') {
+        normalizedRole = 'staff';
+      }
       const endpoint = `/notifications/${normalizedRole}/list`;
 
       const response = await API.get(endpoint, {
@@ -401,7 +407,7 @@ class NotificationService {
     const messaging = getMessaging();
     try {
       const token = (tokenInput || (await getToken(messaging)) || '').trim();
-      if (!token) return false;
+      if (!token) {return false;}
 
       // Get session data to associate the token with the correct user/branch
       const storageData = await AsyncStorage.multiGet([
@@ -430,12 +436,12 @@ class NotificationService {
         dataMap[key] = value || '';
       });
 
-      const authToken = dataMap['token'];
-      const storedFcmToken = dataMap['fcm_device_token'];
-      const syncedFcmToken = dataMap['fcm_device_token_synced'];
-      
+      const authToken = dataMap.token;
+      const storedFcmToken = dataMap.fcm_device_token;
+      const syncedFcmToken = dataMap.fcm_device_token_synced;
+
       const finalFcmToken = token || storedFcmToken;
-      if (!finalFcmToken) return false;
+      if (!finalFcmToken) {return false;}
 
       // Skip sync if we don't have an active auth session
       if (!authToken) {
@@ -448,12 +454,12 @@ class NotificationService {
         return true;
       }
 
-      const userRole = dataMap['user_role'] || dataMap['role'] || dataMap['userRole'];
-      const userId = dataMap['user_id'] || dataMap['userId'];
-      const teacherId = dataMap['teacher_id'] || dataMap['teacherId'] || dataMap['employee_id'] || dataMap['employeeId'];
-      const studentId = dataMap['student_id'] || dataMap['studentId'];
-      const schoolCode = dataMap['school_code'] || dataMap['schoolCode'];
-      const branchId = dataMap['branch_id'] || dataMap['branchId'];
+      const userRole = dataMap.user_role || dataMap.role || dataMap.userRole;
+      const userId = dataMap.user_id || dataMap.userId;
+      const teacherId = dataMap.teacher_id || dataMap.teacherId || dataMap.employee_id || dataMap.employeeId;
+      const studentId = dataMap.student_id || dataMap.studentId;
+      const schoolCode = dataMap.school_code || dataMap.schoolCode;
+      const branchId = dataMap.branch_id || dataMap.branchId;
 
       const userRaw = await AsyncStorage.getItem('user');
       const user = safeJsonParse<Record<string, any>>(userRaw, {});
@@ -499,7 +505,7 @@ class NotificationService {
           // If 400 Bad Request, try wrapping the payload in a 'data' object
           if (status === 400) {
              try {
-                await API.post(endpoint, { data: payload }, { 
+                await API.post(endpoint, { data: payload }, {
                   suppressFallback404Log: true,
                   headers,
                 } as any);

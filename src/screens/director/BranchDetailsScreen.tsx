@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
@@ -11,7 +12,6 @@ import {
   Alert,
   Platform,
   FlatList,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Dimensions,
@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
 import API from '../../services/api';
@@ -31,16 +32,17 @@ import {
   getExamMarks,
   getStudentAttendanceReport,
   getTeacherAttendance,
-  getStudentExamsData
+  getStudentExamsData,
 } from '../../services/directorService';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme/tokens';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 import { ChevronLeft } from 'lucide-react-native';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -173,7 +175,7 @@ const getSchoolCode = async (): Promise<string> => {
 };
 
 const formatDate = (dateString: string): string => {
-  if (!dateString) return '-';
+  if (!dateString) {return '-';}
   const date = new Date(dateString);
   return date.toLocaleDateString('en-IN');
 };
@@ -218,11 +220,11 @@ const ResultBadge: React.FC<{ result: string }> = ({ result }) => {
 const GradeBadge: React.FC<{ grade: string }> = ({ grade }) => {
   const getGradeColor = () => {
     const g = grade?.toUpperCase() || '';
-    if (g === 'A+' || g === 'A') return '#10b981';
-    if (g === 'B') return '#3b82f6';
-    if (g === 'C') return '#f97316';
-    if (g === 'D') return '#d97706';
-    return '#ef4444';
+    if (g === 'A+' || g === 'A') {return Theme.colors.success;}
+    if (g === 'B') {return Theme.colors.blue;}
+    if (g === 'C') {return '#f97316';}
+    if (g === 'D') {return '#d97706';}
+    return Theme.colors.error;
   };
   return (
     <View style={[styles.gradeBadge, { backgroundColor: getGradeColor() + '20' }]}>
@@ -235,8 +237,8 @@ const GradeBadge: React.FC<{ grade: string }> = ({ grade }) => {
 const LeaveStatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const getStatusConfig = () => {
     const s = status?.toUpperCase() || '';
-    if (s === 'APPROVED') return { bg: '#dcfce7', color: '#10b981', label: 'APPROVED' };
-    if (s === 'REJECTED') return { bg: '#fee2e2', color: '#ef4444', label: 'REJECTED' };
+    if (s === 'APPROVED') {return { bg: '#dcfce7', color: Theme.colors.success, label: 'APPROVED' };}
+    if (s === 'REJECTED') {return { bg: '#fee2e2', color: Theme.colors.error, label: 'REJECTED' };}
     return { bg: '#fff7ed', color: '#f97316', label: 'PENDING' };
   };
   const config = getStatusConfig();
@@ -329,7 +331,7 @@ const LeaveCard: React.FC<{ leave: LeaveRequest }> = ({ leave }) => {
   const name = isTeacher
     ? (leave.teacher_full_name || leave.teacher_name || leave.name || leave.full_name || 'Staff Member')
     : (leave.student_full_name || leave.student_name || 'Student');
-  
+
   let detailsText = '';
   if (isTeacher) {
     const empId = leave.employee_id || leave.teacher_id || '—';
@@ -345,9 +347,9 @@ const LeaveCard: React.FC<{ leave: LeaveRequest }> = ({ leave }) => {
   return (
     <AppCard style={styles.leaveCard}>
       <View style={styles.leaveHeader}>
-        <View style={{ flex: 1, marginRight: 8 }}>
+        <View style={{ flex: 1, marginRight: Theme.spacing.sm }}>
           <AppText style={styles.leaveStudent}>{name}</AppText>
-          <AppText style={{ fontSize: 10, color: isTeacher ? '#3b82f6' : '#10b981', fontWeight: 'bold', textTransform: 'uppercase', marginTop: 3 }}>
+          <AppText style={{ fontSize: 10, color: isTeacher ? Theme.colors.blue : Theme.colors.success, fontWeight: 'bold', textTransform: 'uppercase', marginTop: 3 }}>
             {isTeacher ? 'Staff Leave Request' : 'Student Leave Request'}
           </AppText>
         </View>
@@ -373,7 +375,7 @@ const MarksRow: React.FC<{
     <View style={styles.marksRowDetails}>
       <AppText style={styles.marksInfo}>Roll: {student.roll_number || '-'}</AppText>
       <AppText style={styles.marksInfo}>Class {student.class_grade}-{student.section}</AppText>
-      <AppText style={[styles.marksPercentage, { color: student.percentage >= 60 ? '#10b981' : student.percentage >= 35 ? '#f97316' : '#ef4444' }]}>
+      <AppText style={[styles.marksPercentage, { color: student.percentage >= 60 ? Theme.colors.success : student.percentage >= 35 ? '#f97316' : Theme.colors.error }]}>
         {student.percentage.toFixed(1)}%
       </AppText>
     </View>
@@ -383,13 +385,13 @@ const MarksRow: React.FC<{
 // Pass/Fail Pie Chart Component
 const PassFailChart: React.FC<{ passed: number; failed: number; title: string }> = ({ passed, failed, title }) => {
   const total = passed + failed;
-  if (total === 0) return null;
-  
+  if (total === 0) {return null;}
+
   const data = [
-    { name: 'Passed', population: passed, color: '#10b981', legendFontColor: '#333', legendFontSize: 12 },
-    { name: 'Failed', population: failed, color: '#ef4444', legendFontColor: '#333', legendFontSize: 12 },
+    { name: 'Passed', population: passed, color: Theme.colors.success, legendFontColor: '#333', legendFontSize: 12 },
+    { name: 'Failed', population: failed, color: Theme.colors.error, legendFontColor: '#333', legendFontSize: 12 },
   ];
-  
+
   return (
     <View style={styles.chartCard}>
       <AppText style={styles.chartTitle}>{title}</AppText>
@@ -407,11 +409,11 @@ const PassFailChart: React.FC<{ passed: number; failed: number; title: string }>
       />
       <View style={styles.chartStats}>
         <View style={styles.chartStat}>
-          <AppText style={[styles.chartStatValue, { color: '#10b981' }]}>{passed}</AppText>
+          <AppText style={[styles.chartStatValue, { color: Theme.colors.success }]}>{passed}</AppText>
           <AppText style={styles.chartStatLabel}>Passed</AppText>
         </View>
         <View style={styles.chartStat}>
-          <AppText style={[styles.chartStatValue, { color: '#ef4444' }]}>{failed}</AppText>
+          <AppText style={[styles.chartStatValue, { color: Theme.colors.error }]}>{failed}</AppText>
           <AppText style={styles.chartStatLabel}>Failed</AppText>
         </View>
         <View style={styles.chartStat}>
@@ -436,18 +438,8 @@ export default function BranchDetailsScreen() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   // Scroll visibility logic
-  const lastScrollY = useRef(0);
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
+  const handleScroll = useScrollTabBar();
 
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   useEffect(() => {
     setTabBarVisible(true);
@@ -462,20 +454,20 @@ export default function BranchDetailsScreen() {
   const [showAllLeaves, setShowAllLeaves] = useState<boolean>(false);
   const LEAVES_INITIAL_COUNT = 5;
   const [exams, setExams] = useState<Exam[]>([]);
-  
+
   // Filter states
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [selectedSection, setSelectedSection] = useState<string>('');
   const [selectedExam, setSelectedExam] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  
+
   // Marks states
   const [examMarks, setExamMarks] = useState<ExamMark[]>([]);
   const [processedStudentData, setProcessedStudentData] = useState<StudentMarkSummary[]>([]);
   const [resultFilter, setResultFilter] = useState<'ALL' | 'PASS' | 'FAIL'>('ALL');
   const [sortBy, setSortBy] = useState<'percentage' | 'name' | 'roll'>('percentage');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  
+
   // Attendance states
   const [showAttendanceModal, setShowAttendanceModal] = useState<boolean>(false);
   const [selectedClassForAttendance, setSelectedClassForAttendance] = useState<string>('');
@@ -484,14 +476,14 @@ export default function BranchDetailsScreen() {
   const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT'>('ALL');
   const [attendanceDate, setAttendanceDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
-  
+
   // Teacher attendance states
   const [attendanceType, setAttendanceType] = useState<'student' | 'teacher'>('student');
   const [teacherAttendanceData, setTeacherAttendanceData] = useState<TeacherAttendance[]>([]);
   const [teacherAttendanceSummary, setTeacherAttendanceSummary] = useState({ total: 0, present: 0, absent: 0, attendance_pct: 0 });
   const [teacherAttendanceFilter, setTeacherAttendanceFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT'>('ALL');
   const [teacherAttendanceLoading, setTeacherAttendanceLoading] = useState<boolean>(false);
-  
+
   // Student detail modal states
   const [selectedStudent, setSelectedStudent] = useState<StudentMarkSummary | null>(null);
   const [studentExamsData, setStudentExamsData] = useState<StudentExamData | null>(null);
@@ -502,7 +494,7 @@ export default function BranchDetailsScreen() {
 
   // Cache loading
   const loadCachedData = useCallback(async () => {
-    if (!branchId) return;
+    if (!branchId) {return;}
     try {
       const keys = [
         `branch_teachers_${branchId}`,
@@ -513,13 +505,13 @@ export default function BranchDetailsScreen() {
       ];
       const cached = await AsyncStorage.multiGet(keys);
       cached.forEach(([key, value]) => {
-        if (!value) return;
+        if (!value) {return;}
         const data = JSON.parse(value);
-        if (key.includes('teachers')) setTeachers(data);
-        else if (key.includes('students')) setStudents(data);
-        else if (key.includes('classes')) setClassSections(data);
-        else if (key.includes('leaves')) setLeaveRequests(data);
-        else if (key.includes('exams')) setExams(data);
+        if (key.includes('teachers')) {setTeachers(data);}
+        else if (key.includes('students')) {setStudents(data);}
+        else if (key.includes('classes')) {setClassSections(data);}
+        else if (key.includes('leaves')) {setLeaveRequests(data);}
+        else if (key.includes('exams')) {setExams(data);}
       });
     } catch (err) {
       console.error('Failed to load cached branch data:', err);
@@ -538,28 +530,28 @@ export default function BranchDetailsScreen() {
 
   // Fetch data
   const fetchTeachers = useCallback(async () => {
-    if (!branchId) return;
+    if (!branchId) {return;}
     const data = await getBranchTeachers(branchId);
     setTeachers(data);
     await AsyncStorage.setItem(`branch_teachers_${branchId}`, JSON.stringify(data));
   }, [branchId]);
 
   const fetchStudents = useCallback(async () => {
-    if (!branchId) return;
+    if (!branchId) {return;}
     const data = await getBranchStudents(branchId);
     setStudents(data);
     await AsyncStorage.setItem(`branch_students_${branchId}`, JSON.stringify(data));
   }, [branchId]);
 
   const fetchClassSections = useCallback(async () => {
-    if (!branchId) return;
+    if (!branchId) {return;}
     const data = await getClassesSections(branchId);
     setClassSections(data);
     await AsyncStorage.setItem(`branch_classes_${branchId}`, JSON.stringify(data));
   }, [branchId]);
 
   const fetchLeaveRequests = useCallback(async (limit?: number) => {
-    if (!branchId) return;
+    if (!branchId) {return;}
     setLoading(true);
     const data = await getBranchLeaves(branchId, limit);
     setLeaveRequests(data);
@@ -570,14 +562,14 @@ export default function BranchDetailsScreen() {
   }, [branchId]);
 
   const fetchExams = useCallback(async () => {
-    if (!branchId) return;
+    if (!branchId) {return;}
     const data = await getBranchExams(branchId);
     setExams(data);
     await AsyncStorage.setItem(`branch_exams_${branchId}`, JSON.stringify(data));
   }, [branchId]);
 
   const fetchExamMarks = useCallback(async (examId: string, classGrade: string, section: string) => {
-    if (!examId || !branchId) return;
+    if (!examId || !branchId) {return;}
     setLoading(true);
     const data = await getExamMarks(branchId, examId, classGrade, section);
     setExamMarks(data);
@@ -610,7 +602,7 @@ export default function BranchDetailsScreen() {
   const fetchStudentExamsData = useCallback(async (studentId: string) => {
     setLoadingExamsData(true);
     const data = await getStudentExamsData(studentId);
-    if (data) setStudentExamsData(data);
+    if (data) {setStudentExamsData(data);}
     setLoadingExamsData(false);
   }, []);
 
@@ -671,7 +663,7 @@ export default function BranchDetailsScreen() {
       student.total_marks += marksObtained;
       student.max_possible += maxMarks;
       student.subjects_count++;
-      if (!isPassed) student.failed_subjects++;
+      if (!isPassed) {student.failed_subjects++;}
     });
 
     const processed = Array.from(studentMap.values()).map(student => {
@@ -685,12 +677,12 @@ export default function BranchDetailsScreen() {
   // Filter and sort students
   const filteredAndSortedStudents = useMemo(() => {
     let filtered = [...processedStudentData];
-    if (resultFilter !== 'ALL') filtered = filtered.filter(s => s.result === resultFilter);
+    if (resultFilter !== 'ALL') {filtered = filtered.filter(s => s.result === resultFilter);}
     filtered.sort((a, b) => {
       let cmp = 0;
-      if (sortBy === 'percentage') cmp = a.percentage - b.percentage;
-      else if (sortBy === 'name') cmp = a.student_name.localeCompare(b.student_name);
-      else if (sortBy === 'roll') cmp = (a.roll_number || '').localeCompare(b.roll_number || '');
+      if (sortBy === 'percentage') {cmp = a.percentage - b.percentage;}
+      else if (sortBy === 'name') {cmp = a.student_name.localeCompare(b.student_name);}
+      else if (sortBy === 'roll') {cmp = (a.roll_number || '').localeCompare(b.roll_number || '');}
       return sortOrder === 'asc' ? cmp : -cmp;
     });
     return filtered;
@@ -698,7 +690,7 @@ export default function BranchDetailsScreen() {
 
   // Filter teachers
   const filteredTeachers = useMemo(() => {
-    if (!searchTerm) return teachers;
+    if (!searchTerm) {return teachers;}
     const term = searchTerm.toLowerCase();
     return teachers.filter(t =>
       t.teacher_full_name.toLowerCase().includes(term) ||
@@ -710,8 +702,8 @@ export default function BranchDetailsScreen() {
   // Filter students for list
   const filteredStudents = useMemo(() => {
     let filtered = students;
-    if (selectedClass) filtered = filtered.filter(s => s.class_grade === selectedClass);
-    if (selectedSection) filtered = filtered.filter(s => s.section === selectedSection);
+    if (selectedClass) {filtered = filtered.filter(s => s.class_grade === selectedClass);}
+    if (selectedSection) {filtered = filtered.filter(s => s.section === selectedSection);}
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(s =>
@@ -725,13 +717,13 @@ export default function BranchDetailsScreen() {
 
   // Filter attendance
   const filteredAttendance = useMemo(() => {
-    if (attendanceFilter === 'ALL') return attendanceData;
+    if (attendanceFilter === 'ALL') {return attendanceData;}
     return attendanceData.filter(s => s.status === attendanceFilter);
   }, [attendanceData, attendanceFilter]);
 
   // Filter teacher attendance
   const filteredTeacherAttendance = useMemo(() => {
-    if (teacherAttendanceFilter === 'ALL') return teacherAttendanceData;
+    if (teacherAttendanceFilter === 'ALL') {return teacherAttendanceData;}
     return teacherAttendanceData.filter(t => t.status === teacherAttendanceFilter);
   }, [teacherAttendanceData, teacherAttendanceFilter]);
 
@@ -827,9 +819,9 @@ export default function BranchDetailsScreen() {
   };
 
   const barChartData = useMemo(() => {
-    if (!studentExamsData || !currentSelectedExamId) return [];
+    if (!studentExamsData || !currentSelectedExamId) {return [];}
     const exam = studentExamsData.exams?.find(e => e.exam_id === currentSelectedExamId);
-    if (!exam || !exam.subjects) return [];
+    if (!exam || !exam.subjects) {return [];}
     return exam.subjects.map(subj => ({
       subject: subj.subject_name,
       percentage: (subj.marks_obtained / subj.max_marks) * 100,
@@ -839,7 +831,7 @@ export default function BranchDetailsScreen() {
   }, [studentExamsData, currentSelectedExamId]);
 
   const lineChartData = useMemo(() => {
-    if (!studentExamsData || !studentExamsData.exams) return [];
+    if (!studentExamsData || !studentExamsData.exams) {return [];}
     return studentExamsData.exams.map(exam => {
       const examRow: any = { exam_name: exam.exam_name };
       if (exam.subjects) {
@@ -854,7 +846,7 @@ export default function BranchDetailsScreen() {
   const allSubjects = studentExamsData?.all_subjects || [];
 
   const getSubjectColor = (subject: string, index: number): string => {
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec489a', '#06b6d4', '#84cc16', '#f97316', '#6366f1'];
+    const colors = [Theme.colors.blue, Theme.colors.success, '#f59e0b', Theme.colors.error, '#8b5cf6', '#ec489a', '#06b6d4', '#84cc16', '#f97316', '#6366f1'];
     let hash = 0;
     for (let i = 0; i < subject.length; i++) {
       hash = ((hash << 5) - hash) + subject.charCodeAt(i);
@@ -867,20 +859,9 @@ export default function BranchDetailsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
       {/* Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 20, paddingBottom: 30 }]}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backBtn}
-        >
-          <ChevronLeft size={24} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>{branchName || 'Branch Details'}</AppText>
-        </View>
-        <View style={{ width: 40 }} />
-      </View>
+      <StandardPageHeader title="Branch Details" onBackPress={() => navigation.goBack()} />
 
       <ScrollView
         contentContainerStyle={[styles.contentContainer, { marginTop: -20 }]}
@@ -895,10 +876,10 @@ export default function BranchDetailsScreen() {
 
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
-          <StatCard title="Total Teachers" value={teachers.length} icon="👨‍🏫" color="#3b82f6" />
-          <StatCard title="Total Students" value={students.length} icon="👨‍🎓" color="#10b981" />
+          <StatCard title="Total Teachers" value={teachers.length} icon="👨‍🏫" color={Theme.colors.blue} />
+          <StatCard title="Total Students" value={students.length} icon="👨‍🎓" color={Theme.colors.success} />
           <StatCard title="Classes" value={classSections.length} icon="📚" color="#f97316" />
-          <StatCard title="Pending Leaves" value={leaveRequests.filter(l => l.status === 'PENDING').length} icon="⏳" color="#ef4444" />
+          <StatCard title="Pending Leaves" value={leaveRequests.filter(l => l.status === 'PENDING').length} icon="⏳" color={Theme.colors.error} />
         </View>
 
         {/* Tab Bar */}
@@ -1058,7 +1039,7 @@ export default function BranchDetailsScreen() {
                     maximumDate={new Date()}
                     onChange={(event, date) => {
                       setShowDatePicker(false);
-                      if (date) handleAttendanceDateChange(date);
+                      if (date) {handleAttendanceDateChange(date);}
                     }}
                   />
                 )}
@@ -1409,7 +1390,7 @@ export default function BranchDetailsScreen() {
                     <AppText style={styles.studentInfoItem}>Roll: {selectedStudent.roll_number || '-'}</AppText>
                     <AppText style={styles.studentInfoItem}>Class {selectedStudent.class_grade}-{selectedStudent.section}</AppText>
                     <AppText style={styles.studentInfoItem}>Total: {selectedStudent.total_marks}/{selectedStudent.max_possible}</AppText>
-                    <AppText style={[styles.studentInfoItem, { fontWeight: '700', color: selectedStudent.percentage >= 60 ? '#10b981' : selectedStudent.percentage >= 35 ? '#f97316' : '#ef4444' }]}>
+                    <AppText style={[styles.studentInfoItem, { fontWeight: '700', color: selectedStudent.percentage >= 60 ? Theme.colors.success : selectedStudent.percentage >= 35 ? '#f97316' : Theme.colors.error }]}>
                       {selectedStudent.percentage.toFixed(1)}%
                     </AppText>
                     <ResultBadge result={selectedStudent.result} />
@@ -1452,9 +1433,9 @@ export default function BranchDetailsScreen() {
                               yAxisLabel=""
                               yAxisSuffix="%"
                               chartConfig={{
-                                backgroundColor: '#ffffff',
-                                backgroundGradientFrom: '#ffffff',
-                                backgroundGradientTo: '#ffffff',
+                                backgroundColor: Theme.colors.background,
+                                backgroundGradientFrom: Theme.colors.card,
+                                backgroundGradientTo: Theme.colors.card,
                                 decimalPlaces: 1,
                                 color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
                                 labelColor: (opacity = 1) => `rgba(71, 85, 105, ${opacity})`,
@@ -1483,9 +1464,9 @@ export default function BranchDetailsScreen() {
                             width={screenWidth - 80}
                             height={300}
                             chartConfig={{
-                              backgroundColor: '#ffffff',
-                              backgroundGradientFrom: '#ffffff',
-                              backgroundGradientTo: '#ffffff',
+                              backgroundColor: Theme.colors.background,
+                              backgroundGradientFrom: Theme.colors.card,
+                              backgroundGradientTo: Theme.colors.card,
                               decimalPlaces: 1,
                               color: (opacity = 1, index = 0) => getSubjectColor(allSubjects[index] || '', index),
                               labelColor: (opacity = 1) => `rgba(71, 85, 105, ${opacity})`,
@@ -1528,10 +1509,10 @@ export default function BranchDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
   },
   contentContainer: {
-    padding: 16,
+    padding: Theme.spacing.md,
     paddingBottom: 40,
   },
   headerStandard: {
@@ -1541,17 +1522,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
   },
   headerTitleContainer: {
     flex: 1,
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
+    ...Theme.typography.h3,
+    color: Theme.colors.card,
   },
   backBtn: {
     width: 40,
@@ -1562,8 +1540,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   subtitle: {
-    fontSize: 12,
-    color: '#64748b',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     marginTop: 2,
   },
   statsGrid: {
@@ -1575,14 +1553,14 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 16,
-    padding: 16,
+    padding: Theme.spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     ...Platform.select({
 
       android: { elevation: 2 },
@@ -1596,13 +1574,12 @@ const styles = StyleSheet.create({
     shadowRadius: 15,
   },
   statValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#0f172a',
+    ...Theme.typography.h1,
+    color: Theme.colors.text,
   },
   statTitle: {
-    fontSize: 11,
-    color: '#64748b',
+    ...Theme.typography.label,
+    color: Theme.colors.textSec,
     marginTop: 2,
   },
   statIcon: {
@@ -1610,12 +1587,12 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 16,
-    padding: 4,
+    padding: Theme.spacing.xs,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
   },
   tab: {
     flex: 1,
@@ -1627,36 +1604,36 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.primary,
   },
   tabText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.textSec,
   },
   tabTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   searchContainer: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   searchInput: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     padding: 12,
-    fontSize: 14,
-    color: '#0f172a',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
   },
   filterRow: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     gap: 12,
   },
   filterField: {
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   filterLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.textSec,
     marginBottom: 6,
     textTransform: 'uppercase',
   },
@@ -1669,9 +1646,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
   },
   chipActive: {
     backgroundColor: Theme.colors.primary,
@@ -1679,10 +1656,10 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 13,
-    color: '#475569',
+    color: Theme.colors.textSec,
   },
   chipTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   emptyCard: {
     padding: 40,
@@ -1694,79 +1671,78 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 4,
+    ...Theme.typography.h4,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.xs,
   },
   emptyText: {
     fontSize: 13,
-    color: '#64748b',
+    color: Theme.colors.textSec,
     textAlign: 'center',
   },
   teacherCard: {
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 12,
   },
   teacherHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   teacherName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   teacherId: {
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 4,
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+    marginBottom: Theme.spacing.xs,
   },
   teacherSubject: {
     fontSize: 13,
-    color: '#475569',
-    marginBottom: 4,
+    color: Theme.colors.textSec,
+    marginBottom: Theme.spacing.xs,
   },
   teacherContact: {
-    fontSize: 12,
-    color: '#64748b',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     marginBottom: 2,
   },
   teacherEmail: {
-    fontSize: 12,
-    color: '#64748b',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
   },
   studentCard: {
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 12,
   },
   studentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   studentName: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   studentRoll: {
-    fontSize: 12,
-    color: '#64748b',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
   },
   studentDetails: {
     gap: 4,
   },
   studentInfo: {
-    fontSize: 12,
-    color: '#475569',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
   },
   statusBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 20,
   },
   statusActive: {
@@ -1776,7 +1752,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fee2e2',
   },
   statusText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '600',
   },
   statusTextActive: {
@@ -1787,7 +1763,7 @@ const styles = StyleSheet.create({
   },
   attendanceBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 20,
     alignSelf: 'flex-start',
   },
@@ -1798,7 +1774,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fee2e2',
   },
   attendanceText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '600',
   },
   attendanceTextPresent: {
@@ -1809,7 +1785,7 @@ const styles = StyleSheet.create({
   },
   resultBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 20,
   },
   resultPass: {
@@ -1819,7 +1795,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fee2e2',
   },
   resultText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '600',
   },
   resultTextPass: {
@@ -1829,55 +1805,55 @@ const styles = StyleSheet.create({
     color: '#b91c1c',
   },
   gradeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 12,
   },
   gradeText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
   },
   leaveBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 20,
   },
   leaveText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '600',
   },
   leaveCard: {
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 12,
   },
   leaveHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   leaveStudent: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   leaveDetails: {
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 4,
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+    marginBottom: Theme.spacing.xs,
   },
   leaveDates: {
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 4,
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+    marginBottom: Theme.spacing.xs,
   },
   leaveReason: {
     fontSize: 13,
-    color: '#475569',
-    marginTop: 4,
+    color: Theme.colors.textSec,
+    marginTop: Theme.spacing.xs,
   },
   classCard: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     overflow: 'hidden',
   },
   classHeader: {
@@ -1885,9 +1861,9 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   classTitle: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
-    color: '#fff',
+    color: Theme.colors.card,
   },
   sectionList: {
     padding: 12,
@@ -1899,19 +1875,19 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: Theme.colors.border,
   },
   sectionName: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: '#334155',
   },
   sectionCount: {
-    fontSize: 12,
-    color: '#64748b',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
   },
   attendanceControls: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     gap: 12,
   },
   attendanceTypeRow: {
@@ -1922,9 +1898,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     alignItems: 'center',
   },
   attendanceTypeBtnActive: {
@@ -1934,10 +1910,10 @@ const styles = StyleSheet.create({
   attendanceTypeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.textSec,
   },
   attendanceTypeTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   attendanceDateRow: {
     flexDirection: 'row',
@@ -1947,27 +1923,27 @@ const styles = StyleSheet.create({
   dateBtn: {
     flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#fff',
+    paddingHorizontal: Theme.spacing.md,
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     borderRadius: 10,
   },
   dateText: {
     fontSize: 13,
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   attendanceSummary: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     padding: 12,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   attendanceSummaryText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 8,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.sm,
   },
   attendanceFilterRow: {
     flexDirection: 'row',
@@ -1977,58 +1953,58 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 20,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
   },
   filterChipActive: {
     backgroundColor: Theme.colors.primary,
     borderColor: Theme.colors.primary,
   },
   filterChipText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
-    color: '#475569',
+    color: Theme.colors.textSec,
   },
   filterChipTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   teacherAttendanceCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 14,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   teacherAttendanceName: {
     flex: 1,
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   teacherAttendanceId: {
-    fontSize: 11,
-    color: '#64748b',
-    marginHorizontal: 8,
+    ...Theme.typography.label,
+    color: Theme.colors.textSec,
+    marginHorizontal: Theme.spacing.sm,
   },
   marksRow: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     padding: 14,
     borderRadius: 12,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
   },
   marksRowHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   marksStudentName: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   marksRowDetails: {
     flexDirection: 'row',
@@ -2036,15 +2012,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   marksInfo: {
-    fontSize: 12,
-    color: '#64748b',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
   },
   marksPercentage: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
   },
   marksControls: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     gap: 12,
   },
   sortRow: {
@@ -2053,29 +2029,29 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sortLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.textSec,
   },
   sortBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
   },
   sortBtnActive: {
     backgroundColor: Theme.colors.primary,
     borderColor: Theme.colors.primary,
   },
   sortBtnText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
-    color: '#475569',
+    color: Theme.colors.textSec,
   },
   sortBtnTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   summaryCard: {
     flexDirection: 'row',
@@ -2091,15 +2067,15 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   summaryLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: 'rgba(255,255,255,0.9)',
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
     textTransform: 'uppercase',
   },
   summaryValue: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#fff',
+    color: Theme.colors.card,
   },
   summarySub: {
     fontSize: 10,
@@ -2107,24 +2083,24 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   chartCard: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.card,
     borderRadius: 16,
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
   },
   chartTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0f172a',
+    color: Theme.colors.text,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   chartStats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   chartStat: {
     alignItems: 'center',
@@ -2134,8 +2110,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   chartStatLabel: {
-    fontSize: 11,
-    color: '#64748b',
+    ...Theme.typography.label,
+    color: Theme.colors.textSec,
     marginTop: 2,
   },
   modalOverlay: {
@@ -2143,10 +2119,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 20,
     width: '100%',
     maxHeight: '85%',
@@ -2158,14 +2134,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: Theme.colors.border,
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   modalClose: {
     width: 32,
@@ -2180,43 +2156,43 @@ const styles = StyleSheet.create({
     color: '#4a5568',
   },
   modalBody: {
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   modalFooter: {
-    padding: 16,
+    padding: Theme.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: Theme.colors.border,
   },
   attendanceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: Theme.colors.border,
     gap: 12,
   },
   attendanceRoll: {
     width: 60,
-    fontSize: 12,
-    color: '#64748b',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
   },
   attendanceName: {
     flex: 1,
     fontSize: 13,
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   studentInfoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    backgroundColor: '#f8fafc',
-    padding: 16,
+    backgroundColor: Theme.colors.background,
+    padding: Theme.spacing.md,
     borderRadius: 12,
     marginBottom: 20,
   },
   studentInfoItem: {
     fontSize: 13,
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   examSection: {
     marginBottom: 20,
@@ -2228,42 +2204,42 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   examTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   examToggle: {
     flexDirection: 'row',
     gap: 8,
   },
   examToggleBtn: {
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     paddingHorizontal: 10,
     borderRadius: 16,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
   },
   examToggleBtnActive: {
     backgroundColor: Theme.colors.primary,
   },
   examToggleText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.textSec,
   },
   examToggleTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   chartContainer: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     alignItems: 'center',
   },
   chartSubtitle: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.textSec,
     marginBottom: 12,
   },
   chart: {
@@ -2271,13 +2247,13 @@ const styles = StyleSheet.create({
   },
   noDataText: {
     textAlign: 'center',
-    color: '#64748b',
+    color: Theme.colors.textSec,
     padding: 20,
   },
   subjectTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
-    color: '#0f172a',
+    color: Theme.colors.text,
     marginBottom: 12,
   },
   subjectRow: {
@@ -2286,12 +2262,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: Theme.colors.border,
   },
   subjectName: {
     flex: 2,
     fontSize: 13,
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   subjectMarks: {
     width: 60,
@@ -2301,26 +2277,26 @@ const styles = StyleSheet.create({
   },
   subjectMax: {
     width: 60,
-    fontSize: 12,
-    color: '#64748b',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     textAlign: 'center',
   },
   branchSubHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   viewAllLeavesBtn: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
-    marginBottom: 16,
+    marginTop: Theme.spacing.xs,
+    marginBottom: Theme.spacing.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -2334,7 +2310,7 @@ const styles = StyleSheet.create({
     }),
   },
   viewAllLeavesText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: Theme.colors.primary,
   },

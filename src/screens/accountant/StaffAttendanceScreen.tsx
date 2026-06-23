@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  StatusBar,
   Platform,
   Modal,
   FlatList,
@@ -26,16 +25,21 @@ import {
   ChevronLeft as ChevronLeftSmall,
   ChevronRight,
 } from 'lucide-react-native';
-import AccountantPageHeader from '../../components/layout/AccountantPageHeader';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import API from '../../services/api';
-import { Theme } from '../../theme/theme';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { Theme } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
 
 /* ── helpers ── */
 const getHeaders = async (): Promise<Record<string, string>> => {
-  const sc = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
-  const bid = (await AsyncStorage.getItem('branch_id')) || (await AsyncStorage.getItem('branchId')) || '01';
-  const tok = (await AsyncStorage.getItem('token')) || '';
+  const sc = (await storage.getString(StorageKeys.SCHOOL_CODE)) || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
+  const bid = (await storage.getString(StorageKeys.BRANCH_ID)) || (await storage.getString(StorageKeys.BRANCH_ID)) || '01';
+  const tok = (await storage.getSecure(StorageKeys.AUTH_TOKEN)) || '';
   return { 'X-School-Code': sc, 'X-Branch-Id': bid, Authorization: `Bearer ${tok}` };
 };
 
@@ -100,7 +104,7 @@ function CalendarModal({ teacher, onClose, publicHolidays }: CalendarModalProps)
     setModalLoading(true);
     try {
       const headers = await getHeaders();
-      const sc = (await AsyncStorage.getItem('school_code')) || '';
+      const sc = (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
       const firstDay = new Date(y, m, 1);
       const lastDay = new Date(y, m + 1, 0);
       const res = await API.get('/manage/staff/attendance/unified', {
@@ -139,19 +143,19 @@ function CalendarModal({ teacher, onClose, publicHolidays }: CalendarModalProps)
 
   const isBlocked = (dateStr: string): boolean => {
     const today = toDateString(new Date());
-    if (dateStr > today) return true;
-    if (parseDate(dateStr).getDay() === 0) return true;
-    if (publicHolidays.includes(dateStr)) return true;
+    if (dateStr > today) {return true;}
+    if (parseDate(dateStr).getDay() === 0) {return true;}
+    if (publicHolidays.includes(dateStr)) {return true;}
     return false;
   };
 
   const handleDayTap = (dateStr: string) => {
-    if (isBlocked(dateStr)) return;
+    if (isBlocked(dateStr)) {return;}
     const existing = calDays.find(d => d.date === dateStr);
     let next: AttendanceStatus = 'PRESENT';
-    if (existing?.status === 'PRESENT') next = 'ABSENT';
-    else if (existing?.status === 'ABSENT') next = 'HALF_DAY';
-    else if (existing?.status === 'HALF_DAY') next = 'PRESENT';
+    if (existing?.status === 'PRESENT') {next = 'ABSENT';}
+    else if (existing?.status === 'ABSENT') {next = 'HALF_DAY';}
+    else if (existing?.status === 'HALF_DAY') {next = 'PRESENT';}
     setCalDays(prev => {
       const filtered = prev.filter(d => d.date !== dateStr);
       return [...filtered, { ...(existing || {}), date: dateStr, status: next }];
@@ -162,8 +166,8 @@ function CalendarModal({ teacher, onClose, publicHolidays }: CalendarModalProps)
     setSaving(true);
     try {
       const headers = await getHeaders();
-      const sc = (await AsyncStorage.getItem('school_code')) || '';
-      const bid = (await AsyncStorage.getItem('branch_id')) || '01';
+      const sc = (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
+      const bid = (await storage.getString(StorageKeys.BRANCH_ID)) || '01';
       const editableDays = calDays.filter(d => !isBlocked(d.date));
       await API.post('/manage/accountant/teacher-attendance', {
         school_code: sc,
@@ -185,7 +189,7 @@ function CalendarModal({ teacher, onClose, publicHolidays }: CalendarModalProps)
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = toDateString(new Date());
   const gridCells: Array<{ day: number; dateStr: string } | null> = [];
-  for (let i = 0; i < firstWeekday; i++) gridCells.push(null);
+  for (let i = 0; i < firstWeekday; i++) {gridCells.push(null);}
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     gridCells.push({ day: d, dateStr });
@@ -197,7 +201,7 @@ function CalendarModal({ teacher, onClose, publicHolidays }: CalendarModalProps)
         <View style={calStyles.box}>
           <View style={calStyles.head}>
             <Text style={calStyles.headTitle}>📅 {teacher.name}</Text>
-            <TouchableOpacity onPress={onClose}><X size={22} color={Theme.colors.textMuted} /></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" onPress={onClose}><X size={22} color={Theme.colors.textMuted} /></TouchableOpacity>
           </View>
 
           {modalLoading ? (
@@ -206,11 +210,11 @@ function CalendarModal({ teacher, onClose, publicHolidays }: CalendarModalProps)
             <ScrollView style={calStyles.scroll}>
               {/* Month navigator */}
               <View style={calStyles.monthNav}>
-                <TouchableOpacity onPress={() => changeMonth(-1)} style={calStyles.navBtn}>
+                <TouchableOpacity accessibilityRole="button" onPress={() => changeMonth(-1)} style={calStyles.navBtn}>
                   <ChevronLeftSmall size={18} color={Theme.colors.primary} />
                 </TouchableOpacity>
                 <Text style={calStyles.monthText}>{MONTHS[month]} {year}</Text>
-                <TouchableOpacity onPress={() => changeMonth(1)} style={calStyles.navBtn}>
+                <TouchableOpacity accessibilityRole="button" onPress={() => changeMonth(1)} style={calStyles.navBtn}>
                   <ChevronRight size={18} color={Theme.colors.primary} />
                 </TouchableOpacity>
               </View>
@@ -223,14 +227,14 @@ function CalendarModal({ teacher, onClose, publicHolidays }: CalendarModalProps)
               {/* Days grid */}
               <View style={calStyles.daysGrid}>
                 {gridCells.map((cell, idx) => {
-                  if (!cell) return <View key={`e-${idx}`} style={calStyles.emptyCell} />;
+                  if (!cell) {return <View key={`e-${idx}`} style={calStyles.emptyCell} />;}
                   const dayData = calDays.find(d => d.date === cell.dateStr);
                   const status = dayData?.status;
                   const blocked = isBlocked(cell.dateStr);
                   const displayStatus = status === 'ON_LEAVE' ? 'ABSENT' : (status as AttendanceStatus | null);
                   const colorSet = displayStatus ? STATUS_COLORS[displayStatus] : null;
                   return (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={cell.dateStr}
                       style={[
                         calStyles.dayCell,
@@ -256,21 +260,21 @@ function CalendarModal({ teacher, onClose, publicHolidays }: CalendarModalProps)
                   { color: '#fee2e2', label: 'Absent' },
                   { color: '#ffedd5', label: 'Half Day' },
                   { color: '#fef9c3', label: 'On Leave' },
-                  { color: '#f1f5f9', label: 'Blocked' },
+                  { color: Theme.colors.background, label: 'Blocked' },
                 ].map(l => (
                   <View key={l.label} style={calStyles.legendItem}>
-                    <View style={[calStyles.legendDot, { backgroundColor: l.color, borderWidth: 1, borderColor: '#e2e8f0' }]} />
+                    <View style={[calStyles.legendDot, { backgroundColor: l.color, borderWidth: 1, borderColor: Theme.colors.border }]} />
                     <Text style={calStyles.legendText}>{l.label}</Text>
                   </View>
                 ))}
               </View>
               <Text style={calStyles.blockedNote}>Tap to cycle: Present → Absent → Half Day</Text>
 
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[calStyles.saveBtn, saving && { opacity: 0.6 }]}
                 onPress={saveCalendar}
                 disabled={saving}>
-                {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={calStyles.saveBtnText}>Save Changes</Text>}
+                {saving ? <ActivityIndicator size="small" color={Theme.colors.card} /> : <Text style={{ color: Theme.colors.card, fontWeight: 'bold', fontSize: 13 }}>Save Changes</Text>}
               </TouchableOpacity>
             </ScrollView>
           )}
@@ -311,8 +315,8 @@ export default function StaffAttendanceScreen() {
     setLoading(true); setError('');
     try {
       const headers = await getHeaders();
-      const sc = (await AsyncStorage.getItem('school_code')) || '';
-      const bid = (await AsyncStorage.getItem('branch_id')) || '01';
+      const sc = (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
+      const bid = (await storage.getString(StorageKeys.BRANCH_ID)) || '01';
       const res = await API.post('/manage/accountant/staff-attendance', {
         school_code: sc,
         branch_id: bid,
@@ -321,9 +325,9 @@ export default function StaffAttendanceScreen() {
       setStaffList(res.data.staff || []);
     } catch (e: any) {
       const status = e?.response?.status;
-      if (status === 401) setError('Session expired. Please login again.');
-      else if (status === 403) setError("You don't have permission to access this.");
-      else setError(e?.response?.data?.detail || e?.message || 'Failed to fetch staff');
+      if (status === 401) {setError('Session expired. Please login again.');}
+      else if (status === 403) {setError("You don't have permission to access this.");}
+      else {setError(e?.response?.data?.detail || e?.message || 'Failed to fetch staff');}
     } finally { setLoading(false); }
   }, [attendanceDate]);
 
@@ -331,8 +335,8 @@ export default function StaffAttendanceScreen() {
 
   const handleStatusChange = (staffId: string, status: AttendanceStatus, session: 1 | 2 = 1) => {
     setStaffList(prev => prev.map(s => {
-      if (s.id !== staffId) return s;
-      if (session === 1) return { ...s, session1_status: status };
+      if (s.id !== staffId) {return s;}
+      if (session === 1) {return { ...s, session1_status: status };}
       return { ...s, session2_status: status };
     }));
   };
@@ -341,8 +345,8 @@ export default function StaffAttendanceScreen() {
     setSaving(true);
     try {
       const headers = await getHeaders();
-      const sc = (await AsyncStorage.getItem('school_code')) || '';
-      const bid = (await AsyncStorage.getItem('branch_id')) || '01';
+      const sc = (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
+      const bid = (await storage.getString(StorageKeys.BRANCH_ID)) || '01';
       const updates = staffList.map(s => ({
         staff_id: s.id,
         role: s.role,
@@ -372,7 +376,7 @@ export default function StaffAttendanceScreen() {
   const renderStatusToggle = (value: AttendanceStatus, onPress: (v: AttendanceStatus) => void, twoSession = false) => (
     <View style={styles.statusToggleRow}>
       {(twoSession ? statusOptions.slice(0, 2) : statusOptions).map(opt => (
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           key={opt}
           style={[styles.statusChip, value === opt && { backgroundColor: statusColor[opt].bg, borderColor: statusColor[opt].text }]}
           onPress={() => onPress(opt)}>
@@ -404,7 +408,7 @@ export default function StaffAttendanceScreen() {
             renderStatusToggle(staff.session1_status || 'ABSENT', v => handleStatusChange(staff.id, v, 1))
           )}
           {staff.role === 'teacher' ? (
-            <TouchableOpacity style={styles.calBtn} onPress={() => setCalendarTeacher(staff)}>
+            <TouchableOpacity accessibilityRole="button" style={styles.calBtn} onPress={() => setCalendarTeacher(staff)}>
               <Calendar size={15} color={Theme.colors.primary} />
               <Text style={styles.calBtnText}>History</Text>
             </TouchableOpacity>
@@ -416,13 +420,13 @@ export default function StaffAttendanceScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
-      <AccountantPageHeader 
-        title="Staff Attendance" 
+
+      <StandardPageHeader
+        title="Staff Attendance"
         greeting="Staff Attendance"
-        subtext="Manage daily staff attendance and leaves"
-        onBackPress={() => navigation.goBack()} 
+        greetingSubtext="Manage daily staff attendance and leaves"
+        onBackPress={() => navigation.goBack()}
       />
 
       <View style={styles.contentOverlap}>
@@ -430,7 +434,7 @@ export default function StaffAttendanceScreen() {
         {/* Date picker row */}
         <View style={styles.dateRow}>
           <Text style={styles.dateLabel}>Date:</Text>
-          <TouchableOpacity style={styles.datePicker} onPress={() => setShowDatePicker(true)}>
+          <TouchableOpacity accessibilityRole="button" style={styles.datePicker} onPress={() => setShowDatePicker(true)}>
             <Calendar size={16} color={Theme.colors.primary} />
             <Text style={styles.dateText}>{attendanceDate}</Text>
           </TouchableOpacity>
@@ -442,7 +446,7 @@ export default function StaffAttendanceScreen() {
               maximumDate={new Date()}
               onChange={(_, d) => {
                 setShowDatePicker(false);
-                if (d) setAttendanceDate(toDateString(d));
+                if (d) {setAttendanceDate(toDateString(d));}
               }}
             />
           ) : null}
@@ -460,14 +464,14 @@ export default function StaffAttendanceScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Attendance for {attendanceDate}</Text>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.saveBtn, (saving || loading || staffList.length === 0) && { opacity: 0.5 }]}
               onPress={handleSave}
               disabled={saving || loading || staffList.length === 0}>
               {saving ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={Theme.colors.card} />
               ) : (
-                <><Save size={14} color="#fff" /><Text style={styles.saveBtnText}>Save</Text></>
+                <><Save size={14} color={Theme.colors.card} /><Text style={styles.saveBtn}>Save</Text></>
               )}
             </TouchableOpacity>
           </View>
@@ -529,8 +533,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center',
   },
   headerCenter: { flex: 1 },
-  headerTitle: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  headerSub: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 1 },
+  headerTitle: { color: Theme.colors.card, fontSize: 17, fontWeight: '700' },
+  headerSub: { color: 'rgba(255,255,255,0.7)', ...Theme.typography.caption, marginTop: 1 },
   refreshBtn: {
     width: HEADER_CONSTANTS.ICON_BUTTON_SIZE, height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
     borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
@@ -538,16 +542,16 @@ const styles = StyleSheet.create({
   },
 
   scroll: { flex: 1 },
-  scrollContent: { padding: 16, paddingBottom: 40 },
+  scrollContent: { padding: Theme.spacing.md, paddingBottom: 40 },
 
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  dateLabel: { fontSize: 14, fontWeight: '600', color: Theme.colors.text },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: Theme.spacing.md },
+  dateLabel: { ...Theme.typography.body, fontWeight: '600', color: Theme.colors.text },
   datePicker: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: Theme.colors.card, borderRadius: 10, borderWidth: 1,
-    borderColor: Theme.colors.border, paddingVertical: 8, paddingHorizontal: 14,
+    borderColor: Theme.colors.border, paddingVertical: Theme.spacing.sm, paddingHorizontal: 14,
   },
-  dateText: { fontSize: 14, color: Theme.colors.text, fontWeight: '500' },
+  dateText: { ...Theme.typography.body, color: Theme.colors.text, fontWeight: '500' },
 
   errorBox: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -565,57 +569,57 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     padding: 14, borderBottomWidth: 1, borderBottomColor: Theme.colors.border,
   },
-  cardTitle: { fontSize: 15, fontWeight: '800', color: Theme.colors.text },
+  cardTitle: { ...Theme.typography.bodyMd, fontWeight: '800', color: Theme.colors.text },
   saveBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#0D7377', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 14,
+    backgroundColor: '#0D7377', borderRadius: 8, paddingVertical: Theme.spacing.sm, paddingHorizontal: 14,
   },
-  saveBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  saveBtnText: { color: Theme.colors.card, fontSize: 13, fontWeight: '700' },
 
-  centered: { alignItems: 'center', paddingVertical: 32 },
-  loadingText: { color: Theme.colors.textMuted, fontSize: 13, marginTop: 8 },
-  emptyText: { color: Theme.colors.textMuted, fontSize: 14 },
+  centered: { alignItems: 'center', paddingVertical: Theme.spacing.xl },
+  loadingText: { color: Theme.colors.textMuted, fontSize: 13, marginTop: Theme.spacing.sm },
+  emptyText: { color: Theme.colors.textMuted, ...Theme.typography.body },
 
   staffList: { padding: 12, gap: 0 },
   colHeader: {
-    flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 4,
-    borderBottomWidth: 1, borderBottomColor: Theme.colors.border, marginBottom: 4,
+    flexDirection: 'row', paddingVertical: Theme.spacing.sm, paddingHorizontal: Theme.spacing.xs,
+    borderBottomWidth: 1, borderBottomColor: Theme.colors.border, marginBottom: Theme.spacing.xs,
   },
-  colHeaderText: { fontSize: 11, fontWeight: '800', color: Theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  colHeaderText: { ...Theme.typography.label, fontWeight: '800', color: Theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
 
   staffRow: {
-    flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 4,
+    flexDirection: 'row', paddingVertical: 12, paddingHorizontal: Theme.spacing.xs,
     borderBottomWidth: 1, borderBottomColor: `${Theme.colors.border}88`, gap: 8,
     alignItems: 'flex-start',
   },
   staffInfo: { flex: 1 },
-  staffName: { fontSize: 14, fontWeight: '700', color: Theme.colors.text },
-  staffMeta: { fontSize: 12, color: Theme.colors.textMuted, marginTop: 2 },
+  staffName: { ...Theme.typography.body, fontWeight: '700', color: Theme.colors.text },
+  staffMeta: { ...Theme.typography.caption, color: Theme.colors.textMuted, marginTop: 2 },
   staffControls: { flex: 1.2 },
 
-  sessionLabel: { fontSize: 10, fontWeight: '700', color: Theme.colors.textMuted, textTransform: 'uppercase', marginBottom: 4, letterSpacing: 0.5 },
+  sessionLabel: { fontSize: 10, fontWeight: '700', color: Theme.colors.textMuted, textTransform: 'uppercase', marginBottom: Theme.spacing.xs, letterSpacing: 0.5 },
 
   statusToggleRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
   statusChip: {
-    paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6,
+    paddingVertical: Theme.spacing.xs, paddingHorizontal: Theme.spacing.sm, borderRadius: 6,
     borderWidth: 1, borderColor: Theme.colors.border, backgroundColor: Theme.colors.background,
   },
-  statusChipText: { fontSize: 11, color: Theme.colors.textMuted, fontWeight: '500' },
+  statusChipText: { ...Theme.typography.label, color: Theme.colors.textMuted, fontWeight: '500' },
 
   calBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: Theme.spacing.sm,
     paddingVertical: 5, paddingHorizontal: 10, borderRadius: 8,
     borderWidth: 1, borderColor: Theme.colors.primary,
     backgroundColor: `${Theme.colors.primary}10`, alignSelf: 'flex-start',
   },
-  calBtnText: { color: Theme.colors.primary, fontSize: 12, fontWeight: '600' },
+  calBtnText: { color: Theme.colors.primary, ...Theme.typography.caption, fontWeight: '600' },
 });
 
 /* ── Calendar Modal Styles ── */
 const calStyles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   box: {
-    backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    backgroundColor: Theme.colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     maxHeight: '88%', shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 10,
   },
   head: {
@@ -624,31 +628,31 @@ const calStyles = StyleSheet.create({
   },
   headTitle: { fontSize: 16, fontWeight: '700', color: Theme.colors.text },
   centered: { alignItems: 'center', paddingVertical: 40 },
-  scroll: { padding: 16 },
-  monthNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  navBtn: { padding: 8, borderRadius: 8, backgroundColor: Theme.colors.background },
+  scroll: { padding: Theme.spacing.md },
+  monthNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Theme.spacing.md },
+  navBtn: { padding: Theme.spacing.sm, borderRadius: 8, backgroundColor: Theme.colors.background },
   monthText: { fontSize: 16, fontWeight: '700', color: Theme.colors.text },
-  weekRow: { flexDirection: 'row', marginBottom: 8 },
-  weekDay: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '700', color: Theme.colors.textMuted },
-  daysGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 16 },
+  weekRow: { flexDirection: 'row', marginBottom: Theme.spacing.sm },
+  weekDay: { flex: 1, textAlign: 'center', ...Theme.typography.caption, fontWeight: '700', color: Theme.colors.textMuted },
+  daysGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: Theme.spacing.md },
   dayCell: {
     width: '12.5%', aspectRatio: 1, borderRadius: 100,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#f8fafc', position: 'relative',
+    backgroundColor: Theme.colors.background, position: 'relative',
   },
-  dayCellBlocked: { backgroundColor: '#f1f5f9', opacity: 0.55 },
+  dayCellBlocked: { backgroundColor: Theme.colors.background, opacity: 0.55 },
+  emptyCell: { width: '12.5%', aspectRatio: 1 },
   dayCellToday: { borderWidth: 2, borderColor: Theme.colors.primary },
   dayNum: { fontSize: 13, fontWeight: '500', color: Theme.colors.text },
   dayNumBlocked: { color: '#94a3b8' },
   leaveDot: { position: 'absolute', bottom: 2, right: 2, width: 5, height: 5, borderRadius: 3, backgroundColor: '#f59e0b' },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: 8 },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginBottom: Theme.spacing.sm },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 14, height: 14, borderRadius: 7 },
-  legendText: { fontSize: 12, color: Theme.colors.textMuted },
-  blockedNote: { textAlign: 'center', fontSize: 11, color: Theme.colors.textMuted, marginBottom: 14 },
+  legendText: { ...Theme.typography.caption, color: Theme.colors.textMuted },
+  blockedNote: { textAlign: 'center', ...Theme.typography.label, color: Theme.colors.textMuted, marginBottom: 14 },
   saveBtn: {
     backgroundColor: '#0D7377', borderRadius: 12, paddingVertical: 14,
-    alignItems: 'center', marginBottom: 24,
+    alignItems: 'center', marginBottom: Theme.spacing.lg,
   },
-  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

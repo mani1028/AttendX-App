@@ -1,3 +1,6 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+import { Theme } from '../../theme/tokens';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
@@ -11,7 +14,6 @@ import {
   Alert,
   Switch,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Animated,
@@ -40,11 +42,13 @@ import {
   Frown,
   DollarSign,
   Layers,
-  Settings
+  Settings,
+  FileText,
+  Users,
 } from 'lucide-react-native';
 import * as adminService from '../../services/adminService';
 import API from '../../services/api';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme/tokens';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
@@ -52,9 +56,12 @@ import AppText from '../../components/common/AppText';
 import LinearGradient from 'react-native-linear-gradient';
 import AvatarBubble from '../../components/common/AvatarBubble';
 import { useAuth } from '../../context/AuthContext';
-import type { RootStackParamList } from '../../navigation/AppNavigator';
+import type { RootStackParamList } from '../../navigation/types';
 import { formatErrorMessage } from '../../utils/helpers';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
 
 // Types
 interface School {
@@ -113,11 +120,11 @@ interface Payment {
 
 // Helper functions
 const getUserRole = async (): Promise<string> => {
-  return (await AsyncStorage.getItem('userRole')) || '';
+  return (await storage.getString(StorageKeys.USER_ROLE)) || '';
 };
 
 const formatDate = (dateString: string): string => {
-  if (!dateString) return '—';
+  if (!dateString) {return '—';}
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
@@ -127,7 +134,7 @@ const formatDate = (dateString: string): string => {
 };
 
 const getDaysLeft = (endDate: string | null): number | null => {
-  if (!endDate) return null;
+  if (!endDate) {return null;}
   const end = new Date(endDate);
   const today = new Date();
   const diffTime = end.getTime() - today.getTime();
@@ -136,16 +143,16 @@ const getDaysLeft = (endDate: string | null): number | null => {
 };
 
 const getDaysLeftColor = (days: number | null): string => {
-  if (days === null) return colors.textMuted;
-  if (days < 0) return colors.error;
-  if (days <= 3) return colors.warning;
+  if (days === null) {return colors.textMuted;}
+  if (days < 0) {return colors.error;}
+  if (days <= 3) {return colors.warning;}
   return colors.success;
 };
 
 // Status Badge Component
-const StatusBadge: React.FC<{ status: string; type?: 'school' | 'subscription' }> = ({ 
-  status, 
-  type = 'school' 
+const StatusBadge: React.FC<{ status: string; type?: 'school' | 'subscription' }> = ({
+  status,
+  type = 'school',
 }) => {
   if (type === 'school') {
     const isActive = status?.toLowerCase() === 'active';
@@ -162,9 +169,9 @@ const StatusBadge: React.FC<{ status: string; type?: 'school' | 'subscription' }
   // Subscription status
   const getStatusConfig = () => {
     const s = status?.toLowerCase() || '';
-    if (s === 'active_paid') return { color: colors.success, bg: colors.successSoft, label: 'Active Paid' };
-    if (s === 'trial_active') return { color: colors.primary, bg: 'rgba(99, 102, 241, 0.1)', label: 'Trial Active' };
-    if (s === 'payment_due') return { color: colors.warning, bg: colors.warningSoft, label: 'Payment Due' };
+    if (s === 'active_paid') {return { color: colors.success, bg: colors.successSoft, label: 'Active Paid' };}
+    if (s === 'trial_active') {return { color: colors.primary, bg: 'rgba(99, 102, 241, 0.1)', label: 'Trial Active' };}
+    if (s === 'payment_due') {return { color: colors.warning, bg: colors.warningSoft, label: 'Payment Due' };}
     return { color: colors.error, bg: colors.errorSoft, label: status || 'Unknown' };
   };
   const config = getStatusConfig();
@@ -216,7 +223,7 @@ const SchoolCard: React.FC<{
             <AppText style={[styles.detailValue, { color: daysLeftColor }]}>
               {formatDate(school.trial_end_at)}
               {daysLeft !== null && (
-                <AppText style={{ fontSize: 11 }}> ({daysLeft < 0 ? 'Expired' : `${daysLeft} days left`})</AppText>
+                <AppText style={{ ...Theme.typography.label }}> ({daysLeft < 0 ? 'Expired' : `${daysLeft} days left`})</AppText>
               )}
             </AppText>
           </View>
@@ -237,15 +244,15 @@ const SchoolCard: React.FC<{
       )}
 
       <View style={styles.cardActions}>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => onEdit(school)}>
+        <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => onEdit(school)}>
           <Edit2 size={12} color={colors.textMuted} />
           <AppText style={styles.actionBtnText}>Edit</AppText>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => onSubscription(school)}>
+        <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => onSubscription(school)}>
           <CreditCard size={12} color={colors.textMuted} />
           <AppText style={styles.actionBtnText}>Payments</AppText>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => onResendCredentials(school)}>
+        <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => onResendCredentials(school)}>
           <Mail size={12} color={colors.textMuted} />
           <AppText style={styles.actionBtnText}>Resend</AppText>
         </TouchableOpacity>
@@ -265,7 +272,7 @@ const StatCard: React.FC<{
   const bgAccent = color + '15';
   return (
     <View style={styles.statCard}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Theme.spacing.sm }}>
         <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: bgAccent, justifyContent: 'center', alignItems: 'center' }}>
           <Icon size={16} color={color} />
         </View>
@@ -292,7 +299,7 @@ const InlineSelector: React.FC<{
     {options.map(opt => {
       const active = opt.value === selectedValue;
       return (
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           key={String(opt.value)}
           style={[styles.inlineSelectorOption, active && styles.inlineSelectorOptionActive]}
           onPress={() => !disabled && onSelect(opt.value)}
@@ -413,17 +420,17 @@ const SchoolFormModal: React.FC<{
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    if (!formData.school_id.trim()) newErrors.school_id = 'School ID is required';
-    if (!formData.name.trim()) newErrors.name = 'School name is required';
-    if (!formData.email.trim()) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email';
-    if (!formData.address.trim()) newErrors.address = 'Address is required';
+    if (!formData.school_id.trim()) {newErrors.school_id = 'School ID is required';}
+    if (!formData.name.trim()) {newErrors.name = 'School name is required';}
+    if (!formData.email.trim()) {newErrors.email = 'Email is required';}
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) {newErrors.email = 'Invalid email';}
+    if (!formData.address.trim()) {newErrors.address = 'Address is required';}
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = async () => {
-    if (!validate()) return;
+    if (!validate()) {return;}
     setSaving(true);
     try {
       if (mode === 'create') {
@@ -472,7 +479,7 @@ const SchoolFormModal: React.FC<{
           subPayload.extend_reason = formData.extend_reason;
           subPayload.extended_by_name = formData.extended_by_name;
         }
-        
+
         if (formData.custom_max_branches !== '') {
           const val = formData.custom_max_branches.trim();
           subPayload.custom_max_branches = (val === '∞' || val === '') ? null : parseInt(val, 10);
@@ -501,25 +508,25 @@ const SchoolFormModal: React.FC<{
 
   const statusOptions = [
     { label: 'Active', value: 'active' },
-    { label: 'Inactive', value: 'inactive' }
+    { label: 'Inactive', value: 'inactive' },
   ];
 
   const subStatusOptions = [
     { label: 'Active Paid', value: 'active_paid' },
     { label: 'Trial Active', value: 'trial_active' },
     { label: 'Payment Due', value: 'payment_due' },
-    { label: 'Suspended', value: 'suspended' }
+    { label: 'Suspended', value: 'suspended' },
   ];
 
   const reportsOptions = [
     { label: 'Basic', value: 'basic' },
-    { label: 'Advanced', value: 'advanced' }
+    { label: 'Advanced', value: 'advanced' },
   ];
 
   const timelineOptions = [
     { label: 'Daily (24h)', value: 'daily' },
     { label: 'Weekly (7d)', value: 'weekly' },
-    { label: 'Monthly (30d)', value: 'monthly' }
+    { label: 'Monthly (30d)', value: 'monthly' },
   ];
 
   return (
@@ -532,17 +539,17 @@ const SchoolFormModal: React.FC<{
                 {mode === 'create' ? 'Register New School' : 'Edit School & Features'}
               </AppText>
               {mode === 'edit' && (
-                <AppText style={{ fontSize: 12, color: colors.textMuted }}>{formData.name}</AppText>
+                <AppText style={{ ...Theme.typography.caption, color: colors.textMuted }}>{formData.name}</AppText>
               )}
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.modalClose}>
+            <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.modalClose}>
               <X size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
           {/* Modal Tabs */}
           <View style={styles.modalTabBar}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.modalTabBtn, activeTab === 'general' && styles.modalTabBtnActive]}
                 onPress={() => setActiveTab('general')}
               >
@@ -550,7 +557,7 @@ const SchoolFormModal: React.FC<{
                   General
                 </AppText>
               </TouchableOpacity>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.modalTabBtn, activeTab === 'features' && styles.modalTabBtnActive]}
                 onPress={() => setActiveTab('features')}
               >
@@ -558,7 +565,7 @@ const SchoolFormModal: React.FC<{
                   Features
                 </AppText>
               </TouchableOpacity>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.modalTabBtn, activeTab === 'limits' && styles.modalTabBtnActive]}
                 onPress={() => setActiveTab('limits')}
               >
@@ -572,14 +579,14 @@ const SchoolFormModal: React.FC<{
             {loadingSub ? (
               <View style={{ padding: 40, alignItems: 'center' }}><ActivityIndicator color={colors.accent} /></View>
             ) : (
-              <View style={{ paddingBottom: 24 }}>
+              <View style={{ paddingBottom: Theme.spacing.lg }}>
                 {activeTab === 'general' && (
                   <View style={{ gap: 16 }}>
                     <View style={{ flexDirection: 'row', gap: 12 }}>
                       <View style={[styles.formGroup, { flex: 1 }]}>
                         <AppText style={styles.formLabel}>School ID</AppText>
                         <TextInput
-                          style={[styles.formInput, mode === 'edit' && { backgroundColor: '#f8fafc', color: colors.accent, fontWeight: '700' }, errors.school_id && styles.formInputError]}
+                          style={[styles.formInput, mode === 'edit' && { backgroundColor: Theme.colors.background, color: colors.accent, fontWeight: '700' }, errors.school_id && styles.formInputError]}
                           value={formData.school_id}
                           onChangeText={(text) => setFormData(prev => ({ ...prev, school_id: text.toUpperCase() }))}
                           editable={mode === 'create'}
@@ -719,7 +726,7 @@ const SchoolFormModal: React.FC<{
                             value={(formData as any)[item.key]}
                             onValueChange={(val) => setFormData(prev => ({ ...prev, [item.key]: val }))}
                             trackColor={{ false: colors.border, true: colors.accent }}
-                            thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+                            thumbColor={Platform.OS === 'android' ? Theme.colors.card : undefined}
                           />
                         </View>
                       ))}
@@ -738,7 +745,7 @@ const SchoolFormModal: React.FC<{
                           <AppText style={styles.featureDesc}>Revert to plan default if empty</AppText>
                         </View>
                         <TextInput
-                          style={[styles.formInput, { width: 100, padding: 8 }]}
+                          style={[styles.formInput, { width: 100, padding: Theme.spacing.sm }]}
                           placeholder="∞"
                           value={formData.custom_max_branches}
                           onChangeText={(text) => setFormData(prev => ({ ...prev, custom_max_branches: text }))}
@@ -777,20 +784,20 @@ const SchoolFormModal: React.FC<{
                         </View>
                         <Switch
                           value={formData.save_attendance_media}
-                          onValueChange={(val) => setFormData(prev => ({ 
-                            ...prev, 
+                          onValueChange={(val) => setFormData(prev => ({
+                            ...prev,
                             save_attendance_media: val,
-                            enable_storage_timeline: val ? prev.enable_storage_timeline : false
+                            enable_storage_timeline: val ? prev.enable_storage_timeline : false,
                           }))}
                           trackColor={{ false: colors.border, true: colors.accent }}
-                          thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+                          thumbColor={Platform.OS === 'android' ? Theme.colors.card : undefined}
                         />
                       </View>
 
                       <View style={[
-                        styles.featureRow, 
+                        styles.featureRow,
                         { borderTopWidth: 1, borderTopColor: '#eef2f6', paddingTop: 12, marginTop: 12 },
-                        !formData.save_attendance_media && { opacity: 0.5 }
+                        !formData.save_attendance_media && { opacity: 0.5 },
                       ]}>
                         <View style={styles.featureTextContainer}>
                           <AppText style={styles.featureTitle}>Retention</AppText>
@@ -801,7 +808,7 @@ const SchoolFormModal: React.FC<{
                           onValueChange={(val) => setFormData(prev => ({ ...prev, enable_storage_timeline: val }))}
                           disabled={!formData.save_attendance_media}
                           trackColor={{ false: colors.border, true: colors.accent }}
-                          thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+                          thumbColor={Platform.OS === 'android' ? Theme.colors.card : undefined}
                         />
                       </View>
                     </View>
@@ -810,10 +817,10 @@ const SchoolFormModal: React.FC<{
                     <View style={[
                       styles.retentionCard,
                       {
-                        backgroundColor: (formData.save_attendance_media && formData.enable_storage_timeline) ? '#f5f3ff' : '#fff',
+                        backgroundColor: (formData.save_attendance_media && formData.enable_storage_timeline) ? '#f5f3ff' : Theme.colors.card,
                         borderColor: (formData.save_attendance_media && formData.enable_storage_timeline) ? colors.accent : '#eef2f6',
                         opacity: (formData.save_attendance_media && formData.enable_storage_timeline) ? 1 : 0.6,
-                      }
+                      },
                     ]}>
                       <View style={styles.retentionHeader}>
                         <AppText style={styles.featureTitle}>Retention Timeline</AppText>
@@ -821,8 +828,8 @@ const SchoolFormModal: React.FC<{
                           <AppText style={styles.retentionBadge}>Active</AppText>
                         )}
                       </View>
-                      
-                      <AppText style={{ fontSize: 11, color: (formData.save_attendance_media && formData.enable_storage_timeline) ? '#475569' : '#94a3b8', marginBottom: 12 }}>
+
+                      <AppText style={{ ...Theme.typography.label, color: (formData.save_attendance_media && formData.enable_storage_timeline) ? Theme.colors.textSec : '#94a3b8', marginBottom: 12 }}>
                         {(formData.save_attendance_media && formData.enable_storage_timeline)
                           ? 'Choose how long attendance media should be kept once Save Media is enabled.'
                           : 'Enable Save Media and Retention to choose the retention period for images and videos.'}
@@ -835,7 +842,7 @@ const SchoolFormModal: React.FC<{
                         disabled={!formData.save_attendance_media || !formData.enable_storage_timeline}
                       />
 
-                      <AppText style={{ fontSize: 11, color: (formData.save_attendance_media && formData.enable_storage_timeline) ? '#64748b' : '#94a3b8', marginTop: 12 }}>
+                      <AppText style={{ ...Theme.typography.label, color: (formData.save_attendance_media && formData.enable_storage_timeline) ? Theme.colors.textSec : '#94a3b8', marginTop: 12 }}>
                         Images/Videos will be permanently deleted after the selected period.
                       </AppText>
                     </View>
@@ -884,7 +891,7 @@ const SubscriptionModal: React.FC<{
   }, [visible, school]);
 
   const fetchSubscription = async () => {
-    if (!school) return;
+    if (!school) {return;}
     setLoading(true);
     try {
       const sub = await adminService.getSchoolSubscription(school.id);
@@ -897,7 +904,7 @@ const SubscriptionModal: React.FC<{
   };
 
   const fetchPayments = async () => {
-    if (!school) return;
+    if (!school) {return;}
     try {
       const paymentsList = await adminService.getSchoolPayments(school.id);
       setPayments(paymentsList);
@@ -907,11 +914,11 @@ const SubscriptionModal: React.FC<{
   };
 
   const handleSave = async () => {
-    if (!school) return;
+    if (!school) {return;}
     setSaving(true);
     try {
       const payload: any = {};
-      if (parseInt(extendDays) > 0) payload.extend_trial_days = parseInt(extendDays);
+      if (parseInt(extendDays) > 0) {payload.extend_trial_days = parseInt(extendDays);}
       if (markPaid) {
         payload.mark_paid = true;
         payload.amount_paid = parseFloat(amountPaid) || 0;
@@ -929,10 +936,10 @@ const SubscriptionModal: React.FC<{
     }
   };
 
-  const daysLeft = subscription?.trial_end_at 
-    ? getDaysLeft(subscription.trial_end_at) 
-    : subscription?.subscription_end_at 
-      ? getDaysLeft(subscription.subscription_end_at) 
+  const daysLeft = subscription?.trial_end_at
+    ? getDaysLeft(subscription.trial_end_at)
+    : subscription?.subscription_end_at
+      ? getDaysLeft(subscription.subscription_end_at)
       : null;
 
   const isExpiringSoon = daysLeft !== null && daysLeft <= 3 && daysLeft > 0;
@@ -957,16 +964,16 @@ const SubscriptionModal: React.FC<{
           <View style={styles.modalHeader}>
             <View style={{ flex: 1 }}>
               <AppText style={styles.modalTitle}>Manage Subscription</AppText>
-              <AppText style={{ fontSize: 12, color: colors.textMuted }}>{school?.name}</AppText>
+              <AppText style={{ ...Theme.typography.caption, color: colors.textMuted }}>{school?.name}</AppText>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.modalClose}>
+            <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.modalClose}>
               <X size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
           {/* Tab Buttons */}
           <View style={styles.tabBar}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.tabBtn, activeTab === 'manage' && styles.tabBtnActive]}
               onPress={() => setActiveTab('manage')}
             >
@@ -974,7 +981,7 @@ const SubscriptionModal: React.FC<{
                 Manage
               </AppText>
             </TouchableOpacity>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.tabBtn, activeTab === 'history' && styles.tabBtnActive]}
               onPress={() => setActiveTab('history')}
             >
@@ -989,13 +996,13 @@ const SubscriptionModal: React.FC<{
               <>
                 {isExpiringSoon && (
                   <View style={styles.warningBanner}>
-                    <Icon name="alert-triangle" size={14} color={colors.warning} />
+                    <AlertTriangle size={14} color={colors.warning} />
                     <AppText style={styles.warningText}>Trial ending in {daysLeft} days!</AppText>
                   </View>
                 )}
                 {isExpired && (
                   <View style={[styles.warningBanner, { backgroundColor: colors.errorSoft }]}>
-                    <Icon name="alert-circle" size={14} color={colors.error} />
+                    <AlertCircle size={14} color={colors.error} />
                     <AppText style={[styles.warningText, { color: colors.error }]}>Subscription expired! Access blocked.</AppText>
                   </View>
                 )}
@@ -1042,7 +1049,7 @@ const SubscriptionModal: React.FC<{
                       value={markPaid}
                       onValueChange={setMarkPaid}
                       trackColor={{ false: colors.border, true: colors.accent }}
-                      thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+                      thumbColor={Platform.OS === 'android' ? Theme.colors.card : undefined}
                     />
                   </View>
                 </View>
@@ -1064,7 +1071,7 @@ const SubscriptionModal: React.FC<{
                       <AppText style={styles.formLabel}>Payment method</AppText>
                       <View style={styles.pickerContainer}>
                         {['card', 'upi', 'netbanking', 'wallet'].map(method => (
-                          <TouchableOpacity
+                          <TouchableOpacity accessibilityRole="button"
                             key={method}
                             style={[styles.pickerOption, paymentMethod === method && styles.pickerOptionActive]}
                             onPress={() => setPaymentMethod(method)}
@@ -1190,13 +1197,11 @@ export default function AdminDashboardScreen() {
   const [subscriptionSchool, setSubscriptionSchool] = useState<School | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const lastScrollY = useRef(0);
-
   const ITEMS_PER_PAGE = 8;
 
   // Fetch schools
   const fetchSchools = async (isRefresh = false) => {
-    const role = await AsyncStorage.getItem('userRole') || 'admin';
+    const role = await storage.getString(StorageKeys.USER_ROLE) || 'admin';
     const cacheKey = `admin_schools_cache_${role}`;
     let cacheLoaded = false;
 
@@ -1226,7 +1231,7 @@ export default function AdminDashboardScreen() {
       console.error('Error fetching schools:', err);
       if (err.response?.status === 401) {
         Alert.alert('Session Expired', 'Please login again');
-        navigation.replace('Login');
+        (navigation as any).replace('Login');
       } else if (!isRefresh) {
         // Only alert if we don't have cached data and it's not a background refresh
         Alert.alert('Error', 'Failed to load schools');
@@ -1240,7 +1245,7 @@ export default function AdminDashboardScreen() {
 
   // Fetch stats
   const fetchStats = async () => {
-    const role = await AsyncStorage.getItem('userRole') || 'admin';
+    const role = await storage.getString(StorageKeys.USER_ROLE) || 'admin';
     const cacheKey = `admin_stats_cache_${role}`;
 
     try {
@@ -1279,20 +1284,8 @@ export default function AdminDashboardScreen() {
     setRefreshing(false);
   }, []);
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-    
-    if (currentScrollY <= 20) {
-      setTabBarVisible(true);
-    } else if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    
-    lastScrollY.current = currentScrollY;
-  };
+  const handleScroll = useScrollTabBar();
+
 
 
   const handleResendCredentials = async (school: School) => {
@@ -1315,15 +1308,15 @@ export default function AdminDashboardScreen() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Morning';
-    if (hour < 17) return 'Afternoon';
+    if (hour < 12) {return 'Morning';}
+    if (hour < 17) {return 'Afternoon';}
     return 'Evening';
   };
 
   // Filter schools
   const filteredSchools = useMemo(() => {
     let filtered = [...schools];
-    
+
     if (statusFilter !== 'all') {
       if (statusFilter === 'active') {
         filtered = filtered.filter(s => s.status === 'active');
@@ -1333,7 +1326,7 @@ export default function AdminDashboardScreen() {
         filtered = filtered.filter(s => s.subscription_status === statusFilter);
       }
     }
-    
+
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       filtered = filtered.filter(s =>
@@ -1344,7 +1337,7 @@ export default function AdminDashboardScreen() {
         (s.subscription_status || '').toLowerCase().includes(q)
       );
     }
-    
+
     return filtered;
   }, [schools, statusFilter, searchTerm]);
 
@@ -1371,7 +1364,7 @@ export default function AdminDashboardScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Standardized Header - Animated Slide In/Out */}
       <Animated.View
@@ -1385,12 +1378,12 @@ export default function AdminDashboardScreen() {
         }}
       >
         <LinearGradient
-          colors={['#1e3a8a', '#3b82f6']}
+          colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 20 }]}
+          style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 20 }]}
         >
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             activeOpacity={0.8}
             onPress={() => (navigation as any).navigate('Profile')}
             style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }}
@@ -1399,23 +1392,23 @@ export default function AdminDashboardScreen() {
               displayName={userName || 'Admin'}
               size={34}
               textSize={13}
-              primaryColor="#fff"
+              primaryColor={Theme.colors.card}
             />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
             <AppText style={styles.headerTitle} weight="bold">{isAgent ? 'Agent Portal' : 'Admin Portal'}</AppText>
           </View>
           <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.refreshIconBtn} onPress={() => (navigation as any).navigate('Notifications')}>
-              <Bell size={20} color="#fff" />
+            <TouchableOpacity accessibilityRole="button" style={styles.refreshIconBtn} onPress={() => (navigation as any).navigate('Notifications')}>
+              <Bell size={20} color={Theme.colors.card} />
               {unreadCount > 0 && (
                 <View style={styles.badge}>
                   <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
                 </View>
               )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
-              <RefreshCw size={20} color="#fff" />
+            <TouchableOpacity accessibilityRole="button" style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
+              <RefreshCw size={20} color={Theme.colors.card} />
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -1460,11 +1453,70 @@ export default function AdminDashboardScreen() {
           <StatCard title="Due" value={stats?.payment_due || 0} icon={AlertCircle} color={colors.warning} loading={!stats} />
         </View>
 
+        {/* Quick Actions */}
+        <AppText style={styles.sectionTitle}>Quick Actions</AppText>
+        <View style={styles.quickActionsGrid}>
+          <TouchableOpacity
+            style={styles.quickActionCard}
+            onPress={() => (navigation as any).navigate('AutoPayTracker')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.primary + '15' }]}>
+              <CreditCard size={20} color={colors.primary} />
+            </View>
+            <AppText style={styles.quickActionLabel}>Auto Pay</AppText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionCard}
+            onPress={() => (navigation as any).navigate('ManualAttendanceManager')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.success + '15' }]}>
+              <Users size={20} color={colors.success} />
+            </View>
+            <AppText style={styles.quickActionLabel}>Manual Attn</AppText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionCard}
+            onPress={() => (navigation as any).navigate('PricingManager')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.secondary + '15' }]}>
+              <DollarSign size={20} color={colors.secondary} />
+            </View>
+            <AppText style={styles.quickActionLabel}>Pricing</AppText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionCard}
+            onPress={() => (navigation as any).navigate('PaymentHistory')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.warning + '15' }]}>
+              <FileText size={20} color={colors.warning} />
+            </View>
+            <AppText style={styles.quickActionLabel}>Payments</AppText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionCard}
+            onPress={() => (navigation as any).navigate('SchoolDetails')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: '#8b5cf6' + '15' }]}>
+              <Home size={20} color="#8b5cf6" />
+            </View>
+            <AppText style={styles.quickActionLabel}>School Info</AppText>
+          </TouchableOpacity>
+        </View>
+
         {/* Filter Bar */}
         <View style={styles.filterBar}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
             {filterOptions.map(opt => (
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 key={opt.value}
                 style={[styles.filterChip, statusFilter === opt.value && styles.filterChipActive]}
                 onPress={() => {
@@ -1481,7 +1533,7 @@ export default function AdminDashboardScreen() {
 
           {/* Search */}
           <View style={styles.searchContainer}>
-            <Search size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
+            <Search size={16} color={colors.textMuted} style={{ marginRight: Theme.spacing.sm }} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search schools..."
@@ -1493,7 +1545,7 @@ export default function AdminDashboardScreen() {
               }}
             />
             {searchTerm.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchTerm('')} style={styles.clearBtn}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setSearchTerm('')} style={styles.clearBtn}>
                 <X size={14} color={colors.textMuted} />
               </TouchableOpacity>
             )}
@@ -1501,7 +1553,7 @@ export default function AdminDashboardScreen() {
         </View>
 
         {/* Create School Button */}
-        <AppButton title="Register New School" icon="plus" onPress={() => setCreateModalOpen(true)} />
+        <AppButton title="Register New School" leftIcon={<Plus size={16} color={Theme.colors.card} />} onPress={() => setCreateModalOpen(true)} />
 
         {/* School List */}
         {loading && !refreshing ? (
@@ -1522,14 +1574,14 @@ export default function AdminDashboardScreen() {
                 onSubscription={setSubscriptionSchool}
                 onResendCredentials={handleResendCredentials}
                 onSendReminder={handleSendReminder}
-                
+
               />
             ))}
 
             {/* Pagination */}
             {totalPages > 1 && (
               <View style={styles.pagination}>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
                   onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
@@ -1539,7 +1591,7 @@ export default function AdminDashboardScreen() {
                 <AppText style={styles.pageInfo}>
                   Page {currentPage} of {totalPages}
                 </AppText>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
                   onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
@@ -1588,14 +1640,14 @@ export default function AdminDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
   },
   contentContainer: {
-    padding: 16,
+    padding: Theme.spacing.md,
     paddingBottom: 40,
   },
   headerStandard: {
-    backgroundColor: '#001F3F',
+    backgroundColor: '#1e3a8a',
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1606,9 +1658,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
+    ...Theme.typography.h3,
+    color: Theme.colors.card,
   },
   headerIcons: {
     flexDirection: 'row',
@@ -1632,13 +1683,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.error,
     borderWidth: 1.5,
-    borderColor: '#001F3F',
+    borderColor: '#1e3a8a',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 2,
   },
   badgeText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 8,
     fontWeight: '800',
     textAlign: 'center',
@@ -1647,7 +1698,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   welcomeTitle: {
     fontSize: 20,
@@ -1671,7 +1722,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   dateText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -1681,7 +1732,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.warningSoft,
     padding: 12,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     gap: 10,
     borderWidth: 1,
     borderColor: colors.warningSoft,
@@ -1699,11 +1750,11 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.background,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.03,
@@ -1720,7 +1771,7 @@ const styles = StyleSheet.create({
     width: '60%',
     backgroundColor: colors.border,
     borderRadius: 4,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   statTitle: {
     fontSize: 10,
@@ -1729,8 +1780,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
   },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 12,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  quickActionCard: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: Theme.colors.background,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  quickActionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  quickActionLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
   filterBar: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     gap: 12,
   },
   filterChips: {
@@ -1738,7 +1824,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterChip: {
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     paddingHorizontal: 14,
     borderRadius: 10,
     backgroundColor: colors.surface,
@@ -1750,12 +1836,12 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
   },
   filterChipText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: colors.textMuted,
   },
   filterChipTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -1769,14 +1855,14 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: 48,
-    fontSize: 14,
+    ...Theme.typography.body,
     color: colors.textPrimary,
   },
   clearBtn: {
-    padding: 8,
+    padding: Theme.spacing.sm,
   },
   schoolCard: {
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 12,
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -1789,15 +1875,15 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   schoolId: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    backgroundColor: colors.bg,
-    paddingHorizontal: 8,
+    backgroundColor: Theme.colors.background,
+    paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 2,
     borderRadius: 6,
     color: colors.accent,
     alignSelf: 'flex-start',
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
     fontWeight: '700',
   },
   schoolName: {
@@ -1828,7 +1914,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: 12,
@@ -1837,10 +1923,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -1849,7 +1935,7 @@ const styles = StyleSheet.create({
     borderColor: colors.errorSoft,
   },
   actionBtnText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textPrimary,
     fontWeight: '600',
   },
@@ -1860,7 +1946,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 8,
     gap: 6,
   },
@@ -1870,7 +1956,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   statusText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
@@ -1886,7 +1972,7 @@ const styles = StyleSheet.create({
     borderColor: colors.warningSoft,
   },
   warningText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: colors.warning,
   },
@@ -1900,7 +1986,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   emptyText: {
     fontSize: 13,
@@ -1912,7 +1998,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 16,
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   pageBtn: {
     width: 40,
@@ -1968,7 +2054,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -1988,11 +2074,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   formLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
     textTransform: 'uppercase',
     color: colors.textMuted,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
     letterSpacing: 0.5,
   },
   formInput: {
@@ -2000,15 +2086,15 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 12,
     padding: 12,
-    fontSize: 15,
-    backgroundColor: colors.bg,
+    ...Theme.typography.bodyMd,
+    backgroundColor: Theme.colors.background,
     color: colors.textPrimary,
   },
   formInputError: {
     borderColor: colors.error,
   },
   formError: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.error,
     marginTop: 6,
     fontWeight: '500',
@@ -2021,14 +2107,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
   },
   switchLabel: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: colors.textPrimary,
     fontWeight: '600',
   },
@@ -2040,14 +2126,14 @@ const styles = StyleSheet.create({
   },
   tabBtn: {
     paddingVertical: 14,
-    marginRight: 24,
+    marginRight: Theme.spacing.lg,
   },
   tabBtnActive: {
     borderBottomWidth: 2,
     borderBottomColor: colors.accent,
   },
   tabText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: colors.textMuted,
     fontWeight: '600',
   },
@@ -2055,10 +2141,10 @@ const styles = StyleSheet.create({
     color: colors.accent,
   },
   infoGrid: {
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
     gap: 12,
-    backgroundColor: colors.bg,
-    padding: 16,
+    backgroundColor: Theme.colors.background,
+    padding: Theme.spacing.md,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
@@ -2073,7 +2159,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   infoValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -2083,10 +2169,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   pickerOption: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
     borderRadius: 10,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -2100,15 +2186,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   pickerTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   emptyPayments: {
     alignItems: 'center',
     padding: 40,
   },
   paymentItem: {
-    backgroundColor: colors.bg,
-    padding: 16,
+    backgroundColor: Theme.colors.background,
+    padding: Theme.spacing.md,
     borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
@@ -2121,7 +2207,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   paymentDate: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
     fontWeight: '600',
   },
@@ -2129,29 +2215,29 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   paymentPlan: {
     fontSize: 13,
     color: colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
     fontWeight: '600',
   },
   paymentMethod: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   paymentTxId: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: colors.textMuted,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   deleteModal: {
     backgroundColor: colors.surface,
     borderRadius: 24,
-    padding: 24,
+    padding: Theme.spacing.lg,
     width: '100%',
     maxWidth: 340,
     alignItems: 'center',
@@ -2165,27 +2251,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   deleteTitle: {
     fontSize: 20,
     fontWeight: '800',
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   deleteMessage: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: colors.textMuted,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     lineHeight: 20,
   },
   deleteSchoolName: {
-    backgroundColor: colors.bg,
-    paddingHorizontal: 16,
+    backgroundColor: Theme.colors.background,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     borderRadius: 12,
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -2210,14 +2296,14 @@ const styles = StyleSheet.create({
   },
   modalTabBtn: {
     paddingVertical: 14,
-    marginRight: 24,
+    marginRight: Theme.spacing.lg,
   },
   modalTabBtnActive: {
     borderBottomWidth: 2,
     borderBottomColor: colors.accent,
   },
   modalTabText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: colors.textMuted,
     fontWeight: '600',
   },
@@ -2227,27 +2313,27 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     marginBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     paddingBottom: 6,
   },
   sectionHeaderText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '800',
     color: colors.accent,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   featureCard: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.card,
     borderRadius: 14,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderWidth: 1,
     borderColor: '#eef2f6',
     gap: 16,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   featureRow: {
     flexDirection: 'row',
@@ -2264,7 +2350,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   featureDesc: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: colors.textMuted,
     marginTop: 2,
   },
@@ -2272,13 +2358,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   inlineSelectorOption: {
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -2287,15 +2373,15 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
   },
   inlineSelectorText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
     fontWeight: '600',
   },
   inlineSelectorTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   retentionCard: {
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 12,
     borderWidth: 1.5,
     marginTop: 12,
@@ -2304,7 +2390,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   retentionBadge: {
     fontSize: 9,
@@ -2312,7 +2398,7 @@ const styles = StyleSheet.create({
     color: colors.accent,
     backgroundColor: 'rgba(99, 102, 241, 0.1)',
     borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
   },
 });

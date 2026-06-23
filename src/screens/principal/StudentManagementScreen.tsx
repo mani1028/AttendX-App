@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
@@ -10,7 +11,6 @@ import {
   RefreshControl,
   Modal,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
   useWindowDimensions,
@@ -58,13 +58,16 @@ import * as RNFS from 'react-native-fs';
 import RNShare from 'react-native-share';
 import API, { buildApiUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { colors } from '../../constants/theme';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+import { colors } from '../../theme/tokens';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
 import AppText from '../../components/common/AppText';
 import AvatarBubble from '../../components/common/AvatarBubble';
 import AppButton from '../../components/common/AppButton';
+import { Theme, C } from '../../theme/tokens';
+
+
 
 
 interface ClassItem {
@@ -158,7 +161,7 @@ const STEPS = [
   'Guardian Info',
   'Contact Info',
   'Upload Photo',
-  'Review & Submit'
+  'Review & Submit',
 ];
 
 const INITIAL_FORM: FormData = {
@@ -215,29 +218,29 @@ const INITIAL_FORM: FormData = {
 };
 
 const PALETTE = [
-  { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.08)' },
-  { color: '#10b981', bg: 'rgba(16, 185, 129, 0.08)' },
+  { color: Theme.colors.blue, bg: 'rgba(59, 130, 246, 0.08)' },
+  { color: Theme.colors.success, bg: 'rgba(16, 185, 129, 0.08)' },
   { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.08)' },
   { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)' },
 ];
 
 const getIconForField = (label: string, primaryColor: string, size: number = 14) => {
   const lbl = label.toLowerCase();
-  if (lbl.includes('id')) return <Shield size={size} color={primaryColor} />;
-  if (lbl.includes('designation') || lbl.includes('type') || lbl.includes('experience') || lbl.includes('role')) return <Briefcase size={size} color={primaryColor} />;
-  if (lbl.includes('department') || lbl.includes('qualification') || lbl.includes('subject') || lbl.includes('class')) return <Award size={size} color={primaryColor} />;
-  if (lbl.includes('mobile') || lbl.includes('number') || lbl.includes('contact') || lbl.includes('phone') || lbl.includes('emergency')) return <Phone size={size} color={primaryColor} />;
-  if (lbl.includes('email')) return <Mail size={size} color={primaryColor} />;
-  if (lbl.includes('gender') || lbl.includes('age') || lbl.includes('marital') || lbl.includes('nationality') || lbl.includes('religion') || lbl.includes('tongue') || lbl.includes('aadhaar') || lbl.includes('parent') || lbl.includes('name')) return <User size={size} color={primaryColor} />;
-  if (lbl.includes('birth') || lbl.includes('date') || lbl.includes('dob') || lbl.includes('joining')) return <Calendar size={size} color={primaryColor} />;
-  if (lbl.includes('house') || lbl.includes('street') || lbl.includes('city') || lbl.includes('mandal') || lbl.includes('district') || lbl.includes('state') || lbl.includes('pin') || lbl.includes('address')) return <MapPin size={size} color={primaryColor} />;
+  if (lbl.includes('id')) {return <Shield size={size} color={primaryColor} />;}
+  if (lbl.includes('designation') || lbl.includes('type') || lbl.includes('experience') || lbl.includes('role')) {return <Briefcase size={size} color={primaryColor} />;}
+  if (lbl.includes('department') || lbl.includes('qualification') || lbl.includes('subject') || lbl.includes('class')) {return <Award size={size} color={primaryColor} />;}
+  if (lbl.includes('mobile') || lbl.includes('number') || lbl.includes('contact') || lbl.includes('phone') || lbl.includes('emergency')) {return <Phone size={size} color={primaryColor} />;}
+  if (lbl.includes('email')) {return <Mail size={size} color={primaryColor} />;}
+  if (lbl.includes('gender') || lbl.includes('age') || lbl.includes('marital') || lbl.includes('nationality') || lbl.includes('religion') || lbl.includes('tongue') || lbl.includes('aadhaar') || lbl.includes('parent') || lbl.includes('name')) {return <User size={size} color={primaryColor} />;}
+  if (lbl.includes('birth') || lbl.includes('date') || lbl.includes('dob') || lbl.includes('joining')) {return <Calendar size={size} color={primaryColor} />;}
+  if (lbl.includes('house') || lbl.includes('street') || lbl.includes('city') || lbl.includes('mandal') || lbl.includes('district') || lbl.includes('state') || lbl.includes('pin') || lbl.includes('address')) {return <MapPin size={size} color={primaryColor} />;}
   return null;
 };
 
 const readLS = async (...keys: string[]): Promise<string> => {
   for (const key of keys) {
     const value = await AsyncStorage.getItem(key);
-    if (value !== null && String(value).trim() !== '') return String(value).trim();
+    if (value !== null && String(value).trim() !== '') {return String(value).trim();}
   }
   return '';
 };
@@ -246,19 +249,19 @@ const avColor = (i: number) => PALETTE[i % PALETTE.length];
 
 const isValidEmail = (v: string): boolean => {
   const s = String(v || '').trim();
-  if (!s) return true;
+  if (!s) {return true;}
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 };
 const isValidMobile = (v: string): boolean => /^\d{10}$/.test(String(v || '').trim());
 const isValidPin = (v: string): boolean => /^\d{6}$/.test(String(v || '').trim());
 const isValidAadhaar = (v: string): boolean => {
   const s = String(v || '').trim();
-  if (!s) return true;
+  if (!s) {return true;}
   return /^\d{12}$/.test(s);
 };
 const isValidName = (v: string): boolean => {
   const s = String(v || '').trim();
-  if (!s) return false;
+  if (!s) {return false;}
   return /^[a-zA-Z\s'-]+$/.test(s) && !/^\d+$/.test(s);
 };
 const isStrongPassword = (v: string): boolean => {
@@ -267,33 +270,33 @@ const isStrongPassword = (v: string): boolean => {
 };
 
 const calcAgeFromDOB = (dob: string): string => {
-  if (!dob) return '';
+  if (!dob) {return '';}
   const today = new Date();
   const birth = new Date(dob);
-  if (isNaN(birth.getTime())) return '';
+  if (isNaN(birth.getTime())) {return '';}
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {age--;}
   return age >= 0 && age < 120 ? String(age) : '';
 };
 
 const isValidDateOfBirth = (dobString: string): { valid: boolean; error: string | null } => {
-  if (!dobString) return { valid: true, error: null };
+  if (!dobString) {return { valid: true, error: null };}
   const dob = new Date(dobString);
-  if (isNaN(dob.getTime())) return { valid: false, error: "Invalid date format" };
+  if (isNaN(dob.getTime())) {return { valid: false, error: 'Invalid date format' };}
   const year = dob.getFullYear();
   if (year < 1000 || year > new Date().getFullYear()) {
     return { valid: false, error: `Invalid year ${year}.` };
   }
   const today = new Date();
   const oneYearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
-  if (dob > oneYearAgo) return { valid: false, error: "Date of Birth must be more than 1 year old" };
+  if (dob > oneYearAgo) {return { valid: false, error: 'Date of Birth must be more than 1 year old' };}
   return { valid: true, error: null };
 };
 
 const initials = (name: string = ''): string => {
   const text = String(name || '').trim();
-  if (!text) return 'ST';
+  if (!text) {return 'ST';}
   const parts = text.split(' ');
   if (parts.length >= 2) {
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
@@ -318,8 +321,8 @@ function AddClassModal({ visible, onClose, onSave, existingClasses }: AddClassMo
   const validate = (): boolean => {
     const e: Record<string, string> = {};
 
-    if (!className.trim()) e.className = 'Class name is required.';
-    if (sections.length === 0) e.sections = 'Add at least one section.';
+    if (!className.trim()) {e.className = 'Class name is required.';}
+    if (sections.length === 0) {e.sections = 'Add at least one section.';}
 
     const duplicates = sections.filter((sec) =>
       existingClasses.some(
@@ -339,7 +342,7 @@ function AddClassModal({ visible, onClose, onSave, existingClasses }: AddClassMo
 
   const addSection = () => {
     const v = sectionInput.trim().toUpperCase();
-    if (!v) return;
+    if (!v) {return;}
     if (sections.includes(v)) {
       setErrors((p) => ({ ...p, sectionInput: 'Section already added.' }));
       return;
@@ -357,7 +360,7 @@ function AddClassModal({ visible, onClose, onSave, existingClasses }: AddClassMo
   const removeSection = (s: string) => setSections((p) => p.filter((x) => x !== s));
 
   const handleSave = async () => {
-    if (!validate()) return;
+    if (!validate()) {return;}
 
     setSaving(true);
     try {
@@ -384,7 +387,7 @@ function AddClassModal({ visible, onClose, onSave, existingClasses }: AddClassMo
               <AppText style={styles.modalTitle} weight="bold">Add New Class</AppText>
               <AppText style={styles.modalSubtitle}>Enter class details and configure sections</AppText>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.closeBtn}>
               <X size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
@@ -439,7 +442,7 @@ function AddClassModal({ visible, onClose, onSave, existingClasses }: AddClassMo
                   placeholderTextColor={colors.textMuted}
                   onSubmitEditing={addSection}
                 />
-                <TouchableOpacity style={styles.addSectionBtn} onPress={addSection}>
+                <TouchableOpacity accessibilityRole="button" style={styles.addSectionBtn} onPress={addSection}>
                   <Plus size={12} color={colors.textMuted} />
                   <AppText style={styles.addSectionBtnText} weight="semibold">Add</AppText>
                 </TouchableOpacity>
@@ -452,7 +455,7 @@ function AddClassModal({ visible, onClose, onSave, existingClasses }: AddClassMo
                   {sections.map((s) => (
                     <View key={s} style={styles.sectionPill}>
                       <AppText style={styles.sectionPillText} weight="semibold">Section {s}</AppText>
-                      <TouchableOpacity onPress={() => removeSection(s)}>
+                      <TouchableOpacity accessibilityRole="button" onPress={() => removeSection(s)}>
                         <X size={10} color={colors.accent} />
                       </TouchableOpacity>
                     </View>
@@ -469,10 +472,10 @@ function AddClassModal({ visible, onClose, onSave, existingClasses }: AddClassMo
           </View>
 
           <View style={styles.modalFooter}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
+            <TouchableOpacity accessibilityRole="button" style={styles.cancelBtn} onPress={onClose}>
               <AppText style={styles.cancelBtnText} weight="semibold">Cancel</AppText>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+            <TouchableOpacity accessibilityRole="button" style={styles.saveBtn} onPress={handleSave} disabled={saving}>
               <AppText style={styles.saveBtnText} weight="semibold">{saving ? 'Saving…' : 'Add Class'}</AppText>
             </TouchableOpacity>
           </View>
@@ -495,15 +498,15 @@ const Stepper = ({ currentStep }: { currentStep: number }) => (
               <View style={[
                 styles.stepCircle,
                 isDone && styles.stepDone,
-                isActive && styles.stepActive
+                isActive && styles.stepActive,
               ]}>
                 {isDone ? (
-                  <Check size={14} color="#fff" />
+                  <Check size={14} color={Theme.colors.card} />
                 ) : (
                   <AppText style={[styles.stepNumber, isActive && styles.stepNumberActive]} weight="bold">{stepNumber}</AppText>
                 )}
               </View>
-              <AppText style={[styles.stepLabel, (isDone || isActive) && styles.stepLabelActive]} weight={isActive ? "bold" : "regular"} numberOfLines={1}>
+              <AppText style={[styles.stepLabel, (isDone || isActive) && styles.stepLabelActive]} weight={isActive ? 'bold' : 'regular'} numberOfLines={1}>
                 {label}
               </AppText>
             </View>
@@ -524,7 +527,6 @@ export default function StudentPage() {
   const isCompactScreen = width < 520;
   const columnCount = width < 420 ? 1 : 2;
   const { userName, setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
   const [activeTab, setActiveTab] = useState<'list' | 'enroll'>('list');
   const [step, setStep] = useState(0);
   const [formData, setFormData] = useState<FormData>({ ...INITIAL_FORM });
@@ -560,37 +562,37 @@ export default function StudentPage() {
     const f = formData;
 
     if (s === 0) {
-      if (!isValidName(f.first_name)) errors.first_name = 'Valid first name required.';
-      if (!isValidName(f.last_name)) errors.last_name = 'Valid last name required.';
-      if (!f.gender) errors.gender = 'Gender is required.';
-      if (!f.date_of_birth) errors.date_of_birth = 'Date of birth is required.';
+      if (!isValidName(f.first_name)) {errors.first_name = 'Valid first name required.';}
+      if (!isValidName(f.last_name)) {errors.last_name = 'Valid last name required.';}
+      if (!f.gender) {errors.gender = 'Gender is required.';}
+      if (!f.date_of_birth) {errors.date_of_birth = 'Date of birth is required.';}
       else {
         const { valid, error } = isValidDateOfBirth(f.date_of_birth);
-        if (!valid) errors.date_of_birth = error || 'Invalid DOB.';
+        if (!valid) {errors.date_of_birth = error || 'Invalid DOB.';}
       }
-      if (!isValidAadhaar(f.aadhaar_number)) errors.aadhaar_number = 'Aadhaar must be 12 digits.';
+      if (!isValidAadhaar(f.aadhaar_number)) {errors.aadhaar_number = 'Aadhaar must be 12 digits.';}
     } else if (s === 1) {
-      if (!f.class_grade) errors.class_grade = 'Class is required.';
-      if (!f.section) errors.section = 'Section is required.';
-      if (!f.admission_number) errors.admission_number = 'Admission number is required.';
-      if (!f.roll_number) errors.roll_number = 'Roll number is required.';
-      if (!f.academic_year) errors.academic_year = 'Academic year is required.';
-      else if (!/^\d{4}-\d{2}$/.test(f.academic_year)) errors.academic_year = 'Format: YYYY-YY (e.g. 2023-24).';
+      if (!f.class_grade) {errors.class_grade = 'Class is required.';}
+      if (!f.section) {errors.section = 'Section is required.';}
+      if (!f.admission_number) {errors.admission_number = 'Admission number is required.';}
+      if (!f.roll_number) {errors.roll_number = 'Roll number is required.';}
+      if (!f.academic_year) {errors.academic_year = 'Academic year is required.';}
+      else if (!/^\d{4}-\d{2}$/.test(f.academic_year)) {errors.academic_year = 'Format: YYYY-YY (e.g. 2023-24).';}
     } else if (s === 2) {
       if (!isValidName(f.father_guardian_name) && !isValidName(f.mother_guardian_name)) {
         errors.father_guardian_name = 'At least one guardian name is required.';
       }
-      if (f.father_guardian_mobile && !isValidMobile(f.father_guardian_mobile)) errors.father_guardian_mobile = 'Invalid mobile.';
-      if (f.mother_guardian_mobile && !isValidMobile(f.mother_guardian_mobile)) errors.mother_guardian_mobile = 'Invalid mobile.';
-      if (f.parent_guardian_email && !isValidEmail(f.parent_guardian_email)) errors.parent_guardian_email = 'Invalid email.';
+      if (f.father_guardian_mobile && !isValidMobile(f.father_guardian_mobile)) {errors.father_guardian_mobile = 'Invalid mobile.';}
+      if (f.mother_guardian_mobile && !isValidMobile(f.mother_guardian_mobile)) {errors.mother_guardian_mobile = 'Invalid mobile.';}
+      if (f.parent_guardian_email && !isValidEmail(f.parent_guardian_email)) {errors.parent_guardian_email = 'Invalid email.';}
     } else if (s === 3) {
-      if (!f.village_town_city) errors.village_town_city = 'City/Village is required.';
-      if (!f.state) errors.state = 'State is required.';
-      if (f.pin_code && !isValidPin(f.pin_code)) errors.pin_code = 'Invalid PIN code.';
-      if (!f.emergency_contact_number) errors.emergency_contact_number = 'Emergency contact is required.';
-      else if (!isValidMobile(f.emergency_contact_number)) errors.emergency_contact_number = 'Invalid mobile.';
+      if (!f.village_town_city) {errors.village_town_city = 'City/Village is required.';}
+      if (!f.state) {errors.state = 'State is required.';}
+      if (f.pin_code && !isValidPin(f.pin_code)) {errors.pin_code = 'Invalid PIN code.';}
+      if (!f.emergency_contact_number) {errors.emergency_contact_number = 'Emergency contact is required.';}
+      else if (!isValidMobile(f.emergency_contact_number)) {errors.emergency_contact_number = 'Invalid mobile.';}
     } else if (s === 4) {
-      if (!selectedPhoto) errors.photo = 'Student photo is required.';
+      if (!selectedPhoto) {errors.photo = 'Student photo is required.';}
     }
 
     setFieldErrors(errors);
@@ -619,7 +621,7 @@ export default function StudentPage() {
     };
 
     const callback = (res: any) => {
-      if (res.didCancel) return;
+      if (res.didCancel) {return;}
       if (res.errorCode) {
         Alert.alert('Error', res.errorMessage || 'Failed to capture image');
         return;
@@ -634,12 +636,12 @@ export default function StudentPage() {
       }
     };
 
-    if (type === 'camera') launchCamera(options, callback);
-    else launchImageLibrary(options, callback);
+    if (type === 'camera') {launchCamera(options, callback);}
+    else {launchImageLibrary(options, callback);}
   };
 
   const handleSubmit = async () => {
-    if (!validateStep(step)) return;
+    if (!validateStep(step)) {return;}
 
     setLoading(true);
     setServerError('');
@@ -741,7 +743,7 @@ export default function StudentPage() {
               </View>
               <View style={[styles.formGroup, styles.flexOne]}>
                 <AppText style={styles.label} weight="semibold">Date of Birth <AppText style={styles.requiredStar}>*</AppText></AppText>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.input, styles.dateInput, fieldErrors.date_of_birth && styles.inputError]}
                   onPress={() => { setDateType('dob'); setShowDatePicker(true); }}
                 >
@@ -883,7 +885,7 @@ export default function StudentPage() {
               </View>
               <View style={[styles.formGroup, styles.flexOne]}>
                 <AppText style={styles.label} weight="semibold">Date of Admission</AppText>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.input, styles.dateInput]}
                   onPress={() => { setDateType('doa'); setShowDatePicker(true); }}
                 >
@@ -1088,8 +1090,8 @@ export default function StudentPage() {
               {selectedPhoto ? (
                 <View style={styles.previewContainer}>
                   <Image source={{ uri: selectedPhoto.uri }} style={styles.photoPreview} />
-                  <TouchableOpacity style={styles.removePhotoBtn} onPress={() => setSelectedPhoto(null)}>
-                    <X size={20} color="#fff" />
+                  <TouchableOpacity accessibilityRole="button" style={styles.removePhotoBtn} onPress={() => setSelectedPhoto(null)}>
+                    <X size={20} color={Theme.colors.card} />
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -1103,11 +1105,11 @@ export default function StudentPage() {
             {fieldErrors.photo && <AppText style={[styles.errorText, { textAlign: 'center' }]}>{fieldErrors.photo}</AppText>}
 
             <View style={styles.photoActions}>
-              <TouchableOpacity style={styles.photoActionBtn} onPress={() => handlePickImage('camera')}>
+              <TouchableOpacity accessibilityRole="button" style={styles.photoActionBtn} onPress={() => handlePickImage('camera')}>
                 <Camera size={20} color={C.primary} />
                 <AppText style={styles.photoActionText} weight="semibold">Take Photo</AppText>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.photoActionBtn} onPress={() => handlePickImage('library')}>
+              <TouchableOpacity accessibilityRole="button" style={styles.photoActionBtn} onPress={() => handlePickImage('library')}>
                 <Users size={20} color={C.primary} />
                 <AppText style={styles.photoActionText} weight="semibold">Choose Gallery</AppText>
               </TouchableOpacity>
@@ -1188,23 +1190,23 @@ export default function StudentPage() {
 
         <View style={styles.stepActions}>
           {step > 0 && (
-            <TouchableOpacity style={styles.stepBackBtn} onPress={prevStep} disabled={loading}>
+            <TouchableOpacity accessibilityRole="button" style={styles.stepBackBtn} onPress={prevStep} disabled={loading}>
               <AppText style={styles.stepBackText} weight="semibold">Back</AppText>
             </TouchableOpacity>
           )}
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.stepNextBtn, step === STEPS.length - 1 && styles.stepSubmitBtn]}
             onPress={step === STEPS.length - 1 ? handleSubmit : nextStep}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={Theme.colors.card} />
             ) : (
               <>
                 <AppText style={styles.stepNextText} weight="bold">
                   {step === STEPS.length - 1 ? 'Complete Registration' : 'Continue'}
                 </AppText>
-                {step < STEPS.length - 1 && <ChevronRight size={18} color="#fff" />}
+                {step < STEPS.length - 1 && <ChevronRight size={18} color={Theme.colors.card} />}
               </>
             )}
           </TouchableOpacity>
@@ -1225,8 +1227,8 @@ export default function StudentPage() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Morning';
-    if (hour < 17) return 'Afternoon';
+    if (hour < 12) {return 'Morning';}
+    if (hour < 17) {return 'Afternoon';}
     return 'Evening';
   };
 
@@ -1236,18 +1238,8 @@ export default function StudentPage() {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   useEffect(() => {
     if (schoolCode && branchId) {
@@ -1339,7 +1331,7 @@ export default function StudentPage() {
   };
 
   const handleExport = async () => {
-    if (!selected?.class_grade || !selected?.section) return;
+    if (!selected?.class_grade || !selected?.section) {return;}
 
     try {
       const params = new URLSearchParams({
@@ -1391,7 +1383,7 @@ export default function StudentPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return students;
+    if (!q) {return students;}
 
     return students.filter((s) =>
       String(s.student_full_name || '').toLowerCase().includes(q) ||
@@ -1460,15 +1452,15 @@ export default function StudentPage() {
         </View>
 
         <View style={styles.studentCardFooter}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.cardActionBtn, styles.cardActionSecondary]}
             onPress={() => (navigation as any).navigate('PrincipalStudentAttendanceReport', { studentId: studentId, studentName: student.student_full_name })}
           >
             <Clock size={14} color={C.primary} />
             <AppText style={styles.cardActionSecondaryText} weight="semibold">Attendance</AppText>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.cardActionBtn, styles.cardActionPrimary]} onPress={() => setViewStudent(student)}>
-            <User size={14} color="#fff" />
+          <TouchableOpacity accessibilityRole="button" style={[styles.cardActionBtn, styles.cardActionPrimary]} onPress={() => setViewStudent(student)}>
+            <User size={14} color={Theme.colors.card} />
             <AppText style={styles.cardActionPrimaryText} weight="semibold">View Profile</AppText>
           </TouchableOpacity>
         </View>
@@ -1505,7 +1497,7 @@ export default function StudentPage() {
           </View>
         </View>
         <View style={[styles.tableCell, styles.cellActions]}>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => setViewStudent(student)}>
+          <TouchableOpacity accessibilityRole="button" style={styles.iconBtn} onPress={() => setViewStudent(student)}>
             <User size={16} color={C.t3} />
           </TouchableOpacity>
         </View>
@@ -1515,7 +1507,7 @@ export default function StudentPage() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       <ScrollView
         style={styles.scrollView}
@@ -1526,7 +1518,7 @@ export default function StudentPage() {
         {/* Standardized Header */}
         <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
           <View style={styles.headerTop}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.iconButton}
               onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
             >
@@ -1535,27 +1527,27 @@ export default function StudentPage() {
             <View style={styles.headerTitleContainer}>
               <AppText weight="bold" style={styles.headerTitle}>Student Management</AppText>
             </View>
-            <TouchableOpacity style={styles.iconButton} onPress={handleRefresh}>
+            <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={handleRefresh}>
               <RefreshCw size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
             </TouchableOpacity>
           </View>
 
           {/* Tab Switcher - integrated into header background for seamless look */}
           <View style={styles.tabSwitcher}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.tabBtn, activeTab === 'list' && styles.tabBtnActive]}
               onPress={() => setActiveTab('list')}
             >
-              <Users size={16} color={activeTab === 'list' ? C.primary : '#ffffff'} />
+              <Users size={16} color={activeTab === 'list' ? C.primary : Theme.colors.card} />
               <AppText style={[styles.tabBtnText, activeTab === 'list' && styles.tabBtnTextActive]} weight="bold">
                 Student Directory
               </AppText>
             </TouchableOpacity>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.tabBtn, activeTab === 'enroll' && styles.tabBtnActive]}
               onPress={() => setActiveTab('enroll')}
             >
-              <Plus size={16} color={activeTab === 'enroll' ? C.primary : '#ffffff'} />
+              <Plus size={16} color={activeTab === 'enroll' ? C.primary : Theme.colors.card} />
               <AppText style={[styles.tabBtnText, activeTab === 'enroll' && styles.tabBtnTextActive]} weight="bold">
                 Student Register
               </AppText>
@@ -1578,12 +1570,12 @@ export default function StudentPage() {
                       </AppText>
                     </View>
                     <View style={styles.headerActions}>
-                      <TouchableOpacity style={styles.secondaryBtn} onPress={handleRefresh}>
+                      <TouchableOpacity accessibilityRole="button" style={styles.secondaryBtn} onPress={handleRefresh}>
                         <RefreshCw size={14} color={C.text} />
                         <AppText style={styles.secondaryBtnText} weight="semibold">Refresh</AppText>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.primaryBtn} onPress={() => setShowAddModal(true)}>
-                        <Plus size={14} color="#fff" />
+                      <TouchableOpacity accessibilityRole="button" style={styles.primaryBtn} onPress={() => setShowAddModal(true)}>
+                        <Plus size={14} color={Theme.colors.card} />
                         <AppText style={styles.primaryBtnText} weight="semibold">Add Class</AppText>
                       </TouchableOpacity>
                     </View>
@@ -1621,13 +1613,13 @@ export default function StudentPage() {
                     <View style={styles.selectorHeader}>
                       <AppText style={styles.panelTitle} weight="bold">Classes & Sections</AppText>
                       {isCompactScreen && (
-                        <TouchableOpacity style={styles.addBtnSmall} onPress={() => setShowAddModal(true)}>
+                        <TouchableOpacity accessibilityRole="button" style={styles.addBtnSmall} onPress={() => setShowAddModal(true)}>
                           <Plus size={14} color={C.primary} />
                           <AppText style={styles.addBtnSmallText} weight="semibold">Add Class</AppText>
                         </TouchableOpacity>
                       )}
                     </View>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={styles.dropdownTrigger}
                       onPress={() => setShowClassPicker(true)}
                     >
@@ -1683,24 +1675,24 @@ export default function StudentPage() {
                               placeholderTextColor={C.t4}
                             />
                             {query ? (
-                              <TouchableOpacity onPress={() => setQuery('')}>
+                              <TouchableOpacity accessibilityRole="button" onPress={() => setQuery('')}>
                                 <X size={14} color={C.t3} />
                               </TouchableOpacity>
                             ) : null}
                           </View>
                           <View style={styles.filterGroup}>
-                            <TouchableOpacity
+                            <TouchableOpacity accessibilityRole="button"
                               style={[styles.filterBtn, isCompactScreen && { flex: 1, justifyContent: 'center' }]}
                               onPress={() => selected && loadStudents(selected.class_grade, selected.section)}
                             >
                               <RefreshCw size={14} color={C.t2} />
                               <AppText style={styles.filterBtnText} weight="semibold">Refresh</AppText>
                             </TouchableOpacity>
-                            <TouchableOpacity
+                            <TouchableOpacity accessibilityRole="button"
                               style={[styles.exportBtn, isCompactScreen && { flex: 1, justifyContent: 'center' }]}
                               onPress={handleExport}
                             >
-                              <Download size={14} color="#fff" />
+                              <Download size={14} color={Theme.colors.card} />
                               <AppText style={styles.exportBtnText} weight="semibold">Export XLS</AppText>
                             </TouchableOpacity>
                           </View>
@@ -1765,7 +1757,7 @@ export default function StudentPage() {
                             Showing {visibleStart}–{visibleEnd} of {filtered.length}
                           </AppText>
                           <View style={styles.pagination}>
-                            <TouchableOpacity
+                            <TouchableOpacity accessibilityRole="button"
                               style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
                               onPress={() => setCurrentPage(p => Math.max(p - 1, 1))}
                               disabled={currentPage === 1}
@@ -1775,16 +1767,16 @@ export default function StudentPage() {
                             {[...Array(Math.min(5, totalPages))].map((_, i) => {
                               let p = totalPages <= 5 ? i + 1 : currentPage <= 3 ? i + 1 : currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i;
                               return (
-                                <TouchableOpacity
+                                <TouchableOpacity accessibilityRole="button"
                                   key={p}
                                   style={[styles.pageBtn, currentPage === p && styles.pageBtnActive]}
                                   onPress={() => setCurrentPage(p)}
                                 >
-                                  <AppText style={[styles.pageBtnText, currentPage === p && styles.pageBtnTextActive]} weight={currentPage === p ? "bold" : "regular"}>{p}</AppText>
+                                  <AppText style={[styles.pageBtnText, currentPage === p && styles.pageBtnTextActive]} weight={currentPage === p ? 'bold' : 'regular'}>{p}</AppText>
                                 </TouchableOpacity>
                               );
                             })}
-                            <TouchableOpacity
+                            <TouchableOpacity accessibilityRole="button"
                               style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
                               onPress={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
                               disabled={currentPage === totalPages || totalPages === 0}
@@ -1816,7 +1808,7 @@ export default function StudentPage() {
         animationType="fade"
         onRequestClose={() => setShowClassPicker(false)}
       >
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={styles.pickerOverlay}
           activeOpacity={1}
           onPress={() => setShowClassPicker(false)}
@@ -1824,7 +1816,7 @@ export default function StudentPage() {
           <View style={styles.pickerContent}>
             <View style={styles.pickerHeader}>
               <AppText style={styles.pickerTitle} weight="bold">Select Class & Section</AppText>
-              <TouchableOpacity onPress={() => setShowClassPicker(false)}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setShowClassPicker(false)}>
                 <X size={20} color={C.t2} />
               </TouchableOpacity>
             </View>
@@ -1835,7 +1827,7 @@ export default function StudentPage() {
                 const absent = (c.students_total || 0) - (c.present || 0);
 
                 return (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={`${c.class_grade}-${normalizedSection}`}
                     style={[styles.pickerItem, isActive && styles.pickerItemActive]}
                     onPress={() => {
@@ -1880,7 +1872,7 @@ export default function StudentPage() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle} weight="bold">Student Details</AppText>
-              <TouchableOpacity onPress={() => setViewStudent(null)} style={styles.closeBtn}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setViewStudent(null)} style={styles.closeBtn}>
                 <X size={18} color={C.text} />
               </TouchableOpacity>
             </View>
@@ -1906,7 +1898,7 @@ export default function StudentPage() {
                       <AppText style={styles.profileSubText} numberOfLines={1}>ID: {viewStudent.student_id || viewStudent.studentId || (viewStudent as any).id || (viewStudent as any).code || '—'} · Roll No: {viewStudent.roll_number || '—'}</AppText>
                       <View style={[
                         styles.statusPill,
-                        viewStudent.status === 'PRESENT' ? styles.statusActiveCard : styles.statusInactiveCard
+                        viewStudent.status === 'PRESENT' ? styles.statusActiveCard : styles.statusInactiveCard,
                       ]}>
                         {viewStudent.status === 'PRESENT' ? (
                           <CheckCircle2 size={10} color="#34d399" />
@@ -1915,7 +1907,7 @@ export default function StudentPage() {
                         )}
                         <AppText style={[
                           styles.statusText,
-                          viewStudent.status === 'PRESENT' ? styles.statusActiveCardText : styles.statusInactiveCardText
+                          viewStudent.status === 'PRESENT' ? styles.statusActiveCardText : styles.statusInactiveCardText,
                         ]} weight="bold">
                           {viewStudent.status || 'UNKNOWN'}
                         </AppText>
@@ -1990,13 +1982,13 @@ const styles = StyleSheet.create({
   },
   headerCopy: { flex: 1, gap: 4 },
   kicker: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.primary,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   title: { fontSize: 22, color: C.t1, lineHeight: 28 },
-  titleSub: { fontSize: 12, color: C.t3, lineHeight: 18, maxWidth: 320 },
+  titleSub: { ...Theme.typography.caption, color: C.t3, lineHeight: 18, maxWidth: 320 },
   headerActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
   primaryBtn: {
     flexDirection: 'row',
@@ -2007,7 +1999,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
   },
-  primaryBtnText: { color: '#fff', fontSize: 13 },
+  primaryBtnText: { color: Theme.colors.card, fontSize: 13 },
   secondaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2037,7 +2029,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       android: { elevation: 1 },
       ios: {
-        shadowColor: '#0f172a',
+        shadowColor: Theme.colors.text,
         shadowOpacity: 0.05,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
@@ -2045,14 +2037,14 @@ const styles = StyleSheet.create({
     }),
   },
   summaryValue: { fontSize: 20, color: C.t1 },
-  summaryLabel: { fontSize: 11, color: C.t3, marginTop: 2 },
+  summaryLabel: { ...Theme.typography.label, color: C.t3, marginTop: 2 },
   welcomeSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
     backgroundColor: C.white,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: C.border,
@@ -2062,7 +2054,7 @@ const styles = StyleSheet.create({
     color: C.t1,
   },
   welcomeSub: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.t3,
     marginTop: 2,
   },
@@ -2078,7 +2070,7 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   dateText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.t2,
   },
   refreshBtn: {
@@ -2100,7 +2092,7 @@ const styles = StyleSheet.create({
     borderTopColor: C.border,
     backgroundColor: C.bg,
   },
-  footerText: { fontSize: 12, color: C.t3 },
+  footerText: { ...Theme.typography.caption, color: C.t3 },
   pagination: { flexDirection: 'row', gap: 6 },
   pageBtn: {
     width: 34,
@@ -2114,8 +2106,8 @@ const styles = StyleSheet.create({
   },
   pageBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
   pageBtnDisabled: { opacity: 0.5 },
-  pageBtnText: { fontSize: 12, color: C.t3 },
-  pageBtnTextActive: { color: '#fff' },
+  pageBtnText: { ...Theme.typography.caption, color: C.t3 },
+  pageBtnTextActive: { color: Theme.colors.card },
   container: {
     flex: 1,
     backgroundColor: C.bg,
@@ -2159,7 +2151,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 18,
     textAlign: 'center',
   },
@@ -2168,14 +2160,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   headerGreeting: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 24,
     letterSpacing: -0.5,
   },
   headerSubtext: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   headerSpacer: {
     width: 40,
@@ -2184,9 +2176,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 14,
-    padding: 4,
+    padding: Theme.spacing.xs,
     width: '100%',
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   tabBtn: {
     flex: 1,
@@ -2198,11 +2190,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   tabBtnActive: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
   },
   tabBtnText: {
     fontSize: 13,
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   tabBtnTextActive: {
     color: C.primary,
@@ -2212,7 +2204,7 @@ const styles = StyleSheet.create({
   },
   stepperWrapper: {
     backgroundColor: C.white,
-    paddingVertical: 16,
+    paddingVertical: Theme.spacing.md,
     paddingHorizontal: 10,
     borderRadius: 16,
     borderWidth: 1,
@@ -2248,11 +2240,11 @@ const styles = StyleSheet.create({
     borderColor: C.success,
   },
   stepNumber: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.t3,
   },
   stepNumberActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   stepLabel: {
     fontSize: 9,
@@ -2283,7 +2275,7 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 18,
     color: C.t1,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   stepSubtitle: {
     fontSize: 13,
@@ -2320,13 +2312,13 @@ const styles = StyleSheet.create({
     height: 48,
   },
   inputText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.t1,
   },
   divider: {
     height: 1,
     backgroundColor: C.borderLight,
-    marginVertical: 8,
+    marginVertical: Theme.spacing.sm,
   },
   photoUploadContainer: {
     alignItems: 'center',
@@ -2340,7 +2332,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
     overflow: 'hidden',
     backgroundColor: C.bg,
   },
@@ -2363,7 +2355,7 @@ const styles = StyleSheet.create({
     right: 10,
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 15,
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   photoActions: {
     flexDirection: 'row',
@@ -2377,7 +2369,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.border,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     borderRadius: 12,
   },
@@ -2391,7 +2383,7 @@ const styles = StyleSheet.create({
   reviewCard: {
     backgroundColor: C.bg,
     borderRadius: 12,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderWidth: 1,
     borderColor: C.border,
   },
@@ -2400,7 +2392,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginBottom: 20,
-    paddingBottom: 16,
+    paddingBottom: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: C.borderLight,
   },
@@ -2414,37 +2406,37 @@ const styles = StyleSheet.create({
     color: C.t1,
   },
   reviewSub: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.t3,
   },
   reviewGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   reviewItem: {
     width: '45%',
   },
   reviewLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.t4,
     textTransform: 'uppercase',
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   reviewValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.t1,
   },
   reviewAddress: {
     borderTopWidth: 1,
     borderTopColor: C.borderLight,
-    paddingTop: 16,
+    paddingTop: Theme.spacing.md,
   },
   stepActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 32,
+    marginTop: Theme.spacing.xl,
     gap: 12,
   },
   stepBackBtn: {
@@ -2458,7 +2450,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.white,
   },
   stepBackText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: C.t2,
   },
   stepNextBtn: {
@@ -2472,8 +2464,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   stepNextText: {
-    fontSize: 15,
-    color: '#fff',
+    ...Theme.typography.bodyMd,
+    color: Theme.colors.card,
   },
   stepSubmitBtn: {
     backgroundColor: C.success,
@@ -2508,8 +2500,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     flex: 1,
   },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', padding: 16 },
-  pickerOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', padding: 16 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', padding: Theme.spacing.md },
+  pickerOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', padding: Theme.spacing.md },
   modalContent: {
     backgroundColor: C.white,
     borderRadius: 24,
@@ -2517,11 +2509,11 @@ const styles = StyleSheet.create({
     maxHeight: '90%',
     borderWidth: 1,
     borderColor: 'rgba(148, 163, 184, 0.15)',
-    shadowColor: '#0f172a',
+    shadowColor: Theme.colors.text,
     shadowOpacity: 0.15,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 10 },
-    elevation: 10
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -2534,8 +2526,8 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   modalTitle: { fontSize: 18, color: C.t1, fontWeight: '700' },
-  closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
-  modalBody: { paddingHorizontal: 20, paddingBottom: 24 },
+  closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Theme.colors.background, alignItems: 'center', justifyContent: 'center' },
+  modalBody: { paddingHorizontal: 20, paddingBottom: Theme.spacing.lg },
   profileSheet: { gap: 18 },
   profileHeaderCardGradient: {
     flexDirection: 'row',
@@ -2543,7 +2535,7 @@ const styles = StyleSheet.create({
     gap: 16,
     padding: 20,
     borderRadius: 20,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   profileAvatarContainer: {
     borderWidth: 2,
@@ -2555,14 +2547,14 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 22,
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
   profileAvatarText: { color: C.primary, fontSize: 24 },
   profileHeaderMeta: { flex: 1, minWidth: 0, gap: 4 },
-  profileName: { fontSize: 20, color: '#ffffff', fontWeight: '700' },
-  profileSubText: { fontSize: 12, color: '#cbd5e1' },
+  profileName: { fontSize: 20, color: Theme.colors.card, fontWeight: '700' },
+  profileSubText: { ...Theme.typography.caption, color: '#cbd5e1' },
   statusActiveCard: { backgroundColor: 'rgba(16, 185, 129, 0.18)', borderColor: 'rgba(16, 185, 129, 0.3)' },
   statusInactiveCard: { backgroundColor: 'rgba(239, 68, 68, 0.18)', borderColor: 'rgba(239, 68, 68, 0.3)' },
   statusActiveCardText: { color: '#34d399' },
@@ -2575,7 +2567,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   filterBar: {
-    padding: 16,
+    padding: Theme.spacing.md,
     gap: 12,
   },
   filterHeader: {
@@ -2584,9 +2576,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterTitle: { fontSize: 16, color: C.t1 },
-  filterSubtitle: { fontSize: 12, color: C.t3 },
-  filterBadge: { backgroundColor: C.primarySoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  filterBadgeText: { fontSize: 11, color: C.primary },
+  filterSubtitle: { ...Theme.typography.caption, color: C.t3 },
+  filterBadge: { backgroundColor: C.primarySoft, paddingHorizontal: 10, paddingVertical: Theme.spacing.xs, borderRadius: 20 },
+  filterBadgeText: { ...Theme.typography.label, color: C.primary },
   searchInput: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2597,18 +2589,18 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 44,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
-  searchField: { flex: 1, fontSize: 14, color: C.t1, padding: 0 },
+  searchField: { flex: 1, ...Theme.typography.body, color: C.t1, padding: 0 },
   filterGroup: { flexDirection: 'row', gap: 8 },
   filterGroupStack: { flexDirection: 'column' },
-  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.bg, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.bg, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: Theme.spacing.sm, borderRadius: 10 },
   filterBtnFullWidth: { width: '100%' },
-  filterBtnText: { fontSize: 12, color: C.t2 },
-  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
-  exportBtnText: { fontSize: 12, color: '#fff' },
-  errorBox: { padding: 16, backgroundColor: C.dangerSoft },
-  errorBoxText: { color: C.danger, fontSize: 12 },
+  filterBtnText: { ...Theme.typography.caption, color: C.t2 },
+  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: Theme.spacing.sm, borderRadius: 10 },
+  exportBtnText: { ...Theme.typography.caption, color: Theme.colors.card },
+  errorBox: { padding: Theme.spacing.md, backgroundColor: C.dangerSoft },
+  errorBoxText: { color: C.danger, ...Theme.typography.caption },
   mobileList: { padding: 12, gap: 12 },
   loadingContainer: { padding: 40, alignItems: 'center', gap: 12 },
   loadingText: { fontSize: 13, color: C.t3 },
@@ -2616,33 +2608,33 @@ const styles = StyleSheet.create({
   studentCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   studentCellName: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   studentIdentity: { flex: 1 },
-  studentIdText: { fontSize: 11, color: C.t4, marginTop: 1 },
-  studentMetaGrid: { flexDirection: 'row', gap: 8, padding: 8, backgroundColor: C.bg, borderRadius: 8, marginTop: 4 },
+  studentIdText: { ...Theme.typography.label, color: C.t4, marginTop: 1 },
+  studentMetaGrid: { flexDirection: 'row', gap: 8, padding: Theme.spacing.sm, backgroundColor: C.bg, borderRadius: 8, marginTop: Theme.spacing.xs },
   studentMetaItem: { flex: 1, gap: 1 },
   studentMetaLabel: { fontSize: 9, color: C.t4, textTransform: 'uppercase' },
-  studentMetaValue: { fontSize: 12, color: C.t1 },
-  studentCardFooter: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  studentMetaValue: { ...Theme.typography.caption, color: C.t1 },
+  studentCardFooter: { flexDirection: 'row', gap: 8, marginTop: Theme.spacing.xs },
   cardActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 10, borderRadius: 10 },
   cardActionPrimary: { backgroundColor: C.primary },
-  cardActionPrimaryText: { color: '#fff', fontSize: 12 },
+  cardActionPrimaryText: { color: Theme.colors.card, ...Theme.typography.caption },
   cardActionSecondary: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border },
-  cardActionSecondaryText: { color: C.primary, fontSize: 12 },
+  cardActionSecondaryText: { color: C.primary, ...Theme.typography.caption },
   profileRole: { fontSize: 13, color: C.primary, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   profileStatusText: { fontSize: 10 },
-  detailSection: { gap: 10, marginTop: 4 },
-  detailSectionTitle: { fontSize: 12, color: C.t3, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
+  detailSection: { gap: 10, marginTop: Theme.spacing.xs },
+  detailSectionTitle: { ...Theme.typography.caption, color: C.t3, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
   detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    marginBottom: 8,
+    borderColor: Theme.colors.border,
+    marginBottom: Theme.spacing.sm,
   },
   detailIconContainer: {
     width: 36,
@@ -2662,7 +2654,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   addBtnSmall: {
     flexDirection: 'row',
@@ -2674,7 +2666,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   addBtnSmallText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.primary,
   },
   selectedClassInfo: {
@@ -2692,11 +2684,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectedClassLabel: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: C.t1,
   },
   selectedClassSub: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.t3,
     marginTop: 2,
   },
@@ -2704,7 +2696,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 5,
     borderRadius: 999,
     alignSelf: 'flex-start',
@@ -2730,7 +2722,7 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: 'center',
-    padding: 48,
+    padding: Theme.spacing.xxl,
     backgroundColor: C.white,
   },
   emptyTitle: {
@@ -2741,7 +2733,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 13,
     color: C.t3,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   pickerContent: {
     backgroundColor: C.white,
@@ -2773,7 +2765,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 12,
     borderRadius: 12,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
     borderWidth: 1,
     borderColor: 'transparent',
     backgroundColor: C.bg,
@@ -2787,7 +2779,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   pickerItemLabel: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.t1,
   },
   pickerItemLabelActive: {
@@ -2798,14 +2790,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   pickerItemStatText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.t3,
   },
   grid: {
     gap: 16,
   },
   formGroup: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   flexOne: {
     flex: 1,
@@ -2815,8 +2807,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: C.border,
-    padding: 16,
-    marginBottom: 16,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
   },
   panelTitle: {
     fontSize: 16,
@@ -2832,10 +2824,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 48,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   placeholderText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.t3,
   },
   table: {
@@ -2845,12 +2837,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: C.bg,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
   headerCell: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.t3,
     textTransform: 'uppercase',
   },
@@ -2878,7 +2870,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: C.dangerBorder,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   errorBannerText: {
     color: C.danger,
@@ -2886,10 +2878,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.t1,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   requiredStar: {
     color: C.error,
@@ -2898,26 +2890,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     height: 48,
     backgroundColor: C.white,
     color: C.t1,
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   errorText: {
     color: C.error,
-    fontSize: 12,
-    marginTop: 4,
+    ...Theme.typography.caption,
+    marginTop: Theme.spacing.xs,
   },
   studentName: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.t1,
   },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
     backgroundColor: C.white,
@@ -2931,7 +2923,7 @@ const styles = StyleSheet.create({
     color: C.t1,
   },
   iconBtn: {
-    padding: 8,
+    padding: Theme.spacing.sm,
     borderRadius: 8,
     backgroundColor: C.bg,
     borderWidth: 1,
@@ -2955,12 +2947,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
     backgroundColor: C.primarySoft,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     height: 48,
     borderRadius: 10,
   },
   addSectionBtnText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.primary,
   },
   sectionsWrap: {
@@ -2981,23 +2973,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   sectionPillText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.t1,
   },
   hintText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.t4,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   modalFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 12,
     paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingBottom: Theme.spacing.lg,
   },
   cancelBtn: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     borderRadius: 10,
     backgroundColor: C.bg,
@@ -3007,11 +2999,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelBtnText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.t2,
   },
   saveBtn: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     borderRadius: 10,
     backgroundColor: C.primary,
@@ -3019,13 +3011,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveBtnText: {
-    fontSize: 14,
-    color: '#ffffff',
+    ...Theme.typography.body,
+    color: Theme.colors.card,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: 16,
+    padding: Theme.spacing.md,
   },
 });

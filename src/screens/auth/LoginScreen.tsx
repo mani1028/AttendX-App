@@ -1,3 +1,5 @@
+import { Theme } from '../../theme/tokens';
+import { useScreenEntrance } from '../../theme/motion';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Keyboard,
@@ -48,15 +50,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [loginMessageType, setLoginMessageType] = useState<'error' | 'success'>('error');
   const [focusedField, setFocusedField] = useState<'school' | 'user' | 'pass' | null>(null);
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, tension: 20, friction: 7, useNativeDriver: true }),
-    ]).start();
-  }, [fadeAnim, slideAnim]);
+  const { fadeAnim, slideAnim } = useScreenEntrance();
 
   const handleLogin = async () => {
     setLoginMessage('');
@@ -109,10 +103,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           {/* Header with LOGO */}
           <Animated.View style={[styles.brand, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
             <View style={styles.logoContainer}>
-              <Image 
-                source={require('../../assets/logo.png')} 
-                style={styles.logo} 
-                resizeMode="contain" 
+              <Image
+                source={require('../../assets/logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
               />
             </View>
             <Text style={styles.welcome}>Welcome Back</Text>
@@ -121,15 +115,15 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* LOGIN CARD */}
           <Animated.View style={[styles.cardContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-            <LinearGradient colors={['#1e3a8a', '#3b82f6']} start={{x:0, y:0}} end={{x:1, y:0}} style={styles.cardTopGradient} />
+            <LinearGradient colors={[Theme.colors.primary, Theme.colors.blue]} start={{x:0, y:0}} end={{x:1, y:0}} style={styles.cardTopGradient} />
             <View style={styles.cardInner}>
 
               {savedAccounts.length > 0 && showSavedOnly ? (
                 <View style={styles.savedAccountsContainer}>
                   <Text style={styles.savedAccountsTitle}>Choose an account</Text>
                   {savedAccounts.map((acc, index) => (
-                    <TouchableOpacity 
-                      key={acc.id || String(index)} 
+                    <TouchableOpacity
+                      key={acc.id || String(index)}
                       style={styles.savedAccountCard}
                       onPress={async () => {
                         setLoginMessage('');
@@ -143,7 +137,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                           setLoginMessageType('error');
                           return;
                         }
-                        
+
                         setLoading(true);
                         try {
                           await switchToAccount(acc);
@@ -158,7 +152,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                         {acc.photoUrl ? (
                           <Image source={{ uri: acc.photoUrl }} style={styles.avatarImg} />
                         ) : (
-                          <User size={24} color="#1e3a8a" />
+                          <User size={24} color={Theme.colors.primary} />
                         )}
                       </View>
                       <View style={styles.savedInfo}>
@@ -168,7 +162,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                       <ChevronRight size={20} color="#CBD5E1" />
                     </TouchableOpacity>
                   ))}
-                  
+
                   <TouchableOpacity onPress={() => setShowSavedOnly(false)} style={styles.loginAnotherBtn}>
                     <Text style={styles.loginAnotherTxt}>Log into another account</Text>
                   </TouchableOpacity>
@@ -177,8 +171,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 <>
                   {loginMessage ? (
                     <View style={[styles.banner, loginMessageType === 'success' ? styles.bannerOk : styles.bannerErr]}>
-                      <AlertCircle size={16} color={loginMessageType === 'success' ? '#059669' : '#dc2626'} />
-                      <Text style={[styles.bannerTxt, { color: loginMessageType === 'success' ? '#059669' : '#dc2626' }]}>
+                      <AlertCircle size={16} color={loginMessageType === 'success' ? Theme.colors.success : Theme.colors.error} />
+                      <Text style={[styles.bannerTxt, { color: loginMessageType === 'success' ? Theme.colors.success : Theme.colors.error }]}>
                         {loginMessage}
                       </Text>
                     </View>
@@ -187,7 +181,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                   <View style={styles.form}>
                     <Field label="School ID">
                       <View style={[styles.inputGroup, focusedField === 'school' && styles.inputActive]}>
-                        <Building2 size={20} color={focusedField === 'school' ? '#1e3a8a' : '#8B9BB4'} />
+                        <Building2 size={20} color={focusedField === 'school' ? Theme.colors.primary : '#8B9BB4'} />
                         <TextInput
                           style={styles.input}
                           placeholder="SSC1111"
@@ -204,7 +198,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
                     <Field label="Email / ID / Roll No">
                       <View style={[styles.inputGroup, focusedField === 'user' && styles.inputActive]}>
-                        <User size={20} color={focusedField === 'user' ? '#1e3a8a' : '#8B9BB4'} />
+                        <User size={20} color={focusedField === 'user' ? Theme.colors.primary : '#8B9BB4'} />
                         <TextInput
                           style={styles.input}
                           placeholder="name@school.com / EMP001"
@@ -222,7 +216,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
                     <Field label="Password">
                       <View style={[styles.inputGroup, focusedField === 'pass' && styles.inputActive]}>
-                        <Lock size={20} color={focusedField === 'pass' ? '#1e3a8a' : '#8B9BB4'} />
+                        <Lock size={20} color={focusedField === 'pass' ? Theme.colors.primary : '#8B9BB4'} />
                         <TextInput
                           style={styles.input}
                           placeholder="••••••••"
@@ -293,7 +287,7 @@ const styles = StyleSheet.create({
   kav: { flex: 1 },
   scroll: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: Theme.spacing.lg,
     paddingVertical: isSmallDevice ? 20 : 40,
     justifyContent: 'center',
   },
@@ -304,7 +298,7 @@ const styles = StyleSheet.create({
     top: -SCREEN_W * 0.18,
     right: -SCREEN_W * 0.08,
     borderRadius: SCREEN_W * 0.4,
-    backgroundColor: '#1e3a8a',
+    backgroundColor: Theme.colors.primary,
     opacity: 0.12,
   },
   cornerBottomLeft: {
@@ -314,14 +308,14 @@ const styles = StyleSheet.create({
     bottom: -SCREEN_W * 0.15,
     left: -SCREEN_W * 0.12,
     borderRadius: SCREEN_W * 0.4,
-    backgroundColor: '#3b82f6',
+    backgroundColor: Theme.colors.blue,
     opacity: 0.08,
   },
   brand: { marginBottom: isSmallDevice ? 15 : 25, alignItems: 'center' },
   logoContainer: {
     width: 300,
     height: 100,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -330,13 +324,13 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   welcome: { fontSize: 32, fontWeight: '800', color: '#111827', textAlign: 'center' },
-  subWelcome: { fontSize: 13, letterSpacing: 2, color: '#8B9BB4', textAlign: 'center', marginTop: 4 },
+  subWelcome: { fontSize: 13, letterSpacing: 2, color: '#8B9BB4', textAlign: 'center', marginTop: Theme.spacing.xs },
   cardContainer: {
     width: '100%',
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     overflow: 'hidden',
-    shadowColor: '#1e3a8a',
+    shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
@@ -344,7 +338,7 @@ const styles = StyleSheet.create({
   },
   cardTopGradient: { height: 6, width: '100%' },
   cardInner: {
-    padding: 24,
+    padding: Theme.spacing.lg,
   },
   banner: {
     flexDirection: 'row',
@@ -356,16 +350,16 @@ const styles = StyleSheet.create({
   },
   bannerErr: { backgroundColor: '#fef2f2', borderColor: '#fee2e2' },
   bannerOk: { backgroundColor: '#ecfdf5', borderColor: '#d1fae5' },
-  bannerTxt: { fontSize: 13, fontWeight: '600', marginLeft: 8 },
+  bannerTxt: { fontSize: 13, fontWeight: '600', marginLeft: Theme.spacing.sm },
   form: { gap: 16 },
   field: { gap: 8 },
   fieldLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     color: '#8B9BB4',
     textTransform: 'uppercase',
     letterSpacing: 1.5,
-    marginLeft: 4,
+    marginLeft: Theme.spacing.xs,
   },
   inputGroup: {
     flexDirection: 'row',
@@ -375,29 +369,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     height: 56,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
   },
   inputActive: {
-    borderColor: '#1e3a8a',
-    backgroundColor: '#fff',
+    borderColor: Theme.colors.primary,
+    backgroundColor: Theme.colors.background,
   },
   input: {
     flex: 1,
     height: '100%',
     marginLeft: 12,
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: '#111827',
     fontWeight: '600',
   },
-  eyeBtn: { padding: 4 },
-  actionRow: { marginTop: 8 },
+  eyeBtn: { padding: Theme.spacing.xs },
+  actionRow: { marginTop: Theme.spacing.sm },
   signInBtn: { width: '100%', height: 56, borderRadius: 12 },
-  forgotBtn: { alignSelf: 'center', marginTop: 16 },
-  forgotTxt: { color: '#1e3a8a', fontSize: 14, fontWeight: '700' },
-  dividerLine: { width: '100%', height: 1, backgroundColor: '#f1f5f9', marginVertical: 20 },
+  forgotBtn: { alignSelf: 'center', marginTop: Theme.spacing.md },
+  forgotTxt: { color: Theme.colors.primary, ...Theme.typography.body, fontWeight: '700' },
+  dividerLine: { width: '100%', height: 1, backgroundColor: Theme.colors.background, marginVertical: 20 },
   registerBtn: { alignItems: 'center' },
-  registerTxt: { fontSize: 14, color: '#64748b' },
-  registerLink: { color: '#1e3a8a', fontWeight: '800' },
+  registerTxt: { ...Theme.typography.body, color: Theme.colors.textSec },
+  registerLink: { color: Theme.colors.primary, fontWeight: '800' },
   viewSavedBtn: {
     marginTop: 12,
     paddingVertical: 12,
@@ -406,10 +400,10 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     borderRadius: 12,
   },
-  viewSavedTxt: { color: '#111827', fontWeight: '700', fontSize: 12, letterSpacing: 1 },
+  viewSavedTxt: { ...Theme.typography.caption, color: '#111827', fontWeight: '700', letterSpacing: 1 },
   savedAccountsContainer: {
     gap: 12,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   savedAccountsTitle: {
     fontSize: 16,
@@ -445,25 +439,25 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   savedName: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
     color: '#111827',
   },
   savedRole: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '600',
     color: '#8B9BB4',
     marginTop: 2,
   },
   loginAnotherBtn: {
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     alignItems: 'center',
     paddingVertical: 12,
   },
   loginAnotherTxt: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
-    color: '#1e3a8a',
+    color: Theme.colors.primary,
   },
 });
 

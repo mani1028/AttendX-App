@@ -21,12 +21,17 @@ export type RootStackParamList = {
   NotificationManager: undefined;
   SchoolDetails: undefined;
   AdminSettings: undefined;
+  AutoPayTracker: undefined;
+  ManualAttendanceManager: undefined;
+  PricingManager: undefined;
+  PaymentHistory: undefined;
 
   // Teacher
   TeacherDashboard: undefined;
   TeacherAttendance: undefined;
   TeacherMarksEntry: undefined;
   TeacherHomeworkManagement: undefined;
+  TeacherHomeworkSubmissions: { homeworkId: string; title: string };
   TeacherLeaveRequest: undefined;
   TeacherLeaveApproval: undefined;
   TeacherStudentList: undefined;
@@ -37,6 +42,9 @@ export type RootStackParamList = {
   MarkAttendance: undefined;
   TeacherFaceReview: undefined;
   TeacherStudentRegistration: undefined;
+  ManageData: undefined;
+  TeacherMyAttendance: undefined;
+  TeacherQuestionPapers: undefined;
 
   // Student
   StudentDashboard: undefined;
@@ -65,6 +73,7 @@ export type RootStackParamList = {
   PrincipalTeacherRegistrationRequests: undefined;
   PrincipalStudentPromotion: undefined;
   PrincipalFaceReview: undefined;
+  Student360: { studentId?: string; studentName?: string } | undefined;
 
   // Director (Old Principal)
   DirectorDashboard: undefined;
@@ -94,4 +103,14 @@ export type RootStackParamList = {
   PrincipalRegistrationPublic: { school_code: string; branch_id: string };
   StudentRegisterPublic: { school_code: string; branch_id: string };
   TeacherRegisterPublic: { school_code: string; branch_id: string };
+};
+
+export type AuthStackParamList = {
+  Login: undefined;
+};
+
+export type StudentStackParamList = {
+  StudentAttendance: undefined;
+  StudentMarks: undefined;
+  StudentFee: undefined;
 };

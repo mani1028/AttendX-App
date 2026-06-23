@@ -7,9 +7,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
 import { Check, Loader2, AlertCircle, CreditCard, Calendar, Lock, Info, Shield, GitBranch, ChevronLeft, CheckCircle2 } from 'lucide-react-native';
-import { Theme } from '../../theme/theme';
+
 import { normalizePricingPlan, sortPricingPlans } from '../../utils/pricingPlans';
 import { WebView } from 'react-native-webview';
+import { Theme } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
 
 // Types (simplified for brevity)
 interface Plan {
@@ -78,14 +83,14 @@ export default function RenewalPaymentScreen() {
 
   // Compute display plans reactively from raw plans and billing cycle
   const displayPlans = useMemo(() => {
-    const trialFiltered = plans.filter(p => !String(p.title || "").toLowerCase().includes("trial"));
+    const trialFiltered = plans.filter(p => !String(p.title || '').toLowerCase().includes('trial'));
     const normalized = trialFiltered.map(p => normalizePricingPlan(p, billingCycle));
     return sortPricingPlans(normalized);
   }, [plans, billingCycle]);
 
   // Helper formatting functions (mirrored from web)
   const fmtDate = (v?: string) => {
-    if (!v) return '—';
+    if (!v) {return '—';}
     const d = new Date(v);
     return isNaN(d.getTime())
       ? String(v).slice(0, 10)
@@ -93,10 +98,10 @@ export default function RenewalPaymentScreen() {
   };
 
   const daysColor = (d: number | null) => {
-    if (d === null) return '#64748b';
-    if (d < 0) return Theme.colors.error;
-    if (d <= 3) return Theme.colors.warning;
-    if (d <= 7) return Theme.colors.warning;
+    if (d === null) {return Theme.colors.textSec;}
+    if (d < 0) {return Theme.colors.error;}
+    if (d <= 3) {return Theme.colors.warning;}
+    if (d <= 7) {return Theme.colors.warning;}
     return Theme.colors.primary;
   };
 
@@ -105,7 +110,7 @@ export default function RenewalPaymentScreen() {
   // Load data – similar to the web's load function
   const load = useCallback(async () => {
     // In a real app, schoolId would come from auth/session storage. We fetch from AsyncStorage.
-    const code = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
+    const code = (await storage.getString(StorageKeys.SCHOOL_CODE)) || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
     if (!code) {
       setError('School ID missing. Please log in again.');
       setLoading(false);
@@ -125,8 +130,8 @@ export default function RenewalPaymentScreen() {
         const data = statusRes.value.data as SubscriptionInfo;
         setSubInfo(data);
         setBranchCount(data.total_branches || 0);
-        if (data.billing_cycle === 'monthly' || data.billing_cycle === 'yearly') setBillingCycle(data.billing_cycle);
-        if (data.auto_renew) setWantsAutoPay(true);
+        if (data.billing_cycle === 'monthly' || data.billing_cycle === 'yearly') {setBillingCycle(data.billing_cycle);}
+        if (data.auto_renew) {setWantsAutoPay(true);}
       }
 
       if (plansRes.status === 'fulfilled') {
@@ -139,7 +144,7 @@ export default function RenewalPaymentScreen() {
       if (settingsRes.status === 'fulfilled') {
         const enabled = settingsRes.value.data.enable_auto_pay !== 'false';
         setEnableAutoPayGlobal(enabled);
-        if (!enabled) setWantsAutoPay(false);
+        if (!enabled) {setWantsAutoPay(false);}
       }
     } catch (e: any) {
       setError('Unable to load billing information. Please try again.');
@@ -182,7 +187,7 @@ export default function RenewalPaymentScreen() {
         setCheckoutData(null);
         setLoading(true);
         setError('');
-        
+
         try {
           await API.post('payment/verify', {
             razorpay_order_id: response.razorpay_order_id || oId,
@@ -219,14 +224,14 @@ export default function RenewalPaymentScreen() {
           { school_id: schoolId, plan_id: plan.id, billing_cycle: billingCycle, autoPay: wantsAutoPay },
           { headers: { 'x-user-role': 'director' } }
         );
-        const email = (await AsyncStorage.getItem('email')) || '';
+        const email = (await storage.getString(StorageKeys.USER_EMAIL)) || '';
         setCheckoutData({
           key: orderRes.data.key,
           amount: orderRes.data.amount || 0,
           orderId: orderRes.data.order_id || '',
           subscriptionId: orderRes.data.subscription_id || '',
           description: `${plan.title} — ${wantsAutoPay ? 'Auto-Pay' : 'One-time'} (${billingCycle})`,
-          email: email
+          email: email,
         });
       } catch (e: any) {
         setError(e?.response?.data?.detail || e.message || 'Payment setup failed.');
@@ -238,7 +243,7 @@ export default function RenewalPaymentScreen() {
   );
 
   const getCheckoutHtml = (data: any) => {
-    if (!data) return '';
+    if (!data) {return '';}
     return `
       <!DOCTYPE html>
       <html>
@@ -257,7 +262,7 @@ export default function RenewalPaymentScreen() {
             }
             .loader {
               border: 4px solid #e2e8f0;
-              border-top: 4px solid #6366f1;
+              border-top: 4px solid #1e3a8a;
               border-radius: 50%;
               width: 40px;
               height: 40px;
@@ -285,7 +290,7 @@ export default function RenewalPaymentScreen() {
                     "email": "${data.email}"
                   },
                   "theme": {
-                    "color": "#6366f1"
+                    "color": Theme.colors.primary
                   },
                   "handler": function (response) {
                     window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -346,9 +351,9 @@ export default function RenewalPaymentScreen() {
   if (error) {
     return (
       <View style={styles.errorContainer}>
-        <AlertCircle size={48} color="#dc2626" />
+        <AlertCircle size={48} color={Theme.colors.error} />
         <Text style={styles.errorMsg}>{error}</Text>
-        <TouchableOpacity onPress={load} style={styles.retryBtn}>
+        <TouchableOpacity accessibilityRole="button" onPress={load} style={styles.retryBtn}>
           <Text style={styles.retryTxt}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -362,10 +367,10 @@ export default function RenewalPaymentScreen() {
         animationType="slide"
         onRequestClose={() => setCheckoutData(null)}
       >
-        <View style={{ flex: 1, backgroundColor: '#fff', paddingTop: insets.top }}>
+        <View style={{ flex: 1, backgroundColor: Theme.colors.background, paddingTop: insets.top }}>
           <View style={styles.webViewHeader}>
-            <TouchableOpacity onPress={() => setCheckoutData(null)} style={styles.webViewCloseBtn}>
-              <ChevronLeft size={24} color="#0f172a" />
+            <TouchableOpacity accessibilityRole="button" onPress={() => setCheckoutData(null)} style={styles.webViewCloseBtn}>
+              <ChevronLeft size={24} color={Theme.colors.text} />
               <Text style={styles.webViewCloseTxt}>Cancel Payment</Text>
             </TouchableOpacity>
           </View>
@@ -391,8 +396,8 @@ export default function RenewalPaymentScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ChevronLeft size={24} color="#0f172a" />
+          <TouchableOpacity accessibilityRole="button" onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <ChevronLeft size={24} color={Theme.colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Subscription & Renewal</Text>
           <View style={{ width: 40 }} />
@@ -411,8 +416,8 @@ export default function RenewalPaymentScreen() {
             {/* Status Panel */}
             <View style={styles.card}>
               <View style={styles.statusHeader}>
-                <CreditCard size={20} color="#fff" />
-                <View style={{ marginLeft: 8 }}>
+                <CreditCard size={20} color={Theme.colors.card} />
+                <View style={{ marginLeft: Theme.spacing.sm }}>
                   <Text style={styles.statusHeaderTitle}>Subscription Status</Text>
                   <Text style={styles.statusHeaderSub}>{subInfo.school_name || 'Your School'}</Text>
                 </View>
@@ -434,7 +439,7 @@ export default function RenewalPaymentScreen() {
                 {['monthly', 'yearly'].map(cycle => {
                   const active = billingCycle === cycle;
                   return (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={cycle}
                       onPress={() => setBillingCycle(cycle as any)}
                       style={[styles.segmentedTab, active && styles.segmentedTabActive]}
@@ -461,7 +466,7 @@ export default function RenewalPaymentScreen() {
                   {[{ val: false, title: 'One‑time Payment' }, { val: true, title: 'Automatic Renewal' }].map(item => {
                     const active = wantsAutoPay === item.val;
                     return (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={String(item.val)}
                         onPress={() => setWantsAutoPay(item.val)}
                         style={[styles.segmentedTab, active && styles.segmentedTabActive]}
@@ -489,16 +494,16 @@ export default function RenewalPaymentScreen() {
                   const loadingP = loadingPlan === plan.id;
                   const canCheckout = !plan.isCustomPricing && (plan.priceValue > 0 || plan.isFree);
                   const isPopular = plan.highlighted && !isCurrent;
-                  
+
                   const features: string[] = plan.features && plan.features.length > 0 ? plan.features : ['Core Features Included', 'Student & Staff Attendance', 'Support Tier Included'];
 
                   return (
-                    <View 
-                      key={plan.id} 
+                    <View
+                      key={plan.id}
                       style={[
-                        styles.planCard, 
-                        isCurrent && styles.planCardCurrent, 
-                        isPopular && styles.planCardPopular
+                        styles.planCard,
+                        isCurrent && styles.planCardCurrent,
+                        isPopular && styles.planCardPopular,
                       ]}
                     >
                       {/* Header Row */}
@@ -507,13 +512,13 @@ export default function RenewalPaymentScreen() {
                           <Text style={styles.planCardTitle}>{plan.title}</Text>
                           {plan.description && <Text style={styles.planCardDesc}>{plan.description}</Text>}
                         </View>
-                        
+
                         {isCurrent && (
                           <View style={styles.currentPlanBadge}>
                             <Text style={styles.currentPlanBadgeTxt}>Current</Text>
                           </View>
                         )}
-                        
+
                         {isPopular && (
                           <View style={styles.popularPlanBadge}>
                             <Text style={styles.popularPlanBadgeTxt}>Popular</Text>
@@ -524,10 +529,10 @@ export default function RenewalPaymentScreen() {
                       {/* Pricing Row */}
                       <View style={styles.planCardPricing}>
                         <Text style={styles.planCardPrice}>
-                          {plan.isCustomPricing 
-                            ? 'Custom Pricing' 
-                            : plan.isFree 
-                              ? 'Free' 
+                          {plan.isCustomPricing
+                            ? 'Custom Pricing'
+                            : plan.isFree
+                              ? 'Free'
                               : plan.selectedPriceText}
                         </Text>
                         {!plan.isCustomPricing && !plan.isFree && (
@@ -541,33 +546,33 @@ export default function RenewalPaymentScreen() {
                       <View style={styles.planFeaturesList}>
                         {features.map((feature, idx) => (
                           <View key={idx} style={styles.featureItem}>
-                            <CheckCircle2 size={16} color={isCurrent ? Theme.colors.primary : '#10b981'} style={styles.featureIcon} />
+                            <CheckCircle2 size={16} color={isCurrent ? Theme.colors.primary : Theme.colors.success} style={styles.featureIcon} />
                             <Text style={styles.featureText}>{feature}</Text>
                           </View>
                         ))}
                       </View>
 
                       {/* Action Button */}
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         onPress={() => handleSelect(plan)}
                         disabled={loadingPlan !== null || isCurrent || !canCheckout}
                         style={[
-                          styles.planCardBtn, 
-                          isCurrent && styles.planCardBtnCurrent, 
-                          loadingP && styles.planCardBtnLoading, 
-                          !canCheckout && styles.planCardBtnDisabled
+                          styles.planCardBtn,
+                          isCurrent && styles.planCardBtnCurrent,
+                          loadingP && styles.planCardBtnLoading,
+                          !canCheckout && styles.planCardBtnDisabled,
                         ]}
                       >
                         {loadingP ? (
-                          <ActivityIndicator size="small" color="#fff" />
+                          <ActivityIndicator size="small" color={Theme.colors.card} />
                         ) : (
                           <Text style={[styles.planCardBtnTxt, isCurrent && styles.planCardBtnTxtCurrent]}>
-                            {isCurrent 
-                              ? 'Active Plan' 
-                              : !canCheckout 
-                                ? 'Contact Support' 
-                                : wantsAutoPay 
-                                  ? 'Subscribe Now' 
+                            {isCurrent
+                              ? 'Active Plan'
+                              : !canCheckout
+                                ? 'Contact Support'
+                                : wantsAutoPay
+                                  ? 'Subscribe Now'
                                   : 'Pay / Renew Now'}
                           </Text>
                         )}
@@ -612,7 +617,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   scrollContent: {
     flex: 1,
@@ -630,33 +635,33 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: Theme.spacing.lg,
   },
   errorMsg: {
-    marginTop: 16,
-    color: '#dc2626',
-    fontSize: 14,
+    marginTop: Theme.spacing.md,
+    color: Theme.colors.error,
+    ...Theme.typography.body,
     textAlign: 'center',
   },
   retryBtn: {
     marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
     backgroundColor: Theme.colors.primary,
     borderRadius: 8,
   },
   retryTxt: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontWeight: '600',
   },
   content: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: Theme.spacing.md,
+    paddingTop: Theme.spacing.md,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.card,
     borderRadius: 16,
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 20,
     shadowColor: '#000',
     shadowOpacity: 0.05,
@@ -672,9 +677,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusHeaderTitle: {
-    color: '#fff',
-    fontWeight: '800',
-    fontSize: 15,
+    color: Theme.colors.card,
+    ...Theme.typography.bodyMd,
   },
   statusHeaderSub: {
     color: 'rgba(255,255,255,0.85)',
@@ -685,28 +689,28 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   label: {
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 8,
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+    marginTop: Theme.spacing.sm,
   },
   value: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0f172a',
+    color: Theme.colors.text,
     marginBottom: 12,
   },
   segmentedControl: {
     flexDirection: 'row',
     backgroundColor: '#eef2f6',
     borderRadius: 14,
-    padding: 4,
+    padding: Theme.spacing.xs,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
   },
   segmentedTab: {
     flex: 1,
@@ -726,19 +730,19 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   segmentedTabText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
-    color: '#64748b',
+    color: Theme.colors.textSec,
   },
   segmentedTabTextActive: {
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   badge: {
     backgroundColor: '#dcfce7',
     borderRadius: 12,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    marginLeft: 4,
+    marginLeft: Theme.spacing.xs,
   },
   badgeTxt: {
     fontSize: 10,
@@ -746,12 +750,12 @@ const styles = StyleSheet.create({
     color: '#16a34a',
   },
   planCard: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.card,
     borderRadius: 20,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1.5,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.03,
@@ -760,7 +764,7 @@ const styles = StyleSheet.create({
   },
   planCardCurrent: {
     borderColor: Theme.colors.primary,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
   },
   planCardPopular: {
     borderColor: '#f59e0b',
@@ -770,33 +774,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   planCardTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   planCardDesc: {
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 4,
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+    marginTop: Theme.spacing.xs,
   },
   currentPlanBadge: {
     backgroundColor: '#dbeafe',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 8,
   },
   currentPlanBadgeTxt: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#1e3a8a',
+    color: Theme.colors.primary,
   },
   popularPlanBadge: {
     backgroundColor: '#fef3c7',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 8,
   },
   popularPlanBadgeTxt: {
@@ -809,22 +813,22 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     marginBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    paddingBottom: 16,
+    borderBottomColor: Theme.colors.background,
+    paddingBottom: Theme.spacing.md,
   },
   planCardPrice: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   planCardPeriod: {
-    fontSize: 14,
-    color: '#64748b',
-    marginLeft: 4,
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
+    marginLeft: Theme.spacing.xs,
     fontWeight: '600',
   },
   planFeaturesList: {
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
     gap: 12,
   },
   featureItem: {
@@ -835,8 +839,8 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   featureText: {
-    fontSize: 14,
-    color: '#475569',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     fontWeight: '500',
   },
   planCardBtn: {
@@ -848,27 +852,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   planCardBtnCurrent: {
-    backgroundColor: '#e2e8f0',
+    backgroundColor: Theme.colors.border,
   },
   planCardBtnLoading: {
     backgroundColor: '#94a3b8',
   },
   planCardBtnDisabled: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1.5,
     borderColor: '#cbd5e1',
   },
   planCardBtnTxt: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '800',
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   planCardBtnTxtCurrent: {
-    color: '#64748b',
+    color: Theme.colors.textSec,
   },
   emptyMsg: {
     textAlign: 'center',
-    color: '#64748b',
+    color: Theme.colors.textSec,
     fontWeight: '700',
     marginTop: 20,
   },
@@ -877,10 +881,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Theme.colors.background,
-    padding: 24,
+    padding: Theme.spacing.lg,
   },
   successBox: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 28,
     padding: 40,
     alignItems: 'center',
@@ -890,25 +894,25 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   successTitle: {
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     fontSize: 22,
     fontWeight: '900',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   successMsg: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#64748b',
+    marginTop: Theme.spacing.sm,
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     textAlign: 'center',
   },
   webViewHeader: {
     height: 56,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: Theme.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
   },
   webViewCloseBtn: {
     flexDirection: 'row',
@@ -916,8 +920,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   webViewCloseTxt: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0f172a',
+    ...Theme.typography.h4,
+    color: Theme.colors.text,
   },
 });

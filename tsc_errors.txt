@@ -1,0 +1,109 @@
+src/components/layout/SchoolUnifiedLayout.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/components/layout/SchoolUnifiedLayout.tsx(18,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/accountant/AccountantDashboardScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/accountant/AccountantDashboardScreen.tsx(20,26): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/accountant/AccountantProfileScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/accountant/AccountantProfileScreen.tsx(12,26): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/accountant/PayrollScreen.tsx(408,313): error TS2551: Property 'addButtonText' does not exist on type '{ mainContainer: { flex: number; backgroundColor: string; }; contentOverlap: { flex: number; marginTop: number; backgroundColor: string; borderTopLeftRadius: number; borderTopRightRadius: number; ... 5 more ...; elevation: number; }; ... 191 more ...; hoursBadgeText: { ...; }; }'. Did you mean 'addButtonTextRed'?
+src/screens/accountant/PayrollScreen.tsx(427,329): error TS2551: Property 'addButtonText' does not exist on type '{ mainContainer: { flex: number; backgroundColor: string; }; contentOverlap: { flex: number; marginTop: number; backgroundColor: string; borderTopLeftRadius: number; borderTopRightRadius: number; ... 5 more ...; elevation: number; }; ... 191 more ...; hoursBadgeText: { ...; }; }'. Did you mean 'addButtonTextRed'?
+src/screens/accountant/PayrollScreen.tsx(853,41): error TS2339: Property 'actionBtnTextBlue' does not exist on type '{ mainContainer: { flex: number; backgroundColor: string; }; contentOverlap: { flex: number; marginTop: number; backgroundColor: string; borderTopLeftRadius: number; borderTopRightRadius: number; ... 5 more ...; elevation: number; }; ... 191 more ...; hoursBadgeText: { ...; }; }'.
+src/screens/accountant/PayrollScreen.tsx(856,140): error TS2551: Property 'actionBtnText' does not exist on type '{ mainContainer: { flex: number; backgroundColor: string; }; contentOverlap: { flex: number; marginTop: number; backgroundColor: string; borderTopLeftRadius: number; borderTopRightRadius: number; ... 5 more ...; elevation: number; }; ... 191 more ...; hoursBadgeText: { ...; }; }'. Did you mean 'actionBtn'?
+src/screens/accountant/PayrollScreen.tsx(1097,41): error TS2339: Property 'actionBtnTextBlue' does not exist on type '{ mainContainer: { flex: number; backgroundColor: string; }; contentOverlap: { flex: number; marginTop: number; backgroundColor: string; borderTopLeftRadius: number; borderTopRightRadius: number; ... 5 more ...; elevation: number; }; ... 191 more ...; hoursBadgeText: { ...; }; }'.
+src/screens/accountant/PayrollScreen.tsx(1100,136): error TS2551: Property 'actionBtnText' does not exist on type '{ mainContainer: { flex: number; backgroundColor: string; }; contentOverlap: { flex: number; marginTop: number; backgroundColor: string; borderTopLeftRadius: number; borderTopRightRadius: number; ... 5 more ...; elevation: number; }; ... 191 more ...; hoursBadgeText: { ...; }; }'. Did you mean 'actionBtn'?
+src/screens/accountant/PayrollScreen.tsx(1103,120): error TS2551: Property 'actionBtnText' does not exist on type '{ mainContainer: { flex: number; backgroundColor: string; }; contentOverlap: { flex: number; marginTop: number; backgroundColor: string; borderTopLeftRadius: number; borderTopRightRadius: number; ... 5 more ...; elevation: number; }; ... 191 more ...; hoursBadgeText: { ...; }; }'. Did you mean 'actionBtn'?
+src/screens/accountant/PayrollScreen.tsx(1251,43): error TS2339: Property 'hoursGrossAmount' does not exist on type '{ mainContainer: { flex: number; backgroundColor: string; }; contentOverlap: { flex: number; marginTop: number; backgroundColor: string; borderTopLeftRadius: number; borderTopRightRadius: number; ... 5 more ...; elevation: number; }; ... 191 more ...; hoursBadgeText: { ...; }; }'.
+src/screens/accountant/StaffAttendanceScreen.tsx(277,113): error TS2339: Property 'saveBtnText' does not exist on type '{ overlay: { flex: number; backgroundColor: string; justifyContent: "flex-end"; }; box: { backgroundColor: string; borderTopLeftRadius: number; borderTopRightRadius: number; maxHeight: "88%"; ... 4 more ...; elevation: number; }; ... 22 more ...; saveBtn: { ...; }; }'.
+src/screens/admin/AdminAgentsScreen.tsx(313,71): error TS2552: Cannot find name 'navigation'. Did you mean 'useNavigation'?
+src/screens/admin/AdminDashboardScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/admin/AdminDashboardScreen.tsx(24,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/admin/AdminPlansScreen.tsx(310,68): error TS2552: Cannot find name 'navigation'. Did you mean 'useNavigation'?
+src/screens/auth/ForgotPasswordScreen.tsx(25,48): error TS2300: Duplicate identifier 'navigation'.
+src/screens/auth/ForgotPasswordScreen.tsx(26,9): error TS2300: Duplicate identifier 'navigation'.
+src/screens/auth/RegisterSchoolScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/auth/RegisterSchoolScreen.tsx(17,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/auth/ResetPasswordScreen.tsx(24,54): error TS2300: Duplicate identifier 'navigation'.
+src/screens/auth/ResetPasswordScreen.tsx(25,9): error TS2300: Duplicate identifier 'navigation'.
+src/screens/auth/VerifyOtpScreen.tsx(24,50): error TS2300: Duplicate identifier 'navigation'.
+src/screens/auth/VerifyOtpScreen.tsx(25,9): error TS2300: Duplicate identifier 'navigation'.
+src/screens/common/PaymentDueScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/common/PaymentDueScreen.tsx(5,20): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/director/BranchDetailsScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/director/BranchDetailsScreen.tsx(24,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/director/DirectorDashboardScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/director/DirectorDashboardScreen.tsx(23,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/director/RenewalPaymentScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/director/RenewalPaymentScreen.tsx(6,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/principal/AccountantScreen.tsx(35,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/AccountantScreen.tsx(38,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/AnnouncementsScreen.tsx(34,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/AnnouncementsScreen.tsx(35,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/AttendanceManagementScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/principal/AttendanceManagementScreen.tsx(18,20): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/principal/AttendanceManagementScreen.tsx(51,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/AttendanceManagementScreen.tsx(54,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/AttendanceScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/principal/AttendanceScreen.tsx(19,20): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/principal/AttendanceScreen.tsx(54,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/AttendanceScreen.tsx(57,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/CalendarManagement.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/principal/CalendarManagement.tsx(23,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/principal/CalendarManagement.tsx(27,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/CalendarManagement.tsx(28,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/DataExportScreen.tsx(19,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/DataExportScreen.tsx(20,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/ExamsScreen.tsx(37,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/ExamsScreen.tsx(40,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/ExpenseScreen.tsx(39,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/ExpenseScreen.tsx(42,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/FeeManagementScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/principal/FeeManagementScreen.tsx(18,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/principal/FeeManagementScreen.tsx(51,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/FeeManagementScreen.tsx(54,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/PaymentEntryScreen.tsx(41,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/PaymentEntryScreen.tsx(44,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/PendingStudentsScreen.tsx(36,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/PendingStudentsScreen.tsx(39,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/PrincipalDashboardScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/principal/PrincipalDashboardScreen.tsx(18,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/principal/ReportsScreen.tsx(37,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/ReportsScreen.tsx(40,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/SettingsScreen.tsx(37,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/SettingsScreen.tsx(40,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/StudentAttendanceReport.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/principal/StudentAttendanceReport.tsx(37,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/principal/StudentManagementScreen.tsx(68,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/StudentManagementScreen.tsx(69,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/SummaryCardsScreen.tsx(33,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/SummaryCardsScreen.tsx(36,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/TeacherManagementScreen.tsx(65,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/principal/TeacherManagementScreen.tsx(66,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/public/PrincipalRegistrationPublicScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/public/PrincipalRegistrationPublicScreen.tsx(15,20): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/public/StudentRegisterPublicScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/public/StudentRegisterPublicScreen.tsx(17,20): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/public/StudentRegisterPublicScreen.tsx(42,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/public/StudentRegisterPublicScreen.tsx(43,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/public/TeacherRegisterPublicScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/public/TeacherRegisterPublicScreen.tsx(17,20): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/student/StudentAttendanceScreen.tsx(39,51): error TS2300: Duplicate identifier 'navigation'.
+src/screens/student/StudentAttendanceScreen.tsx(40,9): error TS2300: Duplicate identifier 'navigation'.
+src/screens/student/StudentDashboardScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/student/StudentDashboardScreen.tsx(20,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/teacher/HomeworkSubmissionsScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/teacher/HomeworkSubmissionsScreen.tsx(13,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/teacher/StudentListScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/teacher/StudentListScreen.tsx(23,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/teacher/StudentRegistrationScreen.tsx(47,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/teacher/StudentRegistrationScreen.tsx(50,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/teacher/TeacherDashboardScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/teacher/TeacherDashboardScreen.tsx(20,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/teacher/ViewAttendanceScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/teacher/ViewAttendanceScreen.tsx(39,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/visitor/VisitFormScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/visitor/VisitFormScreen.tsx(15,20): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/visitor/VisitorDashboardScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/visitor/VisitorDashboardScreen.tsx(17,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/visitor/VisitorDashboardScreen.tsx(24,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/visitor/VisitorDashboardScreen.tsx(36,10): error TS2300: Duplicate identifier 'Theme'.
+src/screens/visitor/VisitSuccessScreen.tsx(1,10): error TS2300: Duplicate identifier 'useNavigation'.
+src/screens/visitor/VisitSuccessScreen.tsx(11,10): error TS2300: Duplicate identifier 'useNavigation'.

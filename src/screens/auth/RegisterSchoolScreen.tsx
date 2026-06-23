@@ -1,3 +1,4 @@
+import { Theme } from '../../theme/tokens';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
@@ -90,7 +91,7 @@ const SuccessView: React.FC<{
 
 export default function RegisterSchoolScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  
+
   const [loading, setLoading] = useState<boolean>(false);
   const [otpSending, setOtpSending] = useState<boolean>(false);
   const [otpVerifying, setOtpVerifying] = useState<boolean>(false);
@@ -118,15 +119,15 @@ export default function RegisterSchoolScreen() {
   const generatedSchoolCode = useMemo(() => {
     const prefix = sanitizeCodePart(formData.board);
     const custom = sanitizeCodePart(formData.schoolCode);
-    if (!prefix || !custom) return '';
+    if (!prefix || !custom) {return '';}
     return `${prefix}${custom}`.toUpperCase();
   }, [formData.board, formData.schoolCode]);
 
   useEffect(() => {
-    if (!successId) return;
+    if (!successId) {return;}
     const interval = setInterval(() => setRedirectCountdown(prev => Math.max(0, prev - 1)), 1000);
     const timer = setTimeout(() => {
-      navigation.replace('Login', { prefillSchoolId: successId, prefillUsername: schoolEmail || '' } as any);
+      (navigation as any).replace('Login', { prefillSchoolId: successId, prefillUsername: schoolEmail || '' } as any);
     }, 5000);
     return () => { clearInterval(interval); clearTimeout(timer); };
   }, [successId, schoolEmail, navigation]);
@@ -137,7 +138,7 @@ export default function RegisterSchoolScreen() {
   };
 
   const sendOtp = async () => {
-    if (!formData.email.trim()) return Alert.alert('Error', 'Please enter email first');
+    if (!formData.email.trim()) {return Alert.alert('Error', 'Please enter email first');}
     setOtpSending(true);
     try {
       await API.post('/schools/send-otp', { email: formData.email.trim() });
@@ -149,7 +150,7 @@ export default function RegisterSchoolScreen() {
   };
 
   const verifyOtp = async () => {
-    if (!otp.trim()) return Alert.alert('Error', 'Please enter OTP');
+    if (!otp.trim()) {return Alert.alert('Error', 'Please enter OTP');}
     setOtpVerifying(true);
     try {
       await API.post('/schools/verify-otp', { email: formData.email.trim(), otp: otp.trim() });
@@ -161,7 +162,7 @@ export default function RegisterSchoolScreen() {
   };
 
   const handleSubmit = () => {
-    if (!emailVerified) return Alert.alert('Error', 'Please verify email first');
+    if (!emailVerified) {return Alert.alert('Error', 'Please verify email first');}
     if (!formData.schoolName || !formData.directorName || !formData.schoolCode || !formData.board || !formData.password || !formData.address) {
       return Alert.alert('Error', 'Please fill all fields');
     }
@@ -178,7 +179,7 @@ export default function RegisterSchoolScreen() {
       password: formData.password,
       address: formData.address,
       plan: planId,
-      directors: [{ name: formData.directorName, phone: "0000000000", email: formData.email, designation: "Headmaster", position: "Administrator" }]
+      directors: [{ name: formData.directorName, phone: '0000000000', email: formData.email, designation: 'Headmaster', position: 'Administrator' }],
     };
 
     try {
@@ -218,7 +219,7 @@ export default function RegisterSchoolScreen() {
                     <Text style={styles.fieldLabel}>BOARD TYPE</Text>
                     <View style={styles.boardOptions}>
                       {SCHOOL_CODE_OPTIONS.map(opt => (
-                        <TouchableOpacity key={opt.value} style={[styles.boardBtn, formData.board === opt.value && styles.boardBtnActive]} onPress={() => handleChange('board', opt.value)}>
+                        <TouchableOpacity accessibilityRole="button" key={opt.value} style={[styles.boardBtn, formData.board === opt.value && styles.boardBtnActive]} onPress={() => handleChange('board', opt.value)}>
                           <Text style={[styles.boardBtnText, formData.board === opt.value && styles.boardBtnTextActive]}>{opt.label}</Text>
                         </TouchableOpacity>
                       ))}
@@ -232,7 +233,7 @@ export default function RegisterSchoolScreen() {
                   <View style={{flex: 1}}>
                     <AppInput label="OFFICIAL EMAIL" placeholder="admin@school.com" value={formData.email} onChangeText={t => handleChange('email', t)} keyboardType="email-address" autoCapitalize="none" editable={!emailVerified} />
                   </View>
-                  <TouchableOpacity style={[styles.inlineVerifyBtn, (otpSending || emailVerified) && styles.btnDisabled]} onPress={sendOtp} disabled={otpSending || emailVerified}>
+                  <TouchableOpacity accessibilityRole="button" style={[styles.inlineVerifyBtn, (otpSending || emailVerified) && styles.btnDisabled]} onPress={sendOtp} disabled={otpSending || emailVerified}>
                     <Text style={styles.inlineVerifyBtnText}>{emailVerified ? 'VERIFIED' : otpSending ? '...' : 'VERIFY'}</Text>
                   </TouchableOpacity>
                 </View>
@@ -242,7 +243,7 @@ export default function RegisterSchoolScreen() {
                     <View style={{flex: 1}}>
                       <AppInput label="ENTER OTP" placeholder="XXXXXX" value={otp} onChangeText={setOtp} keyboardType="numeric" maxLength={6} />
                     </View>
-                    <TouchableOpacity style={styles.inlineVerifyBtn} onPress={verifyOtp} disabled={otpVerifying}>
+                    <TouchableOpacity accessibilityRole="button" style={styles.inlineVerifyBtn} onPress={verifyOtp} disabled={otpVerifying}>
                       <Text style={styles.inlineVerifyBtnText}>{otpVerifying ? '...' : 'CONFIRM'}</Text>
                     </TouchableOpacity>
                   </View>
@@ -253,12 +254,12 @@ export default function RegisterSchoolScreen() {
 
                 <AppButton title="COMPLETE REGISTRATION" onPress={handleSubmit} disabled={!emailVerified} style={styles.actionButton} />
 
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.linkContainer}>
+                <TouchableOpacity accessibilityRole="button" onPress={() => navigation.goBack()} style={styles.linkContainer}>
                   <Text style={styles.linkText}>Back to Login</Text>
                 </TouchableOpacity>
               </>
             ) : (
-              <SuccessView successId={successId} email={schoolEmail || ''} schoolName={schoolName || ''} redirectCountdown={redirectCountdown} onGoLogin={() => navigation.replace('Login' as any)} />
+              <SuccessView successId={successId} email={schoolEmail || ''} schoolName={schoolName || ''} redirectCountdown={redirectCountdown} onGoLogin={() => (navigation as any).replace('Login')} />
             )}
           </View>
         </ScrollView>
@@ -269,12 +270,12 @@ export default function RegisterSchoolScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Choose Plan</Text>
             {['Basic', 'Professional', 'Enterprise'].map(plan => (
-              <TouchableOpacity key={plan} style={styles.planItem} onPress={() => handlePaymentSelected(plan.toLowerCase())} disabled={isCreatingSchool}>
+              <TouchableOpacity accessibilityRole="button" key={plan} style={styles.planItem} onPress={() => handlePaymentSelected(plan.toLowerCase())} disabled={isCreatingSchool}>
                 <Text style={styles.planItemText}>{plan}</Text>
                 <Text style={styles.planSelectLabel}>SELECT</Text>
               </TouchableOpacity>
             ))}
-            <TouchableOpacity onPress={() => setShowPaymentModal(false)} style={styles.modalCloseBtn}>
+            <TouchableOpacity accessibilityRole="button" onPress={() => setShowPaymentModal(false)} style={styles.modalCloseBtn}>
               <Text style={styles.modalCloseBtnText}>CANCEL</Text>
             </TouchableOpacity>
           </View>
@@ -285,46 +286,46 @@ export default function RegisterSchoolScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#F8FAFC' },
+  container: { backgroundColor: Theme.colors.background },
   keyboardView: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40, justifyContent: 'center' },
+  scrollContent: { flexGrow: 1, paddingHorizontal: Theme.spacing.lg, paddingBottom: 40, justifyContent: 'center' },
   headerSection: { alignItems: 'center', marginBottom: 30, marginTop: 20, width: '100%' },
-  logo: { width: 300, height: 100, marginBottom: 16, alignSelf: 'center' },
-  brandSubtitle: { fontSize: 14, color: '#64748B', textAlign: 'center', lineHeight: 20, paddingHorizontal: 20 },
-  card: { backgroundColor: '#FFFFFF', padding: 20, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 5 },
+  logo: { width: 300, height: 100, marginBottom: Theme.spacing.md, alignSelf: 'center' },
+  brandSubtitle: { ...Theme.typography.body, color: Theme.colors.textSec, textAlign: 'center', lineHeight: 20, paddingHorizontal: 20 },
+  card: { backgroundColor: Theme.colors.card, padding: 20, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 5 },
   cardTitle: { fontSize: 20, fontWeight: '700', color: '#1E293B', textAlign: 'center' },
-  cardSubtitle: { fontSize: 14, color: '#94A3B8', textAlign: 'center', marginBottom: 24, marginTop: 4 },
+  cardSubtitle: { ...Theme.typography.body, color: Theme.colors.textMuted, textAlign: 'center', marginBottom: Theme.spacing.lg, marginTop: Theme.spacing.xs },
   row: { flexDirection: 'row', gap: 12 },
-  fieldLabel: { fontSize: 14, fontWeight: '600', color: '#1E293B', marginBottom: 6 },
+  fieldLabel: { ...Theme.typography.body, fontWeight: '600', color: '#1E293B', marginBottom: 6 },
   boardOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  boardBtn: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0' },
+  boardBtn: { paddingVertical: Theme.spacing.sm, paddingHorizontal: 10, borderRadius: 8, backgroundColor: Theme.colors.background, borderWidth: 1, borderColor: Theme.colors.border },
   boardBtnActive: { backgroundColor: '#2563EB', borderColor: '#2563EB' },
-  boardBtnText: { fontSize: 12, fontWeight: '600', color: '#64748B' },
-  boardBtnTextActive: { color: '#FFFFFF' },
-  generatedCode: { fontSize: 12, fontWeight: '700', color: '#2563EB', marginBottom: 16, marginTop: -8, textAlign: 'right' },
+  boardBtnText: { ...Theme.typography.caption, fontWeight: '600', color: Theme.colors.textSec },
+  boardBtnTextActive: { color: Theme.colors.card },
+  generatedCode: { ...Theme.typography.caption, fontWeight: '700', color: '#2563EB', marginBottom: Theme.spacing.md, marginTop: -8, textAlign: 'right' },
   emailContainer: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  otpSection: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 8 },
-  inlineVerifyBtn: { height: 48, backgroundColor: '#2563EB', borderRadius: 10, paddingHorizontal: 12, justifyContent: 'center', marginBottom: 16 },
-  inlineVerifyBtnText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
+  otpSection: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: Theme.spacing.sm },
+  inlineVerifyBtn: { height: 48, backgroundColor: '#2563EB', borderRadius: 10, paddingHorizontal: 12, justifyContent: 'center', marginBottom: Theme.spacing.md },
+  inlineVerifyBtnText: { color: Theme.colors.card, ...Theme.typography.caption, fontWeight: '700' },
   btnDisabled: { opacity: 0.5 },
   actionButton: { height: 56, borderRadius: 16, backgroundColor: '#2563EB', marginTop: 12 },
-  linkContainer: { marginTop: 16, alignItems: 'center' },
-  linkText: { color: '#64748B', fontSize: 14, fontWeight: '500' },
+  linkContainer: { marginTop: Theme.spacing.md, alignItems: 'center' },
+  linkText: { color: Theme.colors.textSec, ...Theme.typography.body, fontWeight: '500' },
   successContainer: { alignItems: 'center', paddingVertical: 10 },
-  successIcon: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  successIcon: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center', marginBottom: Theme.spacing.md },
   successIconText: { fontSize: 30, color: '#16A34A' },
-  successDetails: { width: '100%', backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, marginVertical: 20, gap: 12 },
-  detailItem: { borderBottomWidth: 1, borderBottomColor: '#E2E8F0', pb: 8 },
-  detailLabel: { fontSize: 10, fontWeight: '800', color: '#94A3B8', letterSpacing: 1 },
+  successDetails: { width: '100%', backgroundColor: Theme.colors.background, borderRadius: 16, padding: Theme.spacing.md, marginVertical: 20, gap: 12 },
+  detailItem: { borderBottomWidth: 1, borderBottomColor: Theme.colors.border, paddingBottom: Theme.spacing.sm },
+  detailLabel: { fontSize: 10, fontWeight: '800', color: Theme.colors.textMuted, letterSpacing: 1 },
   detailValue: { fontSize: 24, fontWeight: '800', color: '#1E293B' },
-  detailValueSmall: { fontSize: 16, fontWeight: '600', color: '#475569' },
-  successCountdown: { fontSize: 12, color: '#94A3B8', marginTop: 12 },
+  detailValueSmall: { ...Theme.typography.h4, color: Theme.colors.textSec },
+  successCountdown: { ...Theme.typography.caption, color: Theme.colors.textMuted, marginTop: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 30 },
-  modalContent: { backgroundColor: '#FFF', borderRadius: 24, padding: 24, gap: 12 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1E293B', textAlign: 'center', marginBottom: 12 },
-  planItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
-  planItemText: { fontSize: 16, fontWeight: '600', color: '#1E293B' },
-  planSelectLabel: { fontSize: 12, fontWeight: '700', color: '#2563EB' },
-  modalCloseBtn: { marginTop: 8, alignItems: 'center', padding: 12 },
-  modalCloseBtnText: { color: '#EF4444', fontWeight: '700' }
+  modalContent: { backgroundColor: Theme.colors.card, borderRadius: 24, padding: Theme.spacing.lg, gap: 12 },
+  modalTitle: { ...Theme.typography.h3, color: '#1E293B', textAlign: 'center', marginBottom: 12 },
+  planItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Theme.spacing.md, backgroundColor: Theme.colors.background, borderRadius: 12, borderWidth: 1, borderColor: Theme.colors.border },
+  planItemText: { ...Theme.typography.h4, color: '#1E293B' },
+  planSelectLabel: { ...Theme.typography.caption, fontWeight: '700', color: '#2563EB' },
+  modalCloseBtn: { marginTop: Theme.spacing.sm, alignItems: 'center', padding: 12 },
+  modalCloseBtnText: { color: '#EF4444', fontWeight: '700' },
 });

@@ -1,3 +1,5 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+import { motion } from '../../theme/motion';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
@@ -10,7 +12,6 @@ import {
   TextInput,
   Alert,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Animated,
@@ -49,9 +50,10 @@ import {
   Zap,
 } from 'lucide-react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { Theme } from '../../theme/theme';
+import Svg, { Line, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+
 import API from '../../services/api';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme/tokens';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
@@ -61,6 +63,11 @@ import AppText from '../../components/common/AppText';
 import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { Theme } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
 
 
 // Types
@@ -100,24 +107,24 @@ interface Stats {
 
 // Helper functions
 const getSchoolCode = async (): Promise<string> => {
-  const code = await AsyncStorage.getItem('school_code');
-  return code || (await AsyncStorage.getItem('schoolCode')) || '';
+  const code = await storage.getString(StorageKeys.SCHOOL_CODE);
+  return code || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
 };
 
 const formatDate = (dateString: string): string => {
-  if (!dateString) return '-';
+  if (!dateString) {return '-';}
   const date = new Date(dateString);
   return date.toLocaleDateString('en-IN');
 };
 
 const getHealthMeta = (status: string) => {
   const key = String(status || '').toUpperCase();
-  if (key === 'HEALTHY') return { label: 'Healthy', bg: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: 'rgba(16, 185, 129, 0.2)' };
-  if (key === 'INACTIVE') return { label: 'Inactive', bg: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'rgba(239, 68, 68, 0.2)' };
-  if (key === 'PRINCIPAL_MISSING') return { label: 'Principal Missing', bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.2)' };
-  if (key === 'NO_CLASSES') return { label: 'No Classes', bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.2)' };
-  if (key === 'NO_TEACHERS') return { label: 'No Teachers', bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.2)' };
-  if (key === 'NO_STUDENTS') return { label: 'No Students', bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.2)' };
+  if (key === 'HEALTHY') {return { label: 'Healthy', bg: 'rgba(16, 185, 129, 0.1)', color: Theme.colors.success, border: 'rgba(16, 185, 129, 0.2)' };}
+  if (key === 'INACTIVE') {return { label: 'Inactive', bg: 'rgba(239, 68, 68, 0.1)', color: Theme.colors.error, border: 'rgba(239, 68, 68, 0.2)' };}
+  if (key === 'PRINCIPAL_MISSING') {return { label: 'Principal Missing', bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.2)' };}
+  if (key === 'NO_CLASSES') {return { label: 'No Classes', bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.2)' };}
+  if (key === 'NO_TEACHERS') {return { label: 'No Teachers', bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.2)' };}
+  if (key === 'NO_STUDENTS') {return { label: 'No Students', bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.2)' };}
   return { label: 'Needs Review', bg: 'rgba(148, 163, 184, 0.1)', color: '#94a3b8', border: 'rgba(148, 163, 184, 0.2)' };
 };
 
@@ -164,8 +171,7 @@ const KpiCard: React.FC<{
       Animated.spring(scaleAnim, {
         toValue: 1,
         useNativeDriver: true,
-        tension: 40,
-        friction: 7,
+        ...motion.springs.snappy,
       }),
       Animated.timing(opacityAnim, {
         toValue: 1,
@@ -214,7 +220,7 @@ const KpiCard: React.FC<{
         },
       ]}
     >
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         onPress={onPress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
@@ -250,8 +256,7 @@ const BranchCard: React.FC<{ branch: Branch; onPress: () => void }> = ({ branch,
       Animated.spring(scaleAnim, {
         toValue: 1,
         useNativeDriver: true,
-        tension: 40,
-        friction: 7,
+        ...motion.springs.snappy,
       }),
       Animated.timing(opacityAnim, {
         toValue: 1,
@@ -270,7 +275,7 @@ const BranchCard: React.FC<{ branch: Branch; onPress: () => void }> = ({ branch,
         },
       ]}
     >
-      <TouchableOpacity style={styles.branchCard} onPress={onPress} activeOpacity={0.85}>
+      <TouchableOpacity accessibilityRole="button" style={styles.branchCard} onPress={onPress} activeOpacity={0.85}>
         <View style={styles.branchCardHeader}>
           <View>
             <AppText style={styles.branchName}>{branch.branch_name}</AppText>
@@ -317,7 +322,7 @@ const BranchCard: React.FC<{ branch: Branch; onPress: () => void }> = ({ branch,
           </View>
           <View style={styles.branchViewBtnContainer}>
             <AppText style={styles.branchViewBtnText} weight="bold">View</AppText>
-            <ChevronRight size={14} color="#ffffff" />
+            <ChevronRight size={14} color={Theme.colors.card} />
           </View>
         </View>
       </TouchableOpacity>
@@ -368,11 +373,11 @@ const BranchManagementCard: React.FC<{
       </View>
 
       <View style={styles.branchManagementActions}>
-        <TouchableOpacity style={styles.managementBtnView} onPress={onView}>
-          <Eye size={13} color="#ffffff" />
+        <TouchableOpacity accessibilityRole="button" style={styles.managementBtnView} onPress={onView}>
+          <Eye size={13} color={Theme.colors.card} />
           <AppText style={styles.managementBtnViewText} weight="bold">View Details</AppText>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.managementBtnEdit} onPress={onEdit}>
+        <TouchableOpacity accessibilityRole="button" style={styles.managementBtnEdit} onPress={onEdit}>
           <Edit2 size={13} color={Theme.colors.primaryLight} />
           <AppText style={styles.managementBtnEditText} weight="bold">Edit</AppText>
         </TouchableOpacity>
@@ -384,10 +389,10 @@ const BranchManagementCard: React.FC<{
 
 
 const QUICK_ACTIONS = [
-  { label: 'Add Branch', route: 'DirectorPrincipalRegistration', icon: PlusCircle, bg: 'rgba(16, 185, 129, 0.08)', color: '#10b981' },
-  { label: 'Billing Info', route: 'DirectorBilling', icon: Briefcase, bg: 'rgba(124, 58, 237, 0.08)', color: '#7c3aed' },
+  { label: 'Add Branch', route: 'DirectorPrincipalRegistration', icon: PlusCircle, bg: 'rgba(16, 185, 129, 0.08)', color: Theme.colors.success },
+  { label: 'Billing Info', route: 'DirectorBilling', icon: Briefcase, bg: 'rgba(30, 58, 138, 0.08)', color: Theme.colors.primary },
   { label: 'Renew Plan', route: 'RenewalPayment', icon: Zap, bg: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b' },
-  { label: 'My Profile', route: 'Profile', icon: User, bg: 'rgba(30, 58, 138, 0.08)', color: '#1e3a8a' },
+  { label: 'My Profile', route: 'Profile', icon: User, bg: 'rgba(30, 58, 138, 0.08)', color: Theme.colors.primary },
 ] as const;
 
 export default function DirectorDashboardScreen() {
@@ -398,12 +403,10 @@ export default function DirectorDashboardScreen() {
   const { unreadCount } = useUnreadNotifications();
   const route = useRoute();
   const overviewRef = useRef<ScrollView>(null);
-  const lastScrollY = useRef(0);
-
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Morning';
-    if (hour < 17) return 'Afternoon';
+    if (hour < 12) {return 'Morning';}
+    if (hour < 17) {return 'Afternoon';}
     return 'Evening';
   };
 
@@ -457,8 +460,7 @@ export default function DirectorDashboardScreen() {
       Animated.spring(welcomeTranslateAnim, {
         toValue: 0,
         useNativeDriver: true,
-        tension: 40,
-        friction: 8,
+        ...motion.springs.snappy,
       }),
     ]).start();
 
@@ -473,8 +475,7 @@ export default function DirectorDashboardScreen() {
         Animated.spring(topBarTranslateAnim, {
           toValue: 0,
           useNativeDriver: true,
-          tension: 40,
-          friction: 8,
+          ...motion.springs.snappy,
         }),
       ]).start();
     }, 100);
@@ -522,7 +523,7 @@ export default function DirectorDashboardScreen() {
         setSchoolCode(code);
       }
       try {
-        const email = await AsyncStorage.getItem('email') || '';
+        const email = await storage.getString(StorageKeys.USER_EMAIL) || '';
         const phone = await AsyncStorage.getItem('phone') || '';
         if (isMounted.current) {
           setDirectorEmail(email);
@@ -540,23 +541,12 @@ export default function DirectorDashboardScreen() {
 
 
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    
-    if (currentScrollY > lastScrollY.current + 10) {
-      if (currentScrollY > 100) {
-        setTabBarVisible(false);
-      }
-      lastScrollY.current = currentScrollY;
-    } else if (currentScrollY < lastScrollY.current - 10) {
-      setTabBarVisible(true);
-      lastScrollY.current = currentScrollY;
-    }
-  };
+  const handleScroll = useScrollTabBar();
+
 
   // Fetch stats and branches
   const fetchStatsAndBranches = useCallback(async () => {
-    if (!schoolCode) return;
+    if (!schoolCode) {return;}
     setLoading(true);
     try {
       const endpoints = ['director/dashboard/overview', 'director/stats'];
@@ -567,7 +557,7 @@ export default function DirectorDashboardScreen() {
             headers: { 'x-school-code': schoolCode },
             suppressFallback404Log: true,
           } as any);
-          if (res) break;
+          if (res) {break;}
         } catch (e) {
           // try next
         }
@@ -605,12 +595,12 @@ export default function DirectorDashboardScreen() {
         // Cache data
         await Promise.all([
           AsyncStorage.setItem(`director_stats_${schoolCode}`, JSON.stringify(statsData)),
-          AsyncStorage.setItem(`director_branches_${schoolCode}`, JSON.stringify(branchArray))
+          AsyncStorage.setItem(`director_branches_${schoolCode}`, JSON.stringify(branchArray)),
         ]).catch(() => { });
       }
     } catch (err: any) {
-      if (!isMounted.current) return;
-      if (err?.response?.status === 401) return;
+      if (!isMounted.current) {return;}
+      if (err?.response?.status === 401) {return;}
       console.error('Failed to fetch dashboard data:', err);
       // Only alert if we don't have cached data
       if (branches.length === 0) {
@@ -641,10 +631,10 @@ export default function DirectorDashboardScreen() {
 
       const [cachedStats, cachedBranches] = await Promise.all([
         AsyncStorage.getItem(statsKey),
-        AsyncStorage.getItem(branchesKey)
+        AsyncStorage.getItem(branchesKey),
       ]);
 
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
 
       if (cachedStats) {
         setStats(JSON.parse(cachedStats));
@@ -703,20 +693,20 @@ export default function DirectorDashboardScreen() {
   // Branch cards pagination
   const branchCardsTotalPages = Math.max(1, Math.ceil(filteredBranches.length / BRANCH_CARDS_PER_PAGE));
   const branchCards = useMemo(() => {
-    if (!showAllBranches) return filteredBranches.slice(0, BRANCH_CARDS_PER_PAGE);
+    if (!showAllBranches) {return filteredBranches.slice(0, BRANCH_CARDS_PER_PAGE);}
     const start = (branchCardsPage - 1) * BRANCH_CARDS_PER_PAGE;
     return filteredBranches.slice(start, start + BRANCH_CARDS_PER_PAGE);
   }, [filteredBranches, showAllBranches, branchCardsPage]);
 
   // Selected branch object
   const selectedBranch = useMemo(() => {
-    if (selectedBranchId === 'ALL' || !Array.isArray(branches)) return null;
+    if (selectedBranchId === 'ALL' || !Array.isArray(branches)) {return null;}
     return branches.find(b => String(b.branch_id) === String(selectedBranchId));
   }, [branches, selectedBranchId]);
 
   // Displayed stats
   const displayedStats = useMemo(() => {
-    if (selectedBranchId === 'ALL') return stats;
+    if (selectedBranchId === 'ALL') {return stats;}
     if (selectedBranch) {
       return {
         ...stats,
@@ -780,7 +770,7 @@ export default function DirectorDashboardScreen() {
   };
 
   const saveEdit = async () => {
-    if (!editingId) return;
+    if (!editingId) {return;}
     try {
       await API.put('/director/branch/update', {
         branch_id: editingId,
@@ -791,13 +781,13 @@ export default function DirectorDashboardScreen() {
         status: editData.branch_status,
         password: null,
       });
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
       Alert.alert('Success', 'Branch updated successfully');
       cancelEdit();
       fetchStatsAndBranches();
     } catch (err: any) {
-      if (!isMounted.current) return;
-      if (err?.response?.status === 401) return;
+      if (!isMounted.current) {return;}
+      if (err?.response?.status === 401) {return;}
       Alert.alert('Error', 'Failed to update branch');
     }
   };
@@ -815,7 +805,7 @@ export default function DirectorDashboardScreen() {
             try {
               await API.delete('/director/branch/delete', { data: { branch_id: branchId } });
               Alert.alert('Success', 'Branch deleted successfully');
-              if (selectedBranchId === branchId) setSelectedBranchId('ALL');
+              if (selectedBranchId === branchId) {setSelectedBranchId('ALL');}
               fetchStatsAndBranches();
             } catch (err) {
               Alert.alert('Error', 'Failed to delete branch');
@@ -841,7 +831,7 @@ export default function DirectorDashboardScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       <ScrollView
         ref={overviewRef}
@@ -850,75 +840,123 @@ export default function DirectorDashboardScreen() {
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
+        {/* Background grid and alignment illustration */}
+        <View style={styles.gridLinesContainer} pointerEvents="none">
+          {/* Horizontal dashed line */}
+          <View style={[styles.gridLineHorizontal, { top: 290 }]} />
+
+          {/* Vertical dashed line */}
+          <View style={[styles.gridLineVertical, { left: width / 2 }]} />
+
+          {/* Diagonal connecting line */}
+          <Svg style={StyleSheet.absoluteFillObject}>
+            <Defs>
+              <SvgLinearGradient id="lineGrad" x1="0" y1="1" x2="1" y2="0">
+                <Stop offset="0%" stopColor={Theme.colors.blue} stopOpacity="0.6" />
+                <Stop offset="50%" stopColor={Theme.colors.success} stopOpacity="0.8" />
+                <Stop offset="100%" stopColor={Theme.colors.blue} stopOpacity="0.6" />
+              </SvgLinearGradient>
+            </Defs>
+            <Line
+              x1={30}
+              y1={480}
+              x2={width - 30}
+              y2={100}
+              stroke="url(#lineGrad)"
+              strokeWidth={1.5}
+            />
+          </Svg>
+
+          {/* Decorative Circle 1: Bottom-Left */}
+          <View style={[styles.decorCircle, { left: 30 - 30, top: 480 - 30 }]}>
+            <View style={styles.decorCircleInner} />
+          </View>
+
+          {/* Decorative Circle 2: Center */}
+          <View style={[styles.decorCircleCenter, { left: width / 2 - 20, top: 290 - 20 }]}>
+            <View style={styles.decorCircleCenterInner} />
+          </View>
+
+          {/* Decorative Circle 3: Top-Right */}
+          <View style={[styles.decorCircle, { left: width - 30 - 30, top: 100 - 30 }]}>
+            <View style={styles.decorCircleInner} />
+          </View>
+        </View>
+
         <LinearGradient
-          colors={['#1E3A8A', '#3B82F6']}
+          colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[
             styles.heroHeader,
             {
-              paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
-              borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-              borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-              paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM + 40,
-              paddingHorizontal: 20,
-              marginHorizontal: -20,
-            }
-          ]}
-        >
-          <View style={[styles.heroTopRow, { marginBottom: 0 }]}>
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => navigation.navigate('Profile')}
-              >
-                <AvatarBubble
-                  displayName={userName || 'Director'}
-                  size={44}
-                  textSize={18}
-                  primaryColor="#fff"
-                />
-              </TouchableOpacity>
-              <View style={{ flex: 1 }}>
-                <AppText style={{ fontSize: 10, color: 'rgba(255,255,255,0.72)', letterSpacing: 0.5 }} weight="semibold">
-                  GOOD {getGreeting().toUpperCase()}
-                </AppText>
-                <AppText style={{ fontSize: 18, color: '#ffffff' }} weight="bold" numberOfLines={1}>
-                  {((userName || 'Director').split(' ')[0]).replace(/^\w/, (c) => c.toUpperCase())} 👋
-                </AppText>
+                paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
+                borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
+                borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
+                paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM + 10,
+                paddingHorizontal: 0,
+              },
+            ]}
+          >
+            <View style={{ paddingHorizontal: 18 }}>
+              {/* Row 1: Avatar, Greeting, Notifications, Refresh */}
+              <View style={styles.heroTopRow}>
+                <View style={styles.heroProfileInfo}>
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate('Profile')}>
+                    <AvatarBubble
+                      displayName={userName || 'Director'}
+                      size={38}
+                      textSize={16}
+                      primaryColor={Theme.colors.card}
+                    />
+                  </TouchableOpacity>
+                  <View style={styles.heroGreetingBox}>
+                    <AppText style={styles.heroGreetingText} weight="semibold">
+                      GOOD {getGreeting().toUpperCase()}
+                    </AppText>
+                    <AppText style={styles.heroNameText} weight="bold" numberOfLines={1}>
+                      {((userName || 'Director').split(' ')[0]).replace(/^\w/, (c) => c.toUpperCase())} 👋
+                    </AppText>
+                  </View>
+                </View>
+                <View style={styles.heroActions}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
+                    <Bell size={18} color={Theme.colors.card} />
+                    {unreadCount > 0 && (
+                      <View style={styles.badge}>
+                        <AppText style={styles.badgeText} weight="bold">{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity accessibilityRole="button" style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
+                    <RefreshCw size={18} color={Theme.colors.card} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Row 2: Title & Date Badge */}
+              <View style={styles.welcomeSection}>
+                <View style={{ flex: 1, marginRight: 12 }}>
+                  <AppText style={styles.welcomeTitle} weight="bold" numberOfLines={1} adjustsFontSizeToFit>Director Control Center</AppText>
+
+                  {/* Row 3: School ID */}
+                  <AppText style={styles.welcomeSub} numberOfLines={1}>
+                    {schoolCode ? `School ID: ${schoolCode} • ` : ''}Manage branches
+                  </AppText>
+                </View>
+
+                {/* Row 4: Date Card */}
+                <View style={styles.dateRow}>
+                  <View style={styles.dateBadge}>
+                    <Calendar size={12} color={Theme.colors.card} />
+                    <AppText style={styles.dateText} weight="bold">
+                      {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </AppText>
+                  </View>
+                </View>
               </View>
             </View>
-            <View style={styles.heroActions}>
-              <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
-                <Bell size={18} color="#fff" />
-                {unreadCount > 0 && (
-                  <View style={styles.badge}>
-                    <AppText style={styles.badgeText} weight="bold">{unreadCount > 9 ? '9+' : unreadCount}</AppText>
-                  </View>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
-                <RefreshCw size={18} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Welcome Section (Inside Gradient) */}
-          <View style={[styles.welcomeSection, { paddingTop: 10, paddingBottom: 20 }]}>
-            <View style={{ flex: 1, paddingRight: 8 }}>
-              <AppText style={[styles.welcomeTitle, { color: '#ffffff' }]} weight="bold">Director Control Center</AppText>
-              <AppText style={[styles.welcomeSub, { color: 'rgba(255,255,255,0.8)' }]}>
-                {schoolCode ? `School ID: ${schoolCode}  •  ` : ''}Manage branches and configurations.
-              </AppText>
-            </View>
-            <View style={[styles.dateBadge, { backgroundColor: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.2)' }]}>
-              <Calendar size={12} color="#ffffff" />
-              <AppText style={[styles.dateText, { color: '#ffffff' }]} weight="bold">
-                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </AppText>
-            </View>
-          </View>
-        </LinearGradient>
+          </LinearGradient>
 
         <View style={styles.mainContentWrapper}>
           {/* Stats Cards Grid overlapping header */}
@@ -930,7 +968,7 @@ export default function DirectorDashboardScreen() {
                 sub={`${displayedStats.activeBranches} active branches`}
                 icon={School}
                 iconBg="rgba(59, 130, 246, 0.1)"
-                iconColor="#3b82f6"
+                iconColor={Theme.colors.blue}
                 badge={displayedStats.inactiveBranches > 0 ? `${displayedStats.inactiveBranches} Inactive` : 'All Active'}
                 badgeUp={displayedStats.inactiveBranches === 0}
                 cardStyle={responsiveKpiCardStyle}
@@ -942,7 +980,7 @@ export default function DirectorDashboardScreen() {
                 sub="Total school staff"
                 icon={Users}
                 iconBg="rgba(16, 185, 129, 0.1)"
-                iconColor="#10b981"
+                iconColor={Theme.colors.success}
                 badge={`${displayedStats.teacherAttendanceToday}% Present`}
                 badgeUp={displayedStats.teacherAttendanceToday >= 75}
                 cardStyle={responsiveKpiCardStyle}
@@ -965,8 +1003,8 @@ export default function DirectorDashboardScreen() {
                 value={displayedStats.classes}
                 sub={`${displayedStats.sections} sections`}
                 icon={Layers}
-                iconBg="rgba(139, 92, 246, 0.1)"
-                iconColor="#8b5cf6"
+                iconBg="rgba(30, 58, 138, 0.1)"
+                iconColor={Theme.colors.primary}
                 badge={displayedStats.pendingLeaves > 0 ? `${displayedStats.pendingLeaves} Leaves` : 'No Leaves'}
                 badgeUp={displayedStats.pendingLeaves === 0}
                 cardStyle={responsiveKpiCardStyle}
@@ -993,7 +1031,7 @@ export default function DirectorDashboardScreen() {
                   {QUICK_ACTIONS.map((action) => {
                     const IconComponent = action.icon;
                     return (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={action.label}
                         style={styles.gridItem}
                         onPress={() => navigation.navigate(action.route as any)}
@@ -1014,15 +1052,15 @@ export default function DirectorDashboardScreen() {
               </View>
 
               {/* Filter Selector outside panel */}
-              <View style={[styles.branchSelector, { marginTop: 16 }]}>
+              <View style={[styles.branchSelector, { marginTop: Theme.spacing.md }]}>
                 <AppText style={styles.branchSelectorLabel}>Filter Data By Branch</AppText>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={styles.branchSelectorField}
                   onPress={() => setBranchSelectorVisible(true)}
                   activeOpacity={0.85}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <School size={18} color="#1E3A8A" />
+                    <School size={18} color={Theme.colors.primary} />
                     <AppText style={styles.branchSelectorValue} numberOfLines={1}>
                       {selectedBranchId === 'ALL' ? 'All Branches (No Filter)' : `Branch: ${selectedBranchId}`}
                     </AppText>
@@ -1044,7 +1082,7 @@ export default function DirectorDashboardScreen() {
               <AppCard style={styles.chartCard}>
                 <View style={styles.chartHeader}>
                   <AppText style={styles.cardTitle}>Branch Management</AppText>
-                  <TouchableOpacity onPress={() => setShowAllBranches(!showAllBranches)}>
+                  <TouchableOpacity accessibilityRole="button" onPress={() => setShowAllBranches(!showAllBranches)}>
                     <AppText style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>
                       {showAllBranches ? 'Show Less' : 'View All'}
                     </AppText>
@@ -1061,8 +1099,8 @@ export default function DirectorDashboardScreen() {
                   ))}
                 </View>
                 {showAllBranches && branchCardsTotalPages > 1 && (
-                  <View style={[styles.pagination, { marginTop: 16 }]}>
-                    <TouchableOpacity
+                  <View style={[styles.pagination, { marginTop: Theme.spacing.md }]}>
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.pageBtn, branchCardsPage === 1 && styles.pageBtnDisabled]}
                       onPress={() => setBranchCardsPage(Math.max(1, branchCardsPage - 1))}
                       disabled={branchCardsPage === 1}
@@ -1070,7 +1108,7 @@ export default function DirectorDashboardScreen() {
                       <ChevronLeft size={18} color={branchCardsPage === 1 ? colors.border : colors.textMuted} />
                     </TouchableOpacity>
                     <AppText style={styles.pageInfo}>Page {branchCardsPage} of {branchCardsTotalPages}</AppText>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.pageBtn, branchCardsPage === branchCardsTotalPages && styles.pageBtnDisabled]}
                       onPress={() => setBranchCardsPage(Math.min(branchCardsTotalPages, branchCardsPage + 1))}
                       disabled={branchCardsPage === branchCardsTotalPages}
@@ -1095,7 +1133,7 @@ export default function DirectorDashboardScreen() {
                     {filteredBranches.length} branch{filteredBranches.length !== 1 ? 'es' : ''} registered
                   </AppText>
                 </View>
-                <TouchableOpacity style={styles.addBranchBtn} onPress={() => navigation.navigate('DirectorPrincipalRegistration')}>
+                <TouchableOpacity accessibilityRole="button" style={styles.addBranchBtn} onPress={() => navigation.navigate('DirectorPrincipalRegistration')}>
                   <AppText style={styles.addBranchBtnText}>+ Add Branch</AppText>
                 </TouchableOpacity>
               </View>
@@ -1132,14 +1170,14 @@ export default function DirectorDashboardScreen() {
               {/* Pagination */}
               {filteredBranches.length > ROWS_PER_PAGE && (
                 <View style={styles.pagination}>
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
                     onPress={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
                   >
                     <ChevronsLeft size={18} color={currentPage === 1 ? colors.border : colors.textMuted} />
                   </TouchableOpacity>
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
                     onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
@@ -1147,14 +1185,14 @@ export default function DirectorDashboardScreen() {
                     <ChevronLeft size={18} color={currentPage === 1 ? colors.border : colors.textMuted} />
                   </TouchableOpacity>
                   <AppText style={styles.pageInfo}>Page {currentPage} of {totalPages}</AppText>
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
                     onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
                   >
                     <ChevronRight size={18} color={currentPage === totalPages ? colors.border : colors.textMuted} />
                   </TouchableOpacity>
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
                     onPress={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
@@ -1174,40 +1212,40 @@ export default function DirectorDashboardScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle} weight="bold">Edit Branch Details</AppText>
-              <TouchableOpacity onPress={cancelEdit} style={styles.modalClose}>
+              <TouchableOpacity accessibilityRole="button" onPress={cancelEdit} style={styles.modalClose}>
                 <X size={18} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalBody}>
               <View style={{ gap: 14 }}>
                 <View>
-                  <AppText style={{ fontSize: 12, fontWeight: '700', color: colors.textMuted, marginBottom: 6 }} weight="bold">Branch Name</AppText>
+                  <AppText style={{ ...Theme.typography.caption, fontWeight: '700', color: colors.textMuted, marginBottom: 6 }} weight="bold">Branch Name</AppText>
                   <TextInput
-                    style={[styles.searchInput, { width: '100%', height: 44, paddingVertical: 8 }]}
+                    style={[styles.searchInput, { width: '100%', height: 44, paddingVertical: Theme.spacing.sm }]}
                     value={editData.branch_name}
                     onChangeText={(text) => handleEditChange('branch_name', text)}
                   />
                 </View>
                 <View>
-                  <AppText style={{ fontSize: 12, fontWeight: '700', color: colors.textMuted, marginBottom: 6 }} weight="bold">Principal ID</AppText>
+                  <AppText style={{ ...Theme.typography.caption, fontWeight: '700', color: colors.textMuted, marginBottom: 6 }} weight="bold">Principal ID</AppText>
                   <TextInput
-                    style={[styles.searchInput, { width: '100%', height: 44, paddingVertical: 8 }]}
+                    style={[styles.searchInput, { width: '100%', height: 44, paddingVertical: Theme.spacing.sm }]}
                     value={editData.principal_employee_id}
                     onChangeText={(text) => handleEditChange('principal_employee_id', text)}
                   />
                 </View>
                 <View>
-                  <AppText style={{ fontSize: 12, fontWeight: '700', color: colors.textMuted, marginBottom: 6 }} weight="bold">Principal Name</AppText>
+                  <AppText style={{ ...Theme.typography.caption, fontWeight: '700', color: colors.textMuted, marginBottom: 6 }} weight="bold">Principal Name</AppText>
                   <TextInput
-                    style={[styles.searchInput, { width: '100%', height: 44, paddingVertical: 8 }]}
+                    style={[styles.searchInput, { width: '100%', height: 44, paddingVertical: Theme.spacing.sm }]}
                     value={editData.principal_name}
                     onChangeText={(text) => handleEditChange('principal_name', text)}
                   />
                 </View>
                 <View>
-                  <AppText style={{ fontSize: 12, fontWeight: '700', color: colors.textMuted, marginBottom: 6 }} weight="bold">Principal Email</AppText>
+                  <AppText style={{ ...Theme.typography.caption, fontWeight: '700', color: colors.textMuted, marginBottom: 6 }} weight="bold">Principal Email</AppText>
                   <TextInput
-                    style={[styles.searchInput, { width: '100%', height: 44, paddingVertical: 8 }]}
+                    style={[styles.searchInput, { width: '100%', height: 44, paddingVertical: Theme.spacing.sm }]}
                     value={editData.principal_email}
                     onChangeText={(text) => handleEditChange('principal_email', text)}
                     keyboardType="email-address"
@@ -1215,10 +1253,10 @@ export default function DirectorDashboardScreen() {
                   />
                 </View>
                 <View>
-                  <AppText style={{ fontSize: 12, fontWeight: '700', color: colors.textMuted, marginBottom: 6 }} weight="bold">Status</AppText>
+                  <AppText style={{ ...Theme.typography.caption, fontWeight: '700', color: colors.textMuted, marginBottom: 6 }} weight="bold">Status</AppText>
                   <View style={[styles.editStatusContainer, { width: '100%', gap: 10 }]}>
                     {['ACTIVE', 'INACTIVE'].map(opt => (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={opt}
                         style={[styles.editStatusBtn, editData.branch_status === opt && styles.editStatusBtnActive, { flex: 1, height: 44, justifyContent: 'center' }]}
                         onPress={() => handleEditChange('branch_status', opt)}
@@ -1250,25 +1288,25 @@ export default function DirectorDashboardScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle} weight="bold">Select Branch Filter</AppText>
-              <TouchableOpacity onPress={() => setBranchSelectorVisible(false)} style={styles.modalClose}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setBranchSelectorVisible(false)} style={styles.modalClose}>
                 <X size={18} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
             <View style={styles.modalBody}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[
                   styles.branchSelectItem,
-                  selectedBranchId === 'ALL' && styles.branchSelectItemActive
+                  selectedBranchId === 'ALL' && styles.branchSelectItemActive,
                 ]}
                 onPress={() => {
                   setSelectedBranchId('ALL');
                   setBranchSelectorVisible(false);
                 }}
               >
-                <School size={16} color={selectedBranchId === 'ALL' ? '#ffffff' : colors.textMuted} />
+                <School size={16} color={selectedBranchId === 'ALL' ? Theme.colors.card : colors.textMuted} />
                 <AppText style={[
                   styles.branchSelectItemText,
-                  selectedBranchId === 'ALL' && styles.branchSelectItemTextActive
+                  selectedBranchId === 'ALL' && styles.branchSelectItemTextActive,
                 ]} weight="bold">
                   All Branches (No Filter)
                 </AppText>
@@ -1276,28 +1314,28 @@ export default function DirectorDashboardScreen() {
 
               <ScrollView style={{ maxHeight: 300, marginTop: 10 }}>
                 {branches.map(b => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={b.branch_id}
                     style={[
                       styles.branchSelectItem,
-                      selectedBranchId === b.branch_id && styles.branchSelectItemActive
+                      selectedBranchId === b.branch_id && styles.branchSelectItemActive,
                     ]}
                     onPress={() => {
                       setSelectedBranchId(b.branch_id);
                       setBranchSelectorVisible(false);
                     }}
                   >
-                    <School size={16} color={selectedBranchId === b.branch_id ? '#ffffff' : colors.textMuted} />
+                    <School size={16} color={selectedBranchId === b.branch_id ? Theme.colors.card : colors.textMuted} />
                     <View style={{ flex: 1 }}>
                       <AppText style={[
                         styles.branchSelectItemText,
-                        selectedBranchId === b.branch_id && styles.branchSelectItemTextActive
+                        selectedBranchId === b.branch_id && styles.branchSelectItemTextActive,
                       ]} weight="bold">
                         {b.branch_name}
                       </AppText>
                       <AppText style={[
                         styles.branchSelectItemSub,
-                        selectedBranchId === b.branch_id && styles.branchSelectItemSubActive
+                        selectedBranchId === b.branch_id && styles.branchSelectItemSubActive,
                       ]}>
                         ID: {b.branch_id} | Principal: {b.principal_name || 'None'}
                       </AppText>
@@ -1324,44 +1362,68 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: Theme.spacing.xs,
   },
-  heroActions: {
+  heroProfileInfo: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
+  heroGreetingBox: {
+    flex: 1,
+  },
+  heroGreetingText: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 0.5,
+  },
+  heroNameText: {
+    fontSize: 16,
+    color: Theme.colors.card,
+  },
+  heroActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   welcomeSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingTop: 20,
-    paddingBottom: 8,
-    marginTop: 4,
+    alignItems: 'flex-end',
+    paddingTop: 6,
+    paddingBottom: Theme.spacing.xs,
   },
   welcomeTitle: {
-    fontSize: 18,
-    color: '#ffffff',
+    fontSize: 20,
+    lineHeight: 24,
+    color: Theme.colors.card,
+    letterSpacing: -0.5,
   },
   welcomeSub: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 2,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   dateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: Theme.spacing.xs,
+    paddingHorizontal: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   dateText: {
-    fontSize: 12,
-    color: '#ffffff',
+    ...Theme.typography.caption,
+    ...Theme.typography.label,
+    color: Theme.colors.card,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -1386,22 +1448,22 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#ef4444',
+    backgroundColor: Theme.colors.error,
     borderWidth: 1.5,
-    borderColor: '#1e3a8a',
+    borderColor: Theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 2,
     zIndex: 1,
   },
   badgeText: {
-    color: '#ffffff',
+    color: Theme.colors.card,
     fontSize: 9,
     fontWeight: '900',
     textAlign: 'center',
   },
   headerStatsGrid: {
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
@@ -1417,14 +1479,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.16)',
   },
   headerStatLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: 'rgba(255, 255, 255, 0.65)',
     fontWeight: '600',
   },
   headerStatValue: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#ffffff',
+    color: Theme.colors.card,
     marginTop: 2,
     letterSpacing: -0.3,
   },
@@ -1438,24 +1500,24 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.25)',
-    marginRight: 4,
+    marginRight: Theme.spacing.xs,
   },
   addBranchHeaderBtnText: {
-    color: '#ffffff',
-    fontSize: 11,
+    color: Theme.colors.card,
+    ...Theme.typography.label,
     fontWeight: '700',
   },
   schoolCodeBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingHorizontal: 8,
+    paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 3,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   schoolCodeText: {
-    color: '#ffffff',
-    fontSize: 11,
+    color: Theme.colors.card,
+    ...Theme.typography.label,
     fontWeight: '700',
   },
   sectionHeader: {
@@ -1473,11 +1535,11 @@ const styles = StyleSheet.create({
   quickAccessPanel: {
     backgroundColor: colors.surface,
     borderRadius: 20,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: 20,
-    shadowColor: '#1e3a8a',
+    shadowColor: Theme.colors.primary,
     shadowOpacity: 0.05,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -1487,7 +1549,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   gridItem: {
     width: '23%',
@@ -1508,7 +1570,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   gridLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: colors.textPrimary,
     fontWeight: '600',
     textAlign: 'center',
@@ -1524,9 +1586,9 @@ const styles = StyleSheet.create({
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     borderRadius: 14,
-    padding: 4,
+    padding: Theme.spacing.xs,
     marginBottom: 18,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1576,7 +1638,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   quickActionLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: colors.textPrimary,
     textAlign: 'center',
   },
@@ -1584,14 +1646,14 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    marginRight: 4,
+    marginRight: Theme.spacing.xs,
   },
   branchSelectItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 14,
     borderRadius: 12,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -1602,14 +1664,14 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.primary,
   },
   branchSelectItemText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: colors.textPrimary,
   },
   branchSelectItemTextActive: {
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   branchSelectItemSub: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: colors.textMuted,
     marginTop: 2,
   },
@@ -1622,10 +1684,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: 10,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
     ...Platform.select({
       ios: {
-        shadowColor: '#1e3a8a',
+        shadowColor: Theme.colors.primary,
         shadowOpacity: 0.05,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
@@ -1645,7 +1707,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   branchManagementName: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: colors.textPrimary,
     letterSpacing: -0.2,
   },
@@ -1656,7 +1718,7 @@ const styles = StyleSheet.create({
   },
   branchManagementDetails: {
     gap: 4,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   managementDetailRow: {
     flexDirection: 'row',
@@ -1664,24 +1726,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   managementDetailLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: colors.textMuted,
   },
   managementDetailVal: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textPrimary,
     fontWeight: '600',
   },
   managementStatsRow: {
     backgroundColor: 'rgba(30, 58, 138, 0.04)',
     paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: Theme.spacing.sm,
     borderRadius: 6,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
     alignItems: 'center',
   },
   managementStatsText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: Theme.colors.primary,
     fontWeight: '700',
   },
@@ -1703,8 +1765,8 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.primary,
   },
   managementBtnViewText: {
-    fontSize: 12,
-    color: '#ffffff',
+    ...Theme.typography.caption,
+    color: Theme.colors.card,
   },
   managementBtnEdit: {
     flex: 1,
@@ -1717,7 +1779,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(59, 130, 246, 0.08)',
   },
   managementBtnEditText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: Theme.colors.primaryLight,
   },
 
@@ -1736,7 +1798,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
   },
   contentContainer: {
     paddingBottom: 120,
@@ -1749,16 +1811,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 30,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
   },
   errorTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   errorText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: colors.textMuted,
   },
 
@@ -1798,14 +1860,14 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 26,
     fontWeight: '900',
-    color: '#fff',
+    color: Theme.colors.card,
     letterSpacing: -0.3,
     marginBottom: 6,
   },
   heroSub: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: 'rgba(255,255,255,0.7)',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   heroStatusRow: {
     flexDirection: 'row',
@@ -1814,13 +1876,13 @@ const styles = StyleSheet.create({
   },
   heroStatusChip: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   heroStatusText: {
     color: '#dbeafe',
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
@@ -1858,16 +1920,16 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   subtitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: colors.textMuted,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
     letterSpacing: 0.1,
   },
   topBarRight: {
     gap: 14,
   },
   branchSelector: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   branchSelectorLabel: {
     fontSize: 13,
@@ -1880,15 +1942,15 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.bg,
-    paddingHorizontal: 16,
+    backgroundColor: Theme.colors.background,
+    paddingHorizontal: Theme.spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   branchSelectorValue: {
     flex: 1,
-    fontSize: 14,
+    ...Theme.typography.body,
     color: colors.textPrimary,
     fontWeight: '600',
   },
@@ -1899,9 +1961,9 @@ const styles = StyleSheet.create({
   },
   branchChip: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 22,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -1915,7 +1977,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   branchChipTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontWeight: '700',
   },
   viewButtons: {
@@ -1925,7 +1987,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   viewBtn: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
@@ -1942,11 +2004,11 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   viewBtnTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   viewAllTextBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
   },
   viewAllText: {
     fontSize: 13,
@@ -1973,7 +2035,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   refreshBtn: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
@@ -2022,7 +2084,7 @@ const styles = StyleSheet.create({
   profileDetailRow: {
     backgroundColor: 'rgba(99, 102, 241, 0.04)',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 8,
   },
   profileDetailLabel: {
@@ -2045,8 +2107,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
   },
   profileSectionBtnText: {
-    color: '#fff',
-    fontSize: 12,
+    color: Theme.colors.card,
+    ...Theme.typography.caption,
     fontWeight: '700',
   },
   kpiGrid: {
@@ -2089,8 +2151,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   kpiBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 6,
     backgroundColor: 'rgba(16, 185, 129, 0.1)',
     flexDirection: 'row',
@@ -2103,7 +2165,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
   kpiBadgeText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
     color: colors.accent,
   },
@@ -2111,30 +2173,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.textMuted,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   kpiValue: {
     fontSize: 32,
     fontWeight: '900',
     color: colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
     letterSpacing: -0.5,
   },
   kpiSub: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
     fontWeight: '500',
   },
 
   cardTitle: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '800',
     color: colors.textPrimary,
     letterSpacing: -0.2,
   },
 
   chartCard: {
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: colors.border,
@@ -2142,7 +2204,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     ...Platform.select({
       ios: {
-        shadowColor: '#1e3a8a',
+        shadowColor: Theme.colors.primary,
         shadowOpacity: 0.05,
         shadowRadius: 12,
         shadowOffset: { width: 0, height: 4 },
@@ -2170,7 +2232,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   legendText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: colors.textMuted,
   },
@@ -2219,7 +2281,7 @@ const styles = StyleSheet.create({
     minHeight: 2,
   },
   chartLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
     color: colors.textPrimary,
     marginTop: 6,
@@ -2248,12 +2310,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   chartStatLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: colors.textMuted,
     fontWeight: '600',
   },
   chartStatValue: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: colors.textPrimary,
     fontWeight: '700',
   },
@@ -2287,7 +2349,7 @@ const styles = StyleSheet.create({
   overviewSubtitle: {
     fontSize: 13,
     color: colors.textMuted,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
     lineHeight: 20,
   },
   statusChips: {
@@ -2297,7 +2359,7 @@ const styles = StyleSheet.create({
   },
   statusChip: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 20,
   },
   statusChipHealthy: {
@@ -2322,15 +2384,15 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: colors.bg,
-    paddingVertical: 16,
+    backgroundColor: Theme.colors.background,
+    paddingVertical: Theme.spacing.md,
     paddingHorizontal: 14,
     borderBottomWidth: 1.5,
     borderBottomColor: colors.border,
     borderRadius: 8,
   },
   tableHeaderText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '800',
     color: colors.textMuted,
     textTransform: 'uppercase',
@@ -2346,7 +2408,7 @@ const styles = StyleSheet.create({
   colAction: { width: '10%' },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 16,
+    paddingVertical: Theme.spacing.md,
     paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -2356,42 +2418,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   branchNameCell: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '800',
     color: colors.textPrimary,
   },
   branchIdCell: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
     marginTop: 2,
   },
   directorNameCell: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   directorIdCell: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
   },
   directorEmailCell: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
   },
   numberCell: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '800',
     color: colors.textPrimary,
   },
   viewBranchBtn: {
     backgroundColor: colors.accent,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 9,
     borderRadius: 10,
   },
   viewBranchBtnText: {
-    color: '#fff',
-    fontSize: 12,
+    color: Theme.colors.card,
+    ...Theme.typography.caption,
     fontWeight: '700',
   },
   branchContainersCard: {
@@ -2429,28 +2491,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 12,
-    fontSize: 14,
+    ...Theme.typography.body,
     minWidth: 220,
     color: colors.textPrimary,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     fontWeight: '600',
   },
   viewAllBtn: {
     backgroundColor: colors.accent,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 12,
     borderRadius: 12,
   },
   viewAllBtnText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 13,
     fontWeight: '700',
   },
   showLessBtn: {
-    backgroundColor: colors.bg,
-    paddingHorizontal: 16,
+    backgroundColor: Theme.colors.background,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
@@ -2486,7 +2548,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   branchName: {
     fontSize: 17,
@@ -2495,19 +2557,19 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   branchId: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
     fontWeight: '600',
   },
   branchInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   branchPrincipal: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: colors.textMuted,
     fontWeight: '600',
   },
@@ -2518,7 +2580,7 @@ const styles = StyleSheet.create({
   branchStats: {
     flexDirection: 'row',
     gap: 12,
-    marginVertical: 16,
+    marginVertical: Theme.spacing.md,
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
@@ -2537,9 +2599,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   branchStatLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: colors.textMuted,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.2,
@@ -2561,7 +2623,7 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: Theme.colors.primary,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 12,
     shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 2 },
@@ -2570,8 +2632,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   branchViewBtnText: {
-    fontSize: 12,
-    color: '#ffffff',
+    ...Theme.typography.caption,
+    color: Theme.colors.card,
   },
   branchCardPagination: {
     flexDirection: 'row',
@@ -2579,7 +2641,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 16,
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   paginationInfo: {
     fontSize: 13,
@@ -2613,7 +2675,7 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   pageBtnText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: colors.textMuted,
   },
@@ -2656,32 +2718,32 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   addBranchBtnText: {
-    color: '#fff',
+    color: Theme.colors.card,
+    ...Theme.typography.body,
     fontWeight: '700',
-    fontSize: 14,
   },
   branchSearchInput: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 12,
-    fontSize: 14,
+    ...Theme.typography.body,
     marginBottom: 20,
     color: colors.textPrimary,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     fontWeight: '600',
   },
   branchesListHeader: {
     flexDirection: 'row',
-    backgroundColor: colors.bg,
-    paddingVertical: 16,
+    backgroundColor: Theme.colors.background,
+    paddingVertical: Theme.spacing.md,
     paddingHorizontal: 14,
     borderRadius: 12,
     marginBottom: 12,
   },
   branchesHeaderText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '800',
     color: colors.textMuted,
     textTransform: 'uppercase',
@@ -2705,20 +2767,20 @@ const styles = StyleSheet.create({
   },
   branchRowId: {
     width: '10%',
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
     fontWeight: '800',
     color: colors.accent,
   },
   branchRowCell: {
     width: '15%',
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   branchRowDate: {
     width: '12%',
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
   },
   branchRowActions: {
@@ -2733,7 +2795,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   editRowBtnText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     color: colors.accent,
   },
@@ -2744,7 +2806,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   deleteRowBtnText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     color: colors.error,
   },
@@ -2755,7 +2817,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   viewRowBtnText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     color: colors.success,
   },
@@ -2769,7 +2831,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.textPrimary,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
   },
   editStatusContainer: {
     width: '10%',
@@ -2780,7 +2842,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -2794,25 +2856,25 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   editStatusTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   saveBtn: {
     backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 6,
   },
   saveBtnText: {
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   cancelBtn: {
     backgroundColor: 'rgba(220, 38, 38, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 6,
   },
   cancelBtnText: {
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -2827,7 +2889,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
   },
   statusText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
@@ -2843,7 +2905,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 12,
     borderWidth: 1.2,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   healthText: {
     fontSize: 10,
@@ -2852,12 +2914,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   emptyContainer: {
-    padding: 48,
+    padding: Theme.spacing.xxl,
     alignItems: 'center',
   },
   emptyText: {
     color: colors.textMuted,
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
   },
   headerStandard: {
@@ -2872,7 +2934,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#ffffff',
+    color: Theme.colors.card,
     letterSpacing: -0.3,
   },
   headerIcons: {
@@ -2913,7 +2975,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2951,7 +3013,7 @@ const styles = StyleSheet.create({
   settingsViewHeader: {
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingBottom: 16,
+    paddingBottom: Theme.spacing.md,
     marginBottom: 20,
   },
   settingsBody: {
@@ -2962,7 +3024,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
     backgroundColor: 'rgba(99, 102, 241, 0.04)',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(99, 102, 241, 0.08)',
@@ -2980,8 +3042,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   settingsDetailItem: {
-    backgroundColor: colors.bg,
-    paddingHorizontal: 16,
+    backgroundColor: Theme.colors.background,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
@@ -2996,20 +3058,84 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   settingsDetailValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: colors.textPrimary,
   },
   gridLinesContainer: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: -1,
   },
-  gridLine: {
+  gridLineHorizontal: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    left: 18,
+    right: 18,
     height: 1,
     borderWidth: 0.5,
     borderColor: 'rgba(148, 163, 184, 0.15)',
     borderStyle: 'dashed',
   },
-
+  gridLineVertical: {
+    position: 'absolute',
+    top: 60,
+    height: 420,
+    width: 1,
+    borderWidth: 0.5,
+    borderColor: 'rgba(148, 163, 184, 0.15)',
+    borderStyle: 'dashed',
+  },
+  decorCircle: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Theme.colors.blue,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  decorCircleInner: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: Theme.colors.blue,
+    shadowColor: Theme.colors.blue,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  decorCircleCenter: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Theme.colors.success,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  decorCircleCenterInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Theme.colors.success,
+    shadowColor: Theme.colors.success,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 1,
+  },
 });

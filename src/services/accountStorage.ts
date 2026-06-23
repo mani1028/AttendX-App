@@ -14,7 +14,7 @@ const KEY = 'ATTENDX_SAVED_ACCOUNTS_V1';
 export const getAccounts = async (): Promise<StoredAccount[]> => {
   try {
     const raw = await AsyncStorage.getItem(KEY);
-    if (!raw) return [];
+    if (!raw) {return [];}
     return JSON.parse(raw) as StoredAccount[];
   } catch (err) {
     console.warn('Failed reading accounts', err);
@@ -60,8 +60,8 @@ export const updateAccount = async (account: StoredAccount) => {
   try {
     const list = await getAccounts();
     const idx = list.findIndex(a => a.schoolId === account.schoolId && a.username === account.username);
-    if (idx >= 0) list[idx] = { ...list[idx], ...account, lastLogin: new Date().toISOString() };
-    else list.unshift({ ...account, lastLogin: new Date().toISOString() });
+    if (idx >= 0) {list[idx] = { ...list[idx], ...account, lastLogin: new Date().toISOString() };}
+    else {list.unshift({ ...account, lastLogin: new Date().toISOString() });}
     await AsyncStorage.setItem(KEY, JSON.stringify(list));
     return list;
   } catch (err) {

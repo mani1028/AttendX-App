@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
@@ -11,14 +12,13 @@ import {
   Modal,
   Image,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Linking } from 'react-native';
-import { useCameraDevice, Camera, CameraDevices } from 'react-native-vision-camera';
+import { useCameraDevice, Camera } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -43,10 +43,10 @@ import {
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as teacherService from '../../services/teacherService';
-import { colors } from '../../constants/theme';
+import { Theme } from '../../theme/tokens';
+const colors = Theme.colors;
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
-import { Director_THEME } from '../../constants/directorTheme';
-import { Theme } from '../../theme/theme';
+
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
@@ -128,7 +128,7 @@ const getEmployeeId = async (): Promise<string> => {
 };
 
 const cleanBase64 = (base64: string): string => {
-  if (!base64) return '';
+  if (!base64) {return '';}
   return base64.replace(/^data:image\/\w+;base64,/, '');
 };
 
@@ -176,10 +176,10 @@ const Stepper: React.FC<{ step: number }> = ({ step }) => (
               <View style={[
                 styles.stepCircle,
                 isDone && styles.stepDone,
-                isActive && styles.stepActive
+                isActive && styles.stepActive,
               ]}>
                 {isDone ? (
-                  <CheckCircle2 size={16} color="#fff" />
+                  <CheckCircle2 size={16} color={Theme.colors.card} />
                 ) : (
                   <AppText style={[styles.stepNumber, isActive && styles.stepNumberActive]}>{stepNumber}</AppText>
                 )}
@@ -214,7 +214,7 @@ const Toast: React.FC<{
     }
   }, [visible, onClose]);
 
-  if (!visible) return null;
+  if (!visible) {return null;}
 
   return (
     <View style={[styles.toast, { borderLeftColor: color }]}>
@@ -231,15 +231,13 @@ const Toast: React.FC<{
 };
 
 // Global safety check for Vision Camera native module
-const isCameraAvailable = typeof CameraDevices !== 'undefined' && CameraDevices !== null;
+const isCameraAvailable = typeof Camera !== 'undefined' && Camera !== null;
 
 export default function TeacherAttendanceScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
-  const lastScrollY = useRef(0);
-
   // State
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [schoolCode, setSchoolCode] = useState<string>('');
@@ -277,22 +275,15 @@ export default function TeacherAttendanceScreen() {
       // ignore
     }
   }, [cameraActive, setTabBarVisible]);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
-      setTabBarVisible(false);
-    } else if (currentScrollY < lastScrollY.current - 10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
   const cameraRef = useRef<Camera>(null);
-  
-  // Safe device acquisition - MUST be at top level
-  // Guard against undefined hook or native module by checking availability
-  const device = isCameraAvailable ? useCameraDevice(cameraPosition) : undefined;
-  
+
+  // useCameraDevice must be called unconditionally (React hooks rules).
+  // When camera is unavailable we simply ignore the returned device.
+  const _cameraDevice = useCameraDevice(cameraPosition);
+  const device = isCameraAvailable ? _cameraDevice : undefined;
+
   // Form
   const [form, setForm] = useState({
     employee_id: '',
@@ -315,7 +306,7 @@ export default function TeacherAttendanceScreen() {
   const [assignedClasses, setAssignedClasses] = useState<AssignedClass[]>([]);
   const [selectedClassKey, setSelectedClassKey] = useState<string>('');
   const [enableManualAttendance, setEnableManualAttendance] = useState<boolean>(false);
-  
+
   // Student attendance
   const [studentImages, setStudentImages] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -355,15 +346,15 @@ export default function TeacherAttendanceScreen() {
   const checkSessionMarkedStatus = useCallback(async () => {
     const activeSchoolCode = schoolCode || (await getSchoolCode());
     const activeEmployeeId = String(teacherData?.employee_id || employeeId || (await getEmployeeId()) || '').trim();
-    
-    if (!activeSchoolCode || !activeEmployeeId) return;
-    
+
+    if (!activeSchoolCode || !activeEmployeeId) {return;}
+
     try {
       const url = `/manage/teacher/attendance/my-attendance?school_code=${activeSchoolCode}&employee_id=${activeEmployeeId}`;
       const data = await teacherService.getRequest(url);
       const todayDate = getTodayDateString();
       const todayAttendance = data?.items?.find((item: any) => item.attendance_date === todayDate);
-      
+
       if (todayAttendance) {
         setSessionMarked({
           session1: todayAttendance.session1_status === 'PRESENT',
@@ -378,7 +369,7 @@ export default function TeacherAttendanceScreen() {
   // Persist attendance state
   useEffect(() => {
     const persist = async () => {
-      if (!schoolCode || !employeeId) return;
+      if (!schoolCode || !employeeId) {return;}
       const cacheKey = `teacher_attendance_cache_${schoolCode}_${branchId}_${employeeId}`;
       try {
         const state = {
@@ -388,7 +379,7 @@ export default function TeacherAttendanceScreen() {
           step,
           teacherData,
           assignedClasses,
-          timestamp: new Date().getTime()
+          timestamp: new Date().getTime(),
         };
         await AsyncStorage.setItem(cacheKey, JSON.stringify(state));
       } catch (e) {
@@ -407,7 +398,7 @@ export default function TeacherAttendanceScreen() {
         const bid = await getBranchId();
         const eid = await getEmployeeId();
         const classTeacherFlag = await AsyncStorage.getItem('is_class_teacher');
-        if (!isMounted.current) return;
+        if (!isMounted.current) {return;}
         setSchoolCode(code);
         setBranchId(bid);
         setEmployeeId(eid);
@@ -419,10 +410,10 @@ export default function TeacherAttendanceScreen() {
 
         const [cachedSession, cachedAttendance] = await Promise.all([
           AsyncStorage.getItem(sessionKey),
-          AsyncStorage.getItem(attendanceCacheKey)
+          AsyncStorage.getItem(attendanceCacheKey),
         ]);
 
-        if (!isMounted.current) return;
+        if (!isMounted.current) {return;}
 
         if (cachedSession) {
           const sessionData = JSON.parse(cachedSession);
@@ -436,14 +427,14 @@ export default function TeacherAttendanceScreen() {
             setForm(prev => ({
               ...prev,
               ...state.form,
-              attendance_date: getTodayDateString() // Always force today's date
+              attendance_date: getTodayDateString(), // Always force today's date
             }));
           }
-          if (Array.isArray(state?.studentImages)) setStudentImages(state.studentImages.filter(Boolean));
-          if (state?.result) setResult(state.result);
-          if (state?.step) setStep(state.step);
-          if (state?.teacherData) setTeacherData(state.teacherData);
-          if (Array.isArray(state?.assignedClasses)) setAssignedClasses(state.assignedClasses);
+          if (Array.isArray(state?.studentImages)) {setStudentImages(state.studentImages.filter(Boolean));}
+          if (state?.result) {setResult(state.result);}
+          if (state?.step) {setStep(state.step);}
+          if (state?.teacherData) {setTeacherData(state.teacherData);}
+          if (Array.isArray(state?.assignedClasses)) {setAssignedClasses(state.assignedClasses);}
         }
 
         if (code && bid) {
@@ -458,7 +449,7 @@ export default function TeacherAttendanceScreen() {
       }
     };
     load();
-    
+
     if (isCameraAvailable) {
       Camera.requestCameraPermission().then(permission => {
         if (isMounted.current) {
@@ -470,7 +461,7 @@ export default function TeacherAttendanceScreen() {
 
   // Load classes
   const loadClasses = useCallback(async () => {
-    if (!branchId || !schoolCode) return;
+    if (!branchId || !schoolCode) {return;}
     try {
       const data = await teacherService.getClassesSections(branchId, schoolCode);
       if (isMounted.current) {
@@ -488,7 +479,7 @@ export default function TeacherAttendanceScreen() {
   }, [branchId, schoolCode, loadClasses]);
 
   const captureImage = async (): Promise<string | null> => {
-    if (!cameraRef.current) return null;
+    if (!cameraRef.current) {return null;}
     try {
       const photo = await cameraRef.current.takePhoto({
         flash: 'off',
@@ -514,7 +505,7 @@ export default function TeacherAttendanceScreen() {
           'Camera permission is required to capture photos. Please enable it in Settings.',
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => Linking.openSettings() }
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
           ]
         );
         return;
@@ -647,29 +638,29 @@ export default function TeacherAttendanceScreen() {
       // Ensure suppressLogoutOn401 is applied at service level to prevent logout on wrong face
       const data = await teacherService.verifyTeacher(payload);
 
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
 
       const assigned = Array.isArray(data?.assigned_classes) ? data.assigned_classes.filter(Boolean) : [];
       setTeacherData(data);
       setAssignedClasses(assigned);
       setVideoAttendanceEnabled(data.enable_video_attendance === true || data.enable_video_attendance === 'true');
       setIsClassTeacher(data.is_class_teacher || false);
-      
+
       const sessionKey = `teacher_session_${employeeId}_${schoolCode}`;
       await AsyncStorage.setItem(sessionKey, JSON.stringify({
         teacher_data: data,
         assigned_classes: assigned,
-        timestamp: new Date().getTime()
+        timestamp: new Date().getTime(),
       }));
 
       // Check session marked status
       await checkSessionMarkedStatus();
 
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
 
       await loadClasses();
 
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
 
       if (assigned.length === 1) {
         const first = assigned[0];
@@ -677,11 +668,11 @@ export default function TeacherAttendanceScreen() {
         setForm(prev => ({ ...prev, class_grade: first.class_grade, section: first.section }));
       }
 
-      setCameraActive(false); 
+      setCameraActive(false);
       setStep(2); // Show "Verified" screen first to allow class confirmation
       showToast('Identity verified!', `Welcome, ${data.teacher_full_name}`, '✅', '#22C55E');
     } catch (err: any) {
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
 
       const status = err?.response?.status;
       const backendDetail = err?.response?.data?.detail || err?.response?.data?.message;
@@ -689,12 +680,12 @@ export default function TeacherAttendanceScreen() {
 
       if (status === 401) {
         // Face verification failed - user's face doesn't match or not recognized
-        const verificationError = backendDetail?.toLowerCase().includes('face') || 
+        const verificationError = backendDetail?.toLowerCase().includes('face') ||
                                   backendDetail?.toLowerCase().includes('recogni') ||
                                   backendDetail?.toLowerCase().includes('match')
           ? 'Face not recognized. Please try again with a clearer photo.'
           : backendDetail || 'Identity verification failed. Please try again.';
-        
+
         showToast('Verification Failed', verificationError, '❌', '#EF4444');
         Alert.alert(
           'Identity Verification Failed',
@@ -762,23 +753,23 @@ export default function TeacherAttendanceScreen() {
       }
 
       const data = await teacherService.processAttendance(payload);
-      if (!isMounted.current) return;
-      
+      if (!isMounted.current) {return;}
+
       // Merge results - keep previously present students from multiple image submissions
       setResult((prevResult: AttendanceResult | null) => {
-        if (!prevResult) return data;
-        
+        if (!prevResult) {return data;}
+
         // Merge logic: combine present lists, remove promoted students from absent
         const prevPresentIds = new Set((prevResult.present || []).map(s => s.student_id));
         const newPresentIds = new Set((data.present || []).map((s: any) => s.student_id));
-        
+
         // Keep all previously present students
         const mergedPresentIds = new Set([...prevPresentIds, ...newPresentIds]);
-        
+
         // Build merged present list
         const mergedPresent: Student[] = [];
         const seenIds = new Set();
-        
+
         // Add from previous result
         (prevResult.present || []).forEach((student: any) => {
           const id = student.student_id;
@@ -787,7 +778,7 @@ export default function TeacherAttendanceScreen() {
             seenIds.add(id);
           }
         });
-        
+
         // Add new students from current result
         (data.present || []).forEach((student: any) => {
           const id = student.student_id;
@@ -796,13 +787,13 @@ export default function TeacherAttendanceScreen() {
             seenIds.add(id);
           }
         });
-        
+
         // Build merged absent list (exclude promoted students)
         const mergedAbsent = (data.absent || []).filter((student: any) => {
           const id = student.student_id;
           return !mergedPresentIds.has(id);
         });
-        
+
         return {
           ...data,
           present: mergedPresent,
@@ -815,11 +806,11 @@ export default function TeacherAttendanceScreen() {
           },
         };
       });
-      
+
       setStep(4);
       showToast('Attendance scanned', 'Review the report and save if needed', '📊', '#22C55E');
     } catch (err: any) {
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
       const status = err?.response?.status;
       const backendDetail = err?.response?.data?.detail || err?.response?.data?.message;
       const errorMsg = backendDetail || err?.message || 'Please try again';
@@ -832,10 +823,10 @@ export default function TeacherAttendanceScreen() {
 
       // Handle service unavailable errors with retry option
       if (status === 503 || status === 502 || status === 504) {
-        const serviceError = status === 503 
+        const serviceError = status === 503
           ? 'The face verification service is temporarily unavailable.'
           : 'The server is temporarily unavailable.';
-        
+
         Alert.alert(
           'Service Unavailable',
           `${serviceError} Please wait a moment and try again.`,
@@ -921,15 +912,15 @@ export default function TeacherAttendanceScreen() {
         const currentSession = parseInt(form.attendance_session || '1', 10);
         setSessionMarked(prev => ({
           ...prev,
-          [`session${currentSession}`]: true
+          [`session${currentSession}`]: true,
         }));
-        
+
         setSavedAttendanceData(data);
         setViewingGallery(true);
         showToast('Attendance saved', `${data?.summary?.present_count || 0} present, ${data?.summary?.absent_count || 0} absent`, '✅', '#22C55E');
       }
     } catch (err: any) {
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
       const status = err?.response?.status;
       const backendDetail = err?.response?.data?.detail || err?.response?.data?.message;
       const errorMsg = backendDetail || err?.message || 'Please try again';
@@ -942,10 +933,10 @@ export default function TeacherAttendanceScreen() {
 
       // Handle service unavailable errors with retry option
       if (status === 503 || status === 502 || status === 504) {
-        const serviceError = status === 503 
+        const serviceError = status === 503
           ? 'The face verification service is temporarily unavailable.'
           : 'The server is temporarily unavailable.';
-        
+
         Alert.alert(
           'Service Unavailable',
           `${serviceError} Please wait a moment and try again.`,
@@ -980,11 +971,11 @@ export default function TeacherAttendanceScreen() {
   };
 
   const resetManualChanges = () => {
-    if (!manualRows.length) return;
+    if (!manualRows.length) {return;}
     const next: Record<string, string> = {};
     for (const row of manualRows) {
       const sid = String(row.student_id || '').trim();
-      if (sid) next[sid] = row._defaultStatus;
+      if (sid) {next[sid] = row._defaultStatus;}
     }
     setManualStatusById(next);
     setManualFilter('review');
@@ -1018,7 +1009,7 @@ export default function TeacherAttendanceScreen() {
   };
 
   const assignedClassOptions = useMemo(() => {
-    if (!Array.isArray(assignedClasses)) return [];
+    if (!Array.isArray(assignedClasses)) {return [];}
     return assignedClasses
       .filter(item => item !== null && item !== undefined)
       .map((item, idx) => ({
@@ -1055,7 +1046,7 @@ export default function TeacherAttendanceScreen() {
   }, [assignedClasses, classOptions, form.class_grade]);
 
   const manualRows = useMemo(() => {
-    if (!result) return [];
+    if (!result) {return [];}
     const presentRows = Array.isArray(result.present)
       ? result.present.filter(s => s !== null).map(s => ({ ...s, _defaultStatus: 'PRESENT' as const }))
       : [];
@@ -1108,14 +1099,14 @@ export default function TeacherAttendanceScreen() {
     const next: Record<string, string> = {};
     for (const row of manualRows) {
       const sid = String(row.student_id || '').trim();
-      if (sid) next[sid] = row._defaultStatus;
+      if (sid) {next[sid] = row._defaultStatus;}
     }
     setManualStatusById(next);
     setManualFilter('review');
   }, [manualRows]);
 
   const attendanceRate = useMemo(() => {
-    if (!result?.summary?.total_students) return 0;
+    if (!result?.summary?.total_students) {return 0;}
     return Math.round((result.summary.present_count / result.summary.total_students) * 100);
   }, [result]);
 
@@ -1127,7 +1118,7 @@ export default function TeacherAttendanceScreen() {
   const handleSectionChange = (section: string) => {
     setForm(prev => ({ ...prev, section }));
     const selected = assignedClassOptions.find(opt => opt.class_grade === form.class_grade && opt.section === section);
-    if (selected) setSelectedClassKey(selected.key);
+    if (selected) {setSelectedClassKey(selected.key);}
   };
 
   // If viewing gallery after save
@@ -1135,12 +1126,12 @@ export default function TeacherAttendanceScreen() {
     const groupImages = savedAttendanceData?.image_urls || [];
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
             <View style={styles.headerContent}>
               <TouchableOpacity style={styles.backBtn} onPress={resetFlow}>
-                <ChevronLeft size={24} color="#FFFFFF" />
+                <ChevronLeft size={24} color={Theme.colors.card} />
               </TouchableOpacity>
               <AppText style={styles.headerTitle}>Attendance Saved</AppText>
               <View style={{ width: 40 }} />
@@ -1178,7 +1169,7 @@ export default function TeacherAttendanceScreen() {
                   <AppText style={styles.resultSub}>{teacherData?.teacher_full_name || 'Teacher'} - {form.attendance_date}</AppText>
                 </View>
               </View>
-              <View style={{ padding: 24, alignItems: 'center' }}>
+              <View style={{ padding: Theme.spacing.lg, alignItems: 'center' }}>
                 <Image source={{ uri: teacherImage }} style={{ width: '100%', height: 200, borderRadius: 12, resizeMode: 'cover' }} />
               </View>
             </AppCard>
@@ -1191,7 +1182,7 @@ export default function TeacherAttendanceScreen() {
                 <CameraIcon size={20} color={Theme.colors.primary} />
                 <AppText style={styles.cardTitle}>Student Images ({groupImages.length})</AppText>
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ padding: 16 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ padding: Theme.spacing.md }}>
                 {groupImages.map((img: string, idx: number) => (
                   <View key={idx} style={styles.thumbWrapper}>
                     <Image source={{ uri: img }} style={styles.thumbImg} />
@@ -1201,7 +1192,7 @@ export default function TeacherAttendanceScreen() {
             </AppCard>
           )}
 
-          <AppButton title="✓ Done - Start New Attendance" onPress={resetFlow} style={[styles.primaryButton as any, { marginHorizontal: 16, marginBottom: 30 }]} />
+          <AppButton title="✓ Done - Start New Attendance" onPress={resetFlow} style={StyleSheet.flatten([styles.primaryButton, { marginHorizontal: Theme.spacing.md, marginBottom: 30 }])} />
         </ScrollView>
       </View>
     );
@@ -1209,7 +1200,7 @@ export default function TeacherAttendanceScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       <Toast
         visible={toast.visible}
@@ -1233,11 +1224,11 @@ export default function TeacherAttendanceScreen() {
               style={styles.backBtn}
               onPress={() => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('TeacherDashboard')}
             >
-              <ChevronLeft size={24} color="#FFFFFF" />
+              <ChevronLeft size={24} color={Theme.colors.card} />
             </TouchableOpacity>
             <AppText style={styles.headerTitle}>{isClassTeacher ? 'Class Teacher' : 'Teacher Attendance'}</AppText>
             <TouchableOpacity style={styles.notificationBtn} onPress={() => (navigation as any).navigate('Notifications')}>
-              <Bell size={22} color="#FFFFFF" />
+              <Bell size={22} color={Theme.colors.card} />
             </TouchableOpacity>
           </View>
 
@@ -1251,8 +1242,8 @@ export default function TeacherAttendanceScreen() {
             <TouchableOpacity
               style={[styles.tab, step > 2 && styles.activeTab]}
               onPress={() => {
-                if (teacherData) setStep(3);
-                else Alert.alert('Verification Required', 'Please verify your identity first.');
+                if (teacherData) {setStep(3);}
+                else {Alert.alert('Verification Required', 'Please verify your identity first.');}
               }}
             >
               <AppText style={[styles.tabText, step > 2 && styles.activeTabText]}>Attendance</AppText>
@@ -1290,7 +1281,7 @@ export default function TeacherAttendanceScreen() {
                   style={styles.cameraToggleBtn}
                   onPress={toggleCamera}
                 >
-                  <RefreshCcw size={24} color="#fff" />
+                  <RefreshCcw size={24} color={Theme.colors.card} />
                 </TouchableOpacity>
 
                 {cameraUse === 'student' && studentImages.length > 0 && (
@@ -1302,24 +1293,24 @@ export default function TeacherAttendanceScreen() {
                   style={styles.cameraCaptureBtn}
                   onPress={cameraUse === 'teacher' ? handleTeacherCapture : handleStudentCapture}
                 >
-                  <CameraIcon size={24} color="#fff" />
+                  <CameraIcon size={24} color={Theme.colors.card} />
                 </TouchableOpacity>
               </View>
             </View>
             <TouchableOpacity style={styles.closeCameraBtn} onPress={stopCamera}>
-              <XCircle size={24} color="#fff" />
+              <XCircle size={24} color={Theme.colors.card} />
             </TouchableOpacity>
           </View>
         ) : cameraActive && hasPermission ? (
           <View style={styles.cameraContainer}>
             <View style={[styles.camera, { backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }]}>
-              <AlertCircle size={48} color="#ef4444" />
-              <AppText style={{ color: '#fff', marginTop: 16, textAlign: 'center', paddingHorizontal: 20 }}>
+              <AlertCircle size={48} color={Theme.colors.error} />
+              <AppText style={{ color: Theme.colors.card, marginTop: Theme.spacing.md, textAlign: 'center', paddingHorizontal: 20 }}>
                 Camera not available. Please check if camera permission is granted.
               </AppText>
             </View>
             <TouchableOpacity style={styles.closeCameraBtn} onPress={stopCamera}>
-              <XCircle size={24} color="#fff" />
+              <XCircle size={24} color={Theme.colors.card} />
             </TouchableOpacity>
           </View>
         ) : null}
@@ -1344,10 +1335,10 @@ export default function TeacherAttendanceScreen() {
               {!cameraActive && (
                 <View style={styles.buttonGrid}>
                   <TouchableOpacity style={[styles.actionBtn, { backgroundColor: Theme.colors.primary }]} onPress={() => startCamera('teacher')}>
-                    <CameraIcon size={20} color="#fff" />
+                    <CameraIcon size={20} color={Theme.colors.card} />
                     <AppText style={styles.actionBtnText}>Start Camera</AppText>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#F1F5F9' }]} onPress={handleTeacherUpload}>
+                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: Theme.colors.background }]} onPress={handleTeacherUpload}>
                     <Upload size={20} color={Theme.colors.primary} />
                     <AppText style={[styles.actionBtnText, { color: Theme.colors.primary }]}>Upload</AppText>
                   </TouchableOpacity>
@@ -1358,7 +1349,7 @@ export default function TeacherAttendanceScreen() {
                 <View style={styles.previewContainer}>
                   <Image source={{ uri: teacherImage }} style={styles.previewImage} />
                   <View style={styles.previewBadge}>
-                    <CheckCircle2 size={12} color="#fff" />
+                    <CheckCircle2 size={12} color={Theme.colors.card} />
                     <AppText style={styles.previewBadgeText}>Ready</AppText>
                   </View>
                 </View>
@@ -1372,13 +1363,13 @@ export default function TeacherAttendanceScreen() {
               />
 
               {enableManualAttendance && (
-                <TouchableOpacity 
-                  style={styles.manualFallbackBtn} 
+                <TouchableOpacity
+                  style={styles.manualFallbackBtn}
                   onPress={() => (navigation as any).navigate('MarkAttendance')}
                   activeOpacity={0.8}
                 >
                   <View style={styles.manualFallbackIconContainer}>
-                    <UserCheck size={20} color="#FFFFFF" />
+                    <UserCheck size={20} color={Theme.colors.card} />
                   </View>
                   <View style={styles.manualFallbackTextContainer}>
                     <AppText style={styles.manualFallbackBtnText}>Switch to Manual Attendance</AppText>
@@ -1413,14 +1404,14 @@ export default function TeacherAttendanceScreen() {
 
               {/* Display teacher verification image */}
               {teacherImage && (
-                <View style={{ marginTop: 16, marginBottom: 16, padding: 16, backgroundColor: '#F0FDF4', borderRadius: 12, borderWidth: 1.5, borderColor: '#22C55E' }}>
+                <View style={{ marginTop: Theme.spacing.md, marginBottom: Theme.spacing.md, padding: Theme.spacing.md, backgroundColor: '#F0FDF4', borderRadius: 12, borderWidth: 1.5, borderColor: '#22C55E' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                     <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#22C55E', alignItems: 'center', justifyContent: 'center' }}>
-                      <CheckCircle2 size={16} color="#fff" />
+                      <CheckCircle2 size={16} color={Theme.colors.card} />
                     </View>
                     <View>
-                      <AppText style={{ fontWeight: '800', color: '#15803D', fontSize: 14 }}>Teacher Verification Image</AppText>
-                      <AppText style={{ fontSize: 12, color: '#16A34A', marginTop: 2 }}>Captured for {teacherData.teacher_full_name} verification</AppText>
+                      <AppText style={{ ...Theme.typography.body, fontWeight: '800', color: '#15803D' }}>Teacher Verification Image</AppText>
+                      <AppText style={{ ...Theme.typography.caption, color: '#16A34A', marginTop: 2 }}>Captured for {teacherData.teacher_full_name} verification</AppText>
                     </View>
                   </View>
                   <Image source={{ uri: teacherImage }} style={{ width: '100%', height: 200, borderRadius: 8, borderWidth: 2, borderColor: '#22C55E', resizeMode: 'cover' }} />
@@ -1454,7 +1445,7 @@ export default function TeacherAttendanceScreen() {
               )}
 
               <View style={styles.buttonRow}>
-                <AppButton title="Continue →" onPress={() => setStep(3)} style={[styles.primaryButton as any, { flex: 1 }]} />
+                <AppButton title="Continue →" onPress={() => setStep(3)} style={StyleSheet.flatten([styles.primaryButton, { flex: 1 }])} />
                 <AppButton title="Reset" onPress={resetFlow} type="secondary" style={{ flex: 1 }} />
               </View>
             </View>
@@ -1489,13 +1480,13 @@ export default function TeacherAttendanceScreen() {
                     title: 'Select Class',
                     options: effectiveClassOptions.map((c: any) => ({ label: `Class ${c.class_name}`, value: c.class_name })),
                     selectedValue: form.class_grade,
-                    onValueChange: (v) => handleClassChange(v)
+                    onValueChange: (v) => handleClassChange(v),
                   })}
                 >
                   <AppText style={styles.pickerTriggerText}>
                     {form.class_grade ? `Class ${form.class_grade}` : 'Select Class'}
                   </AppText>
-                  <ChevronDown size={20} color="#64748B" />
+                  <ChevronDown size={20} color={Theme.colors.textSec} />
                 </TouchableOpacity>
               </View>
 
@@ -1509,27 +1500,27 @@ export default function TeacherAttendanceScreen() {
                       title: 'Select Section',
                       options: effectiveSectionOptions.map((sec: string) => ({ label: `Section ${sec}`, value: sec })),
                       selectedValue: form.section,
-                      onValueChange: (v) => handleSectionChange(v)
+                      onValueChange: (v) => handleSectionChange(v),
                     })}
                   >
                     <AppText style={styles.pickerTriggerText}>
                       {form.section ? `Section ${form.section}` : 'Select Section'}
                     </AppText>
-                    <ChevronDown size={20} color="#64748B" />
+                    <ChevronDown size={20} color={Theme.colors.textSec} />
                   </TouchableOpacity>
                 </View>
               )}
 
               <View style={styles.field}>
                 <AppText style={styles.label}>Attendance Date</AppText>
-                <View style={[styles.dateSelector, { backgroundColor: '#F1F5F9', opacity: 0.8 }]}>
-                  <Calendar size={16} color="#64748B" />
+                <View style={[styles.dateSelector, { backgroundColor: Theme.colors.background, opacity: 0.8 }]}>
+                  <Calendar size={16} color={Theme.colors.textSec} />
                   <AppText style={styles.dateSelectorText}>{form.attendance_date}</AppText>
-                  <View style={{ marginLeft: 'auto', backgroundColor: '#E2E8F0', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
-                    <AppText style={{ fontSize: 10, color: '#64748B', fontWeight: 'bold' }}>TODAY</AppText>
+                  <View style={{ marginLeft: 'auto', backgroundColor: Theme.colors.border, paddingHorizontal: Theme.spacing.sm, paddingVertical: 2, borderRadius: 6 }}>
+                    <AppText style={{ fontSize: 10, color: Theme.colors.textSec, fontWeight: 'bold' }}>TODAY</AppText>
                   </View>
                 </View>
-                <AppText style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
+                <AppText style={{ ...Theme.typography.label, color: Theme.colors.textMuted, marginTop: Theme.spacing.xs }}>
                   Attendance can only be marked for the current date.
                 </AppText>
               </View>
@@ -1544,17 +1535,17 @@ export default function TeacherAttendanceScreen() {
                       title: 'Select Session',
                       options: [
                         { label: `Session 1 (Morning) ${sessionMarked.session1 ? '✓ Marked' : ''}`, value: '1', disabled: sessionMarked.session1 },
-                        { label: `Session 2 (Afternoon) ${sessionMarked.session2 ? '✓ Marked' : ''}`, value: '2', disabled: sessionMarked.session2 }
+                        { label: `Session 2 (Afternoon) ${sessionMarked.session2 ? '✓ Marked' : ''}`, value: '2', disabled: sessionMarked.session2 },
                       ].filter(opt => !opt.disabled),
                       selectedValue: form.attendance_session,
-                      onValueChange: (v) => setForm(prev => ({ ...prev, attendance_session: v }))
+                      onValueChange: (v) => setForm(prev => ({ ...prev, attendance_session: v })),
                     })}
                   >
                     <AppText style={styles.pickerTriggerText}>
                       Session {form.attendance_session} {form.attendance_session === '1' ? '(Morning)' : '(Afternoon)'}
                       {(form.attendance_session === '1' && sessionMarked.session1) || (form.attendance_session === '2' && sessionMarked.session2) ? ' ✓ Marked' : ''}
                     </AppText>
-                    <ChevronDown size={20} color="#64748B" />
+                    <ChevronDown size={20} color={Theme.colors.textSec} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -1571,11 +1562,11 @@ export default function TeacherAttendanceScreen() {
                     onPress={() => startCamera('student')}
                     disabled={studentImages.length >= MAX_STUDENT_IMAGES}
                   >
-                    <CameraIcon size={20} color="#fff" />
+                    <CameraIcon size={20} color={Theme.colors.card} />
                     <AppText style={styles.actionBtnText}>Capture Students</AppText>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.actionBtn, { backgroundColor: '#F1F5F9' }]}
+                    style={[styles.actionBtn, { backgroundColor: Theme.colors.background }]}
                     onPress={handleStudentUpload}
                     disabled={studentImages.length >= MAX_STUDENT_IMAGES}
                   >
@@ -1592,7 +1583,7 @@ export default function TeacherAttendanceScreen() {
                       <View key={idx} style={styles.thumbWrapper}>
                         <Image source={{ uri: img }} style={styles.thumbImg} />
                         <TouchableOpacity style={styles.thumbRemove} onPress={() => removeStudentImage(idx)}>
-                          <XCircle size={18} color="#EF4444" fill="#fff" />
+                          <XCircle size={18} color="#EF4444" fill={Theme.colors.card} />
                         </TouchableOpacity>
                       </View>
                     )
@@ -1605,7 +1596,7 @@ export default function TeacherAttendanceScreen() {
                   title={loading ? 'Scanning...' : 'Scan / Preview'}
                   onPress={processAttendance}
                   disabled={loading || studentImages.length === 0 || !form.class_grade || !form.section || (isClassTeacher && isCurrentSessionMarked())}
-                  style={[styles.primaryButton, { flex: 2 }]}
+                  style={StyleSheet.flatten([styles.primaryButton, { flex: 2 }])}
                 />
                 <AppButton title="Back" onPress={() => setStep(2)} type="secondary" style={{ flex: 1 }} />
               </View>
@@ -1646,7 +1637,7 @@ export default function TeacherAttendanceScreen() {
                   <AppText style={styles.manualStripText}>
                     {manualHasChanges
                       ? `${manualCounts.changed} student(s) changed manually. Save to store the edits.`
-                      : "No manual changes detected. Save to store the scanned attendance."}
+                      : 'No manual changes detected. Save to store the scanned attendance.'}
                   </AppText>
                   <View style={styles.miniChipContainer}>
                     <View style={[styles.miniChip, styles.miniChipSuccess]}>
@@ -1679,13 +1670,13 @@ export default function TeacherAttendanceScreen() {
                 </ScrollView>
 
                 <View style={styles.buttonRowInline}>
-                  <TouchableOpacity 
-                    style={[styles.resetBtn, !manualHasChanges && styles.resetBtnDisabled]} 
+                  <TouchableOpacity
+                    style={[styles.resetBtn, !manualHasChanges && styles.resetBtnDisabled]}
                     onPress={resetManualChanges}
                     disabled={!manualHasChanges}
                   >
-                    <RefreshCw size={16} color={manualHasChanges ? Theme.colors.primary : '#94A3B8'} />
-                    <AppText style={[styles.resetBtnText, !manualHasChanges && { color: '#94A3B8' }]}>
+                    <RefreshCw size={16} color={manualHasChanges ? Theme.colors.primary : Theme.colors.textMuted} />
+                    <AppText style={[styles.resetBtnText, !manualHasChanges && { color: Theme.colors.textMuted }]}>
                       Reset to Scan Result
                     </AppText>
                   </TouchableOpacity>
@@ -1700,16 +1691,16 @@ export default function TeacherAttendanceScreen() {
 
                   {Array.isArray(filteredManualRows) && filteredManualRows.map((item, idx) => (
                     item && (
-                      <View 
-                        key={item.student_id || `row-${idx}`} 
+                      <View
+                        key={item.student_id || `row-${idx}`}
                         style={[
                           styles.tRow,
                           item._currentStatus === 'PRESENT' && styles.rowPresent,
                           item._currentStatus === 'ABSENT' && styles.rowAbsent,
-                          item._changed && styles.rowChanged
+                          item._changed && styles.rowChanged,
                         ]}
                       >
-                        <AppText style={[styles.tCell, { width: 40, color: '#94A3B8' }]}>{item.roll || idx + 1}</AppText>
+                        <AppText style={[styles.tCell, { width: 40, color: Theme.colors.textMuted }]}>{item.roll || idx + 1}</AppText>
                         <View style={{ flex: 1 }}>
                           <AppText style={styles.tCellName}>{item.name || 'Unknown Student'}</AppText>
                           {item._changed && <AppText style={styles.changedText}>• Manually Edited</AppText>}
@@ -1736,9 +1727,9 @@ export default function TeacherAttendanceScreen() {
                 <View style={styles.resultNote}>
                   <AppText style={styles.resultNoteText}>
                     Date: <AppText style={{ fontWeight: 'bold' }}>{result?.date || form.attendance_date}</AppText>
-                    {" • "}
+                    {' • '}
                     Unknown Faces: <AppText style={{ fontWeight: 'bold' }}>{result?.summary?.unknown_faces_count || 0}</AppText>
-                    {" • "}
+                    {' • '}
                     Faces Detected: <AppText style={{ fontWeight: 'bold' }}>{result?.summary?.total_faces_detected || 0}</AppText>
                   </AppText>
                 </View>
@@ -1748,17 +1739,17 @@ export default function TeacherAttendanceScreen() {
                     title={manualSaving ? 'Saving...' : 'Save Attendance'}
                     onPress={saveAttendance}
                     disabled={manualSaving || (isClassTeacher && isCurrentSessionMarked())}
-                    style={[styles.primaryButton as any, { flex: 1 }]}
+                    style={StyleSheet.flatten([styles.primaryButton, { flex: 1 }])}
                   />
                   <TouchableOpacity style={styles.retryBtn} onPress={() => {
                     setResult(null);
                     setManualStatusById({});
                     setStep(3);
                   }}>
-                    <RefreshCw size={20} color="#64748B" />
+                    <RefreshCw size={20} color={Theme.colors.textSec} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.retryBtn} onPress={resetFlow}>
-                    <Save size={20} color="#64748B" />
+                    <Save size={20} color={Theme.colors.textSec} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1774,7 +1765,7 @@ export default function TeacherAttendanceScreen() {
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle}>Confirm Capture</AppText>
               <TouchableOpacity onPress={retakeImage}>
-                <XCircle size={24} color="#64748B" />
+                <XCircle size={24} color={Theme.colors.textSec} />
               </TouchableOpacity>
             </View>
             {previewImage && <Image source={{ uri: previewImage }} style={styles.modalImage} />}
@@ -1798,7 +1789,7 @@ export default function TeacherAttendanceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   headerStandard: {
     backgroundColor: Theme.colors.primary,
@@ -1829,7 +1820,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   notificationBtn: {
     width: 40,
@@ -1843,7 +1834,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 16,
-    padding: 4,
+    padding: Theme.spacing.xs,
     marginHorizontal: 20,
     marginTop: 12,
   },
@@ -1854,11 +1845,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   activeTab: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
   },
   tabText: {
     color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
   },
   activeTabText: {
@@ -1867,30 +1858,30 @@ const styles = StyleSheet.create({
   },
   heroContent: {
     paddingHorizontal: 20,
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   heroGreeting: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 24,
     fontWeight: '800',
   },
   heroSubtext: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 13,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   scrollContent: {
     paddingBottom: 120,
   },
   stepperWrapper: {
     marginTop: -20,
-    marginBottom: 24,
-    paddingHorizontal: 16,
+    marginBottom: Theme.spacing.lg,
+    paddingHorizontal: Theme.spacing.md,
     alignItems: 'center',
   },
   stepperContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     paddingVertical: 14,
     paddingHorizontal: 12,
     borderRadius: 24,
@@ -1911,12 +1902,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
     borderWidth: 2,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   stepActive: {
     backgroundColor: Theme.colors.primary,
@@ -1926,19 +1917,19 @@ const styles = StyleSheet.create({
   },
   stepDone: {
     backgroundColor: '#10B981',
-    borderColor: '#059669',
+    borderColor: Theme.colors.success,
   },
   stepNumber: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: Theme.colors.textSec,
   },
   stepNumberActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   stepLabel: {
     fontSize: 10,
-    color: '#94A3B8',
+    color: Theme.colors.textMuted,
     fontWeight: '600',
   },
   stepLabelActive: {
@@ -1948,24 +1939,24 @@ const styles = StyleSheet.create({
   stepConnector: {
     width: 18,
     height: 2.5,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: Theme.colors.border,
     marginTop: -16,
-    marginHorizontal: 4,
+    marginHorizontal: Theme.spacing.xs,
   },
   stepConnectorDone: {
     backgroundColor: '#10B981',
   },
   mainCard: {
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     borderRadius: Theme.radius.xxxl,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderWidth: 0,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     overflow: 'hidden',
   },
   cardHeader: {
@@ -1973,7 +1964,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     padding: 18,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: '#ECEFF1',
   },
@@ -1992,7 +1983,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#475569',
+    color: Theme.colors.textSec,
     marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -2003,29 +1994,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F7F9FB',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     padding: 13,
   },
   pickerTriggerText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#1A202C',
     fontWeight: '500',
   },
   input: {
     backgroundColor: '#F7F9FB',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     padding: 13,
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#1A202C',
     fontWeight: '500',
   },
   buttonGrid: {
     flexDirection: 'row',
     gap: 14,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   actionBtn: {
     flex: 1,
@@ -2039,16 +2030,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
   },
   actionBtnText: {
-    color: '#fff',
-    fontSize: 14,
+    color: Theme.colors.card,
+    ...Theme.typography.body,
     fontWeight: '600',
   },
   previewContainer: {
     borderRadius: 18,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     elevation: 2,
     shadowOpacity: 0.08,
   },
@@ -2072,8 +2063,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
   },
   previewBadgeText: {
-    color: '#fff',
-    fontSize: 12,
+    color: Theme.colors.card,
+    ...Theme.typography.caption,
     fontWeight: '600',
   },
   primaryButton: {
@@ -2084,15 +2075,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
   },
   manualFallbackBtn: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    padding: 16,
+    backgroundColor: Theme.colors.background,
+    padding: Theme.spacing.md,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    shadowColor: '#64748B',
+    borderColor: Theme.colors.border,
+    shadowColor: Theme.colors.textSec,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
@@ -2116,31 +2107,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   manualFallbackBtnText: {
-    color: '#0F172A',
-    fontWeight: '700',
-    fontSize: 15,
+    color: Theme.colors.text,
+    ...Theme.typography.bodyMd,
     marginBottom: 2,
   },
   manualFallbackSubText: {
-    color: '#64748B',
-    fontSize: 12,
+    color: Theme.colors.textSec,
+    ...Theme.typography.caption,
     fontWeight: '500',
   },
   teacherInfo: {
     backgroundColor: '#EFF6FF',
     padding: 18,
     borderRadius: 18,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     borderWidth: 1.5,
     borderColor: '#BAE6FD',
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   infoLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: '#0369A1',
   },
@@ -2152,15 +2142,15 @@ const styles = StyleSheet.create({
   chipContainer: {
     flexDirection: 'row',
     gap: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
   },
   chip: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     borderRadius: 14,
     backgroundColor: '#F7F9FB',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   chipActive: {
     backgroundColor: Theme.colors.primary,
@@ -2171,10 +2161,10 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: Theme.colors.textSec,
   },
   chipTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -2192,13 +2182,13 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: '#F7F9FB',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 13,
   },
   dateSelectorText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: '#1A202C',
   },
@@ -2211,15 +2201,15 @@ const styles = StyleSheet.create({
   imageCount: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#475569',
-    backgroundColor: '#F1F5F9',
+    color: Theme.colors.textSec,
+    backgroundColor: Theme.colors.background,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 8,
   },
   thumbScroll: {
     marginBottom: 18,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
   },
   thumbWrapper: {
     width: 90,
@@ -2227,7 +2217,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginRight: 12,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     elevation: 2,
     shadowOpacity: 0.06,
     overflow: 'hidden',
@@ -2248,10 +2238,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
   },
   miniStatCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     flex: 1,
     marginHorizontal: 6,
     padding: 14,
@@ -2266,60 +2256,60 @@ const styles = StyleSheet.create({
   miniStatVal: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   miniStatLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '600',
-    color: '#94A3B8',
-    marginTop: 4,
+    color: Theme.colors.textMuted,
+    marginTop: Theme.spacing.xs,
   },
   filterScroll: {
     marginBottom: 12,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
   },
   filterChip: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     marginRight: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   filterChipActive: {
     backgroundColor: Theme.colors.primary,
     borderColor: Theme.colors.primary,
   },
   filterChipText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
-    color: '#64748B',
+    color: Theme.colors.textSec,
   },
   filterChipTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   tableWrapper: {
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 18,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     elevation: 2,
     shadowOpacity: 0.06,
   },
   tHeader: {
     flexDirection: 'row',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     paddingVertical: 14,
     paddingHorizontal: 14,
     borderBottomWidth: 2,
     borderBottomColor: '#ECEFF1',
   },
   tHead: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
-    color: '#64748B',
+    color: Theme.colors.textSec,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -2329,8 +2319,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: Theme.colors.background,
+    backgroundColor: Theme.colors.card,
   },
   rowPresent: {
     backgroundColor: '#F0FDF4',
@@ -2346,27 +2336,27 @@ const styles = StyleSheet.create({
   tCell: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#475569',
+    color: Theme.colors.textSec,
   },
   tCellName: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
     color: '#1A202C',
   },
   changedText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '600',
     color: '#F59E0B',
     marginTop: 2,
   },
   statusToggle: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     borderRadius: 10,
     padding: 3,
     width: 90,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   toggleBtn: {
     flex: 1,
@@ -2388,20 +2378,20 @@ const styles = StyleSheet.create({
   toggleText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: Theme.colors.textMuted,
   },
   toggleTextActive: {
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   retryBtn: {
     width: 54,
     height: 54,
     borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     elevation: 2,
     shadowOpacity: 0.06,
   },
@@ -2414,7 +2404,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   badgeText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
@@ -2424,9 +2414,9 @@ const styles = StyleSheet.create({
     top: 60,
     left: 16,
     right: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 16,
-    padding: 16,
+    padding: Theme.spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     elevation: 10,
@@ -2436,9 +2426,9 @@ const styles = StyleSheet.create({
   },
   toastIcon: { fontSize: 24, marginRight: 14 },
   toastContent: { flex: 1 },
-  toastTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
-  toastMessage: { fontSize: 12, color: '#64748B', marginTop: 3 },
-  toastClose: { color: '#CBD5E1', fontSize: 18, padding: 4, fontWeight: '600' },
+  toastTitle: { ...Theme.typography.body, fontWeight: '700', color: Theme.colors.text },
+  toastMessage: { ...Theme.typography.caption, color: Theme.colors.textSec, marginTop: 3 },
+  toastClose: { color: '#CBD5E1', fontSize: 18, padding: Theme.spacing.xs, fontWeight: '600' },
   cameraContainer: {
     position: 'absolute' as const,
     top: 0,
@@ -2458,13 +2448,13 @@ const styles = StyleSheet.create({
   },
   cameraStep: {
     backgroundColor: 'rgba(0,31,80,0.9)',
-    color: '#fff',
+    color: Theme.colors.card,
     paddingHorizontal: 18,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 20,
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   cameraControls: {
     flexDirection: 'row',
@@ -2475,7 +2465,7 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderWidth: 6,
     borderColor: 'rgba(255,255,255,0.4)',
     alignItems: 'center',
@@ -2489,7 +2479,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     elevation: 3,
   },
-  cameraDoneText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  cameraDoneText: { color: Theme.colors.card, fontSize: 13, fontWeight: '600' },
   cameraToggleBtn: {
     width: 60,
     height: 60,
@@ -2498,7 +2488,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: Theme.colors.card,
   },
   closeCameraBtn: {
     position: 'absolute',
@@ -2516,9 +2506,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 28,
-    padding: 24,
+    padding: Theme.spacing.lg,
     alignItems: 'center',
     elevation: 10,
   },
@@ -2529,14 +2519,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     alignItems: 'center',
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
-  modalImage: { width: '100%', height: 320, borderRadius: 18, marginBottom: 24, resizeMode: 'cover' },
+  modalTitle: { ...Theme.typography.h3, color: Theme.colors.text },
+  modalImage: { width: '100%', height: 320, borderRadius: 18, marginBottom: Theme.spacing.lg, resizeMode: 'cover' },
   modalButtons: { flexDirection: 'row', gap: 14, width: '100%' },
   modalBtn: { flex: 1, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', elevation: 2 },
   modalBtnPrimary: { backgroundColor: Theme.colors.primary },
-  modalBtnSecondary: { backgroundColor: '#F1F5F9', borderWidth: 1.5, borderColor: '#E2E8F0' },
-  modalBtnTextPrimary: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  modalBtnTextSecondary: { color: '#475569', fontWeight: '600', fontSize: 14 },
+  modalBtnSecondary: { backgroundColor: Theme.colors.background, borderWidth: 1.5, borderColor: Theme.colors.border },
+  modalBtnTextPrimary: { ...Theme.typography.body, color: Theme.colors.card, fontWeight: '600' },
+  modalBtnTextSecondary: { ...Theme.typography.body, color: Theme.colors.textSec, fontWeight: '600' },
   warningBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2561,7 +2551,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     marginRight: 10,
   },
   resetBtnDisabled: {
@@ -2573,16 +2563,16 @@ const styles = StyleSheet.create({
     color: Theme.colors.primary,
   },
   manualStrip: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     padding: 14,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   manualStripText: {
-    fontSize: 12,
-    color: '#475569',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     fontWeight: '600',
     marginBottom: 10,
   },
@@ -2609,25 +2599,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
   },
   miniChipText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '800',
   },
   resultNote: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     padding: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   resultNoteText: {
-    fontSize: 12,
-    color: '#64748B',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     fontWeight: '500',
   },
   resultSub: {
-    fontSize: 12,
-    color: '#64748B',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     marginTop: 2,
   },
 });

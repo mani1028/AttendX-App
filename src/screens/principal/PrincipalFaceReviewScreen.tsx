@@ -9,7 +9,6 @@ import {
   Modal,
   Image,
   ActivityIndicator,
-  StatusBar,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
@@ -31,14 +30,19 @@ import {
   Scan,
 } from 'lucide-react-native';
 import API from '../../services/api';
-import { Theme } from '../../theme/theme';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { Theme } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
 
 /* ── helpers ── */
 const getHeaders = async (): Promise<Record<string, string>> => {
-  const sc = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
-  const bid = (await AsyncStorage.getItem('branch_id')) || (await AsyncStorage.getItem('branchId')) || '';
-  const tok = (await AsyncStorage.getItem('token')) || '';
+  const sc = (await storage.getString(StorageKeys.SCHOOL_CODE)) || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
+  const bid = (await storage.getString(StorageKeys.BRANCH_ID)) || (await storage.getString(StorageKeys.BRANCH_ID)) || '';
+  const tok = (await storage.getSecure(StorageKeys.AUTH_TOKEN)) || '';
   return {
     'X-School-Code': sc,
     'X-Branch-Id': bid,
@@ -95,23 +99,23 @@ function PhotoUploadModal({ target, onClose, onSuccess }: PhotoModalProps) {
   const [error, setError] = useState('');
 
   const pickImage = () => {
-    launchImageLibrary({ mediaType: 'photo', quality: 0.92 }, (res) => {
-      if (res.didCancel) return;
+    launchImageLibrary({ mediaType: 'photo', quality: 0.9 }, (res) => {
+      if (res.didCancel) {return;}
       const asset = res.assets?.[0];
       if (asset?.uri) { setPreview(asset.uri); setFileName(asset.fileName || 'photo.jpg'); setError(''); }
     });
   };
 
   const captureImage = () => {
-    launchCamera({ mediaType: 'photo', quality: 0.92, cameraType: 'front' }, (res) => {
-      if (res.didCancel) return;
+    launchCamera({ mediaType: 'photo', quality: 0.9, cameraType: 'front' }, (res) => {
+      if (res.didCancel) {return;}
       const asset = res.assets?.[0];
       if (asset?.uri) { setPreview(asset.uri); setFileName(asset.fileName || `capture_${target?.id}.jpg`); setError(''); }
     });
   };
 
   const handleUpload = async () => {
-    if (!preview || !target) return;
+    if (!preview || !target) {return;}
     setUploading(true); setError('');
     try {
       const headers = await getHeaders();
@@ -122,7 +126,7 @@ function PhotoUploadModal({ target, onClose, onSuccess }: PhotoModalProps) {
         headers: { ...headers, 'Content-Type': 'multipart/form-data' },
       });
       if (res.data?.ok) { onSuccess(target.id, !!res.data.embedding_synced); onClose(); }
-      else setError(res.data?.detail || 'Upload failed');
+      else {setError(res.data?.detail || 'Upload failed');}
     } catch (e: any) {
       setError(e?.response?.data?.detail || e?.message || 'Upload failed');
     } finally { setUploading(false); }
@@ -144,7 +148,7 @@ function PhotoUploadModal({ target, onClose, onSuccess }: PhotoModalProps) {
                 ) : null}
               </View>
             </View>
-            <TouchableOpacity onPress={onClose} disabled={uploading}>
+            <TouchableOpacity accessibilityRole="button" onPress={onClose} disabled={uploading}>
               <Text style={styles.closeX}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -172,28 +176,28 @@ function PhotoUploadModal({ target, onClose, onSuccess }: PhotoModalProps) {
             )}
 
             <View style={styles.pickRow}>
-              <TouchableOpacity style={styles.pickBtn} onPress={pickImage} disabled={uploading}>
-                <UploadCloud size={16} color="#fff" />
+              <TouchableOpacity accessibilityRole="button" style={styles.pickBtn} onPress={pickImage} disabled={uploading}>
+                <UploadCloud size={16} color={Theme.colors.card} />
                 <Text style={styles.pickBtnText}>📁 Gallery</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.pickBtn, { backgroundColor: '#0f172a' }]} onPress={captureImage} disabled={uploading}>
-                <Camera size={16} color="#fff" />
+              <TouchableOpacity accessibilityRole="button" style={[styles.pickBtn, { backgroundColor: Theme.colors.text }]} onPress={captureImage} disabled={uploading}>
+                <Camera size={16} color={Theme.colors.card} />
                 <Text style={styles.pickBtnText}>📷 Camera</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           <View style={styles.modalFooter}>
-            <TouchableOpacity style={styles.outlineBtn} onPress={onClose} disabled={uploading}>
+            <TouchableOpacity accessibilityRole="button" style={styles.outlineBtn} onPress={onClose} disabled={uploading}>
               <Text style={styles.outlineBtnText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.primaryBtn, (!preview || uploading) && { opacity: 0.45 }]}
               onPress={handleUpload}
               disabled={!preview || uploading}>
               {uploading
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <><UploadCloud size={14} color="#fff" /><Text style={styles.primaryBtnText}>Save Photo</Text></>}
+                ? <ActivityIndicator size="small" color={Theme.colors.card} />
+                : <><UploadCloud size={14} color={Theme.colors.card} /><Text style={styles.primaryBtnText}>Save Photo</Text></>}
             </TouchableOpacity>
           </View>
         </View>
@@ -239,9 +243,9 @@ export default function PrincipalFaceReviewScreen() {
         const map: Record<string, Set<string>> = {};
         rawItems.forEach((row: any) => {
           const g = row.class_grade || row.class_name || '';
-          if (!g) return;
-          if (!map[g]) map[g] = new Set();
-          if (row.section) map[g].add(row.section);
+          if (!g) {return;}
+          if (!map[g]) {map[g] = new Set();}
+          if (row.section) {map[g].add(row.section);}
         });
         const built = Object.keys(map).sort().map(g => ({ class_grade: g, sections: Array.from(map[g]).sort() }));
         setClasses(built);
@@ -360,16 +364,16 @@ export default function PrincipalFaceReviewScreen() {
             </View>
           ) : (
             <View style={styles.btnCol}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.actionBtn, { backgroundColor: !item.has_photo ? Theme.colors.error : '#f59e0b' }]}
                 onPress={() => setModal({ id, name: item.name, type: isStaff ? 'Staff' : 'Student' })}>
-                <UploadCloud size={11} color="#fff" />
+                <UploadCloud size={11} color={Theme.colors.card} />
                 <Text style={styles.actionBtnText}>{!item.has_photo ? 'Upload Photo' : 'Update Photo'}</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: '#0f172a' }]}
+              <TouchableOpacity accessibilityRole="button"
+                style={[styles.actionBtn, { backgroundColor: Theme.colors.text }]}
                 onPress={() => setModal({ id, name: item.name, type: isStaff ? 'Staff' : 'Student' })}>
-                <Camera size={11} color="#fff" />
+                <Camera size={11} color={Theme.colors.card} />
                 <Text style={styles.actionBtnText}>Live Capture</Text>
               </TouchableOpacity>
             </View>
@@ -383,7 +387,7 @@ export default function PrincipalFaceReviewScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Header */}
       <View style={[
@@ -392,20 +396,20 @@ export default function PrincipalFaceReviewScreen() {
           paddingTop: insets.top + 16,
           borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
           borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-        }
+        },
       ]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft size={22} color="#fff" />
+        <TouchableOpacity accessibilityRole="button" onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <ChevronLeft size={22} color={Theme.colors.card} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Scan size={18} color="#fff" />
+          <Scan size={18} color={Theme.colors.card} />
           <View>
             <Text style={styles.headerTitle}>Face Photo Review</Text>
             <Text style={styles.headerSub}>Principal Control</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={() => load(page)} style={styles.refreshBtn}>
-          <RefreshCw size={18} color="#fff" />
+        <TouchableOpacity accessibilityRole="button" onPress={() => load(page)} style={styles.refreshBtn}>
+          <RefreshCw size={18} color={Theme.colors.card} />
         </TouchableOpacity>
       </View>
 
@@ -429,7 +433,7 @@ export default function PrincipalFaceReviewScreen() {
         {/* Tabs */}
         <View style={styles.tabs}>
           {(['students', 'staff'] as ActiveTab[]).map(tab => (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={tab}
               style={[styles.tab, activeTab === tab && styles.tabActive]}
               onPress={() => { setActiveTab(tab); setPage(1); }}>
@@ -461,7 +465,7 @@ export default function PrincipalFaceReviewScreen() {
         {/* Status filter chips */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
           {statusFilters.map(f => (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={f.key}
               style={[styles.chip, statusFilter === f.key && styles.chipActive]}
               onPress={() => setStatusFilter(f.key)}>
@@ -473,14 +477,14 @@ export default function PrincipalFaceReviewScreen() {
         {/* Class filter (students only) */}
         {activeTab === 'students' && classes.length > 0 ? (
           <>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-              <TouchableOpacity
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Theme.spacing.sm }}>
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.chip, classFilter === '' && styles.chipActive]}
                 onPress={() => { setClassFilter(''); setSectionFilter(''); }}>
                 <Text style={[styles.chipText, classFilter === '' && styles.chipTextActive]}>All Classes</Text>
               </TouchableOpacity>
               {classes.map(c => (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   key={c.class_grade}
                   style={[styles.chip, classFilter === c.class_grade && styles.chipActive]}
                   onPress={() => { setClassFilter(c.class_grade); setSectionFilter(''); }}>
@@ -490,14 +494,14 @@ export default function PrincipalFaceReviewScreen() {
             </ScrollView>
 
             {classFilter && selectedClassObj && selectedClassObj.sections.length > 0 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                <TouchableOpacity
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Theme.spacing.sm }}>
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.chip, sectionFilter === '' && styles.chipActive]}
                   onPress={() => setSectionFilter('')}>
                   <Text style={[styles.chipText, sectionFilter === '' && styles.chipTextActive]}>All Sections</Text>
                 </TouchableOpacity>
                 {selectedClassObj.sections.map(s => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={s}
                     style={[styles.chip, sectionFilter === s && styles.chipActive]}
                     onPress={() => setSectionFilter(s)}>
@@ -544,14 +548,14 @@ export default function PrincipalFaceReviewScreen() {
         {/* Pagination */}
         {totalPages > 1 ? (
           <View style={styles.pagination}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.pageBtn, page === 1 && styles.pageBtnDisabled]}
               onPress={() => { const p = page - 1; setPage(p); load(p); }}
               disabled={page === 1}>
               <ChevronLeft size={16} color={page === 1 ? Theme.colors.textMuted : Theme.colors.primary} />
             </TouchableOpacity>
             <Text style={styles.pageInfo}>{page} / {totalPages}</Text>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.pageBtn, page === totalPages && styles.pageBtnDisabled]}
               onPress={() => { const p = page + 1; setPage(p); load(p); }}
               disabled={page === totalPages}>
@@ -579,7 +583,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
     paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
     gap: 10,
-    shadowColor: '#1E3A8A',
+    shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -594,8 +598,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  headerSub: { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
+  headerTitle: { color: Theme.colors.card, fontSize: 17, fontWeight: '700' },
+  headerSub: { color: 'rgba(255,255,255,0.7)', ...Theme.typography.label },
   refreshBtn: {
     width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
     height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
@@ -606,9 +610,9 @@ const styles = StyleSheet.create({
   },
 
   scroll: { flex: 1 },
-  scrollContent: { padding: 16, paddingBottom: 40 },
+  scrollContent: { padding: Theme.spacing.md, paddingBottom: 40 },
 
-  statsScroll: { marginBottom: 16 },
+  statsScroll: { marginBottom: Theme.spacing.md },
   statCard: {
     backgroundColor: Theme.colors.card,
     borderRadius: 12,
@@ -624,7 +628,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   statVal: { fontSize: 22, fontWeight: '800' },
-  statLabel: { fontSize: 11, color: Theme.colors.textMuted, marginTop: 3, fontWeight: '500' },
+  statLabel: { ...Theme.typography.label, color: Theme.colors.textMuted, marginTop: 3, fontWeight: '500' },
 
   tabs: {
     flexDirection: 'row',
@@ -644,9 +648,9 @@ const styles = StyleSheet.create({
     marginBottom: -2,
   },
   tabActive: { borderBottomColor: Theme.colors.primary },
-  tabText: { fontSize: 14, fontWeight: '600', color: Theme.colors.textMuted },
+  tabText: { ...Theme.typography.body, fontWeight: '600', color: Theme.colors.textMuted },
   tabTextActive: { color: Theme.colors.primary },
-  tabCount: { fontWeight: '400', fontSize: 12 },
+  tabCount: { ...Theme.typography.caption, fontWeight: '400' },
 
   searchWrap: {
     flexDirection: 'row',
@@ -659,7 +663,7 @@ const styles = StyleSheet.create({
     height: 42,
     marginBottom: 10,
   },
-  searchInput: { flex: 1, fontSize: 14, color: Theme.colors.text },
+  searchInput: { flex: 1, ...Theme.typography.body, color: Theme.colors.text },
 
   chip: {
     paddingVertical: 6,
@@ -668,13 +672,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Theme.colors.border,
     backgroundColor: Theme.colors.card,
-    marginRight: 8,
+    marginRight: Theme.spacing.sm,
   },
   chipActive: { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary },
-  chipText: { fontSize: 12, color: Theme.colors.textMuted, fontWeight: '600' },
-  chipTextActive: { color: '#fff' },
+  chipText: { ...Theme.typography.caption, color: Theme.colors.textMuted, fontWeight: '600' },
+  chipTextActive: { color: Theme.colors.card },
 
-  resultInfo: { fontSize: 12, color: Theme.colors.textMuted, marginBottom: 10 },
+  resultInfo: { ...Theme.typography.caption, color: Theme.colors.textMuted, marginBottom: 10 },
 
   errorBox: {
     flexDirection: 'row',
@@ -687,9 +691,9 @@ const styles = StyleSheet.create({
   },
   errorBoxText: { flex: 1, color: Theme.colors.error, fontSize: 13 },
 
-  centered: { alignItems: 'center', paddingVertical: 48, gap: 12 },
-  loadingText: { color: Theme.colors.textMuted, fontSize: 14, marginTop: 8 },
-  emptyTitle: { fontSize: 15, fontWeight: '700', color: Theme.colors.text, textAlign: 'center' },
+  centered: { alignItems: 'center', paddingVertical: Theme.spacing.xxl, gap: 12 },
+  loadingText: { color: Theme.colors.textMuted, ...Theme.typography.body, marginTop: Theme.spacing.sm },
+  emptyTitle: { ...Theme.typography.bodyMd, fontWeight: '700', color: Theme.colors.text, textAlign: 'center' },
   emptyText: { fontSize: 13, color: Theme.colors.textMuted, textAlign: 'center' },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
@@ -709,14 +713,14 @@ const styles = StyleSheet.create({
   },
   photoArea: {
     height: 130,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   photo: { width: '100%', height: '100%', resizeMode: 'cover' },
   noPhotoWrap: { alignItems: 'center', gap: 4 },
-  noPhotoText: { fontSize: 11, color: Theme.colors.textMuted },
+  noPhotoText: { ...Theme.typography.label, color: Theme.colors.textMuted },
   badge: {
     position: 'absolute',
     top: 6,
@@ -731,9 +735,9 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 10, fontWeight: '700' },
   cardBody: { padding: 10 },
   cardName: { fontSize: 13, fontWeight: '700', color: Theme.colors.text },
-  cardSub: { fontSize: 11, color: Theme.colors.textMuted, marginBottom: 8 },
+  cardSub: { ...Theme.typography.label, color: Theme.colors.textMuted, marginBottom: Theme.spacing.sm },
   resolvedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
-  resolvedText: { fontSize: 12, fontWeight: '700' },
+  resolvedText: { ...Theme.typography.caption, fontWeight: '700' },
   btnCol: { gap: 5 },
   actionBtn: {
     flexDirection: 'row',
@@ -743,7 +747,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 7,
   },
-  actionBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  actionBtnText: { color: Theme.colors.card, ...Theme.typography.label, fontWeight: '700' },
 
   pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 20 },
   pageBtn: {
@@ -760,31 +764,31 @@ const styles = StyleSheet.create({
   pageInfo: { fontSize: 13, fontWeight: '600', color: Theme.colors.text },
 
   // Modal
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: Theme.spacing.md },
   modalBox: {
-    backgroundColor: '#fff', borderRadius: 18, width: '100%', maxWidth: 440,
+    backgroundColor: Theme.colors.background, borderRadius: 18, width: '100%', maxWidth: 440,
     overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.25, shadowRadius: 30, elevation: 20,
   },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Theme.colors.border },
-  modalTitle: { fontSize: 14, fontWeight: '700', color: Theme.colors.text },
-  modalSubtitle: { fontSize: 12, color: Theme.colors.textMuted, marginTop: 2 },
-  closeX: { fontSize: 20, color: Theme.colors.textMuted, paddingHorizontal: 4 },
-  modalBody: { padding: 16 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Theme.spacing.md, borderBottomWidth: 1, borderBottomColor: Theme.colors.border },
+  modalTitle: { ...Theme.typography.body, fontWeight: '700', color: Theme.colors.text },
+  modalSubtitle: { ...Theme.typography.caption, color: Theme.colors.textMuted, marginTop: 2 },
+  closeX: { fontSize: 20, color: Theme.colors.textMuted, paddingHorizontal: Theme.spacing.xs },
+  modalBody: { padding: Theme.spacing.md },
   errorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Theme.colors.errorBg, borderRadius: 8, padding: 10, marginBottom: 12 },
   errorText: { flex: 1, color: Theme.colors.error, fontSize: 13 },
   previewWrap: { alignItems: 'center', gap: 6, marginBottom: 14 },
   previewImg: { width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: Theme.colors.success },
   previewName: { fontSize: 13, fontWeight: '600', color: Theme.colors.text, maxWidth: 220 },
-  previewHint: { fontSize: 11, color: Theme.colors.textMuted },
-  emptyPreview: { height: 130, backgroundColor: '#f8fafc', borderRadius: 12, borderWidth: 2, borderColor: Theme.colors.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 14 },
-  emptyPreviewText: { fontSize: 14, color: Theme.colors.textMuted },
-  emptyPreviewHint: { fontSize: 11, color: Theme.colors.textMuted },
+  previewHint: { ...Theme.typography.label, color: Theme.colors.textMuted },
+  emptyPreview: { height: 130, backgroundColor: Theme.colors.background, borderRadius: 12, borderWidth: 2, borderColor: Theme.colors.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 14 },
+  emptyPreviewText: { ...Theme.typography.body, color: Theme.colors.textMuted },
+  emptyPreviewHint: { ...Theme.typography.label, color: Theme.colors.textMuted },
   pickRow: { flexDirection: 'row', gap: 10 },
   pickBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Theme.colors.primary, borderRadius: 8, paddingVertical: 10 },
-  pickBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  pickBtnText: { color: Theme.colors.card, fontSize: 13, fontWeight: '700' },
   modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, padding: 14, borderTopWidth: 1, borderTopColor: Theme.colors.border },
-  outlineBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: Theme.colors.border },
+  outlineBtn: { paddingVertical: Theme.spacing.sm, paddingHorizontal: Theme.spacing.md, borderRadius: 8, borderWidth: 1, borderColor: Theme.colors.border },
   outlineBtnText: { fontSize: 13, fontWeight: '600', color: Theme.colors.text },
-  primaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Theme.colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16 },
-  primaryBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  primaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Theme.colors.primary, borderRadius: 8, paddingVertical: Theme.spacing.sm, paddingHorizontal: Theme.spacing.md },
+  primaryBtnText: { color: Theme.colors.card, fontSize: 13, fontWeight: '700' },
 });

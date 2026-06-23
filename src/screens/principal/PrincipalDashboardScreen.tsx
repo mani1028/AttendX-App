@@ -1,3 +1,6 @@
+import { Theme, C } from '../../theme/tokens';
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
@@ -9,26 +12,23 @@ import {
   Dimensions,
   Platform,
   DimensionValue,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, RefreshCw, Calendar as CalendarIcon, Users, User, Grid, TrendingUp, Home, GitBranch, AlertCircle, BarChart3, ClipboardList, Megaphone, Settings } from 'lucide-react-native';
+import { Bell, RefreshCw, Calendar as CalendarIcon, Users, User, Grid, TrendingUp, Home, GitBranch, AlertCircle, BarChart3, ClipboardList, Megaphone, Settings, Eye } from 'lucide-react-native';
 import { Svg, Circle } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import API from '../../services/api';
 import * as principalService from '../../services/principalService';
 import { useAuth } from '../../context/AuthContext';
-import { colors } from '../../constants/theme';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
-
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const QUICK_ACTION_COLUMNS = 4;
@@ -110,17 +110,17 @@ const AttendanceRing = ({ pct, color, size = 80 }: { pct: number; color: string;
   );
 };
 
-const StatCard = ({ 
-  label, 
-  value, 
-  subtext, 
+const StatCard = ({
+  label,
+  value,
+  subtext,
   icon: IconComponent,
-  iconBg, 
-  iconColor, 
-  trend, 
-  trendUp, 
+  iconBg,
+  iconColor,
+  trend,
+  trendUp,
   onPress,
-  loading 
+  loading,
 }: any) => {
   const badgeColor = trendUp ? C.success : C.error;
   const badgeBg = trendUp ? 'rgba(5, 150, 105, 0.08)' : 'rgba(220, 38, 38, 0.08)';
@@ -150,7 +150,7 @@ const StatCard = ({
         </AppText>
       )}
       {loading ? (
-        <View style={[styles.skeletonText, { width: '60%', marginTop: 8 }]} />
+        <View style={[styles.skeletonText, { width: '60%', marginTop: Theme.spacing.sm }]} />
       ) : (
         <AppText style={styles.cardSub}>{subtext}</AppText>
       )}
@@ -162,14 +162,14 @@ const BarRow = ({ label, percentage, present, total, onPress }: any) => (
   <TouchableOpacity style={styles.barRow} onPress={onPress} activeOpacity={0.8}>
     <AppText style={styles.barLabel} weight="bold">{label}</AppText>
     <View style={styles.barTrack}>
-      <View 
+      <View
         style={[
-          styles.barFill, 
-          { 
+          styles.barFill,
+          {
             width: (percentage + '%') as DimensionValue,
-            backgroundColor: percentage >= 75 ? C.success : percentage >= 50 ? C.warning : C.error
-          }
-        ]} 
+            backgroundColor: percentage >= 75 ? C.success : percentage >= 50 ? C.warning : C.error,
+          },
+        ]}
       />
     </View>
     <AppText
@@ -178,8 +178,8 @@ const BarRow = ({ label, percentage, present, total, onPress }: any) => (
         styles.barPct,
         {
           color: percentage >= 75 ? C.success : percentage >= 50 ? C.warning : C.error,
-          fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'
-        }
+          fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+        },
       ]}
     >
       {percentage}%
@@ -192,7 +192,7 @@ const ClassChip = ({ label, percentage, present, total, onPress }: any) => {
   const isGood = percentage >= 75;
   const statusColor = isGood ? C.success : percentage >= 50 ? C.warning : C.error;
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[styles.classChip, { borderColor: C.border }]}
       onPress={onPress}
       activeOpacity={0.8}
@@ -203,11 +203,11 @@ const ClassChip = ({ label, percentage, present, total, onPress }: any) => {
           {percentage}%
         </AppText>
       </View>
-      
+
       <View style={styles.progressTrackCompact}>
         <View style={[styles.progressFillCompact, { width: `${percentage}%`, backgroundColor: statusColor }]} />
       </View>
-      
+
       <AppText style={styles.chipSub} numberOfLines={1}>{present}/{total} present</AppText>
     </TouchableOpacity>
   );
@@ -220,9 +220,10 @@ const QUICK_ACTIONS = [
   { label: 'Exams', route: 'PrincipalExams', icon: ClipboardList, bg: 'rgba(124, 58, 237, 0.08)', color: '#7c3aed' },
   { label: 'Reports', route: 'PrincipalReports', icon: BarChart3, bg: 'rgba(14, 165, 233, 0.08)', color: '#0ea5e9' },
   { label: 'Notices', route: 'PrincipalAnnouncements', icon: Megaphone, bg: 'rgba(236, 72, 153, 0.08)', color: '#ec4899' },
-  { label: 'Settings', route: 'PrincipalSettings', icon: Settings, bg: 'rgba(100, 116, 139, 0.08)', color: '#64748b' },
+  { label: 'Settings', route: 'PrincipalSettings', icon: Settings, bg: 'rgba(100, 116, 139, 0.08)', color: Theme.colors.textSec },
   { label: 'Profile', route: 'Profile', icon: User, bg: 'rgba(139, 92, 246, 0.08)', color: '#8b5cf6' },
   { label: 'Teacher Leaves', route: 'TeacherLeaveApproval', icon: CalendarIcon, bg: 'rgba(234, 88, 12, 0.08)', color: '#ea580c' },
+  { label: 'Student 360', route: 'Student360', icon: Eye, bg: 'rgba(6, 182, 212, 0.08)', color: '#06b6d4' },
 ] as const;
 
 export default function PrincipalDashboardScreen() {
@@ -230,7 +231,6 @@ export default function PrincipalDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName, setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
-  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
   const [stats, setStats] = useState<StatsData | null>(null);
@@ -249,18 +249,8 @@ export default function PrincipalDashboardScreen() {
       setTabBarVisible(true);
     };
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   useEffect(() => {
     if (schoolCode && branchId) {
@@ -275,12 +265,12 @@ export default function PrincipalDashboardScreen() {
         await AsyncStorage.getItem('schoolCode') ||
         await AsyncStorage.getItem('school_id') ||
         await AsyncStorage.getItem('schoolId') || '';
-      
+
       const branch = await AsyncStorage.getItem('branch_id') ||
         await AsyncStorage.getItem('branchId') ||
         await AsyncStorage.getItem('branch_code') ||
         await AsyncStorage.getItem('branchCode') || '';
-      
+
       if (isMounted.current) {
         setSchoolCode(code);
         setBranchId(branch);
@@ -298,10 +288,10 @@ export default function PrincipalDashboardScreen() {
 
       const [cachedStats, cachedClasses] = await Promise.all([
         AsyncStorage.getItem(statsKey),
-        AsyncStorage.getItem(classesKey)
+        AsyncStorage.getItem(classesKey),
       ]);
 
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
 
       if (cachedStats) {
         setStats(JSON.parse(cachedStats));
@@ -334,7 +324,7 @@ export default function PrincipalDashboardScreen() {
       return;
     }
 
-    if (isMounted.current) setError('');
+    if (isMounted.current) {setError('');}
 
     let statsOk = false;
     let classesOk = false;
@@ -349,7 +339,7 @@ export default function PrincipalDashboardScreen() {
       // Cache stats
       await AsyncStorage.setItem(`principal_stats_${schoolCode}_${branchId}`, JSON.stringify(statsData));
     } catch (err: any) {
-      if (err?.response?.status === 401) return;
+      if (err?.response?.status === 401) {return;}
       console.log('Stats error:', err?.response?.data || err);
     }
 
@@ -363,7 +353,7 @@ export default function PrincipalDashboardScreen() {
       // Cache classes
       await AsyncStorage.setItem(`principal_classes_${schoolCode}_${branchId}`, JSON.stringify(classesData));
     } catch (err: any) {
-      if (err?.response?.status === 401) return;
+      if (err?.response?.status === 401) {return;}
       console.log('Classes error:', err?.response?.data || err);
     }
 
@@ -389,15 +379,15 @@ export default function PrincipalDashboardScreen() {
   const goToClassAttendance = (classData: ClassData) => {
     const classGrade = String(classData?.class_grade || '').trim();
     const section = String(classData?.section || '').trim();
-    if (!classGrade || !section) return;
-    
+    if (!classGrade || !section) {return;}
+
     navigation.navigate('PrincipalAttendance' as any);
   };
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Morning';
-    if (hour < 17) return 'Afternoon';
+    if (hour < 12) {return 'Morning';}
+    if (hour < 17) {return 'Afternoon';}
     return 'Evening';
   };
 
@@ -411,7 +401,7 @@ export default function PrincipalDashboardScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       <ScrollView
         style={styles.scrollView}
@@ -421,65 +411,75 @@ export default function PrincipalDashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.text} />
         }
       >
-        <LinearGradient 
-          colors={['#1E3A8A', '#3B82F6']}
-          start={{x: 0, y: 0}}
-          end={{x: 1, y: 1}}
+        {/* ── Principal Hero Header ── */}
+        <LinearGradient
+          colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={[
             styles.heroHeader,
             {
-              paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
+              paddingTop: insets.top + 16,
+              paddingBottom: 28,
+              paddingHorizontal: 18,
               borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
               borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-              paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM + 40,
-            }
+            },
           ]}
         >
-          <View style={[styles.heroTopRow, { marginBottom: 0 }]}>
+          {/* Row 1: Avatar + Greeting + Actions */}
+          <View style={styles.heroTopRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <TouchableOpacity
-                style={styles.profileAvatar}
                 activeOpacity={0.8}
-                onPress={() => navigation.navigate('Profile')}
-                accessibilityRole="button"
-                accessibilityLabel="Open profile"
+                onPress={() => navigation.navigate('Profile' as any)}
+                style={styles.profileAvatar}
               >
-                <AppText style={styles.profileAvatarText} weight="bold">{userInitial}</AppText>
+                <AppText style={styles.profileAvatarText} weight="bold">
+                  {userInitial}
+                </AppText>
               </TouchableOpacity>
               <View>
-                <AppText style={{ fontSize: 10, color: 'rgba(255,255,255,0.72)', letterSpacing: 0.5 }} weight="semibold">
+                <AppText style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase' }}>
                   GOOD {getGreeting().toUpperCase()}
                 </AppText>
-                <AppText style={{ fontSize: 18, color: '#ffffff' }} weight="bold">
-                  {((userName || 'Principal').split(' ')[0]).replace(/^\w/, (c) => c.toUpperCase())} 👋
+                <AppText style={{ fontSize: 16, color: Theme.colors.card, fontWeight: '700' }} numberOfLines={1}>
+                  {((userName || 'Principal').split(' ')[0]).replace(/^\w/, c => c.toUpperCase())} 👋
                 </AppText>
               </View>
             </View>
             <View style={styles.heroActions}>
-              <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
-                <Bell size={18} color="#fff" />
+              <TouchableOpacity
+                style={styles.refreshIconBtn}
+                onPress={() => navigation.navigate('Notifications' as any)}
+                accessibilityLabel="Notifications"
+              >
+                <Bell size={18} color={Theme.colors.card} />
                 {unreadCount > 0 && (
                   <View style={styles.badge}>
-                    <AppText style={styles.badgeText} weight="bold">{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+                    <AppText style={styles.badgeText} weight="bold">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </AppText>
                   </View>
                 )}
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
-                <RefreshCw size={18} color="#fff" />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Welcome Section (Inside Gradient) */}
-          <View style={[styles.welcomeSection, { paddingTop: 10, paddingBottom: 20 }]}>
-            <View>
-              <AppText style={[styles.welcomeTitle, { color: '#ffffff' }]} weight="bold">Daily control center</AppText>
-              <AppText style={[styles.welcomeSub, { color: 'rgba(255,255,255,0.8)' }]}>Manage your school&apos;s activities from one place.</AppText>
+          {/* Row 2: Page title + Date badge */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 }}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <AppText style={{ fontSize: 20, color: Theme.colors.card, fontWeight: '800', letterSpacing: -0.3 }} numberOfLines={1} adjustsFontSizeToFit>
+                Principal Dashboard
+              </AppText>
+              <AppText style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 }} numberOfLines={1}>
+                {schoolCode ? `School: ${schoolCode} • ` : ''}Manage your school
+              </AppText>
             </View>
-            <View style={[styles.dateBadge, { backgroundColor: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.2)' }]}>
-              <CalendarIcon size={12} color="#ffffff" />
-              <AppText style={[styles.dateText, { color: '#ffffff' }]} weight="bold">
-                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, gap: 5 }}>
+              <CalendarIcon size={12} color={Theme.colors.card} />
+              <AppText style={{ fontSize: 11, color: Theme.colors.card, fontWeight: '700' }}>
+                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
               </AppText>
             </View>
           </View>
@@ -608,8 +608,8 @@ export default function PrincipalDashboardScreen() {
               ))
             ) : (
               <>
-                <TouchableOpacity 
-                  style={styles.ringRow} 
+                <TouchableOpacity
+                  style={styles.ringRow}
                   onPress={() => goToAttendanceView('teachers')}
                   activeOpacity={0.7}
                 >
@@ -627,8 +627,8 @@ export default function PrincipalDashboardScreen() {
                   </View>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                  style={styles.ringRow} 
+                <TouchableOpacity
+                  style={styles.ringRow}
                   onPress={() => goToAttendanceView('students')}
                   activeOpacity={0.7}
                 >
@@ -657,18 +657,18 @@ export default function PrincipalDashboardScreen() {
                 </AppText>
                 <AppText style={styles.sumLabel}>Present</AppText>
               </TouchableOpacity>
-              
+
               <View style={styles.sumDivider} />
-              
+
               <TouchableOpacity style={styles.sumItem} onPress={() => goToAttendanceView('students')}>
                 <AppText weight="bold" style={[styles.sumVal, { color: C.error, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
                   {(teacherAtt.absent ?? 0) + (studentAtt.absent ?? 0)}
                 </AppText>
                 <AppText style={styles.sumLabel}>Absent</AppText>
               </TouchableOpacity>
-              
+
               <View style={styles.sumDivider} />
-              
+
               <TouchableOpacity style={styles.sumItem} onPress={() => goToAttendanceView('students')}>
                 <AppText weight="bold" style={[styles.sumVal, { color: '#7c3aed', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
                   {cards.today_attendance_pct ?? 0}%
@@ -682,7 +682,7 @@ export default function PrincipalDashboardScreen() {
 
       {/* Section Overview */}
       {(loading || classes.length > 0) && (
-        <View style={[styles.panel, { marginBottom: 20, marginHorizontal: 16 }]}>
+        <View style={[styles.panel, { marginBottom: 20, marginHorizontal: Theme.spacing.md }]}>
           <View style={styles.panelHead}>
             <View>
               <AppText style={styles.panelTitle} weight="bold">Section Overview</AppText>
@@ -696,7 +696,7 @@ export default function PrincipalDashboardScreen() {
             <View style={styles.classGrid}>
               {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
                 <View key={`class-grid-skeleton-${i}`} style={styles.skeletonClassChip}>
-                  <View style={[styles.skeletonBox, { width: '55%', height: 12, alignSelf: 'center', marginBottom: 8 }]} />
+                  <View style={[styles.skeletonBox, { width: '55%', height: 12, alignSelf: 'center', marginBottom: Theme.spacing.sm }]} />
                   <View style={[styles.skeletonBox, { width: '45%', height: 22, alignSelf: 'center', marginBottom: 6 }]} />
                   <View style={[styles.skeletonBox, { width: '60%', height: 10, alignSelf: 'center' }]} />
                 </View>
@@ -748,7 +748,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   headerIcons: {
     flexDirection: 'row',
@@ -770,7 +770,7 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#ef4444',
+    backgroundColor: Theme.colors.error,
     borderWidth: 1.5,
     borderColor: C.navy,
     justifyContent: 'center',
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   badgeText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 8,
     textAlign: 'center',
   },
@@ -786,10 +786,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroHeader: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingBottom: 22,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
     marginBottom: 10,
   },
   heroTopRow: {
@@ -809,7 +807,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.14)',
   },
   profileAvatarText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 18,
   },
   heroActions: {
@@ -819,17 +817,17 @@ const styles = StyleSheet.create({
   },
   heroCopy: {
     gap: 4,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   heroGreetingLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: 'rgba(255,255,255,0.72)',
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
   heroGreetingName: {
     fontSize: 28,
-    color: '#ffffff',
+    color: Theme.colors.card,
     letterSpacing: -0.5,
   },
   heroSubtitle: {
@@ -840,18 +838,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingTop: 20,
-    paddingBottom: 8,
+    paddingBottom: Theme.spacing.sm,
     marginBottom: 12,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   welcomeTitle: {
     fontSize: 18,
     color: C.text,
   },
   welcomeSub: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.muted,
     marginTop: 2,
   },
@@ -867,7 +865,7 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   dateText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text,
   },
   errorBanner: {
@@ -875,8 +873,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: C.errorSoft,
-    marginHorizontal: 16,
-    marginBottom: 16,
+    marginHorizontal: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
@@ -884,11 +882,11 @@ const styles = StyleSheet.create({
   },
   errorText: {
     flex: 1,
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.error,
   },
   grid4: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
@@ -901,9 +899,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: C.border,
-    padding: 16,
+    padding: Theme.spacing.md,
     width: '48%',
-    shadowColor: '#1e3a8a',
+    shadowColor: Theme.colors.primary,
     shadowOpacity: 0.05,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -926,7 +924,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 8,
+    paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 3,
     borderRadius: 8,
   },
@@ -942,7 +940,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   cardLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     color: C.muted,
@@ -953,7 +951,7 @@ const styles = StyleSheet.create({
     color: C.text,
   },
   cardSub: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
     marginTop: 6,
   },
@@ -961,19 +959,19 @@ const styles = StyleSheet.create({
     height: 16,
     backgroundColor: C.border,
     borderRadius: 8,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   mainGrid: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     gap: 16,
     marginBottom: 18,
   },
   quickAccessPanel: {
     backgroundColor: C.card,
     borderRadius: 24,
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     marginBottom: 20,
-    shadowColor: '#0f172a',
+    shadowColor: Theme.colors.text,
     shadowOpacity: 0.06,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 10 },
@@ -987,7 +985,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
     overflow: 'hidden',
-    shadowColor: '#0f172a',
+    shadowColor: Theme.colors.text,
     shadowOpacity: 0.05,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
@@ -995,22 +993,22 @@ const styles = StyleSheet.create({
   },
   panelHead: {
     paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: Theme.spacing.md,
+    paddingBottom: Theme.spacing.sm,
   },
   panelTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   panelSub: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.muted,
     marginTop: 2,
   },
   quickActionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: 16,
+    padding: Theme.spacing.md,
     justifyContent: 'space-between',
     rowGap: 16,
   },
@@ -1027,14 +1025,14 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   quickActionLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.text,
     textAlign: 'center',
     lineHeight: 14,
     marginTop: 2,
   },
   barBody: {
-    padding: 16,
+    padding: Theme.spacing.md,
     gap: 12,
   },
   barRow: {
@@ -1043,7 +1041,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   barLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text,
     width: 52,
   },
@@ -1061,12 +1059,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   barPct: {
-    fontSize: 11,
+    ...Theme.typography.label,
     width: 36,
     textAlign: 'right',
   },
   barCount: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
     width: 52,
     textAlign: 'right',
@@ -1078,7 +1076,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
@@ -1086,11 +1084,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   ringLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     color: C.muted,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   ringValue: {
     fontSize: 20,
@@ -1101,13 +1099,13 @@ const styles = StyleSheet.create({
     color: C.muted,
   },
   ringSub: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   ringPct: {
-    fontSize: 12,
-    marginTop: 4,
+    ...Theme.typography.caption,
+    marginTop: Theme.spacing.xs,
   },
   ringPercentage: {
     fontSize: 18,
@@ -1117,8 +1115,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#f8fafc',
+    paddingHorizontal: Theme.spacing.md,
+    backgroundColor: Theme.colors.background,
     borderTopWidth: 1,
     borderTopColor: C.border,
   },
@@ -1144,7 +1142,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   classChip: {
     borderRadius: 16,
@@ -1154,29 +1152,29 @@ const styles = StyleSheet.create({
     backgroundColor: C.card,
   },
   chipLabel: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   chipPct: {
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   chipSub: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
   },
   classChipHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   progressTrackCompact: {
     width: '100%',
     height: 6,
-    backgroundColor: '#e4e9f2',
+    backgroundColor: Theme.colors.border,
     borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   progressFillCompact: {
     height: '100%',
@@ -1204,8 +1202,8 @@ const styles = StyleSheet.create({
     backgroundColor: C.card,
     borderRadius: 12,
     padding: 12,
-    marginHorizontal: 16,
-    marginBottom: 24,
+    marginHorizontal: Theme.spacing.md,
+    marginBottom: Theme.spacing.lg,
     borderWidth: 1,
     borderColor: C.border,
   },
@@ -1215,7 +1213,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   bottomText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
   },
   bottomStrong: {
@@ -1231,7 +1229,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.success,
   },
   emptyState: {
-    padding: 24,
+    padding: Theme.spacing.lg,
     alignItems: 'center',
   },
   emptyText: {
@@ -1251,7 +1249,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   skeletonClassChip: {
     borderRadius: 12,

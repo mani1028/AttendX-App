@@ -25,7 +25,7 @@ function normalizeTeacherList(data: any): any[] {
 export async function getPrincipalStats(headers: any): Promise<any> {
   const endpoints = [
     'principal/dashboard/stats',
-    'principal/dashboard/stats'
+    'principal/dashboard/stats',
   ];
   return getFirstSuccessful(endpoints, headers);
 }
@@ -33,7 +33,7 @@ export async function getPrincipalStats(headers: any): Promise<any> {
 export async function getPrincipalClasses(headers: any): Promise<any[]> {
   const endpoints = [
     'principal/classes',
-    'principal/classes'
+    'principal/classes',
   ];
   try {
     const data = await getFirstSuccessful<any>(endpoints, headers);
@@ -46,7 +46,7 @@ export async function getPrincipalClasses(headers: any): Promise<any[]> {
 export async function getPrincipalTeachers(headers: any): Promise<any[]> {
   const endpoints = [
     'principal/staff',
-    'principal/teachers'
+    'principal/teachers',
   ];
 
   try {
@@ -64,9 +64,9 @@ export async function getPrincipalTeachers(headers: any): Promise<any[]> {
     // Attempt fallback to principal/staff/attendance first
     const endpointsAttendance = [
       'principal/staff/attendance',
-      'principal/staff/attendance'
+      'principal/staff/attendance',
     ];
-    
+
     let responseData;
     for (const ep of endpointsAttendance) {
       try {

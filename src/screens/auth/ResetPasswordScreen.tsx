@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   KeyboardAvoidingView,
@@ -15,8 +16,10 @@ import { AppInput } from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import ScreenContainer from '../../components/ScreenContainer';
 import { formatErrorMessage } from '../../utils/helpers';
-import { Theme } from '../../theme/theme';
-import { ArrowLeft, Lock, CheckCircle } from 'lucide-react-native';
+
+import { ChevronLeft, Lock, CheckCircle } from 'lucide-react-native';
+import { Theme } from '../../theme/tokens';
+
 
 export default function ResetPasswordScreen({ route, navigation }: any) {
   const { schoolId, identifier, resetToken } = route.params;
@@ -37,10 +40,10 @@ export default function ResetPasswordScreen({ route, navigation }: any) {
   }, []);
 
   const reset = async () => {
-    if (!password) return setError('Please enter a new password.');
-    if (!confirmPassword) return setError('Please confirm your password.');
-    if (password !== confirmPassword) return setError('Passwords do not match.');
-    if (password.length < 6) return setError('Password must be at least 6 characters.');
+    if (!password) {return setError('Please enter a new password.');}
+    if (!confirmPassword) {return setError('Please confirm your password.');}
+    if (password !== confirmPassword) {return setError('Passwords do not match.');}
+    if (password.length < 6) {return setError('Password must be at least 6 characters.');}
 
     setError('');
     setLoading(true);
@@ -64,8 +67,8 @@ export default function ResetPasswordScreen({ route, navigation }: any) {
           <View style={styles.blobBottom} />
 
           <View style={styles.topRow}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <ArrowLeft size={20} color="#0d1b2a" />
+            <TouchableOpacity accessibilityRole="button" onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <ChevronLeft size={20} color={Theme.colors.text} />
             </TouchableOpacity>
             <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
             <View style={{ width: 36 }} />
@@ -75,7 +78,7 @@ export default function ResetPasswordScreen({ route, navigation }: any) {
             {done ? (
               <View style={styles.doneContainer}>
                 <View style={styles.doneIcon}>
-                  <CheckCircle size={48} color="#059669" />
+                  <CheckCircle size={48} color={Theme.colors.success} />
                 </View>
                 <Text style={styles.cardTitle}>Password Updated!</Text>
                 <Text style={styles.cardSubtitle}>Your password has been reset. Redirecting to login...</Text>
@@ -117,15 +120,15 @@ export default function ResetPasswordScreen({ route, navigation }: any) {
                   disabled={loading}
                   loading={loading}
                   size="lg"
-                  style={{ marginTop: 8 }}
+                  style={{ marginTop: Theme.spacing.sm }}
                 />
               </>
             )}
           </Animated.View>
 
           {!done && (
-            <TouchableOpacity onPress={() => navigation.replace('Login')} style={styles.backLink}>
-              <ArrowLeft size={14} color="#8898aa" />
+            <TouchableOpacity accessibilityRole="button" onPress={() => navigation.replace('Login')} style={styles.backLink}>
+              <ChevronLeft size={14} color="#8898aa" />
               <Text style={styles.backLinkText}>Back to Login</Text>
             </TouchableOpacity>
           )}
@@ -136,20 +139,20 @@ export default function ResetPasswordScreen({ route, navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 48 },
-  blobTop: { position: 'absolute', top: -80, right: -60, width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(102,72,220,0.06)' },
+  scroll: { flexGrow: 1, paddingHorizontal: Theme.spacing.lg, paddingBottom: Theme.spacing.xxl },
+  blobTop: { position: 'absolute', top: -80, right: -60, width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(30,58,138,0.06)' },
   blobBottom: { position: 'absolute', bottom: -60, left: -80, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(56,189,248,0.05)' },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: 32 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: Theme.spacing.xl },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Theme.colors.background, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 },
   logo: { width: 160, height: 50 },
   card: { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 28, padding: 28, shadowColor: '#6648dc', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 28, elevation: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', alignItems: 'center' },
-  iconCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(102,72,220,0.08)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  cardTitle: { fontSize: 22, fontWeight: '800', color: '#0d1b2a', textAlign: 'center', letterSpacing: -0.5, marginBottom: 8 },
-  cardSubtitle: { fontSize: 14, color: '#8898aa', textAlign: 'center', marginBottom: 28, lineHeight: 22, fontWeight: '500' },
-  errorBox: { backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: 12, padding: 12, marginBottom: 12, alignSelf: 'stretch', borderLeftWidth: 3, borderLeftColor: '#dc2626' },
-  errorText: { color: '#dc2626', fontSize: 13, fontWeight: '500' },
+  iconCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(30,58,138,0.08)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  cardTitle: { fontSize: 22, fontWeight: '800', color: Theme.colors.text, textAlign: 'center', letterSpacing: -0.5, marginBottom: Theme.spacing.sm },
+  cardSubtitle: { ...Theme.typography.body, color: '#8898aa', textAlign: 'center', marginBottom: 28, lineHeight: 22, fontWeight: '500' },
+  errorBox: { backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: 12, padding: 12, marginBottom: 12, alignSelf: 'stretch', borderLeftWidth: 3, borderLeftColor: Theme.colors.error },
+  errorText: { color: Theme.colors.error, fontSize: 13, fontWeight: '500' },
   doneContainer: { alignItems: 'center', paddingVertical: 12 },
   doneIcon: { width: 88, height: 88, borderRadius: 44, backgroundColor: 'rgba(5,150,105,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  backLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 24, gap: 6 },
-  backLinkText: { fontSize: 14, color: '#8898aa', fontWeight: '500' },
+  backLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: Theme.spacing.lg, gap: 6 },
+  backLinkText: { ...Theme.typography.body, color: '#8898aa', fontWeight: '500' },
 });

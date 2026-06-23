@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../constants/theme';
+import { colors } from '../theme/tokens';
 
 type Props = {
   title: string;

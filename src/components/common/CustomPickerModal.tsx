@@ -9,7 +9,9 @@ import {
   TextInput,
 } from 'react-native';
 import { XCircle, CheckCircle2 } from 'lucide-react-native';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
+
+
 
 interface CustomPickerModalProps {
   visible: boolean;
@@ -38,7 +40,7 @@ const CustomPickerModal: React.FC<CustomPickerModalProps> = ({
   }, [visible]);
 
   const filteredOptions = useMemo(() => {
-    if (!searchText.trim()) return options;
+    if (!searchText.trim()) {return options;}
     return (options || []).filter(opt =>
       opt && (opt.label || '').toLowerCase().includes(searchText.toLowerCase())
     );
@@ -52,8 +54,8 @@ const CustomPickerModal: React.FC<CustomPickerModalProps> = ({
             <View>
               <Text style={styles.pickerTitle}>{title}</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.pickerCloseBtn}>
-              <XCircle size={22} color="#64748B" />
+            <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.pickerCloseBtn}>
+              <XCircle size={22} color={Theme.colors.textSec} />
             </TouchableOpacity>
           </View>
 
@@ -62,7 +64,7 @@ const CustomPickerModal: React.FC<CustomPickerModalProps> = ({
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search..."
-                placeholderTextColor="#64748B"
+                placeholderTextColor={Theme.colors.textSec}
                 value={searchText}
                 onChangeText={setSearchText}
                 autoCapitalize="none"
@@ -75,15 +77,15 @@ const CustomPickerModal: React.FC<CustomPickerModalProps> = ({
             <ScrollView style={{ maxHeight: 350 }}>
               {!Array.isArray(filteredOptions) || filteredOptions.length === 0 ? (
                 <View style={{ padding: 20, alignItems: 'center' }}>
-                  <Text style={{ color: '#64748B' }}>No matching options</Text>
+                  <Text style={{ color: Theme.colors.textSec }}>No matching options</Text>
                 </View>
               ) : (
                 filteredOptions.map((item, index) => {
-                  if (!item) return null;
+                  if (!item) {return null;}
                   const isSelected = selectedValue === item.value;
                   const itemKey = item.value !== null && item.value !== undefined ? String(item.value) : `item-${index}`;
                   return (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={itemKey}
                       style={[
                         styles.pickerOption,
@@ -111,7 +113,7 @@ const CustomPickerModal: React.FC<CustomPickerModalProps> = ({
           </View>
 
           <View style={styles.pickerActions}>
-            <TouchableOpacity style={[styles.pickerCancelBtn, { flex: 1 }]} onPress={onClose}>
+            <TouchableOpacity accessibilityRole="button" style={[styles.pickerCancelBtn, { flex: 1 }]} onPress={onClose}>
               <Text style={styles.pickerCancelText}>Close</Text>
             </TouchableOpacity>
           </View>
@@ -130,7 +132,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   pickerCard: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.card,
     width: '100%',
     maxWidth: 400,
     borderRadius: 20,
@@ -141,20 +143,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: Theme.colors.background,
   },
   pickerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
+    ...Theme.typography.h3,
+    color: Theme.colors.text,
   },
   pickerCloseBtn: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   pickerShell: {
-    padding: 8,
+    padding: Theme.spacing.sm,
   },
   pickerOption: {
     flexDirection: 'row',
@@ -162,51 +163,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
     borderRadius: 12,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   pickerOptionActive: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
   },
   pickerOptionText: {
     fontSize: 16,
-    color: '#475569',
+    color: Theme.colors.textSec,
   },
   pickerOptionTextActive: {
     fontWeight: '700',
     color: '#4f46e5',
   },
   pickerActions: {
-    padding: 16,
+    padding: Theme.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: Theme.colors.background,
   },
   pickerCancelBtn: {
     paddingVertical: 12,
     alignItems: 'center',
     borderRadius: 10,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
   },
   pickerCancelText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '600',
-    color: '#64748B',
+    color: Theme.colors.textSec,
   },
   searchBarContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingHorizontal: Theme.spacing.md,
+    paddingTop: Theme.spacing.sm,
+    paddingBottom: Theme.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: Theme.colors.background,
   },
   searchInput: {
     height: 40,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
-    fontSize: 14,
-    color: '#0f172a',
-    backgroundColor: '#f8fafc',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
+    backgroundColor: Theme.colors.background,
   },
 });
 

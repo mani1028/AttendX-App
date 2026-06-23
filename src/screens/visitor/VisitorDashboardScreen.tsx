@@ -18,8 +18,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
 import { Bell } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import LinearGradient from 'react-native-linear-gradient';
 import { visitorApi, qrApi } from '../../services/visitorApi';
-import { colors } from '../../constants/theme';
+import { Theme, colors } from '../../theme/tokens';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
@@ -29,6 +30,10 @@ import QRCode from 'react-native-qrcode-svg';
 import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import { formatErrorMessage } from '../../utils/helpers';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
 
 // Types
 interface Visitor {
@@ -60,23 +65,23 @@ interface QRData {
 
 // Helper functions
 const getSchoolCode = async (): Promise<string> => {
-  const code = await AsyncStorage.getItem('school_code');
-  return code || (await AsyncStorage.getItem('schoolCode')) || '';
+  const code = await storage.getString(StorageKeys.SCHOOL_CODE);
+  return code || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
 };
 
 const getBranchId = async (): Promise<string> => {
-  const id = await AsyncStorage.getItem('branch_id');
-  return id || (await AsyncStorage.getItem('branchId')) || '';
+  const id = await storage.getString(StorageKeys.BRANCH_ID);
+  return id || (await storage.getString(StorageKeys.BRANCH_ID)) || '';
 };
 
 const formatDate = (dateString: string): string => {
-  if (!dateString) return '-';
+  if (!dateString) {return '-';}
   const date = new Date(dateString);
   return date.toLocaleDateString();
 };
 
 const formatTime = (dateString: string): string => {
-  if (!dateString) return '';
+  if (!dateString) {return '';}
   return '';
 };
 
@@ -137,7 +142,7 @@ const VisitorRow: React.FC<{
         <AppText style={styles.visitorNo}>{visitor.visitor_no?.slice(0, 8) || '-'}</AppText>
         <StatusBadge status={visitor.status} />
       </View>
-      
+
       <View style={styles.visitorInfo}>
         <View style={styles.visitorName}>
           <AppText style={styles.visitorNameText}>{visitor.full_name}</AppText>
@@ -158,16 +163,16 @@ const VisitorRow: React.FC<{
       <View style={styles.visitorActions}>
         {isPending && (
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={[styles.actionBtn, styles.approveBtn]} onPress={() => onApprove(visitor.id)}>
+            <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.approveBtn]} onPress={() => onApprove(visitor.id)}>
               <AppText style={styles.actionBtnText}>✓ Approve</AppText>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, styles.rejectBtn]} onPress={() => onReject(visitor.id)}>
+            <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.rejectBtn]} onPress={() => onReject(visitor.id)}>
               <AppText style={styles.actionBtnText}>✗ Reject</AppText>
             </TouchableOpacity>
           </View>
         )}
         {isCheckedIn && (
-          <TouchableOpacity style={[styles.actionBtn, styles.checkoutBtn]} onPress={() => onCheckout(visitor.id)}>
+          <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.checkoutBtn]} onPress={() => onCheckout(visitor.id)}>
             <AppText style={styles.actionBtnText}>Checkout</AppText>
           </TouchableOpacity>
         )}
@@ -182,14 +187,14 @@ const QRModal: React.FC<{
   qrData: QRData | null;
   onClose: () => void;
 }> = ({ visible, qrData, onClose }) => {
-  if (!qrData) return null;
+  if (!qrData) {return null;}
 
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <AppText style={styles.modalTitle}>Visitor QR Code</AppText>
-          
+
           {qrData.qrImage ? (
             <Image source={{ uri: qrData.qrImage }} style={styles.qrImage} />
           ) : qrData.url ? (
@@ -208,7 +213,7 @@ const QRModal: React.FC<{
           <AppText style={styles.modalMessage}>
             Scan this QR code for visitors to register and check-in
           </AppText>
-          
+
           <AppButton title="Close" onPress={onClose} style={{ marginTop: 20, width: '100%' }} />
         </View>
       </View>
@@ -253,7 +258,7 @@ const FilterModal: React.FC<{
         <View style={styles.filterModalContent}>
           <View style={styles.modalHeader}>
             <AppText style={styles.modalTitle}>Filter Visitors</AppText>
-            <TouchableOpacity onPress={onClose} style={styles.modalClose}>
+            <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.modalClose}>
               <AppText style={styles.modalCloseText}>✕</AppText>
             </TouchableOpacity>
           </View>
@@ -261,7 +266,7 @@ const FilterModal: React.FC<{
           <View style={styles.filterBody}>
             <View style={styles.filterField}>
               <AppText style={styles.filterLabel}>From Date</AppText>
-              <TouchableOpacity style={styles.dateBtn} onPress={() => setShowFromPicker(true)}>
+              <TouchableOpacity accessibilityRole="button" style={styles.dateBtn} onPress={() => setShowFromPicker(true)}>
                 <AppText style={styles.dateText}>{localDateFrom || 'Select date'}</AppText>
               </TouchableOpacity>
               {showFromPicker && (
@@ -272,7 +277,7 @@ const FilterModal: React.FC<{
                   maximumDate={new Date()}
                   onChange={(event, date) => {
                     setShowFromPicker(false);
-                    if (date) setLocalDateFrom(date.toISOString().split('T')[0]);
+                    if (date) {setLocalDateFrom(date.toISOString().split('T')[0]);}
                   }}
                 />
               )}
@@ -280,7 +285,7 @@ const FilterModal: React.FC<{
 
             <View style={styles.filterField}>
               <AppText style={styles.filterLabel}>To Date</AppText>
-              <TouchableOpacity style={styles.dateBtn} onPress={() => setShowToPicker(true)}>
+              <TouchableOpacity accessibilityRole="button" style={styles.dateBtn} onPress={() => setShowToPicker(true)}>
                 <AppText style={styles.dateText}>{localDateTo || 'Select date'}</AppText>
               </TouchableOpacity>
               {showToPicker && (
@@ -291,7 +296,7 @@ const FilterModal: React.FC<{
                   maximumDate={new Date()}
                   onChange={(event, date) => {
                     setShowToPicker(false);
-                    if (date) setLocalDateTo(date.toISOString().split('T')[0]);
+                    if (date) {setLocalDateTo(date.toISOString().split('T')[0]);}
                   }}
                 />
               )}
@@ -324,7 +329,7 @@ export default function VisitorDashboardScreen() {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
-  
+
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
   const { unreadCount } = useUnreadNotifications();
@@ -345,7 +350,7 @@ export default function VisitorDashboardScreen() {
     setErrorMsg('');
     const cacheKey = `visitor_list_${activeTab}_${dateFrom || 'all'}_${dateTo || 'all'}`;
     let cacheLoaded = false;
-    
+
     try {
       const cached = await AsyncStorage.getItem(cacheKey);
       if (cached) {
@@ -362,8 +367,8 @@ export default function VisitorDashboardScreen() {
       if (activeTab !== 'all') {
         filters.status_filter = activeTab;
       }
-      if (dateFrom) filters.date_from = dateFrom;
-      if (dateTo) filters.date_to = dateTo;
+      if (dateFrom) {filters.date_from = dateFrom;}
+      if (dateTo) {filters.date_to = dateTo;}
 
       const visitorsRes = await visitorApi.listVisitors(filters);
       const nextVisitors = visitorsRes.data?.data || [];
@@ -493,38 +498,45 @@ export default function VisitorDashboardScreen() {
 
   // Filtered visitors based on tab
   const filteredVisitors = useMemo(() => {
-    if (activeTab === 'all') return visitors;
+    if (activeTab === 'all') {return visitors;}
     return visitors.filter(v => v.status === activeTab);
   }, [visitors, activeTab]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Morning';
-    if (hour < 17) return 'Afternoon';
+    if (hour < 12) {return 'Morning';}
+    if (hour < 17) {return 'Afternoon';}
     return 'Evening';
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Standardized Navy Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 30 }]}>
-        <View style={{ width: 40 }} />
-        <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>Visitor Portal</AppText>
+      <LinearGradient
+        colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 30, paddingHorizontal: 0 }]}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingHorizontal: 20 }}>
+          <View style={{ width: 40 }} />
+          <View style={styles.headerTitleContainer}>
+            <AppText style={styles.headerTitle}>Visitor Portal</AppText>
+          </View>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity accessibilityRole="button" style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
+              <Bell size={20} color={Theme.colors.card} />
+              {unreadCount > 0 && (
+                <View style={styles.badgeNotification}>
+                  <AppText style={styles.badgeTextNotification}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
-            <Bell size={20} color="#fff" />
-            {unreadCount > 0 && (
-              <View style={styles.badgeNotification}>
-                <AppText style={styles.badgeTextNotification}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+      </LinearGradient>
 
       <ScrollView
         contentContainerStyle={styles.contentContainer}
@@ -548,10 +560,10 @@ export default function VisitorDashboardScreen() {
         <View style={styles.header}>
           <AppText style={styles.title}>Visitor Management</AppText>
           <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.qrBtn} onPress={loadQRCode}>
+            <TouchableOpacity accessibilityRole="button" style={styles.qrBtn} onPress={loadQRCode}>
               <AppText style={styles.qrBtnText}>📱 QR Code</AppText>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
+            <TouchableOpacity accessibilityRole="button" style={styles.refreshBtn} onPress={onRefresh}>
               <Icon name="refresh-cw" size={16} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
@@ -574,7 +586,7 @@ export default function VisitorDashboardScreen() {
 
         {/* Tabs */}
         <View style={styles.tabContainer}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.tab, activeTab === 'pending' && styles.tabActive]}
             onPress={() => handleTabChange('pending')}
           >
@@ -582,7 +594,7 @@ export default function VisitorDashboardScreen() {
               ⏳ Pending ({stats?.pending_approval || 0})
             </AppText>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.tab, activeTab === 'checked_in' && styles.tabActive]}
             onPress={() => handleTabChange('checked_in')}
           >
@@ -590,7 +602,7 @@ export default function VisitorDashboardScreen() {
               ✅ Checked In ({stats?.currently_present || 0})
             </AppText>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.tab, activeTab === 'all' && styles.tabActive]}
             onPress={() => handleTabChange('all')}
           >
@@ -606,13 +618,13 @@ export default function VisitorDashboardScreen() {
             <AppText style={styles.activeFiltersLabel}>Active Filters:</AppText>
             {dateFrom && <View style={styles.filterTag}><AppText style={styles.filterTagText}>From: {dateFrom}</AppText></View>}
             {dateTo && <View style={styles.filterTag}><AppText style={styles.filterTagText}>To: {dateTo}</AppText></View>}
-            <TouchableOpacity onPress={handleResetFilters}>
+            <TouchableOpacity accessibilityRole="button" onPress={handleResetFilters}>
               <AppText style={styles.clearFiltersText}>Clear</AppText>
             </TouchableOpacity>
           </View>
         )}
 
-        <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilterModal(true)}>
+        <TouchableOpacity accessibilityRole="button" style={styles.filterBtn} onPress={() => setShowFilterModal(true)}>
           <AppText style={styles.filterBtnText}>🔽 Filter by Date</AppText>
         </TouchableOpacity>
 
@@ -661,17 +673,17 @@ export default function VisitorDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
   },
   contentContainer: {
-    padding: 16,
+    padding: Theme.spacing.md,
     paddingBottom: 40,
   },
   welcomeSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
     marginTop: 20,
     backgroundColor: colors.surface,
     padding: 20,
@@ -711,7 +723,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   dateText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -733,18 +745,18 @@ const styles = StyleSheet.create({
   qrBtn: {
     backgroundColor: colors.accentSoft,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 8,
   },
   qrBtnText: {
-    color: '#fff',
+    ...Theme.typography.caption,
+    color: Theme.colors.card,
     fontWeight: '600',
-    fontSize: 12,
   },
   refreshBtn: {
     backgroundColor: colors.surface,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
@@ -758,7 +770,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.errorSoft,
     padding: 12,
     borderRadius: 10,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   errorText: {
     color: colors.error,
@@ -777,22 +789,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statTitle: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
     textTransform: 'uppercase',
     color: colors.textMuted,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   statValue: {
-    fontSize: 28,
-    fontWeight: '800',
+    ...Theme.typography.h1,
     color: colors.textPrimary,
   },
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border,
@@ -806,7 +817,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(99, 102, 241, 0.1)',
   },
   tabText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: colors.textMuted,
   },
@@ -826,36 +837,36 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   activeFiltersLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: colors.textMuted,
   },
   filterTag: {
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
   },
   filterTagText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: colors.textPrimary,
   },
   clearFiltersText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: colors.error,
     fontWeight: '600',
   },
   filterBtn: {
     backgroundColor: colors.surface,
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
     alignSelf: 'flex-start',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   filterBtnText: {
     fontSize: 13,
@@ -872,10 +883,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   visitorNo: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
-    backgroundColor: colors.bg,
-    paddingHorizontal: 8,
+    backgroundColor: Theme.colors.background,
+    paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 2,
     borderRadius: 6,
     color: colors.textMuted,
@@ -891,26 +902,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   visitorNameText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: 2,
   },
   visitorPhone: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
   },
   visitorStudent: {
     flex: 1,
   },
   visitorStudentName: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: 2,
   },
   visitorClass: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
   },
   visitorDetails: {
@@ -919,23 +930,23 @@ const styles = StyleSheet.create({
   visitorPurpose: {
     fontSize: 13,
     color: colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
     opacity: 0.8,
   },
   visitorTime: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
   },
   visitorActions: {
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   actionButtons: {
     flexDirection: 'row',
     gap: 10,
   },
   actionBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
     borderRadius: 8,
     alignItems: 'center',
     flex: 1,
@@ -951,13 +962,13 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   actionBtnText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   badge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 20,
   },
   badgeText: {
@@ -974,10 +985,9 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...Theme.typography.h4,
     color: colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   emptyText: {
     fontSize: 13,
@@ -994,7 +1004,7 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: colors.surface,
     borderRadius: 20,
-    padding: 24,
+    padding: Theme.spacing.lg,
     width: '100%',
     maxWidth: 400,
     alignItems: 'center',
@@ -1014,20 +1024,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Theme.typography.h3,
     color: colors.textPrimary,
   },
   modalClose: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1047,9 +1056,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
+    ...Theme.typography.h3,
+    color: Theme.colors.card,
   },
   headerIcons: {
     flexDirection: 'row',
@@ -1071,15 +1079,15 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#ef4444',
+    backgroundColor: Theme.colors.error,
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: Theme.colors.card,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 2,
   },
   badgeTextNotification: {
-    color: '#ffffff',
+    color: Theme.colors.card,
     fontSize: 9,
     fontWeight: '900',
     textAlign: 'center',
@@ -1088,16 +1096,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textMuted,
     textAlign: 'center',
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   filterBody: {
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   filterField: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   filterLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: colors.textMuted,
     marginBottom: 6,
@@ -1107,16 +1115,16 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 10,
     padding: 12,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
   },
-  dateText: {
-    fontSize: 14,
+  filterDateText: {
+    ...Theme.typography.body,
     color: colors.textPrimary,
   },
   filterFooter: {
     flexDirection: 'row',
     gap: 12,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
@@ -1124,31 +1132,31 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     resizeMode: 'contain',
-    marginVertical: 16,
+    marginVertical: Theme.spacing.md,
   },
   qrCodeContainer: {
     alignItems: 'center',
-    marginVertical: 16,
-    backgroundColor: '#fff',
+    marginVertical: Theme.spacing.md,
+    backgroundColor: Theme.colors.background,
     padding: 10,
     borderRadius: 12,
   },
   qrUrlContainer: {
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     padding: 12,
     borderRadius: 10,
     width: '100%',
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
   },
   qrUrlLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: colors.textMuted,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   qrUrlText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textPrimary,
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
   },

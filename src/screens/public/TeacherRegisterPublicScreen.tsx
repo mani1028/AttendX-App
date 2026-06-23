@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import {
   View,
   Text,
@@ -16,10 +17,12 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
+import { Theme } from '../../theme/tokens';
+
 
 // Types
 interface FormData {
@@ -65,19 +68,19 @@ const safeTrim = (v: any): string => String(v ?? '').trim();
 const isValidEmail = (email: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
 const isValidAadhaar = (v: string): boolean => {
   const s = String(v || '').trim();
-  if (!s) return true;
+  if (!s) {return true;}
   return /^\d{12}$/.test(s);
 };
 const isValidMobile = (v: string): boolean => /^\d{10}$/.test(String(v || '').trim());
 const isValidPin = (v: string): boolean => /^\d{6}$/.test(String(v || '').trim());
 const calculateAge = (dob: string): string => {
-  if (!dob) return '';
+  if (!dob) {return '';}
   const today = new Date();
   const birth = new Date(dob);
-  if (isNaN(birth.getTime())) return '';
+  if (isNaN(birth.getTime())) {return '';}
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {age--;}
   return age >= 0 ? String(age) : '';
 };
 
@@ -148,13 +151,13 @@ const Toast: React.FC<{
     }
   }, [visible]);
 
-  if (!visible) return null;
+  if (!visible) {return null;}
 
   return (
     <View style={[styles.toast, type === 'success' ? styles.toastSuccess : styles.toastError]}>
       <Text style={styles.toastIcon}>{type === 'success' ? '✅' : '❌'}</Text>
       <Text style={styles.toastMessage}>{message}</Text>
-      <TouchableOpacity onPress={onClose}>
+      <TouchableOpacity accessibilityRole="button" onPress={onClose}>
         <Text style={styles.toastClose}>✕</Text>
       </TouchableOpacity>
     </View>
@@ -164,7 +167,7 @@ const Toast: React.FC<{
 export default function TeacherRegisterPublicScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  
+
   // Get params from route
   const params = route.params as any;
   const schoolCode = params?.school_code || '';
@@ -236,7 +239,7 @@ export default function TeacherRegisterPublicScreen() {
   const handleChange = (name: keyof FormData, value: string) => {
     setServerError('');
     setServerSuccess('');
-    
+
     if (fieldErrors[name]) {
       setFieldErrors(prev => {
         const newErrors = { ...prev };
@@ -375,43 +378,43 @@ export default function TeacherRegisterPublicScreen() {
     const errors: Record<string, string> = {};
 
     if (step === 0) {
-      if (!safeTrim(formData.teacher_full_name)) errors.teacher_full_name = 'Full name is required';
-      if (!formData.gender) errors.gender = 'Gender is required';
-      if (!formData.date_of_birth) errors.date_of_birth = 'Date of birth is required';
-      if (!safeTrim(formData.nationality)) errors.nationality = 'Nationality is required';
-      if (!safeTrim(formData.mother_tongue)) errors.mother_tongue = 'Mother tongue is required';
-      if (!photoFile && !formData.teacher_photograph) errors.teacher_photograph = 'Photo is required';
-      if (!safeTrim(formData.email_id)) errors.email_id = 'Email is required';
-      else if (!isValidEmail(formData.email_id)) errors.email_id = 'Enter a valid email';
-      else if (!emailVerified) errors.email_id = 'Please verify email with OTP before next step';
+      if (!safeTrim(formData.teacher_full_name)) {errors.teacher_full_name = 'Full name is required';}
+      if (!formData.gender) {errors.gender = 'Gender is required';}
+      if (!formData.date_of_birth) {errors.date_of_birth = 'Date of birth is required';}
+      if (!safeTrim(formData.nationality)) {errors.nationality = 'Nationality is required';}
+      if (!safeTrim(formData.mother_tongue)) {errors.mother_tongue = 'Mother tongue is required';}
+      if (!photoFile && !formData.teacher_photograph) {errors.teacher_photograph = 'Photo is required';}
+      if (!safeTrim(formData.email_id)) {errors.email_id = 'Email is required';}
+      else if (!isValidEmail(formData.email_id)) {errors.email_id = 'Enter a valid email';}
+      else if (!emailVerified) {errors.email_id = 'Please verify email with OTP before next step';}
       if (formData.aadhaar_number && !isValidAadhaar(formData.aadhaar_number)) {
         errors.aadhaar_number = 'Aadhaar must be 12 digits';
       }
     }
 
     if (step === 1) {
-      if (!safeTrim(formData.mobile_number)) errors.mobile_number = 'Mobile is required';
-      else if (!isValidMobile(formData.mobile_number)) errors.mobile_number = 'Enter valid 10-digit number';
-      if (!safeTrim(formData.house_no)) errors.house_no = 'House No is required';
-      if (!safeTrim(formData.street_locality)) errors.street_locality = 'Street is required';
-      if (!safeTrim(formData.village_town_city)) errors.village_town_city = 'City is required';
-      if (!safeTrim(formData.mandal_taluk)) errors.mandal_taluk = 'Mandal/Taluk is required';
-      if (!safeTrim(formData.district)) errors.district = 'District is required';
-      if (!safeTrim(formData.state)) errors.state = 'State is required';
-      if (!safeTrim(formData.pin_code)) errors.pin_code = 'Pin code is required';
-      else if (!isValidPin(formData.pin_code)) errors.pin_code = 'Enter valid 6-digit pin code';
+      if (!safeTrim(formData.mobile_number)) {errors.mobile_number = 'Mobile is required';}
+      else if (!isValidMobile(formData.mobile_number)) {errors.mobile_number = 'Enter valid 10-digit number';}
+      if (!safeTrim(formData.house_no)) {errors.house_no = 'House No is required';}
+      if (!safeTrim(formData.street_locality)) {errors.street_locality = 'Street is required';}
+      if (!safeTrim(formData.village_town_city)) {errors.village_town_city = 'City is required';}
+      if (!safeTrim(formData.mandal_taluk)) {errors.mandal_taluk = 'Mandal/Taluk is required';}
+      if (!safeTrim(formData.district)) {errors.district = 'District is required';}
+      if (!safeTrim(formData.state)) {errors.state = 'State is required';}
+      if (!safeTrim(formData.pin_code)) {errors.pin_code = 'Pin code is required';}
+      else if (!isValidPin(formData.pin_code)) {errors.pin_code = 'Enter valid 6-digit pin code';}
     }
 
     if (step === 2) {
-      if (!safeTrim(formData.emergency_contact_name)) errors.emergency_contact_name = 'Contact name is required';
-      if (!safeTrim(formData.emergency_contact_number)) errors.emergency_contact_number = 'Contact number is required';
-      if (!safeTrim(formData.emergency_contact_relationship)) errors.emergency_contact_relationship = 'Relationship is required';
+      if (!safeTrim(formData.emergency_contact_name)) {errors.emergency_contact_name = 'Contact name is required';}
+      if (!safeTrim(formData.emergency_contact_number)) {errors.emergency_contact_number = 'Contact number is required';}
+      if (!safeTrim(formData.emergency_contact_relationship)) {errors.emergency_contact_relationship = 'Relationship is required';}
     }
 
     if (step === 3) {
-      if (!safeTrim(formData.designation)) errors.designation = 'Designation is required';
-      if (!safeTrim(formData.department_subject)) errors.department_subject = 'Department/Subject is required';
-      if (!formData.date_of_joining) errors.date_of_joining = 'Joining date is required';
+      if (!safeTrim(formData.designation)) {errors.designation = 'Designation is required';}
+      if (!safeTrim(formData.department_subject)) {errors.department_subject = 'Department/Subject is required';}
+      if (!formData.date_of_joining) {errors.date_of_joining = 'Joining date is required';}
       if (!formData.password || String(formData.password).length < 6) {
         errors.password = 'Password must be at least 6 characters';
       }
@@ -484,7 +487,7 @@ export default function TeacherRegisterPublicScreen() {
         headers: {
           'X-School-Code': schoolCode,
           'X-Branch-Id': branchId,
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'multipart/form-data',
         },
       });
 
@@ -496,7 +499,7 @@ export default function TeacherRegisterPublicScreen() {
           ? `Teacher Registered Successfully! Teacher ID: ${createdTeacherId}${createdEmployeeId ? ` | Employee ID: ${createdEmployeeId}` : ''}`
           : 'Teacher Registered Successfully!'
       );
-      
+
       // Reset form
       setStep(0);
       setPhotoFile(null);
@@ -570,6 +573,8 @@ export default function TeacherRegisterPublicScreen() {
 
   return (
     <View style={styles.container}>
+      <StandardPageHeader title="Teacher Registration" onBackPress={() => navigation.goBack()} />
+
       <Toast
         visible={!!serverError}
         message={serverError}
@@ -595,7 +600,7 @@ export default function TeacherRegisterPublicScreen() {
         {/* Stepper */}
         <View style={styles.stepper}>
           {STEPS.map((label, i) => (
-            <TouchableOpacity key={label} style={styles.stepItem} onPress={() => setStep(i)}>
+            <TouchableOpacity accessibilityRole="button" key={label} style={styles.stepItem} onPress={() => setStep(i)}>
               <View style={[styles.stepCircle, step > i && styles.stepCompleted, step === i && styles.stepActive]}>
                 {step > i ? <Text style={styles.stepIcon}>✓</Text> : <Text style={styles.stepNumber}>{i + 1}</Text>}
               </View>
@@ -629,7 +634,7 @@ export default function TeacherRegisterPublicScreen() {
               <FormField label="Gender" required error={fieldErrors.gender}>
                 <View style={styles.genderContainer}>
                   {['Male', 'Female', 'Other'].map(g => (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={g}
                       style={[styles.genderBtn, formData.gender === g && styles.genderBtnActive]}
                       onPress={() => handleChange('gender', g)}
@@ -641,7 +646,7 @@ export default function TeacherRegisterPublicScreen() {
               </FormField>
 
               <FormField label="Date of Birth" required error={fieldErrors.date_of_birth}>
-                <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDOBPicker(true)}>
+                <TouchableOpacity accessibilityRole="button" style={styles.dateBtn} onPress={() => setShowDOBPicker(true)}>
                   <Text style={styles.dateText}>{formData.date_of_birth || 'Select date'}</Text>
                 </TouchableOpacity>
                 {showDOBPicker && (
@@ -651,7 +656,7 @@ export default function TeacherRegisterPublicScreen() {
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     maximumDate={new Date()}
                     onChange={(_event: any, date?: Date) => {
-                      if (date) handleChange('date_of_birth', date.toISOString().split('T')[0]);
+                      if (date) {handleChange('date_of_birth', date.toISOString().split('T')[0]);}
                       setShowDOBPicker(false);
                     }}
                   />
@@ -703,7 +708,7 @@ export default function TeacherRegisterPublicScreen() {
                     onChangeText={(text) => handleChange('email_id', text)}
                     editable={!emailVerified}
                   />
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={[styles.verifyBtn, (otpSending || emailVerified) && styles.verifyBtnDisabled]}
                     onPress={sendOtp}
                     disabled={otpSending || emailVerified}
@@ -725,7 +730,7 @@ export default function TeacherRegisterPublicScreen() {
                     value={otp}
                     onChangeText={setOtp}
                   />
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={[styles.verifyBtn, styles.verifyOtpBtn]}
                     onPress={verifyOtp}
                     disabled={otpVerifying}
@@ -772,7 +777,7 @@ export default function TeacherRegisterPublicScreen() {
               </FormField>
 
               <FormField label="Teacher Photo" required error={fieldErrors.teacher_photograph}>
-                <TouchableOpacity style={styles.photoZone} onPress={handleImagePick}>
+                <TouchableOpacity accessibilityRole="button" style={styles.photoZone} onPress={handleImagePick}>
                   {photoPreview ? (
                     <Image source={{ uri: photoPreview }} style={styles.photoPreview} />
                   ) : (
@@ -928,7 +933,7 @@ export default function TeacherRegisterPublicScreen() {
               <FormField label="Designation" required error={fieldErrors.designation}>
                 <View style={styles.pickerContainer}>
                   {['Teacher', 'Senior Teacher', 'Head of Department', 'Vice Director', 'Director', 'Lab Assistant', 'Sports Teacher', 'Special Educator', 'Accountant'].map(opt => (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={opt}
                       style={[styles.pickerOption, formData.designation === opt && styles.pickerOptionActive]}
                       onPress={() => handleChange('designation', opt)}
@@ -954,7 +959,7 @@ export default function TeacherRegisterPublicScreen() {
               <FormField label="Qualification">
                 <View style={styles.pickerContainer}>
                   {['B.Ed', 'M.Ed', 'B.Sc + B.Ed', 'M.Sc + B.Ed', 'BA + B.Ed', 'MA + B.Ed', 'Ph.D', 'Other'].map(opt => (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={opt}
                       style={[styles.pickerOption, formData.qualification === opt && styles.pickerOptionActive]}
                       onPress={() => handleChange('qualification', opt)}
@@ -978,7 +983,7 @@ export default function TeacherRegisterPublicScreen() {
               </FormField>
 
               <FormField label="Date of Joining" required error={fieldErrors.date_of_joining}>
-                <TouchableOpacity style={styles.dateBtn} onPress={() => setShowJoiningPicker(true)}>
+                <TouchableOpacity accessibilityRole="button" style={styles.dateBtn} onPress={() => setShowJoiningPicker(true)}>
                   <Text style={styles.dateText}>{formData.date_of_joining || 'Select date'}</Text>
                 </TouchableOpacity>
                 {showJoiningPicker && (
@@ -988,7 +993,7 @@ export default function TeacherRegisterPublicScreen() {
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     maximumDate={new Date()}
                     onChange={(_event: any, date?: Date) => {
-                      if (date) handleChange('date_of_joining', date.toISOString().split('T')[0]);
+                      if (date) {handleChange('date_of_joining', date.toISOString().split('T')[0]);}
                       setShowJoiningPicker(false);
                     }}
                   />
@@ -998,7 +1003,7 @@ export default function TeacherRegisterPublicScreen() {
               <FormField label="Employment Type">
                 <View style={styles.pickerContainer}>
                   {['FULL_TIME', 'PART_TIME', 'CONTRACTOR'].map(opt => (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={opt}
                       style={[styles.pickerOption, formData.employment_type === opt && styles.pickerOptionActive]}
                       onPress={() => handleChange('employment_type', opt)}
@@ -1014,7 +1019,7 @@ export default function TeacherRegisterPublicScreen() {
               <FormField label="Teacher Status">
                 <View style={styles.pickerContainer}>
                   {['ACTIVE', 'INACTIVE'].map(opt => (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={opt}
                       style={[styles.pickerOption, formData.teacher_status === opt && styles.pickerOptionActive]}
                       onPress={() => handleChange('teacher_status', opt)}
@@ -1183,7 +1188,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f2f7',
   },
   contentContainer: {
-    padding: 16,
+    padding: Theme.spacing.md,
     paddingBottom: 40,
   },
   errorContainer: {
@@ -1195,12 +1200,12 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#dc2626',
-    marginBottom: 8,
+    color: Theme.colors.error,
+    marginBottom: Theme.spacing.sm,
   },
   errorText: {
     fontSize: 13,
-    color: '#64748b',
+    color: Theme.colors.textSec,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -1210,12 +1215,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0d1b2a',
+    color: Theme.colors.text,
   },
   subtitle: {
     fontSize: 13,
     color: '#4a5568',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   stepper: {
     flexDirection: 'row',
@@ -1231,30 +1236,30 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#e4e9f2',
+    backgroundColor: Theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepCompleted: {
-    backgroundColor: '#059669',
+    backgroundColor: Theme.colors.success,
   },
   stepActive: {
     backgroundColor: '#6648dc',
   },
   stepIcon: {
-    color: '#fff',
-    fontSize: 12,
+    color: Theme.colors.card,
+    ...Theme.typography.caption,
     fontWeight: 'bold',
   },
   stepNumber: {
     color: '#4a5568',
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: 'bold',
   },
   stepLabel: {
     fontSize: 9,
     color: '#4a5568',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
     textAlign: 'center',
   },
   stepLabelActive: {
@@ -1262,58 +1267,58 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   stepLabelCompleted: {
-    color: '#059669',
+    color: Theme.colors.success,
   },
   formCard: {
-    padding: 16,
-    marginBottom: 16,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
   },
   sectionTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
-    color: '#0d1b2a',
-    marginBottom: 16,
-    paddingBottom: 8,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.md,
+    paddingBottom: Theme.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: Theme.colors.border,
   },
   formGroup: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   formLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: '#4a5568',
     marginBottom: 6,
   },
   requiredStar: {
-    color: '#dc2626',
+    color: Theme.colors.error,
   },
   input: {
     borderWidth: 1.5,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     borderRadius: 10,
     padding: 12,
-    fontSize: 14,
-    backgroundColor: '#f8fafc',
-    color: '#0d1b2a',
+    ...Theme.typography.body,
+    backgroundColor: Theme.colors.background,
+    color: Theme.colors.text,
   },
   inputError: {
-    borderColor: '#dc2626',
+    borderColor: Theme.colors.error,
   },
   disabledInput: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
     color: '#94a3b8',
   },
   fieldError: {
-    fontSize: 11,
-    color: '#dc2626',
-    marginTop: 4,
+    ...Theme.typography.label,
+    color: Theme.colors.error,
+    marginTop: Theme.spacing.xs,
   },
   helperText: {
     fontSize: 10,
     color: '#94a3b8',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   rowWithButton: {
     flexDirection: 'row',
@@ -1333,29 +1338,29 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   verifyBtnText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontWeight: '600',
     fontSize: 13,
   },
   verifyOtpBtn: {
-    backgroundColor: '#059669',
+    backgroundColor: Theme.colors.success,
   },
   otpRow: {
     flexDirection: 'row',
     gap: 12,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   verifiedBadge: {
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
   verifiedText: {
-    color: '#059669',
+    ...Theme.typography.caption,
+    color: Theme.colors.success,
     fontWeight: '600',
-    fontSize: 12,
   },
   genderContainer: {
     flexDirection: 'row',
@@ -1366,7 +1371,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     alignItems: 'center',
   },
   genderBtnActive: {
@@ -1378,18 +1383,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   genderTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   dateBtn: {
     borderWidth: 1.5,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     borderRadius: 10,
     padding: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
   },
   dateText: {
-    fontSize: 14,
-    color: '#0d1b2a',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
   },
   pickerContainer: {
     flexDirection: 'row',
@@ -1397,12 +1402,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   pickerOption: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
   },
   pickerOptionActive: {
     backgroundColor: '#6648dc',
@@ -1413,10 +1418,10 @@ const styles = StyleSheet.create({
     color: '#4a5568',
   },
   pickerTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   passwordStrength: {
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
     padding: 10,
     backgroundColor: '#f0f2f7',
     borderRadius: 8,
@@ -1425,31 +1430,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   passwordRuleIcon: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#94a3b8',
   },
   passwordRuleIconValid: {
-    color: '#059669',
+    color: Theme.colors.success,
   },
   passwordRuleText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#4a5568',
   },
   passwordRuleTextValid: {
-    color: '#059669',
+    color: Theme.colors.success,
     fontWeight: '600',
   },
   photoZone: {
     borderWidth: 2,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     borderStyle: 'dashed',
     borderRadius: 12,
     padding: 20,
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
   },
   photoPreview: {
     width: 100,
@@ -1462,34 +1467,34 @@ const styles = StyleSheet.create({
   },
   photoIcon: {
     fontSize: 48,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   photoText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: '#4a5568',
   },
   photoSubtext: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#94a3b8',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   previewNote: {
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 16,
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+    marginBottom: Theme.spacing.md,
   },
   previewCard: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.card,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   previewHeader: {
     backgroundColor: '#6648dc',
-    padding: 16,
+    padding: Theme.spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
@@ -1514,26 +1519,26 @@ const styles = StyleSheet.create({
   previewPhotoText: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
+    color: Theme.colors.card,
   },
   previewName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: Theme.colors.card,
   },
   previewDesignation: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: 'rgba(255,255,255,0.8)',
     marginTop: 2,
   },
   previewEmail: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: 'rgba(255,255,255,0.7)',
     marginTop: 2,
   },
   previewStatus: {
     marginTop: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 2,
     borderRadius: 12,
     alignSelf: 'flex-start',
@@ -1547,7 +1552,7 @@ const styles = StyleSheet.create({
   previewStatusText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#fff',
+    color: Theme.colors.card,
   },
   previewSectionTitle: {
     fontSize: 10,
@@ -1556,9 +1561,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     color: '#6648dc',
     padding: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: Theme.colors.border,
   },
   previewGrid: {
     flexDirection: 'row',
@@ -1568,28 +1573,28 @@ const styles = StyleSheet.create({
     width: '50%',
     padding: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: Theme.colors.border,
   },
   previewFieldLabel: {
     fontSize: 10,
     fontWeight: '600',
     color: '#94a3b8',
     textTransform: 'uppercase',
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   previewFieldValue: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#0d1b2a',
+    color: Theme.colors.text,
   },
   inlineNote: {
     backgroundColor: '#dbeafe',
     padding: 12,
     borderRadius: 10,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   inlineNoteText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#5b3cc4',
   },
   inlineNoteBold: {
@@ -1605,16 +1610,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   footer: {
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     padding: 12,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
   },
   footerText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#4a5568',
   },
   toast: {
@@ -1624,7 +1629,7 @@ const styles = StyleSheet.create({
     right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
     padding: 12,
     shadowColor: '#000',
@@ -1641,7 +1646,7 @@ const styles = StyleSheet.create({
   },
   toastError: {
     borderLeftWidth: 4,
-    borderLeftColor: '#ef4444',
+    borderLeftColor: Theme.colors.error,
   },
   toastIcon: {
     fontSize: 18,
@@ -1649,11 +1654,11 @@ const styles = StyleSheet.create({
   toastMessage: {
     flex: 1,
     fontSize: 13,
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   toastClose: {
     fontSize: 16,
     color: '#94a3b8',
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
 });

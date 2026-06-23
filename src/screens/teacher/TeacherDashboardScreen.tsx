@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useRef, useState, useCallback } from 'react';
 import {
   StyleSheet,
@@ -6,7 +7,6 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   TouchableOpacity,
-  StatusBar,
   RefreshControl,
   Dimensions,
   Image,
@@ -14,7 +14,7 @@ import {
   Text,
 } from 'react-native';
 import Animated, {
-  useSharedValue
+  useSharedValue,
 } from 'react-native-reanimated';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,10 +31,13 @@ import {
   Scan,
   ChevronRight,
   FileText,
-  CalendarOff
+  CalendarOff,
+  FolderOpen,
+  ClipboardList,
+  BookMarked,
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
@@ -62,7 +65,9 @@ export default function TeacherDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const { userName, setTabBarVisible, isClassTeacher: authIsClassTeacher } = useAuth();
+
   const isMounted = useRef(true);
+  const lastScrollY = useRef(0);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [switcherVisible, setSwitcherVisible] = useState(false);
@@ -85,8 +90,6 @@ export default function TeacherDashboardScreen() {
   });
 
   const scrollY = useSharedValue(0);
-  const lastScrollY = useRef(0);
-
   const effectiveIsClassTeacher = (capability !== undefined)
     ? Boolean(capability?.is_class_teacher)
     : Boolean(profile?.is_class_teacher || authIsClassTeacher);
@@ -118,12 +121,12 @@ export default function TeacherDashboardScreen() {
                 targetClass.class_grade,
                 targetClass.section
               );
-              
+
               const presentList = Array.isArray(report?.present) ? report.present : [];
               const absentList = Array.isArray(report?.absent) ? report.absent : [];
               const total = presentList.length + absentList.length;
               const rate = total > 0 ? Math.round((presentList.length / total) * 100) : 0;
-              
+
               if (isMounted.current) {
                 setAttendanceStats({
                   present: presentList.length,
@@ -171,16 +174,19 @@ export default function TeacherDashboardScreen() {
   };
 
   const quickActions = [
-    { label: 'Attendance', icon: CalendarCheck2, color: '#3b82f6', route: 'TeacherAttendance' },
+    { label: 'Attendance', icon: CalendarCheck2, color: Theme.colors.blue, route: 'TeacherAttendance' },
     { label: 'Records', icon: FileText, color: '#0ea5e9', route: 'TeacherViewAttendance' },
-    { label: 'Vital Scan', icon: Heart, color: '#ef4444', route: 'TeacherVitalScan' },
+    { label: 'Vital Scan', icon: Heart, color: Theme.colors.error, route: 'TeacherVitalScan' },
     { label: 'Homework', icon: BookOpen, color: '#8b5cf6', route: 'TeacherHomeworkManagement' },
     { label: 'Face Review', icon: Scan, color: '#ec4899', route: 'TeacherFaceReview' },
     { label: 'Marks', icon: ClipboardEdit, color: '#f59e0b', route: 'TeacherMarksEntry' },
-    { label: 'Leave', icon: CalendarOff, color: '#ef4444', route: 'Leaves' },
+    { label: 'Leave', icon: CalendarOff, color: Theme.colors.error, route: 'Leaves' },
+    { label: 'Manage Data', icon: FolderOpen, color: '#06b6d4', route: 'ManageData' },
+    { label: 'My Attendance', icon: ClipboardList, color: '#8b5cf6', route: 'TeacherMyAttendance' },
+    { label: 'Papers', icon: BookMarked, color: '#f59e0b', route: 'TeacherQuestionPapers' },
     ...(effectiveIsClassTeacher ? [
-      { label: 'Enrollment', icon: UserPlus, color: '#10b981', route: 'TeacherStudentRegistration' },
-      { label: 'Approvals', icon: BadgeCheck, color: '#059669', route: 'StudentRegistrationRequests' },
+      { label: 'Enrollment', icon: UserPlus, color: Theme.colors.success, route: 'TeacherStudentRegistration' },
+      { label: 'Approvals', icon: BadgeCheck, color: Theme.colors.success, route: 'StudentRegistrationRequests' },
     ] : []),
   ];
 
@@ -198,7 +204,7 @@ export default function TeacherDashboardScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       <ScrollView
         onScroll={onScroll}
@@ -209,30 +215,32 @@ export default function TeacherDashboardScreen() {
       >
         <Animated.View style={[styles.headerWrapper]}>
           <LinearGradient
-            colors={['#1E3A8A', '#3B82F6']}
+            colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
             start={{x: 0, y: 0}}
             end={{x: 1, y: 1}}
             style={[styles.header, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}
           >
-            <View style={styles.headerTop}>
-              <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.profileBtn}>
-                {profilePhotoUrl ? (
-                  <Image source={{ uri: profilePhotoUrl }} style={styles.avatar} />
-                ) : (
-                  <AvatarBubble displayName={userName || 'T'} size={40} primaryColor="#FFF" />
-                )}
-              </TouchableOpacity>
+            <View style={{ paddingHorizontal: 20 }}>
+              <View style={styles.headerTop}>
+                <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.profileBtn}>
+                  {profilePhotoUrl ? (
+                    <Image source={{ uri: profilePhotoUrl }} style={styles.avatar} />
+                  ) : (
+                    <AvatarBubble displayName={userName || 'T'} size={40} primaryColor={Theme.colors.card} />
+                  )}
+                </TouchableOpacity>
 
-              <View style={styles.headerCenter}>
-                <Text style={styles.welcomeText}>{greeting},</Text>
-                <Text style={styles.nameText}>{teacherFirstName} 👋</Text>
-                <Text style={styles.dateText}>{todayDateStr}</Text>
+                <View style={styles.headerCenter}>
+                  <Text style={styles.welcomeText}>{greeting},</Text>
+                  <Text style={styles.nameText}>{teacherFirstName} 👋</Text>
+                  <Text style={styles.dateText}>{todayDateStr}</Text>
+                </View>
+
+                <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.iconBtn}>
+                  <Bell size={22} color={Theme.colors.card} />
+                  {unreadCount > 0 && <View style={styles.unreadDot} />}
+                </TouchableOpacity>
               </View>
-
-              <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.iconBtn}>
-                <Bell size={22} color="#FFF" />
-                {unreadCount > 0 && <View style={styles.unreadDot} />}
-              </TouchableOpacity>
             </View>
           </LinearGradient>
         </Animated.View>
@@ -269,13 +277,13 @@ export default function TeacherDashboardScreen() {
 
             <View style={styles.analyticsBottomRow}>
               <View style={styles.analyticsStatBox}>
-                <View style={[styles.miniDot, { backgroundColor: '#059669' }]} />
+                <View style={[styles.miniDot, { backgroundColor: Theme.colors.success }]} />
                 <View>
                   <Text style={styles.analyticsStatValue}>{attendanceStats.present}</Text>
                   <Text style={styles.analyticsStatLabel}>Present</Text>
                 </View>
               </View>
-              
+
               <View style={styles.analyticsStatBox}>
                 <View style={[styles.miniDot, { backgroundColor: '#DC2626' }]} />
                 <View>
@@ -290,7 +298,7 @@ export default function TeacherDashboardScreen() {
         {/* Quick Actions Grid */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={{ height: 12 }} /> 
+          <View style={{ height: 12 }} />
           <View style={styles.grid}>
             {quickActions.map((action, i) => {
               const ActionIcon = action.icon;
@@ -319,13 +327,13 @@ export default function TeacherDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: Theme.colors.background },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.colors.background },
   headerWrapper: {
     borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     overflow: 'hidden',
-    shadowColor: '#1E3A8A',
+    shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -334,46 +342,46 @@ const styles = StyleSheet.create({
     marginHorizontal: -20,
   },
   header: {
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
+    paddingHorizontal: 0,
     paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
   },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerCenter: { flex: 1, marginHorizontal: 16 },
-  profileBtn: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 20, 
-    overflow: 'hidden', 
-    borderWidth: 2, 
-    borderColor: 'rgba(255,255,255,0.4)' 
+  headerCenter: { flex: 1, marginHorizontal: Theme.spacing.md },
+  profileBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
   },
   avatar: { width: '100%', height: '100%' },
   welcomeText: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  nameText: { color: '#FFF', fontSize: 28, fontWeight: '800', marginTop: 2 },
-  dateText: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2, fontWeight: '500' },
-  iconBtn: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 20, 
-    backgroundColor: 'rgba(255,255,255,0.2)', 
-    justifyContent: 'center', 
-    alignItems: 'center' 
+  nameText: { color: Theme.colors.card, ...Theme.typography.h1, marginTop: 2 },
+  dateText: { color: 'rgba(255,255,255,0.7)', ...Theme.typography.caption, marginTop: 2, fontWeight: '500' },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  unreadDot: { position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444', borderWidth: 2, borderColor: '#1E3A8A' },
+  unreadDot: { position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444', borderWidth: 2, borderColor: Theme.colors.primary },
   scrollContent: { paddingHorizontal: 20, paddingTop: 0 },
   section: { marginBottom: 26 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 22, color: '#0F172A', fontWeight: '800' },
-  viewDetailsBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
-  linkText: { color: '#3B82F6', fontSize: 14, fontWeight: '700', marginRight: 2 },
-  
+  sectionTitle: { fontSize: 22, color: Theme.colors.text, fontWeight: '800' },
+  viewDetailsBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', paddingHorizontal: 14, paddingVertical: Theme.spacing.sm, borderRadius: 20 },
+  linkText: { color: '#3B82F6', ...Theme.typography.body, fontWeight: '700', marginRight: 2 },
+
   /* Unified Analytics Card Styles */
   analyticsCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 24,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: Theme.colors.background,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -381,22 +389,22 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   analyticsTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  analyticsLabel: { fontSize: 14, color: '#64748B', fontWeight: '600' },
-  analyticsMainValue: { fontSize: 36, color: '#1E293B', fontWeight: '800', marginTop: 4 },
+  analyticsLabel: { ...Theme.typography.body, color: Theme.colors.textSec, fontWeight: '600' },
+  analyticsMainValue: { fontSize: 36, color: '#1E293B', fontWeight: '800', marginTop: Theme.spacing.xs },
   analyticsIconWrap: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
-  progressBarContainer: { height: 10, backgroundColor: '#F1F5F9', borderRadius: 5, marginTop: 20, overflow: 'hidden' },
+  progressBarContainer: { height: 10, backgroundColor: Theme.colors.background, borderRadius: 5, marginTop: 20, overflow: 'hidden' },
   progressBarFill: { height: '100%', backgroundColor: '#2563EB', borderRadius: 5 },
-  analyticsDivider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 20 },
+  analyticsDivider: { height: 1, backgroundColor: Theme.colors.background, marginVertical: 20 },
   analyticsBottomRow: { flexDirection: 'row', justifyContent: 'space-around' },
   analyticsStatBox: { flexDirection: 'row', alignItems: 'center' },
   miniDot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
   analyticsStatValue: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
-  analyticsStatLabel: { fontSize: 13, color: '#64748B', fontWeight: '600', marginTop: 2 },
+  analyticsStatLabel: { fontSize: 13, color: Theme.colors.textSec, fontWeight: '600', marginTop: 2 },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 16, justifyContent: 'space-between' },
-  gridItem: { 
+  gridItem: {
     width: (SCREEN_WIDTH - 70) / 4,
-    alignItems: 'center', 
+    alignItems: 'center',
   },
   actionIcon: {
     width: 46,
@@ -404,13 +412,13 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8
+    marginBottom: Theme.spacing.sm,
   },
   actionText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#1E293B',
     textAlign: 'center',
     fontWeight: '600',
-    lineHeight: 14
+    lineHeight: 14,
   },
 });

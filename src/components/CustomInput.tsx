@@ -1,6 +1,7 @@
+import { Theme } from '../theme/tokens';
 import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, Text, Pressable } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { Eye, EyeOff } from 'lucide-react-native';
 
 type Props = {
   placeholder?: string;
@@ -8,7 +9,7 @@ type Props = {
   onChangeText?: (t: string) => void;
   secure?: boolean;
   keyboardType?: any;
-  leftIcon?: string;
+  leftIcon?: React.ReactNode;
   onFocus?: () => void;
   onBlur?: () => void;
 };
@@ -17,7 +18,7 @@ const CustomInput: React.FC<Props> = ({ placeholder, value, onChangeText, secure
   const [show, setShow] = useState(!secure);
   return (
     <View style={styles.wrap}>
-      {leftIcon ? <Icon name={leftIcon} size={18} color="#94a3b8" /> : null}
+      {leftIcon ? leftIcon : null}
       <TextInput
         style={styles.input}
         placeholder={placeholder}
@@ -31,7 +32,7 @@ const CustomInput: React.FC<Props> = ({ placeholder, value, onChangeText, secure
       />
       {secure ? (
         <Pressable onPress={() => setShow(!show)}>
-          <Icon name={show ? 'eye-off' : 'eye'} size={18} color="#94a3b8" />
+          {show ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
         </Pressable>
       ) : null}
     </View>
@@ -42,14 +43,14 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     height: 54,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
   },
-  input: { flex: 1, marginLeft: 12, fontSize: 15, color: '#0f172a' },
+  input: { flex: 1, marginLeft: 12, ...Theme.typography.bodyMd, color: Theme.colors.text },
 });
 
 export default CustomInput;

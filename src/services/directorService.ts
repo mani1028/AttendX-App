@@ -1,9 +1,12 @@
 import API from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '../storage/storage';
+import { StorageKeys } from '../storage/StorageKeys';
+
 
 async function getFirstSuccessful<T>(endpoints: string[], params: any = {}) {
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
-  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+  const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE);
+  const branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID);
 
   for (const endpoint of endpoints) {
     try {
@@ -30,7 +33,7 @@ async function getFirstSuccessful<T>(endpoints: string[], params: any = {}) {
 export async function getBranchTeachers(branchId: string): Promise<any[]> {
   const endpoints = [
     `director/branch/${branchId}/teachers`,
-    `director/branch/${branchId}/teachers`
+    `director/branch/${branchId}/teachers`,
   ];
   try {
     const data: any = await getFirstSuccessful(endpoints);
@@ -43,7 +46,7 @@ export async function getBranchTeachers(branchId: string): Promise<any[]> {
 export async function getBranchStudents(branchId: string): Promise<any[]> {
   const endpoints = [
     `director/branch/${branchId}/students`,
-    `director/branch/${branchId}/students`
+    `director/branch/${branchId}/students`,
   ];
   try {
     const data: any = await getFirstSuccessful(endpoints);
@@ -54,7 +57,7 @@ export async function getBranchStudents(branchId: string): Promise<any[]> {
 }
 
 export async function getClassesSections(branchId: string): Promise<any[]> {
-  const endpoints = [`manage/classes-sections`];
+  const endpoints = ['manage/classes-sections'];
   try {
     const data: any = await getFirstSuccessful(endpoints, { branch_id: branchId });
     return data.items || (Array.isArray(data) ? data : []);
@@ -65,31 +68,31 @@ export async function getClassesSections(branchId: string): Promise<any[]> {
 
 export async function getBranchLeaves(branchId: string, limit?: number): Promise<any[]> {
   try {
-    const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
+    const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE);
     const params = { school_code: schoolCode, school_id: schoolCode, branch_id: branchId, limit };
-    
+
     const [teacherRes, studentRes] = await Promise.allSettled([
       API.get(`director/branch/${branchId}/teachers/leaves`, { params }),
-      API.get(`director/branch/${branchId}/leaves`, { params })
+      API.get(`director/branch/${branchId}/leaves`, { params }),
     ]);
-    
+
     let teacherLeaves: any[] = [];
     if (teacherRes.status === 'fulfilled') {
       const data = teacherRes.value.data || {};
       const list = data.leaves || (Array.isArray(data) ? data : []);
       teacherLeaves = list.map((item: any) => ({ ...item, leave_type: 'teacher' }));
     }
-    
+
     let studentLeaves: any[] = [];
     if (studentRes.status === 'fulfilled') {
       const data = studentRes.value.data || {};
       const list = data.leaves || (Array.isArray(data) ? data : []);
       studentLeaves = list.map((item: any) => ({ ...item, leave_type: 'student' }));
     }
-    
+
     const merged = [...teacherLeaves, ...studentLeaves];
     merged.sort((a, b) => new Date(b.created_at || b.from_date).getTime() - new Date(a.created_at || a.from_date).getTime());
-    
+
     return limit ? merged.slice(0, limit) : merged;
   } catch (err) {
     console.error('Error in getBranchLeaves:', err);
@@ -100,7 +103,7 @@ export async function getBranchLeaves(branchId: string, limit?: number): Promise
 export async function getBranchExams(branchId: string): Promise<any[]> {
   const endpoints = [
     `director/branch/${branchId}/exams`,
-    `director/branch/${branchId}/exams`
+    `director/branch/${branchId}/exams`,
   ];
   try {
     const data: any = await getFirstSuccessful(endpoints);
@@ -113,7 +116,7 @@ export async function getBranchExams(branchId: string): Promise<any[]> {
 export async function getExamMarks(branchId: string, examId: string, classGrade?: string, section?: string): Promise<any[]> {
   const endpoints = [
     `director/branch/${branchId}/exam/${examId}/marks`,
-    `director/branch/${branchId}/exam/${examId}/marks`
+    `director/branch/${branchId}/exam/${examId}/marks`,
   ];
   try {
     const data: any = await getFirstSuccessful(endpoints, { class_grade: classGrade, section });
@@ -138,7 +141,7 @@ export async function getStudentAttendanceReport(schoolCode: string, branchId: s
 export async function getTeacherAttendance(branchId: string, date: string): Promise<any> {
   const endpoints = [
     `director/branch/${branchId}/teachers/attendance`,
-    `director/branch/${branchId}/teachers/attendance`
+    `director/branch/${branchId}/teachers/attendance`,
   ];
   try {
     const data: any = await getFirstSuccessful(endpoints, { date });
@@ -151,7 +154,7 @@ export async function getTeacherAttendance(branchId: string, date: string): Prom
 export async function getStudentExamsData(studentId: string): Promise<any> {
   const endpoints = [
     `director/student/${studentId}/exams-data`,
-    `director/student/${studentId}/exams-data`
+    `director/student/${studentId}/exams-data`,
   ];
   try {
     const data: any = await getFirstSuccessful(endpoints);

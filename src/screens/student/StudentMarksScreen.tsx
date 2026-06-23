@@ -1,3 +1,6 @@
+import { Theme, C } from '../../theme/tokens';
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
@@ -7,7 +10,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
-  StatusBar,
   Platform,
   Modal,
   NativeSyntheticEvent,
@@ -19,7 +21,6 @@ import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Feather';
 import API from '../../services/api';
 import { getStudentMarks, getStudentExams } from '../../services/studentService';
-import { Theme as C } from '../../theme/theme';
 import AppText from '../../components/common/AppText';
 import AppCard from '../../components/common/AppCard';
 import { useAuth } from '../../context/AuthContext';
@@ -72,9 +73,9 @@ const ResultBadge: React.FC<{ status: string }> = ({ status }) => {
   const isPass = status?.toUpperCase() === 'PASS';
   return (
     <View style={[styles.badge, isPass ? styles.badgePass : styles.badgeFail]}>
-      <Icon 
-        name={isPass ? "check-circle" : "x-circle"} 
-        size={12} 
+      <Icon
+        name={isPass ? 'check-circle' : 'x-circle'}
+        size={12}
         color={isPass ? C.colors.success : C.colors.error}
       />
       <AppText style={[styles.badgeText, isPass ? styles.badgeTextPass : styles.badgeTextFail]}>
@@ -87,8 +88,8 @@ const ResultBadge: React.FC<{ status: string }> = ({ status }) => {
 // grading removed: grade UI omitted for students
 
 // Summary Card Component
-const SummaryCard: React.FC<{ 
-  label: string; 
+const SummaryCard: React.FC<{
+  label: string;
   value: string | number;
   icon: React.ComponentProps<typeof Icon>['name'];
   trend?: number;
@@ -102,9 +103,9 @@ const SummaryCard: React.FC<{
       <AppText style={styles.summaryValue}>{value}</AppText>
       {trend !== undefined && (
         <View style={styles.trendContainer}>
-          <Icon 
-            name={trend >= 0 ? "arrow-up" : "arrow-down"} 
-            size={10} 
+          <Icon
+            name={trend >= 0 ? 'arrow-up' : 'arrow-down'}
+            size={10}
             color={trend >= 0 ? C.colors.success : C.colors.error}
           />
           <AppText style={[styles.trendText, { color: trend >= 0 ? C.colors.success : C.colors.error }]}>
@@ -120,11 +121,11 @@ const SummaryCard: React.FC<{
 const MarksCard: React.FC<{ mark: Mark }> = ({ mark }) => {
   const percentage = (mark.marks_obtained / mark.max_marks) * 100;
   const isPass = mark.result_status?.toUpperCase() === 'PASS';
-  
+
   const getProgressColor = () => {
-    if (percentage >= 75) return C.colors.success;
-    if (percentage >= 60) return C.colors.blue;
-    if (percentage >= 45) return C.colors.warning;
+    if (percentage >= 75) {return C.colors.success;}
+    if (percentage >= 60) {return C.colors.blue;}
+    if (percentage >= 45) {return C.colors.warning;}
     return C.colors.error;
   };
 
@@ -139,7 +140,7 @@ const MarksCard: React.FC<{ mark: Mark }> = ({ mark }) => {
         </View>
         {/* grading removed */}
       </View>
-      
+
       <View style={styles.marksDetails}>
         <View style={styles.marksRow}>
           <View style={styles.marksItem}>
@@ -155,19 +156,19 @@ const MarksCard: React.FC<{ mark: Mark }> = ({ mark }) => {
             <AppText style={styles.marksValue}>{mark.pass_marks}</AppText>
           </View>
         </View>
-        
+
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View 
+            <View
               style={[
-                styles.progressFill, 
-                { width: `${percentage}%`, backgroundColor: getProgressColor() }
-              ]} 
+                styles.progressFill,
+                { width: `${percentage}%`, backgroundColor: getProgressColor() },
+              ]}
             />
           </View>
           <AppText style={styles.percentageText}>{percentage.toFixed(1)}%</AppText>
         </View>
-        
+
         <View style={styles.resultContainer}>
           <ResultBadge status={mark.result_status} />
           {mark.remarks && (
@@ -186,18 +187,8 @@ export default function StudentMarksScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { userName, setTabBarVisible } = useAuth();
+  const handleScroll = useScrollTabBar();
 
-  const lastScrollY = useRef(0);
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
-      setTabBarVisible(false);
-    } else if (currentScrollY < lastScrollY.current - 10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [studentId, setStudentId] = useState<string>('');
   const [exams, setExams] = useState<Exam[]>([]);
@@ -218,7 +209,7 @@ export default function StudentMarksScreen() {
       try {
         const [code, id] = await Promise.all([getSchoolCode(), getStudentId()]);
 
-        if (!isMounted) return;
+        if (!isMounted) {return;}
 
         setSchoolCode(code);
         setStudentId(id);
@@ -276,9 +267,9 @@ export default function StudentMarksScreen() {
     const activeSchoolCode = schoolCodeOverride || schoolCode;
     const activeStudentId = studentIdOverride || studentId;
 
-    if (!activeSchoolCode || !activeStudentId) return;
-    
-    if (showLoading) setLoadingExams(true);
+    if (!activeSchoolCode || !activeStudentId) {return;}
+
+    if (showLoading) {setLoadingExams(true);}
     try {
       const nextExams = await getStudentExams();
       setExams(nextExams);
@@ -301,7 +292,7 @@ export default function StudentMarksScreen() {
     } catch (error) {
       console.error('Failed to load exams:', error);
     } finally {
-      if (showLoading) setLoadingExams(false);
+      if (showLoading) {setLoadingExams(false);}
     }
   };
 
@@ -310,9 +301,9 @@ export default function StudentMarksScreen() {
     targetExamId: string = examId,
     targetStudentId: string = studentId,
   ) => {
-    if (!targetExamId) return;
-    
-    if (showLoading) setLoadingMarks(true);
+    if (!targetExamId) {return;}
+
+    if (showLoading) {setLoadingMarks(true);}
     try {
       const res = await getStudentMarks(targetExamId);
       const mItems = res.items || [];
@@ -329,7 +320,7 @@ export default function StudentMarksScreen() {
     } catch (error) {
       console.error('Failed to load marks:', error);
     } finally {
-      if (showLoading) setLoadingMarks(false);
+      if (showLoading) {setLoadingMarks(false);}
     }
   };
 
@@ -352,20 +343,20 @@ export default function StudentMarksScreen() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Morning';
-    if (hour < 17) return 'Afternoon';
+    if (hour < 12) {return 'Morning';}
+    if (hour < 17) {return 'Afternoon';}
     return 'Evening';
   };
 
   const averagePercentage = summary?.percentage || 0;
-  const performanceLevel = averagePercentage >= 75 ? 'Excellent' : 
-                          averagePercentage >= 60 ? 'Good' : 
+  const performanceLevel = averagePercentage >= 75 ? 'Excellent' :
+                          averagePercentage >= 60 ? 'Good' :
                           averagePercentage >= 45 ? 'Average' : 'Needs Improvement';
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
-      
+
+
       <View style={[styles.header, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 20 }]}>
         <TouchableOpacity
           style={styles.backButton}
@@ -489,7 +480,7 @@ export default function StudentMarksScreen() {
                   key={exam.exam_id}
                   style={[
                     styles.modalItem,
-                    examId === String(exam.exam_id) && styles.modalItemSelected
+                    examId === String(exam.exam_id) && styles.modalItemSelected,
                   ]}
                   onPress={() => {
                     handleExamSelect(String(exam.exam_id), exam.exam_name);
@@ -498,7 +489,7 @@ export default function StudentMarksScreen() {
                 >
                   <AppText style={[
                     styles.modalItemText,
-                    examId === String(exam.exam_id) && styles.modalItemTextSelected
+                    examId === String(exam.exam_id) && styles.modalItemTextSelected,
                   ]}>
                     {exam.exam_name}
                   </AppText>
@@ -541,8 +532,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: C.colors.card,
-    fontSize: 18,
-    fontWeight: '700',
+    ...Theme.typography.h3,
     textAlign: 'center',
   },
   notificationIcon: {
@@ -556,7 +546,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 40,
-    paddingTop: 16,
+    paddingTop: Theme.spacing.md,
   },
   mainCard: {
     backgroundColor: C.colors.card,
@@ -588,7 +578,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   summaryLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.colors.textSec,
     marginBottom: 2,
     fontWeight: '600',
@@ -601,17 +591,17 @@ const styles = StyleSheet.create({
   trendContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
     gap: 4,
   },
   trendText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
   },
   selectLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.colors.textSec,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
     fontWeight: '600',
   },
   examSelectionRow: {
@@ -632,7 +622,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   dropdownText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.primary,
     fontWeight: '500',
   },
@@ -650,11 +640,11 @@ const styles = StyleSheet.create({
   },
   viewMarksText: {
     color: C.colors.card,
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: 'bold',
   },
   refreshIcon: {
-    marginRight: 8,
+    marginRight: Theme.spacing.sm,
   },
   subjectListContainer: {
     marginTop: 6,
@@ -669,10 +659,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: C.colors.border,
     paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: Theme.spacing.sm,
   },
   subjectListHeaderCell: {
-    fontSize: 11,
+    ...Theme.typography.label,
     textTransform: 'uppercase',
     color: C.colors.textMuted,
     fontWeight: '700',
@@ -682,7 +672,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingHorizontal: Theme.spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: C.colors.backgroundAlt,
   },
@@ -722,7 +712,7 @@ const styles = StyleSheet.create({
   gridRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   gridItem: {
     flex: 1,
@@ -741,7 +731,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   gridValue: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
     color: C.colors.primary,
   },
@@ -772,7 +762,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   subjectName: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: C.colors.primary,
     fontWeight: '700',
     flexShrink: 1,
@@ -801,7 +791,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   marksValue: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
     color: C.colors.primary,
   },
@@ -824,7 +814,7 @@ const styles = StyleSheet.create({
   percentageText: {
     width: 52,
     textAlign: 'right',
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     color: C.colors.textSec,
   },
@@ -842,7 +832,7 @@ const styles = StyleSheet.create({
   },
   remarksText: {
     flex: 1,
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.colors.textSec,
   },
   resultBadgeContainer: {
@@ -855,8 +845,8 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 6,
     gap: 4,
     alignSelf: 'flex-start',
@@ -869,7 +859,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.errorBg,
   },
   badgeText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
   },
   badgeTextPass: {
@@ -886,10 +876,10 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyResultsText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.textMuted,
     textAlign: 'center',
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     lineHeight: 20,
   },
   modalOverlay: {
@@ -916,8 +906,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    ...Theme.typography.h3,
     color: C.colors.primary,
   },
   modalScrollContainer: {
@@ -939,7 +928,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: C.colors.background,
   },

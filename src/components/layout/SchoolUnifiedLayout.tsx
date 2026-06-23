@@ -1,3 +1,4 @@
+import { Theme } from '../../theme/tokens';
 // src/components/layout/SchoolUnifiedLayout.tsx
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -19,11 +20,11 @@ import NotificationPanel from '../common/NotificationPanel';
 import AccountSwitcher from '../common/AccountSwitcher';
 import { useAuth } from '../../context/AuthContext';
 import CalendarView from '../common/CalendarView';
-import { colors } from '../../constants/colors';
+import { colors } from '../../theme/tokens';
 
 // Utility function for photo cache key generation
 const getPhotoCacheKey = (roleBucket: 'student' | 'teacher', id: string, schoolCode: string): string | null => {
-  if (!id) return null;
+  if (!id) {return null;}
   return `profile_photo_url:${roleBucket}:${schoolCode || 'unknown'}:${id}`;
 };
 
@@ -94,9 +95,9 @@ const MENU_CONFIG: Record<string, RoleConfig> = {
     },
   },
 
-  director: {
-    label: 'Director Panel',
-    roleDisplay: 'Director',
+  principal: {
+    label: 'Principal Panel',
+    roleDisplay: 'Principal',
     menu: [
       { title: 'Dashboard', route: 'DirectorDashboard', icon: '📊' },
       { title: 'Staff', route: 'DirectorTeacherManagement', icon: '👨‍🏫' },
@@ -187,16 +188,16 @@ const theme = {
   bg: '#020617',
   sidebar: '#050d1a',
   sidebarBorder: 'rgba(59,130,246,0.12)',
-  primary: '#3b82f6',
+  primary: Theme.colors.blue,
   primaryGlow: 'rgba(59,130,246,0.22)',
   activeNavBg: 'rgba(59,130,246,0.15)',
   hoverNavBg: 'rgba(255,255,255,0.04)',
-  surface: '#0f172a',
+  surface: Theme.colors.text,
   surfaceBorder: 'rgba(59,130,246,0.1)',
-  textPrimary: '#f1f5f9',
+  textPrimary: Theme.colors.background,
   textSecondary: '#94a3b8',
-  textDim: '#475569',
-  error: '#ef4444',
+  textDim: Theme.colors.textSec,
+  error: Theme.colors.error,
 };
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -210,17 +211,17 @@ interface SchoolUnifiedLayoutProps {
 export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLayoutProps) {
   const navigation = useNavigation();
   const route = useRoute();
-  
+
   // Normalize role values
   const normalizeRole = (r: string) => {
-    if (!r) return 'teacher';
+    if (!r) {return 'teacher';}
     const v = String(r).trim().toLowerCase();
-    if (v === 'class_teacher' || v === 'class teacher' || v === 'classteacher' || v === 'class-teacher') return 'teacher';
-    if (v === 'director' || v === 'headmaster' || v === 'head_master') return 'director';
-    if (v === 'admin' || v === 'administrator') return 'admin';
-    if (v === 'director') return 'director';
-    if (v === 'accountant') return 'accountant';
-    if (v === 'student') return 'student';
+    if (v === 'class_teacher' || v === 'class teacher' || v === 'classteacher' || v === 'class-teacher') {return 'teacher';}
+    if (v === 'director') {return 'director';}
+    if (v === 'principal' || v === 'headmaster' || v === 'head_master') {return 'principal';}
+    if (v === 'admin' || v === 'administrator') {return 'admin';}
+    if (v === 'accountant') {return 'accountant';}
+    if (v === 'student') {return 'student';}
     return v;
   };
 
@@ -260,9 +261,9 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
     const handleDimensionChange = () => {
       const width = Dimensions.get('window').width;
       setIsTablet(width >= 640 && width < 1024);
-      if (width >= 1024) setDrawerOpen(false);
+      if (width >= 1024) {setDrawerOpen(false);}
     };
-    
+
     const subscription = Dimensions.addEventListener('change', handleDimensionChange);
     return () => subscription?.remove();
   }, []);
@@ -275,11 +276,11 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
         const code = await AsyncStorage.getItem('school_code');
         const roleStored = await AsyncStorage.getItem('user_role');
         const userStr = await AsyncStorage.getItem('user');
-        
+
         setUserName(name || 'User');
         setSchoolCode(code || '');
         setUserRole(roleStored || role);
-        
+
         if (userStr) {
           try {
             const user = JSON.parse(userStr);
@@ -318,15 +319,15 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
         setDisplayName(config.label);
       }
     };
-    
+
     loadUserData();
   }, [role, config.label]);
 
   // Load teacher capability
   useEffect(() => {
     const loadTeacherCapability = async () => {
-      if (role !== 'teacher') return;
-      
+      if (role !== 'teacher') {return;}
+
       try {
         const userStr = await AsyncStorage.getItem('user');
         if (userStr) {
@@ -343,7 +344,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
         setIsClassTeacher(isCT === '1');
       }
     };
-    
+
     loadTeacherCapability();
   }, [role]);
 
@@ -351,60 +352,60 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   useEffect(() => {
     const buildProfileDetails = async () => {
       const details: Array<{ label: string; value: string }> = [];
-      
+
       details.push({ label: 'Name', value: displayName });
       details.push({ label: 'Role', value: effectiveRoleDisplay });
-      if (schoolCode) details.push({ label: 'School Code', value: schoolCode });
-      
+      if (schoolCode) {details.push({ label: 'School Code', value: schoolCode });}
+
       const userId = await AsyncStorage.getItem('user_id');
-      if (userId) details.push({ label: 'User ID', value: userId });
-      
+      if (userId) {details.push({ label: 'User ID', value: userId });}
+
       const schoolName = await AsyncStorage.getItem('school_name');
-      if (schoolName) details.push({ label: 'School', value: schoolName });
-      
+      if (schoolName) {details.push({ label: 'School', value: schoolName });}
+
       if (role === 'teacher') {
         const teacherId = await AsyncStorage.getItem('teacher_id');
         const employeeId = await AsyncStorage.getItem('employee_id');
         const branchId = await AsyncStorage.getItem('branch_id');
         const branchName = await AsyncStorage.getItem('branch_name');
-        
-        if (teacherId) details.push({ label: 'Teacher ID', value: teacherId });
-        if (employeeId) details.push({ label: 'Employee ID', value: employeeId });
+
+        if (teacherId) {details.push({ label: 'Teacher ID', value: teacherId });}
+        if (employeeId) {details.push({ label: 'Employee ID', value: employeeId });}
         details.push({ label: 'Designation', value: isClassTeacher ? 'Class Teacher' : 'Subject Teacher' });
-        if (branchId) details.push({ label: 'Branch ID', value: branchId });
-        if (branchName) details.push({ label: 'Branch Name', value: branchName });
+        if (branchId) {details.push({ label: 'Branch ID', value: branchId });}
+        if (branchName) {details.push({ label: 'Branch Name', value: branchName });}
       }
-      
+
       if (role === 'director') {
         const directorEmployeeId = await AsyncStorage.getItem('director_employee_id');
         const directorEmail = await AsyncStorage.getItem('director_email');
         const branchId = await AsyncStorage.getItem('branch_id');
         const branchName = await AsyncStorage.getItem('branch_name');
-        
-        if (directorEmployeeId) details.push({ label: 'Director Employee ID', value: directorEmployeeId });
-        if (directorEmail) details.push({ label: 'Director Email', value: directorEmail });
-        if (branchId) details.push({ label: 'Branch ID', value: branchId });
-        if (branchName) details.push({ label: 'Branch Name', value: branchName });
+
+        if (directorEmployeeId) {details.push({ label: 'Director Employee ID', value: directorEmployeeId });}
+        if (directorEmail) {details.push({ label: 'Director Email', value: directorEmail });}
+        if (branchId) {details.push({ label: 'Branch ID', value: branchId });}
+        if (branchName) {details.push({ label: 'Branch Name', value: branchName });}
       }
-      
+
       if (role === 'director') {
         const email = await AsyncStorage.getItem('email');
-        if (email) details.push({ label: 'Email', value: email });
+        if (email) {details.push({ label: 'Email', value: email });}
       }
-      
+
       if (role === 'student') {
         const studentId = await AsyncStorage.getItem('student_id');
         const parentId = await AsyncStorage.getItem('parent_id');
         const branchId = await AsyncStorage.getItem('branch_id');
-        
-        if (studentId) details.push({ label: 'Student ID', value: studentId });
-        if (parentId) details.push({ label: 'Parent ID', value: parentId });
-        if (branchId) details.push({ label: 'Branch ID', value: branchId });
+
+        if (studentId) {details.push({ label: 'Student ID', value: studentId });}
+        if (parentId) {details.push({ label: 'Parent ID', value: parentId });}
+        if (branchId) {details.push({ label: 'Branch ID', value: branchId });}
       }
-      
+
       setProfileDetails(details);
     };
-    
+
     buildProfileDetails();
   }, [displayName, effectiveRoleDisplay, role, schoolCode, isClassTeacher]);
 
@@ -428,7 +429,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
         const acct = (savedAccounts || []).find(a => String(a.role || '').toLowerCase() === 'accountant');
         if (acct) {
           const ok = await switchToAccount(acct);
-          if (!ok) setShowAccountSwitcher(true);
+          if (!ok) {setShowAccountSwitcher(true);}
         } else {
           setShowAccountSwitcher(true);
         }
@@ -455,7 +456,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
       await AsyncStorage.multiRemove([
         'token', 'user_role', 'user_name', 'user_id',
         'school_code', 'branch_id', 'employee_id', 'teacher_id',
-        'student_id', 'profile_photo_url', 'user'
+        'student_id', 'profile_photo_url', 'user',
       ]);
       navigation.reset({ index: 0, routes: [{ name: 'Login' as never }] });
     });
@@ -469,13 +470,13 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   };
 
   const confirmDialog = () => {
-    if (dialogOnConfirm) dialogOnConfirm();
+    if (dialogOnConfirm) {dialogOnConfirm();}
     closeDialog();
   };
 
   const isCompact = isTablet || !sidebarExpanded;
   const showCalendarForRole = normalizedRole === 'student' || normalizedRole === 'teacher';
-  
+
   // Filter menu items for non-class teachers
   const visibleMenuItems = (normalizedRole === 'teacher' && !isClassTeacher)
     ? config.menu.filter(item =>
@@ -494,7 +495,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
         />
       );
     }
-    
+
     return (
       <View
         style={[
@@ -718,7 +719,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
               styles.dialogIcon,
               dialogType === 'success' ? styles.dialogIconSuccess :
               dialogType === 'error' ? styles.dialogIconError :
-              dialogType === 'confirm' ? styles.dialogIconConfirm : styles.dialogIconInfo
+              dialogType === 'confirm' ? styles.dialogIconConfirm : styles.dialogIconInfo,
             ]}>
               <Text style={styles.dialogIconText}>
                 {dialogType === 'success' ? '✓' : dialogType === 'error' ? '⚠️' : dialogType === 'confirm' ? '?' : 'ℹ️'}
@@ -766,7 +767,7 @@ const styles = StyleSheet.create({
   },
   sidebarBrand: {
     height: 80,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     justifyContent: 'center',
     borderBottomWidth: 1,
   },
@@ -782,7 +783,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   brandName: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: 'bold',
     color: theme.textPrimary,
   },
@@ -795,7 +796,7 @@ const styles = StyleSheet.create({
   },
   sidebarNav: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: Theme.spacing.md,
   },
   menuLabel: {
     fontSize: 9,
@@ -804,7 +805,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.8,
     color: theme.textDim,
     marginBottom: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
   },
   menuContainer: {
     gap: 4,
@@ -844,10 +845,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
     color: theme.textDim,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   schoolCodeValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: 'bold',
     color: theme.primary,
   },
@@ -892,15 +893,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   menuButton: {
-    padding: 8,
+    padding: Theme.spacing.sm,
   },
   menuIcon: {
     fontSize: 20,
     color: theme.textSecondary,
   },
   pageTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...Theme.typography.h4,
     color: theme.textPrimary,
   },
   headerRight: {
@@ -909,13 +909,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   iconButton: {
-    padding: 8,
+    padding: Theme.spacing.sm,
   },
   iconText: {
     fontSize: 18,
   },
   profileButton: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   profileOverlay: {
     position: 'absolute',
@@ -939,25 +939,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.sidebarBorder,
   },
   profileName: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: theme.textPrimary,
   },
   profileRole: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: theme.textSecondary,
   },
   profileDetails: {
     maxHeight: 300,
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   profileDetailsTitle: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -972,11 +972,11 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   profileDetailLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: theme.textSecondary,
   },
   profileDetailValue: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '500',
     color: theme.textPrimary,
     textAlign: 'right',
@@ -984,7 +984,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   profileLogout: {
-    padding: 16,
+    padding: Theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.sidebarBorder,
     backgroundColor: 'rgba(239,68,68,0.08)',
@@ -1006,9 +1006,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   profileViewText: {
-    color: '#fff',
+    color: Theme.colors.card,
+    ...Theme.typography.body,
     fontWeight: '700',
-    fontSize: 14,
   },
   content: {
     flex: 1,
@@ -1041,18 +1041,18 @@ const styles = StyleSheet.create({
     color: theme.textPrimary,
   },
   drawerRole: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: theme.textSecondary,
     marginTop: 2,
   },
   drawerSchoolCode: {
     fontSize: 10,
     color: theme.primary,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   drawerNav: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
   },
   drawerItem: {
     flexDirection: 'row',
@@ -1065,7 +1065,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   drawerItemText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: theme.textSecondary,
   },
   drawerLogout: {
@@ -1083,14 +1083,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   calendarModal: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 16,
     width: '90%',
     maxHeight: '80%',
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   closeCalendarButton: {
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     alignItems: 'center',
   },
   closeCalendarText: {
@@ -1107,7 +1107,7 @@ const styles = StyleSheet.create({
   dialogContainer: {
     backgroundColor: theme.surface,
     borderRadius: 24,
-    padding: 24,
+    padding: Theme.spacing.lg,
     width: '100%',
     maxWidth: 340,
     alignItems: 'center',
@@ -1120,7 +1120,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   dialogIconSuccess: {
     backgroundColor: 'rgba(16,185,129,0.2)',
@@ -1138,10 +1138,10 @@ const styles = StyleSheet.create({
     fontSize: 28,
   },
   dialogMessage: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: theme.textPrimary,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   dialogButtons: {
     flexDirection: 'row',
@@ -1163,12 +1163,12 @@ const styles = StyleSheet.create({
     backgroundColor: theme.primary,
   },
   dialogButtonText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: theme.textSecondary,
   },
   dialogButtonConfirmText: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   avatarImage: {
     borderWidth: 1,
@@ -1179,7 +1179,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarInitialsText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontWeight: 'bold',
   },
 });

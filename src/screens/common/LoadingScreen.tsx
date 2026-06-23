@@ -6,7 +6,8 @@ import {
   Image,
   Text,
 } from 'react-native';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
+import { motion } from '../../theme/motion';
 
 export default function LoadingScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -17,7 +18,7 @@ export default function LoadingScreen() {
   useEffect(() => {
     // Entrance
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: motion.durations.base, useNativeDriver: true }),
       Animated.spring(scaleAnim, { toValue: 1, friction: 5, useNativeDriver: true }),
     ]).start();
 
@@ -54,7 +55,7 @@ export default function LoadingScreen() {
           Loading...
         </Animated.Text>
       </Animated.View>
-      
+
       <Text style={styles.poweredBy}>Powered by Visys Cloud Technologies</Text>
     </View>
   );
@@ -74,7 +75,7 @@ const styles = StyleSheet.create({
     width: 280,
     height: 280,
     borderRadius: 140,
-    backgroundColor: 'rgba(102,72,220,0.07)',
+    backgroundColor: 'rgba(30,58,138,0.08)',
   },
   blobBR: {
     position: 'absolute',
@@ -83,7 +84,7 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: 'rgba(56,189,248,0.05)',
+    backgroundColor: 'rgba(59,130,246,0.06)',
   },
   content: {
     alignItems: 'center',
@@ -103,7 +104,7 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 26,
     borderWidth: 4,
-    borderColor: 'rgba(102,72,220,0.15)',
+    borderColor: 'rgba(30,58,138,0.15)',
     borderTopColor: Theme.colors.primary,
   },
   label: {
@@ -118,7 +119,7 @@ const styles = StyleSheet.create({
     width: '100%',
     textAlign: 'center',
     fontSize: 13,
-    color: '#475569', // Darker slate for better contrast on white
+    color: Theme.colors.textSec, // Darker slate for better contrast on white
     fontWeight: '600',
     letterSpacing: 0.5,
   },

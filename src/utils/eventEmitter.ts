@@ -16,7 +16,7 @@ class EventEmitter {
     const handlers = this.events.get(event);
     if (handlers) {
       const index = handlers.indexOf(handler);
-      if (index !== -1) handlers.splice(index, 1);
+      if (index !== -1) {handlers.splice(index, 1);}
     }
   }
 

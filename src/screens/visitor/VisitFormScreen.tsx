@@ -14,13 +14,15 @@ import {
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { visitorApi } from '../../services/visitorApi';
-import { colors } from '../../constants/colors';
+
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import type { RootStackParamList } from '../../navigation/types';
 import { formatErrorMessage } from '../../utils/helpers';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import { Theme } from '../../theme/tokens';
+
 
 // Types
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'VisitForm'>;
@@ -66,17 +68,17 @@ interface FormData {
 // Helper functions
 const branchCandidates = (value: string): string[] => {
   const raw = String(value || '').trim();
-  if (!raw) return [];
+  if (!raw) {return [];}
 
   const out = [raw];
   const altZero = raw.replace(/o/gi, '0');
-  if (altZero && !out.includes(altZero)) out.push(altZero);
+  if (altZero && !out.includes(altZero)) {out.push(altZero);}
 
   if (/^\d+$/.test(altZero)) {
     const numeric = String(parseInt(altZero, 10));
-    if (numeric && !out.includes(numeric)) out.push(numeric);
+    if (numeric && !out.includes(numeric)) {out.push(numeric);}
     const padded = altZero.padStart(2, '0');
-    if (padded && !out.includes(padded)) out.push(padded);
+    if (padded && !out.includes(padded)) {out.push(padded);}
   }
 
   return out.map(v => v.toLowerCase());
@@ -85,9 +87,9 @@ const branchCandidates = (value: string): string[] => {
 const branchMatches = (left: string, right: string): boolean => {
   const leftSet = new Set(branchCandidates(left));
   const rightSet = new Set(branchCandidates(right));
-  if (!leftSet.size || !rightSet.size) return false;
+  if (!leftSet.size || !rightSet.size) {return false;}
   for (const v of leftSet) {
-    if (rightSet.has(v)) return true;
+    if (rightSet.has(v)) {return true;}
   }
   return false;
 };
@@ -224,7 +226,7 @@ export default function VisitFormScreen() {
       };
 
       const res = await visitorApi.submitVisitor(payload);
-      
+
       if (res.data?.success) {
         const visitorNo = res.data?.data?.visitor_no || '';
         setSubmittedVisitorNo(visitorNo);
@@ -346,7 +348,7 @@ export default function VisitFormScreen() {
               <Text style={styles.label}>Relation to Student <Text style={styles.required}>*</Text></Text>
               <View style={styles.pickerContainer}>
                 {['parent', 'guardian', 'relative', 'other'].map(rel => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={rel}
                     style={[styles.pickerOption, form.relation === rel && styles.pickerOptionActive]}
                     onPress={() => handleChange('relation', rel)}
@@ -378,7 +380,7 @@ export default function VisitFormScreen() {
                 <Text style={styles.label}>Class</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.chipContainer}>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.chip, !form.student_class_id && styles.chipActive]}
                       onPress={() => handleChange('student_class_id', '')}
                     >
@@ -387,7 +389,7 @@ export default function VisitFormScreen() {
                       </Text>
                     </TouchableOpacity>
                     {branchScopedClasses.map(cls => (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={getClassId(cls)}
                         style={[styles.chip, form.student_class_id === getClassId(cls) && styles.chipActive]}
                         onPress={() => handleChange('student_class_id', getClassId(cls))}
@@ -407,7 +409,7 @@ export default function VisitFormScreen() {
                 <Text style={styles.label}>Section</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.chipContainer}>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.chip, !form.student_section && styles.chipActive]}
                       onPress={() => handleChange('student_section', '')}
                     >
@@ -416,7 +418,7 @@ export default function VisitFormScreen() {
                       </Text>
                     </TouchableOpacity>
                     {availableSections.map(section => (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={getSectionId(section)}
                         style={[styles.chip, form.student_section === section.section_name && styles.chipActive]}
                         onPress={() => handleChange('student_section', section.section_name)}
@@ -440,7 +442,7 @@ export default function VisitFormScreen() {
                 <Text style={styles.label}>Purpose of Visit <Text style={styles.required}>*</Text></Text>
                 <View style={styles.pickerContainer}>
                   {['meeting', 'pickup', 'delivery', 'inspection', 'other'].map(pur => (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={pur}
                       style={[styles.pickerOption, form.purpose === pur && styles.pickerOptionActive]}
                       onPress={() => handleChange('purpose', pur)}
@@ -509,7 +511,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f2f7',
   },
   scrollContent: {
-    padding: 16,
+    padding: Theme.spacing.md,
     paddingBottom: 40,
   },
   errorContainer: {
@@ -520,26 +522,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#fef2f2',
   },
   errorCard: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.card,
     borderRadius: 16,
-    padding: 24,
+    padding: Theme.spacing.lg,
     alignItems: 'center',
     width: '100%',
     maxWidth: 340,
   },
   errorIcon: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   errorTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#dc2626',
-    marginBottom: 8,
+    color: Theme.colors.error,
+    marginBottom: Theme.spacing.sm,
   },
   errorMessage: {
-    fontSize: 14,
-    color: '#64748b',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -551,61 +553,61 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0fdf4',
   },
   successCard: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.card,
     borderRadius: 16,
-    padding: 24,
+    padding: Theme.spacing.lg,
     alignItems: 'center',
     width: '100%',
     maxWidth: 340,
   },
   successIcon: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   successTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#10b981',
-    marginBottom: 8,
+    color: Theme.colors.success,
+    marginBottom: Theme.spacing.sm,
   },
   successMessage: {
-    fontSize: 14,
-    color: '#64748b',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   visitorNo: {
     fontSize: 13,
     color: '#4a5568',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   visitorNoValue: {
     fontWeight: '700',
     color: '#6648dc',
   },
   redirectText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#94a3b8',
   },
   headerCard: {
     padding: 20,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     alignItems: 'center',
   },
   schoolName: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#0d1b2a',
-    marginBottom: 8,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.sm,
   },
   formTitle: {
-    fontSize: 14,
-    color: '#64748b',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
   },
   branchInfo: {
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 8,
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+    marginTop: Theme.spacing.sm,
   },
   branchValue: {
     fontWeight: '600',
@@ -618,7 +620,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fee2e2',
     padding: 12,
     borderRadius: 10,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   errorBannerText: {
     color: '#b91c1c',
@@ -627,28 +629,28 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: 16,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   field: {
     flex: 1,
   },
   label: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: '#4a5568',
     marginBottom: 6,
   },
   required: {
-    color: '#dc2626',
+    color: Theme.colors.error,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     borderRadius: 10,
     padding: 12,
-    fontSize: 14,
-    backgroundColor: '#f8fafc',
-    color: '#0d1b2a',
+    ...Theme.typography.body,
+    backgroundColor: Theme.colors.background,
+    color: Theme.colors.text,
   },
   textArea: {
     minHeight: 80,
@@ -660,12 +662,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   pickerOption: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
   },
   pickerOptionActive: {
     backgroundColor: '#6648dc',
@@ -676,19 +678,19 @@ const styles = StyleSheet.create({
     color: '#4a5568',
   },
   pickerTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   section: {
-    marginTop: 8,
-    marginBottom: 16,
-    paddingTop: 8,
+    marginTop: Theme.spacing.sm,
+    marginBottom: Theme.spacing.md,
+    paddingTop: Theme.spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: '#e4e9f2',
+    borderTopColor: Theme.colors.border,
   },
   sectionTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: Theme.colors.text,
     marginBottom: 12,
   },
   chipContainer: {
@@ -697,12 +699,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
   },
   chipActive: {
     backgroundColor: '#6648dc',
@@ -713,12 +715,12 @@ const styles = StyleSheet.create({
     color: '#4a5568',
   },
   chipTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   submitBtn: {
     flex: 2,

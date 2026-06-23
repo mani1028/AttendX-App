@@ -1,3 +1,5 @@
+import { useNavigation } from '@react-navigation/native';
+import { motion } from '../../theme/motion';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   KeyboardAvoidingView,
@@ -8,15 +10,14 @@ import {
   TouchableOpacity,
   ScrollView,
   Animated,
-  StatusBar,
   TextInput,
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
 import { authService } from '../../api/authService';
 import { formatErrorMessage } from '../../utils/helpers';
-import { Theme } from '../../theme/theme';
-import { ArrowLeft, Eye, EyeOff, Building2, User, Lock, ShieldCheck, AlertCircle } from 'lucide-react-native';
+import { Theme } from '../../theme/tokens';
+import { ChevronLeft, Eye, EyeOff, Building2, User, Lock, ShieldCheck, AlertCircle } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -47,7 +48,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, tension: 20, friction: 7, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, ...motion.springs.gentle, useNativeDriver: true }),
     ]).start();
   }, [fadeAnim, slideAnim]);
 
@@ -81,7 +82,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
     try {
       const res: any = await authService.verifyOtp(sid, id, otpV);
       const token = String(res?.reset_token || res?.data?.reset_token || '').trim();
-      if (!token) throw new Error('Reset token missing');
+      if (!token) {throw new Error('Reset token missing');}
       setMessage(res?.detail || res?.data?.detail || 'OTP verified.');
       setOtpVerified(true);
       setResetToken(token);
@@ -124,7 +125,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Background decorations matching LoginScreen */}
       <View style={styles.blob1} />
@@ -135,7 +136,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
           <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                <ArrowLeft size={24} color="#0f172a" />
+                <ChevronLeft size={24} color={Theme.colors.text} />
              </TouchableOpacity>
              <Text style={styles.headerTitle}>Recovery</Text>
           </Animated.View>
@@ -150,8 +151,8 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
             {(error || message) ? (
               <View style={[styles.banner, error ? styles.bannerErr : styles.bannerOk]}>
-                <AlertCircle size={16} color={error ? '#dc2626' : '#059669'} />
-                <Text style={[styles.bannerTxt, { color: error ? '#dc2626' : '#059669' }]}>
+                <AlertCircle size={16} color={error ? Theme.colors.error : Theme.colors.success} />
+                <Text style={[styles.bannerTxt, { color: error ? Theme.colors.error : Theme.colors.success }]}>
                   {error || message}
                 </Text>
               </View>
@@ -162,7 +163,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
                 <>
                   <Field label="School Code">
                     <View style={[styles.inputGroup, focusedField === 'school' && styles.inputActive]}>
-                      <Building2 size={18} color={focusedField === 'school' ? Theme.colors.primary : "#94a3b8"} />
+                      <Building2 size={18} color={focusedField === 'school' ? Theme.colors.primary : '#94a3b8'} />
                       <TextInput
                         style={styles.input}
                         placeholder="SSC12345 / CBSE12345"
@@ -179,7 +180,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
                   <Field label="Email / Employee ID / Roll No.">
                     <View style={[styles.inputGroup, focusedField === 'user' && styles.inputActive]}>
-                      <User size={18} color={focusedField === 'user' ? Theme.colors.primary : "#94a3b8"} />
+                      <User size={18} color={focusedField === 'user' ? Theme.colors.primary : '#94a3b8'} />
                       <TextInput
                         style={styles.input}
                         placeholder="teacher@example.com or EMP001"
@@ -200,7 +201,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
               {otpSent && !otpVerified && (
                 <Field label="Enter OTP">
                   <View style={[styles.inputGroup, focusedField === 'otp' && styles.inputActive]}>
-                    <ShieldCheck size={18} color={focusedField === 'otp' ? Theme.colors.primary : "#94a3b8"} />
+                    <ShieldCheck size={18} color={focusedField === 'otp' ? Theme.colors.primary : '#94a3b8'} />
                     <TextInput
                       style={styles.input}
                       placeholder="6-digit verification code"
@@ -220,7 +221,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
                 <>
                   <Field label="New Password">
                     <View style={[styles.inputGroup, focusedField === 'pass1' && styles.inputActive]}>
-                      <Lock size={18} color={focusedField === 'pass1' ? Theme.colors.primary : "#94a3b8"} />
+                      <Lock size={18} color={focusedField === 'pass1' ? Theme.colors.primary : '#94a3b8'} />
                       <TextInput
                         style={styles.input}
                         placeholder="••••••••"
@@ -239,7 +240,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
                   <Field label="Confirm Password">
                     <View style={[styles.inputGroup, focusedField === 'pass2' && styles.inputActive]}>
-                      <Lock size={18} color={focusedField === 'pass2' ? Theme.colors.primary : "#94a3b8"} />
+                      <Lock size={18} color={focusedField === 'pass2' ? Theme.colors.primary : '#94a3b8'} />
                       <TextInput
                         style={styles.input}
                         placeholder="••••••••"
@@ -267,7 +268,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
             >
               <View style={styles.submitBtn}>
                 {btnDisabled ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={Theme.colors.card} />
                 ) : (
                   <Text style={styles.submitTxt}>{btnLabel}</Text>
                 )}
@@ -294,7 +295,7 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
 );
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f8fafc' },
+  root: { flex: 1, backgroundColor: Theme.colors.background },
   kav: { flex: 1 },
   blob1: {
     position: 'absolute', top: -SCREEN_W * 0.1, right: -SCREEN_W * 0.1,
@@ -308,25 +309,25 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: Theme.spacing.lg,
     paddingVertical: 40,
     justifyContent: 'center',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: Theme.spacing.xl,
   },
   backButton: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#f1f5f9',
-    marginRight: 16,
+    borderColor: Theme.colors.background,
+    marginRight: Theme.spacing.md,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -336,32 +337,32 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.card,
     borderRadius: 30,
-    padding: 24,
+    padding: Theme.spacing.lg,
     shadowColor: '#6648dc',
     shadowOffset: { width: 0, height: 15 },
     shadowOpacity: 0.1,
     shadowRadius: 30,
     elevation: 6,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.background,
   },
   cardTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#0f172a',
-    marginBottom: 8,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.sm,
   },
   cardSubtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: Theme.colors.textSec,
     fontWeight: '500',
     lineHeight: 20,
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   banner: {
     flexDirection: 'row',
@@ -373,30 +374,30 @@ const styles = StyleSheet.create({
   },
   bannerErr: { backgroundColor: '#fef2f2', borderColor: '#fee2e2' },
   bannerOk: { backgroundColor: '#ecfdf5', borderColor: '#d1fae5' },
-  bannerTxt: { fontSize: 13, fontWeight: '600', marginLeft: 8, flex: 1 },
+  bannerTxt: { fontSize: 13, fontWeight: '600', marginLeft: Theme.spacing.sm, flex: 1 },
   form: { gap: 16 },
   field: { gap: 8 },
   fieldLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
-    color: '#64748b',
+    color: Theme.colors.textSec,
     textTransform: 'uppercase',
     letterSpacing: 1.2,
-    marginLeft: 4,
+    marginLeft: Theme.spacing.xs,
   },
   inputGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     height: 54,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
   },
   inputActive: {
     borderColor: '#6648dc',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     shadowColor: '#6648dc',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.1,
@@ -407,13 +408,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     marginLeft: 12,
-    fontSize: 15,
-    color: '#0f172a',
+    ...Theme.typography.bodyMd,
+    color: Theme.colors.text,
     fontWeight: '500',
   },
-  eyeBtn: { padding: 4 },
+  eyeBtn: { padding: Theme.spacing.xs },
   submitBtnWrapper: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
     borderRadius: 14,
     overflow: 'hidden',
     shadowColor: '#6648dc',
@@ -429,15 +430,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#6648dc',
   },
   submitTxt: {
-    color: '#fff',
-    fontSize: 15,
+    color: Theme.colors.card,
+    ...Theme.typography.bodyMd,
     fontWeight: '800',
     letterSpacing: 1.5,
   },
-  dividerLine: { width: '100%', height: 1, backgroundColor: '#f1f5f9', marginVertical: 24 },
+  dividerLine: { width: '100%', height: 1, backgroundColor: Theme.colors.background, marginVertical: Theme.spacing.lg },
   footer: { alignItems: 'center' },
   footerNote: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#94a3b8',
     fontWeight: '600',
     textTransform: 'uppercase',

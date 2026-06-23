@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 import { NavigationProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -32,6 +33,7 @@ export const safeGoBack = (
   navigation: NavigationProp<any>,
   fallbackRoute?: keyof RootStackParamList
 ) => {
+
   if (navigation.canGoBack && navigation.canGoBack()) {
     navigation.goBack();
   } else if (fallbackRoute) {

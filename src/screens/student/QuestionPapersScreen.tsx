@@ -1,3 +1,6 @@
+import { Theme, C } from '../../theme/tokens';
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
@@ -10,7 +13,6 @@ import {
   Alert,
   Platform,
   Dimensions,
-  StatusBar,
   RefreshControl,
   PermissionsAndroid,
   NativeSyntheticEvent,
@@ -23,7 +25,6 @@ import Share from 'react-native-share';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Feather';
 import { getQuestionPapers, getExamTypes, downloadQuestionPaper } from '../../services/studentService';
-import { Theme as C } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import BottomSheetModal from '../../components/common/BottomSheetModal';
 
@@ -55,7 +56,7 @@ interface FilterOptions {
 }
 
 const formatDate = (dateString?: string): string => {
-  if (!dateString) return '—';
+  if (!dateString) {return '—';}
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
     month: 'short',
@@ -65,7 +66,7 @@ const formatDate = (dateString?: string): string => {
 };
 
 const formatFileSize = (bytes?: number): string => {
-  if (!bytes) return '—';
+  if (!bytes) {return '—';}
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
@@ -393,7 +394,6 @@ export default function QuestionPapersScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -419,11 +419,11 @@ export default function QuestionPapersScreen() {
   // Fetch papers with filters
   const fetchPapers = useCallback(async (isRefresh = false) => {
     const isActuallyRefresh = isRefresh === true;
-    if (!isActuallyRefresh) setLoading(true);
+    if (!isActuallyRefresh) {setLoading(true);}
     try {
       const params: any = {};
-      if (filterSubject !== 'all') params.subject_id = filterSubject;
-      if (filterExamType !== 'all') params.exam_type = filterExamType;
+      if (filterSubject !== 'all') {params.subject_id = filterSubject;}
+      if (filterExamType !== 'all') {params.exam_type = filterExamType;}
 
       const res = await getQuestionPapers(params);
       const data = res.subjects || res.data?.subjects || [];
@@ -460,7 +460,7 @@ export default function QuestionPapersScreen() {
   }, [filterSubject, filterExamType]);
 
   const filteredSubjects = useMemo(() => {
-    if (!searchTerm.trim()) return subjects;
+    if (!searchTerm.trim()) {return subjects;}
     const term = searchTerm.toLowerCase();
     return subjects
       .map((sub: Subject) => ({
@@ -497,7 +497,7 @@ export default function QuestionPapersScreen() {
   };
 
   const processPaperAction = async (paperId: string, title: string, isDownload: boolean) => {
-    if (processingId) return;
+    if (processingId) {return;}
 
     try {
       setProcessingId(paperId);
@@ -555,18 +555,8 @@ export default function QuestionPapersScreen() {
 
   const hasActiveFilters =
     searchTerm !== '' || filterSubject !== 'all' || filterExamType !== 'all';
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   const handleBackPress = () => {
     if (navigation.canGoBack()) {
@@ -578,7 +568,7 @@ export default function QuestionPapersScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
@@ -763,8 +753,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Theme.typography.h3,
     color: C.colors.card,
     textAlign: 'center',
     flex: 1,
@@ -779,8 +768,8 @@ const styles = StyleSheet.create({
   searchSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
     gap: 12,
   },
   searchContainer: {
@@ -790,16 +779,16 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.card,
     borderRadius: 12,
     height: 50,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     ...C.shadow.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: C.colors.primary,
-    marginLeft: 8,
+    marginLeft: Theme.spacing.sm,
     paddingVertical: 0,
   },
   filterButton: {
@@ -808,10 +797,10 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: C.colors.card,
     height: 50,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     ...C.shadow.sm,
   },
   filterButtonActive: {
@@ -819,7 +808,7 @@ const styles = StyleSheet.create({
     borderColor: C.colors.primary,
   },
   filterButtonText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '600',
     color: C.colors.textSec,
   },
@@ -839,12 +828,12 @@ const styles = StyleSheet.create({
   },
   activeFilters: {
     marginTop: 12,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   activeFiltersContainer: {
     flexDirection: 'row',
     gap: 8,
-    paddingRight: 16,
+    paddingRight: Theme.spacing.md,
     alignItems: 'center',
   },
   activeFilterChip: {
@@ -853,13 +842,13 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: C.colors.blueLight,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#BFDBFE',
   },
   activeFilterText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.colors.primary,
     fontWeight: '600',
   },
@@ -867,15 +856,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: C.colors.error,
     fontWeight: '600',
-    marginLeft: 8,
+    marginLeft: Theme.spacing.sm,
   },
   statsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: C.colors.card,
-    marginTop: 16,
-    marginBottom: 16,
-    paddingVertical: 16,
+    marginTop: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
+    paddingVertical: Theme.spacing.md,
     borderRadius: 16,
     ...C.shadow.sm,
   },
@@ -885,13 +874,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statNumber: {
-    fontSize: 28,
-    fontWeight: '800',
+    ...Theme.typography.h1,
     color: C.colors.primary,
     marginBottom: 2,
   },
   statLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.colors.textMuted,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -905,14 +893,14 @@ const styles = StyleSheet.create({
   subjectSection: {
     backgroundColor: C.colors.card,
     borderRadius: 16,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     overflow: 'hidden',
     ...C.shadow.sm,
   },
   subjectHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
     gap: 12,
   },
   subjectIcon: {
@@ -926,14 +914,14 @@ const styles = StyleSheet.create({
   subjectIconText: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: Theme.colors.card,
   },
   subjectInfo: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingRight: 8,
+    paddingRight: Theme.spacing.sm,
   },
   subjectTitle: {
     fontSize: 17,
@@ -949,21 +937,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   paperCountBadgeText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     color: C.colors.blue,
   },
   papersList: {
-    padding: 16,
+    padding: Theme.spacing.md,
     paddingTop: 0,
   },
   paperCard: {
     backgroundColor: '#F8FAFF',
     borderRadius: 16,
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   paperCardHeader: {
     marginBottom: 12,
@@ -979,14 +967,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   paperTypeText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '800',
     color: C.colors.blue,
     textTransform: 'uppercase',
   },
   paperTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Theme.typography.h3,
     color: C.colors.primary,
     marginBottom: 12,
   },
@@ -995,7 +982,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     columnGap: 16,
     rowGap: 8,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   metaItem: {
     flexDirection: 'row',
@@ -1034,15 +1021,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     height: 44,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
   },
   actionBtnText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: Theme.colors.card,
   },
   actionBtnOutlineText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
     color: C.colors.blue,
   },
@@ -1052,12 +1039,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     backgroundColor: C.colors.backgroundAlt,
     borderRadius: 8,
   },
   processingText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.colors.textSec,
     fontWeight: '500',
   },
@@ -1072,7 +1059,7 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     minHeight: 220,
-    paddingVertical: 48,
+    paddingVertical: Theme.spacing.xxl,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1086,7 +1073,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 300,
     paddingVertical: 36,
-    paddingHorizontal: 24,
+    paddingHorizontal: Theme.spacing.lg,
     backgroundColor: C.colors.card,
     borderRadius: 16,
     borderWidth: 1,
@@ -1113,7 +1100,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptyText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.textSec,
     textAlign: 'center',
     lineHeight: 20,
@@ -1127,7 +1114,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.background,
   },
   resetEmptyBtnText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: C.colors.blue,
   },
@@ -1151,8 +1138,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingHorizontal: Theme.spacing.lg,
+    paddingTop: Theme.spacing.lg,
     paddingBottom: 20,
   },
   modalTitle: {
@@ -1162,14 +1149,14 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   modalBody: {
-    paddingHorizontal: 24,
+    paddingHorizontal: Theme.spacing.lg,
   },
   filterSectionTitle: {
     fontSize: 13,
     fontWeight: '700',
     color: C.colors.textMuted,
-    marginBottom: 16,
-    marginTop: 8,
+    marginBottom: Theme.spacing.md,
+    marginTop: Theme.spacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
@@ -1183,16 +1170,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1.5,
-    borderColor: '#F1F5F9',
+    borderColor: Theme.colors.background,
   },
   filterOptionActive: {
     backgroundColor: C.colors.blueLight,
     borderColor: C.colors.blue,
   },
   filterOptionText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: C.colors.textSec,
   },
@@ -1202,16 +1189,16 @@ const styles = StyleSheet.create({
   modalFooter: {
     flexDirection: 'row',
     gap: 16,
-    padding: 24,
+    padding: Theme.spacing.lg,
     backgroundColor: C.colors.card,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: Theme.colors.background,
   },
   resetModalBtn: {
     flex: 1,
     height: 54,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },

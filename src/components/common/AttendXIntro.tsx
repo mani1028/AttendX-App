@@ -1,146 +1,126 @@
+import { Theme } from '../../theme/tokens';
 // src/components/common/AttendXIntro.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Animated,
-  Dimensions,
-  Image,
   StatusBar,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  withSequence,
+  runOnJS,
+} from 'react-native-reanimated';
 import Svg, { Text as SvgText, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
-import { Theme } from '../../theme/theme';
-
-const { width } = Dimensions.get('window');
+import { motion } from '../../theme/motion';
 
 interface AttendXIntroProps {
   onComplete: () => void;
-  duration?: number; // total duration in ms before fade out starts
+  duration?: number;
 }
 
 const AttendXIntro: React.FC<AttendXIntroProps> = ({ onComplete, duration = 3200 }) => {
-  // Cloud animations
-  const cloudTranslateX = useRef(new Animated.Value(-150)).current;
-  const cloudOpacity = useRef(new Animated.Value(0)).current;
+  const { width } = useWindowDimensions();
 
-  // Individual letter animations (6 letters: A t t e n d)
-  const lettersState = useRef(
-    Array(6).fill(null).map(() => ({
-      translateX: new Animated.Value(-80),
-      opacity: new Animated.Value(0),
-    }))
-  ).current;
+  const cloudTranslateX = useSharedValue(-150);
+  const cloudOpacity = useSharedValue(0);
 
-  // Gradient "X" animation
-  const xTranslateX = useRef(new Animated.Value(-80)).current;
-  const xOpacity = useRef(new Animated.Value(0)).current;
+  const xTranslateX = useSharedValue(-80);
+  const xOpacity = useSharedValue(0);
 
-  // Tagline animation
-  const taglineTranslateX = useRef(new Animated.Value(-80)).current;
-  const taglineOpacity = useRef(new Animated.Value(0)).current;
+  const taglineTranslateX = useSharedValue(-80);
+  const taglineOpacity = useSharedValue(0);
 
-  // Container fade-out
-  const containerOpacity = useRef(new Animated.Value(1)).current;
+  const containerOpacity = useSharedValue(1);
+
+  // Initialize letters — declared individually at top level (hooks cannot be in callbacks)
+  const l0tx = useSharedValue(-80); const l0op = useSharedValue(0);
+  const l1tx = useSharedValue(-80); const l1op = useSharedValue(0);
+  const l2tx = useSharedValue(-80); const l2op = useSharedValue(0);
+  const l3tx = useSharedValue(-80); const l3op = useSharedValue(0);
+  const l4tx = useSharedValue(-80); const l4op = useSharedValue(0);
+  const l5tx = useSharedValue(-80); const l5op = useSharedValue(0);
+
+  const lettersTranslateX = [l0tx, l1tx, l2tx, l3tx, l4tx, l5tx];
+  const lettersOpacity    = [l0op, l1op, l2op, l3op, l4op, l5op];
 
   useEffect(() => {
-    // 1. Cloud slides in (delay 100ms)
-    Animated.parallel([
-      Animated.timing(cloudTranslateX, {
-        toValue: 0,
-        duration: 800,
-        delay: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(cloudOpacity, {
-        toValue: 1,
-        duration: 600,
-        delay: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    // 1. Cloud slides in
+    cloudTranslateX.value = withDelay(100, withTiming(0, { duration: 800, easing: motion.easings.standard }));
+    cloudOpacity.value = withDelay(100, withTiming(1, { duration: 600, easing: motion.easings.standard }));
 
-    // 2. Letters staggered slide (delay 700ms, each 70ms increment)
-    lettersState.forEach((letter, i) => {
-      const delay = 700 + i * 70;
-      Animated.parallel([
-        Animated.timing(letter.translateX, {
-          toValue: 0,
-          duration: 600,
-          delay,
-          useNativeDriver: true,
-        }),
-        Animated.timing(letter.opacity, {
-          toValue: 1,
-          duration: 400,
-          delay,
-          useNativeDriver: true,
-        }),
-      ]).start();
+    // 2. Letters staggered slide
+    lettersTranslateX.forEach((val, i) => {
+      val.value = withDelay(700 + i * 70, withTiming(0, { duration: 600, easing: motion.easings.standard }));
+    });
+    lettersOpacity.forEach((val, i) => {
+      val.value = withDelay(700 + i * 70, withTiming(1, { duration: 400, easing: motion.easings.standard }));
     });
 
-    // 3. Gradient X slides in (delay 700 + 6*70 = 1120ms)
-    Animated.parallel([
-      Animated.timing(xTranslateX, {
-        toValue: 0,
-        duration: 600,
-        delay: 1120,
-        useNativeDriver: true,
-      }),
-      Animated.timing(xOpacity, {
-        toValue: 1,
-        duration: 400,
-        delay: 1120,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    // 3. Gradient X slides in
+    xTranslateX.value = withDelay(1120, withTiming(0, { duration: 600, easing: motion.easings.standard }));
+    xOpacity.value = withDelay(1120, withTiming(1, { duration: 400, easing: motion.easings.standard }));
 
-    // 4. Tagline slides in (delay 1100ms)
-    Animated.parallel([
-      Animated.timing(taglineTranslateX, {
-        toValue: 0,
-        duration: 600,
-        delay: 1100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(taglineOpacity, {
-        toValue: 1,
-        duration: 400,
-        delay: 1100,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    // 4. Tagline slides in
+    taglineTranslateX.value = withDelay(1100, withTiming(0, { duration: 600, easing: motion.easings.standard }));
+    taglineOpacity.value = withDelay(1100, withTiming(1, { duration: 400, easing: motion.easings.standard }));
 
-    // 5. Fade out container after total duration, then call onComplete
-    setTimeout(() => {
-      Animated.timing(containerOpacity, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }).start(() => {
-        onComplete?.();
-      });
-    }, duration);
+    // 5. Fade out container
+    const finish = () => { onComplete?.(); };
+    containerOpacity.value = withDelay(duration, withTiming(0, { duration: 800 }, () => {
+      runOnJS(finish)();
+    }));
   }, []);
+
+  const cloudStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: cloudTranslateX.value }],
+    opacity: cloudOpacity.value,
+  }));
+
+  const xStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: xTranslateX.value },
+      { translateY: Platform.OS === 'ios' ? 0 : -2 },
+    ],
+    opacity: xOpacity.value,
+  }));
+
+  const taglineStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: taglineTranslateX.value }],
+    opacity: taglineOpacity.value,
+  }));
+
+  const containerStyle = useAnimatedStyle(() => ({
+    opacity: containerOpacity.value,
+  }));
+
+  // Pre-compute letter animated styles at top level (hooks cannot be called inside render callbacks)
+  const letterStyles = [
+    useAnimatedStyle(() => ({ transform: [{ translateX: l0tx.value }], opacity: l0op.value })),
+    useAnimatedStyle(() => ({ transform: [{ translateX: l1tx.value }], opacity: l1op.value })),
+    useAnimatedStyle(() => ({ transform: [{ translateX: l2tx.value }], opacity: l2op.value })),
+    useAnimatedStyle(() => ({ transform: [{ translateX: l3tx.value }], opacity: l3op.value })),
+    useAnimatedStyle(() => ({ transform: [{ translateX: l4tx.value }], opacity: l4op.value })),
+    useAnimatedStyle(() => ({ transform: [{ translateX: l5tx.value }], opacity: l5op.value })),
+  ];
 
   const letterColors = ['#0652a8', '#05388b', '#032d76', '#032867', '#021a48', '#021a46'];
 
   return (
-    <Animated.View style={[styles.container, { opacity: containerOpacity }]}>
+    <Animated.View style={[styles.container, containerStyle]}>
       <StatusBar barStyle="dark-content" translucent={true} backgroundColor="transparent" />
 
-      <View style={styles.content}>
+      <View style={[styles.content, { maxWidth: width * 0.9 }]}>
         {/* Cloud Logo */}
         <Animated.Image
-          source={require('../../assets/logo2.png')} // adjust path to your actual logo
-          style={[
-            styles.cloudLogo,
-            {
-              transform: [{ translateX: cloudTranslateX }],
-              opacity: cloudOpacity,
-            },
-          ]}
+          source={require('../../assets/logo2.png')}
+          style={[styles.cloudLogo, cloudStyle]}
           resizeMode="contain"
         />
 
@@ -151,29 +131,14 @@ const AttendXIntro: React.FC<AttendXIntroProps> = ({ onComplete, duration = 3200
             {['A', 't', 't', 'e', 'n', 'd'].map((ch, i) => (
               <Animated.Text
                 key={i}
-                style={[
-                  styles.letter,
-                  { color: letterColors[i] },
-                  {
-                    transform: [{ translateX: lettersState[i].translateX }],
-                    opacity: lettersState[i].opacity,
-                  },
-                ]}
+                style={[styles.letter, { color: letterColors[i] }, letterStyles[i]]}
               >
                 {ch}
               </Animated.Text>
             ))}
 
             {/* Gradient X as SVG */}
-            <Animated.View
-              style={{
-                transform: [
-                  { translateX: xTranslateX },
-                  { translateY: Platform.OS === 'ios' ? 0 : -2 } // Keep the X aligned with the wordmark baseline
-                ],
-                opacity: xOpacity,
-              }}
-            >
+            <Animated.View style={xStyle}>
               <Svg width={48} height={60} viewBox="0 0 60 60">
                 <Defs>
                   <SvgGradient id="xGrad" x1="0" y1="0" x2="1" y2="0">
@@ -185,7 +150,7 @@ const AttendXIntro: React.FC<AttendXIntroProps> = ({ onComplete, duration = 3200
                 </Defs>
                 <SvgText
                   x="30"
-                  y={Platform.OS === 'ios' ? 50 : 52} // Fine-tune baseline per platform
+                  y={Platform.OS === 'ios' ? 50 : 52}
                   textAnchor="middle"
                   fontFamily={Platform.OS === 'ios' ? 'System' : 'sans-serif'}
                   fontWeight="800"
@@ -199,15 +164,7 @@ const AttendXIntro: React.FC<AttendXIntroProps> = ({ onComplete, duration = 3200
           </View>
 
           {/* Tagline */}
-          <Animated.Text
-            style={[
-              styles.tagline,
-              {
-                transform: [{ translateX: taglineTranslateX }],
-                opacity: taglineOpacity,
-              },
-            ]}
-          >
+          <Animated.Text style={[styles.tagline, taglineStyle]}>
             Attendance in One Click
           </Animated.Text>
         </View>
@@ -225,7 +182,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
@@ -234,7 +191,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    maxWidth: width * 0.9,
     paddingHorizontal: 20,
     transform: [{ translateY: -24 }],
   },
@@ -272,7 +228,7 @@ const styles = StyleSheet.create({
     width: '100%',
     textAlign: 'center',
     fontSize: 13,
-    color: '#475569', // Darker slate for better contrast on white
+    color: Theme.colors.textSec,
     fontWeight: '600',
     letterSpacing: 0.5,
   },

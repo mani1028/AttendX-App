@@ -1,3 +1,5 @@
+import { useNavigation } from '@react-navigation/native';
+import { Theme } from '../../theme/tokens';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -7,7 +9,6 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
-  StatusBar,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRoute } from '@react-navigation/native';
@@ -18,6 +19,9 @@ import AppButton from '../../components/common/AppButton';
 import ClassSelector from '../../components/teacher/ClassSelector';
 import AppText from '../../components/common/AppText';
 import { getStudentsByClass, markAttendance, getClassesSections } from '../../services/teacherService';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 
 interface ClassData {
   id: string;
@@ -36,6 +40,8 @@ interface AttendanceRecord {
 }
 
 export default function MarkAttendanceScreen() {
+  const navigation = useNavigation<any>();
+
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const selectedClass = (route.params as any)?.classData as ClassData | undefined;
@@ -55,8 +61,8 @@ export default function MarkAttendanceScreen() {
   };
 
   const safeText = (value: unknown, fallback = ''): string => {
-    if (typeof value === 'string') return value;
-    if (typeof value === 'number') return String(value);
+    if (typeof value === 'string') {return value;}
+    if (typeof value === 'number') {return String(value);}
     return fallback;
   };
 
@@ -73,11 +79,11 @@ export default function MarkAttendanceScreen() {
   const loadClasses = async () => {
     setLoading(true);
     try {
-      const schoolCode = await AsyncStorage.getItem('school_code') || '';
-      const branchId = await AsyncStorage.getItem('branch_id') || '';
+      const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || '';
+      const branchId = await storage.getString(StorageKeys.BRANCH_ID) || '';
       const data = await getClassesSections(branchId, schoolCode);
       const items = Array.isArray(data?.items) ? data.items : [];
-      
+
       const mappedClasses: ClassData[] = items.map((c: any, idx: number) => ({
         id: c.section_id || `${c.class_id}_${c.section || c.section_name || idx}` || String(Math.random()),
         name: `Class ${c.class_grade || c.class_name || ''} Section ${c.section || c.section_name || ''}`.trim(),
@@ -85,7 +91,7 @@ export default function MarkAttendanceScreen() {
         teacher: '',
         attendance: 0,
       }));
-      
+
       setClassOptions(mappedClasses);
     } catch (err) {
       console.error('Failed to load classes:', err);
@@ -101,24 +107,24 @@ export default function MarkAttendanceScreen() {
   }, [showClassSelector]);
 
   const fetchStudents = useCallback(async () => {
-    if (!classInfo) return;
+    if (!classInfo) {return;}
     setLoading(true);
     try {
       const schoolCode =
-        (await AsyncStorage.getItem('school_code')) ||
-        (await AsyncStorage.getItem('schoolCode')) ||
-        (await AsyncStorage.getItem('school_id')) ||
-        (await AsyncStorage.getItem('schoolId')) ||
+        (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+        (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+        (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+        (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
         '';
       const branchId =
-        (await AsyncStorage.getItem('branch_id')) ||
-        (await AsyncStorage.getItem('branchId')) ||
+        (await storage.getString(StorageKeys.BRANCH_ID)) ||
+        (await storage.getString(StorageKeys.BRANCH_ID)) ||
         '';
       const dateStr = formatDate(selectedDate);
       const { grade, section } = parseClassGradeSection(classInfo.name);
-      const employeeId = 
-        (await AsyncStorage.getItem('employee_id')) ||
-        (await AsyncStorage.getItem('employeeId')) ||
+      const employeeId =
+        (await storage.getString(StorageKeys.EMPLOYEE_ID)) ||
+        (await storage.getString(StorageKeys.EMPLOYEE_ID)) ||
         '';
       const students = schoolCode && branchId
         ? await getStudentsByClass(schoolCode, branchId, grade, section, employeeId)
@@ -156,10 +162,10 @@ export default function MarkAttendanceScreen() {
   }, [classInfo, selectedDate, fetchStudents]);
 
   const dateFiltered = attendanceData.filter(s => s.date === formatDate(selectedDate));
-  
+
   const filteredStudents = dateFiltered.filter(student => {
-    if (filter === 'present') return student.present;
-    if (filter === 'absent') return !student.present;
+    if (filter === 'present') {return student.present;}
+    if (filter === 'absent') {return !student.present;}
     return true;
   });
 
@@ -186,18 +192,18 @@ export default function MarkAttendanceScreen() {
     setLoading(true);
     try {
       const schoolCode =
-        (await AsyncStorage.getItem('school_code')) ||
-        (await AsyncStorage.getItem('schoolCode')) ||
-        (await AsyncStorage.getItem('school_id')) ||
-        (await AsyncStorage.getItem('schoolId')) ||
+        (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+        (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+        (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+        (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
         '';
       const branchId =
-        (await AsyncStorage.getItem('branch_id')) ||
-        (await AsyncStorage.getItem('branchId')) ||
+        (await storage.getString(StorageKeys.BRANCH_ID)) ||
+        (await storage.getString(StorageKeys.BRANCH_ID)) ||
         '';
-      const employeeId = 
-        (await AsyncStorage.getItem('employee_id')) ||
-        (await AsyncStorage.getItem('employeeId')) ||
+      const employeeId =
+        (await storage.getString(StorageKeys.EMPLOYEE_ID)) ||
+        (await storage.getString(StorageKeys.EMPLOYEE_ID)) ||
         '';
 
       if (!schoolCode || !branchId) {
@@ -242,46 +248,36 @@ export default function MarkAttendanceScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Curved Navy Header - Sticky at the top */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 16, paddingBottom: 24 }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => setShowClassSelector(true)} style={styles.backBtn} accessibilityLabel="Go back">
-            <ChevronLeft size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <AppText weight="bold" style={styles.headerTitleText}>Mark Attendance</AppText>
-            <AppText weight="medium" style={styles.headerSubtitleText}>{classInfo?.name}</AppText>
-          </View>
-        </View>
-      </View>
+      <StandardPageHeader title="Mark Attendance" onBackPress={() => navigation.goBack()} />
 
-      <ScrollView 
-        style={styles.scrollStyle} 
+      <ScrollView
+        style={styles.scrollStyle}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
       <View style={styles.dateSection}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <TouchableOpacity style={[styles.dateSelector, { flex: 1 }]} onPress={() => setShowDatePicker(true)}>
+          <TouchableOpacity accessibilityRole="button" style={[styles.dateSelector, { flex: 1 }]} onPress={() => setShowDatePicker(true)}>
             <Calendar size={20} color="#6648dc" />
             <View style={{ flex: 1, marginLeft: 12 }}>
               <AppText style={styles.dateSelectorLabel}>Select Date</AppText>
               <AppText style={styles.dateSelectorValue}>{formatDate(selectedDate)}</AppText>
             </View>
           </TouchableOpacity>
-          
+
           <View style={[styles.dateSelector, { width: 120 }]}>
             <Clock size={20} color="#6648dc" />
             <View style={{ flex: 1, marginLeft: 12 }}>
               <AppText style={styles.dateSelectorLabel}>Session</AppText>
-              <TouchableOpacity 
+              <TouchableOpacity accessibilityRole="button"
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                 onPress={() => setSelectedDateSession(selectedSession === '1' ? '2' : '1')}
               >
                 <AppText style={styles.dateSelectorValue}>{selectedSession === '1' ? 'Morn' : 'After'}</AppText>
-                <ChevronDown size={14} color="#0F172A" />
+                <ChevronDown size={14} color={Theme.colors.text} />
               </TouchableOpacity>
             </View>
           </View>
@@ -293,7 +289,7 @@ export default function MarkAttendanceScreen() {
             display="default"
             onChange={(event, date) => {
               setShowDatePicker(false);
-              if (date) setSelectedDate(date);
+              if (date) {setSelectedDate(date);}
             }}
           />
         )}
@@ -318,7 +314,7 @@ export default function MarkAttendanceScreen() {
       {/* Filter Tabs */}
       <View style={styles.filterTabs}>
         {(['all', 'present', 'absent'] as const).map(tab => (
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             key={tab}
             style={[styles.filterTab, filter === tab && styles.filterTabActive]}
             onPress={() => setFilter(tab)}
@@ -346,7 +342,7 @@ export default function MarkAttendanceScreen() {
                 <AppText style={styles.studentName}>{student.name}</AppText>
                 <AppText style={styles.studentRoll}>Roll: {student.rollNo}</AppText>
               </View>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.attendanceToggle, student.present && styles.togglePresent]}
                 onPress={() => toggleAttendance(student.id)}
               >
@@ -388,13 +384,11 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 40,
-    paddingTop: 16,
+    paddingTop: Theme.spacing.md,
   },
   headerStandard: {
-    backgroundColor: '#1e3a8a',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    paddingHorizontal: 16,
+    backgroundColor: Theme.colors.primary,
+    paddingHorizontal: Theme.spacing.md,
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -415,27 +409,27 @@ const styles = StyleSheet.create({
   },
   headerTitleText: {
     fontSize: 18,
-    color: '#FFFFFF',
+    color: Theme.colors.card,
   },
   headerSubtitleText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 2,
   },
   dateSection: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: Theme.spacing.md,
+    paddingTop: Theme.spacing.md,
     paddingBottom: 12,
   },
   dateSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 14,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     shadowOpacity: 0.06,
     ...Platform.select({
       android: { elevation: 2 },
@@ -443,19 +437,19 @@ const styles = StyleSheet.create({
     }),
   },
   dateSelectorLabel: {
-    fontSize: 12,
-    color: '#94A3B8',
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
     fontWeight: '500',
   },
   dateSelectorValue: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
-    color: '#0F172A',
+    color: Theme.colors.text,
     marginTop: 2,
   },
   statsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 12,
     gap: 10,
   },
@@ -476,18 +470,18 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   statLabel: {
     fontSize: 10,
-    color: '#64748B',
-    marginTop: 4,
+    color: Theme.colors.textSec,
+    marginTop: Theme.spacing.xs,
     fontWeight: '600',
   },
   filterTabs: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 12,
     gap: 8,
   },
@@ -495,9 +489,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     alignItems: 'center',
   },
   filterTabActive: {
@@ -505,12 +499,12 @@ const styles = StyleSheet.create({
     borderColor: '#6648dc',
   },
   filterTabText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
-    color: '#64748B',
+    color: Theme.colors.textSec,
   },
   filterTabTextActive: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
   },
   loader: {
     marginVertical: 60,
@@ -522,25 +516,25 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyStateText: {
-    fontSize: 14,
-    color: '#94A3B8',
+    ...Theme.typography.body,
+    color: Theme.colors.textMuted,
     fontWeight: '600',
   },
   studentList: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
     gap: 10,
   },
   studentCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
+    backgroundColor: Theme.colors.card,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     elevation: 2,
     shadowOpacity: 0.06,
   },
@@ -548,14 +542,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   studentName: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   studentRoll: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginTop: 4,
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
+    marginTop: Theme.spacing.xs,
     fontWeight: '500',
   },
   attendanceToggle: {
@@ -564,7 +558,7 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: '#FEF2F2',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#FECACA',
@@ -574,7 +568,7 @@ const styles = StyleSheet.create({
     borderColor: '#BBEF63',
   },
   toggleLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: '#DC2626',
   },
@@ -582,7 +576,7 @@ const styles = StyleSheet.create({
     color: '#16A34A',
   },
   saveButton: {
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     marginTop: 20,
     marginBottom: 12,
   },

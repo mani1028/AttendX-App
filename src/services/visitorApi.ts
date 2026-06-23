@@ -1,4 +1,4 @@
-import API from "./api";
+import API from './api';
 
 /* ================= VISITOR API ================= */
 
@@ -8,38 +8,38 @@ export const visitorApi = {
     API.get(`visitor/validate/${token}`, { params }),
 
   submitVisitor: (data: any) =>
-    API.post(`visitor/submit`, data),
+    API.post('visitor/submit', data),
 
   // Authenticated
   listVisitors: (filters: any) =>
-    API.get(`visitor/list`, { params: filters }),
+    API.get('visitor/list', { params: filters }),
 
-  getVisitor: (id: number) =>
+  getVisitor: (id: number | string) =>
     API.get(`visitor/${id}`),
 
-  approveVisitor: (id: number) =>
+  approveVisitor: (id: number | string) =>
     API.post(`visitor/${id}/approve`),
 
-  rejectVisitor: (id: number) =>
+  rejectVisitor: (id: number | string) =>
     API.post(`visitor/${id}/reject`),
 
-  checkoutVisitor: (id: number) =>
+  checkoutVisitor: (id: number | string) =>
     API.post(`visitor/${id}/checkout`),
 
   getVisitorStats: () =>
-    API.get(`visitor/stats/summary`),
+    API.get('visitor/stats/summary'),
 };
 
 /* ================= QR API ================= */
 
 export const qrApi = {
   generateQR: (days: number) =>
-    API.post(`visitor/qr/generate`, { expires_in_days: days }),
+    API.post('visitor/qr/generate', { expires_in_days: days }),
 
   getActiveQR: () =>
-    API.get(`visitor/qr/active`),
+    API.get('visitor/qr/active'),
 
-  revokeQR: (id: number) =>
+  revokeQR: (id: number | string) =>
     API.post(`visitor/qr/${id}/revoke`),
 
   generateVisitorUrl: (
@@ -48,7 +48,7 @@ export const qrApi = {
     branchId?: string
   ) => {
     let url = `https://yourfrontend.com/visit/${token}?school=${schoolCode}`;
-    if (branchId) url += `&branch=${branchId}`;
+    if (branchId) {url += `&branch=${branchId}`;}
     return url;
   },
 };

@@ -45,12 +45,12 @@ class RequestQueueManager {
    * Check if response is cached and valid
    */
   getCachedResponse(method: string, url: string): any | null {
-    if (method !== 'GET') return null; // Only cache GET requests
+    if (method !== 'GET') {return null;} // Only cache GET requests
 
     const key = `${method}:${url}`;
     const cached = this.cache.get(key);
 
-    if (!cached) return null;
+    if (!cached) {return null;}
 
     const isExpired = Date.now() - cached.timestamp > cached.ttl;
     if (isExpired) {
@@ -66,7 +66,7 @@ class RequestQueueManager {
    * Cache a successful response
    */
   setCacheResponse(method: string, url: string, data: any, ttl: number = CACHE_TTL_DEFAULT): void {
-    if (method !== 'GET') return; // Only cache GET requests
+    if (method !== 'GET') {return;} // Only cache GET requests
 
     const key = `${method}:${url}`;
     this.cache.set(key, {

@@ -5,6 +5,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import { Theme } from '../../theme/tokens';
 
 // Types
 interface AvatarBubbleProps {
@@ -21,10 +22,10 @@ const getInitials = (
   displayName: string,
   defaultInitials: string = 'U'
 ): string => {
-  if (!displayName) return defaultInitials;
+  if (!displayName) {return defaultInitials;}
 
   const nameParts = displayName.trim().split(' ');
-  if (nameParts.length === 0) return defaultInitials;
+  if (nameParts.length === 0) {return defaultInitials;}
 
   const initials = nameParts
     .map(part => part[0])
@@ -41,14 +42,14 @@ const AvatarBubble: React.FC<AvatarBubbleProps> = ({
   textSize = 14,
   displayName,
   initials: customInitials,
-  primaryColor = '#3b82f6',
+  primaryColor = Theme.colors.blue,
   primaryGlowColor = 'rgba(59,130,246,0.22)',
 }) => {
   const avatarInitials = customInitials || getInitials(displayName);
 
   return (
     <LinearGradient
-      colors={[primaryColor, '#7c3aed']}
+      colors={[primaryColor, Theme.colors.primary]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[
@@ -89,7 +90,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.18)',
   },
   avatarText: {
-    color: '#ffffff',
+    color: Theme.colors.card,
     fontWeight: 'bold',
     textAlign: 'center',
   },

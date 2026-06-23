@@ -2,9 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import API, { buildApiUrl } from './api';
 import { isSunday } from '../utils/holidayUtils';
 import { safeJsonParse } from '../utils/storage';
+import { storage } from '../storage/storage';
+import { StorageKeys } from '../storage/StorageKeys';
+
 
 const PROFILE_ENDPOINTS = [
-  'staff/profile'
+  'staff/profile',
 ];
 
 const PROFILE_PHOTO_ENDPOINT = 'profile-photo/teacher';
@@ -13,7 +16,7 @@ const STUDENT_PHOTO_ENDPOINT = 'profile-photo/student';
 const UPDATE_PROFILE_ENDPOINTS = [
   'staff/profile/update',
   'manage/staff/update',
-  'manage/update'
+  'manage/update',
 ];
 
 const FALLBACK_404_CONFIG = {
@@ -26,20 +29,20 @@ function asRecord(value: unknown): Record<string, any> {
 
 function firstDefined<T = any>(...values: Array<T | undefined | null>): T | undefined {
   for (const value of values) {
-    if (value !== undefined && value !== null) return value as T;
+    if (value !== undefined && value !== null) {return value as T;}
   }
   return undefined;
 }
 
 function toText(value: unknown, fallback = ''): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number') return String(value);
+  if (typeof value === 'string') {return value;}
+  if (typeof value === 'number') {return String(value);}
   return fallback;
 }
 
 function normalizePhotoSource(value: unknown): string | null {
   const photo = toText(value, '').trim();
-  if (!photo) return null;
+  if (!photo) {return null;}
   if (
     photo.startsWith('data:') ||
     photo.startsWith('http://') ||
@@ -89,17 +92,17 @@ function arrayBufferToBase64(data: ArrayBuffer): string {
 
 function normalizeContentType(value: unknown): string {
   const raw = toText(value, '').trim().toLowerCase();
-  if (!raw) return 'image/jpeg';
-  if (raw.includes('image/png')) return 'image/png';
-  if (raw.includes('image/webp')) return 'image/webp';
-  if (raw.includes('image/gif')) return 'image/gif';
+  if (!raw) {return 'image/jpeg';}
+  if (raw.includes('image/png')) {return 'image/png';}
+  if (raw.includes('image/webp')) {return 'image/webp';}
+  if (raw.includes('image/gif')) {return 'image/gif';}
   return 'image/jpeg';
 }
 
 async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
-  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
-  const teacherId = await AsyncStorage.getItem('teacher_id') || await AsyncStorage.getItem('teacherId') || await AsyncStorage.getItem('employee_id');
+  const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE);
+  const branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID);
+  const teacherId = await AsyncStorage.getItem('teacher_id') || await AsyncStorage.getItem('teacherId') || await storage.getString(StorageKeys.EMPLOYEE_ID);
   const suppressLogs = config.suppressFallback404Log;
 
   const errors: any[] = [];
@@ -136,7 +139,7 @@ async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
       const isLastEndpoint = endpoint === endpoints[endpoints.length - 1];
 
       if (status && status !== 404 && status !== 405) {
-        if (status === 401 || status === 403) throw error;
+        if (status === 401 || status === 403) {throw error;}
       }
 
       if (__DEV__ && !suppressLogs) {
@@ -156,8 +159,8 @@ async function getFirstSuccessful<T>(endpoints: string[], config: any = {}) {
 async function postFirstSuccessful<T>(endpoints: string[], data: any, config: any = {}) {
   const errors: any[] = [];
 
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
-  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+  const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE);
+  const branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID);
 
   // Retry configuration for temporary service issues
   const maxRetries = config.maxRetries || 0;
@@ -225,7 +228,7 @@ export async function getAttendanceSettings(headers: any): Promise<any> {
   const endpoints = [
     'director/attendance/settings',
     'principal/attendance/settings',
-    'teacher/attendance/settings'
+    'teacher/attendance/settings',
   ];
   return getFirstSuccessful(endpoints, { headers });
 }
@@ -235,11 +238,11 @@ export async function getClassesSections(branchId: string, schoolCode: string): 
     'director/classes',
     'principal/classes',
     'teacher/classes',
-    'manage/classes-sections'
+    'manage/classes-sections',
   ];
   return getFirstSuccessful(endpoints, {
     params: { branch_id: branchId },
-    headers: { 'X-School-Code': schoolCode }
+    headers: { 'X-School-Code': schoolCode },
   });
 }
 
@@ -247,7 +250,7 @@ export async function verifyTeacher(payload: any): Promise<any> {
   const endpoints = [
     'director/staff/register',
     'manage/verify-staff',
-    'manage/verify-teacher'
+    'manage/verify-teacher',
   ];
   // Backend expects JSON by default now
   // Suppress global 401 logout for face-verification requests so we can show an error
@@ -258,14 +261,14 @@ export async function verifyTeacher(payload: any): Promise<any> {
 export async function uploadStudentImage(payload: any): Promise<any> {
   const endpoints = [
     'manage/attendance/student/upload-image',
-    'manage/attendance/student/attendance-images'
+    'manage/attendance/student/attendance-images',
   ];
   return postFirstSuccessful(endpoints, payload);
 }
 
 export async function processAttendance(payload: any): Promise<any> {
   const endpoints = [
-    'manage/attendance/student/view'
+    'manage/attendance/student/view',
   ];
   // Suppress logout on 401 for preview/processing to avoid session loss during attendance workflow
   // Add retry logic for temporary service issues (503, 502, 504) with exponential backoff
@@ -273,7 +276,7 @@ export async function processAttendance(payload: any): Promise<any> {
     suppressLogoutOn401: true,
     maxRetries: 2, // Retry up to 2 times on service unavailable
     retryDelayMs: 1500, // Start with 1.5s delay, exponentially backoff
-    retryableStatuses: [503, 502, 504] // Service Unavailable, Bad Gateway, Gateway Timeout
+    retryableStatuses: [503, 502, 504], // Service Unavailable, Bad Gateway, Gateway Timeout
   });
 }
 
@@ -285,23 +288,23 @@ export async function getAssignedClasses(schoolCode: string, branchId: string, e
   };
 
   const extractList = (respData: any): any[] => {
-    if (!respData) return [];
-    if (Array.isArray(respData)) return respData;
-    if (Array.isArray(respData.items)) return respData.items;
-    if (Array.isArray(respData.data)) return respData.data;
-    if (Array.isArray(respData.assigned_classes)) return respData.assigned_classes;
-    if (Array.isArray(respData.assignedClasses)) return respData.assignedClasses;
-    if (Array.isArray(respData.assignments)) return respData.assignments;
-    if (Array.isArray(respData.results)) return respData.results;
-    if (Array.isArray(respData.teachers)) return respData.teachers;
-    if (Array.isArray(respData.students)) return respData.students;
+    if (!respData) {return [];}
+    if (Array.isArray(respData)) {return respData;}
+    if (Array.isArray(respData.items)) {return respData.items;}
+    if (Array.isArray(respData.data)) {return respData.data;}
+    if (Array.isArray(respData.assigned_classes)) {return respData.assigned_classes;}
+    if (Array.isArray(respData.assignedClasses)) {return respData.assignedClasses;}
+    if (Array.isArray(respData.assignments)) {return respData.assignments;}
+    if (Array.isArray(respData.results)) {return respData.results;}
+    if (Array.isArray(respData.teachers)) {return respData.teachers;}
+    if (Array.isArray(respData.students)) {return respData.students;}
     // nested shapes
-    if (respData.teacher_context && Array.isArray(respData.teacher_context.assigned_classes)) return respData.teacher_context.assigned_classes;
-    if (respData.teacher_context && Array.isArray(respData.teacher_context.items)) return respData.teacher_context.items;
-    if (respData.context && Array.isArray(respData.context.assigned_classes)) return respData.context.assigned_classes;
-    if (respData.data?.teacher_context && Array.isArray(respData.data.teacher_context.assigned_classes)) return respData.data.teacher_context.assigned_classes;
-    if (respData.data?.teacher_context && Array.isArray(respData.data.teacher_context.items)) return respData.data.teacher_context.items;
-    if (respData.data?.assignments && Array.isArray(respData.data.assignments)) return respData.data.assignments;
+    if (respData.teacher_context && Array.isArray(respData.teacher_context.assigned_classes)) {return respData.teacher_context.assigned_classes;}
+    if (respData.teacher_context && Array.isArray(respData.teacher_context.items)) {return respData.teacher_context.items;}
+    if (respData.context && Array.isArray(respData.context.assigned_classes)) {return respData.context.assigned_classes;}
+    if (respData.data?.teacher_context && Array.isArray(respData.data.teacher_context.assigned_classes)) {return respData.data.teacher_context.assigned_classes;}
+    if (respData.data?.teacher_context && Array.isArray(respData.data.teacher_context.items)) {return respData.data.teacher_context.items;}
+    if (respData.data?.assignments && Array.isArray(respData.data.assignments)) {return respData.data.assignments;}
     return [];
   };
 
@@ -330,10 +333,10 @@ export async function getAssignedClasses(schoolCode: string, branchId: string, e
     } as any);
 
     const list = extractList(response.data || response).map(normalizeAssignment);
-    if (__DEV__) console.log('[getAssignedClasses] extracted list length:', Array.isArray(list) ? list.length : 'n/a');
+    if (__DEV__) {console.log('[getAssignedClasses] extracted list length:', Array.isArray(list) ? list.length : 'n/a');}
     return Array.isArray(list) ? list : [];
   } catch (error) {
-    if (__DEV__) console.warn('[getAssignedClasses] Failed to fetch staff context:', error);
+    if (__DEV__) {console.warn('[getAssignedClasses] Failed to fetch staff context:', error);}
     return [];
   }
 }
@@ -352,7 +355,7 @@ export async function getStudentsByClass(schoolCode: string, branchId: string, c
     const endpoints = [
       'director/students',
       'manage/attendance/student/manual-students',
-      'principal/students'
+      'principal/students',
     ];
 
     for (const endpoint of endpoints) {
@@ -368,7 +371,7 @@ export async function getStudentsByClass(schoolCode: string, branchId: string, c
           headers: {
             'X-School-Code': schoolCode,
             'X-Branch-Id': branchId,
-          }
+          },
         });
 
         const data = response.data;
@@ -385,11 +388,11 @@ export async function getStudentsByClass(schoolCode: string, branchId: string, c
         }
 
         if (studentsList.length > 0) {
-          if (__DEV__) console.log(`[getStudentsByClass] ${endpoint} succeeded with ${studentsList.length} students`);
+          if (__DEV__) {console.log(`[getStudentsByClass] ${endpoint} succeeded with ${studentsList.length} students`);}
           return studentsList;
         }
       } catch (err) {
-        if (__DEV__) console.log(`[getStudentsByClass] ${endpoint} failed, trying next...`);
+        if (__DEV__) {console.log(`[getStudentsByClass] ${endpoint} failed, trying next...`);}
       }
     }
 
@@ -408,35 +411,35 @@ export async function getTeacherProfilePhotoUrl(teacherId?: string, schoolCode?:
     teacherId ||
     (await AsyncStorage.getItem('teacher_id')) ||
     (await AsyncStorage.getItem('teacherId')) ||
-    (await AsyncStorage.getItem('employee_id')) ||
+    (await storage.getString(StorageKeys.EMPLOYEE_ID)) ||
     '';
 
-  if (!resolvedTeacherId) return null;
+  if (!resolvedTeacherId) {return null;}
 
   const resolvedSchoolCode =
     schoolCode ||
-    (await AsyncStorage.getItem('school_code')) ||
-    (await AsyncStorage.getItem('schoolCode')) ||
+    (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+    (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
     '';
 
   const url = buildApiUrl(`/${PROFILE_PHOTO_ENDPOINT}/${encodeURIComponent(resolvedTeacherId)}`);
-  if (!resolvedSchoolCode) return url;
+  if (!resolvedSchoolCode) {return url;}
 
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}school_code=${encodeURIComponent(resolvedSchoolCode)}`;
 }
 
 export async function getStudentProfilePhotoUrl(studentId: string, schoolCode?: string): Promise<string | null> {
-  if (!studentId) return null;
+  if (!studentId) {return null;}
 
   const resolvedSchoolCode =
     schoolCode ||
-    (await AsyncStorage.getItem('school_code')) ||
-    (await AsyncStorage.getItem('schoolCode')) ||
+    (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+    (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
     '';
 
   const url = buildApiUrl(`/${STUDENT_PHOTO_ENDPOINT}/${encodeURIComponent(studentId)}`);
-  if (!resolvedSchoolCode) return url;
+  if (!resolvedSchoolCode) {return url;}
 
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}school_code=${encodeURIComponent(resolvedSchoolCode)}`;
@@ -447,19 +450,19 @@ export async function getTeacherProfilePhotoDataUri(teacherId?: string, schoolCo
     teacherId ||
     (await AsyncStorage.getItem('teacher_id')) ||
     (await AsyncStorage.getItem('teacherId')) ||
-    (await AsyncStorage.getItem('employee_id')) ||
+    (await storage.getString(StorageKeys.EMPLOYEE_ID)) ||
     '';
 
-  if (!resolvedTeacherId) return null;
+  if (!resolvedTeacherId) {return null;}
 
   const resolvedSchoolCode =
     schoolCode ||
-    (await AsyncStorage.getItem('school_code')) ||
-    (await AsyncStorage.getItem('schoolCode')) ||
+    (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+    (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
     '';
 
   try {
-    const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+    const branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID);
     const response = await API.get<ArrayBuffer>(`${PROFILE_PHOTO_ENDPOINT}/${encodeURIComponent(resolvedTeacherId)}`, {
       params: resolvedSchoolCode ? { school_code: resolvedSchoolCode } : undefined,
       responseType: 'arraybuffer',
@@ -489,17 +492,17 @@ export async function getTeacherProfile(): Promise<any> {
     const [
       storedEmail, storedPhone, storedBranchName, storedBranchId,
       storedSchoolName, storedSchoolCode, storedTeacherId, storedEmployeeId,
-      storedDesignation, storedDepartment, storedAddress, storedBloodGroup
+      storedDesignation, storedDepartment, storedAddress, storedBloodGroup,
     ] = await AsyncStorage.multiGet([
       'email', 'phone', 'branch_name', 'branch_id',
       'school_name', 'school_code', 'teacher_id', 'employee_id',
-      'designation', 'department_subject', 'address', 'blood_group'
+      'designation', 'department_subject', 'address', 'blood_group',
     ]).then(items => items.map(([, value]) => value));
 
     // CRITICAL: Validate required params exist before sending profile request
     // This prevents 422 Unprocessable Entity if AsyncStorage values are missing
-    const resolvedTeacherId = toText(storedTeacherId || (await AsyncStorage.getItem('teacherId')) || (await AsyncStorage.getItem('employee_id')) || (await AsyncStorage.getItem('principal_employee_id')) || storedUser?.principal_employee_id, '').trim();
-    const resolvedSchoolCode = toText(storedSchoolCode || (await AsyncStorage.getItem('schoolCode')) || (await AsyncStorage.getItem('school_id')), '').trim();
+    const resolvedTeacherId = toText(storedTeacherId || (await AsyncStorage.getItem('teacherId')) || (await storage.getString(StorageKeys.EMPLOYEE_ID)) || (await AsyncStorage.getItem('principal_employee_id')) || storedUser?.principal_employee_id, '').trim();
+    const resolvedSchoolCode = toText(storedSchoolCode || (await storage.getString(StorageKeys.SCHOOL_CODE)) || (await storage.getString(StorageKeys.SCHOOL_CODE)), '').trim();
 
     const responseData = await getFirstSuccessful<any>(PROFILE_ENDPOINTS, {
       ...FALLBACK_404_CONFIG,
@@ -513,7 +516,7 @@ export async function getTeacherProfile(): Promise<any> {
     const teacherId = String(
       (await AsyncStorage.getItem('teacher_id')) ||
       (await AsyncStorage.getItem('teacherId')) ||
-      (await AsyncStorage.getItem('employee_id')) ||
+      (await storage.getString(StorageKeys.EMPLOYEE_ID)) ||
       root.teacher_id ||
       root.employee_id ||
       ''
@@ -565,7 +568,7 @@ export async function getTeacherProfile(): Promise<any> {
       raw.village_town_city,
       raw.district,
       raw.state,
-      raw.pin_code
+      raw.pin_code,
     ].filter(v => toText(v).trim()).join(', ');
 
     const teacherFullName = toText(firstDefined(
@@ -697,7 +700,7 @@ export async function getAttendanceReport(schoolCode: string, branchId: string, 
     branch_id: branchId,
     attendance_date: attendanceDate,
     class_grade: String(classGrade).toLowerCase(),
-    section: String(section).toLowerCase()
+    section: String(section).toLowerCase(),
   });
 }
 
@@ -708,7 +711,7 @@ export async function getBranchStats(schoolCode: string, branchId: string): Prom
       headers: {
         'X-School-Code': schoolCode,
         'X-Branch-Id': branchId,
-        'X-Tenant-Id': schoolCode
+        'X-Tenant-Id': schoolCode,
       },
       suppressFallback404Log: true,
     } as any);
@@ -728,7 +731,7 @@ export async function getTeacherAttendance(schoolCode: string, branchId: string,
     const data = await getFirstSuccessful<any>(endpoints, {
       params: {
         on_date: onDate || new Date().toISOString().split('T')[0],
-        branch_id: branchId
+        branch_id: branchId,
       },
       headers: { 'X-School-Code': schoolCode },
       suppressFallback404Log: true,
@@ -741,7 +744,7 @@ export async function getTeacherAttendance(schoolCode: string, branchId: string,
 
 export async function updateTeacherProfile(data: any): Promise<any> {
   // Preferred API: PUT /director/teachers/{teacher_id}
-  const teacherId = data?.teacher_id || data?.teacherId || data?.employee_id || data?.employeeId || await AsyncStorage.getItem('teacher_id') || await AsyncStorage.getItem('teacherId') || await AsyncStorage.getItem('employee_id');
+  const teacherId = data?.teacher_id || data?.teacherId || data?.employee_id || data?.employeeId || await AsyncStorage.getItem('teacher_id') || await AsyncStorage.getItem('teacherId') || await storage.getString(StorageKeys.EMPLOYEE_ID);
   if (teacherId) {
     try {
       const response = await API.put(`director/teachers/${encodeURIComponent(teacherId)}`, data);
@@ -766,7 +769,7 @@ export async function getStudentRegistrationRequests(
     {
       params: {
         branch_id: branchId,
-        ...params
+        ...params,
       },
       headers: {
         'X-School-Code': schoolCode,
@@ -819,7 +822,7 @@ export async function markAttendance(
   return postFirstSuccessful(
     [
       'manage/attendance/student/manual-save',
-      'staff/mark-attendance'
+      'staff/mark-attendance',
     ],
     {
       school_code: schoolCode,
@@ -869,7 +872,7 @@ export async function getAttendanceHistory(
         section: String(section).toLowerCase(),
         date: date || new Date().toISOString().split('T')[0],
         branch_id: branchId,
-        ...params
+        ...params,
       },
       headers: {
         'X-School-Code': schoolCode,
@@ -1075,7 +1078,7 @@ export async function getTeacherNotifications(
     {
       params: {
         branch_id: branchId,
-        ...params
+        ...params,
       },
       headers: {
         'X-School-Code': schoolCode,

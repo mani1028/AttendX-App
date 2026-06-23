@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { 
   getMessaging, 
   onNotificationOpenedApp, 
@@ -14,6 +15,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import { NotificationContextProvider } from './src/context/NotificationContext';
 import notificationService from './src/services/notificationService';
 import { offlineQueueSync } from './src/services/offlineQueueSync';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
@@ -91,9 +93,13 @@ export default function App() {
                 duration={2800}
               />
             ) : (
-              <NavigationContainer>
-                <AppNavigator />
-              </NavigationContainer>
+              <ErrorBoundary>
+                <BottomSheetModalProvider>
+                  <NavigationContainer>
+                    <AppNavigator />
+                  </NavigationContainer>
+                </BottomSheetModalProvider>
+              </ErrorBoundary>
             )}
           </NotificationContextProvider>
         </AuthProvider>

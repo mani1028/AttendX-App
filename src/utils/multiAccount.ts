@@ -80,7 +80,7 @@ export const switchAccount = async (account: SavedAccount) => {
     // 2. Set current session
     await setSessionData(sessionData);
     setAuthToken(account.token);
-    
+
     // 3. Emit auth-change to refresh contexts
     eventEmitter.emit('auth-change');
     return true;
@@ -105,30 +105,30 @@ export const addCurrentSessionToSaved = async () => {
       'is_class_teacher',
       'school_name',
       'branch_name',
-      'blood_group'
+      'blood_group',
     ];
     const pairs = await AsyncStorage.multiGet(keys);
     const val = Object.fromEntries(pairs.map(([k, v]) => [k, v || '']));
 
-    const token = val['token'];
-    if (!token) return;
+    const token = val.token;
+    if (!token) {return;}
 
-    const role = val['role'] || val['userRole'];
-    const schoolCode = val['school_code'];
-    const name = val['user_name'];
-    const studentId = val['student_id'];
-    const employeeId = val['employee_id'];
-    const userId = val['user_id'];
-    const branchId = val['branch_id'];
-    const isClassTeacher = val['is_class_teacher'] === '1';
-    const schoolName = val['school_name'];
-    const branchName = val['branch_name'];
-    const bloodGroup = val['blood_group'];
+    const role = val.role || val.userRole;
+    const schoolCode = val.school_code;
+    const name = val.user_name;
+    const studentId = val.student_id;
+    const employeeId = val.employee_id;
+    const userId = val.user_id;
+    const branchId = val.branch_id;
+    const isClassTeacher = val.is_class_teacher === '1';
+    const schoolName = val.school_name;
+    const branchName = val.branch_name;
+    const bloodGroup = val.blood_group;
 
-    if (!role || !schoolCode) return;
+    if (!role || !schoolCode) {return;}
 
     const accountId = `${role}:${schoolCode}:${userId || studentId || employeeId}`;
-    
+
     await saveAccount({
       id: accountId,
       role,

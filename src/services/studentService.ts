@@ -3,6 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFeesByStudent, getPaymentHistoryByFee } from './accountantService';
 import { formatLocalDateKey, getMonthSundayDates } from '../utils/holidayUtils';
 import { safeJsonParse } from '../utils/storage';
+import { storage } from '../storage/storage';
+import { StorageKeys } from '../storage/StorageKeys';
+
 
 type AttendanceData = {
   percentage: number;
@@ -81,7 +84,7 @@ const FALLBACK_404_CONFIG = {
 } as const;
 
 function toNumber(value: unknown, fallback = 0) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) {return value;}
   if (typeof value === 'string') {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
@@ -95,19 +98,19 @@ function asRecord(value: unknown): Record<string, any> {
 
 function firstDefined<T = any>(...values: Array<T | undefined | null>): T | undefined {
   for (const value of values) {
-    if (value !== undefined && value !== null) return value as T;
+    if (value !== undefined && value !== null) {return value as T;}
   }
   return undefined;
 }
 
 function toText(value: unknown, fallback = ''): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number') return String(value);
+  if (typeof value === 'string') {return value;}
+  if (typeof value === 'number') {return String(value);}
   return fallback;
 }
 
 function toStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) {return [];}
   return value
     .map(item => toText(item, '').trim())
     .filter(Boolean);
@@ -115,7 +118,7 @@ function toStringArray(value: unknown): string[] {
 
 function normalizePhotoSource(value: unknown): string | null {
   const photo = toText(value, '').trim();
-  if (!photo) return null;
+  if (!photo) {return null;}
   if (
     photo.startsWith('data:') ||
     photo.startsWith('http://') ||
@@ -177,17 +180,17 @@ function arrayBufferToBase64(data: ArrayBuffer): string {
 
 function normalizeContentType(value: unknown): string {
   const raw = toText(value, '').trim().toLowerCase();
-  if (!raw) return 'image/jpeg';
-  if (raw.includes('image/png')) return 'image/png';
-  if (raw.includes('image/webp')) return 'image/webp';
-  if (raw.includes('image/gif')) return 'image/gif';
+  if (!raw) {return 'image/jpeg';}
+  if (raw.includes('image/png')) {return 'image/png';}
+  if (raw.includes('image/webp')) {return 'image/webp';}
+  if (raw.includes('image/gif')) {return 'image/gif';}
   return 'image/jpeg';
 }
 
 function firstNonEmptyStringArray(...values: unknown[]): string[] {
   for (const value of values) {
     const items = toStringArray(value);
-    if (items.length > 0) return items;
+    if (items.length > 0) {return items;}
   }
   return [];
 }
@@ -272,7 +275,7 @@ function extractMarkItems(responseData: any): Record<string, any>[] {
   const collected: Record<string, any>[] = [];
 
   for (const candidate of directCandidates) {
-    if (!Array.isArray(candidate)) continue;
+    if (!Array.isArray(candidate)) {continue;}
 
     for (const entry of candidate) {
       const record = asRecord(entry);
@@ -293,7 +296,7 @@ function extractMarkItems(responseData: any): Record<string, any>[] {
       ];
 
       for (const nested of nestedArrays) {
-        if (!Array.isArray(nested)) continue;
+        if (!Array.isArray(nested)) {continue;}
         for (const nestedEntry of nested) {
           const nestedRecord = asRecord(nestedEntry);
           if (hasMarkFields(nestedRecord)) {
@@ -309,7 +312,7 @@ function extractMarkItems(responseData: any): Record<string, any>[] {
 
 function isHolidayAttendanceItem(item: Record<string, any>): boolean {
   const status = normalizeAttendanceStatus(item.status);
-  if (status === 'HOLIDAY' || status === 'SUNDAY_HOLIDAY') return true;
+  if (status === 'HOLIDAY' || status === 'SUNDAY_HOLIDAY') {return true;}
 
   if (item.holiday === true || item.is_holiday === true || item.isHoliday === true) {
     return true;
@@ -324,11 +327,11 @@ function isHolidayAttendanceItem(item: Record<string, any>): boolean {
  * It also tries prefixes like /api/v1/ and /mobile/ automatically.
  */
 async function getFirstSuccessful<T>(endpoints: string[], additionalParams: any = {}) {
-  const schoolCode = (await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId') || '').trim();
-  let branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
-  const studentId = (await AsyncStorage.getItem('student_id') || 
-                    await AsyncStorage.getItem('studentId') || 
-                    await AsyncStorage.getItem('roll_no') || 
+  const schoolCode = (await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || '').trim();
+  let branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID);
+  const studentId = (await AsyncStorage.getItem('student_id') ||
+                    await AsyncStorage.getItem('studentId') ||
+                    await AsyncStorage.getItem('roll_no') ||
                     await AsyncStorage.getItem('roll_number') || '').trim().toUpperCase();
   const perEndpointTimeoutMs = 15000;
 
@@ -472,10 +475,10 @@ export async function getStudentAttendanceByMonth(month: string, year: string): 
 }
 
 export async function getStudentMarks(examId?: string): Promise<MarksData & { summary?: any; items?: any[] }> {
-  const schoolCode = String(await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || '').trim();
-  const studentId = String(await AsyncStorage.getItem('student_id') || 
-                    await AsyncStorage.getItem('studentId') || 
-                    await AsyncStorage.getItem('roll_no') || 
+  const schoolCode = String(await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || '').trim();
+  const studentId = String(await AsyncStorage.getItem('student_id') ||
+                    await AsyncStorage.getItem('studentId') ||
+                    await AsyncStorage.getItem('roll_no') ||
                     await AsyncStorage.getItem('roll_number') || '').trim().toUpperCase();
   let resolvedExamId = toText(examId, '').trim();
 
@@ -495,11 +498,11 @@ export async function getStudentMarks(examId?: string): Promise<MarksData & { su
   for (const endpoint of MARKS_ENDPOINTS) {
     try {
       const response = await API.get<any>(endpoint, {
-        params: { 
-          school_code: schoolCode, 
-          student_id: studentId, 
+        params: {
+          school_code: schoolCode,
+          student_id: studentId,
           roll_no: studentId,
-          exam_id: resolvedExamId 
+          exam_id: resolvedExamId,
         },
         ...FALLBACK_404_CONFIG,
       } as any);
@@ -523,7 +526,7 @@ export async function getStudentMarks(examId?: string): Promise<MarksData & { su
           score: toNumber(item.score ?? item.marks_obtained ?? item.marks ?? item.obtained_marks),
         })),
         summary: responseSummary || computedSummary,
-        items: list
+        items: list,
       };
     } catch (error) {}
   }
@@ -540,11 +543,11 @@ export async function getStudentExams(): Promise<any[]> {
 }
 
 export async function getStudentFee(): Promise<FeeData> {
-  const studentId = String(await AsyncStorage.getItem('student_id') || 
-                    await AsyncStorage.getItem('studentId') || 
-                    await AsyncStorage.getItem('roll_no') || 
+  const studentId = String(await AsyncStorage.getItem('student_id') ||
+                    await AsyncStorage.getItem('studentId') ||
+                    await AsyncStorage.getItem('roll_no') ||
                     await AsyncStorage.getItem('roll_number') || '').trim().toUpperCase();
-  
+
   try {
     const allFees = await getFeesByStudent(studentId);
     const fees = Array.isArray(allFees) ? allFees : [];
@@ -556,15 +559,15 @@ export async function getStudentFee(): Promise<FeeData> {
     const sortedFees = fees.sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime());
     const latestFee = sortedFees[0];
 
-    const totalFee = fees.reduce((sum, fee) => sum + toNumber(fee.total_fee || fee.amount), 0);
-    const paidFee = fees.reduce((sum, fee) => sum + toNumber(fee.paid_amount || fee.paid), 0);
-    const pendingFee = fees.reduce((sum, fee) => sum + toNumber(fee.due_amount || fee.balance), 0);
+    const totalFee = fees.reduce((sum, fee) => sum + toNumber(fee.total_fee || (fee as any).amount), 0);
+    const paidFee = fees.reduce((sum, fee) => sum + toNumber(fee.paid_amount || (fee as any).paid), 0);
+    const pendingFee = fees.reduce((sum, fee) => sum + toNumber(fee.due_amount || (fee as any).balance), 0);
 
     return {
       totalFee,
       paidFee,
       pendingFee: Math.max(pendingFee, Math.max(totalFee - paidFee, 0)),
-      due_date: latestFee?.due_date || 'N/A'
+      due_date: latestFee?.due_date || 'N/A',
     } as any;
   } catch (error) {
     return { totalFee: 0, paidFee: 0, pendingFee: 0 };
@@ -572,9 +575,9 @@ export async function getStudentFee(): Promise<FeeData> {
 }
 
 export async function getPaymentHistory(): Promise<any[]> {
-  const studentId = String(await AsyncStorage.getItem('student_id') || 
-                    await AsyncStorage.getItem('studentId') || 
-                    await AsyncStorage.getItem('roll_no') || 
+  const studentId = String(await AsyncStorage.getItem('student_id') ||
+                    await AsyncStorage.getItem('studentId') ||
+                    await AsyncStorage.getItem('roll_no') ||
                     await AsyncStorage.getItem('roll_number') || '').trim().toUpperCase();
 
   try {
@@ -588,7 +591,7 @@ export async function getPaymentHistory(): Promise<any[]> {
     const paymentGroups = await Promise.all(
       fees.map(async (fee) => {
         try {
-          const payments = await getPaymentHistoryByFee(fee.id || fee.fee_id);
+          const payments = await getPaymentHistoryByFee(fee.id || (fee as any).fee_id);
           const pList = Array.isArray(payments) ? payments : [];
           return pList.map((payment, index) => ({
             id: payment.id || `${fee.id || 'fee'}-${index}`,
@@ -618,16 +621,16 @@ export async function getStudentProfilePhotoUrl(studentId?: string, schoolCode?:
     (await AsyncStorage.getItem('studentId')) ||
     '';
 
-  if (!resolvedStudentId) return null;
+  if (!resolvedStudentId) {return null;}
 
   const resolvedSchoolCode =
     schoolCode ||
-    (await AsyncStorage.getItem('school_code')) ||
-    (await AsyncStorage.getItem('schoolCode')) ||
+    (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+    (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
     '';
 
   const url = buildApiUrl(`/profile-photo/student/${encodeURIComponent(resolvedStudentId)}`);
-  if (!resolvedSchoolCode) return url;
+  if (!resolvedSchoolCode) {return url;}
 
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}school_code=${encodeURIComponent(resolvedSchoolCode)}`;
@@ -640,16 +643,16 @@ export async function getStudentProfilePhotoDataUri(studentId?: string, schoolCo
     (await AsyncStorage.getItem('studentId')) ||
     '';
 
-  if (!resolvedStudentId) return null;
+  if (!resolvedStudentId) {return null;}
 
   const resolvedSchoolCode =
     schoolCode ||
-    (await AsyncStorage.getItem('school_code')) ||
-    (await AsyncStorage.getItem('schoolCode')) ||
+    (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+    (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
     '';
 
   try {
-    const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+    const branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID);
     const response = await API.get<ArrayBuffer>(`${PROFILE_PHOTO_ENDPOINT}/${encodeURIComponent(resolvedStudentId)}`, {
       params: resolvedSchoolCode ? { school_code: resolvedSchoolCode } : undefined,
       responseType: 'arraybuffer',
@@ -683,8 +686,8 @@ export async function getStudentProfile(): Promise<any> {
       ''
     ).trim();
     const schoolCode = String(
-      (await AsyncStorage.getItem('school_code')) ||
-      (await AsyncStorage.getItem('schoolCode')) ||
+      (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+      (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
       storedUser?.school_code ||
       ''
     ).trim();
@@ -705,7 +708,7 @@ export async function getStudentProfile(): Promise<any> {
         responseData.data,
         responseData.items,
         responseData.students,
-        responseData.records
+        responseData.records,
       ].find(Array.isArray);
 
       if (candidateList && candidateList.length > 0) {
@@ -830,7 +833,7 @@ export async function getStudentProfile(): Promise<any> {
  */
 export async function getProfile(studentId: string, schoolCode: string): Promise<any> {
   try {
-    const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+    const branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID);
     const response = await API.get('student-dashboard/profile', {
       params: {
         student_id: studentId || undefined,
@@ -1008,11 +1011,11 @@ export async function getLinkedProfiles(): Promise<any[]> {
 
 export async function switchProfile(targetRollNo: string): Promise<any> {
   try {
-    const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
+    const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE);
     const response = await API.post('student-dashboard/switch-profile', {
-      target_roll_no: targetRollNo
+      target_roll_no: targetRollNo,
     }, {
-      headers: { 'X-School-Code': schoolCode }
+      headers: { 'X-School-Code': schoolCode },
     });
     return response.data;
   } catch (error) {
@@ -1036,8 +1039,8 @@ export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffe
     'student/question-papers/download',
     'manage/student-dashboard/question-papers/download',
   ];
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
-  let branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+  const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE);
+  let branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID);
 
   try {
     if (typeof branchId === 'string' && /^\d+$/.test(branchId)) {
@@ -1045,13 +1048,14 @@ export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffe
     }
   } catch (e) {}
 
+  const studentId = (await AsyncStorage.getItem('student_id') ||
+                await AsyncStorage.getItem('studentId') ||
+                await AsyncStorage.getItem('roll_no') ||
+                await AsyncStorage.getItem('roll_number') || '').trim().toUpperCase();
+
   for (const endpoint of endpoints) {
     try {
       console.log('[Service] downloadQuestionPaper trying (arraybuffer) ->', endpoint);
-      const studentId = (await AsyncStorage.getItem('student_id') ||
-                    await AsyncStorage.getItem('studentId') || 
-                    await AsyncStorage.getItem('roll_no') || 
-                    await AsyncStorage.getItem('roll_number') || '').trim().toUpperCase();
       const response = await API.get<ArrayBuffer>(endpoint, {
         responseType: 'arraybuffer',
         params: {
@@ -1067,7 +1071,7 @@ export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffe
           'X-Branch-Id': branchId || undefined,
           'X-Student-Id': studentId || undefined,
           'X-Roll-No': studentId || undefined,
-          'Authorization': (await AsyncStorage.getItem('token')) ? `Bearer ${await AsyncStorage.getItem('token')}` : undefined,
+          'Authorization': (await storage.getSecure(StorageKeys.AUTH_TOKEN)) ? `Bearer ${await storage.getSecure(StorageKeys.AUTH_TOKEN)}` : undefined,
         },
         ...FALLBACK_404_CONFIG,
       } as any);
@@ -1088,21 +1092,21 @@ export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffe
         break; // Stop arraybuffer loop and go to JSON fallback loop
       }
       const status = error?.response?.status;
-      
+
       let errorDetail = '';
       if (error?.response?.data instanceof ArrayBuffer) {
         try {
           // Convert array buffer to string (safe for typical error JSON payloads)
           const text = String.fromCharCode.apply(null, new Uint8Array(error.response.data) as any);
           const json = JSON.parse(text);
-          if (json.detail) errorDetail = String(json.detail);
+          if (json.detail) {errorDetail = String(json.detail);}
         } catch (e) {}
       } else if (error?.response?.data?.detail) {
         errorDetail = String(error.response.data.detail);
       }
 
       console.warn('[Service] downloadQuestionPaper arraybuffer attempt failed for', endpoint, 'status=', status, 'message=', error?.message, 'detail=', errorDetail);
-      
+
       if (status === 404 && errorDetail && errorDetail.toLowerCase().includes('file not found')) {
         throw new Error(errorDetail);
       }
@@ -1133,7 +1137,7 @@ export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffe
           'X-Roll-No': studentId || undefined,
           'x_school_code': schoolCode || undefined,
           'x_branch_id': branchId || undefined,
-          'Authorization': (await AsyncStorage.getItem('token')) ? `Bearer ${await AsyncStorage.getItem('token')}` : undefined,
+          'Authorization': (await storage.getSecure(StorageKeys.AUTH_TOKEN)) ? `Bearer ${await storage.getSecure(StorageKeys.AUTH_TOKEN)}` : undefined,
         },
         ...FALLBACK_404_CONFIG,
       } as any);
@@ -1148,7 +1152,7 @@ export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffe
           const base64 = candidateStr.replace(/\r|\n/g, '');
           try {
             const buf = (globalThis as any).Buffer?.from(base64, 'base64');
-            if (buf) return buf.buffer as ArrayBuffer;
+            if (buf) {return buf.buffer as ArrayBuffer;}
           } catch (e) {
             // try browser-friendly conversion
             try {
@@ -1156,7 +1160,7 @@ export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffe
               if (binaryString) {
                 const len = binaryString.length;
                 const bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+                for (let i = 0; i < len; i++) {bytes[i] = binaryString.charCodeAt(i);}
                 return bytes.buffer as ArrayBuffer;
               }
             } catch (e2) {}
@@ -1170,14 +1174,14 @@ export async function downloadQuestionPaper(paperId: string): Promise<ArrayBuffe
         const base64 = String(candidate).replace(/\r|\n/g, '');
         try {
           const buf = (globalThis as any).Buffer?.from(base64, 'base64');
-          if (buf) return buf.buffer as ArrayBuffer;
+          if (buf) {return buf.buffer as ArrayBuffer;}
         } catch (e) {
           try {
             const binaryString = (globalThis as any).atob ? (globalThis as any).atob(base64) : undefined;
             if (binaryString) {
               const len = binaryString.length;
               const bytes = new Uint8Array(len);
-              for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+              for (let i = 0; i < len; i++) {bytes[i] = binaryString.charCodeAt(i);}
               return bytes.buffer as ArrayBuffer;
             }
           } catch (e2) {}
@@ -1232,10 +1236,10 @@ export async function getLeaveRequests(): Promise<any[]> {
 }
 
 export async function submitLeaveRequest(requestData: any): Promise<any> {
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
+  const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE);
   const studentId = (await AsyncStorage.getItem('student_id') ||
-                    await AsyncStorage.getItem('studentId') || 
-                    await AsyncStorage.getItem('roll_no') || 
+                    await AsyncStorage.getItem('studentId') ||
+                    await AsyncStorage.getItem('roll_no') ||
                     await AsyncStorage.getItem('roll_number') || '').trim().toUpperCase();
 
   for (const endpoint of LEAVE_REQUESTS_ENDPOINTS) {
@@ -1243,11 +1247,11 @@ export async function submitLeaveRequest(requestData: any): Promise<any> {
       const response = await API.post(endpoint, {
         ...requestData,
         school_code: schoolCode,
-        student_id: studentId
+        student_id: studentId,
       });
       return response.data;
     } catch (error: any) {
-       if (error.response?.status !== 404) throw error;
+       if (error.response?.status !== 404) {throw error;}
     }
   }
   throw new Error('Could not submit leave request');
@@ -1316,8 +1320,8 @@ export async function submitStudentRegisterRequest(formData: FormData): Promise<
 }
 
 export async function sendOtp(emailId: string): Promise<any> {
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
-  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+  const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE);
+  const branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID);
 
   // We try a few common OTP sending endpoints
   const endpoints = ['/auth/forgot-password', '/auth/request-otp', '/teacher/register/send-otp'];
@@ -1336,7 +1340,7 @@ export async function sendOtp(emailId: string): Promise<any> {
         headers: {
           'X-School-Code': schoolCode || undefined,
           'X-Branch-Id': branchId || undefined,
-        }
+        },
       });
       return response.data;
     } catch (error) {
@@ -1347,8 +1351,8 @@ export async function sendOtp(emailId: string): Promise<any> {
 }
 
 export async function verifyOtp(emailId: string, otp: string): Promise<any> {
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
-  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+  const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE);
+  const branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID);
 
   const endpoints = ['/auth/forgot-password', '/auth/verify-otp', '/auth/forgot-password/verify-otp', '/teacher/register/verify-otp'];
 
@@ -1367,7 +1371,7 @@ export async function verifyOtp(emailId: string, otp: string): Promise<any> {
         headers: {
           'X-School-Code': schoolCode || undefined,
           'X-Branch-Id': branchId || undefined,
-        }
+        },
       });
       return response.data;
     } catch (error) {
@@ -1378,8 +1382,8 @@ export async function verifyOtp(emailId: string, otp: string): Promise<any> {
 }
 
 export async function changePassword(emailId: string, newPassword: string, otp: string): Promise<any> {
-  const schoolCode = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode') || await AsyncStorage.getItem('school_id') || await AsyncStorage.getItem('schoolId');
-  const branchId = await AsyncStorage.getItem('branch_id') || await AsyncStorage.getItem('branchId');
+  const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE);
+  const branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID);
 
   const endpoints = ['/auth/forgot-password', '/auth/reset-password', '/auth/forgot-password/reset-password'];
 
@@ -1400,7 +1404,7 @@ export async function changePassword(emailId: string, newPassword: string, otp: 
         headers: {
           'X-School-Code': schoolCode || undefined,
           'X-Branch-Id': branchId || undefined,
-        }
+        },
       });
       return response.data;
     } catch (error) {
@@ -1416,10 +1420,10 @@ export async function updateStudentProfile(data: any): Promise<any> {
       firstDefined(
         data?.school_code,
         data?.schoolCode,
-        await AsyncStorage.getItem('school_code'),
-        await AsyncStorage.getItem('schoolCode'),
-        await AsyncStorage.getItem('school_id'),
-        await AsyncStorage.getItem('schoolId'),
+        await storage.getString(StorageKeys.SCHOOL_CODE),
+        await storage.getString(StorageKeys.SCHOOL_CODE),
+        await storage.getString(StorageKeys.SCHOOL_CODE),
+        await storage.getString(StorageKeys.SCHOOL_CODE),
       ),
     ).trim();
 
@@ -1428,8 +1432,8 @@ export async function updateStudentProfile(data: any): Promise<any> {
       firstDefined(
         data?.branch_id,
         data?.branchId,
-        await AsyncStorage.getItem('branch_id'),
-        await AsyncStorage.getItem('branchId'),
+        await storage.getString(StorageKeys.BRANCH_ID),
+        await storage.getString(StorageKeys.BRANCH_ID),
       ),
     ).trim();
 
@@ -1493,9 +1497,9 @@ export async function updateStudentProfile(data: any): Promise<any> {
 
   const generalStudentData: Record<string, any> = { student_id: studentPrimaryId };
   for (const [key, value] of Object.entries(source)) {
-    if (metadataKeys.has(key)) continue;
-    if (key === 'roll_number' || key === 'roll_no' || key === 'rollNo') continue;
-    if (value === undefined) continue;
+    if (metadataKeys.has(key)) {continue;}
+    if (key === 'roll_number' || key === 'roll_no' || key === 'rollNo') {continue;}
+    if (value === undefined) {continue;}
     generalStudentData[key] = value;
   }
 

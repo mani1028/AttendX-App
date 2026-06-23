@@ -1,34 +1,38 @@
+import { Theme } from '../../theme/tokens';
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { AlertTriangle, ArrowLeft, CreditCard, Phone, Shield, Users } from 'lucide-react-native';
+import { AlertTriangle, ChevronLeft, CreditCard, Phone, Shield, Users } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
 
 import AppText from '../../components/common/AppText';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
 
 const fallbackMessage =
-  "Your school access is currently blocked because the trial has expired or payment is due. Please contact your school administrator to renew access.";
+  'Your school access is currently blocked because the trial has expired or payment is due. Please contact your school administrator to renew access.';
 
 const PaymentDueScreen = () => {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
-  
+
   const message = route.params?.message || fallbackMessage;
   const schoolId = route.params?.schoolId || '';
-  
+
   const [userRole, setUserRole] = useState<string>('');
-  
+
   const fadeAnim = new Animated.Value(0);
   const slideAnim = new Animated.Value(20);
 
   useEffect(() => {
     const fetchRole = async () => {
-      const role = await AsyncStorage.getItem('userRole');
+      const role = await storage.getString(StorageKeys.USER_ROLE);
       setUserRole(role || '');
     };
     fetchRole();
-    
+
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -39,7 +43,7 @@ const PaymentDueScreen = () => {
         toValue: 0,
         duration: 600,
         useNativeDriver: true,
-      })
+      }),
     ]).start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -49,23 +53,23 @@ const PaymentDueScreen = () => {
   return (
     <LinearGradient colors={['#eef2f7', '#e8edf5']} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <LinearGradient colors={['#e84b2f', '#f97316', '#fbbf24']} start={{x: 0, y: 0}} end={{x: 1, y: 0}} style={styles.accentBar} />
-          
+
           <View style={styles.innerCard}>
             <View style={styles.badgeContainer}>
               <View style={styles.badgeDot} />
               <AppText style={styles.badgeText}>ACCESS RESTRICTED</AppText>
             </View>
-            
+
             <AppText style={styles.title}>Payment Due</AppText>
             <AppText style={styles.subtitle}>{message}</AppText>
 
             {schoolId ? (
               <View style={styles.institutionBox}>
-                <LinearGradient colors={['#1e3a8a', '#2563eb']} style={styles.institutionIconBg}>
-                  <Shield size={20} color="#fff" />
+                <LinearGradient colors={[Theme.colors.primary, '#2563eb']} style={styles.institutionIconBg}>
+                  <Shield size={20} color={Theme.colors.card} />
                 </LinearGradient>
                 <View style={styles.institutionTextWrap}>
                   <AppText style={styles.institutionLabel}>REGISTERED INSTITUTION</AppText>
@@ -77,20 +81,20 @@ const PaymentDueScreen = () => {
             <View style={styles.divider} />
 
             <View style={styles.buttonsRow}>
-              <TouchableOpacity 
-                style={[styles.btn, styles.btnSecondary]} 
+              <TouchableOpacity accessibilityRole="button"
+                style={[styles.btn, styles.btnSecondary]}
                 onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Login' }] })}
               >
-                <ArrowLeft size={16} color="#0f1629" />
+                <ChevronLeft size={16} color="#0f1629" />
                 <AppText style={styles.btnSecondaryText}>Portal Login</AppText>
               </TouchableOpacity>
 
               {isDirector ? (
-                <TouchableOpacity 
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.btn, styles.btnDirector]}
                   onPress={() => navigation.navigate('RenewalPayment')}
                 >
-                  <CreditCard size={16} color="#fff" />
+                  <CreditCard size={16} color={Theme.colors.card} />
                   <AppText style={styles.btnDirectorText}>Pay Now</AppText>
                 </TouchableOpacity>
               ) : (
@@ -104,7 +108,7 @@ const PaymentDueScreen = () => {
             {!isDirector ? (
               <View style={[styles.notice, styles.noticeBlue]}>
                 <View style={[styles.noticeIcon, styles.noticeIconBlue]}>
-                  <Users size={16} color="#fff" />
+                  <Users size={16} color={Theme.colors.card} />
                 </View>
                 <View style={styles.noticeTextWrap}>
                   <AppText style={styles.noticeTitleBlue}>Director authority required.</AppText>
@@ -116,7 +120,7 @@ const PaymentDueScreen = () => {
             ) : (
               <View style={[styles.notice, styles.noticeAmber]}>
                 <View style={[styles.noticeIcon, styles.noticeIconAmber]}>
-                  <AlertTriangle size={16} color="#fff" />
+                  <AlertTriangle size={16} color={Theme.colors.card} />
                 </View>
                 <View style={styles.noticeTextWrap}>
                   <AppText style={styles.noticeTitleAmber}>Action required.</AppText>
@@ -158,7 +162,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   innerCard: {
-    padding: 24,
+    padding: Theme.spacing.lg,
   },
   badgeContainer: {
     flexDirection: 'row',
@@ -177,7 +181,7 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#e84b2f',
-    marginRight: 8,
+    marginRight: Theme.spacing.sm,
   },
   badgeText: {
     fontSize: 10,
@@ -186,16 +190,15 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '800',
+    ...Theme.typography.h1,
     color: '#0f1629',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   subtitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#6b7694',
     lineHeight: 22,
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   institutionBox: {
     flexDirection: 'row',
@@ -204,8 +207,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e4e8f0',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.lg,
   },
   institutionIconBg: {
     width: 40,
@@ -213,7 +216,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: Theme.spacing.md,
   },
   institutionTextWrap: {
     flex: 1,
@@ -223,18 +226,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#9ba3be',
     letterSpacing: 1,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   institutionId: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...Theme.typography.h4,
     color: '#0f1629',
     letterSpacing: 1,
   },
   divider: {
     height: 1,
     backgroundColor: '#e4e8f0',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   buttonsRow: {
     flexDirection: 'row',
@@ -251,7 +253,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   btnSecondary: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
     borderColor: '#e4e8f0',
   },
@@ -259,7 +261,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#0f1629',
-    marginLeft: 8,
+    marginLeft: Theme.spacing.sm,
   },
   btnDirector: {
     backgroundColor: '#6A5AF9',
@@ -267,21 +269,21 @@ const styles = StyleSheet.create({
   btnDirectorText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#fff',
-    marginLeft: 8,
+    color: Theme.colors.card,
+    marginLeft: Theme.spacing.sm,
   },
   btnDisabled: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
   },
   btnDisabledText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#94a3b8',
-    marginLeft: 8,
+    marginLeft: Theme.spacing.sm,
   },
   notice: {
     flexDirection: 'row',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 12,
     borderWidth: 1,
   },
@@ -314,10 +316,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#2563eb',
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   noticeBodyBlue: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#3b5bcc',
     lineHeight: 18,
   },
@@ -325,10 +327,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#b45309',
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   noticeBodyAmber: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#92400e',
     lineHeight: 18,
   },

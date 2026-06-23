@@ -1,3 +1,6 @@
+import { Theme, C } from '../../theme/tokens';
+import { useNavigation } from '@react-navigation/native';
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     View,
@@ -8,14 +11,12 @@ import {
     ActivityIndicator,
     RefreshControl,
     Dimensions,
-    StatusBar,
     Alert,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getStudentAttendanceByMonth } from '../../services/studentService';
 import Icon from 'react-native-vector-icons/Feather';
-import { Theme as C } from '../../theme/theme';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 
 const { width } = Dimensions.get('window');
@@ -49,19 +50,19 @@ export default function StudentAttendanceScreen({ navigation }: any) {
         late: 0,
         leave: 0,
         holiday: 0,
-        percentage: '0'
+        percentage: '0',
     });
 
     const isMounted = useRef(true);
 
     const loadAttendance = useCallback(async (month: Date, showLoader = true) => {
-        if (showLoader) setLoading(true);
+        if (showLoader) {setLoading(true);}
         try {
             const monthStr = (month.getMonth() + 1).toString().padStart(2, '0');
             const yearStr = month.getFullYear().toString();
 
             const data = await getStudentAttendanceByMonth(monthStr, yearStr);
-            if (!isMounted.current) return;
+            if (!isMounted.current) {return;}
             setAttendance(data);
             calculateStats(data);
         } catch (error: any) {
@@ -87,11 +88,11 @@ export default function StudentAttendanceScreen({ navigation }: any) {
 
     const calculateStats = (data: AttendanceData[]) => {
         const stats = data.reduce((acc, curr) => {
-            if (curr.status === 'PRESENT') acc.present++;
-            else if (curr.status === 'ABSENT') acc.absent++;
-            else if (curr.status === 'LATE') acc.late++;
-            else if (curr.status === 'LEAVE') acc.leave++;
-            else if (curr.status === 'HOLIDAY') acc.holiday++;
+            if (curr.status === 'PRESENT') {acc.present++;}
+            else if (curr.status === 'ABSENT') {acc.absent++;}
+            else if (curr.status === 'LATE') {acc.late++;}
+            else if (curr.status === 'LEAVE') {acc.leave++;}
+            else if (curr.status === 'HOLIDAY') {acc.holiday++;}
             return acc;
         }, { present: 0, absent: 0, late: 0, leave: 0, holiday: 0 });
 
@@ -101,7 +102,7 @@ export default function StudentAttendanceScreen({ navigation }: any) {
         setStats({
             total,
             ...stats,
-            percentage
+            percentage,
         });
     };
 
@@ -166,7 +167,7 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                     alignItems: 'center',
                 },
                 text: {
-                    color: '#FFFFFF',
+                    color: Theme.colors.card,
                     fontWeight: 'bold',
                 },
             },
@@ -192,7 +193,7 @@ export default function StudentAttendanceScreen({ navigation }: any) {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
             {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
@@ -289,7 +290,7 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                             {new Date(selectedDate).toLocaleDateString('en-US', {
                                 day: 'numeric',
                                 month: 'short',
-                                year: 'numeric'
+                                year: 'numeric',
                             })}
                         </Text>
                     </View>
@@ -301,7 +302,7 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                                 color: getStatusText(selectedDate) === 'PRESENT' ? C.colors.success :
                                        getStatusText(selectedDate) === 'ABSENT' ? C.colors.error :
                                        getStatusText(selectedDate) === 'LATE' ? C.colors.warning :
-                                       getStatusText(selectedDate) === 'LEAVE' ? C.colors.blue : C.colors.textMuted
+                                       getStatusText(selectedDate) === 'LEAVE' ? C.colors.blue : C.colors.textMuted,
                             }]}>
                                 {getStatusText(selectedDate)}
                             </Text>
@@ -310,7 +311,7 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                             backgroundColor: getStatusText(selectedDate) === 'PRESENT' ? C.colors.success :
                                             getStatusText(selectedDate) === 'ABSENT' ? C.colors.error :
                                             getStatusText(selectedDate) === 'LATE' ? C.colors.warning :
-                                            getStatusText(selectedDate) === 'LEAVE' ? C.colors.blue : C.colors.textMuted
+                                            getStatusText(selectedDate) === 'LEAVE' ? C.colors.blue : C.colors.textMuted,
                         }]} />
                     </View>
                 </View>
@@ -405,8 +406,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     percentageValue: {
-        fontSize: 18,
-        fontWeight: 'bold',
+        ...Theme.typography.h3,
         color: C.colors.text,
     },
     percentageLabel: {
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        marginRight: 8,
+        marginRight: Theme.spacing.sm,
     },
     statLabel: {
         fontSize: 13,
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     statValue: {
-        fontSize: 14,
+        ...Theme.typography.body,
         fontWeight: '700',
         color: C.colors.text,
     },
@@ -472,8 +472,7 @@ const styles = StyleSheet.create({
         paddingBottom: 10,
     },
     detailsTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
+        ...Theme.typography.h4,
         color: C.colors.text,
     },
     detailsDate: {
@@ -491,13 +490,12 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     statusLabel: {
-        fontSize: 12,
+        ...Theme.typography.caption,
         color: C.colors.textMuted,
-        marginBottom: 4,
+        marginBottom: Theme.spacing.xs,
     },
     statusValue: {
-        fontSize: 16,
-        fontWeight: 'bold',
+        ...Theme.typography.h4,
     },
     statusIndicator: {
         width: 12,
@@ -511,7 +509,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     legendTitle: {
-        fontSize: 12,
+        ...Theme.typography.caption,
         fontWeight: 'bold',
         color: C.colors.textMuted,
         letterSpacing: 1,
@@ -531,7 +529,7 @@ const styles = StyleSheet.create({
         width: 12,
         height: 12,
         borderRadius: 4,
-        marginRight: 8,
+        marginRight: Theme.spacing.sm,
     },
     legendText: {
         fontSize: 13,

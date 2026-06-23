@@ -11,8 +11,10 @@ import {
   Animated,
   Platform,
 } from 'react-native';
-import { Theme } from '../../theme/theme';
+
 import { Eye, EyeOff } from 'lucide-react-native';
+import { Theme } from '../../theme/tokens';
+
 
 interface AppInputProps extends TextInputProps {
   label?: string;
@@ -91,7 +93,7 @@ export const AppInput: React.FC<AppInputProps> = ({
           {...props}
         />
         {isPassword ? (
-          <TouchableOpacity style={styles.rightIcon} onPress={() => setIsPasswordVisible(v => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity accessibilityRole="button" style={styles.rightIcon} onPress={() => setIsPasswordVisible(v => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             {isPasswordVisible
               ? <Eye size={18} color={Theme.colors.textMuted} />
               : <EyeOff size={18} color={Theme.colors.textMuted} />
@@ -112,11 +114,11 @@ export const AppInput: React.FC<AppInputProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     width: '100%',
   },
   label: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
     color: Theme.colors.textMuted,
     marginBottom: 6,
@@ -140,16 +142,16 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: 50,
-    paddingHorizontal: 16,
-    fontSize: 15,
+    paddingHorizontal: Theme.spacing.md,
+    ...Theme.typography.bodyMd,
     color: Theme.colors.text,
     fontWeight: '500',
   },
   inputWithLeft: {
-    paddingLeft: 8,
+    paddingLeft: Theme.spacing.sm,
   },
   inputWithRight: {
-    paddingRight: 8,
+    paddingRight: Theme.spacing.sm,
   },
   leftIcon: {
     paddingLeft: 14,
@@ -159,16 +161,16 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: Theme.colors.error,
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '500',
     marginTop: 5,
-    marginLeft: 4,
+    marginLeft: Theme.spacing.xs,
   },
   hintText: {
     color: Theme.colors.textMuted,
-    fontSize: 12,
+    ...Theme.typography.caption,
     marginTop: 5,
-    marginLeft: 4,
+    marginLeft: Theme.spacing.xs,
   },
 });
 

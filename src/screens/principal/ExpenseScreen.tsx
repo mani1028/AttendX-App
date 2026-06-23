@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -10,7 +11,6 @@ import {
   RefreshControl,
   Modal,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -32,10 +32,16 @@ import LinearGradient from 'react-native-linear-gradient';
 import API from '../../services/api';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { formatErrorMessage } from '../../utils/helpers';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import { Theme, C } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
+
 
 
 interface Expense {
@@ -54,34 +60,33 @@ interface FormData {
 }
 
 const categories = [
-  "Supplies",
-  "Utilities",
-  "Maintenance",
-  "Salaries",
-  "Equipment",
-  "Other"
+  'Supplies',
+  'Utilities',
+  'Maintenance',
+  'Salaries',
+  'Equipment',
+  'Other',
 ];
 
 const categoryPalette: Record<string, { bg: string; text: string; bgSoft: string; textSoft: string; borderSoft: string }> = {
-  Supplies: { bg: '#d97706', text: '#ffffff', bgSoft: '#fef3c7', textSoft: '#b45309', borderSoft: '#fde68a' },
-  Utilities: { bg: '#2563eb', text: '#ffffff', bgSoft: '#dbeafe', textSoft: '#1d4ed8', borderSoft: '#bfdbfe' },
-  Maintenance: { bg: '#4f46e5', text: '#ffffff', bgSoft: '#e0e7ff', textSoft: '#4338ca', borderSoft: '#c7d2fe' },
-  Salaries: { bg: '#16a34a', text: '#ffffff', bgSoft: '#d1fae5', textSoft: '#15803d', borderSoft: '#a7f3d0' },
-  Equipment: { bg: '#db2777', text: '#ffffff', bgSoft: '#fce7f3', textSoft: '#be185d', borderSoft: '#fbcfe8' },
-  Other: { bg: '#475569', text: '#ffffff', bgSoft: '#f1f5f9', textSoft: '#334155', borderSoft: '#e2e8f0' },
+  Supplies: { bg: '#d97706', text: Theme.colors.card, bgSoft: '#fef3c7', textSoft: '#b45309', borderSoft: '#fde68a' },
+  Utilities: { bg: '#2563eb', text: Theme.colors.card, bgSoft: '#dbeafe', textSoft: '#1d4ed8', borderSoft: '#bfdbfe' },
+  Maintenance: { bg: '#4f46e5', text: Theme.colors.card, bgSoft: '#e0e7ff', textSoft: '#4338ca', borderSoft: '#c7d2fe' },
+  Salaries: { bg: '#16a34a', text: Theme.colors.card, bgSoft: '#d1fae5', textSoft: '#15803d', borderSoft: '#a7f3d0' },
+  Equipment: { bg: '#db2777', text: Theme.colors.card, bgSoft: '#fce7f3', textSoft: '#be185d', borderSoft: '#fbcfe8' },
+  Other: { bg: Theme.colors.textSec, text: Theme.colors.card, bgSoft: Theme.colors.background, textSoft: '#334155', borderSoft: Theme.colors.border },
 };
 
 const ExpenseManagement = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { setTabBarVisible, userRole } = useAuth();
-  const lastScrollY = useRef(0);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [formData, setFormData] = useState<FormData>({
-    title: "",
-    amount: "",
-    category: "Supplies",
-    date: new Date().toISOString().split("T")[0],
+    title: '',
+    amount: '',
+    category: 'Supplies',
+    date: new Date().toISOString().split('T')[0],
   });
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -98,18 +103,8 @@ const ExpenseManagement = () => {
     return () => setTabBarVisible(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   useEffect(() => {
     if (schoolCode) {
@@ -120,10 +115,10 @@ const ExpenseManagement = () => {
 
   const loadSchoolCode = async () => {
     try {
-      const code = await AsyncStorage.getItem('school_code') ||
-        await AsyncStorage.getItem('schoolCode') ||
-        await AsyncStorage.getItem('school_id') ||
-        await AsyncStorage.getItem('schoolId') || '';
+      const code = await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) || '';
       setSchoolCode(code);
     } catch (error) {
       console.error('Error loading school code:', error);
@@ -139,13 +134,13 @@ const ExpenseManagement = () => {
 
     try {
       setLoading(true);
-      const response = await API.get("/accountant/expenses", {
+      const response = await API.get('/accountant/expenses', {
         params: { school_code: schoolCode },
       });
       setExpenses(response.data || []);
     } catch (error: any) {
-      console.error("Error fetching expenses:", error);
-      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || "Failed to fetch expenses"));
+      console.error('Error fetching expenses:', error);
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || 'Failed to fetch expenses'));
     } finally {
       setLoading(false);
     }
@@ -174,7 +169,7 @@ const ExpenseManagement = () => {
       Alert.alert('Validation Error', 'Title is required');
       return;
     }
-    
+
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
       Alert.alert('Validation Error', 'Valid amount is required');
       return;
@@ -187,42 +182,42 @@ const ExpenseManagement = () => {
 
     try {
       setLoading(true);
-      await API.post("/accountant/expenses/add", formData, {
+      await API.post('/accountant/expenses/add', formData, {
         params: { school_code: schoolCode },
       });
-      
+
       Alert.alert('Success', 'Expense added successfully');
       setFormData({
-        title: "",
-        amount: "",
-        category: "Supplies",
-        date: new Date().toISOString().split("T")[0],
+        title: '',
+        amount: '',
+        category: 'Supplies',
+        date: new Date().toISOString().split('T')[0],
       });
       await fetchExpenses();
     } catch (error: any) {
-      console.error("Error adding expense:", error);
-      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || "Error adding expense"));
+      console.error('Error adding expense:', error);
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || 'Error adding expense'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteExpense = async () => {
-    if (!deleteId || !schoolCode) return;
+    if (!deleteId || !schoolCode) {return;}
 
     try {
       setLoading(true);
       await API.delete(`/accountant/expenses/${deleteId}`, {
         params: { school_code: schoolCode },
       });
-      
+
       Alert.alert('Success', 'Expense deleted successfully');
       setShowDeleteModal(false);
       setDeleteId(null);
       await fetchExpenses();
     } catch (error: any) {
-      console.error("Error deleting expense:", error);
-      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || "Error deleting expense"));
+      console.error('Error deleting expense:', error);
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || 'Error deleting expense'));
     } finally {
       setLoading(false);
     }
@@ -276,12 +271,12 @@ const ExpenseManagement = () => {
           </View>
           <View style={styles.expenseAmountContainer}>
             <AppText style={styles.expenseAmount} weight="bold">{formatAmount(item.amount)}</AppText>
-            <TouchableOpacity 
+            <TouchableOpacity accessibilityRole="button"
               onPress={() => confirmDelete(item.id)}
               style={styles.deleteButtonCircle}
               activeOpacity={0.6}
             >
-              <Trash2 size={16} color="#dc2626" />
+              <Trash2 size={16} color={Theme.colors.error} />
             </TouchableOpacity>
           </View>
         </View>
@@ -291,7 +286,7 @@ const ExpenseManagement = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
         <ScrollView
         showsVerticalScrollIndicator={false}
@@ -306,12 +301,12 @@ const ExpenseManagement = () => {
         {(() => {
           const isAccountant = userRole?.toLowerCase() === 'accountant';
           return (
-            <View style={[styles.headerStandard, { 
+            <View style={[styles.headerStandard, {
               paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
-              backgroundColor: isAccountant ? '#1e3a8a' : HEADER_CONSTANTS.BACKGROUND_COLOR
+              backgroundColor: isAccountant ? Theme.colors.primary : HEADER_CONSTANTS.BACKGROUND_COLOR,
             }]}>
               <View style={styles.headerTop}>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={styles.backBtn}
                   onPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
                 >
@@ -320,7 +315,7 @@ const ExpenseManagement = () => {
                 <View style={styles.headerTitleContainer}>
                   <AppText weight="bold" style={styles.headerTitle}>Expense Tracker</AppText>
                 </View>
-                <TouchableOpacity style={styles.refreshIconBtn} onPress={onRefresh}>
+                <TouchableOpacity accessibilityRole="button" style={styles.refreshIconBtn} onPress={onRefresh}>
                   <RefreshCw size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
                 </TouchableOpacity>
               </View>
@@ -337,17 +332,17 @@ const ExpenseManagement = () => {
         {/* Form Section */}
         <View style={styles.formSection}>
           <View style={styles.sectionHeaderRow}>
-            <Plus size={20} color="#1e3a8a" />
+            <Plus size={20} color={Theme.colors.primary} />
             <AppText style={styles.formTitle} weight="bold">Add Expense</AppText>
           </View>
-          
+
           <View style={styles.formGroup}>
             <View>
               <AppText style={styles.label} weight="semibold">Title</AppText>
               <TextInput
                 style={[
                   styles.input,
-                  focusedInput === 'title' && styles.inputFocused
+                  focusedInput === 'title' && styles.inputFocused,
                 ]}
                 placeholder="e.g., Stationery Purchase"
                 placeholderTextColor={C.textMuted}
@@ -363,7 +358,7 @@ const ExpenseManagement = () => {
               <TextInput
                 style={[
                   styles.input,
-                  focusedInput === 'amount' && styles.inputFocused
+                  focusedInput === 'amount' && styles.inputFocused,
                 ]}
                 placeholder="Enter amount"
                 placeholderTextColor={C.textMuted}
@@ -383,7 +378,7 @@ const ExpenseManagement = () => {
                     const isSelected = formData.category === cat;
                     const catPalette = categoryPalette[cat] || categoryPalette.Other;
                     return (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={cat}
                         style={[
                           styles.categoryOption,
@@ -396,9 +391,9 @@ const ExpenseManagement = () => {
                             shadowRadius: 6,
                             elevation: 3,
                           } : {
-                            backgroundColor: '#f1f5f9',
-                            borderColor: '#e2e8f0',
-                          }
+                            backgroundColor: Theme.colors.background,
+                            borderColor: Theme.colors.border,
+                          },
                         ]}
                         onPress={() => handleInputChange('category', cat)}
                         activeOpacity={0.7}
@@ -406,7 +401,7 @@ const ExpenseManagement = () => {
                         <AppText
                           style={[
                             styles.categoryOptionText,
-                            { color: isSelected ? '#ffffff' : '#475569' }
+                            { color: isSelected ? Theme.colors.card : Theme.colors.textSec },
                           ]}
                           weight={isSelected ? 'bold' : 'semibold'}
                         >
@@ -421,7 +416,7 @@ const ExpenseManagement = () => {
 
             <View>
               <AppText style={styles.label} weight="semibold">Date</AppText>
-              <TouchableOpacity 
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.dateInput}
                 onPress={() => setShowDatePicker(true)}
               >
@@ -430,22 +425,22 @@ const ExpenseManagement = () => {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity 
+            <TouchableOpacity accessibilityRole="button"
               onPress={handleSubmit}
               disabled={loading}
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={['#1e3a8a', '#3b82f6']}
+                colors={[Theme.colors.primary, Theme.colors.blue]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.submitButtonGradient}
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={Theme.colors.card} />
                 ) : (
                   <View style={styles.submitButtonContent}>
-                    <Plus size={18} color="#fff" style={styles.submitButtonIcon} />
+                    <Plus size={18} color={Theme.colors.card} style={styles.submitButtonIcon} />
                     <AppText style={styles.submitButtonText} weight="bold">Add Expense</AppText>
                   </View>
                 )}
@@ -458,7 +453,7 @@ const ExpenseManagement = () => {
         <View style={styles.listSection}>
           <View style={styles.listHeader}>
             <View style={styles.sectionHeaderRow}>
-              <LayoutDashboard size={20} color="#1e3a8a" />
+              <LayoutDashboard size={20} color={Theme.colors.primary} />
               <AppText style={styles.listTitle} weight="bold">Expense List</AppText>
             </View>
             <View style={styles.summaryCard}>
@@ -477,7 +472,7 @@ const ExpenseManagement = () => {
               {/* Category Summary */}
               <View style={styles.categorySummary}>
                 <View style={styles.sectionHeaderRow}>
-                  <Filter size={18} color="#1e3a8a" />
+                  <Filter size={18} color={Theme.colors.primary} />
                   <AppText style={styles.categorySummaryTitle} weight="bold">Expenses by Category</AppText>
                 </View>
                 <View style={styles.categorySummaryGrid}>
@@ -549,13 +544,13 @@ const ExpenseManagement = () => {
               Are you sure you want to delete this expense? This action cannot be undone.
             </AppText>
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setShowDeleteModal(false)}
               >
                 <AppText style={styles.cancelButtonText} weight="semibold">Cancel</AppText>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.modalButton, styles.deleteButton]}
                 onPress={handleDeleteExpense}
               >
@@ -572,7 +567,7 @@ const ExpenseManagement = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1e3a8a',
+    backgroundColor: Theme.colors.primary,
   },
   headerStandard: {
     backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
@@ -594,7 +589,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    paddingTop: 16,
+    paddingTop: Theme.spacing.md,
     flex: 1,
     minHeight: 800,
   },
@@ -615,18 +610,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: 28,
-    fontWeight: '800',
+    ...Theme.typography.h1,
     letterSpacing: -0.5,
   },
   headerSubtext: {
     color: `rgba(255,255,255,${HEADER_CONSTANTS.SUBTITLE_OPACITY})`,
     fontSize: HEADER_CONSTANTS.SUBTITLE_FONT_SIZE,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   backBtn: {
     width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
@@ -648,13 +642,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   formSection: {
-    backgroundColor: '#ffffff',
-    padding: 24,
+    backgroundColor: Theme.colors.background,
+    padding: Theme.spacing.lg,
     borderRadius: 24,
-    margin: 16,
-    marginBottom: 16,
+    margin: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     marginTop: 10,
-    shadowColor: '#1e3a8a',
+    shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06,
     shadowRadius: 16,
@@ -664,31 +658,31 @@ const styles = StyleSheet.create({
   },
   formTitle: {
     fontSize: 20,
-    color: '#0d1b2a',
-    marginBottom: 16,
-    marginLeft: 8,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.md,
+    marginLeft: Theme.spacing.sm,
   },
   formGroup: {
     gap: 20,
   },
   label: {
     color: '#8898aa',
-    fontSize: 14,
+    ...Theme.typography.body,
     marginBottom: 6,
   },
   input: {
     padding: 14,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
-    fontSize: 15,
-    backgroundColor: '#f8fafc',
-    color: '#0d1b2a',
+    ...Theme.typography.bodyMd,
+    backgroundColor: Theme.colors.background,
+    color: Theme.colors.text,
   },
   inputFocused: {
-    borderColor: '#3b82f6',
-    backgroundColor: '#ffffff',
-    shadowColor: '#3b82f6',
+    borderColor: Theme.colors.blue,
+    backgroundColor: Theme.colors.background,
+    shadowColor: Theme.colors.blue,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
@@ -697,40 +691,40 @@ const styles = StyleSheet.create({
   dateInput: {
     padding: 14,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   dateText: {
-    fontSize: 14,
-    color: '#0d1b2a',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
   },
   categoryScroll: {
     flexDirection: 'row',
-    marginVertical: 4,
+    marginVertical: Theme.spacing.xs,
   },
   categoryContainer: {
     flexDirection: 'row',
     gap: 8,
   },
   categoryOption: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     borderRadius: 24,
     borderWidth: 1,
   },
   categoryOptionText: {
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   submitButtonGradient: {
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 8,
-    shadowColor: '#1e3a8a',
+    marginTop: Theme.spacing.sm,
+    shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -746,42 +740,42 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   submitButtonText: {
-    color: '#ffffff',
+    color: Theme.colors.card,
     fontSize: 16,
   },
   listSection: {
     flex: 1,
-    margin: 16,
-    marginTop: 8,
+    margin: Theme.spacing.md,
+    marginTop: Theme.spacing.sm,
   },
   listHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     flexWrap: 'wrap',
     gap: 12,
   },
   listTitle: {
     fontSize: 18,
-    color: '#0d1b2a',
+    color: Theme.colors.text,
   },
   summaryCard: {
     backgroundColor: '#eff6ff',
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#bfdbfe',
     alignItems: 'flex-end',
-    shadowColor: '#1e3a8a',
+    shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 1,
   },
   summaryLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#1e40af',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -792,11 +786,11 @@ const styles = StyleSheet.create({
     color: '#1d4ed8',
   },
   categorySummary: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 24,
     padding: 20,
     marginBottom: 20,
-    shadowColor: '#1e3a8a',
+    shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06,
     shadowRadius: 16,
@@ -806,9 +800,9 @@ const styles = StyleSheet.create({
   },
   categorySummaryTitle: {
     fontSize: 16,
-    color: '#0d1b2a',
-    marginBottom: 16,
-    marginLeft: 8,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.md,
+    marginLeft: Theme.spacing.sm,
   },
   categorySummaryGrid: {
     flexDirection: 'row',
@@ -816,7 +810,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   categorySummaryCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.card,
     borderRadius: 12,
     padding: 12,
     flexDirection: 'column',
@@ -826,7 +820,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.04)',
-    shadowColor: '#1e3a8a',
+    shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -834,37 +828,40 @@ const styles = StyleSheet.create({
   },
   categorySummaryBadge: {
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 16,
     marginBottom: 6,
   },
   categorySummaryText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
   },
   categorySummaryAmount: {
-    fontSize: 14,
-    color: '#0d1b2a',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
   },
   expenseListContainer: {
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
+  },
+  expenseListItems: {
+    gap: 12,
   },
   expenseListHeader: {
     paddingVertical: 12,
-    paddingHorizontal: 4,
-    marginBottom: 8,
+    paddingHorizontal: Theme.spacing.xs,
+    marginBottom: Theme.spacing.sm,
   },
   expenseListHeaderText: {
     fontSize: 16,
-    color: '#1e3a8a',
+    color: Theme.colors.primary,
   },
   expenseCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.card,
     borderRadius: 16,
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.04)',
-    shadowColor: '#1e3a8a',
+    shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 10,
@@ -880,14 +877,14 @@ const styles = StyleSheet.create({
   },
   expenseTitle: {
     fontSize: 16,
-    color: '#0d1b2a',
+    color: Theme.colors.text,
     marginBottom: 6,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -903,14 +900,14 @@ const styles = StyleSheet.create({
   },
   categoryBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 12,
   },
   categoryText: {
-    fontSize: 11,
+    ...Theme.typography.label,
   },
   expenseDate: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#8898aa',
   },
   expenseAmountContainer: {
@@ -920,7 +917,7 @@ const styles = StyleSheet.create({
   },
   expenseAmount: {
     fontSize: 18,
-    color: '#0d1b2a',
+    color: Theme.colors.text,
   },
   deleteButtonCircle: {
     width: 34,
@@ -931,7 +928,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingContainer: {
-    padding: 32,
+    padding: Theme.spacing.xl,
     alignItems: 'center',
   },
   loadingText: {
@@ -939,7 +936,7 @@ const styles = StyleSheet.create({
     color: C.textMuted,
   },
   emptyContainer: {
-    padding: 48,
+    padding: Theme.spacing.xxl,
     alignItems: 'center',
     backgroundColor: C.card,
     borderRadius: 12,
@@ -949,10 +946,10 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: C.textMuted,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   emptySubtext: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.border,
   },
   modalOverlay: {
@@ -976,7 +973,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modalMessage: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.textMuted,
     marginBottom: 20,
     lineHeight: 20,
@@ -1001,7 +998,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.danger,
   },
   deleteButtonText: {
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
 });
 

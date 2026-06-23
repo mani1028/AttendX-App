@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
@@ -9,7 +10,6 @@ import {
   Image,
   Alert,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -19,12 +19,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 import API from '../../services/api';
-import { Theme } from '../../theme/theme';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { Theme } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
 
 // Types
 interface PredictionResult {
@@ -44,8 +49,6 @@ export default function SkinDiseaseScreen() {
   const [loading, setLoading] = useState<boolean>(false);
   const [userId, setUserId] = useState<string>('');
 
-  const lastScrollY = useRef(0);
-
   useEffect(() => {
     setTabBarVisible(true);
     isMounted.current = true;
@@ -57,30 +60,22 @@ export default function SkinDiseaseScreen() {
       unsubscribe();
     };
   }, [navigation, setTabBarVisible]);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
-      setTabBarVisible(false);
-    } else if (currentScrollY < lastScrollY.current - 10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   // Load user context and cached result on mount
   useEffect(() => {
     const init = async () => {
       try {
-        const schoolCode = await AsyncStorage.getItem('school_code') || '';
-        const employeeId = await AsyncStorage.getItem('employee_id') || '';
+        const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || '';
+        const employeeId = await storage.getString(StorageKeys.EMPLOYEE_ID) || '';
         const id = `${schoolCode}_${employeeId}`;
-        if (!isMounted.current) return;
+        if (!isMounted.current) {return;}
         setUserId(id);
 
         const cachedResult = await AsyncStorage.getItem(`last_skin_prediction_${id}`);
         const cachedImage = await AsyncStorage.getItem(`last_skin_image_${id}`);
-        if (!isMounted.current) return;
+        if (!isMounted.current) {return;}
         if (cachedResult) {
           setPrediction(JSON.parse(cachedResult));
         }
@@ -152,15 +147,15 @@ export default function SkinDiseaseScreen() {
   const getFileName = (uri: string) => {
     const parts = uri.split('/').filter(Boolean);
     const rawName = parts.length ? parts[parts.length - 1] : '';
-    if (!rawName) return `skin_image_${Date.now()}.jpg`;
+    if (!rawName) {return `skin_image_${Date.now()}.jpg`;}
     return rawName.includes('.') ? rawName : `${rawName}.jpg`;
   };
 
   const getMimeType = (name: string) => {
     const lower = name.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.png')) {return 'image/png';}
+    if (lower.endsWith('.webp')) {return 'image/webp';}
+    if (lower.endsWith('.gif')) {return 'image/gif';}
     return 'image/jpeg';
   };
 
@@ -191,7 +186,7 @@ export default function SkinDiseaseScreen() {
 
       console.log('Backend Response:', response.data);
 
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
 
       if (response.data && response.data.predictions) {
         const result = response.data.predictions[0];
@@ -214,8 +209,8 @@ export default function SkinDiseaseScreen() {
         Alert.alert('No Result', 'No prediction returned from the server');
       }
     } catch (error: any) {
-      if (!isMounted.current) return;
-      if (error?.response?.status === 401) return;
+      if (!isMounted.current) {return;}
+      if (error?.response?.status === 401) {return;}
       console.error('Upload Error:', error);
       Alert.alert(
         'Error',
@@ -242,25 +237,25 @@ export default function SkinDiseaseScreen() {
   }, [userId]);
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return '#10b981';
-    if (confidence >= 0.6) return '#f59e0b';
-    return '#ef4444';
+    if (confidence >= 0.8) {return Theme.colors.success;}
+    if (confidence >= 0.6) {return '#f59e0b';}
+    return Theme.colors.error;
   };
 
   const getConfidenceLevel = (confidence: number) => {
-    if (confidence >= 0.8) return 'High Confidence';
-    if (confidence >= 0.6) return 'Medium Confidence';
+    if (confidence >= 0.8) {return 'High Confidence';}
+    if (confidence >= 0.6) {return 'Medium Confidence';}
     return 'Low Confidence';
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Navy Hero Header */}
       <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
         <View style={styles.headerTop}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.iconButton}
             onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
           >
@@ -286,7 +281,7 @@ export default function SkinDiseaseScreen() {
 
       {/* Image Selection Card */}
       <AppCard style={styles.card}>
-        <TouchableOpacity style={styles.imageSelector} onPress={showImageOptions}>
+        <TouchableOpacity accessibilityRole="button" style={styles.imageSelector} onPress={showImageOptions}>
           {selectedImage ? (
             <Image source={{ uri: selectedImage }} style={styles.previewImage} />
           ) : (
@@ -393,7 +388,7 @@ export default function SkinDiseaseScreen() {
           <View style={styles.disclaimer}>
             <Text style={styles.disclaimerIcon}>⚠️</Text>
             <Text style={styles.disclaimerText}>
-              This is an AI-powered analysis and not a medical diagnosis. 
+              This is an AI-powered analysis and not a medical diagnosis.
               Please consult a qualified dermatologist for proper medical advice.
             </Text>
           </View>
@@ -442,7 +437,7 @@ export default function SkinDiseaseScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   headerStandard: {
     backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
@@ -473,12 +468,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   heroGreeting: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 22,
   },
   heroSubtext: {
     fontSize: HEADER_CONSTANTS.SUBTITLE_FONT_SIZE,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   mainContent: {
     flex: 1,
@@ -489,9 +484,9 @@ const styles = StyleSheet.create({
   },
   card: {
     marginTop: -20,
-    padding: 24,
+    padding: Theme.spacing.lg,
     marginBottom: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 24,
     elevation: 4,
     shadowColor: '#000',
@@ -504,7 +499,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     minHeight: 200,
   },
   placeholderContainer: {
@@ -518,13 +513,13 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 16,
-    color: '#64748B',
+    color: Theme.colors.textSec,
     fontWeight: '500',
   },
   placeholderSubtext: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginTop: 4,
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
+    marginTop: Theme.spacing.xs,
   },
   previewImage: {
     width: '100%',
@@ -535,7 +530,7 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   changeBtn: {
     flex: 1,
@@ -547,25 +542,24 @@ const styles = StyleSheet.create({
   loadingCard: {
     padding: 30,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 16,
     marginBottom: 20,
   },
   loadingText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0F172A',
-    marginTop: 16,
+    ...Theme.typography.h4,
+    color: Theme.colors.text,
+    marginTop: Theme.spacing.md,
   },
   loadingSubtext: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 8,
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+    marginTop: Theme.spacing.sm,
     textAlign: 'center',
   },
   resultCard: {
-    padding: 24,
-    backgroundColor: '#FFFFFF',
+    padding: Theme.spacing.lg,
+    backgroundColor: Theme.colors.card,
     borderColor: '#10B981',
     borderWidth: 1,
     borderRadius: 24,
@@ -583,37 +577,36 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: Theme.colors.background,
   },
   resultIcon: {
     fontSize: 28,
   },
   resultTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Theme.typography.h3,
     color: '#10B981',
   },
   resultSection: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   resultLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     textTransform: 'uppercase',
-    color: '#64748B',
-    marginBottom: 8,
+    color: Theme.colors.textSec,
+    marginBottom: Theme.spacing.sm,
   },
   diseaseName: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   confidenceContainer: {
     gap: 8,
   },
   confidenceBar: {
     height: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     borderRadius: 4,
     overflow: 'hidden',
   },
@@ -622,28 +615,28 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   confidenceText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
   },
   descriptionText: {
-    fontSize: 14,
-    color: '#475569',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     lineHeight: 20,
   },
   precautionItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   precautionBullet: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#10B981',
-    marginRight: 8,
+    marginRight: Theme.spacing.sm,
   },
   precautionText: {
     flex: 1,
-    fontSize: 14,
-    color: '#475569',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     lineHeight: 20,
   },
   disclaimer: {
@@ -651,8 +644,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
     padding: 12,
     borderRadius: 10,
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     gap: 10,
   },
   disclaimerIcon: {
@@ -660,20 +653,20 @@ const styles = StyleSheet.create({
   },
   disclaimerText: {
     flex: 1,
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#92400E',
     lineHeight: 16,
   },
   resetBtn: {
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   infoGrid: {
     gap: 12,
   },
   infoCard: {
-    padding: 16,
+    padding: Theme.spacing.md,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 24,
     elevation: 2,
     shadowColor: '#000',
@@ -683,17 +676,17 @@ const styles = StyleSheet.create({
   },
   infoIcon: {
     fontSize: 28,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   infoTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 4,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.xs,
   },
   infoText: {
-    fontSize: 12,
-    color: '#64748B',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     textAlign: 'center',
   },
 });

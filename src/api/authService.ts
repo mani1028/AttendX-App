@@ -25,6 +25,31 @@ type LoginResponse = {
     user_name?: string;
     name?: string;
     is_class_teacher?: boolean;
+    token?: string;
+    access_token?: string;
+    principal_employee_id?: string;
+    principal_email?: string;
+    principal_address?: string;
+    blood_group?: string;
+    bloodGroup?: string;
+    branch_name?: string;
+  };
+  principal_employee_id?: string;
+  principal_email?: string;
+  principal_address?: string;
+  blood_group?: string;
+  bloodGroup?: string;
+  school_name?: string;
+  schoolName?: string;
+  school?: {
+    school_name?: string;
+    name?: string;
+  };
+  branch_name?: string;
+  branchName?: string;
+  branch?: {
+    branch_name?: string;
+    name?: string;
   };
   data?: LoginResponse;
 };
@@ -52,7 +77,7 @@ export type NormalizedLoginResponse = {
 
 function pickTokenValue(...values: Array<string | undefined | null>) {
   for (const value of values) {
-    if (typeof value === 'string' && value.trim()) return value;
+    if (typeof value === 'string' && value.trim()) {return value;}
   }
   return undefined;
 }
@@ -106,7 +131,7 @@ async function postWithFallback<TPayload>(endpoints: string[], payload: TPayload
         };
         const p = payload as any;
         const schoolCode = p.school_code || p.schoolCode || p.school_id;
-        if (schoolCode) headers['X-School-Code'] = schoolCode;
+        if (schoolCode) {headers['X-School-Code'] = schoolCode;}
         const res = await postCleanJson(url, payload, headers, signal);
         return res;
       }
@@ -134,7 +159,7 @@ function normalizeLoginResponse(data: LoginResponse, fallbackRole: AppRole): Nor
   const name = payload.user?.name ?? payload.user?.full_name ?? payload.user?.username ?? payload.user?.user_name;
   // Student login returns roll_no in user object; fall back to student_id for other cases
   const studentId = payload.user?.student_id ?? payload.user?.roll_no ?? payload.user?.roll_number;
-  
+
   const principalEmployeeId = payload.user?.principal_employee_id ?? payload.principal_employee_id;
   const principalEmail = payload.user?.principal_email ?? payload.principal_email;
   const principalAddress = payload.user?.principal_address ?? payload.principal_address;

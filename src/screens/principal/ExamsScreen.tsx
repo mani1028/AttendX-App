@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -9,7 +10,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
   useWindowDimensions,
@@ -27,13 +27,19 @@ import {
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
-import { Theme } from '../../theme/theme';
+
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { formatErrorMessage } from '../../utils/helpers';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import { Theme, C } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
+
 
 
 // Types
@@ -91,7 +97,6 @@ export default function ExamsPage() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
   const [activeTab, setActiveTab] = useState<'list' | 'add' | 'classwise'>('list');
@@ -115,34 +120,24 @@ export default function ExamsPage() {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   const loadCredentials = async () => {
     try {
-      const storedSchoolCode = await AsyncStorage.getItem('school_code') ||
-        await AsyncStorage.getItem('schoolCode') ||
-        await AsyncStorage.getItem('school_id') ||
-        await AsyncStorage.getItem('schoolId') || '';
-      
-      const storedBranchId = await AsyncStorage.getItem('branch_id') ||
-        await AsyncStorage.getItem('branchId') ||
+      const storedSchoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) || '';
+
+      const storedBranchId = await storage.getString(StorageKeys.BRANCH_ID) ||
+        await storage.getString(StorageKeys.BRANCH_ID) ||
         await AsyncStorage.getItem('branch_code') ||
         await AsyncStorage.getItem('branchCode') || '';
 
       setSchoolCode(storedSchoolCode);
       setBranchId(storedBranchId);
-      
+
       if (storedSchoolCode && storedBranchId) {
         loadExams(storedSchoolCode, storedBranchId);
       }
@@ -155,8 +150,8 @@ export default function ExamsPage() {
     const headers: any = {};
     const resolvedSchool = code || schoolCode;
     const resolvedBranch = branch || branchId;
-    if (resolvedSchool) headers['X-School-Code'] = resolvedSchool;
-    if (resolvedBranch) headers['X-Branch-Id'] = resolvedBranch;
+    if (resolvedSchool) {headers['X-School-Code'] = resolvedSchool;}
+    if (resolvedBranch) {headers['X-Branch-Id'] = resolvedBranch;}
     return headers;
   };
 
@@ -167,15 +162,15 @@ export default function ExamsPage() {
   const loadExams = async (code?: string, branch?: string) => {
     const school = code || schoolCode;
     const branchIdVal = branch || branchId;
-    
+
     if (!school || !branchIdVal) {
       setError('Missing school or branch context. Please login again.');
       return;
     }
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
       const res = await API.get('/principal/exams/list', { headers: buildHeaders(school, branchIdVal) });
       const examsData = Array.isArray(res.data?.items) ? res.data.items.filter(Boolean) : [];
@@ -215,10 +210,10 @@ export default function ExamsPage() {
       Alert.alert('Error', 'Academic year can only be current year or future years');
       return;
     }
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
       await API.post('/principal/exams/create', formData, { headers: getHeaders() });
       setFormData({
@@ -240,7 +235,7 @@ export default function ExamsPage() {
   const viewClasswisePerformance = async (examId: number) => {
     setLoading(true);
     setError('');
-    
+
     try {
       const res = await API.get(`/principal/exams/${examId}/marks`, { headers: getHeaders() });
       setMarksReport(res.data);
@@ -267,7 +262,7 @@ export default function ExamsPage() {
   };
 
   const renderExamCard = (exam: Exam) => (
-    <TouchableOpacity
+    <TouchableOpacity accessibilityRole="button"
       key={exam.exam_id}
       style={styles.examCard}
       onPress={() => viewClasswisePerformance(exam.exam_id)}
@@ -280,7 +275,7 @@ export default function ExamsPage() {
           </View>
         </View>
       </View>
-      
+
       <View style={styles.examInfo}>
         <View style={styles.infoRow}>
           <AppText style={styles.infoLabel} weight="semibold">Academic Year</AppText>
@@ -313,8 +308,8 @@ export default function ExamsPage() {
           <AppText style={styles.infoValue} weight="bold">{new Date(exam.creation_date).toLocaleDateString()}</AppText>
         </View>
       </View>
-      
-      <TouchableOpacity
+
+      <TouchableOpacity accessibilityRole="button"
         style={styles.actionBtnSecondary}
         onPress={() => viewClasswisePerformance(exam.exam_id)}
       >
@@ -365,7 +360,7 @@ export default function ExamsPage() {
   const renderStudentCard = (student: StudentMarks, index: number) => (
     <View key={student.student_id} style={styles.studentCardMobile}>
       <View style={styles.studentCardMobileHeader}>
-        <View style={{ flex: 1, paddingRight: 8 }}>
+        <View style={{ flex: 1, paddingRight: Theme.spacing.sm }}>
           <AppText style={styles.studentCardMobileName} weight="bold">
             {student.student_name}
           </AppText>
@@ -379,9 +374,9 @@ export default function ExamsPage() {
           </AppText>
         </View>
       </View>
-      
+
       <View style={styles.studentCardMobileDivider} />
-      
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.studentCardMobileScroll}>
         {student.subjects.map((subject, idx) => (
           <View key={idx} style={styles.subjectChipMobile}>
@@ -399,7 +394,7 @@ export default function ExamsPage() {
           </View>
         ))}
       </ScrollView>
-      
+
       <View style={styles.studentCardMobileFooter}>
         <AppText style={styles.studentCardMobileFooterText}>
           Total: <AppText weight="bold" style={{ color: C.text }}>{student.total_marks}/{student.total_max_marks}</AppText>
@@ -409,7 +404,7 @@ export default function ExamsPage() {
   );
 
   const renderListTab = () => (
-    <ScrollView 
+    <ScrollView
       style={styles.tabContent}
       onScroll={handleScroll}
       scrollEventThrottle={16}
@@ -442,7 +437,7 @@ export default function ExamsPage() {
     >
       <View style={styles.formPanel}>
         <AppText style={styles.formTitle} weight="bold">Create New Exam</AppText>
-        
+
         <View style={styles.formGroup}>
           <AppText style={styles.label} weight="bold">Exam Name</AppText>
           <TextInput
@@ -453,7 +448,7 @@ export default function ExamsPage() {
             onChangeText={(text) => setFormData({ ...formData, exam_name: text })}
           />
         </View>
-        
+
         <View style={styles.formGroup}>
           <AppText style={styles.label} weight="bold">Academic Year</AppText>
           <TextInput
@@ -464,17 +459,17 @@ export default function ExamsPage() {
             onChangeText={(text) => setFormData(prev => ({ ...prev, academic_year: text }))}
           />
         </View>
-        
-        <TouchableOpacity
+
+        <TouchableOpacity accessibilityRole="button"
           style={styles.submitBtn}
           onPress={createExam}
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={Theme.colors.card} />
           ) : (
             <>
-              <Plus size={14} color="#fff" />
+              <Plus size={14} color={Theme.colors.card} />
               <AppText style={styles.submitBtnText} weight="bold">Create Exam</AppText>
             </>
           )}
@@ -498,7 +493,7 @@ export default function ExamsPage() {
     const groupedStudents: Record<string, StudentMarks[]> = {};
     studentsList.forEach(student => {
       const key = `${student.class_grade}-${student.section}`;
-      if (!groupedStudents[key]) groupedStudents[key] = [];
+      if (!groupedStudents[key]) {groupedStudents[key] = [];}
       groupedStudents[key].push(student);
     });
 
@@ -553,14 +548,14 @@ export default function ExamsPage() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Standardized Header */}
       <View
         style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}
       >
         <View style={styles.headerTop}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.iconButton}
             onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
           >
@@ -569,7 +564,7 @@ export default function ExamsPage() {
           <View style={styles.headerTitleContainer}>
             <AppText weight="bold" style={styles.headerTitle}>Exam Management</AppText>
           </View>
-          <TouchableOpacity style={styles.iconButton} onPress={() => loadExams()}>
+          <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={() => loadExams()}>
             <RefreshCw size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
           </TouchableOpacity>
         </View>
@@ -590,33 +585,33 @@ export default function ExamsPage() {
       {/* Tabs */}
       <View style={styles.tabOuterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScrollContainer}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.tabItem, activeTab === 'list' && styles.tabItemActive]}
             onPress={() => setActiveTab('list')}
             activeOpacity={0.8}
           >
-            <ClipboardList size={16} color={activeTab === 'list' ? '#fff' : C.textMuted} />
+            <ClipboardList size={16} color={activeTab === 'list' ? Theme.colors.card : C.textMuted} />
             <AppText style={[styles.tabItemText, activeTab === 'list' && styles.tabItemTextActive]} weight="bold">
               All Exams
             </AppText>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.tabItem, activeTab === 'add' && styles.tabItemActive]}
             onPress={() => setActiveTab('add')}
             activeOpacity={0.8}
           >
-            <Plus size={16} color={activeTab === 'add' ? '#fff' : C.textMuted} />
+            <Plus size={16} color={activeTab === 'add' ? Theme.colors.card : C.textMuted} />
             <AppText style={[styles.tabItemText, activeTab === 'add' && styles.tabItemTextActive]} weight="bold">
               Create Exam
             </AppText>
           </TouchableOpacity>
           {selectedExam && (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.tabItem, activeTab === 'classwise' && styles.tabItemActive]}
               onPress={() => setActiveTab('classwise')}
               activeOpacity={0.8}
             >
-              <TrendingUp size={16} color={activeTab === 'classwise' ? '#fff' : C.textMuted} />
+              <TrendingUp size={16} color={activeTab === 'classwise' ? Theme.colors.card : C.textMuted} />
               <AppText style={[styles.tabItemText, activeTab === 'classwise' && styles.tabItemTextActive]} weight="bold">
                 Performance
               </AppText>
@@ -678,7 +673,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
@@ -688,8 +683,8 @@ const styles = StyleSheet.create({
   headerSubtext: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
     opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   toolbar: {
     flexDirection: 'row',
@@ -704,10 +699,10 @@ const styles = StyleSheet.create({
     borderColor: C.border,
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
   },
   refreshBtnText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text,
   },
   addBtn: {
@@ -719,23 +714,23 @@ const styles = StyleSheet.create({
     borderColor: C.primary,
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
   },
   addBtnText: {
-    fontSize: 12,
-    color: '#fff',
+    ...Theme.typography.caption,
+    color: Theme.colors.card,
   },
   errorContainer: {
     backgroundColor: C.errorSoft,
     padding: 14,
     marginHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     borderRadius: 10,
     borderWidth: 1.5,
     borderColor: C.error,
   },
   errorText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.error,
   },
   tabContainer: {
@@ -743,11 +738,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1.5,
     borderBottomColor: C.border,
     marginHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   tab: {
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
@@ -755,7 +750,7 @@ const styles = StyleSheet.create({
     borderBottomColor: C.primary,
   },
   tabText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.textMuted,
   },
   activeTabText: {
@@ -763,12 +758,12 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingHorizontal: Theme.spacing.md,
+    paddingTop: Theme.spacing.sm,
   },
   examGrid: {
     gap: 16,
-    paddingBottom: 24,
+    paddingBottom: Theme.spacing.lg,
   },
   examCard: {
     backgroundColor: C.card,
@@ -781,10 +776,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   examName: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: C.text,
     flex: 1,
   },
@@ -795,17 +790,17 @@ const styles = StyleSheet.create({
   badge: {
     backgroundColor: C.primarySoft,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 6,
   },
   badgeText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.primary,
     textTransform: 'uppercase',
   },
   examInfo: {
     gap: 8,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   infoRow: {
     flexDirection: 'row',
@@ -813,11 +808,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   infoLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
   },
   infoValue: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
@@ -833,7 +828,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   actionBtnSecondaryText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.primary,
   },
   formPanel: {
@@ -850,10 +845,10 @@ const styles = StyleSheet.create({
     color: C.text,
   },
   formGroup: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   label: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     color: C.textMuted,
@@ -864,7 +859,7 @@ const styles = StyleSheet.create({
     borderColor: C.border,
     borderRadius: 8,
     padding: 12,
-    fontSize: 14,
+    ...Theme.typography.body,
     backgroundColor: C.bg,
     color: C.text,
   },
@@ -876,11 +871,11 @@ const styles = StyleSheet.create({
     backgroundColor: C.success,
     borderRadius: 8,
     paddingVertical: 12,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   submitBtnText: {
-    fontSize: 14,
-    color: '#fff',
+    ...Theme.typography.body,
+    color: Theme.colors.card,
   },
   yearSelectorRow: {
     flexDirection: 'row',
@@ -902,7 +897,7 @@ const styles = StyleSheet.create({
     color: C.text,
   },
   yearSelectorHint: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.textMuted,
   },
   yearNextBtn: {
@@ -912,8 +907,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   yearNextBtnText: {
-    fontSize: 12,
-    color: '#fff',
+    ...Theme.typography.caption,
+    color: Theme.colors.card,
   },
   chipRow: {
     flexDirection: 'row',
@@ -933,24 +928,24 @@ const styles = StyleSheet.create({
     borderColor: C.primary,
   },
   choiceChipText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text,
   },
   choiceChipTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   helperText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
     paddingVertical: 10,
   },
   noData: {
-    padding: 32,
+    padding: Theme.spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
   noDataText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.textMuted,
     marginTop: 12,
   },
@@ -965,28 +960,28 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 18,
     color: C.text,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   infoSubtitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.textMuted,
   },
   classSectionContainer: {
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   classSectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
-    paddingHorizontal: 4,
+    paddingHorizontal: Theme.spacing.xs,
   },
   classSectionTitle: {
     fontSize: 16,
     color: C.text,
   },
   studentCount: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
   },
   tableContainer: {
@@ -1005,7 +1000,7 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   headerCell: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text,
   },
   headerCellName: {
@@ -1038,7 +1033,7 @@ const styles = StyleSheet.create({
     color: C.text,
   },
   rollNumber: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.textMuted,
     marginTop: 2,
   },
@@ -1047,7 +1042,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   classText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text,
   },
   tableCellSubjects: {
@@ -1055,14 +1050,14 @@ const styles = StyleSheet.create({
   },
   subjectChip: {
     backgroundColor: C.bg,
-    paddingHorizontal: 8,
+    paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 6,
     borderRadius: 8,
-    marginRight: 8,
+    marginRight: Theme.spacing.sm,
     minWidth: 80,
   },
   subjectName: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.text,
   },
   subjectMarks: {
@@ -1079,15 +1074,15 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   totalMarks: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text,
   },
   percentage: {
-    fontSize: 11,
+    ...Theme.typography.label,
     marginTop: 2,
   },
   grade: {
-    fontSize: 11,
+    ...Theme.typography.label,
     marginTop: 2,
   },
   tabOuterContainer: {
@@ -1095,11 +1090,11 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     borderTopRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     marginTop: -HEADER_CONSTANTS.BORDER_RADIUS,
-    paddingTop: 16,
+    paddingTop: Theme.spacing.md,
     zIndex: 10,
   },
   tabScrollContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     flexDirection: 'row',
     gap: 8,
     paddingBottom: 10,
@@ -1109,7 +1104,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     borderRadius: 12,
     backgroundColor: 'rgba(226, 232, 240, 0.4)',
     borderWidth: 1,
@@ -1134,7 +1129,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 16,
-    padding: 16,
+    padding: Theme.spacing.md,
     ...Platform.select({
       android: { elevation: 2 },
       ios: {
@@ -1151,21 +1146,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   studentCardMobileName: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: C.text,
   },
   studentCardMobileRoll: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
     marginTop: 2,
   },
   studentCardMobileBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 6,
   },
   studentCardMobileBadgeText: {
-    fontSize: 11,
+    ...Theme.typography.label,
   },
   studentCardMobileDivider: {
     height: 1,
@@ -1174,20 +1169,20 @@ const styles = StyleSheet.create({
   },
   studentCardMobileScroll: {
     gap: 8,
-    paddingBottom: 4,
+    paddingBottom: Theme.spacing.xs,
   },
   subjectChipMobile: {
     backgroundColor: 'rgba(241, 245, 249, 0.8)',
     borderWidth: 1,
     borderColor: 'rgba(226, 232, 240, 0.6)',
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 12,
     minWidth: 90,
     alignItems: 'center',
   },
   subjectChipMobileName: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.text,
   },
   subjectChipMobileMarks: {
@@ -1199,7 +1194,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   subjectChipMobileGrade: {
     fontSize: 10,
@@ -1212,7 +1207,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   studentCardMobileFooterText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.muted,
   },
 });

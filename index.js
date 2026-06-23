@@ -6,6 +6,14 @@ import 'react-native-url-polyfill/auto';
 import 'react-native-gesture-handler';
 
 // Polyfill for Array.prototype.findLastIndex and findLast for older JS engines
+
+// Make console.log/warn/error a no-op in production builds
+if (!__DEV__) {
+  console.log = () => {};
+  console.warn = () => {};
+  console.error = () => {};
+}
+
 if (!Array.prototype.findLastIndex) {
   Array.prototype.findLastIndex = function (predicate, thisArg) {
     if (typeof predicate !== 'function') return -1;

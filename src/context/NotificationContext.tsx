@@ -7,6 +7,9 @@ import { safeJsonParse } from '../utils/storage';
 import eventEmitter from '../utils/eventEmitter';
 import { isJwtExpired } from '../utils/jwt';
 import { loadScopedNotificationIds } from '../utils/notificationStorage';
+import { storage } from '../storage/storage';
+import { StorageKeys } from '../storage/StorageKeys';
+
 
 interface NotificationContextType {
   unreadCount: number;
@@ -65,8 +68,8 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
     unreadCountInFlight = (async () => {
     try {
       setIsLoading(true);
-      const role = (await AsyncStorage.getItem('user_role')) || (await AsyncStorage.getItem('userRole'));
-      const token = (await AsyncStorage.getItem('token')) || null;
+      const role = (await AsyncStorage.getItem('user_role')) || (await storage.getString(StorageKeys.USER_ROLE));
+      const token = (await storage.getSecure(StorageKeys.AUTH_TOKEN)) || null;
 
       // If there is no token or token is expired, stop polling and trigger logout
       if (!token || isJwtExpired(token)) {
@@ -89,7 +92,7 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
       }
 
       let normalizedRole = role.toLowerCase();
-      if (['teacher', 'accountant'].includes(normalizedRole)) {
+      if (normalizedRole !== 'principal' && normalizedRole !== 'student') {
         normalizedRole = 'staff';
       }
       const endpoint = `/notifications/${normalizedRole}/list`;
@@ -103,7 +106,7 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
           break;
         } catch (e) {
           attempt += 1;
-          if (attempt >= maxAttempts) throw e;
+          if (attempt >= maxAttempts) {throw e;}
           // small backoff before retrying
           await new Promise<void>(resolve => setTimeout(resolve, 500 * attempt));
         }
@@ -140,7 +143,7 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
           },
         });
       }
-      
+
       // Update app badge count
       await notificationService.updateBadgeCount(unread);
     } catch (err) {
@@ -168,7 +171,7 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
   // Setup global polling when provider mounts
   useEffect(() => {
     activeSubscribers++;
-    
+
     // Only start polling if this is the first subscriber
     if (activeSubscribers === 1 && !globalPollingInterval) {
       // Fetch immediately (this will validate token and may stop polling)
@@ -184,7 +187,7 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
 
     return () => {
       activeSubscribers--;
-      
+
       // Stop polling when last subscriber unmounts
       if (activeSubscribers === 0 && globalPollingInterval) {
         clearInterval(globalPollingInterval);
@@ -203,10 +206,10 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
 
 export const useUnreadNotifications = () => {
   const context = useContext(NotificationContext);
-  
+
   if (!context) {
     throw new Error('useUnreadNotifications must be used within NotificationContextProvider');
   }
-  
+
   return context;
 };

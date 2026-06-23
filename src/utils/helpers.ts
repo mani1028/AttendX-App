@@ -3,7 +3,7 @@
  * or array of validation error objects) into a single displayable string.
  */
 export const formatErrorMessage = (detail: any): string => {
-  if (!detail) return '';
+  if (!detail) {return '';}
 
   if (typeof detail === 'string') {
     return detail;
@@ -12,7 +12,7 @@ export const formatErrorMessage = (detail: any): string => {
   if (Array.isArray(detail)) {
     return detail
       .map((item) => {
-        if (typeof item === 'string') return item;
+        if (typeof item === 'string') {return item;}
         // Handle FastAPI-style validation errors: [{ msg: "...", loc: [...], type: "..." }]
         if (item && typeof item === 'object' && item.msg) {
           // If there's a location, prepend it for more context (e.g., "body -> username: field required")

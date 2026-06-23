@@ -13,19 +13,19 @@ import {
   Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { 
-  User, 
-  Check, 
-  Plus, 
-  LogOut, 
-  Users, 
+import {
+  User,
+  Check,
+  Plus,
+  LogOut,
+  Users,
   ChevronRight,
   ShieldCheck,
   GraduationCap,
-  X
+  X,
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
 import { getLinkedProfiles, switchProfile } from '../../services/studentService';
 import { setSessionData } from '../../utils/authSession';
 import { setAuthToken } from '../../services/api';
@@ -39,23 +39,23 @@ interface Props {
 }
 
 const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
-  const { 
-    userRole, 
-    userName, 
-    userToken, 
-    savedAccounts, 
-    switchToAccount, 
-    logoutAccount, 
+  const {
+    userRole,
+    userName,
+    userToken,
+    savedAccounts,
+    switchToAccount,
+    logoutAccount,
     addNewAccount,
-    refreshAuth 
+    refreshAuth,
   } = useAuth();
   const navigation = useNavigation();
-  
+
   const [linkedProfiles, setLinkedProfiles] = useState<any[]>([]);
   const [currentRoll, setCurrentRoll] = useState<string>('');
   const [loadingLinked, setLoadingLinked] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
-  
+
   const slideAnim = useRef(new Animated.Value(0.95)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -65,7 +65,7 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
       if (userRole?.toLowerCase() === 'student') {
         fetchLinked();
       }
-      
+
       Animated.parallel([
         Animated.timing(opacityAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
         Animated.spring(slideAnim, { toValue: 1, friction: 10, useNativeDriver: true }),
@@ -84,25 +84,25 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
 
     // Add saved accounts first
     for (const acc of saved || []) {
-      if (!acc || !acc.token) continue;
+      if (!acc || !acc.token) {continue;}
       // Use account id if present, else fallback to token
       const key = String(acc.id ?? acc.token).trim();
-      if (!key) continue;
+      if (!key) {continue;}
       // Skip current active session
-      if (acc.token && currentToken && acc.token === currentToken) continue;
+      if (acc.token && currentToken && acc.token === currentToken) {continue;}
       map.set(key, { type: 'saved', key, data: acc });
     }
 
     // Add linked profiles, keyed by roll_no to avoid duplicates
     for (const p of linked || []) {
       const roll = String(p?.roll_no ?? p?.student_id ?? '').trim();
-      if (!roll) continue;
-      if (roll && currentRoll && roll === currentRoll) continue;
+      if (!roll) {continue;}
+      if (roll && currentRoll && roll === currentRoll) {continue;}
       // If saved session already exists for same roll, skip adding linked duplicate
       if (Array.from(map.values()).some(v => v.type === 'saved' && String(v.data?.student_id ?? v.data?.roll_no ?? '') === roll)) {
         continue;
       }
-      if (!map.has(roll)) map.set(roll, { type: 'linked', key: roll, data: p });
+      if (!map.has(roll)) {map.set(roll, { type: 'linked', key: roll, data: p });}
     }
 
     return Array.from(map.values());
@@ -118,9 +118,9 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
       const map = new Map<string, any>();
       for (const p of profiles || []) {
         const roll = String(p?.roll_no ?? p?.student_id ?? '').trim();
-        if (!roll) continue;
-        if (roll === String(currentRollLocal)) continue;
-        if (!map.has(roll)) map.set(roll, p);
+        if (!roll) {continue;}
+        if (roll === String(currentRollLocal)) {continue;}
+        if (!map.has(roll)) {map.set(roll, p);}
       }
       setLinkedProfiles(Array.from(map.values()));
     } catch (e) {
@@ -134,7 +134,7 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
     setSwitching(account.id);
     const success = await switchToAccount(account);
     setSwitching(null);
-    if (success) onClose();
+    if (success) {onClose();}
   };
 
   const handleSwitchLinked = async (profile: any) => {
@@ -153,7 +153,7 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
             name: profile.student_full_name,
             student_id: profile.roll_no,
             roll_no: profile.roll_no,
-          }
+          },
         };
         await setSessionData(sessionData);
         setAuthToken(res.token);
@@ -175,27 +175,27 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
   const renderRoleIcon = (role: string) => {
     switch (role?.toLowerCase()) {
       case 'student': return <GraduationCap size={20} color={Theme.colors.primary} />;
-      case 'teacher': 
-      case 'staff': return <ShieldCheck size={20} color="#10b981" />;
-      default: return <User size={20} color="#64748b" />;
+      case 'teacher':
+      case 'staff': return <ShieldCheck size={20} color={Theme.colors.success} />;
+      default: return <User size={20} color={Theme.colors.textSec} />;
     }
   };
 
   const getInitials = (name?: string) => {
-    if (!name) return '';
+    if (!name) {return '';}
     const parts = name.trim().split(' ');
-    if (parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+    if (parts.length === 1) {return parts[0].slice(0,2).toUpperCase();}
     return (parts[0][0] + parts[1][0]).toUpperCase();
   };
 
   const renderAvatar = (account: any, size = 56) => {
     const bg = account?.avatar_bg || '#eef2ff';
     if (account?.avatar) {
-      return <Image source={{ uri: account.avatar }} style={{ width: size, height: size, borderRadius: size/2 }} />;
+      return <Image source={{ uri: account.avatar }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
     }
     return (
-      <View style={{ width: size, height: size, borderRadius: size/2, backgroundColor: bg, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: '#0f172a', fontWeight: '700' }}>{getInitials(account?.name || account?.student_full_name)}</Text>
+      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: bg, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: Theme.colors.text, fontWeight: '700' }}>{getInitials(account?.name || account?.student_full_name)}</Text>
       </View>
     );
   };
@@ -206,14 +206,14 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
           <Animated.View style={[styles.backdrop, { opacity: opacityAnim }]} />
         </Pressable>
-        
+
         <Animated.View style={[styles.sheet, { transform: [{ scale: slideAnim }], opacity: opacityAnim }]}>
           <View style={styles.topAccent} pointerEvents="none">
             <View style={styles.topAccentLeft} />
             <View style={styles.topAccentRight} />
           </View>
           <View style={styles.cardHeader}>
-            <View style={styles.headerIcon}><Users size={20} color="#fff" /></View>
+            <View style={styles.headerIcon}><Users size={20} color={Theme.colors.card} /></View>
             <Text style={styles.title}>Switch Account</Text>
             <Text style={styles.subtitle}>Select an account to log in</Text>
           </View>
@@ -222,27 +222,27 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
             {/* Instagram-like horizontal avatars */}
             {(() => {
               const combined = buildCombinedOthers(savedAccounts || [], linkedProfiles || [], userToken || undefined, currentRoll);
-              if (combined.length === 0) return null;
+              if (combined.length === 0) {return null;}
               return (
-                <View style={{ paddingVertical: 8 }}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 8 }}>
+                <View style={{ paddingVertical: Theme.spacing.sm }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: Theme.spacing.sm }}>
                     {combined.map(entry => {
                       const account = entry.data;
                       const key = entry.key;
                       const isActive = (account.token && account.token === userToken) || false;
                       return (
-                        <TouchableOpacity key={key} style={{ alignItems: 'center', marginHorizontal: 8 }} onPress={() => entry.type === 'saved' ? handleSwitchSaved(account) : handleSwitchLinked(account)}>
+                        <TouchableOpacity key={key} style={{ alignItems: 'center', marginHorizontal: Theme.spacing.sm }} onPress={() => entry.type === 'saved' ? handleSwitchSaved(account) : handleSwitchLinked(account)}>
                           <View style={[styles.avatarRing, isActive ? styles.avatarRingActive : null]}>
                             <View style={styles.avatarWrapper}>
                               {renderAvatar(account, 64)}
                               {isActive && (
                                 <View style={styles.avatarBadge}>
-                                  <Check size={12} color="#fff" />
+                                  <Check size={12} color={Theme.colors.card} />
                                 </View>
                               )}
                             </View>
                           </View>
-                          <Text style={{ marginTop: 8, fontSize: 13, color: '#1e293b', fontWeight: '600' }} numberOfLines={1}>{account.name || account.student_full_name}</Text>
+                          <Text style={{ marginTop: Theme.spacing.sm, fontSize: 13, color: '#1e293b', fontWeight: '600' }} numberOfLines={1}>{account.name || account.student_full_name}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -252,10 +252,10 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
             })()}
             {/* Single-line account list similar to web design */}
             {/* CURRENT ACCOUNT */}
-            <View style={styles.sectionCard}> 
+            <View style={styles.sectionCard}>
               <View style={styles.accountRow}>
-                <View style={[styles.avatarContainer, { width: 64, height: 64, borderRadius: 32 }]}> 
-                  <User size={28} color="#fff" />
+                <View style={[styles.avatarContainer, { width: 64, height: 64, borderRadius: 32 }]}>
+                  <User size={28} color={Theme.colors.card} />
                 </View>
                 <View style={styles.itemInfoSmall}>
                   <Text style={styles.itemName}>{userName}</Text>
@@ -270,7 +270,7 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
             {/* OTHER ACCOUNTS: merge saved sessions + linked family profiles (deduped) */}
             {(() => {
               const combined = buildCombinedOthers(savedAccounts || [], linkedProfiles || [], userToken || undefined, currentRoll);
-              if (combined.length === 0) return null;
+              if (combined.length === 0) {return null;}
               return (
                 <View style={styles.sectionCard}>
                   <Text style={styles.sectionTitle}>Other Active Sessions</Text>
@@ -278,7 +278,7 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
                     if (entry.type === 'saved') {
                       const account = entry.data;
                       const isActive = account.token === userToken;
-                      if (isActive) return null;
+                      if (isActive) {return null;}
                       return (
                         <TouchableOpacity
                           key={`saved-${entry.key}`}
@@ -286,7 +286,7 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
                           onPress={() => handleSwitchSaved(account)}
                           disabled={!!switching}
                         >
-                          <View style={[styles.avatarSmall, { backgroundColor: '#f1f5f9' }]}> 
+                          <View style={[styles.avatarSmall, { backgroundColor: Theme.colors.background }]}>
                             {renderRoleIcon(account.role)}
                           </View>
                           <View style={styles.itemInfo}>
@@ -297,7 +297,7 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
                             <ActivityIndicator size="small" color={Theme.colors.primary} />
                           ) : (
                             <TouchableOpacity onPress={() => logoutAccount(account.id)}>
-                              <LogOut size={16} color="#ef4444" />
+                              <LogOut size={16} color={Theme.colors.error} />
                             </TouchableOpacity>
                           )}
                         </TouchableOpacity>
@@ -313,7 +313,7 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
                         onPress={() => handleSwitchLinked(profile)}
                         disabled={!!switching}
                       >
-                        <View style={[styles.avatarSmall, { backgroundColor: '#eef2ff' }]}> 
+                        <View style={[styles.avatarSmall, { backgroundColor: '#eef2ff' }]}>
                           <Users size={18} color={Theme.colors.primary} />
                         </View>
                         <View style={styles.itemInfo}>
@@ -340,8 +340,8 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
                   <ActivityIndicator style={{ marginVertical: 10 }} />
                 ) : (
                   linkedProfiles.map(profile => (
-                    <TouchableOpacity 
-                      key={profile.roll_no} 
+                    <TouchableOpacity
+                      key={profile.roll_no}
                       style={styles.item}
                       onPress={() => handleSwitchLinked(profile)}
                       disabled={!!switching}
@@ -365,7 +365,7 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
             )}
 
           </ScrollView>
-          
+
           <View style={styles.footerCard}>
             <TouchableOpacity
               style={styles.primaryButton}
@@ -378,7 +378,7 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
               <Text style={styles.registerText}>New Institution? <Text style={{ color: Theme.colors.primary, fontWeight: '700' }}>Register Now</Text></Text>
             </TouchableOpacity>
 
-            <Text style={styles.helpText}>Need help?{`\n`}support@attendx.in</Text>
+            <Text style={styles.helpText}>Need help?{'\n'}support@attendx.in</Text>
           </View>
         </Animated.View>
       </View>
@@ -396,12 +396,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   sheet: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 20,
-    marginHorizontal: 24,
+    marginHorizontal: Theme.spacing.lg,
     maxHeight: SCREEN_H * 0.86,
     paddingBottom: 20,
-    paddingTop: 24,
+    paddingTop: Theme.spacing.lg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.08,
@@ -447,12 +447,11 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Theme.typography.h3,
     color: '#1e293b',
   },
   subtitle: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#94a3b8',
     marginTop: 6,
     textTransform: 'uppercase',
@@ -460,7 +459,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: 28,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
   },
   sectionCard: {
     marginBottom: 18,
@@ -477,8 +476,8 @@ const styles = StyleSheet.create({
   activeItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
+    padding: Theme.spacing.md,
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#eef2ff',
@@ -490,31 +489,31 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: Theme.spacing.md,
   },
   accountRow: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 14,
     borderRadius: 12,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.background,
   },
   itemInfoSmall: {
     flex: 1,
   },
   roleBadge: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#94a3b8',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   removeBtn: {
-    padding: 8,
-    marginLeft: 8,
+    padding: Theme.spacing.sm,
+    marginLeft: Theme.spacing.sm,
   },
   avatarRing: {
-    padding: 4,
+    padding: Theme.spacing.xs,
     borderRadius: 40,
     borderWidth: 2,
     borderColor: 'transparent',
@@ -532,11 +531,11 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#10b981',
+    backgroundColor: Theme.colors.success,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: Theme.colors.card,
   },
   avatarSmall: {
     width: 40,
@@ -555,13 +554,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemName: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...Theme.typography.h4,
     color: '#1e293b',
   },
   itemRole: {
     fontSize: 13,
-    color: '#64748b',
+    color: Theme.colors.textSec,
     marginTop: 2,
   },
   activeText: {
@@ -572,29 +570,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   addButtonRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     borderRadius: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
   },
   addIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   addText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#64748b',
+    ...Theme.typography.h4,
+    color: Theme.colors.textSec,
   },
   footer: {
     paddingHorizontal: 20,
@@ -606,7 +603,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryButton: {
-    backgroundColor: '#0f172a',
+    backgroundColor: Theme.colors.text,
     paddingVertical: 14,
     borderRadius: 12,
     width: '100%',
@@ -618,21 +615,20 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   primaryText: {
-    color: '#fff',
-    fontWeight: '700',
+    color: Theme.colors.card,
     letterSpacing: 2,
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
   },
   registerText: {
     color: '#94a3b8',
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   helpText: {
-    color: '#64748b',
+    color: Theme.colors.textSec,
     fontSize: 13,
     marginTop: 18,
     textAlign: 'center',
-  }
+  },
 });
 
 export default AccountSwitcher;

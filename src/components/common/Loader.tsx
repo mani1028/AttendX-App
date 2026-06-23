@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Text, ViewStyle } from 'react-native';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
+
+
 
 interface LoaderProps {
   size?: 'sm' | 'md' | 'lg';
@@ -92,6 +94,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: Theme.colors.textMuted,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
 });

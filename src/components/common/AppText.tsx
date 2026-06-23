@@ -1,6 +1,8 @@
 import React from 'react';
 import { Text, TextProps, StyleSheet } from 'react-native';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
+
+
 
 type Weight = 'regular' | 'medium' | 'semibold' | 'bold' | 'extrabold';
 type Variant = 'h1' | 'h2' | 'h3' | 'h4' | 'body' | 'bodyMd' | 'caption' | 'label';
@@ -47,52 +49,48 @@ export default function AppText({
 
 const styles = StyleSheet.create({
   h1: {
-    fontSize: 28,
-    fontWeight: '800',
+    ...Theme.typography.h1,
     letterSpacing: -0.8,
     color: Theme.colors.text,
     lineHeight: 34,
   },
   h2: {
-    fontSize: 22,
-    fontWeight: '700',
+    ...Theme.typography.h2,
     letterSpacing: -0.5,
     color: Theme.colors.text,
     lineHeight: 28,
   },
   h3: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Theme.typography.h3,
     letterSpacing: -0.3,
     color: Theme.colors.text,
     lineHeight: 24,
   },
   h4: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...Theme.typography.h4,
     color: Theme.colors.text,
     lineHeight: 22,
   },
   body: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '400',
     color: Theme.colors.text,
     lineHeight: 22,
   },
   bodyMd: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '400',
     color: Theme.colors.text,
     lineHeight: 24,
   },
   caption: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '500',
     color: Theme.colors.textMuted,
     lineHeight: 18,
   },
   label: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',

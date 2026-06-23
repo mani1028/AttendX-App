@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   KeyboardAvoidingView,
@@ -15,8 +16,10 @@ import { AppInput } from '../../components/common/AppInput';
 import AppButton from '../../components/common/AppButton';
 import ScreenContainer from '../../components/ScreenContainer';
 import { formatErrorMessage } from '../../utils/helpers';
-import { Theme } from '../../theme/theme';
-import { ArrowLeft, Key } from 'lucide-react-native';
+
+import { ChevronLeft, Key } from 'lucide-react-native';
+import { Theme } from '../../theme/tokens';
+
 
 export default function VerifyOtpScreen({ route, navigation }: any) {
   const { schoolId, identifier } = route.params;
@@ -36,7 +39,7 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
   }, []);
 
   useEffect(() => {
-    if (resendCooldown <= 0) return;
+    if (resendCooldown <= 0) {return;}
     const timer = setTimeout(() => setResendCooldown(c => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendCooldown]);
@@ -65,7 +68,7 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
   };
 
   const resendOtp = async () => {
-    if (resendCooldown > 0) return;
+    if (resendCooldown > 0) {return;}
     setError('');
     try {
       await authService.requestOtp(schoolId, identifier);
@@ -83,8 +86,8 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
           <View style={styles.blobBottom} />
 
           <View style={styles.topRow}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <ArrowLeft size={20} color="#0d1b2a" />
+            <TouchableOpacity accessibilityRole="button" onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <ChevronLeft size={20} color={Theme.colors.text} />
             </TouchableOpacity>
             <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
             <View style={{ width: 36 }} />
@@ -122,10 +125,10 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
               disabled={loading}
               loading={loading}
               size="lg"
-              style={{ marginTop: 8 }}
+              style={{ marginTop: Theme.spacing.sm }}
             />
 
-            <TouchableOpacity onPress={resendOtp} disabled={resendCooldown > 0} style={styles.resendRow}>
+            <TouchableOpacity accessibilityRole="button" onPress={resendOtp} disabled={resendCooldown > 0} style={styles.resendRow}>
               <Text style={styles.resendText}>Didn't receive the code? </Text>
               <Text style={[styles.resendLink, resendCooldown > 0 && styles.resendDisabled]}>
                 {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
@@ -133,8 +136,8 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
             </TouchableOpacity>
           </Animated.View>
 
-          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.backLink}>
-            <ArrowLeft size={14} color="#8898aa" />
+          <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('ForgotPassword')} style={styles.backLink}>
+            <ChevronLeft size={14} color="#8898aa" />
             <Text style={styles.backLinkText}>Back to Forgot Password</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -144,24 +147,24 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 48 },
+  scroll: { flexGrow: 1, paddingHorizontal: Theme.spacing.lg, paddingBottom: Theme.spacing.xxl },
   blobTop: { position: 'absolute', top: -80, right: -60, width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(0,31,80,0.06)' },
   blobBottom: { position: 'absolute', bottom: -60, left: -80, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(56,189,248,0.05)' },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: 32 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: Theme.spacing.xl },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Theme.colors.background, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 },
   logo: { width: 160, height: 50 },
   card: { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 28, padding: 28, shadowColor: Theme.colors.primary, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 28, elevation: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', alignItems: 'center' },
   iconCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(0,31,80,0.08)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  cardTitle: { fontSize: 22, fontWeight: '800', color: '#0d1b2a', textAlign: 'center', letterSpacing: -0.5, marginBottom: 8 },
-  cardSubtitle: { fontSize: 14, color: '#8898aa', textAlign: 'center', marginBottom: 28, lineHeight: 22 },
+  cardTitle: { fontSize: 22, fontWeight: '800', color: Theme.colors.text, textAlign: 'center', letterSpacing: -0.5, marginBottom: Theme.spacing.sm },
+  cardSubtitle: { ...Theme.typography.body, color: '#8898aa', textAlign: 'center', marginBottom: 28, lineHeight: 22 },
   identifierText: { color: Theme.colors.primary, fontWeight: '600' },
-  otpInput: { textAlign: 'center', letterSpacing: 12, fontSize: 22, fontWeight: '700' },
-  errorBox: { backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: 12, padding: 12, marginBottom: 12, alignSelf: 'stretch', borderLeftWidth: 3, borderLeftColor: '#dc2626' },
-  errorText: { color: '#dc2626', fontSize: 13, fontWeight: '500' },
+  otpInput: { textAlign: 'center', ...Theme.typography.h2, letterSpacing: 12 },
+  errorBox: { backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: 12, padding: 12, marginBottom: 12, alignSelf: 'stretch', borderLeftWidth: 3, borderLeftColor: Theme.colors.error },
+  errorText: { color: Theme.colors.error, fontSize: 13, fontWeight: '500' },
   resendRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
-  resendText: { fontSize: 14, color: '#8898aa' },
-  resendLink: { fontSize: 14, color: Theme.colors.primary, fontWeight: '600' },
+  resendText: { ...Theme.typography.body, color: '#8898aa' },
+  resendLink: { ...Theme.typography.body, color: Theme.colors.primary, fontWeight: '600' },
   resendDisabled: { color: '#8898aa' },
-  backLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 24, gap: 6 },
-  backLinkText: { fontSize: 14, color: '#8898aa', fontWeight: '500' },
+  backLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: Theme.spacing.lg, gap: 6 },
+  backLinkText: { ...Theme.typography.body, color: '#8898aa', fontWeight: '500' },
 });

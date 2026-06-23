@@ -1,3 +1,4 @@
+import { Theme } from '../../theme/tokens';
 // src/components/common/CalendarView.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -14,18 +15,18 @@ import API from '../../services/api';
 import { formatLocalDateKey, getMonthSundayDates } from '../../utils/holidayUtils';
 
 const Colors = {
-  primary: "#6648dc",
-  primaryLight: "#dbeafe",
-  success: "#059669",
-  danger: "#dc2626",
-  dangerLight: "#fee2e2",
-  amber: "#d97706",
-  bg: "#f0f2f7",
-  cardBg: "#ffffff",
-  border: "#e4e9f2",
-  text: "#0d1b2a",
-  textSecondary: "#4a5568",
-  textMuted: "#8898aa",
+  primary: '#6648dc',
+  primaryLight: '#dbeafe',
+  success: Theme.colors.success,
+  danger: Theme.colors.error,
+  dangerLight: '#fee2e2',
+  amber: '#d97706',
+  bg: '#f0f2f7',
+  cardBg: Theme.colors.card,
+  border: Theme.colors.border,
+  text: Theme.colors.text,
+  textSecondary: '#4a5568',
+  textMuted: '#8898aa',
 };
 
 // Types
@@ -40,10 +41,10 @@ interface Event {
 }
 
 const EVENT_COLORS: Record<string, string> = {
-  holiday: "#dc2626",
-  festival: "#d97706",
-  exam: "#6648dc",
-  event: "#059669",
+  holiday: Theme.colors.error,
+  festival: '#d97706',
+  exam: '#6648dc',
+  event: Theme.colors.success,
 };
 
 interface CalendarViewProps {
@@ -104,7 +105,7 @@ export default function CalendarView({ onEventPress }: CalendarViewProps) {
   }
 
   const getEventsForDate = (date: Date | null): Event[] => {
-    if (!date) return [];
+    if (!date) {return [];}
     const dateStr = formatLocalDateKey(date);
     return events.filter((e) => e.event_date === dateStr);
   };
@@ -146,11 +147,11 @@ export default function CalendarView({ onEventPress }: CalendarViewProps) {
       </View>
 
       <View style={styles.calendarControls}>
-        <TouchableOpacity style={styles.navButton} onPress={handlePrevMonth}>
+        <TouchableOpacity accessibilityRole="button" style={styles.navButton} onPress={handlePrevMonth}>
           <ChevronLeft size={20} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.monthYear}>{monthName}</Text>
-        <TouchableOpacity style={styles.navButton} onPress={handleNextMonth}>
+        <TouchableOpacity accessibilityRole="button" style={styles.navButton} onPress={handleNextMonth}>
           <ChevronRight size={20} color={Colors.text} />
         </TouchableOpacity>
       </View>
@@ -171,7 +172,7 @@ export default function CalendarView({ onEventPress }: CalendarViewProps) {
           const isOtherMonth = !date;
           const isSunday = Boolean(date && date.getDay() === 0);
           return (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={idx}
               style={[
                 styles.dayCell,
@@ -193,7 +194,7 @@ export default function CalendarView({ onEventPress }: CalendarViewProps) {
                   </View>
                   {isSunday && <Text style={styles.holidayLabel}>Sunday</Text>}
                   {dayEvents.slice(0, 2).map((evt) => (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={evt.event_id}
                       style={[
                         styles.eventBadge,
@@ -221,7 +222,7 @@ export default function CalendarView({ onEventPress }: CalendarViewProps) {
         <View style={styles.eventsList}>
           <Text style={styles.eventsTitle}>📌 Upcoming Events</Text>
           {upcomingEvents.map((event) => (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={event.event_id}
               style={[
                 styles.eventItem,
@@ -271,7 +272,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     color: Colors.textMuted,
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   header: {
     marginBottom: 20,
@@ -296,8 +297,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   monthYear: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Theme.typography.h3,
     color: Colors.text,
     minWidth: 150,
     textAlign: 'center',
@@ -309,10 +309,10 @@ const styles = StyleSheet.create({
   weekday: {
     flex: 1,
     textAlign: 'center',
+    ...Theme.typography.caption,
     fontWeight: '700',
-    fontSize: 12,
     color: Colors.textMuted,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     textTransform: 'uppercase',
   },
   daysGrid: {
@@ -343,9 +343,9 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   dayNumber: {
+    ...Theme.typography.caption,
     fontWeight: '600',
-    fontSize: 12,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
     color: Colors.text,
   },
   holidayLabel: {
@@ -356,14 +356,14 @@ const styles = StyleSheet.create({
   },
   eventBadge: {
     borderRadius: 4,
-    paddingHorizontal: 4,
+    paddingHorizontal: Theme.spacing.xs,
     paddingVertical: 2,
     marginBottom: 2,
   },
   eventText: {
     fontSize: 8,
     fontWeight: '500',
-    color: '#fff',
+    color: Theme.colors.card,
   },
   moreEvents: {
     fontSize: 8,
@@ -371,8 +371,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   eventsList: {
-    marginTop: 24,
-    paddingTop: 24,
+    marginTop: Theme.spacing.lg,
+    paddingTop: Theme.spacing.lg,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
@@ -390,19 +390,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   eventTitle: {
+    ...Theme.typography.body,
     fontWeight: '600',
-    fontSize: 14,
     color: Colors.text,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   eventDate: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: Colors.textMuted,
   },
   eventTypeBadge: {
     marginTop: 6,
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
+    paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 2,
     borderRadius: 12,
     backgroundColor: Colors.primaryLight,
@@ -419,6 +419,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: Colors.textMuted,
-    fontSize: 14,
+    ...Theme.typography.body,
   },
 });

@@ -1,22 +1,17 @@
-import React from 'react';
-import {
-  Modal,
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
-  StyleProp,
-  ViewStyle,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { forwardRef, useCallback, useMemo } from 'react';
+import { StyleSheet, StyleProp, ViewStyle, Platform, View } from 'react-native';
+import { BottomSheetModal as GorhomBottomSheetModal, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Theme } from '../../theme/tokens';
 
 type Props = {
-  visible: boolean;
+  visible: boolean; // Note: to use this declaratively like before, we use useEffect to present/dismiss
   onClose: () => void;
   children: React.ReactNode;
   sheetStyle?: StyleProp<ViewStyle>;
   backdropColor?: string;
-  animationType?: 'none' | 'slide' | 'fade';
+  animationType?: 'none' | 'slide' | 'fade'; // Ignored by Gorhom but kept for prop compat
+  snapPoints?: Array<string | number>;
 };
 
 export default function BottomSheetModal({
@@ -25,51 +20,76 @@ export default function BottomSheetModal({
   children,
   sheetStyle,
   backdropColor = 'rgba(0, 0, 0, 0.6)',
-  animationType = 'slide',
+  snapPoints: providedSnapPoints,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const bottomSheetModalRef = React.useRef<GorhomBottomSheetModal>(null);
+
+  const snapPoints = useMemo(() => providedSnapPoints || ['50%', '85%'], [providedSnapPoints]);
+
+  React.useEffect(() => {
+    if (visible) {
+      bottomSheetModalRef.current?.present();
+    } else {
+      bottomSheetModalRef.current?.dismiss();
+    }
+  }, [visible]);
+
+  const handleSheetChanges = useCallback((index: number) => {
+    if (index === -1) {
+      onClose();
+    }
+  }, [onClose]);
+
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+        opacity={0.6}
+        pressBehavior="close"
+      />
+    ),
+    []
+  );
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType={animationType}
-      presentationStyle="overFullScreen"
-      statusBarTranslucent
-      onRequestClose={onClose}
+    <GorhomBottomSheetModal
+      ref={bottomSheetModalRef}
+      index={1}
+      snapPoints={snapPoints}
+      onChange={handleSheetChanges}
+      backdropComponent={renderBackdrop}
+      handleIndicatorStyle={{ backgroundColor: '#CBD5E1', width: 40 }}
+      backgroundStyle={styles.backgroundStyle}
     >
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={onClose}
-          style={[styles.backdrop, { backgroundColor: backdropColor }]}
-        />
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, sheetStyle]}>{children}</View>
-      </SafeAreaView>
-    </Modal>
+      <BottomSheetView style={[styles.contentContainer, { paddingBottom: insets.bottom + 16 }, sheetStyle]}>
+        {children}
+      </BottomSheetView>
+    </GorhomBottomSheetModal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  sheet: {
-    backgroundColor: '#FFFFFF',
+  backgroundStyle: {
+    backgroundColor: Theme.colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    overflow: 'hidden',
-    maxHeight: Platform.OS === 'ios' ? '85%' : '88%',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(226, 232, 240, 0.9)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.18,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
+  },
+  contentContainer: {
+    flex: 1,
+    paddingHorizontal: Theme.spacing.md,
   },
 });

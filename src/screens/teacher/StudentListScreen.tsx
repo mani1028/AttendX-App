@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
@@ -10,7 +11,6 @@ import {
   TextInput,
   Modal,
   Image,
-  StatusBar,
   Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -33,17 +33,18 @@ import {
   Bell,
   Mail,
   Phone,
-  UserPlus
+  UserPlus,
 } from 'lucide-react-native';
 import AppButton from '../../components/common/AppButton';
 import Loader from '../../components/common/Loader';
 import * as teacherService from '../../services/teacherService';
 import { updateStudentProfile } from '../../services/studentService';
 import { useAuth } from '../../context/AuthContext';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import type { RootStackParamList } from '../../navigation/types';
 import BottomSheetModal from '../../components/common/BottomSheetModal';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -84,7 +85,7 @@ const getBranchId = async (): Promise<string> => {
 
 const getStudentPhotoUri = (value?: string): string | null => {
   const photo = String(value || '').trim();
-  if (!photo) return null;
+  if (!photo) {return null;}
 
   if (
     photo.startsWith('data:') ||
@@ -114,7 +115,7 @@ const fmt = (key: string): string => {
 };
 
 const initials = (name: string): string => {
-  if (!name) return '?';
+  if (!name) {return '?';}
   return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 };
 
@@ -147,10 +148,10 @@ const StudentCard: React.FC<{
           <AppText weight="regular" style={styles.studentClass}>Class {student.class_grade} • Section {student.section}</AppText>
         </View>
       </View>
-      
+
       <View style={styles.cardRight}>
         <View style={[styles.statusBadge, { backgroundColor: isActive ? '#f0fdf4' : '#fef2f2' }]}>
-          <AppText weight="bold" style={[styles.statusBadgeText, { color: isActive ? '#22c55e' : '#ef4444' }]}>
+          <AppText weight="bold" style={[styles.statusBadgeText, { color: isActive ? '#22c55e' : Theme.colors.error }]}>
             {isActive ? 'ACTIVE' : 'INACTIVE'}
           </AppText>
         </View>
@@ -165,8 +166,6 @@ export default function StudentListScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { setTabBarVisible, isClassTeacher: authIsClassTeacher } = useAuth();
   const isMounted = useRef(true);
-  const lastScrollY = useRef(0);
-
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
   const [employeeId, setEmployeeId] = useState<string>('');
@@ -233,7 +232,7 @@ export default function StudentListScreen() {
 
   // Load assigned classes
   const loadAssignedClasses = useCallback(async () => {
-    if (!schoolCode || !branchId || !employeeId) return;
+    if (!schoolCode || !branchId || !employeeId) {return;}
     try {
       const assigned = await teacherService.getAssignedClasses(schoolCode, branchId, employeeId);
       if (__DEV__) {
@@ -250,8 +249,8 @@ export default function StudentListScreen() {
           const first = scoped[0];
           const nextClass = String(first.class_grade || '').trim();
           const nextSection = String(first.section || '').trim();
-          if (!selectedClass || isClassTeacher) setSelectedClass(nextClass);
-          if (!selectedSection || isClassTeacher) setSelectedSection(nextSection);
+          if (!selectedClass || isClassTeacher) {setSelectedClass(nextClass);}
+          if (!selectedSection || isClassTeacher) {setSelectedSection(nextSection);}
           if (__DEV__) {
             console.log('[StudentListScreen] Initial class set to:', nextClass, nextSection);
           }
@@ -296,12 +295,12 @@ export default function StudentListScreen() {
           schoolCode: !!schoolCode,
           branchId: !!branchId,
           selectedClass: selectedClass || '(empty)',
-          selectedSection: selectedSection || '(empty)'
+          selectedSection: selectedSection || '(empty)',
         });
       }
       return;
     }
-    if (showLoading) setLoading(true);
+    if (showLoading) {setLoading(true);}
     try {
       if (__DEV__) {
         console.log('[StudentListScreen] Fetching students for:', { schoolCode, branchId, selectedClass, selectedSection });
@@ -328,13 +327,13 @@ export default function StudentListScreen() {
         setRecords([]);
       }
     } finally {
-      if (isMounted.current) setLoading(false);
+      if (isMounted.current) {setLoading(false);}
     }
   }, [schoolCode, branchId, selectedClass, selectedSection]);
 
   // Ensure we fetch students once assigned classes are available
   useEffect(() => {
-    if (!isMounted.current) return;
+    if (!isMounted.current) {return;}
     if (assignedClasses && assignedClasses.length > 0) {
       // If no class/section selected yet, select the first one
       if (!selectedClass || !selectedSection) {
@@ -373,7 +372,7 @@ export default function StudentListScreen() {
   }, [loadAssignedClasses, fetchStudents]);
 
   const handleSaveStudent = useCallback(async () => {
-    if (!viewStudent?.student_id) return;
+    if (!viewStudent?.student_id) {return;}
 
     const payload = {
       student_id: viewStudent.student_id,
@@ -410,7 +409,7 @@ export default function StudentListScreen() {
 
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    if (!q) return records;
+    if (!q) {return records;}
     return records.filter(r =>
       r.student_full_name.toLowerCase().includes(q) ||
       r.roll_number.toLowerCase().includes(q) ||
@@ -433,25 +432,17 @@ export default function StudentListScreen() {
       }
     }
   }, [selectedClass, selectedSection, records, filtered, searchQuery]);
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
+  const handleScroll = useScrollTabBar();
+
 
   const classOptions = useMemo(() => {
-    if (isClassTeacher && lockedClassGrade) return [lockedClassGrade];
+    if (isClassTeacher && lockedClassGrade) {return [lockedClassGrade];}
     const unique = new Set(assignedClasses.map(c => c.class_grade));
     return Array.from(unique);
   }, [assignedClasses, isClassTeacher, lockedClassGrade]);
 
   const sectionOptions = useMemo(() => {
-    if (isClassTeacher && lockedSection) return [lockedSection];
+    if (isClassTeacher && lockedSection) {return [lockedSection];}
     return Array.from(new Set(assignedClasses
       .filter(c => c.class_grade === selectedClass)
       .map(c => c.section)));
@@ -459,40 +450,10 @@ export default function StudentListScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Navy Standard Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('TeacherDashboard')}
-          >
-            <ChevronLeft size={24} color="#fff" />
-          </TouchableOpacity>
-          <AppText weight="bold" style={styles.headerTitle}>Manage Profiles</AppText>
-          <TouchableOpacity
-            style={styles.notificationBtn}
-            onPress={() => navigation.navigate('Notifications' as never)}
-            accessibilityLabel="Open notifications"
-          >
-            <Bell size={22} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <Search size={20} color="#94A3B8" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search by roll no, or name"
-              placeholderTextColor="#94A3B8"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
-        </View>
-      </View>
+      <StandardPageHeader title="Student List" onBackPress={() => navigation.goBack()} />
 
       <ScrollView
         contentContainerStyle={styles.contentContainer}
@@ -526,7 +487,7 @@ export default function StudentListScreen() {
                     onPress={() => {
                       setSelectedClass(cls);
                       const firstSec = assignedClasses.find(c => c.class_grade === cls)?.section;
-                      if (firstSec) setSelectedSection(firstSec);
+                      if (firstSec) {setSelectedSection(firstSec);}
                     }}
                   >
                     <AppText weight="semibold" style={[styles.chipText, selectedClass === cls && styles.chipTextActive]}>
@@ -588,7 +549,7 @@ export default function StudentListScreen() {
           style={styles.fab}
           onPress={() => navigation.navigate('DirectorStudentRegistration' as any)}
         >
-          <UserPlus size={24} color="#fff" />
+          <UserPlus size={24} color={Theme.colors.card} />
         </TouchableOpacity>
       )}
 
@@ -597,7 +558,7 @@ export default function StudentListScreen() {
         <View style={styles.modalHeader}>
           <View style={styles.modalHandle} />
           <TouchableOpacity onPress={() => setViewStudent(null)} style={styles.modalClose}>
-            <X size={24} color="#64748B" />
+            <X size={24} color={Theme.colors.textSec} />
           </TouchableOpacity>
         </View>
 
@@ -615,7 +576,7 @@ export default function StudentListScreen() {
                   <AppText weight="bold" style={styles.modalLargeAvatarText}>{initials(viewStudent?.student_full_name || '')}</AppText>
                 </View>
               )}
-              <View style={[styles.modalStatusBadge, { backgroundColor: viewStudent?.student_status === 'ACTIVE' ? '#10b981' : '#ef4444' }]}>
+              <View style={[styles.modalStatusBadge, { backgroundColor: viewStudent?.student_status === 'ACTIVE' ? Theme.colors.success : Theme.colors.error }]}>
                 <AppText weight="bold" style={styles.modalStatusText}>{viewStudent?.student_status}</AppText>
               </View>
             </View>
@@ -687,7 +648,7 @@ export default function StudentListScreen() {
               </View>
               <View style={styles.infoItem}>
                 <View style={[styles.infoIcon, { backgroundColor: '#f0fdf4' }]}>
-                  <Search size={18} color="#10b981" />
+                  <Search size={18} color={Theme.colors.success} />
                 </View>
                 <View>
                   <AppText weight="bold" style={styles.infoLabel}>Blood Group</AppText>
@@ -801,12 +762,10 @@ export default function StudentListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   headerStandard: {
     backgroundColor: Theme.colors.primary,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
     paddingBottom: 30,
     elevation: 8,
     shadowColor: '#000',
@@ -819,7 +778,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingBottom: Theme.spacing.md,
   },
   backBtn: {
     width: 40,
@@ -831,7 +790,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    color: '#fff',
+    color: Theme.colors.card,
   },
   notificationBtn: {
     width: 40,
@@ -847,7 +806,7 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 15,
     paddingHorizontal: 15,
     height: 54,
@@ -860,13 +819,13 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     marginLeft: 10,
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: '#1E293B',
   },
   filterBtn: {
     padding: 5,
     borderLeftWidth: 1,
-    borderLeftColor: '#F1F5F9',
+    borderLeftColor: Theme.colors.background,
     marginLeft: 5,
   },
   contentContainer: {
@@ -875,7 +834,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   filterCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 24,
     padding: 20,
     shadowColor: '#000',
@@ -883,7 +842,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 12,
     elevation: 3,
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   filterRow: {
     flexDirection: 'row',
@@ -899,35 +858,35 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   chip: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     marginRight: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   chipActive: {
     backgroundColor: Theme.colors.primary,
     borderColor: Theme.colors.primary,
   },
   chipText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
   },
   chipTextActive: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
   },
   sectionPicker: {
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
+    borderTopColor: Theme.colors.background,
     paddingTop: 15,
   },
   sectionLabel: {
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     marginRight: 12,
   },
   sectionChips: {
@@ -937,46 +896,46 @@ const styles = StyleSheet.create({
   lockedScopeCard: {
     padding: 14,
     borderRadius: 14,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   lockedScopeText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: Theme.colors.primary,
   },
   lockedScopeHint: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#64748B',
+    marginTop: Theme.spacing.xs,
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
   },
   secChip: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   secChipActive: {
     backgroundColor: Theme.colors.primary,
     borderColor: Theme.colors.primary,
   },
   secChipText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
   },
   secChipTextActive: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
   },
   listHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 4,
+    marginBottom: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.xs,
   },
   listTitle: {
     fontSize: 18,
@@ -985,8 +944,8 @@ const styles = StyleSheet.create({
   },
   listCount: {
     fontSize: 13,
-    color: '#64748B',
-    backgroundColor: '#F1F5F9',
+    color: Theme.colors.textSec,
+    backgroundColor: Theme.colors.background,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
@@ -1004,21 +963,21 @@ const styles = StyleSheet.create({
   editInput: {
     minHeight: 42,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    borderColor: Theme.colors.border,
+    backgroundColor: Theme.colors.card,
     borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     marginTop: 6,
     color: '#1E293B',
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   studentCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    padding: 16,
+    backgroundColor: Theme.colors.card,
+    padding: Theme.spacing.md,
     borderRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1026,7 +985,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#F8FAFC',
+    borderColor: Theme.colors.background,
   },
   studentInfo: {
     flex: 1,
@@ -1057,19 +1016,19 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 18,
-    color: '#FFFFFF',
+    color: Theme.colors.card,
   },
   studentDetails: {
     flex: 1,
     gap: 2,
   },
   studentName: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: '#1E293B',
   },
   studentClass: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: Theme.colors.textMuted,
   },
   cardRight: {
     flexDirection: 'row',
@@ -1093,12 +1052,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     color: '#1E293B',
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   emptySub: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 8,
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
+    marginTop: Theme.spacing.sm,
     textAlign: 'center',
     paddingHorizontal: 40,
   },
@@ -1124,7 +1083,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     height: '90%',
@@ -1136,7 +1095,7 @@ const styles = StyleSheet.create({
   modalHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: Theme.colors.border,
     borderRadius: 2,
   },
   modalClose: {
@@ -1164,7 +1123,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 30,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1177,29 +1136,29 @@ const styles = StyleSheet.create({
     bottom: -10,
     alignSelf: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 10,
     borderWidth: 3,
-    borderColor: '#FFFFFF',
+    borderColor: Theme.colors.card,
   },
   modalStatusText: {
-    fontSize: 11,
-    color: '#FFFFFF',
+    ...Theme.typography.label,
+    color: Theme.colors.card,
   },
   modalName: {
     fontSize: 22,
     color: '#1E293B',
   },
   modalSub: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 4,
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
+    marginTop: Theme.spacing.xs,
   },
   infoSection: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderRadius: 30,
     padding: 20,
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   infoRow: {
     flexDirection: 'row',
@@ -1219,26 +1178,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   infoLabel: {
-    fontSize: 11,
-    color: '#94A3B8',
+    ...Theme.typography.label,
+    color: Theme.colors.textMuted,
     textTransform: 'uppercase',
   },
   infoValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#1E293B',
     marginTop: 2,
   },
   sectionTitle: {
     fontSize: 16,
     color: '#1E293B',
-    marginBottom: 16,
-    marginLeft: 4,
+    marginBottom: Theme.spacing.md,
+    marginLeft: Theme.spacing.xs,
   },
   parentCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 30,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: Theme.colors.background,
     padding: 20,
   },
   parentItem: {
@@ -1248,18 +1207,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   parentRole: {
-    fontSize: 12,
-    color: '#64748B',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     textTransform: 'uppercase',
   },
   callBtn: {
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1268,19 +1227,19 @@ const styles = StyleSheet.create({
     color: '#1E293B',
   },
   parentPhone: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: Theme.colors.primary,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   parentDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     marginVertical: 15,
   },
   modalFooter: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: Theme.colors.background,
   },
   doneBtn: {
     backgroundColor: Theme.colors.primary,

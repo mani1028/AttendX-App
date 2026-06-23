@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   TouchableOpacityProps,
 } from 'react-native';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
 
 interface AppCardProps {
   children: React.ReactNode;
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   padded: {
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   elevated: {
     shadowColor: Theme.colors.primary,

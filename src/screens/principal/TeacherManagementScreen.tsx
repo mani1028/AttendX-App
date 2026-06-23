@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
@@ -11,7 +12,6 @@ import {
   Modal,
   Platform,
   Image,
-  StatusBar,
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -54,35 +54,38 @@ import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import LinearGradient from 'react-native-linear-gradient';
 import API from '../../services/api';
 import * as principalService from '../../services/principalService';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
-import { Theme } from '../../theme/theme';
+
 import { formatErrorMessage } from '../../utils/helpers';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import { Theme, C } from '../../theme/tokens';
+
+
 
 
 const STEPS = ['Basics', 'Contact', 'Emergency', 'Employment', 'Preview'];
 
 const getIconForField = (label: string, primaryColor: string, size: number = 14) => {
   const lbl = label.toLowerCase();
-  if (lbl.includes('id')) return <Shield size={size} color={primaryColor} />;
-  if (lbl.includes('designation') || lbl.includes('type') || lbl.includes('experience') || lbl.includes('role')) return <Briefcase size={size} color={primaryColor} />;
-  if (lbl.includes('department') || lbl.includes('qualification') || lbl.includes('subject') || lbl.includes('class')) return <Award size={size} color={primaryColor} />;
-  if (lbl.includes('mobile') || lbl.includes('number') || lbl.includes('contact') || lbl.includes('phone') || lbl.includes('emergency')) return <Phone size={size} color={primaryColor} />;
-  if (lbl.includes('email')) return <Mail size={size} color={primaryColor} />;
-  if (lbl.includes('gender') || lbl.includes('age') || lbl.includes('marital') || lbl.includes('nationality') || lbl.includes('religion') || lbl.includes('tongue') || lbl.includes('aadhaar') || lbl.includes('parent') || lbl.includes('name')) return <User size={size} color={primaryColor} />;
-  if (lbl.includes('birth') || lbl.includes('date') || lbl.includes('dob') || lbl.includes('joining')) return <Calendar size={size} color={primaryColor} />;
-  if (lbl.includes('house') || lbl.includes('street') || lbl.includes('city') || lbl.includes('mandal') || lbl.includes('district') || lbl.includes('state') || lbl.includes('pin') || lbl.includes('address')) return <MapPin size={size} color={primaryColor} />;
+  if (lbl.includes('id')) {return <Shield size={size} color={primaryColor} />;}
+  if (lbl.includes('designation') || lbl.includes('type') || lbl.includes('experience') || lbl.includes('role')) {return <Briefcase size={size} color={primaryColor} />;}
+  if (lbl.includes('department') || lbl.includes('qualification') || lbl.includes('subject') || lbl.includes('class')) {return <Award size={size} color={primaryColor} />;}
+  if (lbl.includes('mobile') || lbl.includes('number') || lbl.includes('contact') || lbl.includes('phone') || lbl.includes('emergency')) {return <Phone size={size} color={primaryColor} />;}
+  if (lbl.includes('email')) {return <Mail size={size} color={primaryColor} />;}
+  if (lbl.includes('gender') || lbl.includes('age') || lbl.includes('marital') || lbl.includes('nationality') || lbl.includes('religion') || lbl.includes('tongue') || lbl.includes('aadhaar') || lbl.includes('parent') || lbl.includes('name')) {return <User size={size} color={primaryColor} />;}
+  if (lbl.includes('birth') || lbl.includes('date') || lbl.includes('dob') || lbl.includes('joining')) {return <Calendar size={size} color={primaryColor} />;}
+  if (lbl.includes('house') || lbl.includes('street') || lbl.includes('city') || lbl.includes('mandal') || lbl.includes('district') || lbl.includes('state') || lbl.includes('pin') || lbl.includes('address')) {return <MapPin size={size} color={primaryColor} />;}
   return null;
 };
 
 const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
 const DESIGNATION_OPTIONS = [
   'Teacher', 'Senior Teacher', 'Head of Department', 'Vice Principal',
-  'Principal', 'Lab Assistant', 'Sports Teacher', 'Special Educator', 'Accountant'
+  'Principal', 'Lab Assistant', 'Sports Teacher', 'Special Educator', 'Accountant',
 ];
 const QUALIFICATION_OPTIONS = ['B.Ed', 'M.Ed', 'B.Sc + B.Ed', 'M.Sc + B.Ed', 'BA + B.Ed', 'MA + B.Ed', 'Ph.D', 'Other'];
 const EMPLOYMENT_TYPES = ['FULL_TIME', 'PART_TIME', 'CONTRACTOR'];
@@ -92,7 +95,7 @@ const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const readLS = async (keys: string[]): Promise<string> => {
   for (const key of keys) {
     const value = await AsyncStorage.getItem(key);
-    if (value !== null && String(value).trim() !== '') return String(value).trim();
+    if (value !== null && String(value).trim() !== '') {return String(value).trim();}
   }
   return '';
 };
@@ -103,25 +106,25 @@ const getBranchId = async () => readLS(['branch_id', 'branchId', 'branch_code', 
 const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim());
 const isValidName = (v: string) => {
   const s = String(v || '').trim();
-  if (!s) return false;
+  if (!s) {return false;}
   return /^[a-zA-Z\s'-]+$/.test(s) && !/^\d+$/.test(s);
 };
 const isValidAadhaar = (v: string) => {
   const s = String(v || '').trim();
-  if (!s) return true;
+  if (!s) {return true;}
   return /^\d{12}$/.test(s);
 };
 const isValidMobile = (v: string) => /^\d{10}$/.test(String(v || '').trim());
 const isValidPinCode = (v: string) => /^\d{6}$/.test(String(v || '').trim());
 
 const calculateAge = (dob: string) => {
-  if (!dob) return '';
+  if (!dob) {return '';}
   const today = new Date();
   const birth = new Date(dob);
-  if (isNaN(birth.getTime())) return '';
+  if (isNaN(birth.getTime())) {return '';}
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {age--;}
   return age >= 0 ? String(age) : '';
 };
 
@@ -167,48 +170,48 @@ function validateStep(step: number, form: any): Record<string, string> {
   const errors: Record<string, string> = {};
 
   if (step === 0) {
-    if (!form.teacher_full_name.trim()) errors.teacher_full_name = 'Full name is required';
-    else if (!isValidName(form.teacher_full_name)) errors.teacher_full_name = 'Full name must contain only letters';
-    if (!form.gender) errors.gender = 'Gender is required';
-    if (!form.date_of_birth) errors.date_of_birth = 'Date of birth is required';
-    if (!form.nationality.trim()) errors.nationality = 'Nationality is required';
-    else if (!isValidName(form.nationality)) errors.nationality = 'Nationality must contain only letters';
-    if (!form.mother_tongue.trim()) errors.mother_tongue = 'Mother tongue is required';
-    else if (!isValidName(form.mother_tongue)) errors.mother_tongue = 'Mother tongue must contain only letters';
-    if (!form.email_id.trim()) errors.email_id = 'Email is required';
-    else if (!isValidEmail(form.email_id)) errors.email_id = 'Enter a valid email';
-    if (!form.aadhaar_number.trim()) errors.aadhaar_number = 'Aadhaar number is required';
-    else if (!isValidAadhaar(form.aadhaar_number)) errors.aadhaar_number = 'Aadhaar must be 12 digits';
+    if (!form.teacher_full_name.trim()) {errors.teacher_full_name = 'Full name is required';}
+    else if (!isValidName(form.teacher_full_name)) {errors.teacher_full_name = 'Full name must contain only letters';}
+    if (!form.gender) {errors.gender = 'Gender is required';}
+    if (!form.date_of_birth) {errors.date_of_birth = 'Date of birth is required';}
+    if (!form.nationality.trim()) {errors.nationality = 'Nationality is required';}
+    else if (!isValidName(form.nationality)) {errors.nationality = 'Nationality must contain only letters';}
+    if (!form.mother_tongue.trim()) {errors.mother_tongue = 'Mother tongue is required';}
+    else if (!isValidName(form.mother_tongue)) {errors.mother_tongue = 'Mother tongue must contain only letters';}
+    if (!form.email_id.trim()) {errors.email_id = 'Email is required';}
+    else if (!isValidEmail(form.email_id)) {errors.email_id = 'Enter a valid email';}
+    if (!form.aadhaar_number.trim()) {errors.aadhaar_number = 'Aadhaar number is required';}
+    else if (!isValidAadhaar(form.aadhaar_number)) {errors.aadhaar_number = 'Aadhaar must be 12 digits';}
   }
 
   if (step === 1) {
-    if (!form.mobile_number.trim()) errors.mobile_number = 'Mobile is required';
-    else if (!isValidMobile(form.mobile_number)) errors.mobile_number = 'Enter valid 10-digit number';
-    if (!form.house_no.trim()) errors.house_no = 'House No is required';
-    if (!form.street_locality.trim()) errors.street_locality = 'Street is required';
-    if (!form.village_town_city.trim()) errors.village_town_city = 'City is required';
-    if (!form.mandal_taluk.trim()) errors.mandal_taluk = 'Mandal/Taluk is required';
-    if (!form.district.trim()) errors.district = 'District is required';
-    if (!form.state.trim()) errors.state = 'State is required';
-    if (!form.pin_code.trim()) errors.pin_code = 'Pin code is required';
-    else if (!isValidPinCode(form.pin_code)) errors.pin_code = 'Enter valid 6-digit pin code';
+    if (!form.mobile_number.trim()) {errors.mobile_number = 'Mobile is required';}
+    else if (!isValidMobile(form.mobile_number)) {errors.mobile_number = 'Enter valid 10-digit number';}
+    if (!form.house_no.trim()) {errors.house_no = 'House No is required';}
+    if (!form.street_locality.trim()) {errors.street_locality = 'Street is required';}
+    if (!form.village_town_city.trim()) {errors.village_town_city = 'City is required';}
+    if (!form.mandal_taluk.trim()) {errors.mandal_taluk = 'Mandal/Taluk is required';}
+    if (!form.district.trim()) {errors.district = 'District is required';}
+    if (!form.state.trim()) {errors.state = 'State is required';}
+    if (!form.pin_code.trim()) {errors.pin_code = 'Pin code is required';}
+    else if (!isValidPinCode(form.pin_code)) {errors.pin_code = 'Enter valid 6-digit pin code';}
   }
 
   if (step === 2) {
-    if (!form.emergency_contact_name.trim()) errors.emergency_contact_name = 'Contact name is required';
-    if (!form.emergency_contact_number.trim()) errors.emergency_contact_number = 'Contact number is required';
-    else if (!isValidMobile(form.emergency_contact_number)) errors.emergency_contact_number = 'Enter valid 10-digit number';
-    if (!form.emergency_contact_relationship.trim()) errors.emergency_contact_relationship = 'Relationship is required';
+    if (!form.emergency_contact_name.trim()) {errors.emergency_contact_name = 'Contact name is required';}
+    if (!form.emergency_contact_number.trim()) {errors.emergency_contact_number = 'Contact number is required';}
+    else if (!isValidMobile(form.emergency_contact_number)) {errors.emergency_contact_number = 'Enter valid 10-digit number';}
+    if (!form.emergency_contact_relationship.trim()) {errors.emergency_contact_relationship = 'Relationship is required';}
   }
 
   if (step === 3) {
-    if (!form.designation.trim()) errors.designation = 'Designation is required';
-    if (!form.department_subject.trim()) errors.department_subject = 'Department/Subject is required';
-    if (!form.date_of_joining) errors.date_of_joining = 'Joining date is required';
-    if (!form.password || String(form.password).length < 6) errors.password = 'Password must be at least 6 characters';
-    if (!form.email_id.trim()) errors.email_id = 'Email is required';
-    else if (!isValidEmail(form.email_id)) errors.email_id = 'Enter a valid email';
-    if (!form.teacher_photograph) errors.teacher_photograph = 'Photo is required';
+    if (!form.designation.trim()) {errors.designation = 'Designation is required';}
+    if (!form.department_subject.trim()) {errors.department_subject = 'Department/Subject is required';}
+    if (!form.date_of_joining) {errors.date_of_joining = 'Joining date is required';}
+    if (!form.password || String(form.password).length < 6) {errors.password = 'Password must be at least 6 characters';}
+    if (!form.email_id.trim()) {errors.email_id = 'Email is required';}
+    else if (!isValidEmail(form.email_id)) {errors.email_id = 'Enter a valid email';}
+    if (!form.teacher_photograph) {errors.teacher_photograph = 'Photo is required';}
   }
 
   return errors;
@@ -264,15 +267,15 @@ const Stepper = ({ currentStep }: { currentStep: number }) => (
               <View style={[
                 styles.stepCircle,
                 isDone && styles.stepDone,
-                isActive && styles.stepActive
+                isActive && styles.stepActive,
               ]}>
                 {isDone ? (
-                  <Check size={14} color="#fff" />
+                  <Check size={14} color={Theme.colors.card} />
                 ) : (
                   <AppText style={[styles.stepNumber, isActive && styles.stepNumberActive]} weight="bold">{stepNumber}</AppText>
                 )}
               </View>
-              <AppText style={[styles.stepLabel, (isDone || isActive) && styles.stepLabelActive]} weight={isActive ? "bold" : "regular"} numberOfLines={1}>
+              <AppText style={[styles.stepLabel, (isDone || isActive) && styles.stepLabelActive]} weight={isActive ? 'bold' : 'regular'} numberOfLines={1}>
                 {label}
               </AppText>
             </View>
@@ -292,7 +295,6 @@ export default function TeacherPage() {
   const { width } = useWindowDimensions();
   const isCompactScreen = width < 520;
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
   const [activeTab, setActiveTab] = useState<'list' | 'enroll'>('list');
@@ -331,23 +333,13 @@ export default function TeacherPage() {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   useEffect(() => {
     if (schoolCode && branchId) {
-      if (activeTab === 'list') loadTeachers();
-      else fetchNextEmployeeId();
+      if (activeTab === 'list') {loadTeachers();}
+      else {fetchNextEmployeeId();}
     }
   }, [schoolCode, branchId, activeTab]);
 
@@ -365,7 +357,7 @@ export default function TeacherPage() {
   });
 
   const fetchNextEmployeeId = async () => {
-    if (!schoolCode || !branchId) return;
+    if (!schoolCode || !branchId) {return;}
     try {
       const res = await API.get('/principal/next-employee-id', { headers: getHeaders() });
       const nextEmployeeId = String(res?.data?.employee_id || '').trim();
@@ -378,7 +370,7 @@ export default function TeacherPage() {
   };
 
   const loadTeachers = async () => {
-    if (!schoolCode || !branchId) return;
+    if (!schoolCode || !branchId) {return;}
     setListLoading(true);
     setListErr('');
 
@@ -511,7 +503,7 @@ export default function TeacherPage() {
     const nameFields = new Set([
       'teacher_full_name', 'nationality', 'mother_tongue', 'religion', 'marital_status',
       'emergency_contact_name', 'emergency_contact_relationship', 'designation', 'department_subject',
-      'district', 'state', 'village_town_city', 'mandal_taluk'
+      'district', 'state', 'village_town_city', 'mandal_taluk',
     ]);
 
     if (nameFields.has(name)) {
@@ -521,7 +513,7 @@ export default function TeacherPage() {
     // Number fields - only digits
     const numberFields = new Set([
       'mobile_number', 'alternate_mobile_number', 'emergency_contact_number',
-      'pin_code', 'aadhaar_number', 'age', 'salary_amount', 'experience_years'
+      'pin_code', 'aadhaar_number', 'age', 'salary_amount', 'experience_years',
     ]);
 
     if (numberFields.has(name)) {
@@ -545,7 +537,7 @@ export default function TeacherPage() {
   };
 
   const nextStep = () => {
-    if (step === 4) return;
+    if (step === 4) {return;}
 
     const errs = validateStep(step, formData);
     if (Object.keys(errs).length > 0) {
@@ -636,7 +628,7 @@ export default function TeacherPage() {
       });
 
       const res = await API.post('/teacher/register', data, {
-        headers: { ...getHeaders(), 'Content-Type': 'multipart/form-data' }
+        headers: { ...getHeaders(), 'Content-Type': 'multipart/form-data' },
       });
 
       const createdTeacherId = String(res?.data?.teacher_id || '').trim();
@@ -703,7 +695,7 @@ export default function TeacherPage() {
   };
 
   const saveEditTeacher = async () => {
-    if (!editTeacher || !editForm) return;
+    if (!editTeacher || !editForm) {return;}
 
     if (!editForm.teacher_full_name.trim()) {
       setListErr('Teacher name is required.');
@@ -771,7 +763,7 @@ export default function TeacherPage() {
   const buildTeacherInviteLink = () => {
     const sc = String(schoolCode || '').trim();
     const bid = String(branchId || '').trim();
-    if (!sc || !bid) return '';
+    if (!sc || !bid) {return '';}
     return `https://attendx.edu/teacher-registration?school_code=${encodeURIComponent(sc)}&branch_id=${encodeURIComponent(bid)}`;
   };
 
@@ -915,12 +907,12 @@ export default function TeacherPage() {
           <AppText style={styles.teacherSubText}>{teacher.gender || '—'}{teacher.age ? ` • ${teacher.age}y` : ''}</AppText>
         </View>
         <View style={styles.teacherCardActions}>
-          <TouchableOpacity style={[styles.cardActionBtn, styles.cardActionSecondary]} onPress={() => setViewTeacher(teacher)}>
+          <TouchableOpacity accessibilityRole="button" style={[styles.cardActionBtn, styles.cardActionSecondary]} onPress={() => setViewTeacher(teacher)}>
             <Eye size={14} color={C.primary} />
             <AppText style={styles.cardActionSecondaryText} weight="semibold">View Profile</AppText>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.cardActionBtn, styles.cardActionPrimary]} onPress={() => openEditTeacher(teacher)}>
-            <Edit2 size={14} color="#fff" />
+          <TouchableOpacity accessibilityRole="button" style={[styles.cardActionBtn, styles.cardActionPrimary]} onPress={() => openEditTeacher(teacher)}>
+            <Edit2 size={14} color={Theme.colors.card} />
             <AppText style={styles.cardActionPrimaryText} weight="semibold">Edit Details</AppText>
           </TouchableOpacity>
         </View>
@@ -967,10 +959,10 @@ export default function TeacherPage() {
         </View>
       </View>
       <View style={styles.teacherCellActions}>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => setViewTeacher(teacher)}>
+        <TouchableOpacity accessibilityRole="button" style={styles.iconBtn} onPress={() => setViewTeacher(teacher)}>
           <Eye size={16} color={C.muted} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => openEditTeacher(teacher)}>
+        <TouchableOpacity accessibilityRole="button" style={styles.iconBtn} onPress={() => openEditTeacher(teacher)}>
           <Edit2 size={16} color={C.muted} />
         </TouchableOpacity>
       </View>
@@ -1007,7 +999,7 @@ export default function TeacherPage() {
       return (
         <View key={name} style={styles.formGroup}>
           <AppText style={styles.label} weight="semibold">{label}</AppText>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.input, error && styles.inputError]}
             onPress={() => {
               setDatePickerField(name as any);
@@ -1042,7 +1034,7 @@ export default function TeacherPage() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       <ScrollView
         style={styles.scrollView}
@@ -1057,7 +1049,7 @@ export default function TeacherPage() {
         {/* Standardized Header */}
         <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
         <View style={styles.headerTop}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.iconButton}
             onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
           >
@@ -1066,21 +1058,21 @@ export default function TeacherPage() {
           <View style={styles.headerTitleContainer}>
             <AppText weight="bold" style={styles.headerTitle}>Staff Management</AppText>
           </View>
-          <TouchableOpacity style={styles.iconButton} onPress={() => loadTeachers()}>
+          <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={() => loadTeachers()}>
             <RefreshCw size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.headerContentContainer}>
           <View style={styles.headerToggle}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.headerToggleBtn, activeTab === 'list' && styles.headerToggleBtnActive]}
               onPress={() => setActiveTab('list')}
             >
-              <Users size={16} color={activeTab === 'list' ? C.primary : '#ffffff'} />
+              <Users size={16} color={activeTab === 'list' ? C.primary : Theme.colors.card} />
               <AppText style={[styles.headerToggleText, activeTab === 'list' && styles.headerToggleTextActive]} weight="bold">Staff Directory</AppText>
             </TouchableOpacity>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.headerToggleBtn, activeTab === 'enroll' && styles.headerToggleBtnActive]}
               onPress={async () => {
                 setActiveTab('enroll');
@@ -1090,7 +1082,7 @@ export default function TeacherPage() {
                 await fetchNextEmployeeId();
               }}
             >
-              <Plus size={16} color={activeTab === 'enroll' ? C.primary : '#ffffff'} />
+              <Plus size={16} color={activeTab === 'enroll' ? C.primary : Theme.colors.card} />
               <AppText style={[styles.headerToggleText, activeTab === 'enroll' && styles.headerToggleTextActive]} weight="bold">Staff Register</AppText>
             </TouchableOpacity>
           </View>
@@ -1101,11 +1093,11 @@ export default function TeacherPage() {
           <View style={styles.headerActions}>
             {activeTab === 'list' && (
               <>
-                <TouchableOpacity style={styles.secondaryBtn} onPress={handleCopyLink}>
+                <TouchableOpacity accessibilityRole="button" style={styles.secondaryBtn} onPress={handleCopyLink}>
                   <Link size={14} color={C.text} />
                   <AppText style={styles.secondaryBtnText} weight="semibold">{copied ? 'Copied!' : 'Invite'}</AppText>
                 </TouchableOpacity>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={styles.primaryBtn}
                   onPress={async () => {
                     setActiveTab('enroll');
@@ -1115,13 +1107,13 @@ export default function TeacherPage() {
                     await fetchNextEmployeeId();
                   }}
                 >
-                  <Plus size={14} color="#fff" />
+                  <Plus size={14} color={Theme.colors.card} />
                   <AppText style={styles.primaryBtnText} weight="semibold">Add Teacher</AppText>
                 </TouchableOpacity>
               </>
             )}
             {activeTab === 'enroll' && (
-              <TouchableOpacity style={styles.secondaryBtn} onPress={() => setActiveTab('list')}>
+              <TouchableOpacity accessibilityRole="button" style={styles.secondaryBtn} onPress={() => setActiveTab('list')}>
                 <ChevronLeft size={14} color={C.text} />
                 <AppText style={styles.secondaryBtnText} weight="semibold">Back</AppText>
               </TouchableOpacity>
@@ -1195,7 +1187,7 @@ export default function TeacherPage() {
                           keyboardType="email-address"
                           autoCapitalize="none"
                         />
-                        <TouchableOpacity
+                        <TouchableOpacity accessibilityRole="button"
                           style={[styles.verifyBtn, emailVerified && styles.verifyBtnSuccess]}
                           onPress={handleSendOtp}
                           disabled={otpSending || emailVerified}
@@ -1216,7 +1208,7 @@ export default function TeacherPage() {
                             onChangeText={setOtp}
                             keyboardType="numeric"
                           />
-                          <TouchableOpacity style={styles.verifyBtn} onPress={handleVerifyOtp} disabled={otpVerifying}>
+                          <TouchableOpacity accessibilityRole="button" style={styles.verifyBtn} onPress={handleVerifyOtp} disabled={otpVerifying}>
                             <AppText style={styles.verifyBtnText} weight="bold">{otpVerifying ? 'Verifying...' : 'Verify OTP'}</AppText>
                           </TouchableOpacity>
                         </View>
@@ -1286,7 +1278,7 @@ export default function TeacherPage() {
 
                     <View style={styles.formGroupFull}>
                       <AppText style={styles.label} weight="semibold">Teacher Photo *</AppText>
-                      <TouchableOpacity style={styles.photoZone} onPress={handleImagePick}>
+                      <TouchableOpacity accessibilityRole="button" style={styles.photoZone} onPress={handleImagePick}>
                         {formData.teacher_photograph ? (
                           <Image source={{ uri: formData.teacher_photograph.uri }} style={styles.photoPreview} />
                         ) : (
@@ -1327,9 +1319,9 @@ export default function TeacherPage() {
                         <AppText style={styles.previewEmail}>{formData.email_id || '—'}</AppText>
                         <View style={[styles.previewStatus, formData.teacher_status === 'ACTIVE' ? styles.previewStatusActive : styles.previewStatusInactive]}>
                           {formData.teacher_status === 'ACTIVE' ? (
-                            <CheckCircle2 size={10} color="#fff" />
+                            <CheckCircle2 size={10} color={Theme.colors.card} />
                           ) : (
-                            <XCircle size={10} color="#fff" />
+                            <XCircle size={10} color={Theme.colors.card} />
                           )}
                           <AppText style={styles.previewStatusText} weight="bold">{formData.teacher_status}</AppText>
                         </View>
@@ -1403,24 +1395,24 @@ export default function TeacherPage() {
             </View>
 
             <View style={styles.formFooter}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={step === 0 ? () => setActiveTab('list') : prevStep} disabled={loading}>
+              <TouchableOpacity accessibilityRole="button" style={styles.cancelBtn} onPress={step === 0 ? () => setActiveTab('list') : prevStep} disabled={loading}>
                 <ChevronLeft size={16} color={C.text} />
                 <AppText style={styles.cancelBtnText} weight="semibold">{step === 0 ? 'Cancel' : 'Back'}</AppText>
               </TouchableOpacity>
               <View style={styles.footerRight}>
                 <AppText style={styles.stepIndicator}>{step + 1}/{STEPS.length}</AppText>
                 {step < STEPS.length - 1 ? (
-                  <TouchableOpacity style={styles.nextBtn} onPress={nextStep} disabled={loading}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.nextBtn} onPress={nextStep} disabled={loading}>
                     <AppText style={styles.nextBtnText} weight="semibold">Next</AppText>
-                    <ChevronRight size={16} color="#fff" />
+                    <ChevronRight size={16} color={Theme.colors.card} />
                   </TouchableOpacity>
                 ) : (
-                  <TouchableOpacity style={styles.submitBtn} onPress={submitTeacher} disabled={loading}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.submitBtn} onPress={submitTeacher} disabled={loading}>
                     {loading ? (
-                      <ActivityIndicator size="small" color="#fff" />
+                      <ActivityIndicator size="small" color={Theme.colors.card} />
                     ) : (
                       <>
-                        <CheckCircle2 size={16} color="#fff" />
+                        <CheckCircle2 size={16} color={Theme.colors.card} />
                         <AppText style={styles.submitBtnText} weight="semibold">Register</AppText>
                       </>
                     )}
@@ -1454,7 +1446,7 @@ export default function TeacherPage() {
                   placeholderTextColor={C.muted}
                 />
                 {q ? (
-                  <TouchableOpacity onPress={() => setQ('')}>
+                  <TouchableOpacity accessibilityRole="button" onPress={() => setQ('')}>
                     <X size={14} color={C.muted} />
                   </TouchableOpacity>
                 ) : null}
@@ -1485,12 +1477,12 @@ export default function TeacherPage() {
                   </Picker>
                 </View>
                 <View style={isCompactScreen ? styles.filterRowMobile : styles.filterRowDesktop}>
-                  <TouchableOpacity style={[styles.filterBtn, isCompactScreen && { flex: 1, justifyContent: 'center' }]} onPress={loadTeachers}>
+                  <TouchableOpacity accessibilityRole="button" style={[styles.filterBtn, isCompactScreen && { flex: 1, justifyContent: 'center' }]} onPress={loadTeachers}>
                     <RefreshCw size={14} color={C.text} />
                     <AppText style={styles.filterBtnText} weight="semibold">Refresh</AppText>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.exportBtn, isCompactScreen && { flex: 1, justifyContent: 'center' }]} onPress={handleExport}>
-                    <Download size={14} color="#fff" />
+                  <TouchableOpacity accessibilityRole="button" style={[styles.exportBtn, isCompactScreen && { flex: 1, justifyContent: 'center' }]} onPress={handleExport}>
+                    <Download size={14} color={Theme.colors.card} />
                     <AppText style={styles.exportBtnText} weight="semibold">Export</AppText>
                   </TouchableOpacity>
                 </View>
@@ -1556,7 +1548,7 @@ export default function TeacherPage() {
                 Showing {visibleStart}–{visibleEnd} of {filtered.length}
               </AppText>
               <View style={styles.pagination}>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
                   onPress={() => setCurrentPage(p => Math.max(p - 1, 1))}
                   disabled={currentPage === 1}
@@ -1566,16 +1558,16 @@ export default function TeacherPage() {
                 {[...Array(Math.min(5, totalPages))].map((_, i) => {
                   let p = totalPages <= 5 ? i + 1 : currentPage <= 3 ? i + 1 : currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i;
                   return (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={p}
                       style={[styles.pageBtn, currentPage === p && styles.pageBtnActive]}
                       onPress={() => setCurrentPage(p)}
                     >
-                      <AppText style={[styles.pageBtnText, currentPage === p && styles.pageBtnTextActive]} weight={currentPage === p ? "bold" : "regular"}>{p}</AppText>
+                      <AppText style={[styles.pageBtnText, currentPage === p && styles.pageBtnTextActive]} weight={currentPage === p ? 'bold' : 'regular'}>{p}</AppText>
                     </TouchableOpacity>
                   );
                 })}
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
                   onPress={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
                   disabled={currentPage === totalPages || totalPages === 0}
@@ -1615,7 +1607,7 @@ export default function TeacherPage() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle} weight="bold">Teacher Details</AppText>
-              <TouchableOpacity onPress={() => setViewTeacher(null)} style={styles.closeBtn}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setViewTeacher(null)} style={styles.closeBtn}>
                 <X size={18} color={C.text} />
               </TouchableOpacity>
             </View>
@@ -1641,7 +1633,7 @@ export default function TeacherPage() {
                       <AppText style={styles.profileSubText} numberOfLines={1}>{viewTeacher.department_subject || '—'}</AppText>
                       <View style={[
                         styles.statusPill,
-                        viewTeacher.teacher_status === 'ACTIVE' ? styles.statusActiveCard : styles.statusInactiveCard
+                        viewTeacher.teacher_status === 'ACTIVE' ? styles.statusActiveCard : styles.statusInactiveCard,
                       ]}>
                         {viewTeacher.teacher_status === 'ACTIVE' ? (
                           <CheckCircle2 size={10} color="#34d399" />
@@ -1650,7 +1642,7 @@ export default function TeacherPage() {
                         )}
                         <AppText style={[
                           styles.statusText,
-                          viewTeacher.teacher_status === 'ACTIVE' ? styles.statusActiveCardText : styles.statusInactiveCardText
+                          viewTeacher.teacher_status === 'ACTIVE' ? styles.statusActiveCardText : styles.statusInactiveCardText,
                         ]} weight="bold">
                           {viewTeacher.teacher_status || 'INACTIVE'}
                         </AppText>
@@ -1714,7 +1706,7 @@ export default function TeacherPage() {
                         <>
                           {visibleSections.map((section, sIdx) => {
                             const visible = section.fields.filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '');
-                            if (visible.length === 0) return null;
+                            if (visible.length === 0) {return null;}
                             return (
                               <View key={section.title} style={styles.detailSection}>
                                 <AppText style={styles.detailSectionTitle} weight="bold">{section.title}</AppText>
@@ -1736,7 +1728,7 @@ export default function TeacherPage() {
                           })}
 
                           {hiddenCount > 0 && (
-                            <TouchableOpacity onPress={() => setDetailsExpanded(!detailsExpanded)} style={{ alignSelf: 'center', marginTop: 8 }}>
+                            <TouchableOpacity accessibilityRole="button" onPress={() => setDetailsExpanded(!detailsExpanded)} style={{ alignSelf: 'center', marginTop: Theme.spacing.sm }}>
                               <AppText style={{ color: C.primary }} weight="bold">{detailsExpanded ? 'Show less' : `Show more (${hiddenCount})`}</AppText>
                             </TouchableOpacity>
                           )}
@@ -1757,7 +1749,7 @@ export default function TeacherPage() {
           <View style={[styles.modalContent, styles.modalLarge]}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle} weight="bold">Edit Teacher Details</AppText>
-              <TouchableOpacity onPress={() => setEditTeacher(null)} style={styles.closeBtn}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setEditTeacher(null)} style={styles.closeBtn}>
                 <X size={18} color={C.text} />
               </TouchableOpacity>
             </View>
@@ -1812,10 +1804,10 @@ export default function TeacherPage() {
               </View>
             </ScrollView>
             <View style={styles.modalFooter}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditTeacher(null)}>
+              <TouchableOpacity accessibilityRole="button" style={styles.cancelBtn} onPress={() => setEditTeacher(null)}>
                 <AppText style={styles.cancelBtnText} weight="semibold">Cancel</AppText>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.saveBtn} onPress={saveEditTeacher} disabled={savingEdit}>
+              <TouchableOpacity accessibilityRole="button" style={styles.saveBtn} onPress={saveEditTeacher} disabled={savingEdit}>
                 <AppText style={styles.saveBtnText} weight="bold">{savingEdit ? 'Saving...' : 'Save Changes'}</AppText>
               </TouchableOpacity>
             </View>
@@ -1867,7 +1859,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
@@ -1877,8 +1869,8 @@ const styles = StyleSheet.create({
   headerSubtext: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
     opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   container: { flex: 1, backgroundColor: C.bg },
   scrollView: { flex: 1 },
@@ -1887,18 +1879,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: 12,
-    padding: 16,
+    padding: Theme.spacing.md,
     paddingBottom: 12,
   },
   headerCopy: { flex: 1, gap: 4 },
   kicker: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.primary,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   title: { fontSize: 22, color: C.text, lineHeight: 28 },
-  titleSub: { fontSize: 12, color: C.muted, lineHeight: 18, maxWidth: 320 },
+  titleSub: { ...Theme.typography.caption, color: C.muted, lineHeight: 18, maxWidth: 320 },
   headerActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
   primaryBtn: {
     flexDirection: 'row',
@@ -1909,7 +1901,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
   },
-  primaryBtnText: { color: '#fff', fontSize: 13 },
+  primaryBtnText: { color: Theme.colors.card, fontSize: 13 },
   secondaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1925,7 +1917,7 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     gap: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     marginBottom: 10,
     justifyContent: 'space-between',
   },
@@ -1943,7 +1935,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       android: { elevation: 1 },
       ios: {
-        shadowColor: '#0f172a',
+        shadowColor: Theme.colors.text,
         shadowOpacity: 0.05,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
@@ -1951,27 +1943,27 @@ const styles = StyleSheet.create({
     }),
   },
   summaryValue: { fontSize: 20, color: C.text },
-  summaryLabel: { fontSize: 11, color: C.muted, marginTop: 2 },
+  summaryLabel: { ...Theme.typography.label, color: C.muted, marginTop: 2 },
   tabs: {
     flexDirection: 'row',
     backgroundColor: C.card,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 16,
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     marginBottom: 12,
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   tab: { flex: 1, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
   activeTab: { backgroundColor: C.primarySoft, borderBottomWidth: 0 },
   tabText: { fontSize: 13, color: C.muted, textAlign: 'center' },
   activeTabText: { color: C.primary },
-  errorBox: { margin: 16, padding: 12, backgroundColor: C.errorSoft, borderRadius: 8, borderWidth: 1, borderColor: C.error },
+  errorBox: { margin: Theme.spacing.md, padding: 12, backgroundColor: C.errorSoft, borderRadius: 8, borderWidth: 1, borderColor: C.error },
   errorBoxText: { color: C.error, fontSize: 13 },
-  successBox: { margin: 16, padding: 12, backgroundColor: C.successSoft, borderRadius: 8, borderWidth: 1, borderColor: C.success },
+  successBox: { margin: Theme.spacing.md, padding: 12, backgroundColor: C.successSoft, borderRadius: 8, borderWidth: 1, borderColor: C.success },
   successBoxText: { color: C.success, fontSize: 13 },
-  formCard: { backgroundColor: C.card, margin: 16, borderRadius: 12, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
-  formCardHeader: { padding: 16, borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.bg },
+  formCard: { backgroundColor: C.card, margin: Theme.spacing.md, borderRadius: 12, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  formCardHeader: { padding: Theme.spacing.md, borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.bg },
   stepperWrapper: {
     alignItems: 'center',
   },
@@ -1992,7 +1984,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
     borderWidth: 1,
     borderColor: C.border,
   },
@@ -2005,11 +1997,11 @@ const styles = StyleSheet.create({
     borderColor: C.success,
   },
   stepNumber: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.muted,
   },
   stepNumberActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   stepLabel: {
     fontSize: 10,
@@ -2028,56 +2020,56 @@ const styles = StyleSheet.create({
   stepConnectorDone: {
     backgroundColor: C.success,
   },
-  formBody: { padding: 16 },
-  sectionTitle: { fontSize: 14, color: C.text, marginBottom: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: C.border },
+  formBody: { padding: Theme.spacing.md },
+  sectionTitle: { ...Theme.typography.body, color: C.text, marginBottom: 12, paddingBottom: Theme.spacing.sm, borderBottomWidth: 1, borderBottomColor: C.border },
   formGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   formGroup: { flex: 1, minWidth: '45%' },
   formGroupFull: { width: '100%' },
-  label: { fontSize: 12, color: C.muted, marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, padding: 12, fontSize: 14, backgroundColor: '#f8fafc', color: C.text },
+  label: { ...Theme.typography.caption, color: C.muted, marginBottom: Theme.spacing.xs },
+  input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, padding: 12, ...Theme.typography.body, backgroundColor: Theme.colors.background, color: C.text },
   inputError: { borderColor: C.error },
   readOnlyInput: { backgroundColor: C.bg, color: C.muted, opacity: 0.7 },
-  pickerContainer: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, overflow: 'hidden', backgroundColor: '#f8fafc' },
+  pickerContainer: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, overflow: 'hidden', backgroundColor: Theme.colors.background },
   picker: { height: 44, color: C.text },
   pickerSmall: { minWidth: 120, borderWidth: 1, borderColor: C.border, borderRadius: 8, overflow: 'hidden', backgroundColor: C.bg },
   emailRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   emailInput: { flex: 1 },
   verifyBtn: { paddingHorizontal: 12, paddingVertical: 10, backgroundColor: C.primary, borderRadius: 8 },
   verifyBtnSuccess: { backgroundColor: C.success },
-  verifyBtnText: { color: '#fff', fontSize: 12 },
-  otpRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  verifyBtnText: { color: Theme.colors.card, ...Theme.typography.caption },
+  otpRow: { flexDirection: 'row', gap: 8, marginTop: Theme.spacing.sm },
   otpInput: { flex: 1 },
-  hintText: { fontSize: 11, color: C.muted, marginTop: 4 },
-  formFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.bg },
+  hintText: { ...Theme.typography.label, color: C.muted, marginTop: Theme.spacing.xs },
+  formFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Theme.spacing.md, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.bg },
   footerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  stepIndicator: { fontSize: 12, color: C.muted },
-  cancelBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#ffffff' },
-  cancelBtnText: { color: '#475569', fontSize: 14, fontWeight: '600' },
+  stepIndicator: { ...Theme.typography.caption, color: C.muted },
+  cancelBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: Theme.spacing.lg, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: Theme.colors.background },
+  cancelBtnText: { color: Theme.colors.textSec, ...Theme.typography.body, fontWeight: '600' },
   nextBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  nextBtnText: { color: '#fff', fontSize: 14 },
+  nextBtnText: { color: Theme.colors.card, ...Theme.typography.body },
   submitBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.success, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  submitBtnText: { color: '#fff', fontSize: 14 },
-  previewHint: { fontSize: 12, color: C.muted, marginBottom: 16 },
+  submitBtnText: { color: Theme.colors.card, ...Theme.typography.body },
+  previewHint: { ...Theme.typography.caption, color: C.muted, marginBottom: Theme.spacing.md },
   previewCard: { borderWidth: 1, borderColor: C.border, borderRadius: 12, overflow: 'hidden', backgroundColor: C.card },
-  previewHeader: { flexDirection: 'row', gap: 16, padding: 16, backgroundColor: C.primary },
+  previewHeader: { flexDirection: 'row', gap: 16, padding: Theme.spacing.md, backgroundColor: C.primary },
   previewPhoto: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  previewInitial: { fontSize: 24, color: '#fff' },
+  previewInitial: { fontSize: 24, color: Theme.colors.card },
   previewInfo: { flex: 1 },
-  previewName: { fontSize: 16, color: '#fff' },
-  previewDesignation: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
-  previewEmail: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
-  previewStatus: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginTop: 6 },
+  previewName: { fontSize: 16, color: Theme.colors.card },
+  previewDesignation: { ...Theme.typography.caption, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
+  previewEmail: { ...Theme.typography.caption, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
+  previewStatus: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: Theme.spacing.sm, paddingVertical: Theme.spacing.xs, borderRadius: 12, marginTop: 6 },
   previewStatusActive: { backgroundColor: 'rgba(16,185,129,0.3)' },
   previewStatusInactive: { backgroundColor: 'rgba(239,68,68,0.3)' },
-  previewStatusText: { color: '#fff', fontSize: 10 },
-  previewSectionTitle: { fontSize: 11, color: C.primary, padding: 12, paddingBottom: 8, backgroundColor: C.bg, borderBottomWidth: 1, borderBottomColor: C.border },
+  previewStatusText: { color: Theme.colors.card, fontSize: 10 },
+  previewSectionTitle: { ...Theme.typography.label, color: C.primary, padding: 12, paddingBottom: Theme.spacing.sm, backgroundColor: C.bg, borderBottomWidth: 1, borderBottomColor: C.border },
   previewGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   previewItem: { width: '50%', padding: 10, borderBottomWidth: 1, borderBottomColor: C.border, borderRightWidth: 1, borderRightColor: C.border },
   previewLabel: { fontSize: 10, color: C.muted, textTransform: 'uppercase' },
-  previewValue: { fontSize: 12, color: C.text, marginTop: 2 },
+  previewValue: { ...Theme.typography.caption, color: C.text, marginTop: 2 },
   tableContainer: {
     backgroundColor: C.card,
-    margin: 16,
+    margin: Theme.spacing.md,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: C.border,
@@ -2085,7 +2077,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       android: { elevation: 2 },
       ios: {
-        shadowColor: '#0f172a',
+        shadowColor: Theme.colors.text,
         shadowOpacity: 0.06,
         shadowRadius: 14,
         shadowOffset: { width: 0, height: 6 },
@@ -2094,25 +2086,25 @@ const styles = StyleSheet.create({
   },
   filterBar: { padding: 14, borderBottomWidth: 1, borderBottomColor: C.border, gap: 12 },
   filterHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  filterTitle: { fontSize: 15, color: C.text },
-  filterSubtitle: { fontSize: 12, color: C.muted, marginTop: 2 },
+  filterTitle: { ...Theme.typography.bodyMd, color: C.text },
+  filterSubtitle: { ...Theme.typography.caption, color: C.muted, marginTop: 2 },
   filterBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: C.primarySoft, borderWidth: 1, borderColor: C.primaryBorder },
-  filterBadgeText: { fontSize: 11, color: C.primary },
+  filterBadgeText: { ...Theme.typography.label, color: C.primary },
   searchInput: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingHorizontal: 12, height: 46, backgroundColor: C.bg },
-  searchField: { flex: 1, fontSize: 14, color: C.text },
+  searchField: { flex: 1, ...Theme.typography.body, color: C.text },
   filterGroup: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   filterGroupStack: { flexDirection: 'column' },
-  filterRowMobile: { flexDirection: 'row', gap: 8, width: '100%', marginTop: 4 },
+  filterRowMobile: { flexDirection: 'row', gap: 8, width: '100%', marginTop: Theme.spacing.xs },
   filterRowDesktop: { flexDirection: 'row', gap: 8 },
   filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.card },
   filterBtnFullWidth: { width: '100%', justifyContent: 'center' },
-  filterBtnText: { fontSize: 12, color: C.text },
+  filterBtnText: { ...Theme.typography.caption, color: C.text },
   exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, backgroundColor: C.success },
-  exportBtnText: { fontSize: 12, color: '#fff' },
+  exportBtnText: { ...Theme.typography.caption, color: Theme.colors.card },
   table: { minWidth: 800 },
-  mobileList: { padding: 16, gap: 12 },
-  tableHeader: { flexDirection: 'row', backgroundColor: C.bg, paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.border },
-  headerCell: { fontSize: 11, color: C.muted, textTransform: 'uppercase' },
+  mobileList: { padding: Theme.spacing.md, gap: 12 },
+  tableHeader: { flexDirection: 'row', backgroundColor: C.bg, paddingVertical: 12, paddingHorizontal: Theme.spacing.md, borderBottomWidth: 1, borderBottomColor: C.border },
+  headerCell: { ...Theme.typography.label, color: C.muted, textTransform: 'uppercase' },
   cellName: { width: '22%' },
   cellEmpId: { width: '10%' },
   cellContact: { width: '15%' },
@@ -2120,12 +2112,12 @@ const styles = StyleSheet.create({
   cellDept: { width: '15%' },
   cellStatus: { width: '10%' },
   cellActions: { width: '10%' },
-  teacherRow: { flexDirection: 'row', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: C.border, alignItems: 'center', backgroundColor: C.card },
+  teacherRow: { flexDirection: 'row', paddingVertical: 14, paddingHorizontal: Theme.spacing.md, borderBottomWidth: 1, borderBottomColor: C.border, alignItems: 'center', backgroundColor: C.card },
   teacherCellName: { width: '22%', flexDirection: 'row', alignItems: 'center', gap: 10 },
   teacherAvatar: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
-  avatarText: { color: '#fff', fontSize: 13 },
-  teacherName: { fontSize: 14, color: C.text },
-  teacherEmail: { fontSize: 11, color: C.muted, marginTop: 2 },
+  avatarText: { color: Theme.colors.card, fontSize: 13 },
+  teacherName: { ...Theme.typography.body, color: C.text },
+  teacherEmail: { ...Theme.typography.label, color: C.muted, marginTop: 2 },
   teacherCellEmpId: { width: '10%' },
   teacherCellContact: { width: '15%' },
   teacherCellDesignation: { width: '15%' },
@@ -2133,27 +2125,27 @@ const styles = StyleSheet.create({
   teacherCellStatus: { width: '10%' },
   teacherCellActions: { width: '10%', flexDirection: 'row', gap: 8 },
   teacherText: { fontSize: 13, color: C.text },
-  teacherSubText: { fontSize: 11, color: C.muted, marginTop: 2 },
-  iconBtn: { padding: 8, borderRadius: 8, backgroundColor: C.bg, borderWidth: 1, borderColor: C.border },
-  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 999, alignSelf: 'flex-start', borderWidth: 1 },
+  teacherSubText: { ...Theme.typography.label, color: C.muted, marginTop: 2 },
+  iconBtn: { padding: Theme.spacing.sm, borderRadius: 8, backgroundColor: C.bg, borderWidth: 1, borderColor: C.border },
+  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: Theme.spacing.sm, paddingVertical: 5, borderRadius: 999, alignSelf: 'flex-start', borderWidth: 1 },
   statusActive: { backgroundColor: C.successSoft },
   statusInactive: { backgroundColor: C.errorSoft },
   statusText: { fontSize: 10 },
   statusActiveText: { color: C.success },
   statusInactiveText: { color: C.error },
   tableFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.bg },
-  footerText: { fontSize: 12, color: C.muted },
+  footerText: { ...Theme.typography.caption, color: C.muted },
   pagination: { flexDirection: 'row', gap: 6 },
   pageBtn: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border, backgroundColor: C.card },
   pageBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
   pageBtnDisabled: { opacity: 0.5 },
-  pageBtnText: { fontSize: 12, color: C.muted },
-  pageBtnTextActive: { color: '#fff' },
-  loadingContainer: { padding: 48, alignItems: 'center', backgroundColor: C.card },
+  pageBtnText: { ...Theme.typography.caption, color: C.muted },
+  pageBtnTextActive: { color: Theme.colors.card },
+  loadingContainer: { padding: Theme.spacing.xxl, alignItems: 'center', backgroundColor: C.card },
   loadingText: { marginTop: 12, color: C.muted },
-  emptyState: { alignItems: 'center', padding: 48, backgroundColor: C.card },
+  emptyState: { alignItems: 'center', padding: Theme.spacing.xxl, backgroundColor: C.card },
   emptyTitle: { fontSize: 16, color: C.text, marginTop: 12 },
-  emptyText: { fontSize: 13, color: C.muted, marginTop: 4 },
+  emptyText: { fontSize: 13, color: C.muted, marginTop: Theme.spacing.xs },
   teacherCard: {
     backgroundColor: C.card,
     borderWidth: 1,
@@ -2164,7 +2156,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       android: { elevation: 1 },
       ios: {
-        shadowColor: '#0f172a',
+        shadowColor: Theme.colors.text,
         shadowOpacity: 0.05,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 4 },
@@ -2182,7 +2174,7 @@ const styles = StyleSheet.create({
     borderColor: C.border,
     borderRadius: 12,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
   },
   teacherMetaLabel: { fontSize: 10, color: C.muted, textTransform: 'uppercase', marginBottom: 3 },
   teacherMetaValue: { fontSize: 13, color: C.text },
@@ -2200,9 +2192,9 @@ const styles = StyleSheet.create({
   },
   cardActionSecondary: { backgroundColor: C.bg, borderWidth: 1, borderColor: C.border },
   cardActionPrimary: { backgroundColor: C.primary },
-  cardActionSecondaryText: { fontSize: 12, color: C.primary },
-  cardActionPrimaryText: { fontSize: 12, color: '#fff' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', padding: 16 },
+  cardActionSecondaryText: { ...Theme.typography.caption, color: C.primary },
+  cardActionPrimaryText: { ...Theme.typography.caption, color: Theme.colors.card },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', padding: Theme.spacing.md },
   modalContent: {
     backgroundColor: C.card,
     borderRadius: 24,
@@ -2210,11 +2202,11 @@ const styles = StyleSheet.create({
     maxHeight: '90%',
     borderWidth: 1,
     borderColor: 'rgba(148, 163, 184, 0.15)',
-    shadowColor: '#0f172a',
+    shadowColor: Theme.colors.text,
     shadowOpacity: 0.15,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 10 },
-    elevation: 10
+    elevation: 10,
   },
   modalLarge: { width: '95%', maxWidth: 800 },
   modalHeader: {
@@ -2228,8 +2220,8 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   modalTitle: { fontSize: 18, color: C.text, fontWeight: '700' },
-  closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
-  modalBody: { paddingHorizontal: 20, paddingBottom: 24 },
+  closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Theme.colors.background, alignItems: 'center', justifyContent: 'center' },
+  modalBody: { paddingHorizontal: 20, paddingBottom: Theme.spacing.lg },
   profileSheet: { gap: 18 },
   profileHeaderCardGradient: {
     flexDirection: 'row',
@@ -2237,7 +2229,7 @@ const styles = StyleSheet.create({
     gap: 16,
     padding: 20,
     borderRadius: 20,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   profileAvatarContainer: {
     borderWidth: 2,
@@ -2249,25 +2241,25 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 22,
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
   profileAvatarText: { color: C.primary, fontSize: 24 },
   profileHeaderMeta: { flex: 1, minWidth: 0, gap: 4 },
-  profileName: { fontSize: 20, color: '#ffffff', fontWeight: '700' },
+  profileName: { fontSize: 20, color: Theme.colors.card, fontWeight: '700' },
   profileRole: { fontSize: 13, color: '#93c5fd', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  profileSubText: { fontSize: 12, color: '#cbd5e1' },
+  profileSubText: { ...Theme.typography.caption, color: '#cbd5e1' },
   statusActiveCard: { backgroundColor: 'rgba(16, 185, 129, 0.18)', borderColor: 'rgba(16, 185, 129, 0.3)' },
   statusInactiveCard: { backgroundColor: 'rgba(239, 68, 68, 0.18)', borderColor: 'rgba(239, 68, 68, 0.3)' },
   statusActiveCardText: { color: '#34d399' },
   statusInactiveCardText: { color: '#f87171' },
-  detailSection: { gap: 10, marginTop: 4 },
-  detailSectionTitle: { fontSize: 12, color: C.muted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
-  modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, paddingHorizontal: 20, paddingVertical: 16, borderTopWidth: 1, borderTopColor: C.border },
+  detailSection: { gap: 10, marginTop: Theme.spacing.xs },
+  detailSectionTitle: { ...Theme.typography.caption, color: C.muted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
+  modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, paddingHorizontal: 20, paddingVertical: Theme.spacing.md, borderTopWidth: 1, borderTopColor: C.border },
   saveBtn: {
     backgroundColor: C.primary,
-    paddingHorizontal: 24,
+    paddingHorizontal: Theme.spacing.lg,
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
@@ -2276,21 +2268,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 4
+    elevation: 4,
   },
-  saveBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  saveBtnText: { color: Theme.colors.card, ...Theme.typography.body, fontWeight: '700' },
   detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    marginBottom: 8,
+    borderColor: Theme.colors.border,
+    marginBottom: Theme.spacing.sm,
   },
   detailIconContainer: {
     width: 36,
@@ -2306,9 +2298,9 @@ const styles = StyleSheet.create({
   },
   detailLabel: { fontSize: 10, color: C.muted, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.5 },
   detailValue: { fontSize: 13, color: C.text, marginTop: 2, fontWeight: '600' },
-  dateText: { fontSize: 14, color: C.text },
-  placeholderText: { fontSize: 14, color: C.muted },
-  errorText: { fontSize: 11, color: C.error, marginTop: 4 },
+  dateText: { ...Theme.typography.body, color: C.text },
+  placeholderText: { ...Theme.typography.body, color: C.muted },
+  errorText: { ...Theme.typography.label, color: C.error, marginTop: Theme.spacing.xs },
   photoZone: {
     borderWidth: 2,
     borderColor: C.border,
@@ -2317,7 +2309,7 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
     backgroundColor: C.bg,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   photoPreview: {
     width: 100,
@@ -2329,33 +2321,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   photoText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: C.text,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   photoSubtext: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.muted,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   previewPhotoImage: {
     width: '100%',
     height: '100%',
     borderRadius: 32,
   },
-  footer: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, padding: 16, backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.border },
+  footer: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, padding: Theme.spacing.md, backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.border },
   footerItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   footerStrong: { color: C.text },
   headerContentContainer: {
     marginTop: 20,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   headerToggle: {
     flexDirection: 'row',
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 14,
-    padding: 4,
+    padding: Theme.spacing.xs,
     width: '100%',
   },
   headerToggleBtn: {
@@ -2368,11 +2360,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   headerToggleBtnActive: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
   },
   headerToggleText: {
     fontSize: 13,
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   headerToggleTextActive: {
     color: C.primary,

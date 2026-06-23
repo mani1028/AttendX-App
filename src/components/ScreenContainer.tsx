@@ -6,7 +6,9 @@ import {
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Theme } from '../theme/theme';
+import { Theme } from '../theme/tokens';
+
+
 
 interface Props {
   children: React.ReactNode;

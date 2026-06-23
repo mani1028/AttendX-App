@@ -1,3 +1,6 @@
+import { Theme, C } from '../../theme/tokens';
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
@@ -10,7 +13,6 @@ import {
   Modal,
   Platform,
   Dimensions,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -19,7 +21,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Feather';
-import { Theme as C } from '../../theme/theme';
 import { getSubjects, getHomework } from '../../services/studentService';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
@@ -61,7 +62,7 @@ const getStudentId = async (): Promise<string> => {
 };
 
 const normalizeDate = (value: string | null | undefined): string => {
-  if (!value) return '';
+  if (!value) {return '';}
   return value.slice(0, 10);
 };
 
@@ -71,7 +72,7 @@ const getTodayDate = (): string => {
 };
 
 const formatDisplayDate = (dateString: string): string => {
-  if (!dateString) return 'Not specified';
+  if (!dateString) {return 'Not specified';}
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
     day: '2-digit',
@@ -81,7 +82,7 @@ const formatDisplayDate = (dateString: string): string => {
 };
 
 const truncateDescription = (description: string, length: number = 100): string => {
-  if (!description) return 'No description';
+  if (!description) {return 'No description';}
   return description.length > length ? description.slice(0, length) + '...' : description;
 };
 
@@ -121,18 +122,8 @@ export default function HomeworkScreen() {
   const navigation = useNavigation<any>();
   const { userName, setTabBarVisible } = useAuth();
   const [schoolCode, setSchoolCode] = useState<string>('');
+  const handleScroll = useScrollTabBar();
 
-  const lastScrollY = useRef(0);
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
-      setTabBarVisible(false);
-    } else if (currentScrollY < lastScrollY.current - 10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
   const [studentId, setStudentId] = useState<string>('');
   const [selectedSubject, setSelectedSubject] = useState<string>(ALL_SUBJECTS);
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDate());
@@ -157,7 +148,7 @@ export default function HomeworkScreen() {
       // Load cached subjects and homework
       try {
         const cachedSubjects = await AsyncStorage.getItem(`homework_subjects_cache_${id}`);
-        if (cachedSubjects) setSubjects(JSON.parse(cachedSubjects));
+        if (cachedSubjects) {setSubjects(JSON.parse(cachedSubjects));}
 
         const cachedHomework = await AsyncStorage.getItem(`homework_data_cache_${id}`);
         if (cachedHomework) {
@@ -217,7 +208,7 @@ export default function HomeworkScreen() {
   };
 
   const loadHomework = async (dateToFetch?: string, subjectToFetch?: string) => {
-    if (!studentId) return;
+    if (!studentId) {return;}
 
     setLoading(true);
     try {
@@ -290,7 +281,7 @@ export default function HomeworkScreen() {
         <Icon name="arrow-left" size={24} color={C.colors.card} />
       </TouchableOpacity>
       <View style={styles.headerTitleContainer}>
-        <Text style={styles.headerTitle}>Home Work</Text>
+        <Text style={styles.headerTitle}>Homework</Text>
       </View>
       <TouchableOpacity
         style={styles.notificationIcon}
@@ -303,8 +294,8 @@ export default function HomeworkScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
-      
+
+
       {renderHeader()}
 
       <ScrollView
@@ -398,7 +389,7 @@ export default function HomeworkScreen() {
               <TouchableOpacity
                 style={[
                   styles.subjectOption,
-                  selectedSubject === ALL_SUBJECTS && styles.selectedSubjectOption
+                  selectedSubject === ALL_SUBJECTS && styles.selectedSubjectOption,
                 ]}
                 onPress={() => handleSubjectPress(ALL_SUBJECTS)}
               >
@@ -408,7 +399,7 @@ export default function HomeworkScreen() {
                    </View>
                    <Text style={[
                      styles.subjectOptionText,
-                     selectedSubject === ALL_SUBJECTS && styles.selectedSubjectOptionText
+                     selectedSubject === ALL_SUBJECTS && styles.selectedSubjectOptionText,
                    ]}>{ALL_SUBJECTS}</Text>
                 </View>
                 {selectedSubject === ALL_SUBJECTS && (
@@ -422,7 +413,7 @@ export default function HomeworkScreen() {
                   key={subject.subject_id}
                   style={[
                     styles.subjectOption,
-                    selectedSubject === subject.subject_name && styles.selectedSubjectOption
+                    selectedSubject === subject.subject_name && styles.selectedSubjectOption,
                   ]}
                   onPress={() => handleSubjectPress(subject.subject_name)}
                 >
@@ -432,7 +423,7 @@ export default function HomeworkScreen() {
                     </View>
                     <Text style={[
                       styles.subjectOptionText,
-                      selectedSubject === subject.subject_name && styles.selectedSubjectOptionText
+                      selectedSubject === subject.subject_name && styles.selectedSubjectOptionText,
                     ]}>{subject.subject_name}</Text>
                   </View>
                   {selectedSubject === subject.subject_name && (
@@ -537,7 +528,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 40,
-    paddingTop: 16,
+    paddingTop: Theme.spacing.md,
     paddingHorizontal: 12,
   },
   header: {
@@ -560,8 +551,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: C.colors.card,
-    fontSize: 18,
-    fontWeight: '700',
+    ...Theme.typography.h3,
     textAlign: 'center',
   },
   notificationIcon: {
@@ -605,7 +595,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingTop: 4,
+    paddingTop: Theme.spacing.xs,
   },
   pendingDot: {
     width: 8,
@@ -614,18 +604,18 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.amber,
   },
   pendingText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: C.colors.textSec,
   },
   listContainer: {
-    paddingHorizontal: 4,
+    paddingHorizontal: Theme.spacing.xs,
   },
   homeworkCard: {
     backgroundColor: C.colors.card,
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     ...C.shadow.sm,
     borderWidth: 1,
     borderColor: C.colors.border,
@@ -634,24 +624,23 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   subjectName: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Theme.typography.h3,
     color: C.colors.text,
   },
   cardDetails: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   detailRow: {
     flexDirection: 'row',
     marginBottom: 6,
   },
   detailLabel: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.textSec,
     width: 110,
   },
   detailValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.text,
     fontWeight: '500',
     flex: 1,
@@ -663,7 +652,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   viewButtonText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: C.colors.primary,
   },
@@ -678,18 +667,17 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     alignItems: 'center',
-    padding: 48,
+    padding: Theme.spacing.xxl,
     marginTop: 40,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    ...Theme.typography.h3,
     color: C.colors.text,
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
   },
   emptyText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.textSec,
     textAlign: 'center',
   },
@@ -708,8 +696,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Theme.typography.h3,
     color: C.colors.card,
   },
   modalBody: {
@@ -724,7 +711,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modalSubjectText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: C.colors.blue,
   },
@@ -738,13 +725,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalDetailLabel: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: C.colors.textSec,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   modalDetailText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.textSec,
     lineHeight: 20,
   },
@@ -752,7 +739,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   modalInfoItem: {
     flex: 1,
@@ -763,12 +750,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   modalInfoLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '600',
     color: C.colors.textSec,
   },
   modalInfoValue: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '500',
     color: C.colors.text,
     textAlign: 'center',
@@ -781,10 +768,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     backgroundColor: C.colors.blueLight,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   attachmentText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: C.colors.primary,
   },
@@ -800,7 +787,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   submitButtonText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
     color: C.colors.card,
   },
@@ -814,7 +801,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingTop: 8,
+    paddingTop: Theme.spacing.sm,
     maxHeight: '70%',
   },
   pickerIndicator: {
@@ -823,7 +810,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.border,
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   pickerHeader: {
     flexDirection: 'row',
@@ -835,12 +822,11 @@ const styles = StyleSheet.create({
     borderBottomColor: C.colors.border,
   },
   pickerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Theme.typography.h3,
     color: C.colors.text,
   },
   closePickerButton: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   pickerOptionsList: {
     padding: 12,
@@ -851,7 +837,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 12,
     borderRadius: 12,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   selectedSubjectOption: {
     backgroundColor: C.colors.blueLight,
@@ -869,7 +855,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   subjectOptionText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '500',
     color: C.colors.textSec,
   },

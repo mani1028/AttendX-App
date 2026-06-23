@@ -1,6 +1,7 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 // AnnouncementsScreen.tsx
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   TextInput,
@@ -10,10 +11,9 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
-} from "react-native";
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
@@ -21,16 +21,19 @@ import {
   Send,
   Trash2,
 } from 'lucide-react-native';
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation } from "@react-navigation/native";
-import API from "../../services/api";
-import { Theme } from "../../theme/theme";
-import AppText from "../../components/common/AppText";
-import { useAuth } from "../../context/AuthContext";
-import { Principal_THEME as C } from "../../constants/principalTheme";
-import { HEADER_CONSTANTS } from "../../constants/headerConstants";
-import { formatErrorMessage } from "../../utils/helpers";
-import { safeGoBack } from "../../utils/navigationHelpers";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import API from '../../services/api';
+
+import AppText from '../../components/common/AppText';
+import { useAuth } from '../../context/AuthContext';
+
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { formatErrorMessage } from '../../utils/helpers';
+import { safeGoBack } from '../../utils/navigationHelpers';
+import { Theme, C } from '../../theme/tokens';
+
+
 
 
 type Announcement = {
@@ -43,19 +46,19 @@ type Announcement = {
 };
 
 const announcementTypes = [
-  "event",
-  "program",
-  "festival",
-  "holiday",
-  "announcement",
-  "urgent",
+  'event',
+  'program',
+  'festival',
+  'holiday',
+  'announcement',
+  'urgent',
 ];
 
-const DEFAULT_ANNOUNCEMENT_TYPE = "announcement";
+const DEFAULT_ANNOUNCEMENT_TYPE = 'announcement';
 
 const getAnnouncementType = (type?: string) => {
   const normalizedType = type?.toLowerCase();
-  return announcementTypes.includes(normalizedType || "")
+  return announcementTypes.includes(normalizedType || '')
     ? normalizedType!
     : DEFAULT_ANNOUNCEMENT_TYPE;
 };
@@ -77,19 +80,18 @@ const AnnouncementsScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
   const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    notification_type: "event",
-    event_date: "",
+    title: '',
+    description: '',
+    notification_type: 'event',
+    event_date: '',
   });
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(false);
   const [listLoading, setListLoading] = useState(true);
-  const [schoolCode, setSchoolCode] = useState("");
-  const [branchId, setBranchId] = useState("");
+  const [schoolCode, setSchoolCode] = useState('');
+  const [branchId, setBranchId] = useState('');
   const [resendingId, setResendingId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -98,32 +100,22 @@ const AnnouncementsScreen = () => {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   const loadStorageData = async () => {
     try {
       const code =
-        (await AsyncStorage.getItem("school_code")) ||
-        (await AsyncStorage.getItem("schoolCode")) ||
-        "";
+        (await AsyncStorage.getItem('school_code')) ||
+        (await AsyncStorage.getItem('schoolCode')) ||
+        '';
 
       const branch =
-        (await AsyncStorage.getItem("branch_id")) ||
-        (await AsyncStorage.getItem("branchId")) ||
-        (await AsyncStorage.getItem("branch")) ||
-        (await AsyncStorage.getItem("BranchID")) ||
-        "01";
+        (await AsyncStorage.getItem('branch_id')) ||
+        (await AsyncStorage.getItem('branchId')) ||
+        (await AsyncStorage.getItem('branch')) ||
+        (await AsyncStorage.getItem('BranchID')) ||
+        '01';
 
       setSchoolCode(code);
       setBranchId(branch);
@@ -141,10 +133,10 @@ const AnnouncementsScreen = () => {
     setListLoading(true);
 
     try {
-      const response = await API.get("/notifications/principal/list", {
+      const response = await API.get('/notifications/principal/list', {
         headers: {
-          "X-School-Code": code,
-          "X-Branch-Id": branch,
+          'X-School-Code': code,
+          'X-Branch-Id': branch,
         },
       });
 
@@ -155,7 +147,7 @@ const AnnouncementsScreen = () => {
 
       setAnnouncements(normalizedAnnouncements);
     } catch (error: any) {
-      Alert.alert("Error", formatErrorMessage(error?.response?.data?.detail || "Failed to load announcements"));
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || 'Failed to load announcements'));
     } finally {
       setListLoading(false);
     }
@@ -170,7 +162,7 @@ const AnnouncementsScreen = () => {
 
   const handleSubmit = async () => {
     if (!formData.title || !formData.description) {
-      Alert.alert("Validation", "Please fill required fields");
+      Alert.alert('Validation', 'Please fill required fields');
       return;
     }
 
@@ -178,35 +170,35 @@ const AnnouncementsScreen = () => {
 
     try {
       const response = await API.post(
-        "/notifications/principal/create",
+        '/notifications/principal/create',
         formData,
         {
           headers: {
-            "X-School-Code": schoolCode,
-            "X-Branch-Id": branchId,
+            'X-School-Code': schoolCode,
+            'X-Branch-Id': branchId,
           },
         }
       );
 
       if (response.data.ok) {
         Alert.alert(
-          "Success",
-          "Announcement posted to students and teachers!"
+          'Success',
+          'Announcement posted to students and teachers!'
         );
 
         setFormData({
-          title: "",
-          description: "",
-          notification_type: "event",
-          event_date: "",
+          title: '',
+          description: '',
+          notification_type: 'event',
+          event_date: '',
         });
 
         fetchAnnouncements();
       }
     } catch (error: any) {
       Alert.alert(
-        "Error",
-        formatErrorMessage(error?.response?.data?.detail || "Failed to post announcement")
+        'Error',
+        formatErrorMessage(error?.response?.data?.detail || 'Failed to post announcement')
       );
     } finally {
       setLoading(false);
@@ -218,24 +210,24 @@ const AnnouncementsScreen = () => {
 
     try {
       const response = await API.post(
-        "/notifications/principal/create",
+        '/notifications/principal/create',
         {
           title: announcement.title,
           description: announcement.description,
           notification_type: getAnnouncementType(announcement.type),
-          event_date: announcement.event_date || "",
+          event_date: announcement.event_date || '',
         },
         {
           headers: {
-            "X-School-Code": schoolCode,
-            "X-Branch-Id": branchId,
+            'X-School-Code': schoolCode,
+            'X-Branch-Id': branchId,
           },
         }
       );
 
       if (response.data.ok) {
         Alert.alert(
-          "Success",
+          'Success',
           `Announcement "${announcement.title}" resent successfully`
         );
 
@@ -243,8 +235,8 @@ const AnnouncementsScreen = () => {
       }
     } catch (error: any) {
       Alert.alert(
-        "Error",
-        formatErrorMessage(error?.response?.data?.detail || "Failed to resend announcement")
+        'Error',
+        formatErrorMessage(error?.response?.data?.detail || 'Failed to resend announcement')
       );
     } finally {
       setResendingId(null);
@@ -253,31 +245,31 @@ const AnnouncementsScreen = () => {
 
   const handleDelete = (announcementId: number) => {
     Alert.alert(
-      "Delete",
-      "Are you sure you want to delete this announcement?",
+      'Delete',
+      'Are you sure you want to delete this announcement?',
       [
         {
-          text: "Cancel",
-          style: "cancel",
+          text: 'Cancel',
+          style: 'cancel',
         },
         {
-          text: "Delete",
-          style: "destructive",
+          text: 'Delete',
+          style: 'destructive',
           onPress: async () => {
             try {
               await API.delete(
                 `/notifications/principal/delete/${announcementId}`,
                 {
                   headers: {
-                    "X-School-Code": schoolCode,
-                    "X-Branch-Id": branchId,
+                    'X-School-Code': schoolCode,
+                    'X-Branch-Id': branchId,
                   },
                 }
               );
 
               Alert.alert(
-                "Success",
-                "Announcement deleted successfully"
+                'Success',
+                'Announcement deleted successfully'
               );
 
               setAnnouncements((prev) =>
@@ -285,8 +277,8 @@ const AnnouncementsScreen = () => {
               );
             } catch (error: any) {
               Alert.alert(
-                "Error",
-                formatErrorMessage(error?.response?.data?.detail || "Failed to delete announcement")
+                'Error',
+                formatErrorMessage(error?.response?.data?.detail || 'Failed to delete announcement')
               );
             }
           },
@@ -296,18 +288,18 @@ const AnnouncementsScreen = () => {
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return "";
+    if (!dateString) {return '';}
     return new Date(dateString).toLocaleDateString();
   };
 
   const formatTime = (dateString?: string) => {
-    if (!dateString) return "";
-    return "";
+    if (!dateString) {return '';}
+    return '';
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       <ScrollView
         style={styles.scrollView}
@@ -319,7 +311,7 @@ const AnnouncementsScreen = () => {
         {/* Standardized Header */}
         <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
         <View style={styles.headerTop}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.iconButton}
             onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
           >
@@ -328,7 +320,7 @@ const AnnouncementsScreen = () => {
           <View style={styles.headerTitleContainer}>
             <AppText weight="bold" style={styles.headerTitle}>Announcements</AppText>
           </View>
-          <TouchableOpacity style={styles.iconButton} onPress={() => fetchAnnouncements()}>
+          <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={() => fetchAnnouncements()}>
             <RefreshCw size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
           </TouchableOpacity>
         </View>
@@ -354,7 +346,7 @@ const AnnouncementsScreen = () => {
                 placeholderTextColor={C.textMuted}
                 value={formData.title}
                 onChangeText={(text) =>
-                  handleInputChange("title", text)
+                  handleInputChange('title', text)
                 }
               />
 
@@ -366,7 +358,7 @@ const AnnouncementsScreen = () => {
                 placeholderTextColor={C.textMuted}
                 value={formData.description}
                 onChangeText={(text) =>
-                  handleInputChange("description", text)
+                  handleInputChange('description', text)
                 }
               />
 
@@ -375,7 +367,7 @@ const AnnouncementsScreen = () => {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
                 <View style={styles.typeRow}>
                   {announcementTypes.map((type) => (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={type}
                       style={[
                         styles.typeButton,
@@ -383,7 +375,7 @@ const AnnouncementsScreen = () => {
                         styles.activeType,
                       ]}
                       onPress={() =>
-                        handleInputChange("notification_type", type)
+                        handleInputChange('notification_type', type)
                       }
                     >
                       <AppText
@@ -410,17 +402,17 @@ const AnnouncementsScreen = () => {
                 placeholderTextColor={C.textMuted}
                 value={formData.event_date}
                 onChangeText={(text) =>
-                  handleInputChange("event_date", text)
+                  handleInputChange('event_date', text)
                 }
               />
 
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.submitButton}
                 onPress={handleSubmit}
                 disabled={loading}
               >
                 {loading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={Theme.colors.card} />
                 ) : (
                   <AppText style={styles.submitText} weight="bold">
                     Post Announcement
@@ -491,7 +483,7 @@ const AnnouncementsScreen = () => {
                       ) : null}
 
                       <View style={styles.actionRow}>
-                        <TouchableOpacity
+                        <TouchableOpacity accessibilityRole="button"
                           style={styles.resendButton}
                           onPress={() =>
                             handleResend(announcement)
@@ -501,10 +493,10 @@ const AnnouncementsScreen = () => {
                           }
                         >
                           {resendingId === announcement.id ? (
-                            <ActivityIndicator color="#fff" size="small" />
+                            <ActivityIndicator color={Theme.colors.card} size="small" />
                           ) : (
                             <>
-                              <Send size={14} color="#fff" style={{ marginRight: 6 }} />
+                              <Send size={14} color={Theme.colors.card} style={{ marginRight: 6 }} />
                               <AppText style={styles.buttonText} weight="bold">
                                 Resend
                               </AppText>
@@ -512,13 +504,13 @@ const AnnouncementsScreen = () => {
                           )}
                         </TouchableOpacity>
 
-                        <TouchableOpacity
+                        <TouchableOpacity accessibilityRole="button"
                           style={styles.deleteButton}
                           onPress={() =>
                             handleDelete(announcement.id)
                           }
                         >
-                          <Trash2 size={14} color="#fff" style={{ marginRight: 6 }} />
+                          <Trash2 size={14} color={Theme.colors.card} style={{ marginRight: 6 }} />
                           <AppText style={styles.buttonText} weight="bold">
                             Delete
                           </AppText>
@@ -584,7 +576,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
@@ -594,8 +586,8 @@ const styles = StyleSheet.create({
   headerSubtext: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
     opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   contentOverlap: {
     flex: 1,
@@ -609,7 +601,7 @@ const styles = StyleSheet.create({
   },
   contentPadding: {
     padding: 20,
-    paddingTop: 24,
+    paddingTop: Theme.spacing.lg,
   },
 
   card: {
@@ -636,7 +628,7 @@ const styles = StyleSheet.create({
   },
 
   label: {
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
     marginTop: 10,
     color: C.text,
     fontSize: 13,
@@ -650,23 +642,23 @@ const styles = StyleSheet.create({
     padding: 14,
     backgroundColor: C.bg,
     color: C.text,
-    fontSize: 15,
-    marginBottom: 8,
+    ...Theme.typography.bodyMd,
+    marginBottom: Theme.spacing.sm,
   },
 
   textArea: {
     minHeight: 100,
-    textAlignVertical: "top",
+    textAlignVertical: 'top',
   },
 
   typeRow: {
-    flexDirection: "row",
-    paddingVertical: 4,
+    flexDirection: 'row',
+    paddingVertical: Theme.spacing.xs,
   },
 
   typeButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
     borderRadius: 20,
     backgroundColor: C.bg,
     marginRight: 10,
@@ -685,15 +677,15 @@ const styles = StyleSheet.create({
   },
 
   activeTypeText: {
-    color: "#fff",
+    color: Theme.colors.card,
   },
 
   submitButton: {
     backgroundColor: C.primary,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 12,
-    marginTop: 16,
-    alignItems: "center",
+    marginTop: Theme.spacing.md,
+    alignItems: 'center',
     shadowColor: C.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -702,7 +694,7 @@ const styles = StyleSheet.create({
   },
 
   submitText: {
-    color: "#fff",
+    color: Theme.colors.card,
     fontSize: 16,
   },
 
@@ -713,9 +705,9 @@ const styles = StyleSheet.create({
 
   announcementCard: {
     backgroundColor: C.bg,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 14,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     borderWidth: 1,
     borderColor: C.border,
   },
@@ -728,13 +720,13 @@ const styles = StyleSheet.create({
   },
 
   postedDate: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.textMuted,
   },
 
   badge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 6,
     fontSize: 10,
   },
@@ -746,21 +738,21 @@ const styles = StyleSheet.create({
   },
 
   description: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     color: C.textMuted,
+    ...Theme.typography.body,
     lineHeight: 20,
-    fontSize: 14,
   },
 
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
 
   meta: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
   },
 
@@ -768,7 +760,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     marginTop: 12,
-    paddingTop: 16,
+    paddingTop: Theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: C.border,
   },
@@ -778,7 +770,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.primary,
     paddingVertical: 10,
     borderRadius: 10,
-    alignItems: "center",
+    alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
   },
@@ -788,13 +780,13 @@ const styles = StyleSheet.create({
     backgroundColor: C.errorSoft,
     paddingVertical: 10,
     borderRadius: 10,
-    alignItems: "center",
+    alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
   },
 
   buttonText: {
-    color: "#fff",
+    color: Theme.colors.card,
     fontSize: 13,
   },
 
@@ -806,6 +798,6 @@ const styles = StyleSheet.create({
   emptyText: {
     color: C.textMuted,
     textAlign: 'center',
-    fontSize: 15,
-  }
+    ...Theme.typography.bodyMd,
+  },
 });

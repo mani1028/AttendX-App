@@ -1,3 +1,6 @@
+import { Theme, C } from '../../theme/tokens';
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -7,7 +10,6 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Dimensions,
-  StatusBar,
   Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -22,7 +24,6 @@ import { Buffer } from 'buffer';
 import Icon from 'react-native-vector-icons/Feather';
 import { getStudentFee, getPaymentHistory } from '../../services/studentService';
 import { downloadReceipt } from '../../services/accountantService';
-import { Theme as C } from '../../theme/theme';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 
@@ -50,12 +51,12 @@ interface Payment {
 }
 
 const getFeeCacheKey = (studentId: string, schoolCode?: string) => {
-  if (!studentId) return null;
+  if (!studentId) {return null;}
   return schoolCode ? `fees_cache_${schoolCode}_${studentId}` : `fees_cache_${studentId}`;
 };
 
 const getPaymentCacheKey = (studentId: string, schoolCode?: string) => {
-  if (!studentId) return null;
+  if (!studentId) {return null;}
   return schoolCode ? `payments_cache_${schoolCode}_${studentId}` : `payments_cache_${studentId}`;
 };
 
@@ -90,18 +91,8 @@ export default function StudentFeeScreen({ navigation }: any) {
   const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [showDetailModal, setShowDetailModal] = useState<boolean>(false);
+  const handleScroll = useScrollTabBar();
 
-  const lastScrollY = useRef(0);
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
-      setTabBarVisible(false);
-    } else if (currentScrollY < lastScrollY.current - 10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -109,8 +100,8 @@ export default function StudentFeeScreen({ navigation }: any) {
         const sid = await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('studentId');
         const code = await AsyncStorage.getItem('school_code') || await AsyncStorage.getItem('schoolCode');
 
-        if (sid) setStudentId(sid);
-        if (code) setSchoolCode(code);
+        if (sid) {setStudentId(sid);}
+        if (code) {setSchoolCode(code);}
 
         // Load cached data
         if (sid) {
@@ -119,11 +110,11 @@ export default function StudentFeeScreen({ navigation }: any) {
 
           const cachedFees = (feeCacheKey ? await AsyncStorage.getItem(feeCacheKey) : null)
             || await AsyncStorage.getItem(`fees_cache_${sid}`);
-          if (cachedFees) setFees(JSON.parse(cachedFees));
+          if (cachedFees) {setFees(JSON.parse(cachedFees));}
 
           const cachedPayments = (paymentCacheKey ? await AsyncStorage.getItem(paymentCacheKey) : null)
             || await AsyncStorage.getItem(`payments_cache_${sid}`);
-          if (cachedPayments) setPayments(JSON.parse(cachedPayments));
+          if (cachedPayments) {setPayments(JSON.parse(cachedPayments));}
         }
 
         if (sid) {
@@ -144,7 +135,7 @@ export default function StudentFeeScreen({ navigation }: any) {
     const paymentCacheKey = getPaymentCacheKey(sid, code);
 
     try {
-      if (showLoading) setLoading(true);
+      if (showLoading) {setLoading(true);}
 
       const feeData = await getStudentFee();
       const formattedFees: Fee[] = [{
@@ -153,7 +144,7 @@ export default function StudentFeeScreen({ navigation }: any) {
         paid_amount: feeData.paidFee,
         due_amount: feeData.pendingFee,
         status: feeData.pendingFee <= 0 ? 'paid' : 'partial',
-        due_date: (feeData as any).due_date || 'N/A'
+        due_date: (feeData as any).due_date || 'N/A',
       }];
 
       setFees(formattedFees);
@@ -174,7 +165,7 @@ export default function StudentFeeScreen({ navigation }: any) {
     } catch (error) {
       console.error('Error fetching payment history:', error);
     } finally {
-      if (showLoading) setLoading(false);
+      if (showLoading) {setLoading(false);}
     }
   };
 
@@ -209,7 +200,7 @@ export default function StudentFeeScreen({ navigation }: any) {
 
       await RNFS.writeFile(filePath, base64Data, 'base64');
       const exists = await RNFS.exists(filePath);
-      if (!exists) throw new Error('Written file not found');
+      if (!exists) {throw new Error('Written file not found');}
 
       try {
         const finalUrl = Platform.OS === 'android'
@@ -367,8 +358,8 @@ export default function StudentFeeScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
-      
+
+
       <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
         <TouchableOpacity
           style={styles.backButton}
@@ -492,7 +483,7 @@ export default function StudentFeeScreen({ navigation }: any) {
                         month: 'long',
                         year: 'numeric',
                         hour: '2-digit',
-                        minute: '2-digit'
+                        minute: '2-digit',
                       })}
                     </AppText>
                   </View>
@@ -576,7 +567,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   ledgerTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '800',
     color: C.colors.primary,
     marginBottom: 12,
@@ -586,12 +577,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   ledgerLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.colors.textSec,
     width: 100,
   },
   ledgerValue: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     color: C.colors.primary,
   },
@@ -600,7 +591,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 16,
     padding: 20,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     ...C.shadow.md,
   },
   summaryIconContainer: {
@@ -616,9 +607,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   summaryLabel: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.card + 'CC', // ~0.8 opacity
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
     fontWeight: '500',
   },
   summaryValue: {
@@ -645,7 +636,7 @@ const styles = StyleSheet.create({
     borderBottomColor: C.colors.blue,
   },
   tabText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
     color: C.colors.textSec,
   },
@@ -665,7 +656,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   detailsTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '800',
     color: C.colors.primary,
   },
@@ -676,12 +667,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   detailLabel: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.textSec,
     fontWeight: '500',
   },
   detailValue: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
     color: C.colors.primary,
   },
@@ -696,7 +687,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   statusText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: 'bold',
     color: C.colors.success,
   },
@@ -706,7 +697,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dueDateValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.textSec,
     fontWeight: '500',
   },
@@ -746,7 +737,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.successBg,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: Theme.spacing.md,
   },
   historyInfo: {
     flex: 1,
@@ -757,7 +748,7 @@ const styles = StyleSheet.create({
     color: C.colors.primary,
   },
   historyMethod: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.colors.textMuted,
     marginTop: 2,
   },
@@ -767,7 +758,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   historyDate: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.colors.textSec,
   },
   downloadButton: {
@@ -782,7 +773,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   downloadButtonText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.blue,
     fontWeight: '700',
   },
@@ -798,7 +789,7 @@ const styles = StyleSheet.create({
   },
   emptyHistoryText: {
     color: C.colors.textMuted,
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   modalOverlay: {
     flex: 1,
@@ -841,7 +832,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   receiptStatus: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.success,
     fontWeight: '600',
     marginTop: 5,
@@ -849,7 +840,7 @@ const styles = StyleSheet.create({
   detailList: {
     backgroundColor: C.colors.background,
     borderRadius: 16,
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   modalDetailRow: {
     flexDirection: 'row',

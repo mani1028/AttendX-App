@@ -1,3 +1,5 @@
+import { Theme, C } from '../../theme/tokens';
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   StyleSheet,
@@ -9,7 +11,6 @@ import {
   RefreshControl,
   NativeSyntheticEvent,
   NativeScrollEvent,
-  StatusBar,
   Modal,
   Platform,
   Alert,
@@ -28,15 +29,15 @@ import {
   CheckCircle2,
   XCircle,
   X,
-  FileBox
+  FileBox,
 } from 'lucide-react-native';
 import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import AvatarBubble from '../../components/common/AvatarBubble';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
-import { Theme as C } from '../../theme/theme';
 import type { RootStackParamList } from '../../navigation/types';
 import { safeNavigate } from '../../utils/navigationHelpers';
 import Svg, { Path } from 'react-native-svg';
@@ -46,7 +47,7 @@ import {
   getStudentProfilePhotoDataUri,
   getStudentProfilePhotoUrl,
   getQuestionPapers,
-  downloadQuestionPaper
+  downloadQuestionPaper,
 } from '../../services/studentService';
 import { buildApiUrl } from '../../services/api';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
@@ -57,7 +58,7 @@ import AccountSwitcher from '../../components/common/AccountSwitcher';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const getStudentPhotoCacheKey = (studentId: string, schoolCode: string): string | null => {
-  if (!studentId) return null;
+  if (!studentId) {return null;}
   return `profile_photo_url:student:${schoolCode || 'unknown'}:${studentId}`;
 };
 
@@ -84,13 +85,13 @@ const arrayBufferToBase64 = (data: ArrayBuffer): string => {
 };
 
 const getStudentDashboardCacheKey = (schoolCode: string, studentId: string): string | null => {
-  if (!schoolCode || !studentId) return null;
+  if (!schoolCode || !studentId) {return null;}
   return `student_dashboard_cache:${schoolCode}:${studentId}`;
 };
 
 const normalizeDashboardPhotoUri = (value: string | null | undefined): string | null => {
   const uri = String(value || '').trim();
-  if (!uri) return null;
+  if (!uri) {return null;}
   if (
     uri.startsWith('data:') ||
     uri.startsWith('http://') ||
@@ -117,20 +118,8 @@ export default function StudentDashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [switcherVisible, setSwitcherVisible] = useState(false);
+  const handleScroll = useScrollTabBar();
 
-  const lastScrollY = useRef(0);
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-
-    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
-      setTabBarVisible(false);
-    } else if (currentScrollY < lastScrollY.current - 10) {
-      setTabBarVisible(true);
-    }
-
-    lastScrollY.current = currentScrollY;
-  };
   const navigateRoot = (screen: keyof RootStackParamList, params?: any) => {
     safeNavigate(navigation as any, screen as any, params);
   };
@@ -180,9 +169,9 @@ export default function StudentDashboardScreen() {
           const cached = await AsyncStorage.getItem(cacheKey);
           if (cached && isMounted.current) {
             const parsed = safeJsonParse<any>(cached, {});
-            if (parsed.attendanceData) setAttendanceData(parsed.attendanceData);
-            if (Array.isArray(parsed.recentAttendance)) setRecentAttendance(parsed.recentAttendance);
-            if (Array.isArray(parsed.recentPapers)) setRecentPapers(parsed.recentPapers);
+            if (parsed.attendanceData) {setAttendanceData(parsed.attendanceData);}
+            if (Array.isArray(parsed.recentAttendance)) {setRecentAttendance(parsed.recentAttendance);}
+            if (Array.isArray(parsed.recentPapers)) {setRecentPapers(parsed.recentPapers);}
             cacheUsed = true;
             setLoading(false);
           }
@@ -196,10 +185,10 @@ export default function StudentDashboardScreen() {
         getQuestionPapers(),
       ]);
 
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
 
       const updatedCacheData: any = {};
-      
+
       if (attendanceResult.status === 'fulfilled' && attendanceResult.value) {
         const attendance = attendanceResult.value;
         const attendanceItems = Array.isArray(attendance.items) ? attendance.items : [];
@@ -391,7 +380,7 @@ export default function StudentDashboardScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -402,8 +391,8 @@ export default function StudentDashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <LinearGradient 
-          colors={['#1E3A8A', '#3B82F6']}
+        <LinearGradient
+          colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
           start={{x: 0, y: 0}}
           end={{x: 1, y: 1}}
           style={[styles.headerContent, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}
@@ -422,7 +411,7 @@ export default function StudentDashboardScreen() {
                   displayName={userName || 'Student'}
                   size={44}
                   textSize={18}
-                  primaryColor="#FFF"
+                  primaryColor={Theme.colors.card}
                 />
               )}
             </TouchableOpacity>
@@ -430,7 +419,7 @@ export default function StudentDashboardScreen() {
               style={styles.notificationBtn}
               onPress={() => navigateRoot('Notifications')}
             >
-              <Bell size={22} color="#FFF" />
+              <Bell size={22} color={Theme.colors.card} />
               {unreadCount > 0 && (
                 <View style={styles.badge}>
                   <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
@@ -440,7 +429,7 @@ export default function StudentDashboardScreen() {
           </View>
 
           <View style={styles.welcomeSection}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.headerInfoContainer}
               onPress={() => setSwitcherVisible(true)}
               activeOpacity={0.7}
@@ -448,7 +437,7 @@ export default function StudentDashboardScreen() {
               <View>
                 <View style={styles.greetingRow}>
                   <AppText style={styles.greeting}>HI {userName?.split(' ')[0]?.toUpperCase() || 'STUDENT'} 👋</AppText>
-                  <ChevronDown size={18} color="#FFF" style={styles.chevronIcon} />
+                  <ChevronDown size={18} color={Theme.colors.card} style={styles.chevronIcon} />
                 </View>
                 <AppText style={styles.subGreeting}>Here's your academic overview.</AppText>
               </View>
@@ -537,7 +526,7 @@ export default function StudentDashboardScreen() {
                   </View>
                   <AppText style={styles.gridLabel}>{item.name}</AppText>
                 </TouchableOpacity>
-              )})}
+              );})}
             </View>
           </View>
 
@@ -615,9 +604,9 @@ export default function StudentDashboardScreen() {
         </View>
       )}
 
-      <AccountSwitcher 
-        visible={switcherVisible} 
-        onClose={() => setSwitcherVisible(false)} 
+      <AccountSwitcher
+        visible={switcherVisible}
+        onClose={() => setSwitcherVisible(false)}
       />
     </View>
   );
@@ -636,8 +625,8 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.primary,
     paddingHorizontal: 20,
     paddingBottom: 40,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+
+
     marginBottom: 20,
     marginHorizontal: -20,
   },
@@ -683,34 +672,33 @@ const styles = StyleSheet.create({
     minWidth: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#ef4444',
+    backgroundColor: Theme.colors.error,
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: Theme.colors.card,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 2,
     zIndex: 1,
   },
   badgeText: {
-    color: '#ffffff',
-    fontSize: 11,
+    color: Theme.colors.card,
+    ...Theme.typography.label,
     fontWeight: '900',
     textAlign: 'center',
   },
   greeting: {
-    fontSize: 28,
-    fontWeight: '800',
+    ...Theme.typography.h1,
     color: C.colors.background,
     lineHeight: 32,
   },
   subGreeting: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.backgroundAlt + 'AD', // ~0.68 opacity
     marginTop: 2,
     fontWeight: '600',
   },
   statsGrid: {
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
@@ -719,24 +707,24 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.card,
     borderRadius: 22,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     width: '46%',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     ...C.shadow.sm,
   },
   attendancePctCard: {
     backgroundColor: C.colors.card,
     borderRadius: 22,
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginTop: 8,
+    paddingVertical: Theme.spacing.md,
+    marginTop: Theme.spacing.sm,
     ...C.shadow.sm,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   statLabel: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#6B7280',
     fontWeight: '600',
   },
@@ -755,7 +743,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.background,
   },
   section: {
-    paddingTop: 16,
+    paddingTop: Theme.spacing.md,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -770,7 +758,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   viewAll: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: C.colors.blue,
     fontWeight: '700',
   },
@@ -782,7 +770,7 @@ const styles = StyleSheet.create({
   gridItem: {
     width: (SCREEN_WIDTH - 60) / 4,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   iconContainer: {
     width: 46,
@@ -790,10 +778,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   gridLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.colors.text,
     fontWeight: '600',
     textAlign: 'center',
@@ -810,7 +798,7 @@ const styles = StyleSheet.create({
   activityCardRow: {
     backgroundColor: C.colors.card,
     borderRadius: 18,
-    padding: 16,
+    padding: Theme.spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
@@ -828,12 +816,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   activityTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Theme.typography.h3,
     color: C.colors.text,
   },
   activityDate: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.textMuted,
     marginTop: 3,
   },
@@ -843,7 +830,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   activityDetail: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.colors.textMuted,
   },
   paperCardRow: {
@@ -852,7 +839,7 @@ const styles = StyleSheet.create({
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
     ...C.shadow.sm,
   },
   viewPaperBtn: {
@@ -863,7 +850,7 @@ const styles = StyleSheet.create({
   },
   viewPaperBtnText: {
     color: C.colors.blue,
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
   },
   viewerContainer: {
@@ -873,7 +860,7 @@ const styles = StyleSheet.create({
   viewerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: C.colors.border,
@@ -887,8 +874,7 @@ const styles = StyleSheet.create({
   viewerTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 18,
-    fontWeight: '700',
+    ...Theme.typography.h3,
     color: C.colors.text,
   },
   loaderOverlay: {
@@ -900,7 +886,7 @@ const styles = StyleSheet.create({
   },
   loaderText: {
     marginTop: 12,
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: C.colors.blue,
     fontWeight: '600',
   },

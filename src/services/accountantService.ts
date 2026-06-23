@@ -106,7 +106,7 @@ function normalizeDashboardSummary(data: unknown): DashboardSummary {
 }
 
 function toNumber(value: unknown, fallback = 0): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) {return value;}
   if (typeof value === 'string') {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
@@ -115,8 +115,8 @@ function toNumber(value: unknown, fallback = 0): number {
 }
 
 function toText(value: unknown, fallback = ''): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number') return String(value);
+  if (typeof value === 'string') {return value;}
+  if (typeof value === 'number') {return String(value);}
   return fallback;
 }
 
@@ -126,8 +126,8 @@ function asRecord(value: unknown): Record<string, any> {
 
 function normalizeStatus(status: unknown): 'paid' | 'partial' | 'pending' {
   const normalized = String(status || '').toLowerCase();
-  if (normalized === 'paid') return 'paid';
-  if (normalized === 'partial' || normalized === 'partially_paid') return 'partial';
+  if (normalized === 'paid') {return 'paid';}
+  if (normalized === 'partial' || normalized === 'partially_paid') {return 'partial';}
   return 'pending';
 }
 
@@ -172,24 +172,24 @@ function normalizePayment(item: unknown): PaymentRecord {
 }
 
 function pickList(data: unknown, keys: string[]): any[] {
-  if (Array.isArray(data)) return data;
+  if (Array.isArray(data)) {return data;}
   const root = asRecord(data);
   for (const key of keys) {
-    if (Array.isArray(root[key])) return root[key];
+    if (Array.isArray(root[key])) {return root[key];}
     const nested = asRecord(root[key]);
-    if (Array.isArray(nested.items)) return nested.items;
+    if (Array.isArray(nested.items)) {return nested.items;}
   }
-  if (Array.isArray(root.items)) return root.items;
-  if (Array.isArray(asRecord(root.data).items)) return asRecord(root.data).items;
+  if (Array.isArray(root.items)) {return root.items;}
+  if (Array.isArray(asRecord(root.data).items)) {return asRecord(root.data).items;}
   return [];
 }
 
 export async function getSchoolStudents(schoolCode?: string): Promise<StudentDirectoryItem[]> {
   const branchId = await Storage.getItem('branch_id') || await Storage.getItem('branchId') || '';
   const params: any = {};
-  if (schoolCode) params.school_code = schoolCode;
-  if (branchId) params.branch_id = branchId;
-  
+  if (schoolCode) {params.school_code = schoolCode;}
+  if (branchId) {params.branch_id = branchId;}
+
   const response = await API.get<any>('manage/students', { params });
   const rows = pickList(response.data, ['students', 'data']);
   return rows.map((row: any) => {

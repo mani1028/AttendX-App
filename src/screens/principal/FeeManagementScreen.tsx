@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -10,7 +11,6 @@ import {
   RefreshControl,
   Modal,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -44,9 +44,15 @@ import {
 } from '../../services/accountantService';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import { Theme, C } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
+
 
 
 interface Student {
@@ -82,16 +88,15 @@ const FeeManagement = () => {
   const insets = useSafeAreaInsets();
   const { setTabBarVisible, userRole } = useAuth();
   const isMounted = useRef(true);
-  const lastScrollY = useRef(0);
   const [students, setStudents] = useState<Student[]>([]);
   const [fees, setFees] = useState<Fee[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [schoolCode, setSchoolCode] = useState('');
   const [formData, setFormData] = useState<FormData>({
-    student_id: "",
-    total_fee: "",
-    due_date: "",
+    student_id: '',
+    total_fee: '',
+    due_date: '',
   });
   const [showStudentSearchModal, setShowStudentSearchModal] = useState(false);
   const [modalSearchText, setModalSearchText] = useState('');
@@ -113,7 +118,7 @@ const FeeManagement = () => {
   // Pre-select student if passed via route params
   useEffect(() => {
     const sId = route?.params?.student_id || route?.params?.studentId;
-    if (!sId || lastProcessedStudentId.current === sId) return;
+    if (!sId || lastProcessedStudentId.current === sId) {return;}
     if (students.length > 0) {
       const found = students.find(s => s.id === sId);
       if (found) {
@@ -138,30 +143,22 @@ const FeeManagement = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   useEffect(() => {
-    fetchStudentsAndFees();
+    if (schoolCode && schoolCode.trim() !== '') {
+      fetchStudentsAndFees();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolCode]);
 
   const loadSchoolCode = async () => {
     try {
-      const code = await AsyncStorage.getItem('school_code') ||
-        await AsyncStorage.getItem('schoolCode') ||
-        await AsyncStorage.getItem('school_id') ||
-        await AsyncStorage.getItem('schoolId') || '';
+      const code = await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) || '';
       if (isMounted.current) {
         setSchoolCode(code);
       }
@@ -172,6 +169,9 @@ const FeeManagement = () => {
   };
 
   const fetchStudentsAndFees = async () => {
+    if (!schoolCode || schoolCode.trim() === '') {
+      return;
+    }
     try {
       setLoading(true);
 
@@ -186,8 +186,8 @@ const FeeManagement = () => {
       }
     } catch (error: any) {
       if (error?.response?.status !== 401) {
-        console.error("Error fetching data:", error);
-        const errorMsg = error?.response?.data?.message || error?.message || "Failed to fetch data";
+        console.error('Error fetching data:', error);
+        const errorMsg = error?.response?.data?.message || error?.message || 'Failed to fetch data';
         Alert.alert('Error', errorMsg);
       }
     } finally {
@@ -220,7 +220,7 @@ const FeeManagement = () => {
       Alert.alert('Validation Error', 'Please select a student');
       return;
     }
-    
+
     if (!formData.total_fee || parseFloat(formData.total_fee) <= 0) {
       Alert.alert('Validation Error', 'Valid total fee amount is required');
       return;
@@ -243,16 +243,16 @@ const FeeManagement = () => {
         total_fee: Number(formData.total_fee),
         due_date: formData.due_date,
       }, schoolCode);
-      
+
       if (isMounted.current) {
         Alert.alert('Success', 'Fee created successfully');
-        setFormData({ student_id: "", total_fee: "", due_date: "" });
+        setFormData({ student_id: '', total_fee: '', due_date: '' });
         await fetchStudentsAndFees();
       }
     } catch (error: any) {
       if (error?.response?.status !== 401) {
-        console.error("Error creating fee:", error);
-        const errorMsg = error?.response?.data?.message || error?.message || "Error creating fee";
+        console.error('Error creating fee:', error);
+        const errorMsg = error?.response?.data?.message || error?.message || 'Error creating fee';
         Alert.alert('Error', errorMsg);
       }
     } finally {
@@ -263,8 +263,8 @@ const FeeManagement = () => {
   };
 
   const handlePayment = async () => {
-    if (!selectedFee) return;
-    
+    if (!selectedFee) {return;}
+
     if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
       Alert.alert('Validation Error', 'Valid payment amount is required');
       return;
@@ -282,7 +282,7 @@ const FeeManagement = () => {
         amount: parseFloat(paymentAmount),
         method: 'cash',
       }, schoolCode);
-      
+
       if (isMounted.current) {
         Alert.alert('Success', 'Payment recorded successfully');
         setShowPaymentModal(false);
@@ -292,8 +292,8 @@ const FeeManagement = () => {
       }
     } catch (error: any) {
       if (error?.response?.status !== 401) {
-        console.error("Error processing payment:", error);
-        const errorMsg = error?.response?.data?.message || error?.message || "Error processing payment";
+        console.error('Error processing payment:', error);
+        const errorMsg = error?.response?.data?.message || error?.message || 'Error processing payment';
         Alert.alert('Error', errorMsg);
       }
     } finally {
@@ -389,7 +389,7 @@ const FeeManagement = () => {
     const statusStyle = getStatusStyle(item.status);
 
     return (
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         style={styles.feeRow}
         onPress={async () => {
           setSelectedFee(item);
@@ -404,7 +404,7 @@ const FeeManagement = () => {
               setPaymentHistory(history as any[]);
             }
           } catch (error) {
-            console.error("Error fetching payment history:", error);
+            console.error('Error fetching payment history:', error);
           } finally {
             if (isMounted.current) {
               setLoadingHistory(false);
@@ -434,7 +434,7 @@ const FeeManagement = () => {
         </View>
         {item.status !== 'paid' && (
           <View style={styles.paymentButtonContainer}>
-            <TouchableOpacity 
+            <TouchableOpacity accessibilityRole="button"
               style={styles.paymentButton}
               onPress={() => {
                 setSelectedFee(item);
@@ -442,7 +442,7 @@ const FeeManagement = () => {
                 setShowPaymentModal(true);
               }}
             >
-              <CreditCard size={16} color="#fff" />
+              <CreditCard size={16} color={Theme.colors.card} />
               <AppText style={styles.paymentButtonText} weight="bold">Pay</AppText>
             </TouchableOpacity>
           </View>
@@ -453,18 +453,18 @@ const FeeManagement = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Standardized Header */}
       {(() => {
         const isAccountant = userRole?.toLowerCase() === 'accountant';
         return (
-          <View style={[styles.headerStandard, { 
+          <View style={[styles.headerStandard, {
             paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
-            backgroundColor: isAccountant ? '#1e3a8a' : HEADER_CONSTANTS.BACKGROUND_COLOR 
+            backgroundColor: isAccountant ? Theme.colors.primary : HEADER_CONSTANTS.BACKGROUND_COLOR,
           }]}>
             <View style={styles.headerTop}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.iconButton}
                 onPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
               >
@@ -529,7 +529,7 @@ const FeeManagement = () => {
                   if (selectedStudent) {
                     return (
                       <View style={styles.selectedStudentBadge}>
-                        <TouchableOpacity
+                        <TouchableOpacity accessibilityRole="button"
                           style={styles.selectedStudentBadgeLeft}
                           onPress={() => {
                             setModalSearchText('');
@@ -544,7 +544,7 @@ const FeeManagement = () => {
                             {getStudentClass(selectedStudent) && ` (${getStudentClass(selectedStudent)})`}
                           </AppText>
                         </TouchableOpacity>
-                        <TouchableOpacity
+                        <TouchableOpacity accessibilityRole="button"
                           onPress={() => {
                             handleInputChange('student_id', '');
                           }}
@@ -555,9 +555,9 @@ const FeeManagement = () => {
                       </View>
                     );
                   }
-                  
+
                   return (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={styles.searchTriggerInput}
                       onPress={() => {
                         setModalSearchText('');
@@ -588,7 +588,7 @@ const FeeManagement = () => {
 
               <View>
                 <AppText style={styles.label} weight="semibold">Due Date</AppText>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={styles.dateInput}
                   onPress={() => setShowDatePicker(true)}
                 >
@@ -597,16 +597,16 @@ const FeeManagement = () => {
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.submitButton}
                 onPress={handleSubmit}
                 disabled={loading}
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={Theme.colors.card} />
                 ) : (
                   <>
-                    <Plus size={16} color="#fff" />
+                    <Plus size={16} color={Theme.colors.card} />
                     <AppText style={styles.submitButtonText} weight="bold">Create Fee</AppText>
                   </>
                 )}
@@ -625,7 +625,7 @@ const FeeManagement = () => {
                 <AppText style={styles.feeCount} weight="bold">
                   {(() => {
                     const filteredFees = fees.filter(fee => {
-                      const matchesSearch = !feeSearchQuery.trim() || 
+                      const matchesSearch = !feeSearchQuery.trim() ||
                         (fee.student_name || '').toLowerCase().includes(feeSearchQuery.toLowerCase()) ||
                         ((fee as any).roll_number || '').toLowerCase().includes(feeSearchQuery.toLowerCase()) ||
                         ((fee as any).roll_no || '').toLowerCase().includes(feeSearchQuery.toLowerCase());
@@ -650,18 +650,18 @@ const FeeManagement = () => {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusFilterScroll}>
                 <View style={styles.statusFilterContainer}>
                   {(['all', 'pending', 'partial', 'paid'] as const).map((status) => (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={status}
                       style={[
                         styles.statusFilterOption,
-                        feeStatusFilter === status && styles.statusFilterOptionSelected
+                        feeStatusFilter === status && styles.statusFilterOptionSelected,
                       ]}
                       onPress={() => setFeeStatusFilter(status)}
                     >
                       <AppText
                         style={[
                           styles.statusFilterOptionText,
-                          feeStatusFilter === status && styles.statusFilterOptionTextSelected
+                          feeStatusFilter === status && styles.statusFilterOptionTextSelected,
                         ]}
                         weight="semibold"
                       >
@@ -681,7 +681,7 @@ const FeeManagement = () => {
             ) : (
               (() => {
                 const filteredFees = fees.filter(fee => {
-                  const matchesSearch = !feeSearchQuery.trim() || 
+                  const matchesSearch = !feeSearchQuery.trim() ||
                     (fee.student_name || '').toLowerCase().includes(feeSearchQuery.toLowerCase()) ||
                     ((fee as any).roll_number || '').toLowerCase().includes(feeSearchQuery.toLowerCase()) ||
                     ((fee as any).roll_no || '').toLowerCase().includes(feeSearchQuery.toLowerCase());
@@ -739,7 +739,7 @@ const FeeManagement = () => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle} weight="bold">Record Payment</AppText>
-              <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setShowPaymentModal(false)}>
                 <X size={24} color={C.textMuted} />
               </TouchableOpacity>
             </View>
@@ -774,7 +774,7 @@ const FeeManagement = () => {
                   ) : paymentHistory.length > 0 ? (
                     <View style={styles.historyList}>
                       {paymentHistory.map((payment, idx) => (
-                        <TouchableOpacity
+                        <TouchableOpacity accessibilityRole="button"
                           key={payment.id || idx}
                           style={styles.historyItem}
                           onPress={() => {
@@ -815,20 +815,20 @@ const FeeManagement = () => {
                 )}
 
                 <View style={styles.modalButtons}>
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={[styles.modalButton, styles.cancelButton]}
                     onPress={() => setShowPaymentModal(false)}
                   >
                     <AppText style={styles.cancelButtonText} weight="semibold">Close</AppText>
                   </TouchableOpacity>
                   {selectedFee.status !== 'paid' && (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.modalButton, styles.payButton]}
                       onPress={handlePayment}
                       disabled={processingPayment}
                     >
                       {processingPayment ? (
-                        <ActivityIndicator size="small" color="#fff" />
+                        <ActivityIndicator size="small" color={Theme.colors.card} />
                       ) : (
                         <AppText style={styles.payButtonText} weight="bold">Pay Now</AppText>
                       )}
@@ -851,22 +851,22 @@ const FeeManagement = () => {
           <View style={[styles.modalContent, { maxWidth: 450 }]}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle} weight="bold">Receipt Details</AppText>
-              <TouchableOpacity onPress={() => setShowDetailModal(false)}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setShowDetailModal(false)}>
                 <X size={24} color={C.textMuted} />
               </TouchableOpacity>
             </View>
 
             {selectedPayment && (
               <ScrollView style={{ maxHeight: 500 }}>
-                <View style={{ alignItems: 'center', marginBottom: 24, paddingVertical: 10 }}>
-                  <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: C.successSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                <View style={{ alignItems: 'center', marginBottom: Theme.spacing.lg, paddingVertical: 10 }}>
+                  <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: C.successSoft, alignItems: 'center', justifyContent: 'center', marginBottom: Theme.spacing.md }}>
                     <CheckCircle2 size={32} color={C.success} />
                   </View>
                   <AppText style={{ fontSize: 28, color: C.text }} weight="bold">{formatAmount(selectedPayment.amount)}</AppText>
-                  <AppText style={{ fontSize: 14, color: C.success }} weight="semibold">Payment Successful</AppText>
+                  <AppText style={{ ...Theme.typography.body, color: C.success }} weight="semibold">Payment Successful</AppText>
                 </View>
 
-                <View style={{ backgroundColor: C.bg, borderRadius: 12, padding: 16, gap: 12 }}>
+                <View style={{ backgroundColor: C.bg, borderRadius: 12, padding: Theme.spacing.md, gap: 12 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                     <AppText style={{ fontSize: 13, color: C.textMuted }}>Receipt No</AppText>
                     <AppText style={{ fontSize: 13, color: C.text }} weight="bold">
@@ -887,7 +887,7 @@ const FeeManagement = () => {
                         month: 'short',
                         year: 'numeric',
                         hour: '2-digit',
-                        minute: '2-digit'
+                        minute: '2-digit',
                       })}
                     </AppText>
                   </View>
@@ -897,8 +897,8 @@ const FeeManagement = () => {
                   </View>
                 </View>
 
-                <TouchableOpacity
-                  style={[styles.submitButton, { marginTop: 24, backgroundColor: C.bg, borderWidth: 1, borderColor: C.primary }]}
+                <TouchableOpacity accessibilityRole="button"
+                  style={[styles.submitButton, { marginTop: Theme.spacing.lg, backgroundColor: C.bg, borderWidth: 1, borderColor: C.primary }]}
                   onPress={() => handleDownloadReceipt(selectedPayment.id, selectedPayment.receipt_no || '')}
                   disabled={!!downloading}
                 >
@@ -914,8 +914,8 @@ const FeeManagement = () => {
               </ScrollView>
             )}
 
-            <TouchableOpacity
-              style={[styles.modalButton, styles.cancelButton, { marginTop: 16 }]}
+            <TouchableOpacity accessibilityRole="button"
+              style={[styles.modalButton, styles.cancelButton, { marginTop: Theme.spacing.md }]}
               onPress={() => setShowDetailModal(false)}
             >
               <AppText style={styles.cancelButtonText} weight="semibold">Back</AppText>
@@ -935,7 +935,7 @@ const FeeManagement = () => {
           <View style={[styles.modalContent, { maxHeight: '80%', padding: 20 }]}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle} weight="bold">Select Student</AppText>
-              <TouchableOpacity onPress={() => setShowStudentSearchModal(false)}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setShowStudentSearchModal(false)}>
                 <X size={24} color={C.textMuted} />
               </TouchableOpacity>
             </View>
@@ -971,7 +971,7 @@ const FeeManagement = () => {
                 }
 
                 return filtered.map((student, index) => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={student.id || `search-student-${index}`}
                     style={styles.suggestionItem}
                     onPress={() => {
@@ -980,7 +980,7 @@ const FeeManagement = () => {
                     }}
                   >
                     <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <View style={{ flex: 1, marginRight: 8 }}>
+                      <View style={{ flex: 1, marginRight: Theme.spacing.sm }}>
                         <AppText style={styles.suggestionItemText} weight="semibold">
                           {getStudentName(student)}
                         </AppText>
@@ -1052,19 +1052,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: 28,
-    fontWeight: '800',
+    ...Theme.typography.h1,
     letterSpacing: -0.5,
   },
   headerSubtext: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
     opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   headerSpacer: {
     width: 40,
@@ -1089,8 +1088,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderLeftWidth: 4,
     borderLeftColor: C.primary,
-    marginHorizontal: 16,
-    marginBottom: 24,
+    marginHorizontal: Theme.spacing.md,
+    marginBottom: Theme.spacing.lg,
     borderWidth: 1,
     borderColor: C.border,
     shadowColor: '#000',
@@ -1102,13 +1101,13 @@ const styles = StyleSheet.create({
   formTitle: {
     fontSize: 18,
     color: C.text,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   labelRow: {
     flexDirection: 'row',
@@ -1121,7 +1120,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: C.text,
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   selectedStudentBadge: {
     flexDirection: 'row',
@@ -1133,7 +1132,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   selectedStudentBadgeLeft: {
     flexDirection: 'row',
@@ -1143,11 +1142,11 @@ const styles = StyleSheet.create({
   },
   selectedStudentText: {
     color: C.success,
-    fontSize: 14,
+    ...Theme.typography.body,
     flexShrink: 1,
   },
   clearSelectedStudentBtn: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   searchContainer: {
     position: 'relative',
@@ -1158,7 +1157,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 8,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
     overflow: 'hidden',
   },
   suggestionItem: {
@@ -1168,11 +1167,11 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   suggestionItemText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   suggestionItemSubtext: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
   },
   noSuggestionItem: {
@@ -1180,7 +1179,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   noSuggestionText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
     fontStyle: 'italic',
   },
@@ -1188,7 +1187,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.card,
     borderRadius: 14,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     borderWidth: 1,
     borderColor: C.border,
     gap: 8,
@@ -1198,12 +1197,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 8,
-    fontSize: 14,
+    ...Theme.typography.body,
     backgroundColor: C.bg,
     color: C.text,
   },
   statusFilterScroll: {
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   statusFilterContainer: {
     flexDirection: 'row',
@@ -1222,18 +1221,18 @@ const styles = StyleSheet.create({
     borderColor: C.primary,
   },
   statusFilterOptionText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.textMuted,
   },
   statusFilterOptionTextSelected: {
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   input: {
     padding: 12,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 8,
-    fontSize: 14,
+    ...Theme.typography.body,
     backgroundColor: C.bg,
     color: C.text,
   },
@@ -1248,7 +1247,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   dateText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   submitButton: {
@@ -1259,23 +1258,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   submitButtonText: {
-    color: '#ffffff',
+    color: Theme.colors.card,
     fontSize: 16,
   },
   summaryContainer: {
     flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 24,
+    marginHorizontal: Theme.spacing.md,
+    marginTop: Theme.spacing.lg,
     marginBottom: 20,
     gap: 12,
   },
   summaryCard: {
     flex: 1,
     backgroundColor: C.card,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 15,
     borderWidth: 1,
     borderColor: C.border,
@@ -1289,9 +1288,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   summaryLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   summaryValue: {
     fontSize: 16,
@@ -1304,8 +1303,8 @@ const styles = StyleSheet.create({
     color: C.error,
   },
   listSection: {
-    marginHorizontal: 16,
-    marginTop: 8,
+    marginHorizontal: Theme.spacing.md,
+    marginTop: Theme.spacing.sm,
   },
   listTitle: {
     fontSize: 18,
@@ -1315,17 +1314,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 4,
+    marginBottom: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.xs,
   },
   countBadge: {
     backgroundColor: C.primarySoft,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 8,
   },
   feeCount: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.primary,
   },
   feesList: {
@@ -1344,7 +1343,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
@@ -1354,13 +1353,13 @@ const styles = StyleSheet.create({
   studentName: {
     fontSize: 16,
     color: C.text,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   feeDetails: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   feeAmount: {
     fontSize: 13,
@@ -1381,14 +1380,14 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 12,
   },
   statusText: {
-    fontSize: 11,
+    ...Theme.typography.label,
   },
   dueDate: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
   },
   paymentButtonContainer: {
@@ -1397,18 +1396,18 @@ const styles = StyleSheet.create({
   paymentButton: {
     backgroundColor: C.primary,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
   paymentButtonText: {
-    color: '#ffffff',
+    color: Theme.colors.card,
     fontSize: 13,
   },
   loadingContainer: {
-    padding: 32,
+    padding: Theme.spacing.xl,
     alignItems: 'center',
   },
   loadingText: {
@@ -1416,7 +1415,7 @@ const styles = StyleSheet.create({
     color: C.textMuted,
   },
   emptyContainer: {
-    padding: 48,
+    padding: Theme.spacing.xxl,
     alignItems: 'center',
     backgroundColor: C.card,
     borderRadius: 12,
@@ -1426,10 +1425,10 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: C.text,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   emptySubtext: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.textMuted,
   },
   modalOverlay: {
@@ -1441,7 +1440,7 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: C.card,
     borderRadius: 16,
-    padding: 24,
+    padding: Theme.spacing.lg,
     width: '90%',
     maxWidth: 400,
   },
@@ -1459,9 +1458,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   modalValue: {
     fontSize: 16,
@@ -1486,7 +1485,7 @@ const styles = StyleSheet.create({
     borderTopColor: C.border,
   },
   historyTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
     marginBottom: 10,
   },
@@ -1497,22 +1496,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: C.bg,
   },
   historyAmount: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   historyDate: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.textMuted,
   },
   historyMethodBadge: {
     backgroundColor: C.bg,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 4,
   },
   historyMethodText: {
@@ -1520,7 +1519,7 @@ const styles = StyleSheet.create({
     color: C.primary,
   },
   noHistoryText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
     fontStyle: 'italic',
     textAlign: 'center',
@@ -1551,7 +1550,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.primary,
   },
   payButtonText: {
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   searchTriggerInput: {
     padding: 12,
@@ -1562,22 +1561,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   searchTriggerText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.textMuted,
     flex: 1,
   },
   modalSearchContainer: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   modalSearchInput: {
     padding: 12,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 8,
-    fontSize: 14,
+    ...Theme.typography.body,
     backgroundColor: C.bg,
     color: C.text,
   },

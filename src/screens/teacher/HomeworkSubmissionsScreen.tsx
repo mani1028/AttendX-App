@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
-  StatusBar,
   Dimensions,
   Linking,
 } from 'react-native';
@@ -26,7 +25,7 @@ import API from '../../services/api';
 import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import AppCard from '../../components/common/AppCard';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
 import type { RootStackParamList } from '../../navigation/types';
 
 const { width } = Dimensions.get('window');
@@ -105,14 +104,14 @@ export default function HomeworkSubmissionsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
-      
+
+
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity 
-          style={styles.backButton} 
+        <TouchableOpacity
+          style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <ChevronLeft size={24} color="#FFFFFF" />
+          <ChevronLeft size={24} color={Theme.colors.card} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <AppText weight="bold" style={styles.headerTitle}>Submissions</AppText>
@@ -126,20 +125,20 @@ export default function HomeworkSubmissionsScreen() {
       >
         {loading ? (
           <View style={styles.loaderContainer}>
-            <Loader size="large" color={Theme.colors.primary} />
+            <Loader size="lg" color={Theme.colors.primary} />
           </View>
         ) : submissions.length === 0 ? (
           <View style={styles.emptyState}>
-            <Search size={48} color="#94A3B8" />
+            <Search size={48} color={Theme.colors.textMuted} />
             <AppText style={styles.emptyStateText}>No submissions found yet.</AppText>
           </View>
         ) : (
-          submissions.map((item) => (
-            <AppCard key={item.student_id} style={styles.studentCard}>
+          submissions.map((item, idx) => (
+            <AppCard key={item.student_id || `sub-${idx}`} style={styles.studentCard}>
               <View style={styles.cardInfo}>
                 <View style={styles.studentHeader}>
                   <View style={styles.studentAvatar}>
-                    <User size={20} color="#64748B" />
+                    <User size={20} color={Theme.colors.textSec} />
                   </View>
                   <View style={styles.studentDetails}>
                     <AppText weight="bold" style={styles.studentName}>{item.student_name}</AppText>
@@ -155,7 +154,7 @@ export default function HomeworkSubmissionsScreen() {
 
                 {item.submitted_at && (
                   <View style={styles.metaRow}>
-                    <Clock size={14} color="#94A3B8" />
+                    <Clock size={14} color={Theme.colors.textMuted} />
                     <AppText style={styles.metaText}>Submitted: {new Date(item.submitted_at).toLocaleString()}</AppText>
                   </View>
                 )}
@@ -164,14 +163,14 @@ export default function HomeworkSubmissionsScreen() {
                   <View style={styles.attachmentsSection}>
                     <AppText weight="semibold" style={styles.attachmentsTitle}>Attachments:</AppText>
                     {item.attachments.map((file, idx) => (
-                      <TouchableOpacity 
-                        key={idx} 
+                      <TouchableOpacity
+                        key={idx}
                         style={styles.attachmentLink}
                         onPress={() => handleOpenAttachment(file.file_url)}
                       >
                         <Paperclip size={14} color="#2563EB" />
                         <AppText style={styles.attachmentText} numberOfLines={1}>{file.file_name}</AppText>
-                        <ExternalLink size={14} color="#94A3B8" />
+                        <ExternalLink size={14} color={Theme.colors.textMuted} />
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -188,13 +187,13 @@ export default function HomeworkSubmissionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   header: {
     backgroundColor: Theme.colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingBottom: 20,
   },
   backButton: {
@@ -211,7 +210,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    color: '#FFFFFF',
+    color: Theme.colors.card,
   },
   headerSubtitle: {
     fontSize: 13,
@@ -231,16 +230,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyStateText: {
-    marginTop: 16,
-    color: '#64748B',
+    marginTop: Theme.spacing.md,
+    color: Theme.colors.textSec,
     fontSize: 16,
   },
   studentCard: {
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 12,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: Theme.colors.background,
   },
   cardInfo: {
     flex: 1,
@@ -254,7 +253,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -263,19 +262,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   studentName: {
-    fontSize: 15,
-    color: '#0F172A',
+    ...Theme.typography.bodyMd,
+    color: Theme.colors.text,
   },
   rollNumber: {
-    fontSize: 12,
-    color: '#64748B',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     marginTop: 1,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: Theme.spacing.xs,
+    paddingHorizontal: Theme.spacing.sm,
     borderRadius: 8,
     gap: 4,
   },
@@ -289,31 +288,31 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   metaText: {
-    fontSize: 12,
-    color: '#64748B',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
   },
   attachmentsSection: {
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: Theme.colors.background,
     paddingTop: 12,
   },
   attachmentsTitle: {
     fontSize: 13,
     color: '#334155',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   attachmentLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    padding: 8,
+    backgroundColor: Theme.colors.background,
+    padding: Theme.spacing.sm,
     borderRadius: 8,
     marginBottom: 6,
     gap: 8,
   },
   attachmentText: {
     flex: 1,
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#2563EB',
   },
 });

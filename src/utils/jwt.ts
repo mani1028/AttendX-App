@@ -2,10 +2,10 @@ import { Buffer } from 'buffer';
 
 export const decodeJwt = (token?: string | null): any => {
   try {
-    if (!token) return null;
+    if (!token) {return null;}
     const parts = token.split('.');
-    if (parts.length < 2) return null;
-    
+    if (parts.length < 2) {return null;}
+
     let base64Url = parts[1];
     let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
     const pad = base64.length % 4;
@@ -20,7 +20,7 @@ export const decodeJwt = (token?: string | null): any => {
     } catch (e) {
       // Pure JS fallback for React Native
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-      let str = base64.replace(/=+$/, '');
+      let str = base64.replace(/[=]+$/, '');
       let output = '';
       for (let bc = 0, bs = 0, buffer, i = 0;
         buffer = str.charAt(i++);
@@ -39,18 +39,18 @@ export const decodeJwt = (token?: string | null): any => {
 
 export const isJwtExpired = (token?: string | null): boolean => {
   try {
-    if (!token) return true;
+    if (!token) {return true;}
     const parts = token.split('.');
-    if (parts.length < 2) return true;
+    if (parts.length < 2) {return true;}
     const payload = parts[1];
     // Pad base64 if needed
     const pad = payload.length % 4;
     const padded = pad ? payload + '='.repeat(4 - pad) : payload;
     const decoded = Buffer.from(padded, 'base64').toString('utf8');
     const obj = JSON.parse(decoded);
-    if (!obj || typeof obj !== 'object') return true;
+    if (!obj || typeof obj !== 'object') {return true;}
     const exp = obj.exp;
-    if (!exp) return false; // no exp means non-expiring token
+    if (!exp) {return false;} // no exp means non-expiring token
     const now = Math.floor(Date.now() / 1000);
     return Number(exp) <= now;
   } catch (err) {

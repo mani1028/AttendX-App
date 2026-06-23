@@ -1,16 +1,19 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+import { Theme } from '../../theme/tokens';
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Alert, ActivityIndicator, Switch, Modal, TextInput, Platform, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Switch, Modal, TextInput, Platform, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft, CreditCard, ShieldCheck, Bell, Settings, Trash2, AlertTriangle, X, CheckCircle } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import API from '../../services/api';
 import * as adminService from '../../services/adminService';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 
 interface School {
   id: string;
@@ -113,19 +116,19 @@ const SecureDeleteModal: React.FC<{
           <View style={styles.modalHeader}>
             <View style={{ flex: 1 }}>
               <AppText style={[styles.modalTitle, { color: colors.error }]} weight="bold">School Deletion</AppText>
-              <AppText style={{ fontSize: 12, color: colors.textMuted }}>Permanently delete a school and all associated data</AppText>
+              <AppText style={{ ...Theme.typography.caption, color: colors.textMuted }}>Permanently delete a school and all associated data</AppText>
             </View>
-            <TouchableOpacity onPress={handleClose} style={styles.modalClose}>
+            <TouchableOpacity accessibilityRole="button" onPress={handleClose} style={styles.modalClose}>
               <X size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: 24 }}>
+          <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: Theme.spacing.lg }}>
             {step === 1 && (
               <View style={{ gap: 16 }}>
                 <View style={[styles.warningBanner, { backgroundColor: colors.errorSoft, borderColor: colors.errorSoft }]}>
                   <AlertTriangle size={18} color={colors.error} />
-                  <AppText style={{ color: colors.error, fontSize: 12, fontWeight: '700', flex: 1 }}>
+                  <AppText style={{ color: colors.error, ...Theme.typography.caption, fontWeight: '700', flex: 1 }}>
                     ⚠️ Warning: This action cannot be undone. The school and ALL associated data (students, teachers, attendance records, etc.) will be permanently deleted from the database.
                   </AppText>
                 </View>
@@ -155,11 +158,11 @@ const SecureDeleteModal: React.FC<{
                       placeholderTextColor={colors.textMuted}
                       editable={!loading}
                     />
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       onPress={() => setShowPassword(!showPassword)}
                       style={{ position: 'absolute', right: 12 }}
                     >
-                      <AppText style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>
+                      <AppText style={{ ...Theme.typography.caption, color: colors.primary, fontWeight: '700' }}>
                         {showPassword ? 'Hide' : 'Show'}
                       </AppText>
                     </TouchableOpacity>
@@ -178,15 +181,15 @@ const SecureDeleteModal: React.FC<{
               <View style={{ gap: 16 }}>
                 <View style={[styles.warningBanner, { backgroundColor: colors.errorSoft, borderColor: colors.errorSoft }]}>
                   <AlertTriangle size={18} color={colors.error} />
-                  <AppText style={{ color: colors.error, fontSize: 12, fontWeight: '700', flex: 1 }}>
+                  <AppText style={{ color: colors.error, ...Theme.typography.caption, fontWeight: '700', flex: 1 }}>
                     CRITICAL: Final confirmation required for school ID: {schoolId}. This is your final chance to prevent permanent data loss.
                   </AppText>
                 </View>
 
                 <View style={styles.formGroup}>
                   <AppText style={styles.formLabel}>Type this to confirm deletion:</AppText>
-                  <View style={{ backgroundColor: colors.bg, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 8 }}>
-                    <AppText style={{ fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14, fontWeight: 'bold', color: colors.textPrimary, textAlign: 'center' }}>
+                  <View style={{ backgroundColor: Theme.colors.background, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginBottom: Theme.spacing.sm }}>
+                    <AppText style={{ fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', ...Theme.typography.body, fontWeight: 'bold', color: colors.textPrimary, textAlign: 'center' }}>
                       {expectedConfirmation}
                     </AppText>
                   </View>
@@ -229,10 +232,10 @@ const SecureDeleteModal: React.FC<{
                   <CheckCircle size={32} color={colors.success} />
                 </View>
                 <AppText style={styles.modalTitle} weight="bold">Deletion Complete</AppText>
-                <AppText style={{ color: colors.textMuted, textAlign: 'center', fontSize: 14 }}>
+                <AppText style={{ color: colors.textMuted, textAlign: 'center', ...Theme.typography.body }}>
                   The school and all associated data have been successfully deleted.
                 </AppText>
-                
+
                 {deletedSchool && (
                   <View style={styles.deletedDetailsCard}>
                     <AppText style={styles.deletedDetailsText}>
@@ -249,8 +252,8 @@ const SecureDeleteModal: React.FC<{
                     </AppText>
                   </View>
                 )}
-                
-                <View style={{ width: '100%', marginTop: 8 }}>
+
+                <View style={{ width: '100%', marginTop: Theme.spacing.sm }}>
                   <AppButton
                     title="Delete Another School"
                     onPress={resetForm}
@@ -275,17 +278,15 @@ export default function SettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [schools, setSchools] = useState<School[]>([]);
   const [secureDeleteModalOpen, setSecureDeleteModalOpen] = useState(false);
-  
+
   // Local notification toggle
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  
+
   // Global Super Admin settings toggles
   const [enableAutoPay, setEnableAutoPay] = useState(true);
   const [enablePromotion, setEnablePromotion] = useState(true);
 
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
-
   useEffect(() => {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
@@ -295,24 +296,13 @@ export default function SettingsScreen() {
     loadSettingsData();
   }, []);
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    
-    if (currentScrollY > lastScrollY.current + 10) {
-      if (currentScrollY > 100) {
-        setTabBarVisible(false);
-      }
-      lastScrollY.current = currentScrollY;
-    } else if (currentScrollY < lastScrollY.current - 10) {
-      setTabBarVisible(true);
-      lastScrollY.current = currentScrollY;
-    }
-  };
+  const handleScroll = useScrollTabBar();
+
 
   const loadSettingsData = async () => {
     try {
       setLoading(true);
-      
+
       const schoolsData = await adminService.getAllSchools();
       setSchools(schoolsData);
 
@@ -356,19 +346,19 @@ export default function SettingsScreen() {
   const updateGlobalSetting = async (key: string, value: boolean) => {
     setSaving(true);
     // Optimistically update
-    if (key === 'enable_auto_pay') setEnableAutoPay(value);
-    if (key === 'enable_promotion') setEnablePromotion(value);
+    if (key === 'enable_auto_pay') {setEnableAutoPay(value);}
+    if (key === 'enable_promotion') {setEnablePromotion(value);}
 
     try {
       await API.post('/pricing/admin/settings', {
-        [key]: value ? 'true' : 'false'
+        [key]: value ? 'true' : 'false',
       });
     } catch (err) {
       console.error(`Failed to update ${key}`, err);
       Alert.alert('Error', 'Failed to update system setting. Reverting...');
       // Revert state
-      if (key === 'enable_auto_pay') setEnableAutoPay(!value);
-      if (key === 'enable_promotion') setEnablePromotion(!value);
+      if (key === 'enable_auto_pay') {setEnableAutoPay(!value);}
+      if (key === 'enable_promotion') {setEnablePromotion(!value);}
     } finally {
       setSaving(false);
     }
@@ -384,17 +374,9 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 20, paddingBottom: 30 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={handleBackPress}>
-          <ChevronLeft size={24} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>System Settings</AppText>
-        </View>
-        <View style={{ width: 40 }} />
-      </View>
+
+      <StandardPageHeader title="Settings" onBackPress={() => navigation.goBack()} />
 
       <ScrollView
         style={{ flex: 1 }}
@@ -409,7 +391,7 @@ export default function SettingsScreen() {
             <CreditCard size={20} color={colors.accent} />
             <AppText style={styles.cardTitle}>Payment & Billing</AppText>
           </View>
-          
+
           <View style={styles.row}>
             <View style={{ flex: 1, paddingRight: 10 }}>
               <AppText style={styles.rowText}>Auto-Renewal Visibility</AppText>
@@ -422,7 +404,7 @@ export default function SettingsScreen() {
               onValueChange={(val) => updateGlobalSetting('enable_auto_pay', val)}
               disabled={saving}
               trackColor={{ false: false ? colors.border : undefined, true: colors.accent }}
-              thumbColor={'#fff'}
+              thumbColor={Theme.colors.card}
             />
           </View>
         </View>
@@ -433,7 +415,7 @@ export default function SettingsScreen() {
             <ShieldCheck size={20} color={colors.success} />
             <AppText style={styles.cardTitle}>Global Feature Access</AppText>
           </View>
-          
+
           <View style={styles.row}>
             <View style={{ flex: 1, paddingRight: 10 }}>
               <AppText style={styles.rowText}>Enable Student Promotion</AppText>
@@ -446,7 +428,7 @@ export default function SettingsScreen() {
               onValueChange={(val) => updateGlobalSetting('enable_promotion', val)}
               disabled={saving}
               trackColor={{ false: false ? colors.border : undefined, true: colors.accent }}
-              thumbColor={'#fff'}
+              thumbColor={Theme.colors.card}
             />
           </View>
         </View>
@@ -457,7 +439,7 @@ export default function SettingsScreen() {
             <Bell size={20} color={colors.warning} />
             <AppText style={styles.cardTitle}>Local Preferences</AppText>
           </View>
-          
+
           <View style={styles.row}>
             <View style={{ flex: 1, paddingRight: 10 }}>
               <AppText style={styles.rowText}>Push Notifications</AppText>
@@ -469,7 +451,7 @@ export default function SettingsScreen() {
               value={notificationsEnabled}
               onValueChange={togglePushNotifications}
               trackColor={{ false: false ? colors.border : undefined, true: colors.accent }}
-              thumbColor={'#fff'}
+              thumbColor={Theme.colors.card}
             />
           </View>
         </View>
@@ -478,12 +460,12 @@ export default function SettingsScreen() {
         <AppCard style={styles.dangerZoneCard}>
           <AppText style={styles.dangerZoneTitle}>Danger Zone</AppText>
           <AppText style={styles.dangerZoneSub}>Actions here require super admin password verification and are permanent.</AppText>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.dangerZoneActionBtn}
             onPress={() => setSecureDeleteModalOpen(true)}
             activeOpacity={0.7}
           >
-            <Trash2 size={18} color="#fff" />
+            <Trash2 size={18} color={Theme.colors.card} />
             <AppText style={styles.dangerZoneActionBtnText}>Delete Registered School</AppText>
           </TouchableOpacity>
         </AppCard>
@@ -502,15 +484,13 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: Theme.colors.background },
   headerStandard: {
     backgroundColor: colors.accent,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
   },
   backBtn: {
     width: 40,
@@ -527,7 +507,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#fff',
+    color: Theme.colors.card,
   },
   contentContainer: {
     padding: 20,
@@ -554,7 +534,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingBottom: 16,
+    paddingBottom: Theme.spacing.md,
   },
   cardTitle: {
     fontSize: 16,
@@ -568,10 +548,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   rowText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   helperText: {
     fontSize: 13,
@@ -579,11 +559,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   dangerZoneCard: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.card,
     borderRadius: 20,
     borderColor: '#fecaca',
     borderWidth: 1.5,
-    padding: 16,
+    padding: Theme.spacing.md,
     shadowColor: colors.error,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
@@ -595,12 +575,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: colors.error,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   dangerZoneSub: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     lineHeight: 18,
   },
   dangerZoneActionBtn: {
@@ -613,8 +593,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   dangerZoneActionBtnText: {
-    color: '#fff',
-    fontSize: 14,
+    color: Theme.colors.card,
+    ...Theme.typography.body,
     fontWeight: '700',
   },
   modalOverlay: {
@@ -650,7 +630,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.bg,
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -663,11 +643,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   formLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
     textTransform: 'uppercase',
     color: colors.textMuted,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
     letterSpacing: 0.5,
   },
   formInput: {
@@ -675,8 +655,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 12,
     padding: 12,
-    fontSize: 15,
-    backgroundColor: colors.bg,
+    ...Theme.typography.bodyMd,
+    backgroundColor: Theme.colors.background,
     color: colors.textPrimary,
   },
   warningBanner: {
@@ -697,11 +677,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   deletedDetailsCard: {
-    backgroundColor: colors.bg,
-    padding: 16,
+    backgroundColor: Theme.colors.card,
+    padding: Theme.spacing.md,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,

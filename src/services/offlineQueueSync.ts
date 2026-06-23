@@ -5,7 +5,7 @@ import eventEmitter from '../utils/eventEmitter';
 
 class OfflineQueueSync {
   private isSyncing = false;
-  private syncInterval: NodeJS.Timer | null = null;
+  private syncInterval: ReturnType<typeof setInterval> | null = null;
 
   /**
    * Start monitoring network and sync when online
@@ -80,7 +80,7 @@ class OfflineQueueSync {
         await requestQueueManager.removeFromQueue(request.id);
       } catch (error) {
         console.error(`[OfflineSync] Failed to sync request ${request.id}:`, error);
-        
+
         // Update retry count
         const newRetries = request.retries + 1;
         await requestQueueManager.updateRetries(request.id, newRetries);

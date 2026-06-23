@@ -1,3 +1,6 @@
+import { Theme, C } from '../../theme/tokens';
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
     View,
@@ -11,7 +14,6 @@ import {
     Alert,
     Platform,
     Dimensions,
-    StatusBar,
     Modal,
     NativeSyntheticEvent,
     NativeScrollEvent,
@@ -19,7 +21,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Theme as C } from '../../theme/theme';
 import { getTeachersForLeave, getLeaveRequests, submitLeaveRequest } from '../../services/studentService';
 import { useAuth } from '../../context/AuthContext';
 import Icon from 'react-native-vector-icons/Feather';
@@ -190,7 +191,7 @@ const LeaveHistoryCard: React.FC<{ request: LeaveRequest; onView: () => void }> 
                 </View>
                 <StatusBadge status={request.status} />
             </View>
-            
+
             <View style={styles.historyCardBody}>
                 <View style={styles.historyDateRange}>
                     <Icon name="calendar" size={14} color={C.colors.textSec} />
@@ -224,18 +225,8 @@ export default function LeaveScreen({ navigation }: any) {
     const [schoolCode, setSchoolCode] = useState<string>('');
     const [studentId, setStudentId] = useState<string>('');
     const [parentId, setParentId] = useState<string>('');
+  const handleScroll = useScrollTabBar();
 
-    const lastScrollY = useRef(0);
-
-    const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-        const currentScrollY = event.nativeEvent.contentOffset.y;
-        if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
-            setTabBarVisible(false);
-        } else if (currentScrollY < lastScrollY.current - 10) {
-            setTabBarVisible(true);
-        }
-        lastScrollY.current = currentScrollY;
-    };
 
     // Form fields
     const [leaveType, setLeaveType] = useState<'ONE_DAY' | 'MULTIPLE_DAYS'>('ONE_DAY');
@@ -266,7 +257,7 @@ export default function LeaveScreen({ navigation }: any) {
             const code = await getSchoolCode();
             const sid = await getStudentId();
             const pid = await getParentId();
-            if (!isMounted.current) return;
+            if (!isMounted.current) {return;}
             setSchoolCode(code);
             setStudentId(sid);
             setParentId(pid);
@@ -281,7 +272,7 @@ export default function LeaveScreen({ navigation }: any) {
                    }
 
                    const cachedHistory = await AsyncStorage.getItem(`leave_history_cache_${sid}`);
-                   if (cachedHistory && isMounted.current) setHistory(JSON.parse(cachedHistory));
+                   if (cachedHistory && isMounted.current) {setHistory(JSON.parse(cachedHistory));}
                } catch (e) {
                    console.log('Failed to load leave cache');
                }
@@ -317,7 +308,7 @@ export default function LeaveScreen({ navigation }: any) {
     }, [teachers]);
 
     const loadTeachers = async () => {
-        if (!studentId) return;
+        if (!studentId) {return;}
 
         try {
             const teachersData = await getTeachersForLeave();
@@ -333,10 +324,10 @@ export default function LeaveScreen({ navigation }: any) {
     };
 
     const loadHistory = async () => {
-        if (!studentId) return;
+        if (!studentId) {return;}
 
         try {
-            const historyData = await getLeaveRequests(showAllHistory ? {} : { limit: initialHistoryLimit });
+            const historyData = await getLeaveRequests();
             if (isMounted.current) {
                 setHistory(historyData);
             }
@@ -465,8 +456,8 @@ export default function LeaveScreen({ navigation }: any) {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
-            
+
+
             <View style={[styles.header, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 20 }]}>
                 <TouchableOpacity
                     style={styles.backButton}
@@ -504,12 +495,12 @@ export default function LeaveScreen({ navigation }: any) {
             >
                 <View style={styles.formCard}>
                     <Text style={styles.cardTitle}>APPLY LEAVE</Text>
-                    
+
                     {/* Leave Type Toggle */}
                     <View style={styles.formGroup}>
                         <Text style={styles.formLabel}>Leave Type</Text>
                         <View style={styles.toggleContainer}>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={[styles.toggleButton, leaveType === 'ONE_DAY' && styles.toggleButtonActive]}
                                 onPress={() => setLeaveType('ONE_DAY')}
                             >
@@ -570,7 +561,7 @@ export default function LeaveScreen({ navigation }: any) {
                     {leaveType === 'MULTIPLE_DAYS' && (
                         <View style={styles.formGroup}>
                             <Text style={styles.formLabel}>To Date</Text>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.inputField}
                                 onPress={() => setShowToDatePicker(true)}
                                 disabled={!fromDate}
@@ -708,7 +699,7 @@ export default function LeaveScreen({ navigation }: any) {
                                             <Icon name="calendar" size={16} color={C.colors.textSec} />
                                             <Text style={styles.detailValueText}>
                                                 {formatDateRange(selectedRequest.from_date, selectedRequest.to_date)}
-                                                {"\n"}<Text style={styles.detailDurationText}>({getDuration(selectedRequest.from_date, selectedRequest.to_date)})</Text>
+                                                {'\n'}<Text style={styles.detailDurationText}>({getDuration(selectedRequest.from_date, selectedRequest.to_date)})</Text>
                                             </Text>
                                         </View>
                                     </View>
@@ -761,7 +752,7 @@ export default function LeaveScreen({ navigation }: any) {
                                     key={teacher.teacher_id || (teacher as any).id || (teacher as any).staff_id || `teacher-${index}`}
                                     style={[
                                         styles.teacherItem,
-                                        String(teacherId) === String(teacher.teacher_id) && styles.teacherItemSelected
+                                        String(teacherId) === String(teacher.teacher_id) && styles.teacherItemSelected,
                                     ]}
                                     onPress={() => {
                                         setTeacherId(teacher.teacher_id);
@@ -816,7 +807,7 @@ const styles = StyleSheet.create({
     },
     header: {
         backgroundColor: C.colors.primary,
-        paddingHorizontal: 16,
+        paddingHorizontal: Theme.spacing.md,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -851,23 +842,30 @@ const styles = StyleSheet.create({
     refreshWrapper: {
         display: 'none',
     },
+    refreshPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    refreshPillText: {
+        ...Theme.typography.caption,
+    },
     contentContainer: {
         paddingBottom: 40,
-        paddingTop: 16,
+        paddingTop: Theme.spacing.md,
         paddingHorizontal: 12,
     },
     formCard: {
         backgroundColor: C.colors.card,
         borderRadius: 12,
-        padding: 16,
+        padding: Theme.spacing.md,
         ...C.shadow.sm,
         marginTop: 10,
     },
     cardTitle: {
-        fontSize: 14,
+        ...Theme.typography.body,
         fontWeight: '700',
         color: C.colors.text,
-        marginBottom: 16,
+        marginBottom: Theme.spacing.md,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
@@ -875,9 +873,9 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     formLabel: {
-        fontSize: 14,
+        ...Theme.typography.body,
         color: C.colors.textSec,
-        marginBottom: 8,
+        marginBottom: Theme.spacing.sm,
         fontWeight: '500',
     },
     toggleContainer: {
@@ -912,10 +910,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
+        paddingHorizontal: Theme.spacing.md,
     },
     dropdownText: {
-        fontSize: 15,
+        ...Theme.typography.bodyMd,
         color: C.colors.text,
     },
     autoTeacherCard: {
@@ -927,7 +925,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
+        paddingHorizontal: Theme.spacing.md,
         paddingVertical: 12,
     },
     autoTeacherTextBlock: {
@@ -935,8 +933,8 @@ const styles = StyleSheet.create({
         paddingRight: 12,
     },
     autoTeacherHint: {
-        marginTop: 4,
-        fontSize: 12,
+        marginTop: Theme.spacing.xs,
+        ...Theme.typography.caption,
         color: C.colors.textSec,
     },
     dropdownPlaceholder: {
@@ -951,10 +949,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
+        paddingHorizontal: Theme.spacing.md,
     },
     inputText: {
-        fontSize: 15,
+        ...Theme.typography.bodyMd,
         color: C.colors.text,
     },
     textInputArea: {
@@ -962,8 +960,8 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         borderWidth: 1,
         borderColor: C.colors.border,
-        padding: 16,
-        fontSize: 15,
+        padding: Theme.spacing.md,
+        ...Theme.typography.bodyMd,
         color: C.colors.text,
         minHeight: 120,
     },
@@ -982,14 +980,13 @@ const styles = StyleSheet.create({
     },
     submitBtnText: {
         color: C.colors.card,
-        fontSize: 16,
-        fontWeight: 'bold',
+        ...Theme.typography.h4,
     },
     historyCardContainer: {
         backgroundColor: C.colors.card,
         marginTop: 15,
         borderRadius: 12,
-        padding: 16,
+        padding: Theme.spacing.md,
         ...C.shadow.sm,
     },
     emptyHistoryState: {
@@ -1030,10 +1027,9 @@ const styles = StyleSheet.create({
         zIndex: 1,
     },
     emptyHistoryTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
+        ...Theme.typography.h4,
         color: C.colors.text,
-        marginBottom: 8,
+        marginBottom: Theme.spacing.sm,
     },
     emptyHistorySubtitle: {
         fontSize: 13,
@@ -1041,7 +1037,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     viewMoreBtn: {
-        marginTop: 8,
+        marginTop: Theme.spacing.sm,
         alignSelf: 'center',
         paddingHorizontal: 18,
         paddingVertical: 10,
@@ -1082,8 +1078,7 @@ const styles = StyleSheet.create({
         borderBottomColor: C.colors.border,
     },
     modalTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
+        ...Theme.typography.h3,
         color: C.colors.text,
     },
     teacherList: {
@@ -1109,15 +1104,14 @@ const styles = StyleSheet.create({
         backgroundColor: C.colors.blue,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 16,
+        marginRight: Theme.spacing.md,
     },
     teacherItemAvatarText: {
         color: C.colors.card,
-        fontSize: 18,
-        fontWeight: 'bold',
+        ...Theme.typography.h3,
     },
     teacherItemName: {
-        fontSize: 15,
+        ...Theme.typography.bodyMd,
         fontWeight: '600',
         color: C.colors.text,
     },
@@ -1132,21 +1126,21 @@ const styles = StyleSheet.create({
     successModal: {
         backgroundColor: C.colors.card,
         borderRadius: 24,
-        padding: 24,
+        padding: Theme.spacing.lg,
         alignItems: 'center',
         width: width * 0.8,
     },
     successIconContainer: {
-        marginBottom: 16,
+        marginBottom: Theme.spacing.md,
     },
     successTitle: {
         fontSize: 20,
         fontWeight: '800',
         color: C.colors.text,
-        marginBottom: 8,
+        marginBottom: Theme.spacing.sm,
     },
     successMessage: {
-        fontSize: 14,
+        ...Theme.typography.body,
         color: C.colors.textSec,
         textAlign: 'center',
         lineHeight: 20,
@@ -1155,7 +1149,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
-        paddingVertical: 4,
+        paddingVertical: Theme.spacing.xs,
         paddingHorizontal: 10,
         borderRadius: 12,
     },
@@ -1169,7 +1163,7 @@ const styles = StyleSheet.create({
         backgroundColor: C.colors.warningBg,
     },
     badgeText: {
-        fontSize: 11,
+        ...Theme.typography.label,
         fontWeight: 'bold',
     },
     badgeTextApproved: {
@@ -1184,8 +1178,8 @@ const styles = StyleSheet.create({
     historyCard: {
         backgroundColor: C.colors.cardAlt,
         borderRadius: 16,
-        padding: 16,
-        marginBottom: 16,
+        padding: Theme.spacing.md,
+        marginBottom: Theme.spacing.md,
         borderWidth: 1,
         borderColor: C.colors.border,
     },
@@ -1193,7 +1187,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: Theme.spacing.md,
     },
     historyTeacherInfo: {
         flexDirection: 'row',
@@ -1210,16 +1204,15 @@ const styles = StyleSheet.create({
     },
     historyTeacherAvatarText: {
         color: C.colors.textSec,
-        fontSize: 16,
-        fontWeight: 'bold',
+        ...Theme.typography.h4,
     },
     historyTeacherName: {
-        fontSize: 14,
+        ...Theme.typography.body,
         fontWeight: 'bold',
         color: C.colors.text,
     },
     historyDuration: {
-        fontSize: 12,
+        ...Theme.typography.caption,
         color: C.colors.textSec,
         marginTop: 2,
     },
@@ -1274,17 +1267,17 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     detailDateText: {
-        fontSize: 12,
+        ...Theme.typography.caption,
         color: C.colors.textMuted,
     },
     detailInfoSection: {
         marginBottom: 20,
     },
     detailLabel: {
-        fontSize: 11,
+        ...Theme.typography.label,
         fontWeight: 'bold',
         color: C.colors.textMuted,
-        marginBottom: 8,
+        marginBottom: Theme.spacing.sm,
         letterSpacing: 0.5,
     },
     detailValueContainer: {
@@ -1293,12 +1286,12 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     detailValueText: {
-        fontSize: 15,
+        ...Theme.typography.bodyMd,
         color: C.colors.text,
         fontWeight: '600',
     },
     detailSubValueText: {
-        fontSize: 12,
+        ...Theme.typography.caption,
         color: C.colors.textMuted,
         marginTop: 2,
     },
@@ -1312,8 +1305,7 @@ const styles = StyleSheet.create({
     },
     detailAvatarText: {
         color: C.colors.blue,
-        fontSize: 16,
-        fontWeight: 'bold',
+        ...Theme.typography.h4,
     },
     detailDurationText: {
         fontSize: 13,
@@ -1322,13 +1314,13 @@ const styles = StyleSheet.create({
     },
     detailReasonBox: {
         backgroundColor: C.colors.background,
-        padding: 16,
+        padding: Theme.spacing.md,
         borderRadius: 12,
         borderWidth: 1,
         borderColor: C.colors.border,
     },
     detailReasonText: {
-        fontSize: 14,
+        ...Theme.typography.body,
         color: C.colors.text,
         lineHeight: 20,
     },
@@ -1342,7 +1334,6 @@ const styles = StyleSheet.create({
     },
     modalCloseBtnText: {
         color: C.colors.textSec,
-        fontSize: 16,
-        fontWeight: 'bold',
+        ...Theme.typography.h4,
     },
 });

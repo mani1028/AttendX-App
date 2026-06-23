@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
@@ -11,7 +12,6 @@ import {
   Image,
   ActivityIndicator,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -22,12 +22,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 import API from '../../services/api';
-import { Theme } from '../../theme/theme';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { Theme } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 
 // Types
 interface ImageItem {
@@ -65,7 +69,7 @@ const Toast: React.FC<{
     }
   }, [visible]);
 
-  if (!visible) return null;
+  if (!visible) {return null;}
 
   return (
     <View style={[styles.toast, { borderLeftColor: color }]}>
@@ -88,8 +92,6 @@ export default function VitalScanScreen() {
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [cameraActive, setCameraActive] = useState<boolean>(false);
 
-  const lastScrollY = useRef(0);
-
   useEffect(() => {
     setTabBarVisible(true);
     isMounted.current = true;
@@ -101,16 +103,8 @@ export default function VitalScanScreen() {
       unsubscribe();
     };
   }, [navigation, setTabBarVisible]);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
-      setTabBarVisible(false);
-    } else if (currentScrollY < lastScrollY.current - 10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   // Form state
   const [studentName, setStudentName] = useState<string>('');
@@ -143,10 +137,10 @@ export default function VitalScanScreen() {
   useEffect(() => {
     const loadCache = async () => {
       try {
-        const schoolCode = await AsyncStorage.getItem('school_code') || '';
-        const employeeId = await AsyncStorage.getItem('employee_id') || '';
+        const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || '';
+        const employeeId = await storage.getString(StorageKeys.EMPLOYEE_ID) || '';
         const id = `${schoolCode}_${employeeId}`;
-        if (!isMounted.current) return;
+        if (!isMounted.current) {return;}
         setUserId(id);
 
         const cachedState = await AsyncStorage.getItem(`last_vital_scan_state_${id}`);
@@ -168,7 +162,7 @@ export default function VitalScanScreen() {
   // Persist state when it changes
   useEffect(() => {
     const persistState = async () => {
-      if (!userId) return;
+      if (!userId) {return;}
       try {
         const state = {
           studentName,
@@ -223,12 +217,12 @@ export default function VitalScanScreen() {
       showToast('Invalid input', 'Enter a valid temperature', '⚠️', '#F59E0B');
       return;
     }
-    
+
     let status: string, rec: string, color: string;
     if (temp < 36.1) {
       status = 'Low Temp';
       rec = 'Keep warm and monitor.';
-      color = '#3b82f6';
+      color = Theme.colors.blue;
     } else if (temp <= 37.2) {
       status = 'Normal';
       rec = 'Temperature is healthy.';
@@ -254,21 +248,21 @@ export default function VitalScanScreen() {
   };
 
   const handleImageCapture = async () => {
-    if (!cameraRef.current) return;
+    if (!cameraRef.current) {return;}
     try {
       const photo = await cameraRef.current.takePhoto({
         flash: 'off',
       });
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
       const newImage = { uri: `file://${photo.path}` };
-      
+
       if (scanType === 'eye') {
         setImages([newImage]);
         setCameraActive(false);
       } else if (images.length < 3) {
         const newImages = [...images, newImage];
         setImages(newImages);
-        if (newImages.length === 3) setCameraActive(false);
+        if (newImages.length === 3) {setCameraActive(false);}
       }
       setResult(null);
       showToast('Image captured', `${images.length + 1}/${maxImages} captured`, '📸', '#22C55E');
@@ -283,7 +277,7 @@ export default function VitalScanScreen() {
     launchImageLibrary({ mediaType: 'photo', quality: 0.9 }, (response) => {
       if (response.assets && response.assets[0]) {
         const newImage = { uri: response.assets[0].uri! };
-        
+
         if (scanType === 'eye') {
           setImages([newImage]);
         } else if (images.length < 3) {
@@ -324,7 +318,7 @@ export default function VitalScanScreen() {
       const note = checkupNote.toLowerCase();
       const yearsMatch = note.match(/(\d+)\s*year/);
       const monthsMatch = note.match(/(\d+)\s*month/);
-      
+
       if (!note) {
         autoMessage = 'Consult the doctor (No history). ';
       } else if (yearsMatch && parseInt(yearsMatch[1]) >= 1) {
@@ -348,11 +342,11 @@ export default function VitalScanScreen() {
         const res = await API.post(`/vitalscan/predict/${endpoint}`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        if (!isMounted.current) return;
+        if (!isMounted.current) {return;}
         resultsData.push(res.data);
       }
 
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
 
       const hasConcern = resultsData.some(r => r.health_status?.toLowerCase() !== 'good');
       const predictions = [...new Set(resultsData.map(r => r.prediction))].join(' | ');
@@ -363,11 +357,11 @@ export default function VitalScanScreen() {
         prediction: predictions,
         recommendation: autoMessage + recommendations,
       });
-      
+
       showToast('Analysis complete', `Report ready for ${studentName}`, '✅', '#22C55E');
     } catch (err: any) {
-      if (!isMounted.current) return;
-      if (err?.response?.status === 401) return;
+      if (!isMounted.current) {return;}
+      if (err?.response?.status === 401) {return;}
       const message = err?.response?.data?.detail || err?.response?.data?.message || 'Check backend connection';
       showToast('Analysis failed', message, '❌', '#EF4444');
     } finally {
@@ -381,7 +375,7 @@ export default function VitalScanScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Toast */}
       <Toast
@@ -397,7 +391,7 @@ export default function VitalScanScreen() {
       <Modal visible={showFeverModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <TouchableOpacity style={styles.modalClose} onPress={() => {
+            <TouchableOpacity accessibilityRole="button" style={styles.modalClose} onPress={() => {
               setShowFeverModal(false);
               setFeverResult(null);
             }}>
@@ -406,7 +400,7 @@ export default function VitalScanScreen() {
             <Text style={styles.modalIcon}>🌡️</Text>
             <Text style={styles.modalTitle}>Fever Diagnosis</Text>
             <Text style={styles.modalSubtitle}>Enter body temperature in °C</Text>
-            
+
             <View style={styles.tempRow}>
               <TextInput
                 style={styles.tempInput}
@@ -416,7 +410,7 @@ export default function VitalScanScreen() {
                 value={tempInput}
                 onChangeText={setTempInput}
               />
-              <TouchableOpacity style={styles.checkBtn} onPress={diagnoseFever}>
+              <TouchableOpacity accessibilityRole="button" style={styles.checkBtn} onPress={diagnoseFever}>
                 <Text style={styles.checkBtnText}>CHECK</Text>
               </TouchableOpacity>
             </View>
@@ -433,7 +427,7 @@ export default function VitalScanScreen() {
             {/* Legend */}
             <View style={styles.legend}>
               {[
-                ['#3b82f6', '<36.1'],
+                [Theme.colors.blue, '<36.1'],
                 ['#22C55E', '36–37.2'],
                 ['#F59E0B', '37.3–38'],
                 ['#F97316', '38–39.4'],
@@ -466,16 +460,16 @@ export default function VitalScanScreen() {
             </Text>
             <View style={styles.cameraControls}>
               {images.length > 0 && (
-                <TouchableOpacity style={styles.cameraDoneBtn} onPress={() => setCameraActive(false)}>
+                <TouchableOpacity accessibilityRole="button" style={styles.cameraDoneBtn} onPress={() => setCameraActive(false)}>
                   <Text style={styles.cameraDoneText}>✓ DONE ({images.length})</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity style={styles.cameraCaptureBtn} onPress={handleImageCapture}>
+              <TouchableOpacity accessibilityRole="button" style={styles.cameraCaptureBtn} onPress={handleImageCapture}>
                 <Text style={styles.cameraCaptureText}>📸</Text>
               </TouchableOpacity>
             </View>
           </View>
-          <TouchableOpacity style={styles.cameraCloseBtn} onPress={() => setCameraActive(false)}>
+          <TouchableOpacity accessibilityRole="button" style={styles.cameraCloseBtn} onPress={() => setCameraActive(false)}>
             <Text style={styles.cameraCloseText}>✕</Text>
           </TouchableOpacity>
         </View>
@@ -488,33 +482,17 @@ export default function VitalScanScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Navy Hero Header */}
-        <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
-          <View style={styles.headerContent}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
-            >
-              <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
-            </TouchableOpacity>
-            <AppText weight="bold" style={styles.headerTitle}>VitalScan AI</AppText>
-            <View style={{ width: HEADER_CONSTANTS.ICON_BUTTON_SIZE }} />
-          </View>
-
-          <View style={styles.heroContent}>
-            <AppText weight="bold" style={styles.heroGreeting}>Health Diagnostics</AppText>
-            <AppText weight="semibold" style={styles.heroSubtext}>AI-powered vital scanning for student wellness</AppText>
-          </View>
-        </View>
+        <StandardPageHeader title="VitalScan AI" onBackPress={() => navigation.goBack()} />
 
         {/* Header Actions Row */}
         <View style={styles.topActionsRow}>
-          <TouchableOpacity style={styles.newBtn} onPress={startNewStudent}>
+          <TouchableOpacity accessibilityRole="button" style={styles.newBtn} onPress={startNewStudent}>
             <Text style={styles.newBtnText}>👤 New</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.feverBtn} onPress={() => setShowFeverModal(true)}>
+          <TouchableOpacity accessibilityRole="button" style={styles.feverBtn} onPress={() => setShowFeverModal(true)}>
             <Text style={styles.feverBtnText}>🌡️ Fever</Text>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.skinBtn}
             onPress={() => navigation.navigate('SkinDisease' as never)}
           >
@@ -570,7 +548,7 @@ export default function VitalScanScreen() {
           </View>
           <View style={styles.cardBody}>
             <View style={styles.pillContainer}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.pill, scanType === 'teeth' && styles.pillActive]}
                 onPress={() => {
                   if (!cameraActive) {
@@ -583,7 +561,7 @@ export default function VitalScanScreen() {
                   🦷 TEETH
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.pill, scanType === 'eye' && styles.pillActive]}
                 onPress={() => {
                   if (!cameraActive) {
@@ -625,7 +603,7 @@ export default function VitalScanScreen() {
               {images.map((img, idx) => (
                 <View key={idx} style={styles.thumb}>
                   <Image source={{ uri: img.uri }} style={styles.thumbImage} />
-                  <TouchableOpacity style={styles.thumbRemove} onPress={() => removeImage(idx)}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.thumbRemove} onPress={() => removeImage(idx)}>
                     <Text style={styles.thumbRemoveText}>✕</Text>
                   </TouchableOpacity>
                 </View>
@@ -640,11 +618,11 @@ export default function VitalScanScreen() {
             {/* Source Buttons */}
             {canAddMore && (
               <View style={styles.sourceRow}>
-                <TouchableOpacity style={styles.sourceBtn} onPress={() => setCameraActive(true)}>
+                <TouchableOpacity accessibilityRole="button" style={styles.sourceBtn} onPress={() => setCameraActive(true)}>
                   <Text style={styles.sourceBtnText}>📷 {images.length > 0 ? 'Add Photo' : 'Camera'}</Text>
                 </TouchableOpacity>
                 {images.length === 0 && (
-                  <TouchableOpacity style={styles.sourceBtn} onPress={handleImageUpload}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.sourceBtn} onPress={handleImageUpload}>
                     <Text style={styles.sourceBtnText}>📁 Upload</Text>
                   </TouchableOpacity>
                 )}
@@ -653,10 +631,10 @@ export default function VitalScanScreen() {
 
             {/* Run Button */}
             {!cameraActive && images.length > 0 && (
-              <TouchableOpacity style={styles.runBtn} onPress={runScan} disabled={loading}>
+              <TouchableOpacity accessibilityRole="button" style={styles.runBtn} onPress={runScan} disabled={loading}>
                 {loading ? (
                   <>
-                    <ActivityIndicator size="small" color="#fff" />
+                    <ActivityIndicator size="small" color={Theme.colors.card} />
                     <Text style={styles.runBtnText}> ANALYZING...</Text>
                   </>
                 ) : (
@@ -738,7 +716,7 @@ export default function VitalScanScreen() {
                   <Text style={styles.recText}>{result.recommendation}</Text>
                 </View>
 
-                <TouchableOpacity style={styles.clearBtn} onPress={startNewStudent}>
+                <TouchableOpacity accessibilityRole="button" style={styles.clearBtn} onPress={startNewStudent}>
                   <Text style={styles.clearBtnText}>CLOSE & START NEW SCAN</Text>
                 </TouchableOpacity>
               </View>
@@ -764,14 +742,12 @@ export default function VitalScanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   headerStandard: {
     backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
     paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
     paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     elevation: 8,
     shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 4 },
@@ -801,7 +777,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   heroGreeting: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 26,
     fontWeight: '800',
   },
@@ -820,14 +796,14 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 20,
     marginTop: -20, // Negative margin to overlap with header
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
   },
   toast: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 60 : 40,
     right: 16,
     left: 16,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 14,
     padding: 14,
     flexDirection: 'row',
@@ -850,10 +826,10 @@ const styles = StyleSheet.create({
   toastTitle: {
     fontWeight: '700',
     fontSize: 13,
-    color: '#0d1b2a',
+    color: Theme.colors.text,
   },
   toastMessage: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#4a5568',
     marginTop: 2,
   },
@@ -872,10 +848,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0d1b2a',
+    color: Theme.colors.text,
   },
   subtitle: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#4a5568',
     marginTop: 2,
   },
@@ -885,41 +861,41 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   newBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
     backgroundColor: Theme.colors.primary,
     borderRadius: 10,
   },
   newBtnText: {
-    color: '#fff',
+    ...Theme.typography.caption,
+    color: Theme.colors.card,
     fontWeight: '700',
-    fontSize: 12,
   },
   feverBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#ef4444',
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+    backgroundColor: Theme.colors.error,
     borderRadius: 10,
   },
   feverBtnText: {
-    color: '#fff',
+    ...Theme.typography.caption,
+    color: Theme.colors.card,
     fontWeight: '700',
-    fontSize: 12,
   },
   skinBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
     backgroundColor: Theme.colors.violet,
     borderRadius: 10,
   },
   skinBtnText: {
-    color: '#fff',
+    ...Theme.typography.caption,
+    color: Theme.colors.card,
     fontWeight: '700',
-    fontSize: 12,
   },
   card: {
     marginBottom: 20,
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     borderRadius: 24,
     overflow: 'hidden',
     elevation: 3,
@@ -935,39 +911,39 @@ const styles = StyleSheet.create({
     padding: 14,
     backgroundColor: '#f7f9fc',
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e9f2',
+    borderBottomColor: Theme.colors.border,
   },
   cardHeaderIcon: {
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   cardHeaderTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: Theme.colors.text,
   },
   cardHeaderBadge: {
     marginLeft: 'auto',
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#8898aa',
     fontWeight: '500',
   },
   cardBody: {
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   label: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: '#4a5568',
     marginBottom: 6,
   },
   input: {
     borderWidth: 1.5,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     borderRadius: 10,
     padding: 12,
-    fontSize: 14,
-    color: '#0d1b2a',
-    backgroundColor: '#f8fafc',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
+    backgroundColor: Theme.colors.background,
   },
   textArea: {
     minHeight: 80,
@@ -982,8 +958,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#e4e9f2',
-    backgroundColor: '#fff',
+    borderColor: Theme.colors.border,
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
   },
   pillActive: {
@@ -1001,7 +977,7 @@ const styles = StyleSheet.create({
   camFrame: {
     width: '100%',
     aspectRatio: 4 / 3,
-    backgroundColor: '#0d1b2a',
+    backgroundColor: Theme.colors.text,
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 12,
@@ -1019,10 +995,10 @@ const styles = StyleSheet.create({
   placeholderIcon: {
     fontSize: 32,
     opacity: 0.4,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   placeholderText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: '#8898aa',
   },
@@ -1051,13 +1027,13 @@ const styles = StyleSheet.create({
     right: -5,
     width: 17,
     height: 17,
-    backgroundColor: '#ef4444',
+    backgroundColor: Theme.colors.error,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   thumbRemoveText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 8,
     fontWeight: '700',
   },
@@ -1087,12 +1063,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: '#e4e9f2',
-    backgroundColor: '#fff',
+    borderColor: Theme.colors.border,
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
   },
   sourceBtnText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '600',
     color: '#4a5568',
   },
@@ -1106,13 +1082,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   runBtnText: {
-    color: '#fff',
+    ...Theme.typography.body,
+    color: Theme.colors.card,
     fontWeight: '700',
-    fontSize: 14,
   },
   resultsCard: {
     marginBottom: 20,
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     borderRadius: 24,
     overflow: 'hidden',
     elevation: 4,
@@ -1124,7 +1100,7 @@ const styles = StyleSheet.create({
   resultBadge: {
     marginLeft: 'auto',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 20,
   },
   resultBadgeGood: {
@@ -1134,7 +1110,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fee2e2',
   },
   resultBadgeText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
   },
   resultBadgeTextGood: {
@@ -1145,7 +1121,7 @@ const styles = StyleSheet.create({
   },
   scanningContainer: {
     alignItems: 'center',
-    padding: 32,
+    padding: Theme.spacing.xl,
     gap: 16,
   },
   scanBox: {
@@ -1177,7 +1153,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   scanningText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     color: Theme.colors.primary,
     letterSpacing: 2,
@@ -1191,10 +1167,10 @@ const styles = StyleSheet.create({
   tag: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
   },
   tagText: {
     fontSize: 10,
@@ -1228,17 +1204,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#8898aa',
     letterSpacing: 1,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   patientName: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0d1b2a',
+    color: Theme.colors.text,
   },
   patientNote: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#4a5568',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   metaRow: {
     flexDirection: 'row',
@@ -1249,7 +1225,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f0f2f7',
     borderWidth: 1,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     borderRadius: 10,
     padding: 10,
   },
@@ -1261,16 +1237,16 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   metaVal: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
-    color: '#0d1b2a',
+    color: Theme.colors.text,
   },
   findingsLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '800',
     color: '#4a5568',
     letterSpacing: 0.8,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   findingsText: {
     fontSize: 13,
@@ -1281,7 +1257,7 @@ const styles = StyleSheet.create({
   recCard: {
     padding: 14,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   recCardGood: {
     backgroundColor: '#f0fdf4',
@@ -1294,10 +1270,10 @@ const styles = StyleSheet.create({
     borderLeftColor: '#EF4444',
   },
   recLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '800',
     letterSpacing: 0.8,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   recLabelGood: {
     color: '#166534',
@@ -1309,7 +1285,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: 'italic',
     fontWeight: '500',
-    color: '#0d1b2a',
+    color: Theme.colors.text,
     lineHeight: 20,
   },
   clearBtn: {
@@ -1318,7 +1294,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#cbd5e1',
     borderStyle: 'dashed',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
   },
   clearBtnText: {
@@ -1336,12 +1312,12 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   emptyTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
     color: '#4a5568',
   },
   emptyText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#8898aa',
     textAlign: 'center',
   },
@@ -1368,11 +1344,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -80,
     backgroundColor: Theme.colors.primary,
-    color: '#fff',
+    color: Theme.colors.card,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
   },
   cameraControls: {
@@ -1382,14 +1358,14 @@ const styles = StyleSheet.create({
   },
   cameraDoneBtn: {
     backgroundColor: 'rgba(34,197,94,0.9)',
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     borderRadius: 24,
   },
   cameraDoneText: {
-    color: '#fff',
+    ...Theme.typography.caption,
+    color: Theme.colors.card,
     fontWeight: '700',
-    fontSize: 12,
   },
   cameraCaptureBtn: {
     width: 60,
@@ -1414,21 +1390,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cameraCloseText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: Theme.colors.card,
+    ...Theme.typography.h3,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15,23,42,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 22,
-    padding: 24,
+    padding: Theme.spacing.lg,
     width: '100%',
     maxWidth: 400,
   },
@@ -1444,18 +1419,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalCloseText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#4a5568',
   },
   modalIcon: {
     fontSize: 28,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0d1b2a',
-    marginBottom: 4,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.xs,
   },
   modalSubtitle: {
     fontSize: 13,
@@ -1465,16 +1440,16 @@ const styles = StyleSheet.create({
   tempRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   tempInput: {
     flex: 1,
     borderWidth: 1.5,
-    borderColor: '#e4e9f2',
+    borderColor: Theme.colors.border,
     borderRadius: 10,
     padding: 12,
-    fontSize: 14,
-    backgroundColor: '#f8fafc',
+    ...Theme.typography.body,
+    backgroundColor: Theme.colors.background,
   },
   checkBtn: {
     paddingHorizontal: 20,
@@ -1483,14 +1458,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   checkBtnText: {
-    color: '#fff',
+    ...Theme.typography.body,
+    color: Theme.colors.card,
     fontWeight: '600',
-    fontSize: 14,
   },
   feverResult: {
     padding: 14,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     position: 'relative',
   },
   feverResultBorder: {
@@ -1500,30 +1475,28 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 5,
     borderTopLeftRadius: 12,
-    borderBottomLeftRadius: 12,
   },
   feverStatus: {
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1.5,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   feverTemp: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#0d1b2a',
-    marginBottom: 8,
+    ...Theme.typography.h1,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.sm,
   },
   feverRec: {
     fontSize: 13,
-    color: '#475569',
+    color: Theme.colors.textSec,
     fontWeight: '500',
   },
   legend: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   legendItem: {
     flex: 1,

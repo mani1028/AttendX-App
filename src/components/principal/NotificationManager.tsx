@@ -11,15 +11,20 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+
 import AppButton from '../common/AppButton';
 import AppCard from '../common/AppCard';
+import { Theme } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
 
 const getSchoolCode = async () => {
-  return (await AsyncStorage.getItem('school_code')) || '';
+  return (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
 };
 const getBranchId = async () => {
-  return (await AsyncStorage.getItem('branch_id')) || '';
+  return (await storage.getString(StorageKeys.BRANCH_ID)) || '';
 };
 
 export default function NotificationManager({ onNotificationCreated }: { onNotificationCreated?: (notification: any) => void }) {
@@ -55,7 +60,7 @@ export default function NotificationManager({ onNotificationCreated }: { onNotif
         setDescription('');
         setNotificationType('event');
         setEventDate('');
-        if (onNotificationCreated) onNotificationCreated(res.data.notification);
+        if (onNotificationCreated) {onNotificationCreated(res.data.notification);}
       }
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.detail || 'Failed to create notification');
@@ -95,7 +100,7 @@ export default function NotificationManager({ onNotificationCreated }: { onNotif
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.chipContainer}>
               {typeOptions.map(opt => (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   key={opt}
                   style={[styles.chip, notificationType === opt && styles.chipActive]}
                   onPress={() => setNotificationType(opt)}
@@ -129,18 +134,18 @@ export default function NotificationManager({ onNotificationCreated }: { onNotif
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, marginBottom: 16 },
-  title: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 16 },
+  container: { padding: Theme.spacing.md, marginBottom: Theme.spacing.md },
+  title: { fontSize: 16, fontWeight: '700', color: Theme.colors.text, marginBottom: Theme.spacing.md },
   field: { marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: '600', color: '#334155', marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10, fontSize: 13, backgroundColor: '#fff' },
+  label: { fontSize: 13, fontWeight: '600', color: '#334155', marginBottom: Theme.spacing.xs },
+  input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10, fontSize: 13, backgroundColor: Theme.colors.background },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
   row: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   halfField: { flex: 1 },
-  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  chip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: Theme.spacing.xs },
+  chip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20, backgroundColor: Theme.colors.background, borderWidth: 1, borderColor: Theme.colors.border },
   chipActive: { backgroundColor: '#0c4a6e', borderColor: '#0c4a6e' },
-  chipText: { fontSize: 12, color: '#334155' },
-  chipTextActive: { color: '#fff' },
-  button: { marginTop: 8 },
+  chipText: { ...Theme.typography.caption, color: '#334155' },
+  chipTextActive: { color: Theme.colors.card },
+  button: { marginTop: Theme.spacing.sm },
 });

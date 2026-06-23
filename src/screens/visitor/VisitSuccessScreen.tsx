@@ -10,13 +10,15 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '../../navigation/types';
-import { colors } from '../../constants/colors';
+
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
+import { Theme } from '../../theme/tokens';
+
 
 // Helper function to format visitor number
 const formatVisitorNo = (visitorNo: string): string => {
-  if (!visitorNo || visitorNo === 'N/A') return 'N/A';
+  if (!visitorNo || visitorNo === 'N/A') {return 'N/A';}
   // Format as XXX-XXX-XXX if needed
   if (visitorNo.length === 9) {
     return `${visitorNo.slice(0, 3)}-${visitorNo.slice(3, 6)}-${visitorNo.slice(6, 9)}`;
@@ -27,7 +29,7 @@ const formatVisitorNo = (visitorNo: string): string => {
 export default function VisitSuccessScreen() {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const route = useRoute();
-  
+
   // Get visitor number from route params
   const visitorNo = (route.params as any)?.visitor_no || 'N/A';
   const formattedVisitorNo = formatVisitorNo(visitorNo);
@@ -113,10 +115,10 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 400,
-    padding: 24,
+    padding: Theme.spacing.lg,
     alignItems: 'center',
     borderRadius: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -132,15 +134,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#059669',
+    color: Theme.colors.success,
     textAlign: 'center',
     marginBottom: 12,
   },
   message: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#4a5568',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
     lineHeight: 20,
   },
   visitorNumberContainer: {
@@ -148,21 +150,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#a7f3d0',
     borderRadius: 12,
-    padding: 16,
+    padding: Theme.spacing.md,
     width: '100%',
     alignItems: 'center',
     marginBottom: 20,
   },
   visitorNumberLabel: {
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 4,
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+    marginBottom: Theme.spacing.xs,
   },
   visitorNumberValue: {
     fontSize: 24,
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
     fontWeight: '800',
-    color: '#059669',
+    color: Theme.colors.success,
     letterSpacing: 1,
   },
   instructionsContainer: {
@@ -170,14 +172,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#bfdbfe',
     borderRadius: 12,
-    padding: 16,
+    padding: Theme.spacing.md,
     width: '100%',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
   instructionsTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
-    color: '#1e3a8a',
+    color: Theme.colors.primary,
     marginBottom: 12,
   },
   instructionsList: {
@@ -189,8 +191,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   instructionBullet: {
-    fontSize: 14,
-    color: '#3b82f6',
+    ...Theme.typography.body,
+    color: Theme.colors.blue,
     fontWeight: '600',
   },
   instructionText: {
@@ -201,10 +203,10 @@ const styles = StyleSheet.create({
   },
   homeBtn: {
     width: '100%',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   redirectText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#94a3b8',
     textAlign: 'center',
   },

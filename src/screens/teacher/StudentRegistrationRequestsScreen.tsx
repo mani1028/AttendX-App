@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity, StatusBar } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
@@ -8,7 +8,12 @@ import { getStudentRegistrationRequests, approveStudentRegistration, rejectStude
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BadgeCheck, ChevronLeft, Users, CheckCircle2, XCircle, Eye, CheckCheck } from 'lucide-react-native';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
+
 
 export default function StudentRegistrationRequestsScreen() {
   const insets = useSafeAreaInsets();
@@ -27,8 +32,8 @@ export default function StudentRegistrationRequestsScreen() {
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const schoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
-      const branchId = (await AsyncStorage.getItem('branch_id')) || (await AsyncStorage.getItem('branchId')) || '';
+      const schoolCode = (await storage.getString(StorageKeys.SCHOOL_CODE)) || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
+      const branchId = (await storage.getString(StorageKeys.BRANCH_ID)) || (await storage.getString(StorageKeys.BRANCH_ID)) || '';
       if (!schoolCode || !branchId) {
         setRequests([]);
         setLoading(false);
@@ -37,20 +42,20 @@ export default function StudentRegistrationRequestsScreen() {
 
       const res = await getStudentRegistrationRequests(schoolCode, branchId);
       const items = res?.items || (Array.isArray(res) ? res : []);
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
       setRequests(Array.isArray(items) ? items : []);
     } catch (err) {
       console.error('Failed to load registration requests', err);
-      if (isMounted.current) setRequests([]);
+      if (isMounted.current) {setRequests([]);}
     } finally {
-      if (isMounted.current) setLoading(false);
+      if (isMounted.current) {setLoading(false);}
     }
   };
 
   const handleApprove = async (id: string) => {
-    const schoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
-    const branchId = (await AsyncStorage.getItem('branch_id')) || (await AsyncStorage.getItem('branchId')) || '';
-    if (!schoolCode || !branchId) return;
+    const schoolCode = (await storage.getString(StorageKeys.SCHOOL_CODE)) || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
+    const branchId = (await storage.getString(StorageKeys.BRANCH_ID)) || (await storage.getString(StorageKeys.BRANCH_ID)) || '';
+    if (!schoolCode || !branchId) {return;}
 
     try {
       setProcessingId(id);
@@ -68,9 +73,9 @@ export default function StudentRegistrationRequestsScreen() {
     Alert.alert('Reject', 'Are you sure you want to reject this registration request?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Reject', style: 'destructive', onPress: async () => {
-        const schoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
-        const branchId = (await AsyncStorage.getItem('branch_id')) || (await AsyncStorage.getItem('branchId')) || '';
-        if (!schoolCode || !branchId) return;
+        const schoolCode = (await storage.getString(StorageKeys.SCHOOL_CODE)) || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
+        const branchId = (await storage.getString(StorageKeys.BRANCH_ID)) || (await storage.getString(StorageKeys.BRANCH_ID)) || '';
+        if (!schoolCode || !branchId) {return;}
         try {
           setProcessingId(id);
           await rejectStudentRegistration(schoolCode, branchId, id);
@@ -81,18 +86,18 @@ export default function StudentRegistrationRequestsScreen() {
         } finally {
           setProcessingId(null);
         }
-      }}
+      }},
     ]);
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}> 
+
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <View style={styles.headerTop}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}>
-            <ChevronLeft size={24} color="#fff" />
+          <TouchableOpacity accessibilityRole="button" style={styles.backBtn} onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}>
+            <ChevronLeft size={24} color={Theme.colors.card} />
           </TouchableOpacity>
           <View style={styles.headerTitleWrap}>
             <AppText style={styles.headerTitle}>Student Approvals</AppText>
@@ -114,7 +119,7 @@ export default function StudentRegistrationRequestsScreen() {
           <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 20 }} />
         ) : requests.length === 0 ? (
           <AppCard style={styles.emptyCard}>
-            <Users size={40} color="#cbd5e1" style={{ marginBottom: 8 }} />
+            <Users size={40} color="#cbd5e1" style={{ marginBottom: Theme.spacing.sm }} />
             <AppText>No pending requests</AppText>
           </AppCard>
         ) : (
@@ -133,29 +138,29 @@ export default function StudentRegistrationRequestsScreen() {
               </View>
 
               <View style={styles.actionsRow}>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.quickActionBtn, styles.viewBtn]}
                   onPress={() => navigation.navigate('DirectorStudentRegistration' as never)}
                 >
-                  <Eye size={16} color="#0f172a" />
+                  <Eye size={16} color={Theme.colors.text} />
                   <AppText weight="semibold" style={styles.viewBtnText}>View</AppText>
                 </TouchableOpacity>
 
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.quickActionBtn, styles.approveBtn, !!processingId && styles.quickActionDisabled]}
                   onPress={() => handleApprove(req.id)}
                   disabled={!!processingId}
                 >
-                  <CheckCircle2 size={16} color="#fff" />
+                  <CheckCircle2 size={16} color={Theme.colors.card} />
                   <AppText weight="semibold" style={styles.actionText}>Accept</AppText>
                 </TouchableOpacity>
 
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.quickActionBtn, styles.rejectBtn, !!processingId && styles.quickActionDisabled]}
                   onPress={() => handleReject(req.id)}
                   disabled={!!processingId}
                 >
-                  <XCircle size={16} color="#fff" />
+                  <XCircle size={16} color={Theme.colors.card} />
                   <AppText weight="semibold" style={styles.actionText}>Reject</AppText>
                 </TouchableOpacity>
               </View>
@@ -168,13 +173,13 @@ export default function StudentRegistrationRequestsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: Theme.colors.background },
   header: {
     backgroundColor: Theme.colors.primary,
     paddingHorizontal: 20,
     paddingBottom: 20,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+
+
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -191,9 +196,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
+    color: Theme.colors.card,
+    ...Theme.typography.h3,
   },
   headerContent: {
     marginTop: 18,
@@ -203,15 +207,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#ffffff',
+    backgroundColor: Theme.colors.background,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
     marginBottom: 10,
   },
   headerChipText: {
-    color: '#0f172a',
-    fontSize: 12,
+    color: Theme.colors.text,
+    ...Theme.typography.caption,
   },
   headerSubtitle: {
     color: 'rgba(255,255,255,0.78)',
@@ -227,14 +231,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  content: { padding: 16, paddingBottom: 40, paddingTop: 16 },
+  content: { padding: Theme.spacing.md, paddingBottom: 40, paddingTop: Theme.spacing.md },
   emptyCard: { padding: 20, alignItems: 'center' },
-  card: { padding: 16, marginBottom: 12 },
-  cardHeader: { marginBottom: 8 },
+  card: { padding: Theme.spacing.md, marginBottom: 12 },
+  cardHeader: { marginBottom: Theme.spacing.sm },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   cardIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: Theme.colors.successBg, alignItems: 'center', justifyContent: 'center' },
   studentName: { color: Theme.colors.text },
-  meta: { fontSize: 12, color: Theme.colors.textMuted, marginTop: 4 },
+  meta: { ...Theme.typography.caption, color: Theme.colors.textMuted, marginTop: Theme.spacing.xs },
   actionsRow: { flexDirection: 'row', marginTop: 12 },
   quickActionBtn: {
     flex: 1,
@@ -244,16 +248,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginRight: 8,
+    marginRight: Theme.spacing.sm,
     paddingHorizontal: 10,
   },
   viewBtn: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
   },
   viewBtnText: {
-    color: '#0f172a',
+    color: Theme.colors.text,
     fontSize: 13,
   },
   approveBtn: {
@@ -264,7 +268,7 @@ const styles = StyleSheet.create({
     marginRight: 0,
   },
   actionText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 13,
   },
   quickActionDisabled: {

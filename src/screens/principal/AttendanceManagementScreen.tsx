@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
@@ -10,7 +11,6 @@ import {
   Modal,
   Alert,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -43,10 +43,16 @@ import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-import { Principal_THEME as C } from '../../constants/principalTheme';
-import { Theme } from '../../theme/theme';
+
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import { Theme, C } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
+
 
 // Types
 interface Teacher {
@@ -96,13 +102,13 @@ interface AttendanceStatement {
 
 // Helper functions
 const getSchoolCode = async (): Promise<string> => {
-  const code = await AsyncStorage.getItem('school_code');
-  return code || (await AsyncStorage.getItem('schoolCode')) || '';
+  const code = await storage.getString(StorageKeys.SCHOOL_CODE);
+  return code || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
 };
 
 const getBranchId = async (): Promise<string> => {
-  const id = await AsyncStorage.getItem('branch_id');
-  return id || (await AsyncStorage.getItem('branchId')) || '';
+  const id = await storage.getString(StorageKeys.BRANCH_ID);
+  return id || (await storage.getString(StorageKeys.BRANCH_ID)) || '';
 };
 
 const iso = (date: Date): string => date.toISOString().split('T')[0];
@@ -110,7 +116,7 @@ const iso = (date: Date): string => date.toISOString().split('T')[0];
 // Status Badge Component
 const AttendanceStatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const isActive = status?.toUpperCase() === 'ACTIVE';
-  
+
   if (isActive) {
     return (
       <View style={styles.statusBadgeActive}>
@@ -118,7 +124,7 @@ const AttendanceStatusBadge: React.FC<{ status: string }> = ({ status }) => {
       </View>
     );
   }
-  
+
   return (
     <View style={styles.statusBadgeInactive}>
       <AppText style={styles.statusBadgeInactiveText} weight="bold">INACTIVE</AppText>
@@ -127,38 +133,38 @@ const AttendanceStatusBadge: React.FC<{ status: string }> = ({ status }) => {
 };
 
 // Teacher/Student Item Component
-const AttendanceItem: React.FC<{ 
-  item: Teacher | Student; 
+const AttendanceItem: React.FC<{
+  item: Teacher | Student;
   type: 'teacher' | 'student';
   onPress?: () => void;
 }> = ({ item, type, onPress }) => {
-  const avatar = type === 'teacher' 
+  const avatar = type === 'teacher'
     ? (item as Teacher).teacher_full_name?.[0]?.toUpperCase() || '?'
     : (item as Student).student_full_name?.[0]?.toUpperCase() || '?';
 
-  const title = type === 'teacher' 
-    ? (item as Teacher).teacher_full_name 
+  const title = type === 'teacher'
+    ? (item as Teacher).teacher_full_name
     : (item as Student).student_full_name;
 
   const subtitle = type === 'teacher'
     ? `${(item as Teacher).designation || ''} • ${(item as Teacher).department_subject || ''}`
     : `${(item as Student).roll_number || ''} • ${(item as Student).admission_number || ''}`;
 
-  const id = type === 'teacher' 
-    ? (item as Teacher).employee_id 
+  const id = type === 'teacher'
+    ? (item as Teacher).employee_id
     : (item as Student).admission_number;
 
   const status = item.status;
   const statusText = status === 'PRESENT' ? 'PRESENT' : status === 'HALF_DAY' || status === 'LATE' ? 'HALF-DAY' : 'ABSENT';
-  
+
   const getStatusColor = () => {
-    if (status === 'PRESENT') return C.success;
-    if (status === 'HALF_DAY' || status === 'LATE') return C.warning;
+    if (status === 'PRESENT') {return C.success;}
+    if (status === 'HALF_DAY' || status === 'LATE') {return C.warning;}
     return C.error;
   };
 
   return (
-    <TouchableOpacity style={styles.itemCard} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity accessibilityRole="button" style={styles.itemCard} onPress={onPress} activeOpacity={0.7}>
       <View style={[styles.itemAvatar, { backgroundColor: C.primary }]}>
         <AppText style={styles.itemAvatarText} weight="bold">{avatar}</AppText>
       </View>
@@ -191,7 +197,7 @@ const StatCard: React.FC<{
   isActive?: boolean;
 }> = ({ label, percentage, presentEq, halfDayEq, isActive }) => {
   return (
-    <AppCard style={[styles.statCard, isActive && styles.statCardActive]}>
+    <AppCard style={StyleSheet.flatten([styles.statCard, isActive && styles.statCardActive])}>
       <View style={[styles.statAccent, isActive && styles.statAccentActive]} />
       <AppText style={[styles.statLabel, isActive && styles.statLabelActive]} weight="bold">
         {label}
@@ -212,28 +218,26 @@ export default function AttendanceManagementScreen() {
   const insets = useSafeAreaInsets();
   const route = useRoute();
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
-
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
-  
+
   const [view, setView] = useState<'teachers' | 'students'>('teachers');
   const [date, setDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'PRESENT' | 'ABSENT' | 'HALF_DAY'>('all');
-  
+
   const [refreshing, setRefreshing] = useState(false);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState(false);
-  
+
   const [classItems, setClassItems] = useState<ClassItem[]>([]);
   const [selectedClass, setSelectedClass] = useState<ClassItem | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [showClassModal, setShowClassModal] = useState(false);
-  
+
   const [statement, setStatement] = useState<AttendanceStatement | null>(null);
   const [stmtScope, setStmtScope] = useState<'weekly' | 'monthly'>('weekly');
   const [loadingStatement, setLoadingStatement] = useState(false);
@@ -257,17 +261,8 @@ export default function AttendanceManagementScreen() {
       setTabBarVisible(true);
     };
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   const headers = useMemo(() => ({
     'X-School-Code': schoolCode,
@@ -276,7 +271,7 @@ export default function AttendanceManagementScreen() {
 
   // Load Teachers
   const loadTeachers = useCallback(async () => {
-    if (!schoolCode || !branchId) return;
+    if (!schoolCode || !branchId) {return;}
     setLoadingTeachers(true);
     try {
       const res = await API.get('principal/staff/attendance', {
@@ -287,30 +282,30 @@ export default function AttendanceManagementScreen() {
         setTeachers(res.data?.items || []);
       }
     } catch (error: any) {
-      if (!isMounted.current || error?.response?.status === 401) return;
+      if (!isMounted.current || error?.response?.status === 401) {return;}
       console.error('Failed to load teachers:', error);
     } finally {
-      if (isMounted.current) setLoadingTeachers(false);
+      if (isMounted.current) {setLoadingTeachers(false);}
     }
   }, [schoolCode, branchId, date, headers]);
 
   // Load Classes
   const loadClasses = useCallback(async () => {
-    if (!schoolCode || !branchId) return;
+    if (!schoolCode || !branchId) {return;}
     try {
       const res = await API.get('principal/classes', { headers });
       if (isMounted.current) {
         setClassItems(res.data?.items || []);
       }
     } catch (error: any) {
-      if (!isMounted.current || error?.response?.status === 401) return;
+      if (!isMounted.current || error?.response?.status === 401) {return;}
       console.error('Failed to load classes:', error);
     }
   }, [schoolCode, branchId, headers]);
 
   // Load Students
   const loadStudents = useCallback(async (classItem: ClassItem) => {
-    if (!schoolCode || !branchId || !classItem) return;
+    if (!schoolCode || !branchId || !classItem) {return;}
     setLoadingStudents(true);
     try {
       const res = await API.get('principal/students', {
@@ -325,16 +320,16 @@ export default function AttendanceManagementScreen() {
         setStudents(res.data?.items || []);
       }
     } catch (error: any) {
-      if (!isMounted.current || error?.response?.status === 401) return;
+      if (!isMounted.current || error?.response?.status === 401) {return;}
       console.error('Failed to load students:', error);
     } finally {
-      if (isMounted.current) setLoadingStudents(false);
+      if (isMounted.current) {setLoadingStudents(false);}
     }
   }, [schoolCode, branchId, date, headers]);
 
   // Load Statement
   const loadStatement = useCallback(async () => {
-    if (!schoolCode || !branchId) return;
+    if (!schoolCode || !branchId) {return;}
     setLoadingStatement(true);
     try {
       const res = await API.get('principal/attendance/statements', {
@@ -345,10 +340,10 @@ export default function AttendanceManagementScreen() {
         setStatement(res.data);
       }
     } catch (error: any) {
-      if (!isMounted.current || error?.response?.status === 401) return;
+      if (!isMounted.current || error?.response?.status === 401) {return;}
       console.error('Failed to load statement:', error);
     } finally {
-      if (isMounted.current) setLoadingStatement(false);
+      if (isMounted.current) {setLoadingStatement(false);}
     }
   }, [schoolCode, branchId, date, stmtScope, headers]);
 
@@ -408,12 +403,12 @@ export default function AttendanceManagementScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Standardized Header */}
       <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
         <View style={styles.headerTop}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.iconButton}
             onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
           >
@@ -422,7 +417,7 @@ export default function AttendanceManagementScreen() {
           <View style={styles.headerTitleContainer}>
             <AppText weight="bold" style={styles.headerTitle}>Attendance</AppText>
           </View>
-          <TouchableOpacity style={styles.iconButton} onPress={() => Alert.alert('Notifications', 'No notifications')}>
+          <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={() => Alert.alert('Notifications', 'No notifications')}>
             <Bell size={22} color={HEADER_CONSTANTS.TEXT_COLOR} />
           </TouchableOpacity>
         </View>
@@ -474,7 +469,7 @@ export default function AttendanceManagementScreen() {
 
         {/* Tab Navigation */}
         <View style={styles.tabContainer}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.tab, view === 'teachers' && styles.tabActive]}
             onPress={() => setView('teachers')}
           >
@@ -483,7 +478,7 @@ export default function AttendanceManagementScreen() {
             </AppText>
             {view === 'teachers' && <View style={styles.tabUnderline} />}
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.tab, view === 'students' && styles.tabActive]}
             onPress={() => setView('students')}
           >
@@ -497,7 +492,7 @@ export default function AttendanceManagementScreen() {
         {/* Filter Chips */}
         <View style={styles.filterContainer}>
           {['all', 'PRESENT', 'ABSENT', 'HALF_DAY'].map(filter => (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={filter}
               style={[styles.filterChip, statusFilter === filter && styles.filterChipActive]}
               onPress={() => setStatusFilter(filter as any)}
@@ -515,7 +510,7 @@ export default function AttendanceManagementScreen() {
         {/* Search & Filters */}
         <View style={styles.searchSection}>
           <View style={styles.searchBox}>
-            <Search size={18} color={C.text2} style={{ marginRight: 8 }} />
+            <Search size={18} color={C.text2} style={{ marginRight: Theme.spacing.sm }} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search by name, ID, email.."
@@ -524,7 +519,7 @@ export default function AttendanceManagementScreen() {
               onChangeText={setSearch}
             />
             {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setSearch('')}>
                 <X size={18} color={C.text2} />
               </TouchableOpacity>
             )}
@@ -533,7 +528,7 @@ export default function AttendanceManagementScreen() {
 
         {/* Date & Type Selectors */}
         <View style={styles.controlsSection}>
-          <TouchableOpacity style={styles.dateControl} onPress={() => setShowDatePicker(true)}>
+          <TouchableOpacity accessibilityRole="button" style={styles.dateControl} onPress={() => setShowDatePicker(true)}>
             <AppText style={styles.controlLabel}>Date</AppText>
             <View style={styles.controlInput}>
               <Calendar size={16} color={C.primary} />
@@ -541,7 +536,7 @@ export default function AttendanceManagementScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.typeControl} onPress={() => setStmtScope(stmtScope === 'weekly' ? 'monthly' : 'weekly')}>
+          <TouchableOpacity accessibilityRole="button" style={styles.typeControl} onPress={() => setStmtScope(stmtScope === 'weekly' ? 'monthly' : 'weekly')}>
             <AppText style={styles.controlLabel}>Type</AppText>
             <View style={[styles.controlInput, styles.dropdownControl]}>
               <AppText style={styles.controlValue}>{stmtScope === 'weekly' ? 'weekly' : 'monthly'}</AppText>
@@ -557,7 +552,7 @@ export default function AttendanceManagementScreen() {
             maximumDate={new Date()}
             onChange={(event, selectedDate) => {
               setShowDatePicker(false);
-              if (selectedDate) setDate(selectedDate);
+              if (selectedDate) {setDate(selectedDate);}
             }}
           />
         )}
@@ -597,14 +592,14 @@ export default function AttendanceManagementScreen() {
                 <View style={styles.classSelectorRow}>
                   <View style={styles.pickerControl}>
                     <AppText style={styles.controlLabelSmall}>Class</AppText>
-                    <TouchableOpacity style={styles.pickerInput} onPress={() => setShowClassModal(true)}>
+                    <TouchableOpacity accessibilityRole="button" style={styles.pickerInput} onPress={() => setShowClassModal(true)}>
                       <AppText style={styles.pickerValue}>Class {selectedClass?.class_grade || '-'}</AppText>
                     </TouchableOpacity>
                   </View>
 
-                  <View style={[styles.pickerControl, { marginLeft: 12 }]}> 
+                  <View style={[styles.pickerControl, { marginLeft: 12 }]}>
                     <AppText style={styles.controlLabelSmall}>Section</AppText>
-                    <TouchableOpacity style={styles.pickerInput} onPress={() => setShowClassModal(true)}>
+                    <TouchableOpacity accessibilityRole="button" style={styles.pickerInput} onPress={() => setShowClassModal(true)}>
                       <AppText style={styles.pickerValue}>{selectedClass?.section || '-'}</AppText>
                     </TouchableOpacity>
                   </View>
@@ -616,7 +611,7 @@ export default function AttendanceManagementScreen() {
                       <AppText style={styles.modalTitle} weight="bold">Select class & section</AppText>
                       <ScrollView>
                         {classItems.map(ci => (
-                          <TouchableOpacity
+                          <TouchableOpacity accessibilityRole="button"
                             key={`${ci.class_grade}-${ci.section}`}
                             style={[styles.modalItem, selectedClass?.class_grade === ci.class_grade && selectedClass?.section === ci.section && styles.modalItemActive]}
                             onPress={() => {
@@ -628,7 +623,7 @@ export default function AttendanceManagementScreen() {
                           </TouchableOpacity>
                         ))}
                       </ScrollView>
-                      <TouchableOpacity style={styles.modalClose} onPress={() => setShowClassModal(false)}>
+                      <TouchableOpacity accessibilityRole="button" style={styles.modalClose} onPress={() => setShowClassModal(false)}>
                         <AppText style={styles.modalCloseText}>Close</AppText>
                       </TouchableOpacity>
                     </View>
@@ -665,15 +660,15 @@ export default function AttendanceManagementScreen() {
       </View>
 
       {/* Footer Tabs - Principal Portal style */}
-      <View style={[styles.footerTabs, { paddingBottom: Math.max(insets.bottom, 8) }]}> 
-        <TouchableOpacity style={styles.footerTab} onPress={() => navigation.navigate('PrincipalDashboard' as never)}>
+      <View style={[styles.footerTabs, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        <TouchableOpacity accessibilityRole="button" style={styles.footerTab} onPress={() => navigation.navigate('PrincipalDashboard' as never)}>
           <View style={[styles.footerIconWrap, route.name === 'PrincipalDashboard' && styles.footerIconWrapActive]}>
             <Home size={22} color={route.name === 'PrincipalDashboard' ? '#6648dc' : '#8a96a6'} />
           </View>
           <AppText style={[styles.footerTabText, route.name === 'PrincipalDashboard' && styles.footerTabTextActive]} weight="semibold">Home</AppText>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.footerTab} onPress={() => navigation.navigate('TeacherManagement' as never)}>
+        <TouchableOpacity accessibilityRole="button" style={styles.footerTab} onPress={() => navigation.navigate('TeacherManagement' as never)}>
           <View style={[styles.footerIconWrap, route.name === 'TeacherManagement' && styles.footerIconWrapActive]}>
             <Users size={22} color={route.name === 'TeacherManagement' ? '#6648dc' : '#8a96a6'} />
           </View>
@@ -681,22 +676,22 @@ export default function AttendanceManagementScreen() {
         </TouchableOpacity>
 
         <View style={styles.footerCenterSlot}>
-          <TouchableOpacity style={styles.footerFab} onPress={() => navigation.navigate('TeacherAssignment' as never)} activeOpacity={0.85}>
+          <TouchableOpacity accessibilityRole="button" style={styles.footerFab} onPress={() => navigation.navigate('TeacherAssignment' as never)} activeOpacity={0.85}>
             <View style={styles.footerFabInner}>
-              <GraduationCap size={20} color="#fff" />
+              <GraduationCap size={20} color={Theme.colors.card} />
             </View>
           </TouchableOpacity>
-          <AppText style={styles.footerCenterLabel} weight="semibold">Teacher{"\n"}Assignment</AppText>
+          <AppText style={styles.footerCenterLabel} weight="semibold">Teacher{'\n'}Assignment</AppText>
         </View>
 
-        <TouchableOpacity style={styles.footerTab} onPress={() => navigation.navigate('StudentManagement' as never)}>
+        <TouchableOpacity accessibilityRole="button" style={styles.footerTab} onPress={() => navigation.navigate('StudentManagement' as never)}>
           <View style={[styles.footerIconWrap, route.name === 'StudentManagement' && styles.footerIconWrapActive]}>
             <GraduationCap size={22} color={route.name === 'StudentManagement' ? '#6648dc' : '#8a96a6'} />
           </View>
           <AppText style={[styles.footerTabText, route.name === 'StudentManagement' && styles.footerTabTextActive]} weight="semibold">Students</AppText>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.footerTab} onPress={() => navigation.navigate('Settings' as never)}>
+        <TouchableOpacity accessibilityRole="button" style={styles.footerTab} onPress={() => navigation.navigate('Settings' as never)}>
           <View style={[styles.footerIconWrap, route.name === 'Settings' && styles.footerIconWrapActive]}>
             <Settings size={22} color={route.name === 'Settings' ? '#6648dc' : '#8a96a6'} />
           </View>
@@ -752,7 +747,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
@@ -762,8 +757,8 @@ const styles = StyleSheet.create({
   headerSubtext: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
     opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   contentOverlap: {
     flex: 1,
@@ -778,7 +773,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: Theme.spacing.lg,
     paddingBottom: 110,
   },
   pageHeader: {
@@ -799,7 +794,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: C.primary,
-    fontSize: 12,
+    ...Theme.typography.caption,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -808,7 +803,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderWidth: 1.5,
     borderColor: C.border,
     borderRadius: 18,
@@ -841,7 +836,7 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 13,
     color: C.text2,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   statLabelActive: {
     color: C.primary,
@@ -849,7 +844,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 30,
     color: C.text,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   statValueActive: {
     color: C.primary,
@@ -858,7 +853,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statMetaText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.text2,
   },
   tabContainer: {
@@ -866,7 +861,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     backgroundColor: C.white,
     borderRadius: 18,
-    padding: 4,
+    padding: Theme.spacing.xs,
     borderWidth: 1,
     borderColor: C.border,
     ...Platform.select({
@@ -890,7 +885,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(31, 111, 235, 0.05)',
   },
   tabText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: C.text2,
   },
   tabTextActive: {
@@ -908,10 +903,10 @@ const styles = StyleSheet.create({
   filterContainer: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     backgroundColor: C.white,
     borderRadius: 18,
-    padding: 8,
+    padding: Theme.spacing.sm,
     borderWidth: 1,
     borderColor: C.border,
     ...Platform.select({
@@ -939,14 +934,14 @@ const styles = StyleSheet.create({
     borderColor: C.primary,
   },
   filterChipText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text2,
   },
   filterChipTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   searchSection: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   searchBox: {
     flexDirection: 'row',
@@ -969,14 +964,14 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    marginHorizontal: 8,
-    fontSize: 14,
+    marginHorizontal: Theme.spacing.sm,
+    ...Theme.typography.body,
     color: C.text,
   },
   controlsSection: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   dateControl: {
     flex: 1,
@@ -985,7 +980,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   controlLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text2,
     marginBottom: 6,
   },
@@ -1013,39 +1008,39 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   controlValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   classSelector: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   classSelectorLabel: {
     fontSize: 13,
     color: C.text,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   classScroll: {
     flexGrow: 0,
   },
   classOption: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 999,
     backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.border,
-    marginRight: 8,
+    marginRight: Theme.spacing.sm,
   },
   classOptionActive: {
     backgroundColor: C.primary,
     borderColor: C.primary,
   },
   classOptionText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text,
   },
   classOptionTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   listContainer: {
     gap: 12,
@@ -1055,7 +1050,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 16,
+    padding: Theme.spacing.md,
     backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.border,
@@ -1078,7 +1073,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   itemAvatarText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 16,
   },
   itemContent: {
@@ -1086,14 +1081,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   itemId: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.text2,
     marginBottom: 2,
   },
   itemTitle: {
     fontSize: 16,
     color: C.text,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   statusChip: {
     marginTop: 10,
@@ -1103,18 +1098,18 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   statusChipText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
   },
   classSelectorRow: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   pickerControl: {
     flex: 1,
   },
   controlLabelSmall: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text2,
     marginBottom: 6,
   },
@@ -1128,7 +1123,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pickerValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   modalOverlay: {
@@ -1141,7 +1136,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     maxHeight: '60%',
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   modalTitle: {
     fontSize: 16,
@@ -1150,7 +1145,7 @@ const styles = StyleSheet.create({
   },
   modalItem: {
     paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingHorizontal: Theme.spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
@@ -1158,7 +1153,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.primarySoft,
   },
   modalItemText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   modalClose: {
@@ -1168,11 +1163,11 @@ const styles = StyleSheet.create({
   },
   modalCloseText: {
     color: C.primary,
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '600',
   },
   itemSubtitle: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.text2,
   },
   itemRight: {
@@ -1185,7 +1180,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   statusPillText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '600',
   },
   statusBadgeActive: {
@@ -1195,7 +1190,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#D1FAE5',
   },
   statusBadgeActiveText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#065F46',
   },
   statusBadgeInactive: {
@@ -1205,7 +1200,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE2E2',
   },
   statusBadgeInactiveText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#991B1B',
   },
   emptyState: {
@@ -1286,7 +1281,7 @@ const styles = StyleSheet.create({
     borderRadius: 27,
     backgroundColor: '#0b2750',
     borderWidth: 2,
-    borderColor: 'rgba(102,72,220,0.15)',
+    borderColor: 'rgba(30,58,138,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,

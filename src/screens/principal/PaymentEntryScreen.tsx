@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -9,7 +10,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
-  StatusBar,
   Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -28,16 +28,22 @@ import {
   CircleDollarSign,
   ScrollText,
   ReceiptText,
-  CheckCircle2
+  CheckCircle2,
 } from 'lucide-react-native';
 import API from '../../services/api';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+
 import { formatErrorMessage } from '../../utils/helpers';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import { Theme, C } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
+
 
 
 interface Fee {
@@ -70,13 +76,12 @@ const PaymentEntry = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { setTabBarVisible, userRole } = useAuth();
-  const lastScrollY = useRef(0);
   const isMounted = useRef(true);
   const [fees, setFees] = useState<Fee[]>([]);
   const [formData, setFormData] = useState<FormData>({
-    fee_id: "",
-    amount: "",
-    method: "cash",
+    fee_id: '',
+    amount: '',
+    method: 'cash',
   });
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -93,18 +98,8 @@ const PaymentEntry = () => {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   useEffect(() => {
     if (schoolCode) {
@@ -114,10 +109,10 @@ const PaymentEntry = () => {
 
   const loadSchoolCode = async () => {
     try {
-      const code = await AsyncStorage.getItem('school_code') ||
-        await AsyncStorage.getItem('schoolCode') ||
-        await AsyncStorage.getItem('school_id') ||
-        await AsyncStorage.getItem('schoolId') || '';
+      const code = await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) || '';
       setSchoolCode(code);
     } catch (error) {
       console.error('Error loading school code:', error);
@@ -133,13 +128,13 @@ const PaymentEntry = () => {
 
     try {
       setLoading(true);
-      const response = await API.get("/accountant/fees", {
+      const response = await API.get('/accountant/fees', {
         params: { school_code: schoolCode },
       });
       setFees(response.data || []);
     } catch (error: any) {
-      console.error("Error fetching fees:", error);
-      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || "Failed to fetch fees"));
+      console.error('Error fetching fees:', error);
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || 'Failed to fetch fees'));
     } finally {
       setLoading(false);
     }
@@ -155,7 +150,7 @@ const PaymentEntry = () => {
   };
 
   const fetchPaymentHistory = async (feeId: string) => {
-    if (!feeId || !schoolCode) return;
+    if (!feeId || !schoolCode) {return;}
 
     try {
       const response = await API.get(`/accountant/payments/${feeId}`, {
@@ -163,14 +158,14 @@ const PaymentEntry = () => {
       });
       setPayments(response.data || []);
     } catch (error: any) {
-      console.error("Error fetching payment history:", error);
+      console.error('Error fetching payment history:', error);
       setPayments([]);
     }
   };
 
   const handleFeeChange = async (feeId: string) => {
     setFormData(prev => ({ ...prev, fee_id: feeId }));
-    
+
     if (feeId) {
       const fee = fees.find(f => f.id === feeId);
       setSelectedFee(fee || null);
@@ -190,7 +185,7 @@ const PaymentEntry = () => {
       Alert.alert('Validation Error', 'Please select a fee');
       return;
     }
-    
+
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
       Alert.alert('Validation Error', 'Valid amount is required');
       return;
@@ -212,22 +207,22 @@ const PaymentEntry = () => {
 
     try {
       setLoading(true);
-      const response = await API.post("/accountant/payments/add", formData, {
+      const response = await API.post('/accountant/payments/add', formData, {
         params: { school_code: schoolCode },
       });
-      
+
       const newPayment = response.data;
       setLastPayment(newPayment);
       setShowReceiptModal(true);
-      
+
       Alert.alert('Success', 'Payment added successfully');
-      setFormData({ fee_id: "", amount: "", method: "cash" });
+      setFormData({ fee_id: '', amount: '', method: 'cash' });
       setSelectedFee(null);
       setFeeSearchText('');
       await fetchFees();
     } catch (error: any) {
-      console.error("Error adding payment:", error);
-      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || "Error adding payment"));
+      console.error('Error adding payment:', error);
+      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail || error?.response?.data?.message || error?.message || 'Error adding payment'));
     } finally {
       setLoading(false);
     }
@@ -249,8 +244,8 @@ const PaymentEntry = () => {
   };
 
   const getDueStatusColor = (dueAmount: number) => {
-    if (dueAmount === 0) return '#059669';
-    if (dueAmount < 0) return '#dc2626';
+    if (dueAmount === 0) {return Theme.colors.success;}
+    if (dueAmount < 0) {return Theme.colors.error;}
     return '#d97706';
   };
 
@@ -271,22 +266,22 @@ const PaymentEntry = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Standardized Header */}
       {(() => {
         const isAccountant = userRole?.toLowerCase() === 'accountant';
         return (
-          <View style={[styles.headerStandard, { 
+          <View style={[styles.headerStandard, {
             paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
-            backgroundColor: isAccountant ? '#1e3a8a' : HEADER_CONSTANTS.BACKGROUND_COLOR
+            backgroundColor: isAccountant ? Theme.colors.primary : HEADER_CONSTANTS.BACKGROUND_COLOR,
           }]}>
             <View style={styles.headerTop}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.iconButton}
                 onPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
               >
-                <ChevronLeft size={24} color="#FFFFFF" />
+                <ChevronLeft size={24} color={Theme.colors.card} />
               </TouchableOpacity>
               <View style={styles.headerTitleContainer}>
                 <AppText weight="bold" style={styles.headerTitle}>Payment Entry</AppText>
@@ -331,7 +326,7 @@ const PaymentEntry = () => {
                         {Boolean((selectedFee as any).roll_number) && ` (Roll: ${(selectedFee as any).roll_number})`} (Due: {formatAmount(selectedFee.due_amount)})
                       </AppText>
                     </View>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       onPress={() => {
                         handleFeeChange('');
                         setFeeSearchText('');
@@ -361,7 +356,7 @@ const PaymentEntry = () => {
                           })
                           .slice(0, 5)
                           .map((fee, index) => (
-                            <TouchableOpacity
+                            <TouchableOpacity accessibilityRole="button"
                               key={fee.id || `fee-${index}`}
                               style={styles.suggestionItem}
                               onPress={() => {
@@ -370,7 +365,7 @@ const PaymentEntry = () => {
                               }}
                             >
                               <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <View style={{ flex: 1, marginRight: 8 }}>
+                                <View style={{ flex: 1, marginRight: Theme.spacing.sm }}>
                                   <AppText style={styles.suggestionItemText} weight="semibold">
                                     {fee.student_name}
                                   </AppText>
@@ -402,7 +397,7 @@ const PaymentEntry = () => {
                   </View>
                 )}
               </View>
- 
+
               {selectedFee && (
                 <View style={styles.feeDetails}>
                   <View style={styles.detailRow}>
@@ -451,20 +446,20 @@ const PaymentEntry = () => {
               <View>
                 <AppText style={styles.label} weight="semibold">Payment Method</AppText>
                 <View style={styles.methodContainer}>
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={[styles.methodOption, formData.method === 'cash' && styles.methodOptionSelected]}
                     onPress={() => handleInputChange('method', 'cash')}
                   >
-                    <CircleDollarSign size={16} color={formData.method === 'cash' ? '#fff' : C.text} />
+                    <CircleDollarSign size={16} color={formData.method === 'cash' ? Theme.colors.card : C.text} />
                     <AppText style={[styles.methodOptionText, formData.method === 'cash' && styles.methodOptionTextSelected]} weight="semibold">
                       Cash
                     </AppText>
                   </TouchableOpacity>
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={[styles.methodOption, formData.method === 'online' && styles.methodOptionSelected]}
                     onPress={() => handleInputChange('method', 'online')}
                   >
-                    <CreditCard size={16} color={formData.method === 'online' ? '#fff' : C.text} />
+                    <CreditCard size={16} color={formData.method === 'online' ? Theme.colors.card : C.text} />
                     <AppText style={[styles.methodOptionText, formData.method === 'online' && styles.methodOptionTextSelected]} weight="semibold">
                       Online
                     </AppText>
@@ -472,16 +467,16 @@ const PaymentEntry = () => {
                 </View>
               </View>
 
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.submitButton}
                 onPress={handleSubmit}
                 disabled={loading}
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={Theme.colors.card} />
                 ) : (
                   <>
-                    <CreditCard size={16} color="#fff" />
+                    <CreditCard size={16} color={Theme.colors.card} />
                     <AppText style={styles.submitButtonText} weight="semibold">Add Payment</AppText>
                   </>
                 )}
@@ -547,7 +542,7 @@ const PaymentEntry = () => {
                 <ReceiptText size={20} color={C.text} />
                 <AppText style={styles.modalTitle} weight="bold">Payment Receipt</AppText>
               </View>
-              <TouchableOpacity onPress={() => setShowReceiptModal(false)}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setShowReceiptModal(false)}>
                 <X size={24} color={C.text} />
               </TouchableOpacity>
             </View>
@@ -609,16 +604,16 @@ const PaymentEntry = () => {
             )}
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.modalButton, styles.printButton]}
                 onPress={() => {
                   Alert.alert('Print', 'Print functionality would be implemented here');
                 }}
               >
-                <Printer size={16} color="#fff" />
+                <Printer size={16} color={Theme.colors.card} />
                 <AppText style={styles.printButtonText} weight="semibold">Print Receipt</AppText>
               </TouchableOpacity>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.modalButton, styles.closeButton]}
                 onPress={() => setShowReceiptModal(false)}
               >
@@ -680,24 +675,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    color: Theme.colors.card,
+    ...Theme.typography.h3,
     textAlign: 'center',
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '800',
+    color: Theme.colors.card,
+    ...Theme.typography.h1,
     letterSpacing: -0.5,
   },
   headerSubtext: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   headerSpacer: {
     width: 40,
@@ -712,7 +705,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   scrollView: {
     flex: 1,
@@ -723,8 +716,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderLeftWidth: 4,
     borderLeftColor: C.success,
-    margin: 16,
-    marginBottom: 8,
+    margin: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -740,7 +733,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: C.textMuted,
-    fontSize: 14,
+    ...Theme.typography.body,
     marginBottom: 6,
   },
   feeScroll: {
@@ -752,25 +745,25 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   feeOption: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     borderRadius: 8,
     backgroundColor: C.bg,
     borderWidth: 1,
     borderColor: C.border,
-    marginRight: 8,
-    marginBottom: 8,
+    marginRight: Theme.spacing.sm,
+    marginBottom: Theme.spacing.sm,
   },
   feeOptionSelected: {
     backgroundColor: C.success,
     borderColor: C.success,
   },
   feeOptionText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   feeOptionTextSelected: {
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   feeDetails: {
     backgroundColor: C.bg,
@@ -782,7 +775,7 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   detailLabel: {
     fontSize: 13,
@@ -800,7 +793,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 8,
-    fontSize: 14,
+    ...Theme.typography.body,
     backgroundColor: C.bg,
     color: C.text,
   },
@@ -825,11 +818,11 @@ const styles = StyleSheet.create({
     borderColor: C.success,
   },
   methodOptionText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.textMuted,
   },
   methodOptionTextSelected: {
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   submitButton: {
     backgroundColor: C.success,
@@ -841,24 +834,24 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   submitButtonText: {
-    color: '#ffffff',
+    color: Theme.colors.card,
     fontSize: 16,
   },
   historySection: {
-    margin: 16,
-    marginTop: 8,
+    margin: Theme.spacing.md,
+    marginTop: Theme.spacing.sm,
   },
   historyHeader: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   historyTitle: {
     fontSize: 18,
     color: C.text,
   },
   historySubtitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.textMuted,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   paymentsList: {
     backgroundColor: C.card,
@@ -877,11 +870,11 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   paymentsHeaderText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   totalPaymentsText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.success,
   },
   paymentRow: {
@@ -893,15 +886,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   paymentAmount: {
     fontSize: 16,
     color: C.text,
   },
   methodBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 4,
   },
   cashBadge: {
@@ -911,20 +904,20 @@ const styles = StyleSheet.create({
     backgroundColor: C.successSoft,
   },
   methodText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.text,
   },
   paymentDate: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   receiptNumber: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: C.textMuted,
   },
   emptyContainer: {
-    padding: 48,
+    padding: Theme.spacing.xxl,
     alignItems: 'center',
     backgroundColor: C.card,
     borderRadius: 12,
@@ -932,14 +925,14 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   emptyText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.textMuted,
     marginTop: 12,
   },
   emptySubtext: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.border,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   modalOverlay: {
     flex: 1,
@@ -960,7 +953,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
@@ -969,20 +962,20 @@ const styles = StyleSheet.create({
     color: C.text,
   },
   receiptContent: {
-    padding: 16,
+    padding: Theme.spacing.md,
   },
   receiptHeader: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   receiptSchoolName: {
     fontSize: 18,
     color: C.text,
   },
   receiptDate: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   receiptDivider: {
     height: 1,
@@ -995,11 +988,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   receiptLabel: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.textMuted,
   },
   receiptValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   receiptAmount: {
@@ -1008,14 +1001,14 @@ const styles = StyleSheet.create({
   },
   receiptFooter: {
     textAlign: 'center',
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
   },
   modalButtons: {
     flexDirection: 'row',
     gap: 12,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: C.border,
   },
@@ -1032,7 +1025,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   printButtonText: {
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   closeButton: {
     backgroundColor: C.bg,
@@ -1050,7 +1043,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   selectedFeeBadgeLeft: {
     flexDirection: 'row',
@@ -1060,11 +1053,11 @@ const styles = StyleSheet.create({
   },
   selectedFeeText: {
     color: C.success,
-    fontSize: 14,
+    ...Theme.typography.body,
     flexShrink: 1,
   },
   clearSelectedFeeBtn: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   searchContainer: {
     position: 'relative',
@@ -1075,7 +1068,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 8,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
     overflow: 'hidden',
   },
   suggestionItem: {
@@ -1085,11 +1078,11 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   suggestionItemText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: C.text,
   },
   suggestionItemSubtext: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
   },
   noSuggestionItem: {
@@ -1097,7 +1090,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   noSuggestionText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: C.textMuted,
     fontStyle: 'italic',
   },

@@ -7,13 +7,13 @@ function delay<T>(value: T, ms = 200) {
 
 export async function getTeacherContext(teacherId: string) {
   const entry = mock['/api/staff/marks/staff-context'];
-  if (!entry) return null;
+  if (!entry) {return null;}
   return delay(entry.response);
 }
 
 export async function getTeacherCapability(schoolId: string, employeeId: string) {
   const entry = mock['/api/auth/teacher-capability'];
-  if (!entry) return null;
+  if (!entry) {return null;}
   return delay(entry.response);
 }
 
@@ -31,7 +31,7 @@ export async function getExamsMock() {
 export async function getStudentsMock(classId: string, sectionId: string, subjectId: string) {
   const key = '/api/teacher/marks/students/{class_id}/{section_id}/{subject_id}';
   const entry = mock[key];
-  if (entry) return delay(entry.response);
+  if (entry) {return delay(entry.response);}
   const fallback = mock['/api/teacher/marks/students/{class_id}/{section_id}/{subject_id}'];
   return delay(fallback?.response ?? { students: [] });
 }

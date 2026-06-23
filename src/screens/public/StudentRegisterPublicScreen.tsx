@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import {
   View,
   StyleSheet,
@@ -9,7 +10,6 @@ import {
   Modal,
   Image,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -29,15 +29,18 @@ import {
   ChevronRight,
   Calendar,
   X,
-  AlertCircle
+  AlertCircle,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
+import { Theme, C } from '../../theme/tokens';
+
+
 
 // Types
 interface ClassOption {
@@ -102,19 +105,19 @@ interface FormData {
 const safeTrim = (v: any): string => String(v ?? '').trim();
 const isValidEmail = (v: string): boolean => {
   const s = String(v || '').trim();
-  if (!s) return true;
+  if (!s) {return true;}
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 };
 const isValidMobile = (v: string): boolean => /^\d{10}$/.test(String(v || '').trim());
 const isValidPin = (v: string): boolean => /^\d{6}$/.test(String(v || '').trim());
 const isValidAadhaar = (v: string): boolean => {
   const s = String(v || '').trim();
-  if (!s) return true;
+  if (!s) {return true;}
   return /^\d{12}$/.test(s);
 };
 const isValidName = (v: string): boolean => {
   const s = String(v || '').trim();
-  if (!s) return false;
+  if (!s) {return false;}
   return /^[a-zA-Z\s'-]+$/.test(s) && !/^\d+$/.test(s);
 };
 const isStrongPassword = (v: string): boolean => {
@@ -134,31 +137,31 @@ const getPasswordStrength = (v: string) => {
 };
 
 const calcAgeFromDOB = (dob: string): string => {
-  if (!dob) return '';
+  if (!dob) {return '';}
   const today = new Date();
   const birth = new Date(dob);
-  if (isNaN(birth.getTime())) return '';
+  if (isNaN(birth.getTime())) {return '';}
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {age--;}
   return age >= 0 && age < 120 ? String(age) : '';
 };
 
 const todayISO = (): string => new Date().toISOString().split('T')[0];
 
 const isValidDateOfBirth = (dobString: string): { valid: boolean; error: string | null } => {
-  if (!dobString) return { valid: true, error: null };
+  if (!dobString) {return { valid: true, error: null };}
 
   const dob = new Date(dobString);
   if (isNaN(dob.getTime())) {
-    return { valid: false, error: "Invalid date format" };
+    return { valid: false, error: 'Invalid date format' };
   }
 
   const year = dob.getFullYear();
   if (year < 1000 || year > new Date().getFullYear()) {
     return {
       valid: false,
-      error: `Invalid year ${year}. Please use a valid year (e.g., 1991, 2024)`
+      error: `Invalid year ${year}. Please use a valid year (e.g., 1991, 2024)`,
     };
   }
 
@@ -168,7 +171,7 @@ const isValidDateOfBirth = (dobString: string): { valid: boolean; error: string 
   if (dob > oneYearAgo) {
     return {
       valid: false,
-      error: "Date of Birth must be more than 1 year old"
+      error: 'Date of Birth must be more than 1 year old',
     };
   }
 
@@ -181,7 +184,7 @@ const STEPS = [
   'Guardian Info',
   'Contact Info',
   'Upload Photo',
-  'Review & Submit'
+  'Review & Submit',
 ];
 
 const INITIAL_FORM: FormData = {
@@ -240,7 +243,7 @@ const INITIAL_FORM: FormData = {
 // Password Strength Component
 const PasswordStrength: React.FC<{ password: string }> = ({ password }) => {
   const strength = getPasswordStrength(password);
-  
+
   return (
     <View style={styles.passwordStrength}>
       <PasswordRule valid={strength.minLength}>At least 8 characters</PasswordRule>
@@ -255,7 +258,7 @@ const PasswordStrength: React.FC<{ password: string }> = ({ password }) => {
 const PasswordRule: React.FC<{ valid: boolean; children: React.ReactNode }> = ({ valid, children }) => (
   <View style={styles.passwordRule}>
     {valid ? (
-      <Check size={12} color="#059669" />
+      <Check size={12} color={Theme.colors.success} />
     ) : (
       <View style={styles.passwordRuleDot} />
     )}
@@ -333,7 +336,7 @@ export default function StudentRegisterPublicScreen() {
 
   // Fetch classes when branch changes
   useEffect(() => {
-    if (!isPublicInvite || !form.branch_id || !publicSchoolCode) return;
+    if (!isPublicInvite || !form.branch_id || !publicSchoolCode) {return;}
 
     const loadClasses = async () => {
       try {
@@ -347,7 +350,7 @@ export default function StudentRegisterPublicScreen() {
           },
         });
 
-        if (!isMounted.current) return;
+        if (!isMounted.current) {return;}
 
         const items = Array.isArray(res.data?.items) ? res.data.items : [];
         const formattedItems: ClassOption[] = items.map((item: any) => ({
@@ -364,7 +367,7 @@ export default function StudentRegisterPublicScreen() {
         }
       } catch (err: any) {
         console.error('Load class/section failed:', err);
-        if (!isMounted.current) return;
+        if (!isMounted.current) {return;}
         setClassOptions([]);
         setSectionOptions([]);
         setServerError('Unable to load class and section options. Please refresh.');
@@ -377,7 +380,7 @@ export default function StudentRegisterPublicScreen() {
   const handleChange = (name: keyof FormData, value: string) => {
     setServerError('');
     setServerSuccess('');
-    
+
     if (fieldErrors[name]) {
       setFieldErrors(prev => {
         const newErrors = { ...prev };
@@ -399,9 +402,9 @@ export default function StudentRegisterPublicScreen() {
 
   const handleAcademicYearChange = (text: string) => {
     let value = text.replace(/[^0-9-]/g, '');
-    if (value.length > 7) value = value.slice(0, 7);
-    if (value.length === 5 && !value.includes('-')) value = value.slice(0, 4) + '-' + value.slice(4);
-    if (value.length === 5 && value[4] !== '-') value = value.slice(0, 4) + '-' + value.slice(4);
+    if (value.length > 7) {value = value.slice(0, 7);}
+    if (value.length === 5 && !value.includes('-')) {value = value.slice(0, 4) + '-' + value.slice(4);}
+    if (value.length === 5 && value[4] !== '-') {value = value.slice(0, 4) + '-' + value.slice(4);}
 
     if (fieldErrors.academic_year) {
       setFieldErrors(prev => {
@@ -426,7 +429,7 @@ export default function StudentRegisterPublicScreen() {
       setShowDOBPicker(false);
       return;
     }
-    
+
     if (fieldErrors.date_of_birth) {
       setFieldErrors(prev => {
         const newErrors = { ...prev };
@@ -489,59 +492,59 @@ export default function StudentRegisterPublicScreen() {
     const errors: Record<string, string> = {};
 
     if (step === 0) {
-      if (!safeTrim(form.first_name)) errors.first_name = 'First name is required';
-      else if (!isValidName(form.first_name)) errors.first_name = 'First name must contain letters';
+      if (!safeTrim(form.first_name)) {errors.first_name = 'First name is required';}
+      else if (!isValidName(form.first_name)) {errors.first_name = 'First name must contain letters';}
 
-      if (!safeTrim(form.last_name)) errors.last_name = 'Last name is required';
-      else if (!isValidName(form.last_name)) errors.last_name = 'Last name must contain letters';
+      if (!safeTrim(form.last_name)) {errors.last_name = 'Last name is required';}
+      else if (!isValidName(form.last_name)) {errors.last_name = 'Last name must contain letters';}
 
-      if (!form.gender) errors.gender = 'Gender is required';
-      if (!form.date_of_birth) errors.date_of_birth = 'Date of birth is required';
+      if (!form.gender) {errors.gender = 'Gender is required';}
+      if (!form.date_of_birth) {errors.date_of_birth = 'Date of birth is required';}
 
-      if (!safeTrim(form.nationality)) errors.nationality = 'Nationality is required';
-      if (!safeTrim(form.mother_tongue)) errors.mother_tongue = 'Mother tongue is required';
-      if (!safeTrim(form.religion)) errors.religion = 'Religion is required';
-      if (!safeTrim(form.aadhaar_number)) errors.aadhaar_number = 'Aadhaar number is required';
+      if (!safeTrim(form.nationality)) {errors.nationality = 'Nationality is required';}
+      if (!safeTrim(form.mother_tongue)) {errors.mother_tongue = 'Mother tongue is required';}
+      if (!safeTrim(form.religion)) {errors.religion = 'Religion is required';}
+      if (!safeTrim(form.aadhaar_number)) {errors.aadhaar_number = 'Aadhaar number is required';}
       if (form.aadhaar_number && !isValidAadhaar(form.aadhaar_number)) {
         errors.aadhaar_number = 'Aadhaar must be 12 digits';
       }
     }
 
     if (step === 1) {
-      if (!safeTrim(form.class_grade)) errors.class_grade = 'Class is required';
-      if (!safeTrim(form.section)) errors.section = 'Section is required';
-      if (!safeTrim(form.admission_number)) errors.admission_number = 'Admission number is required';
-      if (!safeTrim(form.academic_year)) errors.academic_year = 'Academic year is required';
+      if (!safeTrim(form.class_grade)) {errors.class_grade = 'Class is required';}
+      if (!safeTrim(form.section)) {errors.section = 'Section is required';}
+      if (!safeTrim(form.admission_number)) {errors.admission_number = 'Admission number is required';}
+      if (!safeTrim(form.academic_year)) {errors.academic_year = 'Academic year is required';}
       if (form.academic_year && !(/^\d{4}-\d{2}$/.test(form.academic_year))) {
         errors.academic_year = 'Academic year must be in YYYY-YY format (e.g., 2024-25)';
       }
     }
 
     if (step === 2) {
-      if (!safeTrim(form.father_guardian_name)) errors.father_guardian_name = 'Father name is required';
-      if (!isValidMobile(form.father_guardian_mobile)) errors.father_guardian_mobile = 'Enter valid 10-digit number';
-      if (!safeTrim(form.mother_guardian_name)) errors.mother_guardian_name = 'Mother name is required';
-      if (!isValidMobile(form.mother_guardian_mobile)) errors.mother_guardian_mobile = 'Enter valid 10-digit number';
-      if (!safeTrim(form.parent_guardian_email)) errors.parent_guardian_email = 'Parent email is required';
-      else if (!isValidEmail(form.parent_guardian_email)) errors.parent_guardian_email = 'Enter valid email';
+      if (!safeTrim(form.father_guardian_name)) {errors.father_guardian_name = 'Father name is required';}
+      if (!isValidMobile(form.father_guardian_mobile)) {errors.father_guardian_mobile = 'Enter valid 10-digit number';}
+      if (!safeTrim(form.mother_guardian_name)) {errors.mother_guardian_name = 'Mother name is required';}
+      if (!isValidMobile(form.mother_guardian_mobile)) {errors.mother_guardian_mobile = 'Enter valid 10-digit number';}
+      if (!safeTrim(form.parent_guardian_email)) {errors.parent_guardian_email = 'Parent email is required';}
+      else if (!isValidEmail(form.parent_guardian_email)) {errors.parent_guardian_email = 'Enter valid email';}
     }
 
     if (step === 3) {
-      if (!safeTrim(form.house_no)) errors.house_no = 'House No is required';
-      if (!safeTrim(form.street_locality)) errors.street_locality = 'Street is required';
-      if (!safeTrim(form.village_town_city)) errors.village_town_city = 'City is required';
-      if (!safeTrim(form.mandal_taluk)) errors.mandal_taluk = 'Mandal/Taluk is required';
-      if (!safeTrim(form.district)) errors.district = 'District is required';
-      if (!safeTrim(form.state)) errors.state = 'State is required';
-      if (!isValidPin(form.pin_code)) errors.pin_code = 'Enter valid 6-digit pin code';
+      if (!safeTrim(form.house_no)) {errors.house_no = 'House No is required';}
+      if (!safeTrim(form.street_locality)) {errors.street_locality = 'Street is required';}
+      if (!safeTrim(form.village_town_city)) {errors.village_town_city = 'City is required';}
+      if (!safeTrim(form.mandal_taluk)) {errors.mandal_taluk = 'Mandal/Taluk is required';}
+      if (!safeTrim(form.district)) {errors.district = 'District is required';}
+      if (!safeTrim(form.state)) {errors.state = 'State is required';}
+      if (!isValidPin(form.pin_code)) {errors.pin_code = 'Enter valid 6-digit pin code';}
 
-      if (!safeTrim(form.emergency_contact_name)) errors.emergency_contact_name = 'Contact name is required';
-      if (!isValidMobile(form.emergency_contact_number)) errors.emergency_contact_number = 'Enter valid 10-digit number';
-      if (!safeTrim(form.mode_of_transport)) errors.mode_of_transport = 'Mode of transport is required';
+      if (!safeTrim(form.emergency_contact_name)) {errors.emergency_contact_name = 'Contact name is required';}
+      if (!isValidMobile(form.emergency_contact_number)) {errors.emergency_contact_number = 'Enter valid 10-digit number';}
+      if (!safeTrim(form.mode_of_transport)) {errors.mode_of_transport = 'Mode of transport is required';}
     }
 
     if (step === 4) {
-      if (!photoFile) errors.photo = 'Student photograph is required';
+      if (!photoFile) {errors.photo = 'Student photograph is required';}
 
       if (!safeTrim(form.password)) {
         errors.password = 'Password is required';
@@ -608,8 +611,8 @@ export default function StudentRegisterPublicScreen() {
 
       const skip = new Set(['branch_id', 'confirm_password']);
       Object.entries(form).forEach(([k, v]) => {
-        if (skip.has(k)) return;
-        if (k === 'date_of_admission' && !safeTrim(v)) return;
+        if (skip.has(k)) {return;}
+        if (k === 'date_of_admission' && !safeTrim(v)) {return;}
         formData.append(k, v ?? '');
       });
 
@@ -621,14 +624,14 @@ export default function StudentRegisterPublicScreen() {
         },
       });
 
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
 
       const assignedRollNumber = res.data?.roll_number || form.roll_number || '—';
       setGeneratedRollNumber(assignedRollNumber);
       setShowRollNumberModal(true);
 
       setTimeout(() => {
-        if (!isMounted.current) return;
+        if (!isMounted.current) {return;}
         setStep(0);
         setShowRollNumberModal(false);
         setPhotoFile(null);
@@ -657,7 +660,7 @@ export default function StudentRegisterPublicScreen() {
         }
       }
     } finally {
-      if (isMounted.current) setLoading(false);
+      if (isMounted.current) {setLoading(false);}
     }
   };
 
@@ -685,42 +688,20 @@ export default function StudentRegisterPublicScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+      <StandardPageHeader title="Student Registration" onBackPress={() => navigation.goBack()} />
+
+
 
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
         {/* Navy Hero Header */}
-        <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => {
-                if (navigation.canGoBack()) {
-                  navigation.goBack();
-                } else {
-                  (navigation as any).navigate('RegisterSchool');
-                }
-              }}
-            >
-              <ChevronLeft size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <AppText weight="bold" style={styles.heroTitle}>Student Registration</AppText>
-            <View style={{ width: 40 }} />
-          </View>
-
-          <View style={styles.heroContent}>
-            <AppText weight="bold" style={styles.heroGreeting}>Enrollment Portal</AppText>
-            <AppText style={styles.heroSubtext}>
-              {step === totalSteps - 1 ? 'Preview & Confirm' : `Step ${step + 1} of ${totalSteps} — ${STEPS[step]}`}
-            </AppText>
-          </View>
-        </View>
+        <StandardPageHeader title="Student Registration" onBackPress={() => navigation.goBack()} />
 
         {serverError && (
           <View style={styles.errorBox}>
-            <AppText style={styles.errorText}>{serverError}</AppText>
+            <AppText style={styles.errorBoxText}>{serverError}</AppText>
           </View>
         )}
         {serverSuccess && (
@@ -732,11 +713,11 @@ export default function StudentRegisterPublicScreen() {
         {/* Stepper */}
         <View style={styles.stepperContainer}>
           {STEPS.map((label, i) => (
-            <TouchableOpacity key={label} style={styles.stepItem} onPress={() => setStep(i)}>
+            <TouchableOpacity accessibilityRole="button" key={label} style={styles.stepItem} onPress={() => setStep(i)}>
               <View style={[styles.stepCircle, step > i && styles.stepCompleted, step === i && styles.stepActive]}>
-                {step > i ? <Check size={14} color="#FFF" /> : <AppText weight="bold" style={[styles.stepNumber, step === i && styles.stepNumberActive]}>{i + 1}</AppText>}
+                {step > i ? <Check size={14} color={Theme.colors.card} /> : <AppText weight="bold" style={[styles.stepNumber, step === i && styles.stepNumberActive]}>{i + 1}</AppText>}
               </View>
-              <AppText weight={step === i ? "bold" : "regular"} style={[styles.stepLabel, step === i && styles.stepLabelActive, step > i && styles.stepLabelCompleted]}>
+              <AppText weight={step === i ? 'bold' : 'regular'} style={[styles.stepLabel, step === i && styles.stepLabelActive, step > i && styles.stepLabelCompleted]}>
                 {label}
               </AppText>
             </TouchableOpacity>
@@ -752,12 +733,12 @@ export default function StudentRegisterPublicScreen() {
                 <User size={18} color="#6648dc" />
                 <AppText weight="bold" style={styles.sectionTitle}>Personal Details</AppText>
               </View>
-              
+
               <FormField label="First Name" required error={fieldErrors.first_name}>
                 <TextInput
                   style={[styles.input, fieldErrors.first_name && styles.inputError]}
                   placeholder="Enter first name"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.first_name}
                   onChangeText={(text) => handleChange('first_name', text)}
                 />
@@ -767,7 +748,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.last_name && styles.inputError]}
                   placeholder="Enter last name"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.last_name}
                   onChangeText={(text) => handleChange('last_name', text)}
                 />
@@ -776,7 +757,7 @@ export default function StudentRegisterPublicScreen() {
               <FormField label="Gender" required error={fieldErrors.gender}>
                 <View style={styles.genderContainer}>
                   {['Male', 'Female', 'Other'].map(g => (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={g}
                       style={[styles.genderBtn, form.gender === g && styles.genderBtnActive]}
                       onPress={() => handleChange('gender', g)}
@@ -791,15 +772,15 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="e.g. O+"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.blood_group}
                   onChangeText={(text) => handleChange('blood_group', text)}
                 />
               </FormField>
 
               <FormField label="Date of Birth" required error={fieldErrors.date_of_birth}>
-                <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDOBPicker(true)}>
-                  <Calendar size={18} color="#64748B" />
+                <TouchableOpacity accessibilityRole="button" style={styles.dateBtn} onPress={() => setShowDOBPicker(true)}>
+                  <Calendar size={18} color={Theme.colors.textSec} />
                   <AppText style={styles.dateText}>{form.date_of_birth || 'Select date'}</AppText>
                 </TouchableOpacity>
                 {showDOBPicker && (
@@ -809,7 +790,7 @@ export default function StudentRegisterPublicScreen() {
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     maximumDate={new Date()}
                     onChange={(event, date) => {
-                      if (date) handleDOBChange(date);
+                      if (date) {handleDOBChange(date);}
                       setShowDOBPicker(false);
                     }}
                   />
@@ -824,7 +805,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.nationality && styles.inputError]}
                   placeholder="Nationality"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.nationality}
                   onChangeText={(text) => handleChange('nationality', text)}
                 />
@@ -834,7 +815,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mother_tongue && styles.inputError]}
                   placeholder="e.g. Telugu"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.mother_tongue}
                   onChangeText={(text) => handleChange('mother_tongue', text)}
                 />
@@ -844,7 +825,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.religion && styles.inputError]}
                   placeholder="e.g. Hindu"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.religion}
                   onChangeText={(text) => handleChange('religion', text)}
                 />
@@ -854,7 +835,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="e.g. OBC"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.caste_category}
                   onChangeText={(text) => handleChange('caste_category', text)}
                 />
@@ -864,7 +845,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.aadhaar_number && styles.inputError]}
                   placeholder="12-digit Aadhaar"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   keyboardType="numeric"
                   maxLength={12}
                   value={form.aadhaar_number}
@@ -886,7 +867,7 @@ export default function StudentRegisterPublicScreen() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.chipContainer}>
                     {classOptions.map(cls => (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={cls.class_name}
                         style={[styles.chip, form.class_grade === cls.class_name && styles.chipActive]}
                         onPress={() => handleClassChange(cls.class_name)}
@@ -905,7 +886,7 @@ export default function StudentRegisterPublicScreen() {
                   <TextInput
                     style={[styles.input, styles.sectionInput, fieldErrors.section && styles.inputError]}
                     placeholder="Enter section (A, B, C...)"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={Theme.colors.textMuted}
                     value={form.section}
                     onChangeText={handleSectionChange}
                     autoCapitalize="characters"
@@ -918,7 +899,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.admission_number && styles.inputError]}
                   placeholder="e.g. ADM2024001"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.admission_number}
                   onChangeText={(text) => handleChange('admission_number', text)}
                 />
@@ -928,7 +909,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.academic_year && styles.inputError]}
                   placeholder="e.g. 2024-25"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.academic_year}
                   onChangeText={handleAcademicYearChange}
                   maxLength={7}
@@ -939,15 +920,15 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Default: ENGLISH"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.medium_of_instruction}
                   onChangeText={(text) => handleChange('medium_of_instruction', text)}
                 />
               </FormField>
 
               <FormField label="Date of Admission">
-                <TouchableOpacity style={styles.dateBtn} onPress={() => setShowAdmissionDatePicker(true)}>
-                  <Calendar size={18} color="#64748B" />
+                <TouchableOpacity accessibilityRole="button" style={styles.dateBtn} onPress={() => setShowAdmissionDatePicker(true)}>
+                  <Calendar size={18} color={Theme.colors.textSec} />
                   <AppText style={styles.dateText}>{form.date_of_admission || 'Select date'}</AppText>
                 </TouchableOpacity>
                 {showAdmissionDatePicker && (
@@ -957,7 +938,7 @@ export default function StudentRegisterPublicScreen() {
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     maximumDate={new Date()}
                     onChange={(event, date) => {
-                      if (date) handleChange('date_of_admission', date.toISOString().split('T')[0]);
+                      if (date) {handleChange('date_of_admission', date.toISOString().split('T')[0]);}
                       setShowAdmissionDatePicker(false);
                     }}
                   />
@@ -968,7 +949,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Enter previous school name"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.previous_school_name}
                   onChangeText={(text) => handleChange('previous_school_name', text)}
                 />
@@ -978,7 +959,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="TC Number"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.transfer_certificate_number}
                   onChangeText={(text) => handleChange('transfer_certificate_number', text)}
                 />
@@ -998,7 +979,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.father_guardian_name && styles.inputError]}
                   placeholder="Full name"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.father_guardian_name}
                   onChangeText={(text) => handleChange('father_guardian_name', text)}
                 />
@@ -1008,7 +989,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.father_guardian_mobile && styles.inputError]}
                   placeholder="10-digit mobile"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   keyboardType="phone-pad"
                   maxLength={10}
                   value={form.father_guardian_mobile}
@@ -1020,7 +1001,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Occupation"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.father_guardian_occupation}
                   onChangeText={(text) => handleChange('father_guardian_occupation', text)}
                 />
@@ -1030,7 +1011,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mother_guardian_name && styles.inputError]}
                   placeholder="Full name"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.mother_guardian_name}
                   onChangeText={(text) => handleChange('mother_guardian_name', text)}
                 />
@@ -1040,7 +1021,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mother_guardian_mobile && styles.inputError]}
                   placeholder="10-digit mobile"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   keyboardType="phone-pad"
                   maxLength={10}
                   value={form.mother_guardian_mobile}
@@ -1052,7 +1033,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Occupation"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.mother_guardian_occupation}
                   onChangeText={(text) => handleChange('mother_guardian_occupation', text)}
                 />
@@ -1062,7 +1043,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.parent_guardian_email && styles.inputError]}
                   placeholder="email@example.com"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   value={form.parent_guardian_email}
@@ -1084,7 +1065,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.house_no && styles.inputError]}
                   placeholder="e.g. 12-3A"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.house_no}
                   onChangeText={(text) => handleChange('house_no', text)}
                 />
@@ -1094,7 +1075,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.street_locality && styles.inputError]}
                   placeholder="Street or locality"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.street_locality}
                   onChangeText={(text) => handleChange('street_locality', text)}
                 />
@@ -1104,7 +1085,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.village_town_city && styles.inputError]}
                   placeholder="City or village"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.village_town_city}
                   onChangeText={(text) => handleChange('village_town_city', text)}
                 />
@@ -1114,7 +1095,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mandal_taluk && styles.inputError]}
                   placeholder="Mandal or Taluk"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.mandal_taluk}
                   onChangeText={(text) => handleChange('mandal_taluk', text)}
                 />
@@ -1124,7 +1105,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.district && styles.inputError]}
                   placeholder="District"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.district}
                   onChangeText={(text) => handleChange('district', text)}
                 />
@@ -1134,7 +1115,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.state && styles.inputError]}
                   placeholder="State"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.state}
                   onChangeText={(text) => handleChange('state', text)}
                 />
@@ -1144,7 +1125,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.pin_code && styles.inputError]}
                   placeholder="6-digit PIN"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   keyboardType="numeric"
                   maxLength={6}
                   value={form.pin_code}
@@ -1161,7 +1142,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Any allergies"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.allergies_details}
                   onChangeText={(text) => handleChange('allergies_details', text)}
                 />
@@ -1171,7 +1152,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Any medical conditions"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.medical_conditions}
                   onChangeText={(text) => handleChange('medical_conditions', text)}
                 />
@@ -1181,7 +1162,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.emergency_contact_name && styles.inputError]}
                   placeholder="Contact person name"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.emergency_contact_name}
                   onChangeText={(text) => handleChange('emergency_contact_name', text)}
                 />
@@ -1191,7 +1172,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.emergency_contact_number && styles.inputError]}
                   placeholder="10-digit number"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   keyboardType="phone-pad"
                   maxLength={10}
                   value={form.emergency_contact_number}
@@ -1203,7 +1184,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Hospital or doctor name"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.nearest_hospital_doctor}
                   onChangeText={(text) => handleChange('nearest_hospital_doctor', text)}
                 />
@@ -1213,7 +1194,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={[styles.input, fieldErrors.mode_of_transport && styles.inputError]}
                   placeholder="e.g. Bus, Private"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.mode_of_transport}
                   onChangeText={(text) => handleChange('mode_of_transport', text)}
                 />
@@ -1223,7 +1204,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Bus route or vehicle no."
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.bus_route_vehicle_number}
                   onChangeText={(text) => handleChange('bus_route_vehicle_number', text)}
                 />
@@ -1233,7 +1214,7 @@ export default function StudentRegisterPublicScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Hostel or Day Scholar"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.hostel_day_scholar}
                   onChangeText={(text) => handleChange('hostel_day_scholar', text)}
                 />
@@ -1251,7 +1232,7 @@ export default function StudentRegisterPublicScreen() {
 
               {fieldErrors.photo && <AppText style={styles.fieldError}>{fieldErrors.photo}</AppText>}
 
-              <TouchableOpacity style={styles.photoZone} onPress={handleImagePick}>
+              <TouchableOpacity accessibilityRole="button" style={styles.photoZone} onPress={handleImagePick}>
                 {photoPreview ? (
                   <Image source={{ uri: photoPreview }} style={styles.photoPreview} />
                 ) : (
@@ -1263,7 +1244,7 @@ export default function StudentRegisterPublicScreen() {
                 )}
               </TouchableOpacity>
 
-              <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+              <View style={[styles.sectionHeader, { marginTop: Theme.spacing.lg }]}>
                 <Check size={18} color="#6648dc" />
                 <AppText weight="bold" style={styles.sectionTitle}>Login Credentials</AppText>
               </View>
@@ -1278,11 +1259,11 @@ export default function StudentRegisterPublicScreen() {
                     value={form.password}
                     onChangeText={(text) => handleChange('password', text)}
                   />
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={styles.eyeButton}
                     onPress={() => setShowPassword(!showPassword)}
                   >
-                    {showPassword ? <EyeOff size={20} color="#64748B" /> : <Eye size={20} color="#64748B" />}
+                    {showPassword ? <EyeOff size={20} color={Theme.colors.textSec} /> : <Eye size={20} color={Theme.colors.textSec} />}
                   </TouchableOpacity>
                 </View>
                 {form.password && <PasswordStrength password={form.password} />}
@@ -1298,11 +1279,11 @@ export default function StudentRegisterPublicScreen() {
                     value={form.confirm_password}
                     onChangeText={(text) => handleChange('confirm_password', text)}
                   />
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={styles.eyeButton}
                     onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
-                    {showConfirmPassword ? <EyeOff size={20} color="#64748B" /> : <Eye size={20} color="#64748B" />}
+                    {showConfirmPassword ? <EyeOff size={20} color={Theme.colors.textSec} /> : <Eye size={20} color={Theme.colors.textSec} />}
                   </TouchableOpacity>
                 </View>
               </FormField>
@@ -1485,11 +1466,11 @@ export default function StudentRegisterPublicScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   errorContainer: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 30,
@@ -1498,22 +1479,20 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 20,
     color: '#6648dc',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
   },
   errorText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
     lineHeight: 20,
   },
   headerStandard: {
     backgroundColor: '#6648dc',
     paddingHorizontal: 20,
     paddingBottom: 60,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
   },
   headerTop: {
     flexDirection: 'row',
@@ -1529,20 +1508,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heroTitle: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 18,
   },
   heroContent: {
     marginTop: 20,
   },
   heroGreeting: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 24,
   },
   heroSubtext: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 13,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   contentContainer: {
     paddingBottom: 40,
@@ -1550,24 +1529,24 @@ const styles = StyleSheet.create({
   errorBox: {
     backgroundColor: '#fee2e2',
     padding: 12,
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     borderRadius: 10,
-    marginBottom: 16,
-    marginTop: 16,
+    marginBottom: Theme.spacing.md,
+    marginTop: Theme.spacing.md,
     borderWidth: 1,
     borderColor: '#fecaca',
   },
-  errorText: {
+  errorBoxText: {
     color: '#b91c1c',
     fontSize: 13,
   },
   successBox: {
     backgroundColor: '#d1fae5',
     padding: 12,
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     borderRadius: 10,
-    marginBottom: 16,
-    marginTop: 16,
+    marginBottom: Theme.spacing.md,
+    marginTop: Theme.spacing.md,
     borderWidth: 1,
     borderColor: '#a7f3d0',
   },
@@ -1582,7 +1561,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     marginHorizontal: 20,
     padding: 20,
-    backgroundColor: '#FFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 24,
     elevation: 8,
     shadowColor: '#000',
@@ -1598,26 +1577,26 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepCompleted: {
-    backgroundColor: '#059669',
+    backgroundColor: Theme.colors.success,
   },
   stepActive: {
     backgroundColor: '#6648dc',
   },
   stepNumber: {
-    color: '#64748B',
-    fontSize: 11,
+    color: Theme.colors.textSec,
+    ...Theme.typography.label,
   },
   stepNumberActive: {
-    color: '#FFF',
+    color: Theme.colors.card,
   },
   stepLabel: {
     fontSize: 8,
-    color: '#64748B',
+    color: Theme.colors.textSec,
     marginTop: 6,
     textAlign: 'center',
   },
@@ -1625,12 +1604,12 @@ const styles = StyleSheet.create({
     color: '#6648dc',
   },
   stepLabelCompleted: {
-    color: '#059669',
+    color: Theme.colors.success,
   },
   formCard: {
-    padding: 24,
+    padding: Theme.spacing.lg,
     marginBottom: 20,
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     borderRadius: 24,
     elevation: 3,
     shadowColor: '#000',
@@ -1642,10 +1621,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 16,
-    paddingBottom: 8,
+    marginBottom: Theme.spacing.md,
+    paddingBottom: Theme.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: Theme.colors.background,
   },
   sectionTitle: {
     fontSize: 16,
@@ -1656,27 +1635,27 @@ const styles = StyleSheet.create({
   },
   formLabel: {
     fontSize: 13,
-    color: '#64748B',
-    marginBottom: 8,
+    color: Theme.colors.textSec,
+    marginBottom: Theme.spacing.sm,
   },
   requiredStar: {
     color: '#EF4444',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     padding: 12,
-    fontSize: 14,
-    backgroundColor: '#F8FAFC',
-    color: '#0F172A',
+    ...Theme.typography.body,
+    backgroundColor: Theme.colors.background,
+    color: Theme.colors.text,
   },
   inputError: {
     borderColor: '#EF4444',
   },
   disabledInput: {
-    backgroundColor: '#F1F5F9',
-    color: '#94A3B8',
+    backgroundColor: Theme.colors.background,
+    color: Theme.colors.textMuted,
   },
   sectionInput: {
     textTransform: 'uppercase',
@@ -1690,34 +1669,34 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   genderBtnActive: {
     backgroundColor: '#6648dc',
     borderColor: '#6648dc',
   },
   genderText: {
-    color: '#64748B',
-    fontSize: 14,
+    color: Theme.colors.textSec,
+    ...Theme.typography.body,
   },
   genderTextActive: {
-    color: '#FFF',
+    color: Theme.colors.card,
   },
   dateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     padding: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   dateText: {
-    fontSize: 14,
-    color: '#0F172A',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
   },
   chipContainer: {
     flexDirection: 'row',
@@ -1726,41 +1705,41 @@ const styles = StyleSheet.create({
   },
   chip: {
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     borderRadius: 20,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   chipActive: {
     backgroundColor: '#6648dc',
     borderColor: '#6648dc',
   },
   chipText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
   },
   chipTextActive: {
-    color: '#FFF',
+    color: Theme.colors.card,
   },
   fieldError: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#EF4444',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   passwordStrength: {
     marginTop: 10,
     padding: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   passwordRule: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   passwordRuleDot: {
     width: 6,
@@ -1769,11 +1748,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#CBD5E1',
   },
   passwordRuleText: {
-    fontSize: 11,
-    color: '#64748B',
+    ...Theme.typography.label,
+    color: Theme.colors.textSec,
   },
   passwordRuleTextValid: {
-    color: '#059669',
+    color: Theme.colors.success,
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -1787,16 +1766,16 @@ const styles = StyleSheet.create({
   eyeButton: {
     position: 'absolute',
     right: 12,
-    padding: 8,
+    padding: Theme.spacing.sm,
   },
   photoZone: {
     borderWidth: 2,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderStyle: 'dashed',
     borderRadius: 24,
     padding: 30,
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   photoPreview: {
     width: 160,
@@ -1808,25 +1787,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   photoText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: '#6648dc',
     marginTop: 12,
   },
   photoSubtext: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginTop: 4,
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
+    marginTop: Theme.spacing.xs,
   },
   previewHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
     marginBottom: 20,
-    padding: 16,
-    backgroundColor: '#F8FAFC',
+    padding: Theme.spacing.md,
+    backgroundColor: Theme.colors.background,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   previewPhoto: {
     width: 70,
@@ -1838,21 +1817,21 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: Theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   previewPhotoText: {
     fontSize: 10,
-    color: '#64748B',
+    color: Theme.colors.textSec,
   },
   previewName: {
     fontSize: 18,
     color: '#6648dc',
   },
   previewMeta: {
-    fontSize: 12,
-    color: '#64748B',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     marginTop: 2,
   },
   previewBadge: {
@@ -1869,21 +1848,21 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   previewCard: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 24,
     overflow: 'hidden',
-    backgroundColor: '#FFF',
+    backgroundColor: Theme.colors.card,
   },
   previewCardHeader: {
     padding: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: Theme.colors.border,
   },
   previewCardTitle: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#6648dc',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1896,17 +1875,17 @@ const styles = StyleSheet.create({
     width: '50%',
     padding: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: Theme.colors.background,
   },
   previewFieldLabel: {
     fontSize: 10,
-    color: '#94A3B8',
+    color: Theme.colors.textMuted,
     textTransform: 'uppercase',
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   previewFieldValue: {
     fontSize: 13,
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   previewFooter: {
     marginTop: 10,
@@ -1917,14 +1896,14 @@ const styles = StyleSheet.create({
     borderColor: '#DCFCE7',
   },
   previewFooterText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#166534',
     textAlign: 'center',
   },
   navButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
     gap: 12,
   },
   navBtn: {
@@ -1932,9 +1911,9 @@ const styles = StyleSheet.create({
     height: 50,
   },
   footer: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: '#FFF',
+    marginTop: Theme.spacing.md,
+    padding: Theme.spacing.md,
+    backgroundColor: Theme.colors.card,
     borderRadius: 24,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1945,18 +1924,18 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   footerText: {
-    fontSize: 11,
-    color: '#94A3B8',
+    ...Theme.typography.label,
+    color: Theme.colors.textMuted,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: Theme.spacing.lg,
   },
   modalContent: {
-    backgroundColor: '#FFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 24,
     padding: 30,
     width: '100%',
@@ -1969,15 +1948,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modalMessage: {
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 20,
   },
   rollNumberDisplay: {
     backgroundColor: '#F0F9FF',
-    padding: 24,
+    padding: Theme.spacing.lg,
     borderRadius: 24,
     alignItems: 'center',
     marginBottom: 20,
@@ -1986,7 +1965,7 @@ const styles = StyleSheet.create({
     borderColor: '#BAE6FD',
   },
   rollNumberLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#0369A1',
     marginBottom: 10,
     textTransform: 'uppercase',
@@ -1998,9 +1977,9 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   modalNote: {
-    fontSize: 12,
-    color: '#94A3B8',
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
 });

@@ -1,3 +1,5 @@
+import { useNavigation } from '@react-navigation/native';
+import { Theme } from '../../theme/tokens';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
@@ -9,17 +11,17 @@ import {
   Switch,
   Platform,
   Modal,
-  StatusBar
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, X, Plus, Edit2, Users, Mail, Power } from 'lucide-react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import * as adminService from '../../services/adminService';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import AppButton from '../../components/common/AppButton';
 import Loader from '../../components/common/Loader';
 import { formatErrorMessage } from '../../utils/helpers';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 
 // Agent Interface
 interface Agent {
@@ -83,17 +85,17 @@ const AgentFormModal: React.FC<{
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    if (!formData.full_name.trim()) newErrors.full_name = 'Full name is required';
-    if (!formData.username.trim()) newErrors.username = 'Username is required';
-    if (!formData.email.trim()) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email';
-    if (mode === 'create' && !formData.password.trim()) newErrors.password = 'Password is required';
+    if (!formData.full_name.trim()) {newErrors.full_name = 'Full name is required';}
+    if (!formData.username.trim()) {newErrors.username = 'Username is required';}
+    if (!formData.email.trim()) {newErrors.email = 'Email is required';}
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) {newErrors.email = 'Invalid email';}
+    if (mode === 'create' && !formData.password.trim()) {newErrors.password = 'Password is required';}
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = async () => {
-    if (!validate()) return;
+    if (!validate()) {return;}
     setSaving(true);
     try {
       if (mode === 'create') {
@@ -101,7 +103,7 @@ const AgentFormModal: React.FC<{
         Alert.alert('Success', 'Agent registered successfully');
       } else {
         const payload: any = { ...formData };
-        if (!payload.password) delete payload.password;
+        if (!payload.password) {delete payload.password;}
         await adminService.updateAgent(initialData?.id || '', payload);
         Alert.alert('Success', 'Agent updated successfully');
       }
@@ -128,7 +130,7 @@ const AgentFormModal: React.FC<{
             <AppText style={styles.modalTitle}>
               {mode === 'create' ? 'Register Agent' : 'Edit Agent'}
             </AppText>
-            <TouchableOpacity onPress={onClose} style={styles.modalClose}>
+            <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.modalClose}>
               <X size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
@@ -197,7 +199,7 @@ const AgentFormModal: React.FC<{
                   value={formData.can_register_school}
                   onValueChange={(val) => setFormData(prev => ({ ...prev, can_register_school: val }))}
                   trackColor={{ false: colors.border, true: colors.accent }}
-                  thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+                  thumbColor={Platform.OS === 'android' ? Theme.colors.card : undefined}
                 />
               </View>
 
@@ -207,7 +209,7 @@ const AgentFormModal: React.FC<{
                   value={formData.can_view_payments}
                   onValueChange={(val) => setFormData(prev => ({ ...prev, can_view_payments: val }))}
                   trackColor={{ false: colors.border, true: colors.accent }}
-                  thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+                  thumbColor={Platform.OS === 'android' ? Theme.colors.card : undefined}
                 />
               </View>
 
@@ -217,7 +219,7 @@ const AgentFormModal: React.FC<{
                   value={formData.can_edit_features}
                   onValueChange={(val) => setFormData(prev => ({ ...prev, can_edit_features: val }))}
                   trackColor={{ false: colors.border, true: colors.accent }}
-                  thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+                  thumbColor={Platform.OS === 'android' ? Theme.colors.card : undefined}
                 />
               </View>
 
@@ -228,7 +230,7 @@ const AgentFormModal: React.FC<{
                     value={formData.is_active}
                     onValueChange={(val) => setFormData(prev => ({ ...prev, is_active: val }))}
                     trackColor={{ false: colors.border, true: colors.accent }}
-                    thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+                    thumbColor={Platform.OS === 'android' ? Theme.colors.card : undefined}
                   />
                 </View>
               )}
@@ -290,7 +292,7 @@ const AgentManagementModal: React.FC<{
   };
 
   const filteredAgents = useMemo(() => {
-    if (!searchTerm.trim()) return agents;
+    if (!searchTerm.trim()) {return agents;}
     const q = searchTerm.toLowerCase();
     return agents.filter(a =>
       (a.full_name || '').toLowerCase().includes(q) ||
@@ -300,28 +302,18 @@ const AgentManagementModal: React.FC<{
   }, [agents, searchTerm]);
 
   const getInitials = (name: string) => {
-    if (!name) return 'A';
+    if (!name) {return 'A';}
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
   return (
     <View style={styles.screenContainer}>
-      <LinearGradient 
-        colors={['#1E3A8A', '#3B82F6']}
-        start={{x: 0, y: 0}}
-        end={{x: 1, y: 1}}
-        style={{ paddingTop: 50, paddingBottom: 20, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomLeftRadius: 20, borderBottomRightRadius: 20 }}
-      >
-        <View style={{ flex: 1 }}>
-          <AppText style={{ color: '#FFF', fontSize: 22, fontWeight: '800' }}>Marketing Agents</AppText>
-          <AppText style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 4 }}>Manage field agents who register schools</AppText>
-        </View>
-      </LinearGradient>
+      <StandardPageHeader title="Marketing Agents" onBackPress={() => {}} />
 
       {/* Search Bar & Register Btn */}
-      <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: colors.surface }}>
+      <View style={{ paddingHorizontal: Theme.spacing.md, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: colors.surface }}>
         <View style={styles.searchContainer}>
-          <Search size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
+          <Search size={16} color={colors.textMuted} style={{ marginRight: Theme.spacing.sm }} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search agents..."
@@ -330,16 +322,16 @@ const AgentManagementModal: React.FC<{
             onChangeText={setSearchTerm}
           />
           {searchTerm.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchTerm('')} style={styles.clearBtn}>
+            <TouchableOpacity accessibilityRole="button" onPress={() => setSearchTerm('')} style={styles.clearBtn}>
               <X size={14} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={{
             backgroundColor: colors.primary,
             height: 40,
-            paddingHorizontal: 16,
+            paddingHorizontal: Theme.spacing.md,
             borderRadius: 8,
             flexDirection: 'row',
             alignItems: 'center',
@@ -357,18 +349,18 @@ const AgentManagementModal: React.FC<{
             setFormModalOpen(true);
           }}
         >
-          <Plus size={16} color="#fff" />
-          <AppText style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Register</AppText>
+          <Plus size={16} color={Theme.colors.card} />
+          <AppText style={{ color: Theme.colors.card, fontWeight: '700', fontSize: 13 }}>Register</AppText>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: Theme.spacing.md, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={{ marginTop: 40 }}><Loader /></View>
         ) : filteredAgents.length === 0 ? (
           <View style={{ padding: 40, alignItems: 'center' }}>
             <Users size={40} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 12 }} />
-            <AppText style={{ fontSize: 14, color: colors.textMuted }}>No agents found</AppText>
+            <AppText style={{ ...Theme.typography.body, color: colors.textMuted }}>No agents found</AppText>
           </View>
         ) : (
           filteredAgents.map(agent => (
@@ -385,11 +377,11 @@ const AgentManagementModal: React.FC<{
                     <AppText style={styles.agentName}>{agent.full_name}</AppText>
                     <View style={[
                       styles.statusBadge,
-                      agent.is_active ? { backgroundColor: colors.successSoft } : { backgroundColor: colors.errorSoft }
+                      agent.is_active ? { backgroundColor: colors.successSoft } : { backgroundColor: colors.errorSoft },
                     ]}>
                       <AppText style={[
                         styles.statusText,
-                        { color: agent.is_active ? colors.success : colors.error }
+                        { color: agent.is_active ? colors.success : colors.error },
                       ]}>
                         {agent.is_active ? 'Active' : 'Inactive'}
                       </AppText>
@@ -398,13 +390,13 @@ const AgentManagementModal: React.FC<{
                   <AppText style={styles.agentUsername}>@{agent.username}</AppText>
 
                   <View style={styles.emailRow}>
-                    <Mail size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
+                    <Mail size={12} color={colors.textMuted} style={{ marginRight: Theme.spacing.xs }} />
                     <AppText style={styles.agentEmail}>{agent.email}</AppText>
                   </View>
                 </View>
 
                 {/* Edit Button */}
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={styles.agentEditBtn}
                   onPress={() => {
                     setFormMode('edit');
@@ -425,7 +417,7 @@ const AgentManagementModal: React.FC<{
                       <AppText style={[styles.capTagText, { color: colors.success }]}>Register Schools</AppText>
                     </View>
                   ) : (
-                    <View style={[styles.capTag, { backgroundColor: '#f1f5f9' }]}>
+                    <View style={[styles.capTag, { backgroundColor: Theme.colors.background }]}>
                       <AppText style={[styles.capTagText, { color: colors.textMuted, textDecorationLine: 'line-through' }]}>Register Schools</AppText>
                     </View>
                   )}
@@ -435,7 +427,7 @@ const AgentManagementModal: React.FC<{
                       <AppText style={[styles.capTagText, { color: '#0369a1' }]}>View Payments</AppText>
                     </View>
                   ) : (
-                    <View style={[styles.capTag, { backgroundColor: '#f1f5f9' }]}>
+                    <View style={[styles.capTag, { backgroundColor: Theme.colors.background }]}>
                       <AppText style={[styles.capTagText, { color: colors.textMuted, textDecorationLine: 'line-through' }]}>View Payments</AppText>
                     </View>
                   )}
@@ -445,7 +437,7 @@ const AgentManagementModal: React.FC<{
                       <AppText style={[styles.capTagText, { color: '#6b21a8' }]}>Edit Features</AppText>
                     </View>
                   ) : (
-                    <View style={[styles.capTag, { backgroundColor: '#f1f5f9' }]}>
+                    <View style={[styles.capTag, { backgroundColor: Theme.colors.background }]}>
                       <AppText style={[styles.capTagText, { color: colors.textMuted, textDecorationLine: 'line-through' }]}>Edit Features</AppText>
                     </View>
                   )}
@@ -454,17 +446,17 @@ const AgentManagementModal: React.FC<{
 
               {/* Toggle Status Button */}
               <View style={styles.cardActionsRow}>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[
                     styles.statusToggleBtn,
-                    agent.is_active ? styles.btnDeactivate : styles.btnActivate
+                    agent.is_active ? styles.btnDeactivate : styles.btnActivate,
                   ]}
                   onPress={() => handleToggleStatus(agent)}
                 >
                   <Power size={13} color={agent.is_active ? colors.error : colors.success} style={{ marginRight: 6 }} />
                   <AppText style={[
                     styles.actionBtnText,
-                    { color: agent.is_active ? colors.error : colors.success }
+                    { color: agent.is_active ? colors.error : colors.success },
                   ]}>
                     {agent.is_active ? 'Deactivate Agent' : 'Activate Agent'}
                   </AppText>
@@ -488,9 +480,11 @@ const AgentManagementModal: React.FC<{
 
 
 export default function AdminAgentsScreen() {
+  const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   return (
     <View style={[styles.screenContainer, { paddingTop: 0, paddingBottom: 0 }]}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
       <AgentManagementModal visible={true} onClose={() => {}} />
     </View>
   );
@@ -528,26 +522,26 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: colors.textPrimary },
-  modalClose: { padding: 4 },
+  modalTitle: { ...Theme.typography.h3, color: colors.textPrimary },
+  modalClose: { padding: Theme.spacing.xs },
   modalBody: { padding: 20 },
   modalFooter: { flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: colors.border },
-  formGroup: { marginBottom: 16 },
+  formGroup: { marginBottom: Theme.spacing.md },
   formLabel: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 6 },
-  formInput: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 14, color: colors.textPrimary },
+  formInput: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, ...Theme.typography.body, color: colors.textPrimary },
   formInputError: { borderColor: colors.error },
-  formError: { fontSize: 11, color: colors.error, marginTop: 4 },
+  formError: { ...Theme.typography.label, color: colors.error, marginTop: Theme.spacing.xs },
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  switchLabel: { fontSize: 14, color: colors.textPrimary },
+  switchLabel: { ...Theme.typography.body, color: colors.textPrimary },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, height: 40, flex: 1 },
-  searchInput: { flex: 1, fontSize: 14, color: colors.textPrimary, padding: 0 },
-  clearBtn: { padding: 4 },
+  searchInput: { flex: 1, ...Theme.typography.body, color: colors.textPrimary, padding: 0 },
+  clearBtn: { padding: Theme.spacing.xs },
   agentCard: {
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.background,
     borderRadius: 16,
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 14,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
@@ -570,7 +564,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(30, 58, 138, 0.15)',
   },
   avatarText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: 'bold',
     color: colors.primary,
   },
@@ -580,21 +574,21 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   agentUsername: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
     marginTop: 1,
   },
   emailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   agentEmail: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: colors.textMuted,
   },
   agentEditBtn: {
-    padding: 8,
+    padding: Theme.spacing.sm,
     backgroundColor: 'rgba(30, 58, 138, 0.06)',
     borderRadius: 8,
     borderWidth: 1,
@@ -613,10 +607,10 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: Theme.colors.background,
   },
   capTitle: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '700',
     color: colors.textMuted,
     textTransform: 'uppercase',
@@ -629,12 +623,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   capTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 6,
   },
   capTagText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     fontWeight: '600',
   },
   cardActionsRow: {
@@ -658,7 +652,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.successSoft,
   },
   actionBtnText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
   },
 });

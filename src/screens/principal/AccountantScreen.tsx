@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 // AccountantDashboardScreen.tsx
 // React Native Conversion (Android + iOS)
 // Exact same logic preserved
@@ -9,7 +10,6 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Platform,
@@ -30,29 +30,39 @@ import ExpenseManagement from './ExpenseScreen';
 import Reports from './ReportsScreen';
 import PendingStudents from './PendingStudentsScreen';
 
-import { Principal_THEME as C } from '../../constants/principalTheme';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { Theme, C } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
+
 
 // Local theme bridge
+const SummaryCardsComponent = SummaryCards as any;
+const FeeManagementComponent = FeeManagement as any;
+const PaymentEntryComponent = PaymentEntry as any;
+const ExpenseManagementComponent = ExpenseManagement as any;
+const ReportsComponent = Reports as any;
+const PendingStudentsComponent = PendingStudents as any;
 
 const AccountantDashboardScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
-
   const [activeTab, setActiveTab] = useState('summary');
   const [schoolCode, setSchoolCode] = useState('');
   const [loading, setLoading] = useState(true);
 
   const checkAuthentication = useCallback(async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
-      const role = await AsyncStorage.getItem('role');
+      const token = await storage.getSecure(StorageKeys.AUTH_TOKEN);
+      const role = await storage.getString(StorageKeys.USER_ROLE);
 
       const code =
-        (await AsyncStorage.getItem('school_code')) ||
-        (await AsyncStorage.getItem('schoolCode'));
+        (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+        (await storage.getString(StorageKeys.SCHOOL_CODE));
 
       if (!token || role !== 'accountant') {
         navigation.navigate('LoginScreen' as never);
@@ -75,18 +85,8 @@ const AccountantDashboardScreen = () => {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
   }, [checkAuthentication, setTabBarVisible]);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   if (loading) {
     return (
@@ -107,12 +107,12 @@ const AccountantDashboardScreen = () => {
 
   return (
     <View style={styles.mainContainer}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Standardized Header */}
       <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
         <View style={styles.headerTop}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.iconButton}
             onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
           >
@@ -183,15 +183,15 @@ const AccountantDashboardScreen = () => {
           </ScrollView>
 
           <View style={styles.content}>
-            {activeTab === 'summary' && <SummaryCards schoolCode={schoolCode} />}
-            {activeTab === 'fees' && <FeeManagement schoolCode={schoolCode} />}
-            {activeTab === 'payments' && <PaymentEntry schoolCode={schoolCode} />}
+            {activeTab === 'summary' && <SummaryCardsComponent schoolCode={schoolCode} />}
+            {activeTab === 'fees' && <FeeManagementComponent schoolCode={schoolCode} />}
+            {activeTab === 'payments' && <PaymentEntryComponent schoolCode={schoolCode} />}
             {activeTab === 'expenses' && (
-              <ExpenseManagement schoolCode={schoolCode} />
+              <ExpenseManagementComponent schoolCode={schoolCode} />
             )}
-            {activeTab === 'reports' && <Reports schoolCode={schoolCode} />}
+            {activeTab === 'reports' && <ReportsComponent schoolCode={schoolCode} />}
             {activeTab === 'pending' && (
-              <PendingStudents schoolCode={schoolCode} />
+              <PendingStudentsComponent schoolCode={schoolCode} />
             )}
           </View>
         </ScrollView>
@@ -202,7 +202,7 @@ const AccountantDashboardScreen = () => {
 
 const TabButton = ({ title, active, onPress }: any) => {
   return (
-    <TouchableOpacity
+    <TouchableOpacity accessibilityRole="button"
       style={[styles.tabButton, active && styles.activeTabButton]}
       onPress={onPress}
     >
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
@@ -282,8 +282,8 @@ const styles = StyleSheet.create({
   headerSubtext: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
     opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   headerSpacer: {
     width: 40,
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: Theme.spacing.lg,
     paddingBottom: 40,
   },
   container: {
@@ -309,12 +309,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 10,
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
   },
 
   tabContainer: {
     flexDirection: 'row',
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
     paddingBottom: 10,
   },
 
@@ -336,12 +336,12 @@ const styles = StyleSheet.create({
   },
 
   tabText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: C.text,
   },
 
   activeTabText: {
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
 
   content: {

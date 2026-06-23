@@ -20,3 +20,4 @@ export { default as TeacherRegistrationRequestsScreen } from './TeacherRegistrat
 export { default as StudentPromotionScreen } from './StudentPromotionScreen';
 // src/screens/principal/index.ts
 export { default as PrincipalFaceReviewScreen } from './PrincipalFaceReviewScreen';
+export { default as Student360Screen } from './Student360Screen';

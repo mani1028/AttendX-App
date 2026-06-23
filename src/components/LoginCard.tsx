@@ -1,3 +1,4 @@
+import { Theme } from '../theme/tokens';
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 
@@ -9,7 +10,7 @@ const LoginCard: React.FC<Props> = ({ children }) => {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.card,
     borderRadius: 30,
     padding: 20,
     shadowColor: '#6648dc',
@@ -18,7 +19,7 @@ const styles = StyleSheet.create({
     shadowRadius: 30,
     elevation: 6,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.background,
   },
 });
 

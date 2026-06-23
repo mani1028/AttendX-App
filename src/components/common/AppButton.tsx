@@ -2,18 +2,25 @@ import React from 'react';
 import {
   StyleSheet,
   Text,
-  TouchableOpacity,
+  Pressable,
   TouchableOpacityProps,
   View,
   ActivityIndicator,
   ViewStyle,
   TextStyle,
 } from 'react-native';
-import { Theme } from '../../theme/theme';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
+import RNReactNativeHapticFeedback from 'react-native-haptic-feedback';
+import { Theme } from '../../theme/tokens';
+import { motion } from '../../theme/motion';
 
 type ButtonType = 'primary' | 'secondary' | 'danger' | 'outline' | 'ghost';
 
-type Props = TouchableOpacityProps & {
+type Props = Omit<TouchableOpacityProps, 'style'> & {
   title: string;
   type?: ButtonType;
   loading?: boolean;
@@ -23,6 +30,8 @@ type Props = TouchableOpacityProps & {
   style?: ViewStyle;
   textStyle?: TextStyle;
 };
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function AppButton({
   title,
@@ -34,29 +43,55 @@ export default function AppButton({
   style,
   textStyle,
   disabled,
+  onPress,
   ...rest
 }: Props) {
-  const { color: _c, ...touchableProps } = rest as any;
-
+  const scale = useSharedValue(1);
   const isDisabled = disabled || loading;
 
+  const handlePressIn = () => {
+    scale.value = withSpring(0.96, motion.springs.snappy);
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, motion.springs.bouncy);
+  };
+
+  const handlePress = (e: any) => {
+    if (type === 'danger') {
+      RNReactNativeHapticFeedback.trigger('notificationError');
+    } else if (type === 'primary') {
+      RNReactNativeHapticFeedback.trigger('impactMedium');
+    } else {
+      RNReactNativeHapticFeedback.trigger('impactLight');
+    }
+    if (onPress) {onPress(e);}
+  };
+
+  const aStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
-    <TouchableOpacity
-      {...touchableProps}
+    <AnimatedPressable
+      {...(rest as any)}
       disabled={isDisabled}
-      activeOpacity={0.82}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
       style={[
         styles.base,
         sizeStyles[size],
         typeStyles[type],
         isDisabled && styles.disabled,
         style,
+        aStyle,
       ]}
     >
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={type === 'secondary' || type === 'outline' || type === 'ghost' ? Theme.colors.primary : '#fff'}
+          color={type === 'secondary' || type === 'outline' || type === 'ghost' ? Theme.colors.primary : Theme.colors.card}
         />
       ) : (
         <View style={styles.content}>
@@ -67,7 +102,7 @@ export default function AppButton({
           {rightIcon && <View style={styles.iconRight}>{rightIcon}</View>}
         </View>
       )}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
@@ -83,8 +118,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconLeft: { marginRight: 8 },
-  iconRight: { marginLeft: 8 },
+  iconLeft: { marginRight: Theme.spacing.sm },
+  iconRight: { marginLeft: Theme.spacing.sm },
   disabled: { opacity: 0.55 },
   text: {
     fontWeight: '700',
@@ -100,7 +135,7 @@ const sizeStyles = StyleSheet.create({
 
 const sizeTextStyles = StyleSheet.create({
   sm: { fontSize: 13 },
-  md: { fontSize: 15 },
+  md: { ...Theme.typography.bodyMd },
   lg: { fontSize: 16 },
 });
 
@@ -132,14 +167,14 @@ const typeStyles = StyleSheet.create({
     borderColor: Theme.colors.primary,
   },
   ghost: {
-    backgroundColor: 'rgba(102,72,220,0.08)',
+    backgroundColor: `${Theme.colors.primary}14`, // ~8% opacity of primary
   },
 });
 
 const typeTextStyles = StyleSheet.create({
-  primary: { color: '#ffffff' },
+  primary: { color: Theme.colors.card },
   secondary: { color: Theme.colors.text },
-  danger: { color: '#ffffff' },
+  danger: { color: Theme.colors.card },
   outline: { color: Theme.colors.primary },
   ghost: { color: Theme.colors.primary },
 });

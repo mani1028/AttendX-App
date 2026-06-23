@@ -7,7 +7,6 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
-  StatusBar,
   Platform,
   Modal,
   NativeSyntheticEvent,
@@ -36,7 +35,7 @@ import {
 } from 'lucide-react-native';
 import API from '../../services/api';
 import AppText from '../../components/common/AppText';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 import notificationService from '../../services/notificationService';
@@ -46,6 +45,7 @@ import {
   loadScopedNotificationIds,
   saveScopedNotificationIds,
 } from '../../utils/notificationStorage';
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 
 interface Notification {
   id: string;
@@ -62,16 +62,16 @@ const TYPE_CONFIG: Record<
   { icon: React.ReactNode; bg: string; color: string; gradientColors: string[]; label: string }
 > = {
   event: {
-    icon: <Calendar size={18} color="#3b82f6" />,
+    icon: <Calendar size={18} color={Theme.colors.blue} />,
     bg: '#eff6ff',
-    color: '#3b82f6',
+    color: Theme.colors.blue,
     gradientColors: ['#dbeafe', '#eff6ff'],
     label: 'EVENT',
   },
   program: {
-    icon: <Tent size={18} color="#059669" />,
+    icon: <Tent size={18} color={Theme.colors.success} />,
     bg: '#ecfdf5',
-    color: '#059669',
+    color: Theme.colors.success,
     gradientColors: ['#d1fae5', '#ecfdf5'],
     label: 'PROGRAM',
   },
@@ -83,9 +83,9 @@ const TYPE_CONFIG: Record<
     label: 'FESTIVAL',
   },
   urgent: {
-    icon: <AlertTriangle size={18} color="#dc2626" />,
+    icon: <AlertTriangle size={18} color={Theme.colors.error} />,
     bg: '#fef2f2',
-    color: '#dc2626',
+    color: Theme.colors.error,
     gradientColors: ['#fee2e2', '#fef2f2'],
     label: 'URGENT',
   },
@@ -97,37 +97,37 @@ const TYPE_CONFIG: Record<
     label: 'ANNOUNCEMENT',
   },
   approval: {
-    icon: <BadgeCheck size={18} color="#059669" />,
+    icon: <BadgeCheck size={18} color={Theme.colors.success} />,
     bg: '#ecfdf5',
-    color: '#059669',
+    color: Theme.colors.success,
     gradientColors: ['#d1fae5', '#ecfdf5'],
     label: 'APPROVAL',
   },
   approved: {
-    icon: <BadgeCheck size={18} color="#059669" />,
+    icon: <BadgeCheck size={18} color={Theme.colors.success} />,
     bg: '#ecfdf5',
-    color: '#059669',
+    color: Theme.colors.success,
     gradientColors: ['#d1fae5', '#ecfdf5'],
     label: 'APPROVED',
   },
   request: {
-    icon: <BadgeCheck size={18} color="#059669" />,
+    icon: <BadgeCheck size={18} color={Theme.colors.success} />,
     bg: '#ecfdf5',
-    color: '#059669',
+    color: Theme.colors.success,
     gradientColors: ['#d1fae5', '#ecfdf5'],
     label: 'REQUEST',
   },
   registration: {
-    icon: <BadgeCheck size={18} color="#059669" />,
+    icon: <BadgeCheck size={18} color={Theme.colors.success} />,
     bg: '#ecfdf5',
-    color: '#059669',
+    color: Theme.colors.success,
     gradientColors: ['#d1fae5', '#ecfdf5'],
     label: 'REGISTRATION',
   },
   student_registration: {
-    icon: <BadgeCheck size={18} color="#059669" />,
+    icon: <BadgeCheck size={18} color={Theme.colors.success} />,
     bg: '#ecfdf5',
-    color: '#059669',
+    color: Theme.colors.success,
     gradientColors: ['#d1fae5', '#ecfdf5'],
     label: 'STUDENT REG.',
   },
@@ -153,10 +153,10 @@ const formatDate = (dateString: string) => {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffMins < 1) {return 'Just now';}
+  if (diffMins < 60) {return `${diffMins}m ago`;}
+  if (diffHours < 24) {return `${diffHours}h ago`;}
+  if (diffDays < 7) {return `${diffDays}d ago`;}
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
@@ -249,13 +249,13 @@ function NotificationCard({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function NotificationsScreen() {
+  const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
   const { setTabBarVisible, userRole } = useAuth();
   const { refreshUnreadCount } = useUnreadNotifications();
-  const lastScrollY = useRef(0);
+  const handleScroll = useScrollTabBar();
   const isAccountant = userRole?.toLowerCase() === 'accountant';
-  const headerColors = isAccountant ? ['#6648dc', '#818cf8'] : ['#1e3a8a', '#2563eb'];
+  const headerColors = isAccountant ? ['#6648dc', '#818cf8'] : [Theme.colors.primary, '#2563eb'];
   const primaryColor = isAccountant ? '#6648dc' : Theme.colors.primary;
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -274,20 +274,16 @@ export default function NotificationsScreen() {
   }, []);
 
   const fetchNotifications = async (showLoading = true) => {
-    if (showLoading) setLoading(true);
+    if (showLoading) {setLoading(true);}
     try {
-      const role =
-        (await AsyncStorage.getItem('user_role')) ||
-        (await AsyncStorage.getItem('userRole')) ||
-        'student';
-
-      let endpoint = '/notifications/student/list';
-      if (role.toLowerCase() === 'teacher' || role.toLowerCase() === 'accountant') endpoint = '/notifications/staff/list';
-      else if (role.toLowerCase() === 'director') endpoint = '/notifications/director/list';
-      else if (role.toLowerCase() === 'admin') endpoint = '/notifications/admin/list';
+      let normalizedRole = userRole?.toLowerCase() || '';
+      if (normalizedRole !== 'principal' && normalizedRole !== 'student') {
+        normalizedRole = 'staff';
+      }
+      const endpoint = `/notifications/${normalizedRole}/list`;
 
       const response = await API.get(endpoint);
-      if (!isMounted.current) return;
+      if (!isMounted.current) {return;}
 
       const items = response.data?.items || [];
 
@@ -298,7 +294,7 @@ export default function NotificationsScreen() {
 
       const seenIds = new Set<string>();
       const deduplicated = items.filter((item: any) => {
-        if (seenIds.has(item.id)) return false;
+        if (seenIds.has(item.id)) {return false;}
         seenIds.add(item.id);
         return true;
       });
@@ -334,8 +330,8 @@ export default function NotificationsScreen() {
       if (!readIds.includes(id)) {
         readIds.push(id);
         await saveScopedNotificationIds('read', readIds);
-        const unreadCount = Math.max(0, notifications.length - readIds.length);
-        await notificationService.updateBadgeCount(unreadCount);
+        const newUnreadCount = Math.max(0, notifications.length - readIds.length);
+        await notificationService.updateBadgeCount(newUnreadCount);
         await refreshUnreadCount(true);
       }
     } catch (err) {
@@ -351,7 +347,7 @@ export default function NotificationsScreen() {
 
   const handleDeleteNotification = async (id?: string) => {
     const nid = id || selectedNotification?.id;
-    if (!nid) return;
+    if (!nid) {return;}
 
     const confirm = await new Promise<boolean>(resolve => {
       Alert.alert('Delete Notification', 'Remove this notification permanently?', [
@@ -359,7 +355,7 @@ export default function NotificationsScreen() {
         { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
       ]);
     });
-    if (!confirm) return;
+    if (!confirm) {return;}
 
     try {
       setDeleting(true);
@@ -403,7 +399,7 @@ export default function NotificationsScreen() {
         ]
       );
     });
-    if (!confirm) return;
+    if (!confirm) {return;}
 
     try {
       setDeleting(true);
@@ -422,14 +418,6 @@ export default function NotificationsScreen() {
     }
   };
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-    if (currentScrollY > 100 && deltaY > 10) setTabBarVisible(false);
-    else if (deltaY < -10) setTabBarVisible(true);
-    lastScrollY.current = currentScrollY;
-  };
-
   const handleBackPress = () => {
     if (navigation.canGoBack()) { navigation.goBack(); return; }
     const roleMap: Record<string, string> = {
@@ -446,7 +434,7 @@ export default function NotificationsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* ── Hero Header ── */}
       <LinearGradient
@@ -462,14 +450,14 @@ export default function NotificationsScreen() {
         {/* Top bar */}
         <View style={styles.headerTopBar}>
           <TouchableOpacity onPress={handleBackPress} style={styles.iconBtn}>
-            <ChevronLeft size={22} color="#fff" />
+            <ChevronLeft size={22} color={Theme.colors.card} />
           </TouchableOpacity>
           <View style={styles.headerActions}>
             <TouchableOpacity onPress={markAllRead} style={styles.iconBtn}>
-              <CheckCheck size={20} color="#fff" />
+              <CheckCheck size={20} color={Theme.colors.card} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowActionMenu(true)} style={styles.iconBtn}>
-              <MoreVertical size={20} color="#fff" />
+              <MoreVertical size={20} color={Theme.colors.card} />
             </TouchableOpacity>
           </View>
         </View>
@@ -477,7 +465,7 @@ export default function NotificationsScreen() {
         {/* Title area */}
         <View style={styles.headerContent}>
           <View style={styles.headerIconRing}>
-            <Bell size={26} color="#fff" />
+            <Bell size={26} color={Theme.colors.card} />
           </View>
           <View style={styles.headerTextBlock}>
             <AppText style={styles.headerTitle}>Notifications</AppText>
@@ -573,7 +561,7 @@ export default function NotificationsScreen() {
               onPress={() => { markAllRead(); setShowActionMenu(false); }}
             >
               <View style={[styles.sheetItemIcon, { backgroundColor: '#ecfdf5' }]}>
-                <CheckCheck size={20} color="#059669" />
+                <CheckCheck size={20} color={Theme.colors.success} />
               </View>
               <View style={styles.sheetItemText}>
                 <AppText style={styles.sheetItemLabel}>Mark All as Read</AppText>
@@ -589,10 +577,10 @@ export default function NotificationsScreen() {
               disabled={deleting}
             >
               <View style={[styles.sheetItemIcon, { backgroundColor: '#fef2f2' }]}>
-                <Trash2 size={20} color="#dc2626" />
+                <Trash2 size={20} color={Theme.colors.error} />
               </View>
               <View style={styles.sheetItemText}>
-                <AppText style={[styles.sheetItemLabel, { color: '#dc2626' }]}>
+                <AppText style={[styles.sheetItemLabel, { color: Theme.colors.error }]}>
                   Delete All Read
                 </AppText>
                 <AppText style={styles.sheetItemHint}>
@@ -633,13 +621,13 @@ export default function NotificationsScreen() {
                         disabled={deleting}
                         style={[styles.detailActionBtn, { backgroundColor: '#fef2f2' }]}
                       >
-                        <Trash2 size={16} color="#dc2626" />
+                        <Trash2 size={16} color={Theme.colors.error} />
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => setShowDetailModal(false)}
-                        style={[styles.detailActionBtn, { backgroundColor: '#f1f5f9' }]}
+                        style={[styles.detailActionBtn, { backgroundColor: Theme.colors.background }]}
                       >
-                        <X size={16} color="#64748b" />
+                        <X size={16} color={Theme.colors.textSec} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -704,15 +692,15 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
   },
 
   // Header
   header: {
     paddingBottom: 28,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+
+
     overflow: 'hidden',
   },
   decCircle1: {
@@ -770,7 +758,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#fff',
+    color: Theme.colors.card,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
@@ -783,7 +771,7 @@ const styles = StyleSheet.create({
     minWidth: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#ef4444',
+    backgroundColor: Theme.colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 6,
@@ -791,14 +779,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.3)',
   },
   unreadBadgeText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 13,
     fontWeight: '800',
   },
 
   // Scroll
   scroll: { flex: 1 },
-  scrollContent: { paddingTop: 16, paddingBottom: 40 },
+  scrollContent: { paddingTop: Theme.spacing.md, paddingBottom: 40 },
 
   // States
   centeredState: {
@@ -807,7 +795,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#94a3b8',
     fontWeight: '500',
   },
@@ -823,16 +811,16 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   emptyTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0f172a',
+    color: Theme.colors.text,
     letterSpacing: -0.3,
   },
   emptySubtitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#94a3b8',
     textAlign: 'center',
     lineHeight: 22,
@@ -848,7 +836,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   sectionHeaderText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     color: Theme.colors.primary,
     letterSpacing: 0.5,
@@ -857,12 +845,12 @@ const styles = StyleSheet.create({
 
   // Card
   card: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
+    backgroundColor: Theme.colors.card,
+    marginHorizontal: Theme.spacing.md,
     marginBottom: 10,
     borderRadius: 18,
     overflow: 'hidden',
-    shadowColor: '#1e3a8a',
+    shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.07,
     shadowRadius: 10,
@@ -883,7 +871,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 3.5,
     borderTopLeftRadius: 18,
-    borderBottomLeftRadius: 18,
+
   },
   cardInner: {
     flexDirection: 'row',
@@ -908,7 +896,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   typePill: {
-    paddingHorizontal: 8,
+    paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 3,
     borderRadius: 6,
   },
@@ -928,18 +916,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   cardTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '600',
-    color: '#475569',
+    color: Theme.colors.textSec,
     letterSpacing: -0.1,
   },
   cardTitleUnread: {
-    color: '#0f172a',
+    color: Theme.colors.text,
     fontWeight: '700',
   },
   cardDesc: {
-    fontSize: 12.5,
-    color: '#64748b',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     lineHeight: 18,
   },
   eventChip: {
@@ -966,11 +954,11 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
   },
 
   // Action Menu Sheet
@@ -980,7 +968,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -995,9 +983,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: Theme.colors.border,
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   sheetTitle: {
     fontSize: 13,
@@ -1005,7 +993,7 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   sheetItem: {
     flexDirection: 'row',
@@ -1022,19 +1010,19 @@ const styles = StyleSheet.create({
   },
   sheetItemText: { flex: 1 },
   sheetItemLabel: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '700',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   sheetItemHint: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#94a3b8',
     marginTop: 1,
     fontWeight: '500',
   },
   sheetDivider: {
     height: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
     marginVertical: 2,
   },
 
@@ -1045,7 +1033,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   detailSheet: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
@@ -1062,7 +1050,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   detailIconRing: {
     width: 60,
@@ -1092,14 +1080,14 @@ const styles = StyleSheet.create({
   detailTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0f172a',
+    color: Theme.colors.text,
     letterSpacing: -0.5,
     lineHeight: 30,
     marginBottom: 14,
   },
   detailDivider: {
     height: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
     marginBottom: 14,
   },
   detailSectionLabel: {
@@ -1108,10 +1096,10 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   detailBody: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: '#334155',
     lineHeight: 24,
     marginBottom: 20,
@@ -1121,7 +1109,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 16,
     marginBottom: 20,
   },
@@ -1133,12 +1121,12 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   detailEventValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '700',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   detailReceivedOn: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#94a3b8',
     fontWeight: '500',
     textAlign: 'center',

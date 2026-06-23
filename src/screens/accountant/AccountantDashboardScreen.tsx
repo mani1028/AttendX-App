@@ -1,3 +1,7 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+import { Theme } from '../../theme/tokens';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import LinearGradient from 'react-native-linear-gradient';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -7,7 +11,6 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -29,10 +32,10 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme/tokens';
 import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
-import { Director_THEME } from '../../constants/directorTheme';
+
 import { getDashboardSummary } from '../../services/accountantService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -64,12 +67,12 @@ const QUICK_CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - QUICK_CARD_GAP
 const formatDateSafe = (date: Date | string): string => {
   try {
     const d = typeof date === 'string' ? new Date(date) : date;
-    if (isNaN(d.getTime())) return '—';
-    
+    if (isNaN(d.getTime())) {return '—';}
+
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const month = months[d.getMonth()];
     const day = d.getDate();
-    
+
     return `${month} ${day}`;
   } catch {
     return '—';
@@ -77,7 +80,7 @@ const formatDateSafe = (date: Date | string): string => {
 };
 
 function toNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) {return value;}
   if (typeof value === 'string') {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
@@ -129,8 +132,6 @@ export default function AccountantDashboardScreen() {
   const [loadingSummary, setLoadingSummary] = useState(true);
   const [schoolCode, setSchoolCode] = useState('');
   const [summary, setSummary] = useState<DashboardSummary>(DEFAULT_SUMMARY);
-  const lastScrollY = useRef(0);
-
   useEffect(() => {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
@@ -201,16 +202,8 @@ export default function AccountantDashboardScreen() {
     await fetchSummary();
     setRefreshing(false);
   }, [fetchSummary]);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
-      setTabBarVisible(false);
-    } else if (currentScrollY < lastScrollY.current - 10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   const collectionRate = summary.total_fees_collected + summary.total_pending_fees > 0
     ? (summary.total_fees_collected / (summary.total_fees_collected + summary.total_pending_fees)) * 100
@@ -254,16 +247,16 @@ export default function AccountantDashboardScreen() {
     { label: 'Reports & Trends', icon: BarChart3, route: 'AccountantReports', color: '#a855f7', tint: 'rgba(168, 85, 247, 0.10)' },
     { label: 'Pending Dues', icon: Clock, route: 'AccountantFeeManagement', color: '#f97316', tint: 'rgba(249, 115, 22, 0.10)' },
     { label: 'Fees', icon: CircleDollarSign, route: 'AccountantFeeManagement', color: '#16a34a', tint: 'rgba(22, 163, 74, 0.10)' },
-    { label: 'Expense Ledger', icon: TrendingUp, route: 'AccountantExpense', color: '#ef4444', tint: 'rgba(239, 68, 68, 0.10)' },
+    { label: 'Expense Ledger', icon: TrendingUp, route: 'AccountantExpense', color: Theme.colors.error, tint: 'rgba(239, 68, 68, 0.10)' },
     { label: 'Payroll', icon: Users, route: 'AccountantPayroll', color: '#0ea5e9', tint: 'rgba(14, 165, 233, 0.10)' },
-    { label: 'Notifications', icon: Bell, route: 'Notifications', color: '#64748b', tint: 'rgba(100, 116, 139, 0.10)' },
+    { label: 'Notifications', icon: Bell, route: 'Notifications', color: Theme.colors.textSec, tint: 'rgba(100, 116, 139, 0.10)' },
     { label: 'Salaries', icon: Wallet, route: 'Salaries', color: '#ca8a04', tint: 'rgba(202, 138, 4, 0.10)', isTab: true },
     { label: 'Staff Attendance', icon: CalendarCheck, route: 'AccountantStaffAttendance', color: '#ec4899', tint: 'rgba(236, 72, 153, 0.10)' },
   ] as const;
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       <ScrollView
         contentContainerStyle={[styles.contentContainer, { paddingBottom: 0, paddingTop: 0 }]}
@@ -273,59 +266,47 @@ export default function AccountantDashboardScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#fff"
+            tintColor={Theme.colors.card}
           />
         }
       >
-        <View style={[styles.hero, { paddingTop: insets.top + 32, paddingBottom: 30 }]}>
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                overflow: 'hidden',
-                borderBottomLeftRadius: 34,
-                borderBottomRightRadius: 34,
-              },
-            ]}
-          >
-            <View style={styles.heroGlowOne} />
-            <View style={styles.heroGlowTwo} />
-          </View>
-
-          <View style={styles.heroRow}>
-            <TouchableOpacity
-              style={styles.avatarWrap}
-              activeOpacity={0.85}
-              onPress={() => navigation.navigate('AccountantProfile')}
-              accessibilityLabel="Open profile"
-            >
-              <View style={styles.avatarRing}>
-                <View style={styles.avatar}>
-                  <AppText style={styles.avatarText} weight="bold">{initials}</AppText>
+        <LinearGradient colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]} start={{x: 0, y: 0}} end={{x: 1, y: 1}} style={[styles.hero, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 30 }]}>
+          <View style={{ paddingHorizontal: 20 }}>
+            <View style={styles.heroRow}>
+              <TouchableOpacity
+                style={styles.avatarWrap}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('AccountantProfile')}
+                accessibilityLabel="Open profile"
+              >
+                <View style={styles.avatarRing}>
+                  <View style={styles.avatar}>
+                    <AppText style={styles.avatarText} weight="bold">{initials}</AppText>
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => navigation.navigate('Notifications')}
-              accessibilityLabel="Notifications"
-            >
-              <Bell size={20} color="#fff" />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <AppText style={styles.badgeText} weight="bold">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </AppText>
-                </View>
-              )}
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => navigation.navigate('Notifications')}
+                accessibilityLabel="Notifications"
+              >
+                <Bell size={20} color={Theme.colors.card} />
+                {unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <AppText style={styles.badgeText} weight="bold">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </AppText>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <AppText style={styles.heroKicker} weight="semibold">Accountant Portal</AppText>
+            <AppText style={styles.heroTitle} weight="bold">Hello, {userName?.split(' ')[0] || 'Accountant'} 👋</AppText>
+            <AppText style={styles.heroSub}>Here&apos;s what&apos;s happening today.</AppText>
           </View>
-
-          <AppText style={styles.heroKicker} weight="semibold">Accountant Portal</AppText>
-          <AppText style={styles.heroTitle} weight="bold">Hello, {userName?.split(' ')[0] || 'Accountant'} 👋</AppText>
-          <AppText style={styles.heroSub}>Here&apos;s what&apos;s happening today.</AppText>
-        </View>
+        </LinearGradient>
 
         <View style={styles.statsGrid}>
           {summaryCards.map((card, index) => {
@@ -441,32 +422,20 @@ export default function AccountantDashboardScreen() {
             </AppText>
           </View>
         </View>
-        <View style={[styles.bottomBackground, { paddingBottom: contentBottomPadding }]} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  bottomBackground: {
-    backgroundColor: colors.background,
-    position: 'absolute',
-    top: 300, // roughly below hero
-    bottom: -1000,
-    left: 0,
-    right: 0,
-    zIndex: -1,
-  },
   container: {
     flex: 1,
-    backgroundColor: '#1e3a8a',
+    backgroundColor: Theme.colors.background,
   },
   hero: {
-    backgroundColor: '#1e3a8a',
-    paddingHorizontal: 16,
+    backgroundColor: Theme.colors.primary,
+    paddingHorizontal: 0,
     paddingBottom: 40,
-    borderBottomLeftRadius: 34,
-    borderBottomRightRadius: 34,
     marginBottom: 20,
     overflow: 'hidden',
     marginHorizontal: -16,
@@ -502,7 +471,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   avatarWrap: {
     flexDirection: 'row',
@@ -526,8 +495,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    color: '#fff',
-    fontSize: 15,
+    color: Theme.colors.card,
+    ...Theme.typography.bodyMd,
     letterSpacing: 0.3,
   },
   iconButton: {
@@ -547,39 +516,39 @@ const styles = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#ef4444',
+    backgroundColor: Theme.colors.error,
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: Theme.colors.card,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
   },
   badgeText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 9,
     fontWeight: '900',
   },
   heroKicker: {
     color: '#dbeafe',
-    fontSize: 14,
-    marginBottom: 4,
+    ...Theme.typography.body,
+    marginBottom: Theme.spacing.xs,
     letterSpacing: 0.2,
   },
   heroTitle: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 36,
     lineHeight: 44,
     marginBottom: 2,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   heroSub: {
     color: '#bfdbfe',
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
   },
   contentContainer: {
     paddingHorizontal: HORIZONTAL_PADDING,
-    paddingTop: 8,
-    paddingBottom: 48,
+    paddingTop: Theme.spacing.sm,
+    paddingBottom: Theme.spacing.xxl,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -597,7 +566,7 @@ const styles = StyleSheet.create({
     minHeight: 136,
     ...Platform.select({
       ios: {
-        shadowColor: '#0f172a',
+        shadowColor: Theme.colors.text,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.08,
         shadowRadius: 18,
@@ -615,13 +584,13 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 24,
-    color: '#0f172a',
-    marginBottom: 4,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.xs,
     letterSpacing: -0.6,
   },
   statLabel: {
     fontSize: 13,
-    color: '#475569',
+    color: Theme.colors.textSec,
     lineHeight: 18,
   },
   rateRow: {
@@ -640,8 +609,8 @@ const styles = StyleSheet.create({
   },
   rateText: {
     marginTop: 6,
-    fontSize: 11,
-    color: '#64748b',
+    ...Theme.typography.label,
+    color: Theme.colors.textSec,
   },
   sectionRow: {
     flexDirection: 'row',
@@ -651,11 +620,11 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 19,
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   viewAll: {
     color: '#6648dc',
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   quickGrid: {
     flexDirection: 'row',
@@ -673,10 +642,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   quickLabel: {
-    fontSize: 11,
+    ...Theme.typography.label,
     lineHeight: 14,
     color: '#334155',
     textAlign: 'center',
@@ -689,7 +658,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(148, 163, 184, 0.14)',
     ...Platform.select({
       ios: {
-        shadowColor: '#0f172a',
+        shadowColor: Theme.colors.text,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.07,
         shadowRadius: 18,
@@ -707,7 +676,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(102, 72, 220, 0.10)',
   },
   syncChipText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#6648dc',
   },
   snapshotItem: {
@@ -719,23 +688,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   snapshotLabel: {
-    fontSize: 14,
-    color: '#0f172a',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
     marginBottom: 3,
   },
   snapshotHint: {
-    fontSize: 11,
-    color: '#64748b',
+    ...Theme.typography.label,
+    color: Theme.colors.textSec,
   },
   snapshotValue: {
     fontSize: 16,
-    color: '#0f172a',
+    color: Theme.colors.text,
     marginLeft: 12,
   },
   positiveValue: {
     color: '#16a34a',
   },
   negativeValue: {
-    color: '#dc2626',
+    color: Theme.colors.error,
   },
 });

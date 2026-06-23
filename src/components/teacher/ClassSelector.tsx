@@ -1,3 +1,4 @@
+import { Theme } from '../../theme/tokens';
 import React, { useState, useMemo } from 'react';
 import {
   View,
@@ -41,7 +42,7 @@ const DEFAULT_CLASSES: ClassItem[] = [
 
 const COLORS = [
   { bg: '#e0f2fe', accent: '#0284c7' },
-  { bg: '#dcfce7', accent: '#10b981' },
+  { bg: '#dcfce7', accent: Theme.colors.success },
   { bg: '#fff1f2', accent: '#e11d48' },
   { bg: '#fef3c7', accent: '#d97706' },
   { bg: '#f3e8ff', accent: '#9333ea' },
@@ -58,7 +59,7 @@ export default function ClassSelector({ onSelectClass, classes = DEFAULT_CLASSES
   const navigation = useNavigation<any>();
 
   const filteredClasses = useMemo(() => {
-    if (!searchTerm.trim()) return classes;
+    if (!searchTerm.trim()) {return classes;}
     return classes.filter(cls =>
       cls.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -70,18 +71,18 @@ export default function ClassSelector({ onSelectClass, classes = DEFAULT_CLASSES
 
       {/* Curved Navy Header with Search */}
       <LinearGradient
-        colors={['#1e3a8a', '#3b82f6']}
+        colors={[Theme.colors.primary, Theme.colors.blue]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.headerStandard, { paddingTop: insets.top + 16 }]}
       >
         <View style={styles.headerTop}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.backBtn}
             onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard')}
             accessibilityLabel="Go back"
           >
-            <ChevronLeft size={24} color="#FFF" />
+            <ChevronLeft size={24} color={Theme.colors.card} />
           </TouchableOpacity>
           <AppText weight="bold" style={styles.headerTitle}>Select Class</AppText>
           <View style={{ width: 40 }} />
@@ -89,7 +90,7 @@ export default function ClassSelector({ onSelectClass, classes = DEFAULT_CLASSES
 
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
-            <Search size={20} color="#94A3B8" />
+            <Search size={20} color={Theme.colors.textMuted} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search by class name..."
@@ -113,7 +114,7 @@ export default function ClassSelector({ onSelectClass, classes = DEFAULT_CLASSES
           {filteredClasses.map((classItem, index) => {
             const themeColors = COLORS[index % COLORS.length];
             return (
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 key={classItem.id}
                 style={styles.classCard}
                 onPress={() => onSelectClass(classItem)}
@@ -126,17 +127,17 @@ export default function ClassSelector({ onSelectClass, classes = DEFAULT_CLASSES
 
                 <View style={styles.classInfo}>
                   <View style={styles.infoRow}>
-                    <Users size={14} color="#64748B" />
+                    <Users size={14} color={Theme.colors.textSec} />
                     <AppText style={styles.infoText}>{classItem.students} Students</AppText>
                   </View>
                   <View style={styles.infoRow}>
-                    <User size={14} color="#64748B" />
+                    <User size={14} color={Theme.colors.textSec} />
                     <AppText style={styles.infoText} numberOfLines={1}>
                       {classItem.teacher ? classItem.teacher : 'No Class Teacher'}
                     </AppText>
                   </View>
                   <View style={styles.infoRow}>
-                    <Percent size={14} color="#64748B" />
+                    <Percent size={14} color={Theme.colors.textSec} />
                     <AppText style={styles.infoText}>Avg. Att: {classItem.attendance}%</AppText>
                   </View>
                 </View>
@@ -162,13 +163,13 @@ export default function ClassSelector({ onSelectClass, classes = DEFAULT_CLASSES
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   headerStandard: {
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    paddingBottom: 24,
-    paddingHorizontal: 16,
+    paddingBottom: Theme.spacing.lg,
+    paddingHorizontal: Theme.spacing.md,
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -179,7 +180,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   backBtn: {
     width: 40,
@@ -191,15 +192,15 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    color: '#FFF',
+    color: Theme.colors.card,
   },
   searchContainer: {
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 14,
     paddingHorizontal: 12,
     height: 48,
@@ -211,21 +212,21 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#0F172A',
-    paddingVertical: 8,
+    marginLeft: Theme.spacing.sm,
+    ...Theme.typography.body,
+    color: Theme.colors.text,
+    paddingVertical: Theme.spacing.sm,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: Theme.spacing.md,
+    paddingTop: Theme.spacing.md,
     paddingBottom: 40,
   },
   subtitle: {
-    color: '#64748B',
-    fontSize: 14,
+    color: Theme.colors.textSec,
+    ...Theme.typography.body,
     fontWeight: '500',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   classGrid: {
     flexDirection: 'row',
@@ -235,13 +236,13 @@ const styles = StyleSheet.create({
   },
   classCard: {
     width: '48%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 16,
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#1E3A8A',
+    borderColor: Theme.colors.border,
+    shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -258,14 +259,14 @@ const styles = StyleSheet.create({
   },
   className: {
     fontSize: 16,
-    color: '#0F172A',
+    color: Theme.colors.text,
     marginBottom: 10,
-    paddingLeft: 4,
+    paddingLeft: Theme.spacing.xs,
   },
   classInfo: {
-    marginVertical: 4,
+    marginVertical: Theme.spacing.xs,
     gap: 6,
-    paddingLeft: 4,
+    paddingLeft: Theme.spacing.xs,
   },
   infoRow: {
     flexDirection: 'row',
@@ -273,8 +274,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   infoText: {
-    fontSize: 12,
-    color: '#475569',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     flex: 1,
   },
   viewButton: {
@@ -284,19 +285,19 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    paddingLeft: 4,
+    borderTopColor: Theme.colors.background,
+    paddingLeft: Theme.spacing.xs,
   },
   viewButtonText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
   },
   viewButtonArrow: {
-    fontSize: 12,
+    ...Theme.typography.caption,
   },
   noResults: {
     textAlign: 'center',
-    color: '#64748B',
+    color: Theme.colors.textSec,
     marginTop: 40,
-    fontSize: 14,
+    ...Theme.typography.body,
   },
 });

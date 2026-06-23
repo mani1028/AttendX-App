@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
@@ -7,7 +8,6 @@ import {
   RefreshControl,
   Alert,
   Platform,
-  StatusBar,
   Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,8 +34,13 @@ import AppText from '../../components/common/AppText';
 import BottomSheetModal from '../../components/common/BottomSheetModal';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
-import { Theme } from '../../theme/theme';
+
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { Theme } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
 
 // Types
 interface LeaveRequest {
@@ -64,20 +69,20 @@ interface SectionItem {
 
 // Helper functions
 const getSchoolCode = async (): Promise<string> => {
-  const code = await AsyncStorage.getItem('school_code');
-  return code || (await AsyncStorage.getItem('schoolCode')) || '';
+  const code = await storage.getString(StorageKeys.SCHOOL_CODE);
+  return code || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
 };
 
 const getTeacherId = async (): Promise<string> => {
   const id = await AsyncStorage.getItem('teacher_id');
   return id || (await AsyncStorage.getItem('teacherId')) ||
-         (await AsyncStorage.getItem('employee_id')) ||
-         (await AsyncStorage.getItem('employeeId')) || '';
+         (await storage.getString(StorageKeys.EMPLOYEE_ID)) ||
+         (await storage.getString(StorageKeys.EMPLOYEE_ID)) || '';
 };
 
 const getBranchId = async (): Promise<string> => {
-  const id = await AsyncStorage.getItem('branch_id');
-  return id || (await AsyncStorage.getItem('branchId')) || '';
+  const id = await storage.getString(StorageKeys.BRANCH_ID);
+  return id || (await storage.getString(StorageKeys.BRANCH_ID)) || '';
 };
 
 const formatDate = (dateString: string): string => {
@@ -128,11 +133,11 @@ const LeaveRequestCard: React.FC<{
 }> = ({ request, onApprove, onReject, onPress }) => {
   return (
     <AppCard style={styles.requestCard}>
-      <TouchableOpacity onPress={() => onPress(request)} activeOpacity={0.7}>
+      <TouchableOpacity accessibilityRole="button" onPress={() => onPress(request)} activeOpacity={0.7}>
         <View style={styles.cardHeader}>
           <View style={styles.studentInfo}>
             <View style={styles.avatarPlaceholder}>
-              <User size={20} color="#64748b" />
+              <User size={20} color={Theme.colors.textSec} />
             </View>
             <View>
               <AppText weight="bold" style={styles.studentName}>{request.student_full_name}</AppText>
@@ -159,7 +164,7 @@ const LeaveRequestCard: React.FC<{
           </View>
 
           <View style={styles.reasonBox}>
-            <Info size={14} color="#64748b" style={styles.infoIcon} />
+            <Info size={14} color={Theme.colors.textSec} style={styles.infoIcon} />
             <AppText numberOfLines={2} style={styles.reasonText}>{request.reason}</AppText>
           </View>
         </View>
@@ -167,18 +172,18 @@ const LeaveRequestCard: React.FC<{
 
       {request.status === 'PENDING' && (
         <View style={styles.actionButtons}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.actionBtn, styles.rejectBtn]}
             onPress={() => onReject(request.leave_id)}
           >
             <XCircle size={16} color="#B91C1C" />
             <AppText weight="bold" style={styles.rejectBtnText}>Reject</AppText>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.actionBtn, styles.approveBtn]}
             onPress={() => onApprove(request.leave_id)}
           >
-            <CheckCircle2 size={16} color="#FFFFFF" />
+            <CheckCircle2 size={16} color={Theme.colors.card} />
             <AppText weight="bold" style={styles.approveBtnText}>Approve</AppText>
           </TouchableOpacity>
         </View>
@@ -191,7 +196,6 @@ export default function LeaveApprovalScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
   const scrollY = useRef(new Animated.Value(0)).current;
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [teacherId, setTeacherId] = useState<string>('');
@@ -248,17 +252,8 @@ export default function LeaveApprovalScreen() {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
   }, [setTabBarVisible]);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   // Resolve teacher ID with fallback protection
   useEffect(() => {
@@ -455,7 +450,7 @@ export default function LeaveApprovalScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Navy Standard Header (animated on scroll) */}
       <Animated.View
@@ -488,7 +483,7 @@ export default function LeaveApprovalScreen() {
         ]}
       >
         <View style={styles.headerTop}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.iconButton}
             onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
           >
@@ -497,7 +492,7 @@ export default function LeaveApprovalScreen() {
           <View style={styles.headerTitleContainer}>
             <AppText weight="bold" style={styles.headerTitle}>Leave Approvals</AppText>
           </View>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.iconButton}
             onPress={() => (navigation as any).navigate('Notifications')}
           >
@@ -527,7 +522,7 @@ export default function LeaveApprovalScreen() {
               <AppText weight="bold" style={styles.filterTitle}>Filters</AppText>
             </View>
             {(classId || sectionId || status !== 'PENDING') && (
-              <TouchableOpacity onPress={resetFilters}>
+              <TouchableOpacity accessibilityRole="button" onPress={resetFilters}>
                 <AppText weight="semibold" style={styles.resetText}>Reset All</AppText>
               </TouchableOpacity>
             )}
@@ -538,7 +533,7 @@ export default function LeaveApprovalScreen() {
               <AppText weight="semibold" style={styles.filterLabel}>Status</AppText>
               <View style={styles.statusToggle}>
                 {['PENDING', 'APPROVED', 'REJECTED'].map((s) => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={s}
                     style={[styles.statusBtn, status === s && styles.statusBtnActive]}
                     onPress={() => setStatus(s)}
@@ -551,15 +546,15 @@ export default function LeaveApprovalScreen() {
               </View>
             </View>
 
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.advancedFilterBtn}
               onPress={() => setShowFilterModal(true)}
             >
-              <Search size={16} color="#64748B" />
+              <Search size={16} color={Theme.colors.textSec} />
               <AppText weight="semibold" style={styles.advancedFilterText}>
                   {advancedFilterText}
               </AppText>
-              <ChevronRight size={16} color="#94A3B8" />
+              <ChevronRight size={16} color={Theme.colors.textMuted} />
             </TouchableOpacity>
           </View>
         </AppCard>
@@ -597,22 +592,22 @@ export default function LeaveApprovalScreen() {
       <BottomSheetModal visible={showFilterModal} onClose={() => setShowFilterModal(false)} sheetStyle={styles.modalContent}>
         <View style={styles.modalHeader}>
           <AppText weight="bold" style={styles.modalTitle}>Select Class & Section</AppText>
-          <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.modalClose}>
-            <XCircle size={24} color="#64748B" />
+          <TouchableOpacity accessibilityRole="button" onPress={() => setShowFilterModal(false)} style={styles.modalClose}>
+            <XCircle size={24} color={Theme.colors.textSec} />
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.modalBody}>
           <AppText weight="bold" style={styles.modalLabel}>Class</AppText>
           <View style={styles.chipContainer}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.chip, !classId && styles.chipActive]}
               onPress={() => setClassId('')}
             >
               <AppText weight="semibold" style={[styles.chipText, !classId && styles.chipTextActive]}>All Classes</AppText>
             </TouchableOpacity>
             {classes.map((cls) => (
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 key={cls.id}
                 style={[styles.chip, classId === cls.id && styles.chipActive]}
                 onPress={() => setClassId(cls.id)}
@@ -626,14 +621,14 @@ export default function LeaveApprovalScreen() {
 
           <AppText weight="bold" style={styles.modalLabelSection}>Section</AppText>
           <View style={styles.chipContainer}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.chip, !sectionId && styles.chipActive]}
               onPress={() => setSectionId('')}
             >
               <AppText weight="semibold" style={[styles.chipText, !sectionId && styles.chipTextActive]}>All Sections</AppText>
             </TouchableOpacity>
             {sections.map((sec) => (
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 key={sec.id}
                 style={[styles.chip, sectionId === sec.id && styles.chipActive]}
                 onPress={() => setSectionId(sec.id)}
@@ -665,15 +660,15 @@ export default function LeaveApprovalScreen() {
           <View style={styles.detailsModalInner}>
             <View style={styles.modalHeader}>
               <AppText weight="bold" style={styles.modalTitle}>Leave Application Details</AppText>
-              <TouchableOpacity onPress={() => setSelectedRequest(null)} style={styles.modalClose}>
-                <XCircle size={24} color="#64748B" />
+              <TouchableOpacity accessibilityRole="button" onPress={() => setSelectedRequest(null)} style={styles.modalClose}>
+                <XCircle size={24} color={Theme.colors.textSec} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.detailsModalBody} showsVerticalScrollIndicator={false}>
               <View style={styles.detailsStudentSection}>
                 <View style={styles.avatarPlaceholderLarge}>
-                  <User size={32} color="#64748b" />
+                  <User size={32} color={Theme.colors.textSec} />
                 </View>
                 <View style={styles.detailsStudentMeta}>
                   <AppText weight="bold" style={styles.detailsStudentName}>
@@ -735,7 +730,7 @@ export default function LeaveApprovalScreen() {
 
             {selectedRequest.status === 'PENDING' && (
               <View style={styles.detailsActionButtons}>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.detailsActionBtn, styles.detailsRejectBtn]}
                   onPress={() => {
                     actOnLeave(selectedRequest.leave_id, 'REJECTED');
@@ -744,13 +739,13 @@ export default function LeaveApprovalScreen() {
                   <XCircle size={18} color="#B91C1C" />
                   <AppText weight="bold" style={styles.detailsRejectBtnText}>Reject</AppText>
                 </TouchableOpacity>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.detailsActionBtn, styles.detailsApproveBtn]}
                   onPress={() => {
                     actOnLeave(selectedRequest.leave_id, 'APPROVE');
                   }}
                 >
-                  <CheckCircle2 size={18} color="#FFFFFF" />
+                  <CheckCircle2 size={18} color={Theme.colors.card} />
                   <AppText weight="bold" style={styles.detailsApproveBtnText}>Approve</AppText>
                 </TouchableOpacity>
               </View>
@@ -765,12 +760,12 @@ export default function LeaveApprovalScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   headerStandard: {
     backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
     paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: 16,
+    paddingBottom: Theme.spacing.md,
     borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     ...Platform.select({
@@ -810,15 +805,15 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   headerGreeting: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   headerSubtext: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   scrollContent: {
     paddingTop: 20,
@@ -828,8 +823,8 @@ const styles = StyleSheet.create({
     marginTop: -20,
     borderRadius: 30,
     padding: 18,
-    marginHorizontal: 16,
-    backgroundColor: '#FFFFFF',
+    marginHorizontal: Theme.spacing.md,
+    backgroundColor: Theme.colors.card,
     ...Platform.select({
 
       android: { elevation: 6 },
@@ -846,7 +841,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   filterTitleContainer: {
     flexDirection: 'row',
@@ -855,10 +850,10 @@ const styles = StyleSheet.create({
   },
   filterTitle: {
     fontSize: 16,
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   resetText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: Theme.colors.blue,
   },
   filterGrid: {
@@ -869,22 +864,22 @@ const styles = StyleSheet.create({
   },
   filterLabel: {
     fontSize: 13,
-    color: '#64748B',
+    color: Theme.colors.textSec,
   },
   statusToggle: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   statusBtn: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     alignItems: 'center',
     borderRadius: 8,
   },
   statusBtnActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     ...Platform.select({
 
       android: { elevation: 2 },
@@ -899,7 +894,7 @@ const styles = StyleSheet.create({
   },
   statusBtnText: {
     fontSize: 13,
-    color: '#64748B',
+    color: Theme.colors.textSec,
   },
   statusBtnTextActive: {
     color: Theme.colors.primary,
@@ -907,9 +902,9 @@ const styles = StyleSheet.create({
   advancedFilterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 48,
@@ -917,26 +912,26 @@ const styles = StyleSheet.create({
   },
   advancedFilterText: {
     flex: 1,
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#334155',
   },
   sectionHeader: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
     marginBottom: 12,
     marginHorizontal: 20,
   },
   sectionTitle: {
     fontSize: 18,
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   requestsList: {
     gap: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
   },
   requestCard: {
     padding: 20,
     borderRadius: 28,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderWidth: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -965,22 +960,22 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
   studentName: {
     fontSize: 16,
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   rollNumber: {
-    fontSize: 12,
-    color: '#64748B',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     marginTop: 2,
   },
   cardDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     marginVertical: 12,
   },
   cardDetails: {
@@ -998,27 +993,27 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     fontSize: 13,
-    color: '#475569',
+    color: Theme.colors.textSec,
   },
   reasonBox: {
     flexDirection: 'row',
     gap: 8,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: Theme.colors.background,
   },
   reasonText: {
     flex: 1,
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     lineHeight: 20,
   },
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   actionBtn: {
     flex: 1,
@@ -1033,28 +1028,28 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.primary,
   },
   rejectBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderWidth: 1,
     borderColor: '#FEE2E2',
   },
   approveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: Theme.colors.card,
+    ...Theme.typography.body,
   },
   rejectBtnText: {
     color: '#B91C1C',
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: Theme.spacing.xs,
+    paddingHorizontal: Theme.spacing.sm,
     borderRadius: 8,
   },
   badgeText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     textTransform: 'uppercase',
   },
   loaderContainer: {
@@ -1068,8 +1063,8 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     marginTop: 10,
-    color: '#94A3B8',
-    fontSize: 14,
+    color: Theme.colors.textMuted,
+    ...Theme.typography.body,
     textAlign: 'center',
   },
   modalOverlay: {
@@ -1078,7 +1073,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     maxHeight: '80%',
@@ -1090,21 +1085,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: Theme.colors.background,
   },
   modalTitle: {
     fontSize: 18,
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   modalClose: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   modalBody: {
     padding: 20,
   },
   modalLabel: {
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1115,23 +1110,23 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
     borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   chipActive: {
     backgroundColor: Theme.colors.primary,
     borderColor: Theme.colors.primary,
   },
   chipText: {
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
   },
   chipTextActive: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
   },
   modalFooter: {
     padding: 20,
@@ -1143,14 +1138,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   detailsModalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     maxHeight: '85%',
   },
   detailsModalBody: {
-    padding: 24,
-    paddingTop: 16,
+    padding: Theme.spacing.lg,
+    paddingTop: Theme.spacing.md,
   },
   detailsStudentSection: {
     flexDirection: 'row',
@@ -1161,7 +1156,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1171,15 +1166,15 @@ const styles = StyleSheet.create({
   },
   detailsStudentName: {
     fontSize: 18,
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   detailsRollNumber: {
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
   },
   detailsDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     marginVertical: 20,
   },
   detailsGrid: {
@@ -1195,8 +1190,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   detailsGridLabel: {
-    fontSize: 12,
-    color: '#64748B',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 6,
@@ -1207,39 +1202,39 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   detailsGridValue: {
-    fontSize: 15,
-    color: '#0F172A',
+    ...Theme.typography.bodyMd,
+    color: Theme.colors.text,
   },
   detailsSingleItem: {
     gap: 4,
   },
   detailsDateRange: {
-    fontSize: 15,
-    color: '#0F172A',
+    ...Theme.typography.bodyMd,
+    color: Theme.colors.text,
   },
   detailsReasonContainer: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    padding: 16,
+    borderColor: Theme.colors.background,
+    padding: Theme.spacing.md,
     borderRadius: 16,
-    marginTop: 8,
-    marginBottom: 24,
+    marginTop: Theme.spacing.sm,
+    marginBottom: Theme.spacing.lg,
   },
   detailsReasonText: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: '#334155',
     lineHeight: 22,
   },
   detailsActionButtons: {
     flexDirection: 'row',
     gap: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: Theme.spacing.lg,
     paddingBottom: Platform.OS === 'ios' ? 34 : 24,
-    paddingTop: 16,
+    paddingTop: Theme.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: Theme.colors.background,
+    backgroundColor: Theme.colors.card,
   },
   detailsActionBtn: {
     flex: 1,
@@ -1254,21 +1249,21 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.primary,
   },
   detailsRejectBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderWidth: 1,
     borderColor: '#FEE2E2',
   },
   detailsApproveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
+    color: Theme.colors.card,
+    ...Theme.typography.bodyMd,
   },
   detailsRejectBtnText: {
     color: '#B91C1C',
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
   },
   modalLabelSection: {
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,

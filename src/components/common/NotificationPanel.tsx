@@ -16,11 +16,16 @@ import eventEmitter from '../../utils/eventEmitter';
 import { isJwtExpired } from '../../utils/jwt';
 import { useNavigation } from '@react-navigation/native';
 import API from '../../services/api';
-import { colors } from '../../constants/colors';
+
 import BottomSheetModal from './BottomSheetModal';
 import { safeJsonParse } from '../../utils/storage';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import { addScopedNotificationId, loadScopedNotificationIds, saveScopedNotificationIds } from '../../utils/notificationStorage';
+import { Theme } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
 
 interface Notification {
   id: string;
@@ -31,8 +36,8 @@ interface Notification {
   created_at: string;
 }
 
-const getSchoolCode = async () => (await AsyncStorage.getItem('school_code')) || '';
-const getBranchId = async () => (await AsyncStorage.getItem('branch_id')) || '';
+const getSchoolCode = async () => (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
+const getBranchId = async () => (await storage.getString(StorageKeys.BRANCH_ID)) || '';
 
 const isNotificationNew = (id: string, readIds: string[]): boolean => {
   return !readIds.includes(id);
@@ -55,7 +60,7 @@ export default function NotificationPanel({ type = 'student', isDirector = false
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const token = (await AsyncStorage.getItem('token')) || null;
+      const token = (await storage.getSecure(StorageKeys.AUTH_TOKEN)) || null;
       if (!token || isJwtExpired(token)) {
         // stop background polling by emitting logout and skip fetch
         eventEmitter.emit('app-logout');
@@ -77,7 +82,7 @@ export default function NotificationPanel({ type = 'student', isDirector = false
         },
       });
       const newItems = res.data?.items || res.data?.data || [];
-      
+
       // Deduplicate notifications by ID (prevents duplicate display if backend returns duplicates)
       const seenIds = new Set<string>();
       const deduplicatedItems = newItems.filter((item: any) => {
@@ -88,7 +93,7 @@ export default function NotificationPanel({ type = 'student', isDirector = false
         seenIds.add(item.id);
         return true;
       });
-      
+
       setNotifications(deduplicatedItems);
 
       const [currentReadIds, deletedIds] = await Promise.all([
@@ -117,7 +122,7 @@ export default function NotificationPanel({ type = 'student', isDirector = false
   }, [type, previousCount]);
 
   useEffect(() => {
-    if (visible) fetchNotifications();
+    if (visible) {fetchNotifications();}
   }, [visible, fetchNotifications]);
 
   useEffect(() => {
@@ -125,7 +130,7 @@ export default function NotificationPanel({ type = 'student', isDirector = false
   }, [fetchNotifications]);
 
   const handleDelete = async (id: string) => {
-    if (!canDelete) return;
+    if (!canDelete) {return;}
     try {
       await addScopedNotificationId('deleted', id);
       // Remove all copies of this notification (handles duplicates)
@@ -147,7 +152,7 @@ export default function NotificationPanel({ type = 'student', isDirector = false
   const renderItem = ({ item }: { item: Notification }) => {
     const isNew = isNotificationNew(item.id, readIds);
     return (
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         style={[styles.notificationItem, isNew && styles.newItem]}
         onPress={async () => {
           // Mark as read when clicked
@@ -171,7 +176,7 @@ export default function NotificationPanel({ type = 'student', isDirector = false
           {item.event_date && <Text style={styles.footerText}>📅 {item.event_date}</Text>}
           <Text style={styles.footerText}>{new Date(item.created_at).toLocaleDateString()}</Text>
           {canDelete && (
-            <TouchableOpacity onPress={() => handleDelete(item.id)}>
+            <TouchableOpacity accessibilityRole="button" onPress={() => handleDelete(item.id)}>
               <Text style={styles.deleteText}>Delete</Text>
             </TouchableOpacity>
           )}
@@ -182,8 +187,8 @@ export default function NotificationPanel({ type = 'student', isDirector = false
 
   return (
     <>
-      <TouchableOpacity style={styles.bellButton} onPress={() => setVisible(true)}>
-        <Bell size={22} color="#f1f5f9" />
+      <TouchableOpacity accessibilityRole="button" style={styles.bellButton} onPress={() => setVisible(true)}>
+        <Bell size={22} color={Theme.colors.background} />
         {unreadCount > 0 && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
@@ -194,7 +199,7 @@ export default function NotificationPanel({ type = 'student', isDirector = false
       <BottomSheetModal visible={visible} onClose={() => setVisible(false)} sheetStyle={styles.modalContent}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>{type === 'director' ? 'Posted Notifications' : 'School Updates'}</Text>
-          <TouchableOpacity onPress={() => setVisible(false)}>
+          <TouchableOpacity accessibilityRole="button" onPress={() => setVisible(false)}>
             <Text style={styles.closeText}>✕</Text>
           </TouchableOpacity>
         </View>
@@ -216,7 +221,7 @@ export default function NotificationPanel({ type = 'student', isDirector = false
         )}
         {!loading && notifications.length > 0 && (type === 'student' || type === 'teacher') && (
           <View style={styles.footer}>
-            <TouchableOpacity style={styles.viewAllBtn} onPress={handleViewAll}>
+            <TouchableOpacity accessibilityRole="button" style={styles.viewAllBtn} onPress={handleViewAll}>
               <Text style={styles.viewAllText}>View All →</Text>
             </TouchableOpacity>
           </View>
@@ -233,43 +238,43 @@ export default function NotificationPanel({ type = 'student', isDirector = false
 }
 
 const styles = StyleSheet.create({
-  bellButton: { position: 'relative', padding: 8 },
+  bellButton: { position: 'relative', padding: Theme.spacing.sm },
   badge: {
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: '#ef4444',
+    backgroundColor: Theme.colors.error,
     borderRadius: 11,
     width: 20,
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: Theme.colors.card,
   },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
-  modalContent: { backgroundColor: '#fff' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  modalTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
-  closeText: { fontSize: 20, color: '#64748b', padding: 4 },
+  badgeText: { color: Theme.colors.card, fontSize: 10, fontWeight: '900' },
+  modalContent: { backgroundColor: Theme.colors.background },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Theme.spacing.md, borderBottomWidth: 1, borderBottomColor: Theme.colors.border },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: Theme.colors.text },
+  closeText: { fontSize: 20, color: Theme.colors.textSec, padding: Theme.spacing.xs },
   loader: { margin: 40 },
   emptyState: { alignItems: 'center', padding: 40 },
-  emptyIcon: { fontSize: 40, marginBottom: 8, opacity: 0.5 },
-  notificationItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  emptyIcon: { fontSize: 40, marginBottom: Theme.spacing.sm, opacity: 0.5 },
+  notificationItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: Theme.colors.background },
   newItem: { backgroundColor: '#f0f9ff', borderLeftWidth: 3, borderLeftColor: '#0c4a6e' },
   notificationHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   typeBadge: { backgroundColor: '#dbeafe', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   typeText: { fontSize: 10, fontWeight: '600', color: '#0c4a6e', textTransform: 'uppercase' },
-  newBadge: { backgroundColor: '#ef4444', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  newBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff' },
-  notifTitle: { fontSize: 14, fontWeight: '600', marginBottom: 4, color: '#0f172a' },
-  notifDesc: { fontSize: 13, color: '#64748b', marginBottom: 6 },
-  notifFooter: { flexDirection: 'row', gap: 12, alignItems: 'center', marginTop: 4 },
-  footerText: { fontSize: 11, color: '#94a3b8' },
-  deleteText: { fontSize: 11, color: '#dc2626', fontWeight: '600' },
-  footer: { padding: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  newBadge: { backgroundColor: Theme.colors.error, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  newBadgeText: { fontSize: 10, fontWeight: '700', color: Theme.colors.card },
+  notifTitle: { ...Theme.typography.body, fontWeight: '600', marginBottom: Theme.spacing.xs, color: Theme.colors.text },
+  notifDesc: { fontSize: 13, color: Theme.colors.textSec, marginBottom: 6 },
+  notifFooter: { flexDirection: 'row', gap: 12, alignItems: 'center', marginTop: Theme.spacing.xs },
+  footerText: { ...Theme.typography.label, color: '#94a3b8' },
+  deleteText: { ...Theme.typography.label, color: Theme.colors.error, fontWeight: '600' },
+  footer: { padding: 12, borderTopWidth: 1, borderTopColor: Theme.colors.border },
   viewAllBtn: { alignItems: 'center' },
   viewAllText: { color: '#0c4a6e', fontWeight: '600' },
-  toast: { position: 'absolute', bottom: 20, left: 20, right: 20, backgroundColor: '#ef4444', padding: 12, borderRadius: 8, alignItems: 'center', zIndex: 1000 },
-  toastText: { color: '#fff', fontWeight: '600' },
+  toast: { position: 'absolute', bottom: 20, left: 20, right: 20, backgroundColor: Theme.colors.error, padding: 12, borderRadius: 8, alignItems: 'center', zIndex: 1000 },
+  toastText: { color: Theme.colors.card, fontWeight: '600' },
 });

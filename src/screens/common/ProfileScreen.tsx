@@ -1,4 +1,4 @@
-import { Theme } from '../../theme/theme';
+
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -10,7 +10,6 @@ import {
   Switch,
   Modal,
   TextInput,
-  StatusBar,
   Image,
 } from 'react-native';
 import {
@@ -52,6 +51,11 @@ import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import AvatarBubble from '../../components/common/AvatarBubble';
 import AccountSwitcher from '../../components/common/AccountSwitcher';
+import { Theme } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
 
 interface UserProfile {
   name: string;
@@ -103,15 +107,15 @@ interface AppSettings {
 }
 
 const toText = (value: unknown): string => {
-  if (typeof value === 'string') return value.trim();
-  if (typeof value === 'number') return String(value).trim();
+  if (typeof value === 'string') {return value.trim();}
+  if (typeof value === 'number') {return String(value).trim();}
   return '';
 };
 
 const firstNonEmptyText = (...values: unknown[]): string => {
   for (const value of values) {
     const text = toText(value);
-    if (text) return text;
+    if (text) {return text;}
   }
   return '';
 };
@@ -122,13 +126,13 @@ const normalizeRoleBucket = (role: string): 'student' | 'teacher' => {
 };
 
 const getPhotoCacheKey = (roleBucket: 'student' | 'teacher', id: string, schoolCode: string): string | null => {
-  if (!id) return null;
+  if (!id) {return null;}
   return `profile_photo_url:${roleBucket}:${schoolCode || 'unknown'}:${id}`;
 };
 
 const normalizePhotoUri = (value: unknown): string | null => {
   const photo = toText(value);
-  if (!photo) return null;
+  if (!photo) {return null;}
 
   if (
     photo.startsWith('data:') ||
@@ -223,7 +227,7 @@ export default function ProfileScreen() {
     notifications: true, emailAlerts: true, pushNotifications: true,
     autoSave: true, language: 'English',
   });
-  
+
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
@@ -246,14 +250,14 @@ export default function ProfileScreen() {
 
   const fetchProfileData = useCallback(async () => {
     try {
-      const storedRole = (await AsyncStorage.getItem('userRole')) || (await AsyncStorage.getItem('role')) || 'student';
+      const storedRole = (await storage.getString(StorageKeys.USER_ROLE)) || (await storage.getString(StorageKeys.USER_ROLE)) || 'student';
       const normalizedRole = String(storedRole).trim().toLowerCase();
       const roleBucket = normalizeRoleBucket(normalizedRole);
 
       const storedStudentId = (await AsyncStorage.getItem('student_id')) || (await AsyncStorage.getItem('studentId')) || '';
       const storedTeacherId = (await AsyncStorage.getItem('teacher_id')) || '';
-      const storedEmployeeId = (await AsyncStorage.getItem('employee_id')) || '';
-      const storedSchoolCode = (await AsyncStorage.getItem('school_code')) || (await AsyncStorage.getItem('schoolCode')) || '';
+      const storedEmployeeId = (await storage.getString(StorageKeys.EMPLOYEE_ID)) || '';
+      const storedSchoolCode = (await storage.getString(StorageKeys.SCHOOL_CODE)) || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
 
       const entityId = roleBucket === 'student' ? storedStudentId : (storedTeacherId || storedEmployeeId);
       const profileCacheKey = entityId ? `profile_cache:${roleBucket}:${storedSchoolCode || 'unknown'}:${entityId}` : `profile_cache:${roleBucket}:${storedSchoolCode || 'unknown'}:anon`;
@@ -280,7 +284,7 @@ export default function ProfileScreen() {
       }
 
       const hadCache = !!cachedProfileRaw;
-      if (hadCache && isMounted.current) setLoading(false);
+      if (hadCache && isMounted.current) {setLoading(false);}
 
       const refresh = async () => {
         let freshData: any = null;
@@ -289,10 +293,10 @@ export default function ProfileScreen() {
             if (storedStudentId && storedSchoolCode) {
               freshData = await withTimeout(getStudentProfileDetails(storedStudentId, storedSchoolCode), 5000);
             }
-            if (!freshData) freshData = await withTimeout(getStudentProfile(), 5000);
+            if (!freshData) {freshData = await withTimeout(getStudentProfile(), 5000);}
           } else if (normalizedRole === 'director') {
             try {
-              const profRes = await withTimeout(API.get('/director/profile'), 5000);
+              const profRes = await withTimeout(API.get('/director/profile', { suppressFallback404Log: true } as any), 5000);
               if (profRes && profRes.data) {
                 freshData = profRes.data.director || profRes.data.profile || profRes.data.user || profRes.data;
               }
@@ -301,7 +305,7 @@ export default function ProfileScreen() {
               try {
                 const overviewRes = await withTimeout(API.get('/director/dashboard/overview'), 5000);
                 if (overviewRes && overviewRes.data) {
-                  freshData = overviewRes.data.director || overviewRes.data.profile || overviewRes.data.user || null;
+                  freshData = overviewRes.data.director || overviewRes.data.profile || overviewRes.data.user || overviewRes.data.school || null;
                 }
               } catch (err2) {
                 console.warn('Failed to fetch director overview:', err2);
@@ -316,7 +320,7 @@ export default function ProfileScreen() {
           console.warn('Failed to fetch profile:', e);
         }
 
-        if (!isMounted.current) return;
+        if (!isMounted.current) {return;}
 
         const storedUserRaw = await AsyncStorage.getItem('user');
         const storedUser = safeJsonParse<Record<string, any>>(storedUserRaw, {});
@@ -485,7 +489,7 @@ export default function ProfileScreen() {
             resolvedProfile.branch_id = resolvedProfile.branch_id || profileSource?.branch_id || storedUser?.branch_id || storedBranchId || decodedToken.branch_id;
             resolvedProfile.school_code = resolvedProfile.school_code || profileSource?.school_code || storedUser?.school_code || storedSchoolCodeFromStore || decodedToken.school_code;
           }
-        
+
           resolvedProfile.school_name = resolvedProfile.school_name || resolvedProfile.school_code || 'Unknown School';
 
           setUserInfo(prev => ({ ...prev, ...resolvedProfile, role: resolvedProfile.role || prev.role || 'student' }));
@@ -713,7 +717,7 @@ export default function ProfileScreen() {
   };
 
   const handleUpdateProfile = async () => {
-    if (!editField.key) return;
+    if (!editField.key) {return;}
 
     setEditLoading(true);
     try {
@@ -754,7 +758,7 @@ export default function ProfileScreen() {
   const renderInfoRow = (label: string, value: string | undefined, IconComponent: any, fieldKey?: string) => {
     const RowComponent = (fieldKey && isDirector) ? TouchableOpacity : View;
     return (
-      <RowComponent 
+      <RowComponent
         style={styles.infoRow}
         onPress={fieldKey && isDirector ? () => {
           setEditField({ key: fieldKey, label, value: value || '' });
@@ -770,7 +774,7 @@ export default function ProfileScreen() {
         </View>
         {fieldKey && isDirector && (
           <View style={styles.editIcon}>
-            <AppText style={{ fontSize: 12, color: Theme.colors.blue, fontWeight: '600' }}>Edit</AppText>
+            <AppText style={{ ...Theme.typography.caption, color: Theme.colors.blue, fontWeight: '600' }}>Edit</AppText>
           </View>
         )}
       </RowComponent>
@@ -795,22 +799,22 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
         style={styles.content}
         contentContainerStyle={{ paddingBottom: 140 }}
       >
         {/* Header - now scrolls with page */}
         <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
           <View style={styles.headerTop}>
-            <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
-              <ChevronLeft size={24} color="#fff" />
+            <TouchableOpacity accessibilityRole="button" onPress={handleBackPress} style={styles.backBtn}>
+              <ChevronLeft size={24} color={Theme.colors.card} />
             </TouchableOpacity>
             <AppText style={styles.headerTitle}>My Profile</AppText>
-            <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-              <LogOut size={20} color="#fff" />
+            <TouchableOpacity accessibilityRole="button" onPress={handleLogout} style={styles.logoutBtn}>
+              <LogOut size={20} color={Theme.colors.card} />
             </TouchableOpacity>
           </View>
 
@@ -819,7 +823,7 @@ export default function ProfileScreen() {
               <Image
                 source={{
                   uri: profilePhotoUrl,
-                  headers: userToken ? { Authorization: `Bearer ${userToken}` } : undefined
+                  headers: userToken ? { Authorization: `Bearer ${userToken}` } : undefined,
                 }}
                 style={styles.profileAvatarImage}
                 onError={() => setProfilePhotoError(true)}
@@ -832,14 +836,14 @@ export default function ProfileScreen() {
                 primaryColor={Theme.colors.blue}
               />
             )}
-            <TouchableOpacity style={styles.profileTextInfo} onPress={() => setShowAccountSwitcher(true)}>
+            <TouchableOpacity accessibilityRole="button" style={styles.profileTextInfo} onPress={() => setShowAccountSwitcher(true)}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <AppText style={styles.userName}>{userInfo.name}</AppText>
-                <ChevronDown size={20} color="#fff" style={{ marginLeft: 6 }} />
+                <ChevronDown size={20} color={Theme.colors.card} style={{ marginLeft: 6 }} />
               </View>
               <AppText style={styles.userRole}>
                 {userInfo.role?.toUpperCase() || 'STUDENT'}
-                {isAgent 
+                {isAgent
                   ? (userInfo.username ? ` • @${userInfo.username}` : '')
                   : ` • ID: ${userInfo.student_id || userInfo.employee_id}`
                 }
@@ -866,7 +870,7 @@ export default function ProfileScreen() {
                 {renderInfoRow('Full Name', userInfo.name, User, 'name')}
                 <View style={styles.divider} />
                 {renderInfoRow('Email', userInfo.email, Mail, 'email')}
-                
+
                 {roleKey !== 'admin' && (
                   <>
                     <View style={styles.divider} />
@@ -952,9 +956,9 @@ export default function ProfileScreen() {
               <View style={styles.infoRow}>
                 <View style={[styles.iconCircle, { backgroundColor: userInfo.can_register_school ? '#d1fae5' : '#fee2e2' }]}>
                   {userInfo.can_register_school ? (
-                    <Check size={18} color="#059669" />
+                    <Check size={18} color={Theme.colors.success} />
                   ) : (
-                    <X size={18} color="#dc2626" />
+                    <X size={18} color={Theme.colors.error} />
                   )}
                 </View>
                 <View style={styles.infoContent}>
@@ -968,9 +972,9 @@ export default function ProfileScreen() {
               <View style={styles.infoRow}>
                 <View style={[styles.iconCircle, { backgroundColor: userInfo.can_view_payments ? '#d1fae5' : '#fee2e2' }]}>
                   {userInfo.can_view_payments ? (
-                    <Check size={18} color="#059669" />
+                    <Check size={18} color={Theme.colors.success} />
                   ) : (
-                    <X size={18} color="#dc2626" />
+                    <X size={18} color={Theme.colors.error} />
                   )}
                 </View>
                 <View style={styles.infoContent}>
@@ -984,9 +988,9 @@ export default function ProfileScreen() {
               <View style={styles.infoRow}>
                 <View style={[styles.iconCircle, { backgroundColor: userInfo.can_edit_features ? '#d1fae5' : '#fee2e2' }]}>
                   {userInfo.can_edit_features ? (
-                    <Check size={18} color="#059669" />
+                    <Check size={18} color={Theme.colors.success} />
                   ) : (
-                    <X size={18} color="#dc2626" />
+                    <X size={18} color={Theme.colors.error} />
                   )}
                 </View>
                 <View style={styles.infoContent}>
@@ -1005,12 +1009,12 @@ export default function ProfileScreen() {
           <AppCard style={styles.infoCard}>
             {systemSettingsRoute ? (
               <>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={styles.menuItem}
                   onPress={() => systemSettingsRoute && (navigation as any).navigate(systemSettingsRoute)}
                 >
                   <View style={styles.menuIconContainer}>
-                    <Sliders size={18} color="#0f172a" />
+                    <Sliders size={18} color={Theme.colors.text} />
                   </View>
                   <AppText style={styles.menuText}>Settings</AppText>
                   <ChevronRight size={20} color="#94a3b8" />
@@ -1019,9 +1023,9 @@ export default function ProfileScreen() {
               </>
             ) : (
               <>
-                <TouchableOpacity style={styles.menuItem} onPress={() => setShowSettingsModal(true)}>
+                <TouchableOpacity accessibilityRole="button" style={styles.menuItem} onPress={() => setShowSettingsModal(true)}>
                   <View style={styles.menuIconContainer}>
-                    <Sliders size={18} color="#0f172a" />
+                    <Sliders size={18} color={Theme.colors.text} />
                   </View>
                   <AppText style={styles.menuText}>App Settings</AppText>
                   <ChevronRight size={20} color="#94a3b8" />
@@ -1029,12 +1033,12 @@ export default function ProfileScreen() {
                 <View style={styles.divider} />
               </>
             )}
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.menuItem}
               onPress={() => setShowPasswordChangeModal(true)}
             >
               <View style={styles.menuIconContainer}>
-                <Key size={18} color="#0f172a" />
+                <Key size={18} color={Theme.colors.text} />
               </View>
               <AppText style={styles.menuText}>Change Password</AppText>
               <ChevronRight size={20} color="#94a3b8" />
@@ -1052,7 +1056,7 @@ export default function ProfileScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle}>Edit {editField.label}</AppText>
-              <TouchableOpacity onPress={() => setShowEditModal(false)}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setShowEditModal(false)}>
                 <X size={24} color="#94a3b8" />
               </TouchableOpacity>
             </View>
@@ -1070,14 +1074,14 @@ export default function ProfileScreen() {
               </View>
             </View>
             <View style={styles.modalFooter}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.cancelBtn, { flex: 1, marginRight: 10 }]}
                 onPress={() => setShowEditModal(false)}
               >
                 <AppText style={styles.cancelBtnText}>Cancel</AppText>
               </TouchableOpacity>
               <AppButton
-                title={editLoading ? "Saving..." : "Save Changes"}
+                title={editLoading ? 'Saving...' : 'Save Changes'}
                 onPress={handleUpdateProfile}
                 disabled={editLoading}
                 style={{ flex: 2 }}
@@ -1093,7 +1097,7 @@ export default function ProfileScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle}>App Settings</AppText>
-              <TouchableOpacity onPress={() => setShowSettingsModal(false)}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setShowSettingsModal(false)}>
                 <X size={24} color="#94a3b8" />
               </TouchableOpacity>
             </View>
@@ -1116,7 +1120,7 @@ export default function ProfileScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle}>Change Password</AppText>
-              <TouchableOpacity onPress={handlePasswordChangeModalClose}>
+              <TouchableOpacity accessibilityRole="button" onPress={handlePasswordChangeModalClose}>
                 <X size={24} color="#94a3b8" />
               </TouchableOpacity>
             </View>
@@ -1197,14 +1201,14 @@ export default function ProfileScreen() {
                         secureTextEntry={!showNewPassword}
                         editable={!passwordChangeLoading}
                       />
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         style={styles.passwordToggleIcon}
                         onPress={() => setShowNewPassword(!showNewPassword)}
                       >
                         {showNewPassword ? (
-                          <Eye size={18} color="#64748b" />
+                          <Eye size={18} color={Theme.colors.textSec} />
                         ) : (
-                          <EyeOff size={18} color="#64748b" />
+                          <EyeOff size={18} color={Theme.colors.textSec} />
                         )}
                       </TouchableOpacity>
                     </View>
@@ -1223,14 +1227,14 @@ export default function ProfileScreen() {
                         secureTextEntry={!showConfirmPassword}
                         editable={!passwordChangeLoading}
                       />
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         style={styles.passwordToggleIcon}
                         onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                       >
                         {showConfirmPassword ? (
-                          <Eye size={18} color="#64748b" />
+                          <Eye size={18} color={Theme.colors.textSec} />
                         ) : (
-                          <EyeOff size={18} color="#64748b" />
+                          <EyeOff size={18} color={Theme.colors.textSec} />
                         )}
                       </TouchableOpacity>
                     </View>
@@ -1289,7 +1293,7 @@ export default function ProfileScreen() {
 const PasswordRequirement: React.FC<{ met: boolean; text: string }> = ({ met, text }) => (
   <View style={styles.passwordReq}>
     {met ? (
-      <Check size={14} color="#059669" />
+      <Check size={14} color={Theme.colors.success} />
     ) : (
       <View style={styles.passwordReqDot} />
     )}
@@ -1302,14 +1306,14 @@ const PasswordRequirement: React.FC<{ met: boolean; text: string }> = ({ met, te
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
   },
   header: {
     backgroundColor: Theme.colors.primary,
     paddingHorizontal: 20,
     paddingBottom: 30,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+
+
   },
   headerTop: {
     flexDirection: 'row',
@@ -1334,9 +1338,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
+    color: Theme.colors.card,
+    ...Theme.typography.h3,
   },
   profileSummary: {
     flexDirection: 'row',
@@ -1351,18 +1354,18 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     borderWidth: 2,
     borderColor: Theme.colors.blue,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: Theme.colors.border,
   },
   userName: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#fff',
+    color: Theme.colors.card,
   },
   userRole: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#94a3b8',
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   content: {
     flex: 1,
@@ -1375,9 +1378,9 @@ const styles = StyleSheet.create({
     marginTop: 25,
   },
   sectionTitle: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
-    color: '#64748b',
+    color: Theme.colors.textSec,
     marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1410,9 +1413,9 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   infoValue: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '600',
-    color: '#0f172a',
+    color: Theme.colors.text,
     marginTop: 2,
   },
   editIcon: {
@@ -1421,7 +1424,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
     marginHorizontal: 15,
   },
   menuItem: {
@@ -1433,16 +1436,16 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
   menuText: {
     flex: 1,
     marginLeft: 15,
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '600',
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   loadingContainer: {
     flex: 1,
@@ -1455,7 +1458,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     padding: 20,
@@ -1479,10 +1482,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: Theme.colors.background,
   },
   settingLabel: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     fontWeight: '600',
   },
   modalFooter: {
@@ -1491,50 +1494,50 @@ const styles = StyleSheet.create({
   passwordStepLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 8,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.sm,
   },
   passwordStepDesc: {
     fontSize: 13,
-    color: '#64748b',
+    color: Theme.colors.textSec,
     marginBottom: 20,
     lineHeight: 18,
   },
   passwordInputGroup: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   passwordInputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 8,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.sm,
     textTransform: 'uppercase',
   },
   passwordInput: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 14,
-    color: '#0f172a',
-    backgroundColor: '#f8fafc',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
+    backgroundColor: Theme.colors.background,
   },
   passwordInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     borderRadius: 8,
-    backgroundColor: '#f8fafc',
-    paddingRight: 8,
+    backgroundColor: Theme.colors.background,
+    paddingRight: Theme.spacing.sm,
   },
   passwordInputField: {
     flex: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 14,
-    color: '#0f172a',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
   },
   passwordToggleIcon: {
     padding: 6,
@@ -1543,15 +1546,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0fdf4',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     borderLeftWidth: 3,
-    borderLeftColor: '#059669',
+    borderLeftColor: Theme.colors.success,
   },
   passwordReqTitle: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     fontWeight: '700',
     color: '#047857',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
     textTransform: 'uppercase',
   },
   passwordReq: {
@@ -1567,27 +1570,27 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   passwordReqText: {
-    fontSize: 12,
-    color: '#64748b',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
   },
   passwordReqTextMet: {
-    color: '#059669',
+    color: Theme.colors.success,
     fontWeight: '600',
   },
   passwordModalButton: {
     marginTop: 12,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   errorAlert: {
     backgroundColor: '#fee2e2',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     borderLeftWidth: 3,
-    borderLeftColor: '#dc2626',
+    borderLeftColor: Theme.colors.error,
   },
   errorAlertText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#991b1b',
     fontWeight: '600',
   },
@@ -1595,26 +1598,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0fdf4',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     borderLeftWidth: 3,
-    borderLeftColor: '#059669',
+    borderLeftColor: Theme.colors.success,
   },
   successAlertText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: '#047857',
     fontWeight: '600',
   },
   cancelBtn: {
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: Theme.spacing.md,
     borderRadius: 8,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtnText: {
-    color: '#64748b',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     fontWeight: '600',
-    fontSize: 14,
   },
 });

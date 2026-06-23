@@ -1,7 +1,8 @@
+import { Theme } from '../theme/tokens';
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { X } from 'lucide-react-native';
 
 import type { StoredAccount } from '../services/accountStorage';
 
@@ -42,7 +43,7 @@ const AccountCard: React.FC<Props> = ({ account, onPress, onDelete }) => {
 
         <View style={styles.right}>
           <Pressable onPress={() => onDelete && onDelete(account)} hitSlop={8}>
-            <Icon name="close" size={20} color="#9ca3af" />
+            <X size={20} color="#9ca3af" />
           </Pressable>
         </View>
       </Animated.View>
@@ -51,11 +52,11 @@ const AccountCard: React.FC<Props> = ({ account, onPress, onDelete }) => {
 };
 
 const styles = StyleSheet.create({
-  wrapper: { marginVertical: 8 },
+  wrapper: { marginVertical: Theme.spacing.sm },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 16,
     padding: 12,
     borderWidth: 1,
@@ -74,11 +75,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarTxt: { color: '#fff', fontWeight: '800', fontSize: 18 },
+  avatarTxt: { color: Theme.colors.card, fontWeight: '800', fontSize: 18 },
   mid: { flex: 1 },
-  name: { fontWeight: '800', color: '#0f172a' },
-  role: { fontSize: 12, color: '#8b9bb4', marginTop: 2, textTransform: 'uppercase' },
-  school: { fontSize: 12, color: '#94a3b8', marginTop: 4 },
+  name: { fontWeight: '800', color: Theme.colors.text },
+  role: { ...Theme.typography.caption, color: '#8b9bb4', marginTop: 2, textTransform: 'uppercase' },
+  school: { ...Theme.typography.caption, color: '#94a3b8', marginTop: Theme.spacing.xs },
   right: { marginLeft: 12 },
 });
 

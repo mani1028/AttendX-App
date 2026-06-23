@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
@@ -9,7 +10,6 @@ import {
   Alert,
   Modal,
   Platform,
-  StatusBar,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Dimensions,
@@ -35,7 +35,7 @@ import {
   XCircle,
   Layout,
   X,
-  Bell
+  Bell,
 } from 'lucide-react-native';
 import API from '../../services/api';
 import { getAssignedClasses } from '../../services/teacherService';
@@ -44,7 +44,8 @@ import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-import { Theme } from '../../theme/theme';
+import { Theme } from '../../theme/tokens';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -98,9 +99,9 @@ const getTeacherId = async (): Promise<string> => {
 
 const formatDisplayDate = (dateInput: unknown): string => {
   const raw = String(dateInput ?? '').trim();
-  if (!raw) return '-';
+  if (!raw) {return '-';}
   const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return '-';
+  if (Number.isNaN(date.getTime())) {return '-';}
   const day = String(date.getDate()).padStart(2, '0');
   const month = MONTH_SHORT[date.getMonth()] || '-';
   return `${day} ${month}`;
@@ -113,7 +114,7 @@ const HomeworkCard: React.FC<{
   onEdit: (item: HomeworkItem) => void;
   onDelete: (id: string) => void;
 }> = ({ item, isEditing, onEdit, onDelete }) => (
-  <AppCard style={[styles.homeworkCard, isEditing && styles.homeworkCardEditing]}>
+  <AppCard style={StyleSheet.flatten([styles.homeworkCard, isEditing && styles.homeworkCardEditing])}>
     <View style={styles.cardHeader}>
       <View style={styles.subjectContainer}>
         <View style={styles.subjectIcon}>
@@ -123,7 +124,7 @@ const HomeworkCard: React.FC<{
       </View>
       <View style={styles.actionIcons}>
         <TouchableOpacity onPress={() => onEdit(item)} style={styles.iconBtn}>
-          <Edit3 size={18} color="#64748B" />
+          <Edit3 size={18} color={Theme.colors.textSec} />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => onDelete(item.homework_id)} style={styles.iconBtn}>
           <Trash2 size={18} color="#EF4444" />
@@ -138,11 +139,11 @@ const HomeworkCard: React.FC<{
 
     <View style={styles.cardFooter}>
       <View style={styles.metaItem}>
-        <Layout size={14} color="#94A3B8" />
+        <Layout size={14} color={Theme.colors.textMuted} />
         <AppText weight="semibold" style={styles.metaText}>{item.class_name} - {item.section_name}</AppText>
       </View>
       <View style={styles.metaItem}>
-        <Calendar size={14} color="#94A3B8" />
+        <Calendar size={14} color={Theme.colors.textMuted} />
         <AppText weight="semibold" style={styles.metaText}>Due: {formatDisplayDate(item.due_date)}</AppText>
       </View>
     </View>
@@ -156,7 +157,6 @@ export default function HomeworkManagementScreen() {
   const { setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
   const [createExpanded, setCreateExpanded] = useState<boolean>(false);
-  const lastScrollY = useRef(0);
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
   const [teacherId, setTeacherId] = useState<string>('');
@@ -269,22 +269,13 @@ export default function HomeworkManagementScreen() {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   // Load dropdown data
   useEffect(() => {
     const loadDropdownData = async () => {
-      if (!schoolCode || !branchId || !teacherId) return;
+      if (!schoolCode || !branchId || !teacherId) {return;}
 
       try {
         // Try the teacher-context endpoint first
@@ -303,10 +294,10 @@ export default function HomeworkManagementScreen() {
           );
           resData = res.data;
         } catch (e) {
-          if (__DEV__) console.warn('[Homework] initial staff-context call failed', e);
+          if (__DEV__) {console.warn('[Homework] initial staff-context call failed', e);}
         }
 
-        if (!isMounted.current) return;
+        if (!isMounted.current) {return;}
 
         let assignments: Assignment[] = Array.isArray(resData?.assignments)
           ? resData.assignments.filter(Boolean)
@@ -317,10 +308,10 @@ export default function HomeworkManagementScreen() {
         if ((!assignments || assignments.length === 0) && schoolCode && branchId && teacherId) {
           try {
             const fallback = await getAssignedClasses(schoolCode, branchId, teacherId);
-            if (Array.isArray(fallback) && fallback.length > 0) assignments = fallback as Assignment[];
+            if (Array.isArray(fallback) && fallback.length > 0) {assignments = fallback as Assignment[];}
           } catch (fallbackErr) {
             // ignore fallback failure, we'll continue with whatever we have
-            if (__DEV__) console.log('[Homework] fallback getAssignedClasses failed', fallbackErr);
+            if (__DEV__) {console.log('[Homework] fallback getAssignedClasses failed', fallbackErr);}
           }
         }
 
@@ -328,7 +319,7 @@ export default function HomeworkManagementScreen() {
         assignments.forEach((a) => {
           const className = String(a.class_name || a.class_grade || '').trim();
           const sectionName = String(a.section_name || a.section || '').trim();
-          if (!className || !sectionName) return;
+          if (!className || !sectionName) {return;}
 
           if (!grouped.has(className)) {
             grouped.set(className, new Set());
@@ -360,7 +351,7 @@ export default function HomeworkManagementScreen() {
         setTeacherSubjects(departmentSubjects);
         setResolvedTeacherId(canonicalTeacherId);
       } catch (error: any) {
-        if (error?.response?.status === 401) return;
+        if (error?.response?.status === 401) {return;}
         console.warn('Failed to load dropdown data:', error);
       }
     };
@@ -403,8 +394,8 @@ export default function HomeworkManagementScreen() {
   }, [form.class_name, form.section_name, classOptions, teacherAssignments, teacherSubjects]);
 
   const loadHomework = useCallback(async () => {
-    if (!schoolCode || !branchId || !resolvedTeacherId) return;
-    if (isMounted.current) setLoading(true);
+    if (!schoolCode || !branchId || !resolvedTeacherId) {return;}
+    if (isMounted.current) {setLoading(true);}
     try {
       const body: any = {
         school_code: schoolCode,
@@ -414,7 +405,7 @@ export default function HomeworkManagementScreen() {
 
       if (filterClass) {
         const match = teacherAssignments.find(a => equalsIgnoreCase(a.class_name, filterClass));
-        if (match?.class_id) body.class_id = Number(match.class_id);
+        if (match?.class_id) {body.class_id = Number(match.class_id);}
       }
 
       if (filterClass && filterSection) {
@@ -422,7 +413,7 @@ export default function HomeworkManagementScreen() {
           equalsIgnoreCase(a.class_name, filterClass) &&
           equalsIgnoreCase(a.section_name, filterSection)
         );
-        if (sectionMatch?.section_id) body.section_id = Number(sectionMatch.section_id);
+        if (sectionMatch?.section_id) {body.section_id = Number(sectionMatch.section_id);}
       }
 
       const res = await API.post('/manage/staff/homework/list', body);
@@ -445,11 +436,11 @@ export default function HomeworkManagementScreen() {
         setItems(normalizedItems);
       }
     } catch (err: any) {
-      if (err?.response?.status === 401) return;
+      if (err?.response?.status === 401) {return;}
       console.error('Failed to load homework:', err);
-      if (isMounted.current) setItems([]);
+      if (isMounted.current) {setItems([]);}
     } finally {
-      if (isMounted.current) setLoading(false);
+      if (isMounted.current) {setLoading(false);}
     }
   }, [schoolCode, branchId, resolvedTeacherId, filterClass, filterSection, teacherAssignments]);
 
@@ -460,9 +451,9 @@ export default function HomeworkManagementScreen() {
   }, [schoolCode, branchId, resolvedTeacherId, loadHomework]);
 
   const onRefresh = useCallback(async () => {
-    if (isMounted.current) setRefreshing(true);
+    if (isMounted.current) {setRefreshing(true);}
     await loadHomework();
-    if (isMounted.current) setRefreshing(false);
+    if (isMounted.current) {setRefreshing(false);}
   }, [loadHomework]);
 
   const resetForm = () => {
@@ -485,7 +476,7 @@ export default function HomeworkManagementScreen() {
       return;
     }
 
-    if (isMounted.current) setSubmitting(true);
+    if (isMounted.current) {setSubmitting(true);}
     try {
       if (editingId) {
         await API.put('/manage/staff/homework/update', {
@@ -498,7 +489,7 @@ export default function HomeworkManagementScreen() {
           assigned_date: form.assigned_date,
           due_date: form.due_date,
         });
-        if (isMounted.current) Alert.alert('Success', 'Homework updated successfully');
+        if (isMounted.current) {Alert.alert('Success', 'Homework updated successfully');}
       } else {
         await API.post('/manage/staff/homework/create', {
           school_code: schoolCode,
@@ -512,19 +503,19 @@ export default function HomeworkManagementScreen() {
           assigned_date: form.assigned_date,
           due_date: form.due_date,
         });
-        if (isMounted.current) Alert.alert('Success', 'Homework created successfully');
+        if (isMounted.current) {Alert.alert('Success', 'Homework created successfully');}
       }
       if (isMounted.current) {
         resetForm();
         loadHomework();
       }
     } catch (err: any) {
-      if (err?.response?.status === 401) return;
+      if (err?.response?.status === 401) {return;}
       if (isMounted.current) {
         Alert.alert('Error', err?.response?.data?.detail || 'Failed to save homework');
       }
     } finally {
-      if (isMounted.current) setSubmitting(false);
+      if (isMounted.current) {setSubmitting(false);}
     }
   };
 
@@ -568,7 +559,7 @@ export default function HomeworkManagementScreen() {
                 loadHomework();
               }
             } catch (err: any) {
-              if (err?.response?.status === 401) return;
+              if (err?.response?.status === 401) {return;}
               if (isMounted.current) {
                 Alert.alert('Error', err?.response?.data?.detail || 'Failed to delete homework');
               }
@@ -581,7 +572,7 @@ export default function HomeworkManagementScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -590,27 +581,7 @@ export default function HomeworkManagementScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
-        <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => navigation.canGoBack() ? navigation.goBack() : (navigation as any).navigate('TeacherDashboard')}
-            >
-              <ChevronLeft size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <AppText weight="bold" style={styles.heroTitle}>Homework management</AppText>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => (navigation as any).navigate('Notifications')}
-            >
-              <Bell size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.heroContent}>
-            <AppText style={styles.heroSubtext}>Create, track and manage homework for your classes</AppText>
-          </View>
-        </View>
+        <StandardPageHeader title="Homework Management" onBackPress={() => navigation.goBack()} />
 
         <View style={styles.pageContent}>
           {/* Create Homework Card */}
@@ -629,7 +600,7 @@ export default function HomeworkManagementScreen() {
                     <AppText style={styles.createSubtitle}>Create and assign homework to students</AppText>
                   </View>
                   <View style={{ marginLeft: 12 }}>
-                    <AppText style={{ color: '#64748B' }}>{createExpanded ? 'Hide' : 'Create'}</AppText>
+                    <AppText style={{ color: Theme.colors.textSec }}>{createExpanded ? 'Hide' : 'Create'}</AppText>
                   </View>
                 </View>
               </AppCard>
@@ -638,7 +609,7 @@ export default function HomeworkManagementScreen() {
             {createExpanded && (
               <>
                 {/* Form Title */}
-                <AppText weight="bold" style={styles.formSectionTitle}>{editingId ? "Edit Homework" : "Create Homework"}</AppText>
+                <AppText weight="bold" style={styles.formSectionTitle}>{editingId ? 'Edit Homework' : 'Create Homework'}</AppText>
 
                 {/* Class Name */}
                 <View style={styles.formGroup}>
@@ -651,7 +622,7 @@ export default function HomeworkManagementScreen() {
                     <AppText style={[styles.dropdownText, form.class_name && styles.dropdownValueText]}>
                       {form.class_name || 'Select Class'}
                     </AppText>
-                    <ChevronRight size={20} color="#94A3B8" />
+                    <ChevronRight size={20} color={Theme.colors.textMuted} />
                   </TouchableOpacity>
                   {!editingId && showClassDropdown && Array.isArray(classOptions) && classOptions.length > 0 && (
                     <View style={styles.dropdownMenu}>
@@ -686,7 +657,7 @@ export default function HomeworkManagementScreen() {
                     <AppText style={[styles.dropdownText, form.section_name && styles.dropdownValueText]}>
                       {form.section_name || (form.class_name ? 'Select Section' : 'Select Class First')}
                     </AppText>
-                    <ChevronRight size={20} color="#94A3B8" />
+                    <ChevronRight size={20} color={Theme.colors.textMuted} />
                   </TouchableOpacity>
                   {!editingId && showSectionDropdown && Array.isArray(sectionOptions) && sectionOptions.length > 0 && (
                     <View style={styles.dropdownMenu}>
@@ -720,7 +691,7 @@ export default function HomeworkManagementScreen() {
                     <AppText style={[styles.dropdownText, form.subject_name && styles.dropdownValueText]}>
                       {form.subject_name || (form.section_name ? 'Select Subject' : 'Select Section first')}
                     </AppText>
-                    <ChevronRight size={20} color="#94A3B8" />
+                    <ChevronRight size={20} color={Theme.colors.textMuted} />
                   </TouchableOpacity>
                   {!editingId && showSubjectDropdown && Array.isArray(subjectOptions) && subjectOptions.length > 0 && (
                     <View style={styles.dropdownMenu}>
@@ -749,7 +720,7 @@ export default function HomeworkManagementScreen() {
                     <AppText style={[styles.dropdownText, form.assigned_date && styles.dropdownValueText]}>
                       {form.assigned_date || 'select assigned date'}
                     </AppText>
-                    <Calendar size={20} color="#94A3B8" />
+                    <Calendar size={20} color={Theme.colors.textMuted} />
                   </TouchableOpacity>
                 </View>
 
@@ -760,7 +731,7 @@ export default function HomeworkManagementScreen() {
                     <AppText style={[styles.dropdownText, form.due_date && styles.dropdownValueText]}>
                       {form.due_date || 'select due date'}
                     </AppText>
-                    <Calendar size={20} color="#94A3B8" />
+                    <Calendar size={20} color={Theme.colors.textMuted} />
                   </TouchableOpacity>
                 </View>
 
@@ -770,7 +741,7 @@ export default function HomeworkManagementScreen() {
                   <TextInput
                     style={styles.textInput}
                     placeholder="Enter title"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={Theme.colors.textMuted}
                     value={form.title}
                     onChangeText={t => setForm(p => ({ ...p, title: t }))}
                   />
@@ -782,7 +753,7 @@ export default function HomeworkManagementScreen() {
                   <TextInput
                     style={[styles.textInput, styles.textArea]}
                     placeholder="Enter description"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={Theme.colors.textMuted}
                     multiline
                     numberOfLines={3}
                     value={form.description}
@@ -793,7 +764,7 @@ export default function HomeworkManagementScreen() {
                 {/* Action Buttons */}
                 <View style={styles.actionButtons}>
                   <AppButton
-                    title={editingId ? "Update" : "Create +"}
+                    title={editingId ? 'Update' : 'Create +'}
                     onPress={handleSubmit}
                     disabled={submitting}
                     style={styles.createButton}
@@ -848,7 +819,7 @@ export default function HomeworkManagementScreen() {
               maximumDate={new Date()}
               onChange={(e, d) => {
                 setShowAssignedPicker(false);
-                if (d) setForm(p => ({ ...p, assigned_date: d.toISOString().split('T')[0] }));
+                if (d) {setForm(p => ({ ...p, assigned_date: d.toISOString().split('T')[0] }));}
               }}
             />
           )}
@@ -861,7 +832,7 @@ export default function HomeworkManagementScreen() {
               minimumDate={new Date()}
               onChange={(e, d) => {
                 setShowDuePicker(false);
-                if (d) setForm(p => ({ ...p, due_date: d.toISOString().split('T')[0] }));
+                if (d) {setForm(p => ({ ...p, due_date: d.toISOString().split('T')[0] }));}
               }}
             />
           )}
@@ -874,12 +845,10 @@ export default function HomeworkManagementScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
   },
   headerStandard: {
     backgroundColor: Theme.colors.primary,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
     paddingBottom: 30,
     ...Platform.select({
 
@@ -909,9 +878,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    color: Theme.colors.card,
+    ...Theme.typography.h3,
     flex: 1,
     textAlign: 'center',
   },
@@ -919,31 +887,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   heroGreeting: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '800',
+    color: Theme.colors.card,
+    ...Theme.typography.h1,
     letterSpacing: -0.5,
   },
   heroSubtext: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   scrollContent: {
     paddingBottom: 60,
   },
   pageContent: {
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: Theme.spacing.lg,
   },
   createSection: {
     marginTop: 0,
   },
   createCard: {
     borderRadius: 20,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    marginBottom: 24,
+    padding: Theme.spacing.md,
+    backgroundColor: Theme.colors.card,
+    marginBottom: Theme.spacing.lg,
     borderWidth: 1,
     borderColor: '#EEF2FF',
     elevation: 2,
@@ -967,66 +934,66 @@ const styles = StyleSheet.create({
   },
   createTitle: {
     fontSize: 16,
-    color: '#0F172A',
+    color: Theme.colors.text,
     marginBottom: 2,
   },
   createSubtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: Theme.colors.textSec,
   },
   createBtn: {
     backgroundColor: Theme.colors.primary,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     paddingHorizontal: 14,
     borderRadius: 10,
   },
   createBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: Theme.colors.card,
+    ...Theme.typography.body,
   },
   formSectionTitle: {
     fontSize: 18,
-    color: '#0F172A',
-    marginBottom: 16,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.md,
     letterSpacing: -0.5,
   },
   formGroup: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   formLabel: {
     fontSize: 13,
-    color: '#64748B',
-    marginBottom: 8,
+    color: Theme.colors.textSec,
+    marginBottom: Theme.spacing.sm,
   },
   dropdown: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 12,
   },
   disabledDropdown: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     opacity: 0.6,
   },
   dropdownText: {
-    fontSize: 14,
-    color: '#94A3B8',
+    ...Theme.typography.body,
+    color: Theme.colors.textMuted,
     flex: 1,
   },
   dropdownValueText: {
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   dropdownMenu: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 8,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
     zIndex: 100,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -1041,18 +1008,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   dropdownItemText: {
-    fontSize: 14,
-    color: '#0F172A',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
   },
   textInput: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    fontSize: 14,
-    color: '#0F172A',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
   },
   textArea: {
     minHeight: 80,
@@ -1061,7 +1028,7 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   createButton: {
     flex: 1,
@@ -1078,15 +1045,15 @@ const styles = StyleSheet.create({
     flex: 0.8,
     height: 50,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   filterCard: {
     marginTop: -30,
     borderRadius: 24,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
+    padding: Theme.spacing.md,
+    backgroundColor: Theme.colors.card,
     elevation: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
@@ -1100,35 +1067,35 @@ const styles = StyleSheet.create({
   },
   filterText: {
     flex: 1,
-    fontSize: 14,
+    ...Theme.typography.body,
     color: '#334155',
   },
   clearFilter: {
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
     alignSelf: 'flex-end',
   },
   clearFilterText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: Theme.colors.blue,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 16,
+    marginTop: Theme.spacing.lg,
+    marginBottom: Theme.spacing.md,
   },
   sectionTitle: {
     fontSize: 18,
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   filterBtn: {
     width: 36,
     height: 36,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    borderColor: Theme.colors.border,
+    backgroundColor: Theme.colors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1138,7 +1105,7 @@ const styles = StyleSheet.create({
   homeworkCard: {
     padding: 20,
     borderRadius: 28,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderWidth: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -1162,7 +1129,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: Theme.colors.blueLight,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     paddingHorizontal: 10,
     borderRadius: 20,
   },
@@ -1170,12 +1137,12 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     justifyContent: 'center',
     alignItems: 'center',
   },
   subjectText: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: Theme.colors.blue,
     textTransform: 'uppercase',
   },
@@ -1184,16 +1151,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconBtn: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   homeworkTitle: {
     fontSize: 16,
-    color: '#0F172A',
-    marginBottom: 4,
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.xs,
   },
   homeworkDesc: {
-    fontSize: 14,
-    color: '#64748B',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
     lineHeight: 20,
     marginBottom: 12,
   },
@@ -1201,7 +1168,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: Theme.colors.background,
     paddingTop: 12,
   },
   metaItem: {
@@ -1210,8 +1177,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   metaText: {
-    fontSize: 12,
-    color: '#94A3B8',
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
   },
   loaderContainer: {
     padding: 40,
@@ -1224,8 +1191,8 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     marginTop: 10,
-    color: '#94A3B8',
-    fontSize: 14,
+    color: Theme.colors.textMuted,
+    ...Theme.typography.body,
     textAlign: 'center',
   },
   emptyStateBtn: {
@@ -1238,7 +1205,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     maxHeight: '90%',
@@ -1250,21 +1217,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: Theme.colors.background,
   },
   modalTitle: {
     fontSize: 18,
-    color: '#0F172A',
+    color: Theme.colors.text,
   },
   modalClose: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   modalBody: {
     padding: 20,
   },
   fieldLabel: {
     fontSize: 13,
-    color: '#64748B',
+    color: Theme.colors.textSec,
     marginBottom: 10,
     textTransform: 'uppercase',
   },
@@ -1277,12 +1244,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
     borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
   },
   chipActive: {
     backgroundColor: Theme.colors.primary,
@@ -1290,38 +1257,38 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 13,
-    color: '#64748B',
+    color: Theme.colors.textSec,
   },
   chipTextActive: {
-    color: '#FFFFFF',
+    color: Theme.colors.card,
   },
   dateSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     padding: 12,
     gap: 10,
     marginBottom: 20,
   },
   dateValue: {
-    fontSize: 14,
-    color: '#0F172A',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
   },
   datePlaceholder: {
-    fontSize: 14,
-    color: '#94A3B8',
+    ...Theme.typography.body,
+    color: Theme.colors.textMuted,
   },
   input: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Theme.colors.border,
     borderRadius: 12,
     padding: 12,
-    fontSize: 14,
-    color: '#0F172A',
+    ...Theme.typography.body,
+    color: Theme.colors.text,
     marginBottom: 20,
   },
   submitBtn: {
@@ -1336,7 +1303,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   filterModalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Theme.colors.card,
     borderRadius: 20,
     overflow: 'hidden',
   },

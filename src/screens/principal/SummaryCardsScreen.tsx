@@ -1,3 +1,4 @@
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -7,7 +8,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  StatusBar,
   Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -23,13 +23,19 @@ import {
   BarChart2,
   PieChart,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
 } from 'lucide-react-native';
 import API from '../../services/api';
-import { colors } from '../../constants/theme';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+import { colors } from '../../theme/tokens';
+
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import { Theme, C } from '../../theme/tokens';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
+
+
+
 
 interface DashboardSummary {
   total_fees_collected: number;
@@ -42,7 +48,6 @@ const SummaryCards = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
-  const lastScrollY = useRef(0);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,18 +59,8 @@ const SummaryCards = () => {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
   }, []);
+  const handleScroll = useScrollTabBar();
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const deltaY = currentScrollY - lastScrollY.current;
-
-    if (currentScrollY > 100 && deltaY > 10) {
-      setTabBarVisible(false);
-    } else if (deltaY < -10) {
-      setTabBarVisible(true);
-    }
-    lastScrollY.current = currentScrollY;
-  };
 
   useEffect(() => {
     if (schoolCode) {
@@ -75,10 +70,10 @@ const SummaryCards = () => {
 
   const loadSchoolCode = async () => {
     try {
-      const code = await AsyncStorage.getItem('school_code') ||
-        await AsyncStorage.getItem('schoolCode') ||
-        await AsyncStorage.getItem('school_id') ||
-        await AsyncStorage.getItem('schoolId') || '';
+      const code = await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) ||
+        await storage.getString(StorageKeys.SCHOOL_CODE) || '';
       setSchoolCode(code);
     } catch (error) {
       console.error('Error loading school code:', error);
@@ -95,13 +90,13 @@ const SummaryCards = () => {
 
     try {
       setLoading(true);
-      const response = await API.get("/accountant/dashboard", {
+      const response = await API.get('/accountant/dashboard', {
         params: { school_code: schoolCode },
       });
       setSummary(response.data);
     } catch (error: any) {
-      console.error("Error fetching dashboard summary:", error);
-      const errorMsg = error?.response?.data?.message || error?.message || "Failed to load dashboard summary";
+      console.error('Error fetching dashboard summary:', error);
+      const errorMsg = error?.response?.data?.message || error?.message || 'Failed to load dashboard summary';
       Alert.alert('Error', errorMsg);
     } finally {
       setLoading(false);
@@ -134,23 +129,23 @@ const SummaryCards = () => {
   const getCardConfig = (summaryData: DashboardSummary) => {
     return [
       {
-        label: "Total Fees Collected",
+        label: 'Total Fees Collected',
         value: summaryData.total_fees_collected,
         formattedValue: formatAmount(summaryData.total_fees_collected),
-        gradient: ['#059669', '#10b981'],
+        gradient: [Theme.colors.success, Theme.colors.success],
         icon: CircleDollarSign,
         iconBg: '#05966920',
       },
       {
-        label: "Pending Fees",
+        label: 'Pending Fees',
         value: summaryData.total_pending_fees,
         formattedValue: formatAmount(summaryData.total_pending_fees),
-        gradient: ['#dc2626', '#ef4444'],
+        gradient: [Theme.colors.error, Theme.colors.error],
         icon: Clock,
         iconBg: '#dc262620',
       },
       {
-        label: "Total Expenses",
+        label: 'Total Expenses',
         value: summaryData.total_expenses,
         formattedValue: formatAmount(summaryData.total_expenses),
         gradient: ['#f59e0b', '#fbbf24'],
@@ -158,10 +153,10 @@ const SummaryCards = () => {
         iconBg: '#f59e0b20',
       },
       {
-        label: "Net Balance",
+        label: 'Net Balance',
         value: summaryData.net_balance,
         formattedValue: formatAmount(summaryData.net_balance),
-        gradient: ['#6648dc', '#3b82f6'],
+        gradient: ['#6648dc', Theme.colors.blue],
         icon: BarChart2,
         iconBg: '#6648dc20',
       },
@@ -180,10 +175,10 @@ const SummaryCards = () => {
   if (!summary) {
     return (
       <View style={styles.errorContainer}>
-        <AlertCircle size={48} color="#dc2626" />
+        <AlertCircle size={48} color={Theme.colors.error} />
         <AppText style={styles.errorTitle} weight="bold">Error Loading Summary</AppText>
         <AppText style={styles.errorText}>Unable to load dashboard data</AppText>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchSummary}>
+        <TouchableOpacity accessibilityRole="button" style={styles.retryButton} onPress={fetchSummary}>
           <AppText style={styles.retryButtonText} weight="semibold">Retry</AppText>
         </TouchableOpacity>
       </View>
@@ -194,15 +189,15 @@ const SummaryCards = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       {/* Standardized Header */}
       <View style={[styles.headerStandard, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={styles.backBtn}
           onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('PrincipalDashboard' as never)}
         >
-          <ChevronLeft size={24} color="#fff" />
+          <ChevronLeft size={24} color={Theme.colors.card} />
         </TouchableOpacity>
         <AppText style={styles.headerTitle} weight="bold">Summary Cards</AppText>
         <View style={{ width: 40 }} />
@@ -222,7 +217,7 @@ const SummaryCards = () => {
               <View style={[styles.card, { backgroundColor: card.gradient[0] }]}>
                 <View style={styles.cardContent}>
                   <View style={[styles.iconContainer, { backgroundColor: card.iconBg }]}>
-                    <card.icon size={28} color="#fff" />
+                    <card.icon size={28} color={Theme.colors.card} />
                   </View>
                   <View style={styles.infoContainer}>
                     <AppText style={styles.label} weight="semibold">{card.label}</AppText>
@@ -256,8 +251,8 @@ const SummaryCards = () => {
                     {
                       width: `${summary.total_fees_collected + summary.total_pending_fees > 0
                         ? (summary.total_fees_collected / (summary.total_fees_collected + summary.total_pending_fees)) * 100
-                        : 0}%`
-                    }
+                        : 0}%`,
+                    },
                   ]}
                 />
               </View>
@@ -277,8 +272,8 @@ const SummaryCards = () => {
                     {
                       width: `${summary.total_fees_collected > 0
                         ? (summary.total_expenses / summary.total_fees_collected) * 100
-                        : 0}%`
-                    }
+                        : 0}%`,
+                    },
                   ]}
                 />
               </View>
@@ -304,8 +299,8 @@ const SummaryCards = () => {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.refreshButton} onPress={fetchSummary}>
-          <RefreshCw size={16} color="#fff" />
+        <TouchableOpacity accessibilityRole="button" style={styles.refreshButton} onPress={fetchSummary}>
+          <RefreshCw size={16} color={Theme.colors.card} />
           <AppText style={styles.refreshButtonText} weight="semibold">Refresh Data</AppText>
         </TouchableOpacity>
 
@@ -338,7 +333,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    color: '#ffffff',
+    color: Theme.colors.card,
     textAlign: 'center',
     flex: 1,
   },
@@ -354,8 +349,8 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
-    color: '#64748b',
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
   },
   errorContainer: {
     flex: 1,
@@ -366,27 +361,27 @@ const styles = StyleSheet.create({
   },
   errorTitle: {
     fontSize: 18,
-    color: '#0f172a',
+    color: Theme.colors.text,
     marginTop: 12,
   },
   errorText: {
-    fontSize: 14,
-    color: '#64748b',
-    marginTop: 4,
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
+    marginTop: Theme.spacing.xs,
   },
   retryButton: {
     marginTop: 20,
     backgroundColor: '#6648dc',
-    paddingHorizontal: 24,
+    paddingHorizontal: Theme.spacing.lg,
     paddingVertical: 12,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    color: Theme.colors.card,
+    ...Theme.typography.body,
   },
   cardsContainer: {
-    padding: 16,
+    padding: Theme.spacing.md,
     gap: 12,
   },
   cardWrapper: {
@@ -419,63 +414,63 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    color: '#ffffff',
+    color: Theme.colors.card,
     opacity: 0.9,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   value: {
     fontSize: 24,
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   compactValue: {
-    fontSize: 12,
-    color: '#ffffff',
+    ...Theme.typography.caption,
+    color: Theme.colors.card,
     opacity: 0.8,
     marginTop: 2,
   },
   summarySection: {
-    backgroundColor: '#ffffff',
-    margin: 16,
+    backgroundColor: Theme.colors.background,
+    margin: Theme.spacing.md,
     marginTop: 0,
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
   },
   summaryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   summaryTitle: {
     fontSize: 16,
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   summaryGrid: {
     gap: 16,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   summaryItem: {
     gap: 8,
   },
   summaryLabel: {
-    fontSize: 12,
-    color: '#64748b',
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
   },
   summaryValue: {
     fontSize: 20,
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   progressBarContainer: {
     height: 6,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: Theme.colors.border,
     borderRadius: 3,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#059669',
+    backgroundColor: Theme.colors.success,
     borderRadius: 3,
   },
   progressBarExpense: {
@@ -487,33 +482,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 16,
+    paddingTop: Theme.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: Theme.colors.border,
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
   statLabel: {
-    fontSize: 11,
-    color: '#64748b',
-    marginBottom: 4,
+    ...Theme.typography.label,
+    color: Theme.colors.textSec,
+    marginBottom: Theme.spacing.xs,
   },
   statValue: {
     fontSize: 16,
-    color: '#0f172a',
+    color: Theme.colors.text,
   },
   statDivider: {
     width: 1,
     height: 30,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: Theme.colors.border,
   },
   positive: {
-    color: '#059669',
+    color: Theme.colors.success,
   },
   negative: {
-    color: '#dc2626',
+    color: Theme.colors.error,
   },
   refreshButton: {
     flexDirection: 'row',
@@ -521,22 +516,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: C.navy,
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 16,
+    marginHorizontal: Theme.spacing.md,
+    marginTop: Theme.spacing.sm,
+    marginBottom: Theme.spacing.md,
     paddingVertical: 12,
     borderRadius: 10,
   },
   refreshButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
+    color: Theme.colors.card,
+    ...Theme.typography.body,
   },
   footer: {
-    padding: 16,
+    padding: Theme.spacing.md,
     alignItems: 'center',
   },
   footerText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: '#94a3b8',
   },
 });

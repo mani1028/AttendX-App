@@ -9,6 +9,9 @@ import { setAuthToken } from '../services/api';
 import notificationService from '../services/notificationService';
 import eventEmitter from '../utils/eventEmitter';
 import { SavedAccount, getSavedAccounts, switchAccount, addCurrentSessionToSaved, removeAccount } from '../utils/multiAccount';
+import { storage } from '../storage/storage';
+import { StorageKeys } from '../storage/StorageKeys';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface AuthContextType {
@@ -24,7 +27,7 @@ interface AuthContextType {
   isTabBarVisible: boolean;
   setTabBarVisible: (visible: boolean) => void;
   tabBarTranslate?: Animated.Value;
-  
+
   // Multi-account
   savedAccounts: SavedAccount[];
   switchToAccount: (account: SavedAccount) => Promise<boolean>;
@@ -65,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshAuth = async () => {
     try {
       const role = await getStoredRole();
-      const token = await AsyncStorage.getItem('token');
+      const token = await storage.getSecure(StorageKeys.AUTH_TOKEN);
       const name = await AsyncStorage.getItem('user_name');
       const classTeacher = await AsyncStorage.getItem('is_class_teacher');
       const accounts = await getSavedAccounts();
@@ -77,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserRole(role || null);
         setUserName(name || null);
         setIsClassTeacher(classTeacher === 'true');
-        
+
         // Ensure current session is in saved accounts
         await addCurrentSessionToSaved();
         const updatedAccounts = await getSavedAccounts();
@@ -103,13 +106,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (role: string, name: string, token: string, isClassTeacher: boolean = false) => {
+    await storage.setSecure(StorageKeys.AUTH_TOKEN, token);
     setUserToken(token);
     setUserRole(role);
     setUserName(name);
     setIsClassTeacher(isClassTeacher);
     // Persist is_class_teacher to AsyncStorage
     await AsyncStorage.setItem('is_class_teacher', String(isClassTeacher));
-    
+
     // Multi-account: update saved list
     await addCurrentSessionToSaved();
     const accounts = await getSavedAccounts();
@@ -125,12 +129,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Find current account ID to remove it from saved accounts if we want full logout
       // Or we can just performLogout which clears current session
-      const token = await AsyncStorage.getItem('token');
-      const role = await AsyncStorage.getItem('role') || await AsyncStorage.getItem('userRole');
-      const schoolCode = await AsyncStorage.getItem('school_code');
+      const token = await storage.getSecure(StorageKeys.AUTH_TOKEN);
+      const role = await storage.getString(StorageKeys.USER_ROLE) || await storage.getString(StorageKeys.USER_ROLE);
+      const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE);
       const userId = await AsyncStorage.getItem('user_id');
       const studentId = await AsyncStorage.getItem('student_id');
-      const employeeId = await AsyncStorage.getItem('employee_id');
+      const employeeId = await storage.getString(StorageKeys.EMPLOYEE_ID);
 
       if (role && schoolCode) {
         const accountId = `${role}:${schoolCode}:${userId || studentId || employeeId}`;
@@ -138,12 +142,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       await performLogout();
+      await storage.removeSecure(StorageKeys.AUTH_TOKEN);
       setUserRole(null);
       setUserToken(null);
       setUserName(null);
       setIsClassTeacher(false);
       await AsyncStorage.removeItem('is_class_teacher');
-      
+
       const accounts = await getSavedAccounts();
       setSavedAccounts(accounts);
     } catch (error) {
@@ -154,6 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const switchToAccount = async (account: SavedAccount) => {
     setIsLoading(true);
     try {
+      await storage.setSecure(StorageKeys.AUTH_TOKEN, account.token);
       const success = await switchAccount(account);
       if (success) {
         await refreshAuth();
@@ -165,16 +171,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logoutAccount = async (accountId: string) => {
-    const currentToken = await AsyncStorage.getItem('token');
-    const currentRole = await AsyncStorage.getItem('role') || await AsyncStorage.getItem('userRole');
-    const currentSchoolCode = await AsyncStorage.getItem('school_code');
+    const currentToken = await storage.getSecure(StorageKeys.AUTH_TOKEN);
+    const currentRole = await storage.getString(StorageKeys.USER_ROLE) || await storage.getString(StorageKeys.USER_ROLE);
+    const currentSchoolCode = await storage.getString(StorageKeys.SCHOOL_CODE);
     const currentUserId = await AsyncStorage.getItem('user_id');
     const currentStudentId = await AsyncStorage.getItem('student_id');
-    const currentEmployeeId = await AsyncStorage.getItem('employee_id');
+    const currentEmployeeId = await storage.getString(StorageKeys.EMPLOYEE_ID);
     const currentId = `${currentRole}:${currentSchoolCode}:${currentUserId || currentStudentId || currentEmployeeId}`;
 
     await removeAccount(accountId);
-    
+
     if (accountId === currentId) {
       await logout();
     } else {
@@ -185,7 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addNewAccount = () => {
     // Just clear current session markers without removing from saved accounts
-    AsyncStorage.removeItem('token').then(() => {
+    storage.removeSecure(StorageKeys.AUTH_TOKEN).then(() => {
       setUserToken(null);
       eventEmitter.emit('auth-change');
     });
@@ -200,7 +206,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const handleLogout = () => {
       // Prevent re-entrant execution: performLogout() re-emits 'app-logout', which would
       // create an infinite loop of token clearing and event emissions.
-      if (isHandlingLogoutRef.current) return;
+      if (isHandlingLogoutRef.current) {return;}
       isHandlingLogoutRef.current = true;
 
       InteractionManager.runAfterInteractions(() => {
@@ -210,14 +216,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Do NOT call performLogout() here — it re-emits 'app-logout' and
             // would wipe ALL AsyncStorage including a freshly-stored session.
             setAuthToken(null);
-            
+
             // Mark the account as expired in saved_accounts
             try {
-              const role = await AsyncStorage.getItem('role') || await AsyncStorage.getItem('userRole');
-              const schoolCode = await AsyncStorage.getItem('school_code');
-              const userId = await AsyncStorage.getItem('user_id') || await AsyncStorage.getItem('student_id') || await AsyncStorage.getItem('employee_id');
+              const role = await storage.getString(StorageKeys.USER_ROLE) || await storage.getString(StorageKeys.USER_ROLE);
+              const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE);
+              const userId = await AsyncStorage.getItem('user_id') || await AsyncStorage.getItem('student_id') || await storage.getString(StorageKeys.EMPLOYEE_ID);
               const currentId = `${role}:${schoolCode}:${userId}`;
-              
+
               const savedAccountsRaw = await AsyncStorage.getItem('saved_accounts');
               if (savedAccountsRaw) {
                 const accounts = JSON.parse(savedAccountsRaw);
@@ -275,7 +281,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
+  if (!context) {throw new Error('useAuth must be used within an AuthProvider');}
   return context;
 };
 

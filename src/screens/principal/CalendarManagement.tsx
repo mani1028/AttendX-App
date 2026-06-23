@@ -1,4 +1,4 @@
-import { HEADER_CONSTANTS } from "../../constants/headerConstants";
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 // src/screens/principal/CalendarManagement.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -13,7 +13,6 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
-  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -21,9 +20,12 @@ import { ChevronLeft, ChevronRight, Plus, X, Edit2, Trash2, Eye } from 'lucide-r
 import API, { buildApiUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { Principal_THEME as C } from '../../constants/principalTheme';
+
 import type { RootStackParamList } from '../../navigation/types';
 import AppText from '../../components/common/AppText';
+import { Theme, C } from '../../theme/tokens';
+
+
 
 // Types
 interface Event {
@@ -231,7 +233,7 @@ export default function CalendarManagement() {
           }));
           setGoogleHolidays(holidays);
           setError('');
-          if (showAlert) Alert.alert('Success', `Found ${holidays.length} holidays for ${viewingYear}`);
+          if (showAlert) {Alert.alert('Success', `Found ${holidays.length} holidays for ${viewingYear}`);}
         }
         return;
       }
@@ -247,14 +249,14 @@ export default function CalendarManagement() {
           }));
         setGoogleHolidays(holidays);
         setError('');
-        if (showAlert) Alert.alert('Success', `Found ${holidays.length} holidays for ${viewingYear}`);
+        if (showAlert) {Alert.alert('Success', `Found ${holidays.length} holidays for ${viewingYear}`);}
       } else {
         throw new Error(`HTTP ${response.status}`);
       }
     } catch (err) {
       setError(`Failed to fetch holidays: ${err instanceof Error ? err.message : 'Unknown error'}`);
       setGoogleHolidays([]);
-      if (showAlert) Alert.alert('Error', 'Failed to fetch holidays. Please try again.');
+      if (showAlert) {Alert.alert('Error', 'Failed to fetch holidays. Please try again.');}
     } finally {
       setFetchingGoogleHolidays(false);
     }
@@ -269,7 +271,7 @@ export default function CalendarManagement() {
   };
 
   const handleAddEvent = (date: Date): void => {
-    if (!canEdit) return;
+    if (!canEdit) {return;}
     setEditingEvent(null);
     setFormData({
       title: '',
@@ -282,7 +284,7 @@ export default function CalendarManagement() {
   };
 
   const handleSaveEvent = async (): Promise<void> => {
-    if (!canEdit) return;
+    if (!canEdit) {return;}
     if (!formData.title.trim() || !formData.date) {
       Alert.alert('Error', 'Title and date are required');
       return;
@@ -314,7 +316,7 @@ export default function CalendarManagement() {
   };
 
   const handleDeleteEvent = async (eventId: string | number): Promise<void> => {
-    if (!canEdit) return;
+    if (!canEdit) {return;}
     Alert.alert('Delete Event', 'Delete this event?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -355,7 +357,7 @@ export default function CalendarManagement() {
   }
 
   const getEventsForDate = (date: Date | null): Event[] => {
-    if (!date) return [];
+    if (!date) {return [];}
     const dateStr = formatLocalDate(date);
     return events.filter((e) => e.event_date === dateStr);
   };
@@ -372,19 +374,19 @@ export default function CalendarManagement() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
-      
+
+
       {/* Standardized Header with Gradient Background */}
       <LinearGradient
-        colors={[C.primaryDark || '#172554', C.primary || '#1e3a8a']}
+        colors={[C.primaryDark || '#172554', C.primary || Theme.colors.primary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}
       >
         <View style={styles.headerTop}>
           {navigation.canGoBack() ? (
-            <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-              <ChevronLeft size={24} color="#FFFFFF" />
+            <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={() => navigation.goBack()}>
+              <ChevronLeft size={24} color={Theme.colors.card} />
             </TouchableOpacity>
           ) : (
             <View style={{ width: 40 }} />
@@ -414,11 +416,11 @@ export default function CalendarManagement() {
         {/* Action Buttons Row */}
         {canEdit ? (
           <View style={styles.actionRowContainer}>
-            <TouchableOpacity style={styles.actionRowButton} onPress={() => setShowHolidaysModal(true)}>
+            <TouchableOpacity accessibilityRole="button" style={styles.actionRowButton} onPress={() => setShowHolidaysModal(true)}>
               <AppText style={styles.actionRowButtonText} weight="bold">📅 Public Holidays</AppText>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionRowButton, styles.actionRowButtonPrimary]} onPress={() => handleAddEvent(new Date())}>
-              <Plus size={18} color="#FFFFFF" />
+            <TouchableOpacity accessibilityRole="button" style={[styles.actionRowButton, styles.actionRowButtonPrimary]} onPress={() => handleAddEvent(new Date())}>
+              <Plus size={18} color={Theme.colors.card} />
               <AppText style={[styles.actionRowButtonText, styles.actionRowButtonTextPrimary]} weight="bold">Add Event</AppText>
             </TouchableOpacity>
           </View>
@@ -432,7 +434,7 @@ export default function CalendarManagement() {
         {error ? (
           <View style={styles.errorContainer}>
             <AppText style={styles.errorText}>{error}</AppText>
-            <TouchableOpacity style={styles.retryButton} onPress={() => autoFetchHolidays(selectedCountry, false)}>
+            <TouchableOpacity accessibilityRole="button" style={styles.retryButton} onPress={() => autoFetchHolidays(selectedCountry, false)}>
               <AppText style={styles.retryButtonText} weight="bold">Retry</AppText>
             </TouchableOpacity>
           </View>
@@ -441,11 +443,11 @@ export default function CalendarManagement() {
         {/* Calendar Card */}
         <View style={styles.calendarContainer}>
           <View style={styles.calendarHeader}>
-            <TouchableOpacity style={styles.navButton} onPress={handlePrevMonth}>
+            <TouchableOpacity accessibilityRole="button" style={styles.navButton} onPress={handlePrevMonth}>
               <ChevronLeft size={20} color={COLORS.text} />
             </TouchableOpacity>
             <AppText style={styles.monthYear} weight="bold">{monthName}</AppText>
-            <TouchableOpacity style={styles.navButton} onPress={handleNextMonth}>
+            <TouchableOpacity accessibilityRole="button" style={styles.navButton} onPress={handleNextMonth}>
               <ChevronRight size={20} color={COLORS.text} />
             </TouchableOpacity>
           </View>
@@ -465,7 +467,7 @@ export default function CalendarManagement() {
               const isToday = date ? formatLocalDate(date) === todayDateStr : false;
 
               return (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   key={idx}
                   style={[
                     styles.dayCell,
@@ -481,7 +483,7 @@ export default function CalendarManagement() {
                       <AppText style={[styles.dayNumber, isToday && styles.dayNumberToday]} weight="semibold">
                         {date.getDate()}
                       </AppText>
-                      
+
                       {/* Clean dots indicator below the number */}
                       <View style={styles.dotsContainer}>
                         {dayEvents.slice(0, 3).map((evt) => (
@@ -489,7 +491,7 @@ export default function CalendarManagement() {
                             key={evt.event_id || evt.id}
                             style={[
                               styles.eventDot,
-                              { backgroundColor: evt.color_code || COLORS[evt.event_type || ''] || COLORS.primary }
+                              { backgroundColor: evt.color_code || COLORS[evt.event_type || ''] || COLORS.primary },
                             ]}
                           />
                         ))}
@@ -506,7 +508,7 @@ export default function CalendarManagement() {
         </View>
 
         {/* Holidays List Toggle */}
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={styles.holidaysListBtn}
           onPress={() => setShowHolidaysList((prev) => !prev)}
           activeOpacity={0.8}
@@ -524,7 +526,7 @@ export default function CalendarManagement() {
             ) : (
               <>
                 {events.map((event) => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={event.event_id || event.id}
                     style={styles.holidayItemCard}
                     activeOpacity={0.9}
@@ -551,7 +553,7 @@ export default function CalendarManagement() {
                       </View>
                       {canEdit && (
                         <View style={styles.holidayItemActions}>
-                          <TouchableOpacity
+                          <TouchableOpacity accessibilityRole="button"
                             onPress={() => {
                               setEditingEvent(event);
                               setFormData({
@@ -567,7 +569,7 @@ export default function CalendarManagement() {
                           >
                             <Edit2 size={16} color={COLORS.primary} />
                           </TouchableOpacity>
-                          <TouchableOpacity onPress={() => handleDeleteEvent(event.event_id || event.id || '')}>
+                          <TouchableOpacity accessibilityRole="button" onPress={() => handleDeleteEvent(event.event_id || event.id || '')}>
                             <Trash2 size={16} color={COLORS.danger} />
                           </TouchableOpacity>
                         </View>
@@ -589,7 +591,7 @@ export default function CalendarManagement() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle} weight="bold">{editingEvent ? 'Edit Event' : 'Add Event'}</AppText>
-              <TouchableOpacity onPress={() => setShowModal(false)}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setShowModal(false)}>
                 <X size={24} color={COLORS.text} />
               </TouchableOpacity>
             </View>
@@ -621,7 +623,7 @@ export default function CalendarManagement() {
                 <AppText style={styles.label} weight="semibold">Event Type</AppText>
                 <View style={styles.pickerContainer}>
                   {['holiday', 'festival', 'exam', 'event'].map((type) => (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={type}
                       style={[
                         styles.typeOption,
@@ -658,10 +660,10 @@ export default function CalendarManagement() {
             </ScrollView>
 
             <View style={styles.buttonGroup}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setShowModal(false)}>
+              <TouchableOpacity accessibilityRole="button" style={styles.cancelButton} onPress={() => setShowModal(false)}>
                 <AppText style={styles.cancelButtonText} weight="bold">Cancel</AppText>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.submitButton} onPress={handleSaveEvent} disabled={loading}>
+              <TouchableOpacity accessibilityRole="button" style={styles.submitButton} onPress={handleSaveEvent} disabled={loading}>
                 <AppText style={styles.submitButtonText} weight="bold">
                   {loading ? 'Saving...' : editingEvent ? 'Update Event' : 'Add Event'}
                 </AppText>
@@ -677,7 +679,7 @@ export default function CalendarManagement() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle} weight="bold">📌 Event Details</AppText>
-              <TouchableOpacity onPress={() => setShowPreviewModal(false)}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setShowPreviewModal(false)}>
                 <X size={24} color={COLORS.text} />
               </TouchableOpacity>
             </View>
@@ -718,7 +720,7 @@ export default function CalendarManagement() {
                 <View style={styles.previewButtonGroup}>
                   {canEdit && (
                     <>
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         style={styles.previewEditBtn}
                         onPress={() => {
                           if (previewingEvent) {
@@ -735,10 +737,10 @@ export default function CalendarManagement() {
                           }
                         }}
                       >
-                        <Edit2 size={16} color="#fff" />
+                        <Edit2 size={16} color={Theme.colors.card} />
                         <AppText style={styles.previewEditBtnText} weight="bold">Edit Event</AppText>
                       </TouchableOpacity>
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         style={styles.previewDeleteBtn}
                         onPress={() => {
                           setShowPreviewModal(false);
@@ -765,18 +767,18 @@ export default function CalendarManagement() {
               <AppText style={styles.modalTitle} weight="bold">
                 📅 Events on {selectedDayDate ? selectedDayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
               </AppText>
-              <TouchableOpacity onPress={() => setShowDayEventsModal(false)}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setShowDayEventsModal(false)}>
                 <X size={24} color={COLORS.text} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingBottom: 16 }}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingBottom: Theme.spacing.md }}>
               {selectedDayEvents.map((evt) => (
                 <View
                   key={evt.event_id || evt.id}
                   style={[
                     styles.dayEventCard,
-                    { borderLeftColor: evt.color_code || COLORS[evt.event_type || ''] || COLORS.primary }
+                    { borderLeftColor: evt.color_code || COLORS[evt.event_type || ''] || COLORS.primary },
                   ]}
                 >
                   <View style={styles.dayEventCardHeader}>
@@ -788,10 +790,10 @@ export default function CalendarManagement() {
                   {evt.description ? (
                     <AppText style={styles.dayEventDesc}>{evt.description}</AppText>
                   ) : null}
-                  
+
                   {canEdit && (
                     <View style={styles.dayEventCardActions}>
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         onPress={() => {
                           setShowDayEventsModal(false);
                           setEditingEvent(evt);
@@ -809,7 +811,7 @@ export default function CalendarManagement() {
                         <Edit2 size={16} color={COLORS.primary} />
                         <AppText style={styles.dayEventActionText} weight="bold">Edit</AppText>
                       </TouchableOpacity>
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         onPress={() => {
                           setShowDayEventsModal(false);
                           handleDeleteEvent(evt.event_id || evt.id || '');
@@ -827,18 +829,18 @@ export default function CalendarManagement() {
 
             <View style={styles.buttonGroup}>
               {canEdit && (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.submitButton, { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 6 }]}
                   onPress={() => {
                     setShowDayEventsModal(false);
-                    if (selectedDayDate) handleAddEvent(selectedDayDate);
+                    if (selectedDayDate) {handleAddEvent(selectedDayDate);}
                   }}
                 >
-                  <Plus size={18} color="#fff" />
+                  <Plus size={18} color={Theme.colors.card} />
                   <AppText style={styles.submitButtonText} weight="bold">Add Event</AppText>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.cancelButton, { flex: 1 }]}
                 onPress={() => setShowDayEventsModal(false)}
               >
@@ -855,7 +857,7 @@ export default function CalendarManagement() {
           <View style={[styles.modalContent, { maxHeight: '80%' }]}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle} weight="bold">🎉 Add School Holidays</AppText>
-              <TouchableOpacity onPress={() => setShowHolidaysModal(false)}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setShowHolidaysModal(false)}>
                 <X size={24} color={COLORS.text} />
               </TouchableOpacity>
             </View>
@@ -866,7 +868,7 @@ export default function CalendarManagement() {
                 <AppText style={styles.label} weight="semibold">Select Country</AppText>
                 <View style={styles.countryButtons}>
                   {supportedCountries.slice(0, 4).map((code) => (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={code}
                       style={[
                         styles.countryButton,
@@ -887,7 +889,7 @@ export default function CalendarManagement() {
                   ))}
                 </View>
               </View>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.fetchButton}
                 onPress={() => autoFetchHolidays(selectedCountry, true)}
                 disabled={fetchingGoogleHolidays}
@@ -909,7 +911,7 @@ export default function CalendarManagement() {
                   📌 Available Holidays ({googleHolidays.length})
                 </AppText>
                 {googleHolidays.map((holiday, index) => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={`${holiday.date}-${holiday.title}-${index}`}
                     style={[
                       styles.holidayItem,
@@ -930,10 +932,10 @@ export default function CalendarManagement() {
             ) : null}
 
             <View style={styles.buttonGroup}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setShowHolidaysModal(false)}>
+              <TouchableOpacity accessibilityRole="button" style={styles.cancelButton} onPress={() => setShowHolidaysModal(false)}>
                 <AppText style={styles.cancelButtonText} weight="bold">Cancel</AppText>
               </TouchableOpacity>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.submitButton}
                 onPress={async () => {
                   const holidaysToAdd = Object.keys(selectedHolidays).filter((key) => selectedHolidays[key]);
@@ -951,7 +953,7 @@ export default function CalendarManagement() {
                           event_date: googleHoliday.date,
                           description: 'Public Holiday',
                           event_type: 'holiday',
-                          color_code: '#dc2626',
+                          color_code: Theme.colors.error,
                         });
                       }
                     }
@@ -1004,27 +1006,27 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     backgroundColor: '#fee2e2',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 12,
-    marginHorizontal: 16,
-    marginBottom: 16,
+    marginHorizontal: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: COLORS.danger + '40',
   },
   errorText: {
     color: COLORS.danger,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
     textAlign: 'center',
   },
   retryButton: {
     backgroundColor: COLORS.danger,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 13,
   },
   headerStandard: {
@@ -1066,7 +1068,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerContent: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
   },
   headerGreeting: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
@@ -1076,25 +1078,25 @@ const styles = StyleSheet.create({
   headerSubtext: {
     color: HEADER_CONSTANTS.TEXT_COLOR,
     opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    fontSize: 14,
-    marginTop: 4,
+    ...Theme.typography.body,
+    marginTop: Theme.spacing.xs,
   },
   descriptionRow: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 4,
+    marginHorizontal: Theme.spacing.md,
+    marginTop: Theme.spacing.md,
+    marginBottom: Theme.spacing.xs,
   },
   descriptionText: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: COLORS.textSecondary,
     lineHeight: 20,
   },
   actionRowContainer: {
     flexDirection: 'row',
     gap: 12,
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     marginTop: 12,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   actionRowButton: {
     flex: 1,
@@ -1131,10 +1133,10 @@ const styles = StyleSheet.create({
   calendarContainer: {
     backgroundColor: C.card,
     borderRadius: 20,
-    padding: 16,
-    marginHorizontal: 16,
+    padding: Theme.spacing.md,
+    marginHorizontal: Theme.spacing.md,
     marginTop: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     borderWidth: 1.5,
     borderColor: C.border,
     shadowColor: '#000',
@@ -1147,7 +1149,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   navButton: {
     width: 40,
@@ -1164,14 +1166,14 @@ const styles = StyleSheet.create({
   weekdaysRow: {
     flexDirection: 'row',
     marginBottom: 10,
-    paddingBottom: 8,
+    paddingBottom: Theme.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: Theme.colors.background,
   },
   weekday: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: COLORS.textMuted,
   },
   daysGrid: {
@@ -1183,14 +1185,14 @@ const styles = StyleSheet.create({
     width: '14.28%',
     aspectRatio: 1,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.background,
     padding: 6,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   otherMonthCell: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     opacity: 0.35,
   },
   dayNumber: {
@@ -1220,10 +1222,10 @@ const styles = StyleSheet.create({
   holidaysListBtn: {
     backgroundColor: '#047857',
     paddingVertical: 14,
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     borderRadius: 14,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     shadowColor: '#064e3b',
     shadowOpacity: 0.15,
     shadowRadius: 6,
@@ -1231,15 +1233,15 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   holidaysListBtnText: {
-    color: '#fff',
-    fontSize: 15,
+    color: Theme.colors.card,
+    ...Theme.typography.bodyMd,
   },
   holidaysSidebar: {
     backgroundColor: C.card,
     borderRadius: 20,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 24,
+    padding: Theme.spacing.md,
+    marginHorizontal: Theme.spacing.md,
+    marginBottom: Theme.spacing.lg,
     borderWidth: 1.5,
     borderColor: C.border,
   },
@@ -1249,13 +1251,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   holidayItemCard: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.card,
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
     borderLeftWidth: 4,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.background,
   },
   holidayItemContent: {
     flexDirection: 'row',
@@ -1263,17 +1265,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   holidayName: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: COLORS.text,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   holidayDate: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: COLORS.textMuted,
   },
   eventTypeBadge: {
     fontSize: 10,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
     textTransform: 'capitalize',
   },
   holidayItemActions: {
@@ -1282,18 +1284,18 @@ const styles = StyleSheet.create({
   },
   readOnlyNotice: {
     backgroundColor: '#f8fbff',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: '#bfdbfe',
-    marginHorizontal: 16,
+    marginHorizontal: Theme.spacing.md,
     marginTop: 12,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   readOnlyNoticeTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: COLORS.text,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
   },
   readOnlyNoticeText: {
     color: COLORS.textSecondary,
@@ -1304,7 +1306,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fafafa',
   },
   actionButton: {
-    padding: 4,
+    padding: Theme.spacing.xs,
   },
   emptyText: {
     textAlign: 'center',
@@ -1336,26 +1338,26 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: Theme.colors.background,
   },
   modalTitle: {
     fontSize: 18,
     color: COLORS.text,
   },
   formGroup: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   label: {
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
     color: COLORS.text,
-    fontSize: 14,
+    ...Theme.typography.body,
   },
   input: {
     borderWidth: 1.5,
     borderColor: C.border,
     borderRadius: 8,
     padding: 12,
-    fontSize: 14,
+    ...Theme.typography.body,
     backgroundColor: COLORS.bg,
     color: COLORS.text,
   },
@@ -1382,10 +1384,10 @@ const styles = StyleSheet.create({
   },
   typeOptionText: {
     color: COLORS.textSecondary,
-    fontSize: 12,
+    ...Theme.typography.caption,
   },
   typeOptionTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   buttonGroup: {
     flexDirection: 'row',
@@ -1410,26 +1412,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   submitButtonText: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   previewField: {
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   previewLabel: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: COLORS.textMuted,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
     textTransform: 'uppercase',
   },
   previewValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     padding: 12,
     backgroundColor: '#eff6ff',
     borderRadius: 8,
     color: COLORS.text,
   },
   previewDescription: {
-    fontSize: 14,
+    ...Theme.typography.body,
     padding: 12,
     backgroundColor: COLORS.bg,
     borderRadius: 8,
@@ -1452,7 +1454,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   previewEditBtnText: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   previewDeleteBtn: {
     flex: 1,
@@ -1470,13 +1472,13 @@ const styles = StyleSheet.create({
   googleApiSection: {
     backgroundColor: '#f0fdf4',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     borderWidth: 1,
     borderColor: '#bbf7d0',
   },
   googleApiTitle: {
-    fontSize: 15,
+    ...Theme.typography.bodyMd,
     color: '#166534',
     marginBottom: 12,
   },
@@ -1486,14 +1488,14 @@ const styles = StyleSheet.create({
   countryButtons: {
     flexDirection: 'row',
     gap: 6,
-    marginTop: 8,
+    marginTop: Theme.spacing.sm,
     flexWrap: 'wrap',
   },
   countryButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderWidth: 1,
     borderColor: C.border,
   },
@@ -1503,10 +1505,10 @@ const styles = StyleSheet.create({
   },
   countryButtonText: {
     color: COLORS.textSecondary,
-    fontSize: 12,
+    ...Theme.typography.caption,
   },
   countryButtonTextActive: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   fetchButton: {
     backgroundColor: '#22c55e',
@@ -1515,7 +1517,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   fetchButtonText: {
-    color: '#fff',
+    color: Theme.colors.card,
   },
   holidaysList: {
     maxHeight: 250,
@@ -1524,7 +1526,7 @@ const styles = StyleSheet.create({
   holidaysListTitle: {
     fontSize: 13,
     color: COLORS.textSecondary,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   holidayItem: {
     flexDirection: 'row',
@@ -1534,8 +1536,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: '#fff',
+    marginBottom: Theme.spacing.sm,
+    backgroundColor: Theme.colors.background,
   },
   holidayItemSelected: {
     backgroundColor: '#e8f5e9',
@@ -1547,20 +1549,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   holidayItemDate: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: COLORS.textMuted,
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    backgroundColor: Theme.colors.background,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: 4,
   },
   dayEventCard: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.card,
     borderRadius: 14,
     padding: 14,
     borderLeftWidth: 4,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.background,
   },
   dayEventCardHeader: {
     flexDirection: 'row',
@@ -1569,7 +1571,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   dayEventTitle: {
-    fontSize: 14,
+    ...Theme.typography.body,
     color: COLORS.text,
     flex: 1,
   },
@@ -1582,25 +1584,25 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   dayEventDesc: {
-    fontSize: 12,
+    ...Theme.typography.caption,
     color: COLORS.textSecondary,
     lineHeight: 18,
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   dayEventCardActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: Theme.colors.background,
     paddingTop: 10,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   dayEventActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     paddingHorizontal: 10,
     borderRadius: 6,
     backgroundColor: '#eff6ff',
@@ -1609,7 +1611,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fee2e2',
   },
   dayEventActionText: {
-    fontSize: 11,
+    ...Theme.typography.label,
     color: COLORS.primary,
   },
   dayEventActionTextDelete: {

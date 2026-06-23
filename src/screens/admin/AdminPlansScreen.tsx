@@ -1,3 +1,5 @@
+import { useNavigation } from '@react-navigation/native';
+import { Theme } from '../../theme/tokens';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
@@ -9,17 +11,17 @@ import {
   Switch,
   Platform,
   Modal,
-  StatusBar
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, X, Plus, Edit2, ClipboardList, Trash2, CreditCard } from 'lucide-react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import * as adminService from '../../services/adminService';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import AppButton from '../../components/common/AppButton';
 import Loader from '../../components/common/Loader';
 import { formatErrorMessage } from '../../utils/helpers';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
 
 // Pricing Plan Interface
 interface Plan {
@@ -88,14 +90,14 @@ const PlanFormModal: React.FC<{
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    if (!formData.plan_code.trim()) newErrors.plan_code = 'Plan code is required';
-    if (!formData.title.trim()) newErrors.title = 'Title is required';
+    if (!formData.plan_code.trim()) {newErrors.plan_code = 'Plan code is required';}
+    if (!formData.title.trim()) {newErrors.title = 'Title is required';}
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = async () => {
-    if (!validate()) return;
+    if (!validate()) {return;}
     setSaving(true);
     try {
       if (mode === 'create') {
@@ -127,7 +129,7 @@ const PlanFormModal: React.FC<{
             <AppText style={styles.modalTitle}>
               {mode === 'create' ? 'Create Pricing Plan' : 'Edit Pricing Plan'}
             </AppText>
-            <TouchableOpacity onPress={onClose} style={styles.modalClose}>
+            <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.modalClose}>
               <X size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
@@ -225,7 +227,7 @@ const PlanFormModal: React.FC<{
                   value={formData.active}
                   onValueChange={(val) => setFormData(prev => ({ ...prev, active: val }))}
                   trackColor={{ false: colors.border, true: colors.accent }}
-                  thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+                  thumbColor={Platform.OS === 'android' ? Theme.colors.card : undefined}
                 />
               </View>
 
@@ -235,7 +237,7 @@ const PlanFormModal: React.FC<{
                   value={formData.highlighted}
                   onValueChange={(val) => setFormData(prev => ({ ...prev, highlighted: val }))}
                   trackColor={{ false: colors.border, true: colors.accent }}
-                  thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+                  thumbColor={Platform.OS === 'android' ? Theme.colors.card : undefined}
                 />
               </View>
             </View>
@@ -298,28 +300,18 @@ const PlansManagementModal: React.FC<{
           } catch (err) {
             Alert.alert('Error', 'Failed to delete plan');
           }
-        }
-      }
+        },
+      },
     ]);
   };
 
   return (
     <View style={styles.screenContainer}>
-      <LinearGradient 
-        colors={['#1E3A8A', '#3B82F6']}
-        start={{x: 0, y: 0}}
-        end={{x: 1, y: 1}}
-        style={{ paddingTop: 50, paddingBottom: 20, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomLeftRadius: 20, borderBottomRightRadius: 20 }}
-      >
-        <View style={{ flex: 1 }}>
-          <AppText style={{ color: '#FFF', fontSize: 22, fontWeight: '800' }}>Pricing Plans</AppText>
-          <AppText style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 4 }}>Manage plans and access configurations</AppText>
-        </View>
-      </LinearGradient>
+      <StandardPageHeader title="Pricing Plans" onBackPress={() => {}} />
 
       {/* Add Plan Btn */}
-      <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface }}>
-        <TouchableOpacity
+      <View style={{ paddingHorizontal: Theme.spacing.md, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface }}>
+        <TouchableOpacity accessibilityRole="button"
           style={{
             backgroundColor: colors.primary,
             height: 40,
@@ -340,28 +332,28 @@ const PlansManagementModal: React.FC<{
             setFormModalOpen(true);
           }}
         >
-          <Plus size={16} color="#fff" />
-          <AppText style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Add Pricing Plan</AppText>
+          <Plus size={16} color={Theme.colors.card} />
+          <AppText style={{ color: Theme.colors.card, fontWeight: '700', fontSize: 13 }}>Add Pricing Plan</AppText>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: Theme.spacing.md, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={{ marginTop: 40 }}><Loader /></View>
         ) : plans.length === 0 ? (
           <View style={{ padding: 40, alignItems: 'center' }}>
             <CreditCard size={40} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 12 }} />
-            <AppText style={{ fontSize: 14, color: colors.textMuted }}>No plans found</AppText>
+            <AppText style={{ ...Theme.typography.body, color: colors.textMuted }}>No plans found</AppText>
           </View>
         ) : (
           plans.map(plan => {
             // Pick border highlight color based on active / featured
-            const cardLeftBorderColor = plan.highlighted 
-              ? colors.warning 
-              : plan.active 
-                ? colors.success 
+            const cardLeftBorderColor = plan.highlighted
+              ? colors.warning
+              : plan.active
+                ? colors.success
                 : colors.border;
-            
+
             return (
               <View key={plan.id} style={[styles.planCard, { borderLeftColor: cardLeftBorderColor, borderLeftWidth: 4 }]}>
                 <View style={styles.planCardHeader}>
@@ -387,7 +379,7 @@ const PlansManagementModal: React.FC<{
                   </View>
 
                   <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={styles.planEditBtn}
                       onPress={() => {
                         setFormMode('edit');
@@ -397,7 +389,7 @@ const PlansManagementModal: React.FC<{
                     >
                       <Edit2 size={13} color={colors.primary} />
                     </TouchableOpacity>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={styles.planDeleteBtn}
                       onPress={() => handleDeletePlan(plan.id)}
                     >
@@ -407,7 +399,7 @@ const PlansManagementModal: React.FC<{
                 </View>
 
                 <AppText style={styles.planDesc}>{plan.description || 'No description available for this pricing plan.'}</AppText>
-                
+
                 <View style={styles.planLimits}>
                   <View style={styles.limitItem}>
                     <AppText style={styles.priceLabel}>Monthly</AppText>
@@ -441,9 +433,12 @@ const PlansManagementModal: React.FC<{
 
 
 export default function AdminPlansScreen() {
+  const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+
   return (
     <View style={[styles.screenContainer, { paddingTop: 0, paddingBottom: 0 }]}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
       <PlansManagementModal visible={true} onClose={() => {}} />
     </View>
   );
@@ -481,22 +476,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: colors.textPrimary },
-  modalClose: { padding: 4 },
+  modalTitle: { ...Theme.typography.h3, color: colors.textPrimary },
+  modalClose: { padding: Theme.spacing.xs },
   modalBody: { padding: 20 },
   modalFooter: { flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: colors.border },
-  formGroup: { marginBottom: 16 },
+  formGroup: { marginBottom: Theme.spacing.md },
   formLabel: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 6 },
-  formInput: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 14, color: colors.textPrimary },
+  formInput: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, ...Theme.typography.body, color: colors.textPrimary },
   formInputError: { borderColor: colors.error },
-  formError: { fontSize: 11, color: colors.error, marginTop: 4 },
+  formError: { ...Theme.typography.label, color: colors.error, marginTop: Theme.spacing.xs },
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  switchLabel: { fontSize: 14, color: colors.textPrimary },
+  switchLabel: { ...Theme.typography.body, color: colors.textPrimary },
   textArea: { height: 60, textAlignVertical: 'top' },
   planCard: {
     backgroundColor: colors.surface,
     borderRadius: 16,
-    padding: 16,
+    padding: Theme.spacing.md,
     marginBottom: 14,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
@@ -504,7 +499,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.background,
   },
   planCardHeader: {
     flexDirection: 'row',
@@ -521,7 +516,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 6,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
     alignSelf: 'flex-start',
     borderWidth: 1,
     borderColor: 'rgba(30, 58, 138, 0.1)',
@@ -534,14 +529,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   planEditBtn: {
-    padding: 8,
+    padding: Theme.spacing.sm,
     backgroundColor: 'rgba(30, 58, 138, 0.06)',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(30, 58, 138, 0.1)',
   },
   planDeleteBtn: {
-    padding: 8,
+    padding: Theme.spacing.sm,
     backgroundColor: colors.errorSoft,
     borderRadius: 8,
     borderWidth: 1,
@@ -559,7 +554,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: Theme.colors.background,
   },
   limitItem: {
     alignItems: 'center',
@@ -574,7 +569,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   priceValue: {
-    fontSize: 14,
+    ...Theme.typography.body,
     fontWeight: '800',
     color: colors.textPrimary,
   },

@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -12,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ArrowLeft,
+  ChevronLeft,
   Building2,
   CalendarDays,
   Mail,
@@ -26,9 +25,11 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import AppCard from '../../components/common/AppCard';
-import { Director_THEME } from '../../constants/directorTheme';
-import { colors } from '../../constants/theme';
+
+import { colors } from '../../theme/tokens';
 import type { RootStackParamList } from '../../navigation/types';
+import { Theme } from '../../theme/tokens';
+
 
 type AccountantProfile = {
   name: string;
@@ -61,15 +62,15 @@ const emptyProfile: AccountantProfile = {
 };
 
 const toText = (value: unknown): string => {
-  if (typeof value === 'string') return value.trim();
-  if (typeof value === 'number') return String(value).trim();
+  if (typeof value === 'string') {return value.trim();}
+  if (typeof value === 'number') {return String(value).trim();}
   return '';
 };
 
 const firstText = (...values: unknown[]): string => {
   for (const value of values) {
     const text = toText(value);
-    if (text) return text;
+    if (text) {return text;}
   }
   return '';
 };
@@ -164,15 +165,15 @@ export default function AccountantProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
+
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={{ position: 'absolute', top: -1000, left: 0, right: 0, height: 1000, backgroundColor: '#1e3a8a' }} />
-        
+        <View style={{ position: 'absolute', top: -1000, left: 0, right: 0, height: 1000, backgroundColor: Theme.colors.primary }} />
+
         <View style={[styles.hero, { paddingTop: insets.top + 14 }]}>
           <View style={styles.heroRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-              <ArrowLeft size={20} color="#fff" />
+            <TouchableOpacity accessibilityRole="button" style={styles.backButton} onPress={() => navigation.goBack()} accessibilityLabel="Go back">
+              <ChevronLeft size={20} color={Theme.colors.card} />
             </TouchableOpacity>
             <AppText style={styles.heroTitle} weight="bold">Accountant Profile</AppText>
             <View style={styles.backButtonSpacer} />
@@ -190,7 +191,7 @@ export default function AccountantProfileScreen() {
 
         {loading ? (
           <View style={styles.loadingBlock}>
-            <ActivityIndicator size="large" color="#1e3a8a" />
+            <ActivityIndicator size="large" color={Theme.colors.primary} />
             <AppText style={styles.loadingText}>Loading profile...</AppText>
           </View>
         ) : (
@@ -198,7 +199,7 @@ export default function AccountantProfileScreen() {
             <AppCard style={styles.summaryCard}>
               <View style={styles.summaryRow}>
                 <View style={styles.summaryPill}>
-                  <CalendarDays size={14} color="#1e3a8a" />
+                  <CalendarDays size={14} color={Theme.colors.primary} />
                   <AppText style={styles.summaryPillText} weight="semibold">Finance Team</AppText>
                 </View>
                 <View style={styles.summaryPillSoft}>
@@ -218,7 +219,7 @@ export default function AccountantProfileScreen() {
                 return (
                   <AppCard key={field.label} style={styles.fieldCard}>
                     <View style={styles.fieldIconWrap}>
-                      <IconComponent size={16} color="#1e3a8a" />
+                      <IconComponent size={16} color={Theme.colors.primary} />
                     </View>
                     <AppText style={styles.fieldLabel} weight="semibold">{field.label}</AppText>
                     <AppText style={styles.fieldValue} numberOfLines={2}>{field.value}</AppText>
@@ -245,8 +246,8 @@ export default function AccountantProfileScreen() {
               </View>
             </AppCard>
 
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.85}>
-              <LogOut size={18} color="#fff" />
+            <TouchableOpacity accessibilityRole="button" style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.85}>
+              <LogOut size={18} color={Theme.colors.card} />
               <AppText style={styles.logoutText} weight="semibold">Sign Out</AppText>
             </TouchableOpacity>
           </>
@@ -259,12 +260,12 @@ export default function AccountantProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1e3a8a',
+    backgroundColor: Theme.colors.primary,
   },
   hero: {
-    backgroundColor: '#1e3a8a',
-    paddingHorizontal: 16,
-    paddingBottom: 24,
+    backgroundColor: Theme.colors.primary,
+    paddingHorizontal: Theme.spacing.md,
+    paddingBottom: Theme.spacing.lg,
     alignItems: 'center',
     marginHorizontal: -16,
   },
@@ -288,7 +289,7 @@ const styles = StyleSheet.create({
     height: 38,
   },
   heroTitle: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 18,
   },
   avatarShell: {
@@ -306,18 +307,18 @@ const styles = StyleSheet.create({
     width: 74,
     height: 74,
     borderRadius: 37,
-    backgroundColor: '#1e3a8a',
+    backgroundColor: Theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 26,
   },
   name: {
-    color: '#fff',
+    color: Theme.colors.card,
     fontSize: 24,
-    marginBottom: 4,
+    marginBottom: Theme.spacing.xs,
     textAlign: 'center',
   },
   role: {
@@ -327,7 +328,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   content: {
-    padding: 16,
+    padding: Theme.spacing.md,
     paddingBottom: 36,
     backgroundColor: colors.background,
     borderTopLeftRadius: 30,
@@ -344,7 +345,7 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     marginTop: -8,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     borderRadius: 22,
   },
   summaryRow: {
@@ -359,7 +360,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 999,
     backgroundColor: 'rgba(30, 58, 138, 0.10)',
   },
@@ -368,35 +369,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
     borderRadius: 999,
     backgroundColor: 'rgba(22, 163, 74, 0.10)',
   },
   summaryPillText: {
-    color: '#1e3a8a',
-    fontSize: 12,
+    color: Theme.colors.primary,
+    ...Theme.typography.caption,
   },
   summaryPillTextSoft: {
     color: '#16a34a',
-    fontSize: 12,
+    ...Theme.typography.caption,
   },
   summaryText: {
     color: colors.textMuted,
-    fontSize: 14,
+    ...Theme.typography.body,
     lineHeight: 20,
   },
   sectionTitle: {
     fontSize: 18,
     color: colors.textPrimary,
     marginBottom: 12,
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   fieldGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   fieldCard: {
     width: '48%',
@@ -415,7 +416,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     color: colors.textPrimary,
-    fontSize: 12,
+    ...Theme.typography.caption,
     marginBottom: 6,
   },
   fieldValue: {
@@ -425,7 +426,7 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     borderRadius: 18,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   infoRow: {
     flexDirection: 'row',
@@ -449,14 +450,14 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   logoutButton: {
-    backgroundColor: '#dc2626',
+    backgroundColor: Theme.colors.error,
     borderRadius: 16,
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 24,
+    marginBottom: Theme.spacing.lg,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -470,7 +471,7 @@ const styles = StyleSheet.create({
     }),
   },
   logoutText: {
-    color: '#fff',
-    fontSize: 15,
+    color: Theme.colors.card,
+    ...Theme.typography.bodyMd,
   },
 });
