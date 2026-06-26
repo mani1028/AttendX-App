@@ -222,7 +222,7 @@ export default function PrincipalTeacherAssignmentsScreen() {
       subjectItems.forEach((item: any) => {
         subjectMap[item.subject_name] = item.employee_id ? String(item.employee_id) : '';
       });
-      setSubjects(subjectItems.map((item: any) => item.subject_name));
+      setSubjects(subjectItems.map((item: any) => item.subject_name).filter(Boolean));
       setSubjectTeacherMap(subjectMap);
       setClassTeacherId(data.class_staff?.employee_id ? String(data.class_staff.employee_id) : '');
       setCurrentClassTeacher(data.class_staff || null);
@@ -605,8 +605,8 @@ export default function PrincipalTeacherAssignmentsScreen() {
                           </AppText>
                         ) : (
                           <>
-                            {subjects.map(subject => (
-                              <View key={subject} style={styles.subjectRow}>
+                            {subjects.map((subject, idx) => (
+                              <View key={subject || `subject-${idx}`} style={styles.subjectRow}>
                                 <AppText style={styles.subjectName} weight="bold">{subject}</AppText>
                                 <TouchableOpacity accessibilityRole="button"
                                   style={styles.picker}
@@ -691,9 +691,9 @@ export default function PrincipalTeacherAssignmentsScreen() {
                     <AppText style={{ color: C.text3 }}>No global subjects yet.</AppText>
                   </View>
                 ) : (
-                  globalSubjects.map(s => (
+                  globalSubjects.map((s, idx) => (
                     <TouchableOpacity accessibilityRole="button"
-                      key={s.pool_id}
+                      key={s.pool_id || s.subject_name || `pool-${idx}`}
                       style={{
                         flexDirection: 'row',
                         alignItems: 'center',

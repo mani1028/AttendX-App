@@ -4,6 +4,7 @@ import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -29,6 +30,7 @@ import AppText from '../../components/common/AppText';
 import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { safeNavigate } from '../../utils/navigationHelpers';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const QUICK_ACTION_COLUMNS = 4;
@@ -373,7 +375,7 @@ export default function PrincipalDashboardScreen() {
   };
 
   const goToAttendanceView = (view: string) => {
-    navigation.navigate('PrincipalAttendance' as any);
+    safeNavigate(navigation, 'PrincipalAttendance');
   };
 
   const goToClassAttendance = (classData: ClassData) => {
@@ -381,7 +383,7 @@ export default function PrincipalDashboardScreen() {
     const section = String(classData?.section || '').trim();
     if (!classGrade || !section) {return;}
 
-    navigation.navigate('PrincipalAttendance' as any);
+    safeNavigate(navigation, 'PrincipalAttendance');
   };
 
   const getGreeting = () => {
@@ -424,15 +426,20 @@ export default function PrincipalDashboardScreen() {
               paddingHorizontal: 18,
               borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
               borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
+              overflow: 'hidden',
             },
           ]}
         >
+          {/* Decorative circles */}
+          <View style={styles.decCircle1} />
+          <View style={styles.decCircle2} />
+
           {/* Row 1: Avatar + Greeting + Actions */}
           <View style={styles.heroTopRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => navigation.navigate('Profile' as any)}
+                onPress={() => safeNavigate(navigation, 'Profile')}
                 style={styles.profileAvatar}
               >
                 <AppText style={styles.profileAvatarText} weight="bold">
@@ -440,8 +447,8 @@ export default function PrincipalDashboardScreen() {
                 </AppText>
               </TouchableOpacity>
               <View>
-                <AppText style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase' }}>
-                  GOOD {getGreeting().toUpperCase()}
+                <AppText style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '600', letterSpacing: 0.8 }}>
+                  Good {getGreeting().toLowerCase()}
                 </AppText>
                 <AppText style={{ fontSize: 16, color: Theme.colors.card, fontWeight: '700' }} numberOfLines={1}>
                   {((userName || 'Principal').split(' ')[0]).replace(/^\w/, c => c.toUpperCase())} 👋
@@ -450,16 +457,14 @@ export default function PrincipalDashboardScreen() {
             </View>
             <View style={styles.heroActions}>
               <TouchableOpacity
-                style={styles.refreshIconBtn}
-                onPress={() => navigation.navigate('Notifications' as any)}
+                style={styles.iconBtn}
+                onPress={() => safeNavigate(navigation, 'Notifications')}
                 accessibilityLabel="Notifications"
               >
                 <Bell size={18} color={Theme.colors.card} />
                 {unreadCount > 0 && (
                   <View style={styles.badge}>
-                    <AppText style={styles.badgeText} weight="bold">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </AppText>
+                    <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -496,7 +501,7 @@ export default function PrincipalDashboardScreen() {
       {/* Stat Cards */}
       <View style={styles.grid4}>
         <StatCard
-          label="Total Teachers"
+          label="Total teachers"
           value={(cards.total_teachers ?? 0).toLocaleString()}
           subtext={`${teacherAtt.present ?? 0} present today`}
           icon={Users}
@@ -510,7 +515,7 @@ export default function PrincipalDashboardScreen() {
         />
 
         <StatCard
-          label="Total Students"
+          label="Total students"
           value={(cards.total_students ?? 0).toLocaleString()}
           subtext={`${studentAtt.present ?? 0} present today`}
           icon={User}
@@ -524,7 +529,7 @@ export default function PrincipalDashboardScreen() {
         />
 
         <StatCard
-          label="Active Classes"
+          label="Active classes"
           value={(cards.total_classes ?? 0).toLocaleString()}
           subtext={`${classes.length} sections tracked`}
           icon={Grid}
@@ -538,7 +543,7 @@ export default function PrincipalDashboardScreen() {
         />
 
         <StatCard
-          label="Today's Attendance"
+          label="Today's attendance"
           value={`${cards.today_attendance_pct ?? 0}%`}
           subtext="combined percentage"
           icon={TrendingUp}
@@ -567,7 +572,7 @@ export default function PrincipalDashboardScreen() {
               <TouchableOpacity
                 key={action.label}
                 style={styles.quickActionItem}
-                onPress={() => navigation.navigate(action.route as any)}
+                onPress={() => safeNavigate(navigation, action.route as any)}
                 activeOpacity={0.75}
               >
                 <View style={[styles.quickActionIcon, { backgroundColor: action.bg }]}>
@@ -763,25 +768,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 18,
   },
-  badge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: Theme.colors.error,
-    borderWidth: 1.5,
-    borderColor: C.navy,
-    justifyContent: 'center',
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    paddingHorizontal: 2,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
-  badgeText: {
-    color: Theme.colors.card,
-    fontSize: 8,
-    textAlign: 'center',
-  },
+  badge: { position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 14 },
   scrollView: {
     flex: 1,
   },
@@ -822,8 +818,7 @@ const styles = StyleSheet.create({
   heroGreetingLabel: {
     ...Theme.typography.caption,
     color: 'rgba(255,255,255,0.72)',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   heroGreetingName: {
     fontSize: 28,
@@ -936,13 +931,11 @@ const styles = StyleSheet.create({
   trendText: {
     fontSize: 9,
     fontWeight: 'bold',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   cardLabel: {
     ...Theme.typography.label,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    letterSpacing: 0.3,
     color: C.muted,
     marginBottom: 6,
   },
@@ -1085,8 +1078,7 @@ const styles = StyleSheet.create({
   },
   ringLabel: {
     ...Theme.typography.label,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     color: C.muted,
     marginBottom: Theme.spacing.xs,
   },
@@ -1136,7 +1128,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: C.muted,
     marginTop: 2,
-    textTransform: 'uppercase',
   },
   classGrid: {
     flexDirection: 'row',
@@ -1257,5 +1248,23 @@ const styles = StyleSheet.create({
     borderColor: C.border,
     padding: 12,
     width: SCREEN_WIDTH > 400 ? '47%' : '100%',
+  },
+  decCircle1: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    top: -50,
+    right: -40,
+  },
+  decCircle2: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    bottom: -20,
+    left: 60,
   },
 });

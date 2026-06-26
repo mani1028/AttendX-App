@@ -5,12 +5,12 @@ import { Theme } from '../theme/tokens';
 // Standardized header values for consistent sizing across all pages
 export const HEADER_CONSTANTS = {
   // Padding values for standard headers
-  PADDING_TOP_WITH_INSETS: (insets: any) => insets.top + 32,
-  PADDING_BOTTOM: 30, // Standard padding for all headers
+  PADDING_TOP_WITH_INSETS: (insets: any) => insets.top + 12,
+  PADDING_BOTTOM: 32, // Standard padding for all headers
   PADDING_HORIZONTAL: 16,
 
   // Border radius
-  BORDER_RADIUS: 30,
+  BORDER_RADIUS: 24,
 
   // Icon/button sizes
   ICON_BUTTON_SIZE: 40,

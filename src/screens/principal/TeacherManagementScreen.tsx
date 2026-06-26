@@ -789,7 +789,7 @@ export default function TeacherPage() {
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Take Photo', onPress: () => {
-          launchCamera({ mediaType: 'photo', quality: 0.9 }, (response) => {
+          launchCamera({ mediaType: 'photo', quality: 0.7, maxWidth: 800, maxHeight: 800 }, (response) => {
             const asset = response.assets?.[0];
             if (asset?.uri) {
               setFormData(prev => ({ ...prev, teacher_photograph: asset }));
@@ -797,7 +797,7 @@ export default function TeacherPage() {
           });
         } },
         { text: 'Choose from Gallery', onPress: () => {
-          launchImageLibrary({ mediaType: 'photo', quality: 0.9 }, (response) => {
+          launchImageLibrary({ mediaType: 'photo', quality: 0.7, maxWidth: 800, maxHeight: 800 }, (response) => {
             const asset = response.assets?.[0];
             if (asset?.uri) {
               setFormData(prev => ({ ...prev, teacher_photograph: asset }));

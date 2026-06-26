@@ -4,6 +4,7 @@ import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -189,7 +190,13 @@ const SchoolCard: React.FC<{
   onSubscription: (school: School) => void;
   onResendCredentials: (school: School) => void;
   onSendReminder: (school: School) => void;
-}> = ({ school, onEdit, onSubscription, onResendCredentials, onSendReminder }) => {
+  isAgent?: boolean;
+  agentPermissions?: {
+    can_register_school: boolean;
+    can_view_payments: boolean;
+    can_edit_features: boolean;
+  };
+}> = ({ school, onEdit, onSubscription, onResendCredentials, onSendReminder, isAgent = false, agentPermissions }) => {
   const daysLeft = getDaysLeft(school.trial_end_at || school.subscription_end_at || null);
   const daysLeftColor = getDaysLeftColor(daysLeft);
   const isExpiringSoon = daysLeft !== null && daysLeft <= 3 && daysLeft > 0;
@@ -228,7 +235,7 @@ const SchoolCard: React.FC<{
             </AppText>
           </View>
         )}
-        {!!school.last_payment_amount && (
+        {!!school.last_payment_amount && (!isAgent || agentPermissions?.can_view_payments) && (
           <View style={styles.detailRow}>
             <AppText style={styles.detailLabel}>Last Payment:</AppText>
             <AppText style={styles.detailValue}>₹{school.last_payment_amount}</AppText>
@@ -244,18 +251,24 @@ const SchoolCard: React.FC<{
       )}
 
       <View style={styles.cardActions}>
-        <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => onEdit(school)}>
-          <Edit2 size={12} color={colors.textMuted} />
-          <AppText style={styles.actionBtnText}>Edit</AppText>
-        </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => onSubscription(school)}>
-          <CreditCard size={12} color={colors.textMuted} />
-          <AppText style={styles.actionBtnText}>Payments</AppText>
-        </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => onResendCredentials(school)}>
-          <Mail size={12} color={colors.textMuted} />
-          <AppText style={styles.actionBtnText}>Resend</AppText>
-        </TouchableOpacity>
+        {(!isAgent || agentPermissions?.can_edit_features) && (
+          <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => onEdit(school)}>
+            <Edit2 size={12} color={colors.textMuted} />
+            <AppText style={styles.actionBtnText}>Edit</AppText>
+          </TouchableOpacity>
+        )}
+        {(!isAgent || agentPermissions?.can_view_payments) && (
+          <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => onSubscription(school)}>
+            <CreditCard size={12} color={colors.textMuted} />
+            <AppText style={styles.actionBtnText}>Payments</AppText>
+          </TouchableOpacity>
+        )}
+        {!isAgent && (
+          <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => onResendCredentials(school)}>
+            <Mail size={12} color={colors.textMuted} />
+            <AppText style={styles.actionBtnText}>Resend</AppText>
+          </TouchableOpacity>
+        )}
       </View>
     </AppCard>
   );
@@ -321,7 +334,13 @@ const SchoolFormModal: React.FC<{
   initialData?: School | null;
   onClose: () => void;
   onSuccess: () => void;
-}> = ({ visible, mode, initialData, onClose, onSuccess }) => {
+  isAgent?: boolean;
+  agentPermissions?: {
+    can_register_school: boolean;
+    can_view_payments: boolean;
+    can_edit_features: boolean;
+  };
+}> = ({ visible, mode, initialData, onClose, onSuccess, isAgent = false, agentPermissions }) => {
   const [activeTab, setActiveTab] = useState<'general' | 'features' | 'limits'>('general');
   const [loadingSub, setLoadingSub] = useState(false);
   const [formData, setFormData] = useState({
@@ -557,22 +576,26 @@ const SchoolFormModal: React.FC<{
                   General
                 </AppText>
               </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="button"
-                style={[styles.modalTabBtn, activeTab === 'features' && styles.modalTabBtnActive]}
-                onPress={() => setActiveTab('features')}
-              >
-                <AppText style={[styles.modalTabText, activeTab === 'features' && styles.modalTabTextActive]}>
-                  Features
-                </AppText>
-              </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="button"
-                style={[styles.modalTabBtn, activeTab === 'limits' && styles.modalTabBtnActive]}
-                onPress={() => setActiveTab('limits')}
-              >
-                <AppText style={[styles.modalTabText, activeTab === 'limits' && styles.modalTabTextActive]}>
-                  Data & Limits
-                </AppText>
-              </TouchableOpacity>
+              {(!isAgent || agentPermissions?.can_edit_features) && (
+                <TouchableOpacity accessibilityRole="button"
+                  style={[styles.modalTabBtn, activeTab === 'features' && styles.modalTabBtnActive]}
+                  onPress={() => setActiveTab('features')}
+                >
+                  <AppText style={[styles.modalTabText, activeTab === 'features' && styles.modalTabTextActive]}>
+                    Features
+                  </AppText>
+                </TouchableOpacity>
+              )}
+              {(!isAgent || agentPermissions?.can_edit_features) && (
+                <TouchableOpacity accessibilityRole="button"
+                  style={[styles.modalTabBtn, activeTab === 'limits' && styles.modalTabBtnActive]}
+                  onPress={() => setActiveTab('limits')}
+                >
+                  <AppText style={[styles.modalTabText, activeTab === 'limits' && styles.modalTabTextActive]}>
+                    Data & Limits
+                  </AppText>
+                </TouchableOpacity>
+              )}
           </View>
 
           <ScrollView style={styles.modalBody}>
@@ -659,46 +682,50 @@ const SchoolFormModal: React.FC<{
                       />
                     </View>
 
-                    <View style={styles.formGroup}>
-                      <AppText style={styles.formLabel}>Subscription State</AppText>
-                      <InlineSelector
-                        options={subStatusOptions}
-                        selectedValue={formData.subscription_status}
-                        onSelect={(val) => setFormData(prev => ({ ...prev, subscription_status: val }))}
-                      />
-                    </View>
+                    {(!isAgent || agentPermissions?.can_view_payments) && (
+                      <>
+                        <View style={styles.formGroup}>
+                          <AppText style={styles.formLabel}>Subscription State</AppText>
+                          <InlineSelector
+                            options={subStatusOptions}
+                            selectedValue={formData.subscription_status}
+                            onSelect={(val) => setFormData(prev => ({ ...prev, subscription_status: val }))}
+                          />
+                        </View>
 
-                    <View style={{ flexDirection: 'row', gap: 12 }}>
-                      <View style={[styles.formGroup, { flex: 1 }]}>
-                        <AppText style={styles.formLabel}>Extend Plan (Days)</AppText>
-                        <TextInput
-                          style={styles.formInput}
-                          keyboardType="numeric"
-                          placeholder="e.g. 15"
-                          value={formData.extend_plan_days}
-                          onChangeText={(text) => setFormData(prev => ({ ...prev, extend_plan_days: text }))}
-                        />
-                      </View>
-                      <View style={[styles.formGroup, { flex: 2 }]}>
-                        <AppText style={styles.formLabel}>Reason for Extension</AppText>
-                        <TextInput
-                          style={styles.formInput}
-                          placeholder="e.g. Setup delay"
-                          value={formData.extend_reason}
-                          onChangeText={(text) => setFormData(prev => ({ ...prev, extend_reason: text }))}
-                        />
-                      </View>
-                    </View>
+                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                          <View style={[styles.formGroup, { flex: 1 }]}>
+                            <AppText style={styles.formLabel}>Extend Plan (Days)</AppText>
+                            <TextInput
+                              style={styles.formInput}
+                              keyboardType="numeric"
+                              placeholder="e.g. 15"
+                              value={formData.extend_plan_days}
+                              onChangeText={(text) => setFormData(prev => ({ ...prev, extend_plan_days: text }))}
+                            />
+                          </View>
+                          <View style={[styles.formGroup, { flex: 2 }]}>
+                            <AppText style={styles.formLabel}>Reason for Extension</AppText>
+                            <TextInput
+                              style={styles.formInput}
+                              placeholder="e.g. Setup delay"
+                              value={formData.extend_reason}
+                              onChangeText={(text) => setFormData(prev => ({ ...prev, extend_reason: text }))}
+                            />
+                          </View>
+                        </View>
 
-                    <View style={styles.formGroup}>
-                      <AppText style={styles.formLabel}>Extended By (Name)</AppText>
-                      <TextInput
-                        style={styles.formInput}
-                        placeholder="Enter your name"
-                        value={formData.extended_by_name}
-                        onChangeText={(text) => setFormData(prev => ({ ...prev, extended_by_name: text }))}
-                      />
-                    </View>
+                        <View style={styles.formGroup}>
+                          <AppText style={styles.formLabel}>Extended By (Name)</AppText>
+                          <TextInput
+                            style={styles.formInput}
+                            placeholder="Enter your name"
+                            value={formData.extended_by_name}
+                            onChangeText={(text) => setFormData(prev => ({ ...prev, extended_by_name: text }))}
+                          />
+                        </View>
+                      </>
+                    )}
                   </View>
                 )}
 
@@ -1190,6 +1217,31 @@ export default function AdminDashboardScreen() {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const { unreadCount } = useUnreadNotifications();
+  const [agentPermissions, setAgentPermissions] = useState<{
+    can_register_school: boolean;
+    can_view_payments: boolean;
+    can_edit_features: boolean;
+  }>({
+    can_register_school: true,
+    can_view_payments: true,
+    can_edit_features: true,
+  });
+
+  const fetchAgentPermissions = async () => {
+    if (!isAgent) {return;}
+    try {
+      const res = await adminService.getAgentMe();
+      if (res?.ok && res?.agent) {
+        setAgentPermissions({
+          can_register_school: res.agent.can_register_school ?? false,
+          can_view_payments: res.agent.can_view_payments ?? false,
+          can_edit_features: res.agent.can_edit_features ?? false,
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to fetch agent permissions', e);
+    }
+  };
 
   // Modal states
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -1268,6 +1320,9 @@ export default function AdminDashboardScreen() {
     setTabBarVisible(true);
     fetchSchools();
     fetchStats();
+    if (isAgent) {
+      fetchAgentPermissions();
+    }
     return () => setTabBarVisible(true);
   }, []);
 
@@ -1280,9 +1335,13 @@ export default function AdminDashboardScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchSchools(true), fetchStats()]);
+    const promises: Promise<any>[] = [fetchSchools(true), fetchStats()];
+    if (isAgent) {
+      promises.push(fetchAgentPermissions());
+    }
+    await Promise.all(promises);
     setRefreshing(false);
-  }, []);
+  }, [isAgent]);
 
   const handleScroll = useScrollTabBar();
 
@@ -1381,8 +1440,11 @@ export default function AdminDashboardScreen() {
           colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 20 }]}
+          style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 20, overflow: 'hidden' }]}
         >
+          {/* Decorative circles */}
+          <View style={styles.decCircle1} />
+          <View style={styles.decCircle2} />
           <TouchableOpacity accessibilityRole="button"
             activeOpacity={0.8}
             onPress={() => (navigation as any).navigate('Profile')}
@@ -1399,11 +1461,11 @@ export default function AdminDashboardScreen() {
             <AppText style={styles.headerTitle} weight="bold">{isAgent ? 'Agent Portal' : 'Admin Portal'}</AppText>
           </View>
           <View style={styles.headerIcons}>
-            <TouchableOpacity accessibilityRole="button" style={styles.refreshIconBtn} onPress={() => (navigation as any).navigate('Notifications')}>
+            <TouchableOpacity accessibilityRole="button" style={styles.iconBtn} onPress={() => (navigation as any).navigate('Notifications')}>
               <Bell size={20} color={Theme.colors.card} />
               {unreadCount > 0 && (
                 <View style={styles.badge}>
-                  <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+                  <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -1448,69 +1510,77 @@ export default function AdminDashboardScreen() {
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
           <StatCard title="Schools" value={stats?.total_schools || 0} icon={Home} color={colors.primary} loading={!stats} />
-          <StatCard title="Paid" value={stats?.active_paid || 0} icon={CheckCircle} color={colors.success} loading={!stats} />
+          {(!isAgent || agentPermissions?.can_view_payments) && (
+            <StatCard title="Paid" value={stats?.active_paid || 0} icon={CheckCircle} color={colors.success} loading={!stats} />
+          )}
           <StatCard title="Trial" value={stats?.trial_active || 0} icon={Clock} color={colors.secondary} loading={!stats} />
-          <StatCard title="Due" value={stats?.payment_due || 0} icon={AlertCircle} color={colors.warning} loading={!stats} />
+          {(!isAgent || agentPermissions?.can_view_payments) && (
+            <StatCard title="Due" value={stats?.payment_due || 0} icon={AlertCircle} color={colors.warning} loading={!stats} />
+          )}
         </View>
 
         {/* Quick Actions */}
-        <AppText style={styles.sectionTitle}>Quick Actions</AppText>
-        <View style={styles.quickActionsGrid}>
-          <TouchableOpacity
-            style={styles.quickActionCard}
-            onPress={() => (navigation as any).navigate('AutoPayTracker')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.primary + '15' }]}>
-              <CreditCard size={20} color={colors.primary} />
-            </View>
-            <AppText style={styles.quickActionLabel}>Auto Pay</AppText>
-          </TouchableOpacity>
+        {!isAgent && (
+          <>
+            <AppText style={styles.sectionTitle}>Quick Actions</AppText>
+            <View style={styles.quickActionsGrid}>
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => (navigation as any).navigate('AutoPayTracker')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: colors.primary + '15' }]}>
+                  <CreditCard size={20} color={colors.primary} />
+                </View>
+                <AppText style={styles.quickActionLabel}>Auto Pay</AppText>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.quickActionCard}
-            onPress={() => (navigation as any).navigate('ManualAttendanceManager')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.success + '15' }]}>
-              <Users size={20} color={colors.success} />
-            </View>
-            <AppText style={styles.quickActionLabel}>Manual Attn</AppText>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => (navigation as any).navigate('ManualAttendanceManager')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: colors.success + '15' }]}>
+                  <Users size={20} color={colors.success} />
+                </View>
+                <AppText style={styles.quickActionLabel}>Manual Attn</AppText>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.quickActionCard}
-            onPress={() => (navigation as any).navigate('PricingManager')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.secondary + '15' }]}>
-              <DollarSign size={20} color={colors.secondary} />
-            </View>
-            <AppText style={styles.quickActionLabel}>Pricing</AppText>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => (navigation as any).navigate('PricingManager')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: colors.secondary + '15' }]}>
+                  <DollarSign size={20} color={colors.secondary} />
+                </View>
+                <AppText style={styles.quickActionLabel}>Pricing</AppText>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.quickActionCard}
-            onPress={() => (navigation as any).navigate('PaymentHistory')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.warning + '15' }]}>
-              <FileText size={20} color={colors.warning} />
-            </View>
-            <AppText style={styles.quickActionLabel}>Payments</AppText>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => (navigation as any).navigate('PaymentHistory')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: colors.warning + '15' }]}>
+                  <FileText size={20} color={colors.warning} />
+                </View>
+                <AppText style={styles.quickActionLabel}>Payments</AppText>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.quickActionCard}
-            onPress={() => (navigation as any).navigate('SchoolDetails')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: '#8b5cf6' + '15' }]}>
-              <Home size={20} color="#8b5cf6" />
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => (navigation as any).navigate('SchoolDetails')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: '#8b5cf6' + '15' }]}>
+                  <Home size={20} color="#8b5cf6" />
+                </View>
+                <AppText style={styles.quickActionLabel}>School Info</AppText>
+              </TouchableOpacity>
             </View>
-            <AppText style={styles.quickActionLabel}>School Info</AppText>
-          </TouchableOpacity>
-        </View>
+          </>
+        )}
 
         {/* Filter Bar */}
         <View style={styles.filterBar}>
@@ -1553,7 +1623,9 @@ export default function AdminDashboardScreen() {
         </View>
 
         {/* Create School Button */}
-        <AppButton title="Register New School" leftIcon={<Plus size={16} color={Theme.colors.card} />} onPress={() => setCreateModalOpen(true)} />
+        {(!isAgent || agentPermissions.can_register_school) && (
+          <AppButton title="Register New School" leftIcon={<Plus size={16} color={Theme.colors.card} />} onPress={() => setCreateModalOpen(true)} />
+        )}
 
         {/* School List */}
         {loading && !refreshing ? (
@@ -1574,7 +1646,8 @@ export default function AdminDashboardScreen() {
                 onSubscription={setSubscriptionSchool}
                 onResendCredentials={handleResendCredentials}
                 onSendReminder={handleSendReminder}
-
+                isAgent={isAgent}
+                agentPermissions={agentPermissions}
               />
             ))}
 
@@ -1613,6 +1686,8 @@ export default function AdminDashboardScreen() {
           fetchSchools();
           fetchStats();
         }}
+        isAgent={isAgent}
+        agentPermissions={agentPermissions}
       />
       <SchoolFormModal
         visible={!!editTarget}
@@ -1623,6 +1698,8 @@ export default function AdminDashboardScreen() {
           fetchSchools();
           fetchStats();
         }}
+        isAgent={isAgent}
+        agentPermissions={agentPermissions}
       />
       <SubscriptionModal
         visible={!!subscriptionSchool}
@@ -1652,6 +1729,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    overflow: 'hidden',
   },
   headerTitleContainer: {
     flex: 1,
@@ -1674,26 +1752,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 18,
   },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.error,
-    borderWidth: 1.5,
-    borderColor: '#1e3a8a',
-    justifyContent: 'center',
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    paddingHorizontal: 2,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
-  badgeText: {
-    color: Theme.colors.card,
-    fontSize: 8,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
+  badge: { position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 14 },
   welcomeSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2400,5 +2468,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: Theme.spacing.sm,
     paddingVertical: Theme.spacing.xs,
+  },
+  decCircle1: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    top: -50,
+    right: -40,
+  },
+  decCircle2: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    bottom: -20,
+    left: 60,
   },
 });

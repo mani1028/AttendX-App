@@ -27,6 +27,10 @@ const SESSION_KEYS = [
   'director_employee_id',
   'is_class_teacher',
   'branch_name',
+  'principal_email',
+  'principal_mobile',
+  'principal_address',
+  'principal_employee_id',
   'user',
 ];
 
@@ -143,6 +147,11 @@ export const setSessionData = async (data: any) => {
       if (data.user.principal_address) {
         storageOps.push(['principal_address', data.user.principal_address]);
         storageOps.push(['address', data.user.principal_address]);
+      }
+
+      if (data.user.principal_mobile) {
+        storageOps.push(['principal_mobile', data.user.principal_mobile]);
+        storageOps.push(['phone', data.user.principal_mobile]);
       }
 
       const name = data.user.name ?? data.user.full_name ?? data.user.userName ?? data.user.user_name;

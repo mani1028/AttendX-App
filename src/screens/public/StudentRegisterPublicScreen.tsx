@@ -469,7 +469,7 @@ export default function StudentRegisterPublicScreen() {
   };
 
   const openCamera = () => {
-    launchCamera({ mediaType: 'photo', quality: 0.9 }, (response) => {
+    launchCamera({ mediaType: 'photo', quality: 0.7, maxWidth: 800, maxHeight: 800 }, (response) => {
       if (response.assets && response.assets[0]) {
         const asset = response.assets[0];
         setPhotoFile(asset);
@@ -479,7 +479,7 @@ export default function StudentRegisterPublicScreen() {
   };
 
   const openGallery = () => {
-    launchImageLibrary({ mediaType: 'photo', quality: 0.9 }, (response) => {
+    launchImageLibrary({ mediaType: 'photo', quality: 0.7, maxWidth: 800, maxHeight: 800 }, (response) => {
       if (response.assets && response.assets[0]) {
         const asset = response.assets[0];
         setPhotoFile(asset);

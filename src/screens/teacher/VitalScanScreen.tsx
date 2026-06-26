@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Camera, useCameraDevice } from 'react-native-vision-camera';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -29,6 +30,21 @@ import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { Theme } from '../../theme/tokens';
+
+const isCameraAvailable = typeof Camera !== 'undefined' && Camera !== null;
+
+const CameraDeviceResolver = React.memo(({ onDevice }: { onDevice: (d: any) => void }) => {
+  const device = useCameraDevice('back');
+  React.useEffect(() => { onDevice(device); }, [device]);
+  return null;
+});
+
+const SafeCameraDeviceResolver = React.memo(({ onDevice }: { onDevice: (d: any) => void }) => (
+  <ErrorBoundary fallback={null}>
+    <CameraDeviceResolver onDevice={onDevice} />
+  </ErrorBoundary>
+));
+SafeCameraDeviceResolver.displayName = 'SafeCameraDeviceResolver';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
@@ -88,7 +104,8 @@ export default function VitalScanScreen() {
   const { setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
   const cameraRef = useRef<Camera>(null);
-  const device = useCameraDevice('back');
+  const [resolvedDevice, setResolvedDevice] = useState<any>(undefined);
+  const device = isCameraAvailable ? resolvedDevice : undefined;
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [cameraActive, setCameraActive] = useState<boolean>(false);
 
@@ -188,9 +205,15 @@ export default function VitalScanScreen() {
 
   // Request camera permission
   useEffect(() => {
-    Camera.requestCameraPermission().then(permission => {
-      setHasPermission(permission === 'granted');
-    });
+    if (isCameraAvailable) {
+      try {
+        Camera.requestCameraPermission().then(permission => {
+          setHasPermission(permission === 'granted');
+        });
+      } catch (e) {
+        console.warn('Camera permission request failed (native module not linked):', e);
+      }
+    }
   }, []);
 
   const startNewStudent = async () => {
@@ -376,6 +399,8 @@ export default function VitalScanScreen() {
   return (
     <View style={styles.container}>
 
+      {/* Resolve camera device via a separate component to avoid null native module crash */}
+      {isCameraAvailable && <SafeCameraDeviceResolver onDevice={setResolvedDevice} />}
 
       {/* Toast */}
       <Toast
@@ -494,7 +519,7 @@ export default function VitalScanScreen() {
           </TouchableOpacity>
           <TouchableOpacity accessibilityRole="button"
             style={styles.skinBtn}
-            onPress={() => navigation.navigate('SkinDisease' as never)}
+            onPress={() => navigation.navigate('TeacherSkinDisease' as never)}
           >
             <Text style={styles.skinBtnText}>🔍 Skin</Text>
           </TouchableOpacity>

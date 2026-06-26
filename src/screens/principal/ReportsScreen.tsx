@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   headerStandard: {
     backgroundColor: C.navy,
     paddingHorizontal: 20,
-    paddingBottom: HEADER_CONSTANTS.BORDER_RADIUS,
+    paddingBottom: HEADER_CONSTANTS.BORDER_RADIUS + 28,
     borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     ...Platform.select({

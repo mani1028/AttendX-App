@@ -327,7 +327,7 @@ const AnnouncementsScreen = () => {
 
           <View style={styles.headerContent}>
             <AppText weight="bold" style={styles.headerGreeting}>School Bulletins</AppText>
-            &nbsp;
+            <AppText style={styles.headerGreeting}> </AppText>
           </View>
         </View>
 

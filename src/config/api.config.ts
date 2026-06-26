@@ -3,15 +3,15 @@ import { Platform } from 'react-native';
 export const API_CONFIG = {
   // Development URLs
   dev: {
-    android: 'http://192.168.7.15:8002/api',  // Android Emulator (Localhost host proxy)
-    ios: 'http://192.168.7.15:8002/api',      // iOS Simulator (Localhost)
-    device: 'http://192.168.7.15:8002/api',   // Physical device
+    android: 'http://192.168.7.20:8002/api',  // Android Emulator (Localhost host proxy)
+    ios: 'http://192.168.7.20:8002/api',      // iOS Simulator (Localhost)
+    device: 'http://192.168.7.20:8002/api',   // Physical device
   },
 
 
   // Production URL
-  production: 'http://192.168.7.15:8002/api',
-  // production: 'https://portal.attendx.ai/api',
+  // production: 'http://192.168.7.20:8002/api',
+  production: 'https://portal-api.attendx.ai/api',
   // Timeout in milliseconds
   timeout: 30000,
 
@@ -141,9 +141,7 @@ export const API_CONFIG = {
 };
 
 export const ENV = {
-  API_URL: __DEV__
-    ? (Platform.OS === 'android' ? API_CONFIG.dev.android : API_CONFIG.dev.ios)
-    : API_CONFIG.production,
+  API_URL: API_CONFIG.production,
 
   SOCKET_URL: 'https://socket.attendx.com',
 

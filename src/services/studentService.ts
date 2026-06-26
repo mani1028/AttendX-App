@@ -141,11 +141,6 @@ function normalizePhotoSource(value: unknown): string | null {
     return buildApiUrl(`/${photo}`);
   }
 
-  const lower = photo.toLowerCase();
-  if (/\.(png|jpe?g|webp|gif)(\?.*)?$/.test(lower)) {
-    return photo;
-  }
-
   const compact = photo.replace(/\s+/g, '');
   const likelyBase64 = compact.length > 80 && /^[A-Za-z0-9+/=_-]+$/.test(compact);
   if (likelyBase64) {
@@ -153,7 +148,7 @@ function normalizePhotoSource(value: unknown): string | null {
     return `data:image/jpeg;base64,${normalized}`;
   }
 
-  return photo;
+  return buildApiUrl(`/${photo}`);
 }
 
 function arrayBufferToBase64(data: ArrayBuffer): string {
@@ -722,26 +717,40 @@ export async function getStudentProfile(): Promise<any> {
       raw.student_photograph,
       raw.profile_photo_url,
       raw.photo_url,
+      raw.photo_path,
       raw.photo,
       raw.avatar,
       root.student_photograph,
       root.profile_photo_url,
       root.photo_url,
+      root.photo_path,
       root.photo,
       root.avatar,
       storedUser?.student_photograph,
       storedUser?.profile_photo_url,
       storedUser?.photo_url,
+      storedUser?.photo_path,
       storedUser?.photo,
       storedUser?.avatar,
     ));
 
-    if (!photoSource) {
+    const isBase64 = photoSource?.startsWith('data:');
+    const isS3OrExternal = photoSource && (
+      photoSource.includes('amazonaws.com') ||
+      photoSource.includes('s3.') ||
+      photoSource.includes('blob.core.windows.net') ||
+      photoSource.includes('googleapis.com') ||
+      photoSource.includes('cloudinary.com')
+    );
+    const isApiUrl = photoSource && !isBase64 && !isS3OrExternal;
+
+    if (!photoSource || isApiUrl) {
       const resolvedStudentId = toText(firstDefined(raw.student_id, raw.studentId, root.student_id, storedUser?.student_id, storedUser?.studentId)).trim();
       const resolvedSchoolCode = toText(firstDefined(raw.school_code, root.school_code, storedUser?.school_code)).trim();
-      photoSource = await getStudentProfilePhotoDataUri(resolvedStudentId, resolvedSchoolCode);
-
-      if (!photoSource) {
+      const dataUri = await getStudentProfilePhotoDataUri(resolvedStudentId, resolvedSchoolCode);
+      if (dataUri) {
+        photoSource = dataUri;
+      } else if (!photoSource) {
         photoSource = await getStudentProfilePhotoUrl(resolvedStudentId, resolvedSchoolCode);
       }
     }

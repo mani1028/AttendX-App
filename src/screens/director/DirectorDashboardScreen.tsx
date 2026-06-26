@@ -3,6 +3,7 @@ import { motion } from '../../theme/motion';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -20,6 +21,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, NavigationProp, useFocusEffect } from '@react-navigation/native';
+import { safeNavigate } from '../../utils/navigationHelpers';
 import {
   RefreshCw,
   Calendar,
@@ -229,11 +231,11 @@ const KpiCard: React.FC<{
       >
         <View style={styles.kpiHeader}>
           <View style={[styles.kpiIcon, { backgroundColor: iconBg }]}>
-            <Icon size={20} color={iconColor} />
+            <Icon size={16} color={iconColor} />
           </View>
           <View style={[styles.kpiBadge, badgeUp ? styles.kpiBadgeUp : styles.kpiBadgeDown]}>
             <View style={[styles.kpiBadgeDot, { backgroundColor: badgeUp ? colors.success : colors.error }]} />
-            <AppText style={styles.kpiBadgeText} weight="bold">{badge}</AppText>
+            <AppText style={[styles.kpiBadgeText, { color: badgeUp ? colors.success : colors.error }]} weight="bold">{badge}</AppText>
           </View>
         </View>
         <AppText style={styles.kpiTitle} weight="bold">{title}</AppText>
@@ -389,10 +391,10 @@ const BranchManagementCard: React.FC<{
 
 
 const QUICK_ACTIONS = [
-  { label: 'Add Branch', route: 'DirectorPrincipalRegistration', icon: PlusCircle, bg: 'rgba(16, 185, 129, 0.08)', color: Theme.colors.success },
-  { label: 'Billing Info', route: 'DirectorBilling', icon: Briefcase, bg: 'rgba(30, 58, 138, 0.08)', color: Theme.colors.primary },
-  { label: 'Renew Plan', route: 'RenewalPayment', icon: Zap, bg: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b' },
-  { label: 'My Profile', route: 'Profile', icon: User, bg: 'rgba(30, 58, 138, 0.08)', color: Theme.colors.primary },
+  { label: 'Add Branch', route: 'DirectorPrincipalRegistration', icon: PlusCircle, bg: 'rgba(59, 130, 246, 0.08)', color: Theme.colors.blue },
+  { label: 'Billing Info', route: 'DirectorBilling', icon: Briefcase, bg: 'rgba(59, 130, 246, 0.08)', color: Theme.colors.blue },
+  { label: 'Renew Plan', route: 'RenewalPayment', icon: Zap, bg: 'rgba(59, 130, 246, 0.08)', color: Theme.colors.blue },
+  { label: 'My Profile', route: 'Profile', icon: User, bg: 'rgba(59, 130, 246, 0.08)', color: Theme.colors.blue },
 ] as const;
 
 export default function DirectorDashboardScreen() {
@@ -731,7 +733,7 @@ export default function DirectorDashboardScreen() {
     if (selectedBranchId === 'ALL') {
       overviewRef.current?.scrollToEnd();
     } else {
-      navigation.navigate('DirectorBranchDetails', {
+      safeNavigate(navigation, 'DirectorBranchDetails', {
         branchId: selectedBranch?.branch_id || '',
         branchName: selectedBranch?.branch_name || '',
         principalName: selectedBranch?.principal_name || '',
@@ -742,7 +744,7 @@ export default function DirectorDashboardScreen() {
   };
 
   const handleViewBranch = (branch: Branch) => {
-    navigation.navigate('DirectorBranchDetails', {
+    safeNavigate(navigation, 'DirectorBranchDetails', {
       branchId: branch.branch_id,
       branchName: branch.branch_name,
       principalName: branch.principal_name,
@@ -840,48 +842,7 @@ export default function DirectorDashboardScreen() {
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
-        {/* Background grid and alignment illustration */}
-        <View style={styles.gridLinesContainer} pointerEvents="none">
-          {/* Horizontal dashed line */}
-          <View style={[styles.gridLineHorizontal, { top: 290 }]} />
 
-          {/* Vertical dashed line */}
-          <View style={[styles.gridLineVertical, { left: width / 2 }]} />
-
-          {/* Diagonal connecting line */}
-          <Svg style={StyleSheet.absoluteFillObject}>
-            <Defs>
-              <SvgLinearGradient id="lineGrad" x1="0" y1="1" x2="1" y2="0">
-                <Stop offset="0%" stopColor={Theme.colors.blue} stopOpacity="0.6" />
-                <Stop offset="50%" stopColor={Theme.colors.success} stopOpacity="0.8" />
-                <Stop offset="100%" stopColor={Theme.colors.blue} stopOpacity="0.6" />
-              </SvgLinearGradient>
-            </Defs>
-            <Line
-              x1={30}
-              y1={480}
-              x2={width - 30}
-              y2={100}
-              stroke="url(#lineGrad)"
-              strokeWidth={1.5}
-            />
-          </Svg>
-
-          {/* Decorative Circle 1: Bottom-Left */}
-          <View style={[styles.decorCircle, { left: 30 - 30, top: 480 - 30 }]}>
-            <View style={styles.decorCircleInner} />
-          </View>
-
-          {/* Decorative Circle 2: Center */}
-          <View style={[styles.decorCircleCenter, { left: width / 2 - 20, top: 290 - 20 }]}>
-            <View style={styles.decorCircleCenterInner} />
-          </View>
-
-          {/* Decorative Circle 3: Top-Right */}
-          <View style={[styles.decorCircle, { left: width - 30 - 30, top: 100 - 30 }]}>
-            <View style={styles.decorCircleInner} />
-          </View>
-        </View>
 
         <LinearGradient
           colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
@@ -890,10 +851,10 @@ export default function DirectorDashboardScreen() {
           style={[
             styles.heroHeader,
             {
-                paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
-                borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-                borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-                paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM + 10,
+                paddingTop: insets.top + 12,
+                borderBottomLeftRadius: 24,
+                borderBottomRightRadius: 24,
+                paddingBottom: 36,
                 paddingHorizontal: 0,
               },
             ]}
@@ -902,7 +863,7 @@ export default function DirectorDashboardScreen() {
               {/* Row 1: Avatar, Greeting, Notifications, Refresh */}
               <View style={styles.heroTopRow}>
                 <View style={styles.heroProfileInfo}>
-                  <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate('Profile')}>
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => safeNavigate(navigation, 'Profile')}>
                     <AvatarBubble
                       displayName={userName || 'Director'}
                       size={38}
@@ -920,11 +881,11 @@ export default function DirectorDashboardScreen() {
                   </View>
                 </View>
                 <View style={styles.heroActions}>
-                  <TouchableOpacity accessibilityRole="button" style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.iconBtn} onPress={() => safeNavigate(navigation, 'Notifications')}>
                     <Bell size={18} color={Theme.colors.card} />
                     {unreadCount > 0 && (
                       <View style={styles.badge}>
-                        <AppText style={styles.badgeText} weight="bold">{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+                        <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
                       </View>
                     )}
                   </TouchableOpacity>
@@ -979,8 +940,8 @@ export default function DirectorDashboardScreen() {
                 value={displayedStats.teachers}
                 sub="Total school staff"
                 icon={Users}
-                iconBg="rgba(16, 185, 129, 0.1)"
-                iconColor={Theme.colors.success}
+                iconBg="rgba(59, 130, 246, 0.1)"
+                iconColor={Theme.colors.blue}
                 badge={`${displayedStats.teacherAttendanceToday}% Present`}
                 badgeUp={displayedStats.teacherAttendanceToday >= 75}
                 cardStyle={responsiveKpiCardStyle}
@@ -991,8 +952,8 @@ export default function DirectorDashboardScreen() {
                 value={displayedStats.students}
                 sub="Enrolled students"
                 icon={GraduationCap}
-                iconBg="rgba(245, 158, 11, 0.1)"
-                iconColor="#f59e0b"
+                iconBg="rgba(59, 130, 246, 0.1)"
+                iconColor={Theme.colors.blue}
                 badge={`${displayedStats.studentAttendanceToday}% Present`}
                 badgeUp={displayedStats.studentAttendanceToday >= 75}
                 cardStyle={responsiveKpiCardStyle}
@@ -1003,8 +964,8 @@ export default function DirectorDashboardScreen() {
                 value={displayedStats.classes}
                 sub={`${displayedStats.sections} sections`}
                 icon={Layers}
-                iconBg="rgba(30, 58, 138, 0.1)"
-                iconColor={Theme.colors.primary}
+                iconBg="rgba(59, 130, 246, 0.1)"
+                iconColor={Theme.colors.blue}
                 badge={displayedStats.pendingLeaves > 0 ? `${displayedStats.pendingLeaves} Leaves` : 'No Leaves'}
                 badgeUp={displayedStats.pendingLeaves === 0}
                 cardStyle={responsiveKpiCardStyle}
@@ -1034,7 +995,7 @@ export default function DirectorDashboardScreen() {
                       <TouchableOpacity accessibilityRole="button"
                         key={action.label}
                         style={styles.gridItem}
-                        onPress={() => navigation.navigate(action.route as any)}
+                        onPress={() => safeNavigate(navigation, action.route as any)}
                         activeOpacity={0.75}
                       >
                         <View style={[styles.iconContainer, { backgroundColor: action.bg }]}>
@@ -1133,7 +1094,7 @@ export default function DirectorDashboardScreen() {
                     {filteredBranches.length} branch{filteredBranches.length !== 1 ? 'es' : ''} registered
                   </AppText>
                 </View>
-                <TouchableOpacity accessibilityRole="button" style={styles.addBranchBtn} onPress={() => navigation.navigate('DirectorPrincipalRegistration')}>
+                <TouchableOpacity accessibilityRole="button" style={styles.addBranchBtn} onPress={() => safeNavigate(navigation, 'DirectorPrincipalRegistration')}>
                   <AppText style={styles.addBranchBtnText}>+ Add Branch</AppText>
                 </TouchableOpacity>
               </View>
@@ -1431,7 +1392,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
     marginBottom: 20,
-    marginTop: -40,
+    marginTop: -24,
   },
   notificationBtn: {
     width: 36,
@@ -1441,27 +1402,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  badge: {
-    position: 'absolute',
-    top: 1,
-    right: 1,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: Theme.colors.error,
-    borderWidth: 1.5,
-    borderColor: Theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 2,
-    zIndex: 1,
-  },
-  badgeText: {
-    color: Theme.colors.card,
-    fontSize: 9,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
+  badge: { position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 14 },
   headerStatsGrid: {
     marginTop: Theme.spacing.sm,
     flexDirection: 'row',
@@ -1570,11 +1512,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   gridLabel: {
-    ...Theme.typography.label,
-    color: colors.textPrimary,
+    fontSize: 10,
     fontWeight: '600',
+    color: colors.textPrimary,
     textAlign: 'center',
-    lineHeight: 13,
+    lineHeight: 12,
   },
   refreshIconBtn: {
     width: 36,
@@ -1583,6 +1525,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 18,
+  },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   segmentedControl: {
     flexDirection: 'row',
@@ -2119,21 +2069,21 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   kpiCard: {
-    height: 154,
+    height: 126,
     backgroundColor: colors.surface,
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 16,
+    padding: 12,
     borderWidth: 1,
     borderColor: colors.border,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
       },
       android: {
-        elevation: 5,
+        elevation: 3,
       },
     }),
   },
@@ -2141,49 +2091,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   kpiIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   kpiBadge: {
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: Theme.spacing.xs,
-    borderRadius: 6,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
     flexDirection: 'row',
     alignItems: 'center',
   },
   kpiBadgeUp: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
   },
   kpiBadgeDown: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
   },
   kpiBadgeText: {
-    ...Theme.typography.label,
+    fontSize: 9.5,
     fontWeight: '700',
     color: colors.accent,
   },
   kpiTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.textMuted,
-    marginBottom: Theme.spacing.sm,
+    marginBottom: 2,
   },
   kpiValue: {
-    fontSize: 32,
-    fontWeight: '900',
+    fontSize: 22,
+    fontWeight: '800',
     color: colors.textPrimary,
-    marginBottom: Theme.spacing.xs,
-    letterSpacing: -0.5,
+    marginBottom: 2,
+    letterSpacing: -0.3,
   },
   kpiSub: {
-    ...Theme.typography.caption,
+    fontSize: 11,
     color: colors.textMuted,
     fontWeight: '500',
   },
@@ -3061,81 +3010,5 @@ const styles = StyleSheet.create({
     ...Theme.typography.body,
     color: colors.textPrimary,
   },
-  gridLinesContainer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: -1,
-  },
-  gridLineHorizontal: {
-    position: 'absolute',
-    left: 18,
-    right: 18,
-    height: 1,
-    borderWidth: 0.5,
-    borderColor: 'rgba(148, 163, 184, 0.15)',
-    borderStyle: 'dashed',
-  },
-  gridLineVertical: {
-    position: 'absolute',
-    top: 60,
-    height: 420,
-    width: 1,
-    borderWidth: 0.5,
-    borderColor: 'rgba(148, 163, 184, 0.15)',
-    borderStyle: 'dashed',
-  },
-  decorCircle: {
-    position: 'absolute',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(59, 130, 246, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Theme.colors.blue,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  decorCircleInner: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: Theme.colors.blue,
-    shadowColor: Theme.colors.blue,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  decorCircleCenter: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(16, 185, 129, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.25)',
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Theme.colors.success,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  decorCircleCenterInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: Theme.colors.success,
-    shadowColor: Theme.colors.success,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 1,
-  },
+
 });

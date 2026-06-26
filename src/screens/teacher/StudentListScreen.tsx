@@ -198,7 +198,7 @@ export default function StudentListScreen() {
         setBranchId(bid);
         setEmployeeId(eid);
         if (classTeacherStr !== null) {
-          setIsClassTeacher(classTeacherStr === 'true');
+          setIsClassTeacher(classTeacherStr === 'true' || classTeacherStr === '1');
         }
       }
 
@@ -547,7 +547,7 @@ export default function StudentListScreen() {
       {false && isClassTeacher && (
         <TouchableOpacity
           style={styles.fab}
-          onPress={() => navigation.navigate('DirectorStudentRegistration' as any)}
+          onPress={() => navigation.navigate('TeacherStudentRegistration' as any)}
         >
           <UserPlus size={24} color={Theme.colors.card} />
         </TouchableOpacity>

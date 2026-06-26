@@ -1051,9 +1051,9 @@ export default function BranchDetailsScreen() {
 
             {attendanceType === 'student' ? (
               <View>
-                {classSections.map(cls => (
+                {classSections.map((cls, index) => (
                   <ClassCard
-                    key={cls.class_name}
+                    key={`${cls.class_name}-${index}`}
                     branchClassName={cls.class_name}
                     sections={cls.sections}
                     studentCounts={studentCounts}
@@ -1090,8 +1090,8 @@ export default function BranchDetailsScreen() {
                       ))}
                     </View>
                   </View>
-                  {filteredTeacherAttendance.map((teacher, idx) => (
-                    <AppCard key={idx} style={styles.teacherAttendanceCard}>
+                  {filteredTeacherAttendance.map((teacher) => (
+                    <AppCard key={teacher.employee_id} style={styles.teacherAttendanceCard}>
                       <AppText style={styles.teacherAttendanceName}>{teacher.teacher_full_name}</AppText>
                       <AppText style={styles.teacherAttendanceId}>ID: {teacher.employee_id}</AppText>
                       <AttendanceBadge status={teacher.status} />

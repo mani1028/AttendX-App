@@ -396,12 +396,12 @@ export default function HomeworkManagementScreen() {
   const loadHomework = useCallback(async () => {
     if (!schoolCode || !branchId || !resolvedTeacherId) {return;}
     if (isMounted.current) {setLoading(true);}
+    const body: any = {
+      school_code: schoolCode,
+      branch_id: branchId,
+      employee_id: resolvedTeacherId,
+    };
     try {
-      const body: any = {
-        school_code: schoolCode,
-        branch_id: branchId,
-        teacher_id: resolvedTeacherId,
-      };
 
       if (filterClass) {
         const match = teacherAssignments.find(a => equalsIgnoreCase(a.class_name, filterClass));
@@ -437,7 +437,11 @@ export default function HomeworkManagementScreen() {
       }
     } catch (err: any) {
       if (err?.response?.status === 401) {return;}
-      console.error('Failed to load homework:', err);
+      if (err?.response?.status === 422) {
+        console.error('Homework 422 — request body:', JSON.stringify(body), 'response:', JSON.stringify(err?.response?.data));
+      } else {
+        console.error('Failed to load homework:', err);
+      }
       if (isMounted.current) {setItems([]);}
     } finally {
       if (isMounted.current) {setLoading(false);}
@@ -482,7 +486,7 @@ export default function HomeworkManagementScreen() {
         await API.put('/manage/staff/homework/update', {
           school_code: schoolCode,
           branch_id: branchId,
-          teacher_id: resolvedTeacherId,
+          employee_id: resolvedTeacherId,
           homework_id: editingId,
           title: form.title.trim(),
           description: form.description?.trim() || null,
@@ -494,7 +498,7 @@ export default function HomeworkManagementScreen() {
         await API.post('/manage/staff/homework/create', {
           school_code: schoolCode,
           branch_id: branchId,
-          teacher_id: resolvedTeacherId,
+          employee_id: resolvedTeacherId,
           class_name: form.class_name.trim(),
           section_name: form.section_name.trim(),
           subject_name: form.subject_name.trim(),
@@ -550,7 +554,7 @@ export default function HomeworkManagementScreen() {
                 data: {
                   school_code: schoolCode,
                   branch_id: branchId,
-                  teacher_id: resolvedTeacherId,
+      employee_id: resolvedTeacherId,
                   homework_id: homeworkId,
                 },
               });

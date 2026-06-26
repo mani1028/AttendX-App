@@ -1,0 +1,12 @@
+diff --git a/node_modules/react-native-vision-camera/react-native.config.js b/node_modules/react-native-vision-camera/react-native.config.js
+index d492506..2dc2d38 100644
+--- a/node_modules/react-native-vision-camera/react-native.config.js
++++ b/node_modules/react-native-vision-camera/react-native.config.js
+@@ -10,6 +10,7 @@ module.exports = {
+         */
+        android: {
+          packageImportPath: 'import com.mrousavy.camera.react.CameraPackage;',
++         packageInstance: 'new CameraPackage()',
+        },
+      },
+    },

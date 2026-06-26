@@ -120,7 +120,7 @@ export const addCurrentSessionToSaved = async () => {
     const employeeId = val.employee_id;
     const userId = val.user_id;
     const branchId = val.branch_id;
-    const isClassTeacher = val.is_class_teacher === '1';
+    const isClassTeacher = val.is_class_teacher === '1' || val.is_class_teacher === 'true';
     const schoolName = val.school_name;
     const branchName = val.branch_name;
     const bloodGroup = val.blood_group;

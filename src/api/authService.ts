@@ -30,6 +30,7 @@ type LoginResponse = {
     principal_employee_id?: string;
     principal_email?: string;
     principal_address?: string;
+    principal_mobile?: string;
     blood_group?: string;
     bloodGroup?: string;
     branch_name?: string;
@@ -37,6 +38,7 @@ type LoginResponse = {
   principal_employee_id?: string;
   principal_email?: string;
   principal_address?: string;
+  principal_mobile?: string;
   blood_group?: string;
   bloodGroup?: string;
   school_name?: string;
@@ -70,6 +72,7 @@ export type NormalizedLoginResponse = {
     principal_employee_id?: string;
     principal_email?: string;
     principal_address?: string;
+    principal_mobile?: string;
   };
   schoolName?: string;
   branchName?: string;
@@ -163,6 +166,7 @@ function normalizeLoginResponse(data: LoginResponse, fallbackRole: AppRole): Nor
   const principalEmployeeId = payload.user?.principal_employee_id ?? payload.principal_employee_id;
   const principalEmail = payload.user?.principal_email ?? payload.principal_email;
   const principalAddress = payload.user?.principal_address ?? payload.principal_address;
+  const principalMobile = payload.user?.principal_mobile ?? payload.principal_mobile;
 
   return {
     token,
@@ -180,6 +184,7 @@ function normalizeLoginResponse(data: LoginResponse, fallbackRole: AppRole): Nor
       principal_employee_id: principalEmployeeId,
       principal_email: principalEmail,
       principal_address: principalAddress,
+      principal_mobile: principalMobile,
     },
     schoolName: payload.school_name ?? payload.schoolName ?? payload.school?.school_name ?? payload.school?.name,
     branchName: payload.branch_name ?? payload.branchName ?? payload.user?.branch_name ?? payload.branch?.branch_name ?? payload.branch?.name,

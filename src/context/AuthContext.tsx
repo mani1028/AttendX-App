@@ -79,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserToken(token);
         setUserRole(role || null);
         setUserName(name || null);
-        setIsClassTeacher(classTeacher === 'true');
+        setIsClassTeacher(classTeacher === 'true' || classTeacher === '1');
 
         // Ensure current session is in saved accounts
         await addCurrentSessionToSaved();
@@ -90,6 +90,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         notificationService.ensureFcmTokenSynced().catch(err =>
           console.warn('[AuthContext] FCM sync failed after refresh:', err)
         );
+
+        // Sync is_class_teacher from API for teachers (non-blocking)
+        if (role === 'teacher') {
+          import('../services/teacherService').then(({ getTeacherProfile }) => {
+            getTeacherProfile().then((profile) => {
+              if (profile?.is_class_teacher !== undefined) {
+                const apiVal = String(profile.is_class_teacher);
+                AsyncStorage.setItem('is_class_teacher', apiVal).catch(() => {});
+                setIsClassTeacher(profile.is_class_teacher === true || apiVal === 'true');
+              }
+            }).catch(() => {});
+          }).catch(() => {});
+        }
       } else {
         setUserToken(null);
         setUserRole(null);
@@ -157,16 +170,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const switchToAccount = async (account: SavedAccount) => {
-    setIsLoading(true);
     try {
       await storage.setSecure(StorageKeys.AUTH_TOKEN, account.token);
       const success = await switchAccount(account);
-      if (success) {
-        await refreshAuth();
-      }
+      // refreshAuth() is triggered automatically via 'auth-change' event listener
       return success;
-    } finally {
-      setIsLoading(false);
+    } catch (e) {
+      console.error('Error switching account:', e);
+      return false;
     }
   };
 
@@ -189,12 +200,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const addNewAccount = () => {
-    // Just clear current session markers without removing from saved accounts
-    storage.removeSecure(StorageKeys.AUTH_TOKEN).then(() => {
-      setUserToken(null);
-      eventEmitter.emit('auth-change');
-    });
+  const addNewAccount = async () => {
+    // Save current session to saved accounts before clearing
+    await addCurrentSessionToSaved();
+    const accounts = await getSavedAccounts();
+    setSavedAccounts(accounts);
+    // Clear current session to show Login screen
+    await storage.removeSecure(StorageKeys.AUTH_TOKEN);
+    setUserToken(null);
+    setUserRole(null);
+    setUserName(null);
+    eventEmitter.emit('auth-change');
   };
 
   useEffect(() => {

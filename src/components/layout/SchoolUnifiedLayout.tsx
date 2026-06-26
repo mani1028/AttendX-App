@@ -21,6 +21,8 @@ import AccountSwitcher from '../common/AccountSwitcher';
 import { useAuth } from '../../context/AuthContext';
 import CalendarView from '../common/CalendarView';
 import { colors } from '../../theme/tokens';
+import { getTeacherProfile } from '../../services/teacherService';
+import { normalizePhotoUri } from '../../utils/normalizePhotoUri';
 
 // Utility function for photo cache key generation
 const getPhotoCacheKey = (roleBucket: 'student' | 'teacher', id: string, schoolCode: string): string | null => {
@@ -301,18 +303,20 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
           : (storedTeacherId || storedEmployeeId || '');
         const scopedPhotoKey = getPhotoCacheKey(roleBucket, entityId, code || '');
 
+        // Try scoped key first, then plain key as fallback
+        let resolvedPhoto = '';
         if (scopedPhotoKey) {
           const scopedPhotoUrl = await AsyncStorage.getItem(scopedPhotoKey);
-          if (scopedPhotoUrl) {
-            setProfilePhotoUrl(scopedPhotoUrl);
-            setProfilePhotoError(false);
-          }
-        } else {
+          if (scopedPhotoUrl) { resolvedPhoto = scopedPhotoUrl; }
+        }
+        if (!resolvedPhoto) {
           const photoUrl = await AsyncStorage.getItem('profile_photo_url');
-          if (photoUrl) {
-            setProfilePhotoUrl(photoUrl);
-            setProfilePhotoError(false);
-          }
+          if (photoUrl) { resolvedPhoto = photoUrl; }
+        }
+        const normalizedPhoto = normalizePhotoUri(resolvedPhoto);
+        if (normalizedPhoto) {
+          setProfilePhotoUrl(normalizedPhoto);
+          setProfilePhotoError(false);
         }
       } catch (error) {
         console.error('Failed to load user data:', error);
@@ -346,6 +350,60 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
     };
 
     loadTeacherCapability();
+  }, [role]);
+
+  // Fetch teacher profile from API and persist to AsyncStorage
+  useEffect(() => {
+    if (role !== 'teacher') { return; }
+    let mounted = true;
+
+    const fetchAndSync = async () => {
+      try {
+        const data = await getTeacherProfile();
+        if (!data || !mounted) { return; }
+
+        const updates: [string, string][] = [];
+        if (data.name) { updates.push(['user_name', data.name]); }
+        const normalizedPhotoUrl = normalizePhotoUri(data.profile_photo_url);
+        if (normalizedPhotoUrl) { updates.push(['profile_photo_url', normalizedPhotoUrl]); }
+        if (data.school_name) { updates.push(['school_name', data.school_name]); }
+        if (data.school_code) { updates.push(['school_code', data.school_code]); }
+        if (data.branch_name) { updates.push(['branch_name', data.branch_name]); }
+        if (data.branch_id) { updates.push(['branch_id', data.branch_id]); }
+        if (data.employee_id) { updates.push(['employee_id', data.employee_id]); }
+        if (data.teacher_id) { updates.push(['teacher_id', data.teacher_id]); }
+        if (data.email) { updates.push(['email', data.email]); }
+        if (data.phone || data.mobile_number) { updates.push(['phone', data.phone || data.mobile_number]); }
+        if (data.designation) { updates.push(['designation', data.designation]); }
+        if (data.department_subject) { updates.push(['department_subject', data.department_subject]); }
+        if (typeof data.is_class_teacher === 'boolean') {
+          updates.push(['is_class_teacher', data.is_class_teacher ? '1' : '0']);
+          if (mounted) { setIsClassTeacher(data.is_class_teacher); }
+        }
+        if (data.user_id) { updates.push(['user_id', String(data.user_id)]); }
+
+        if (updates.length > 0) { await AsyncStorage.multiSet(updates); }
+
+        // Update local state
+        if (mounted) {
+          if (data.name) { setDisplayName(data.name); }
+          if (data.name) { setUserName(data.name); }
+          if (data.school_code) { setSchoolCode(data.school_code); }
+          const photo = normalizePhotoUri(data.profile_photo_url || data.teacher_photograph);
+          if (photo) { setProfilePhotoUrl(photo); setProfilePhotoError(false); }
+        }
+
+        // Also store the full profile in 'user' key for other screens
+        const existingUserRaw = await AsyncStorage.getItem('user');
+        const existingUser = existingUserRaw ? JSON.parse(existingUserRaw) : {};
+        await AsyncStorage.setItem('user', JSON.stringify({ ...existingUser, ...data, is_class_teacher: data.is_class_teacher }));
+      } catch (err) {
+        console.warn('[Profile] Failed to sync teacher profile:', err);
+      }
+    };
+
+    fetchAndSync();
+    return () => { mounted = false; };
   }, [role]);
 
   // Build profile details
@@ -477,12 +535,20 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   const isCompact = isTablet || !sidebarExpanded;
   const showCalendarForRole = normalizedRole === 'student' || normalizedRole === 'teacher';
 
-  // Filter menu items for non-class teachers
-  const visibleMenuItems = (normalizedRole === 'teacher' && !isClassTeacher)
-    ? config.menu.filter(item =>
-        ['Dashboard', 'Attendance', 'Attendance Verification', 'View Attendance', 'Homework', 'Leave Request', 'Marks Entry', 'VitalScan AI', 'Skin Disease'].includes(item.title)
-      )
-    : config.menu;
+  // Filter menu items for teachers
+  const visibleMenuItems = config.menu.filter(item => {
+    if (normalizedRole === 'teacher') {
+      // Remove manual attendance menu option for any teacher role
+      if (item.route === 'MarkAttendance' || item.title === 'Attendance Verification') {
+        return false;
+      }
+      // For non-class teachers, filter out other class-teacher-only screens
+      if (!isClassTeacher) {
+        return ['Dashboard', 'Attendance', 'View Attendance', 'Homework', 'Leave Request', 'Marks Entry', 'VitalScan AI', 'Skin Disease'].includes(item.title);
+      }
+    }
+    return true;
+  });
 
   // Avatar Component
   const AvatarBubble = ({ size = 36, textSize = 14 }: { size?: number; textSize?: number }) => {

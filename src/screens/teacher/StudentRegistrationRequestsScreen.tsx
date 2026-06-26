@@ -140,7 +140,7 @@ export default function StudentRegistrationRequestsScreen() {
               <View style={styles.actionsRow}>
                 <TouchableOpacity accessibilityRole="button"
                   style={[styles.quickActionBtn, styles.viewBtn]}
-                  onPress={() => navigation.navigate('DirectorStudentRegistration' as never)}
+                  onPress={() => navigation.navigate('TeacherStudentRegistration' as never)}
                 >
                   <Eye size={16} color={Theme.colors.text} />
                   <AppText weight="semibold" style={styles.viewBtnText}>View</AppText>

@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Linking } from 'react-native';
 import { useCameraDevice, Camera } from 'react-native-vision-camera';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { launchImageLibrary } from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -163,40 +164,46 @@ const StatusBadge: React.FC<{ status: 'present' | 'absent' | 'changed' }> = ({ s
 };
 
 // Stepper Component
-const Stepper: React.FC<{ step: number }> = ({ step }) => (
-  <View style={styles.stepperWrapper}>
-    <View style={styles.stepperContainer}>
-      {stepLabels.map((label, idx) => {
-        const stepNumber = idx + 1;
-        const isDone = stepNumber < step;
-        const isActive = stepNumber === step;
-        return (
-          <React.Fragment key={label}>
-            <View style={styles.stepItem}>
-              <View style={[
-                styles.stepCircle,
-                isDone && styles.stepDone,
-                isActive && styles.stepActive,
-              ]}>
-                {isDone ? (
-                  <CheckCircle2 size={16} color={Theme.colors.card} />
-                ) : (
-                  <AppText style={[styles.stepNumber, isActive && styles.stepNumberActive]}>{stepNumber}</AppText>
-                )}
+const Stepper: React.FC<{ step: number; isClassTeacher: boolean }> = ({ step, isClassTeacher }) => {
+  const currentStepLabels = isClassTeacher
+    ? ['Teacher Auth', 'Verified', 'Student Setup', 'Review & Save']
+    : ['Teacher Auth', 'Verified'];
+
+  return (
+    <View style={styles.stepperWrapper}>
+      <View style={styles.stepperContainer}>
+        {currentStepLabels.map((label, idx) => {
+          const stepNumber = idx + 1;
+          const isDone = stepNumber < step;
+          const isActive = stepNumber === step;
+          return (
+            <React.Fragment key={label}>
+              <View style={styles.stepItem}>
+                <View style={[
+                  styles.stepCircle,
+                  isDone && styles.stepDone,
+                  isActive && styles.stepActive,
+                ]}>
+                  {isDone ? (
+                    <CheckCircle2 size={16} color={Theme.colors.card} />
+                  ) : (
+                    <AppText style={[styles.stepNumber, isActive && styles.stepNumberActive]}>{stepNumber}</AppText>
+                  )}
+                </View>
+                <AppText style={[styles.stepLabel, (isDone || isActive) && styles.stepLabelActive]} numberOfLines={1}>
+                  {label}
+                </AppText>
               </View>
-              <AppText style={[styles.stepLabel, (isDone || isActive) && styles.stepLabelActive]} numberOfLines={1}>
-                {label}
-              </AppText>
-            </View>
-            {idx < stepLabels.length - 1 && (
-              <View style={[styles.stepConnector, isDone && styles.stepConnectorDone]} />
-            )}
-          </React.Fragment>
-        );
-      })}
+              {idx < currentStepLabels.length - 1 && (
+                <View style={[styles.stepConnector, isDone && styles.stepConnectorDone]} />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 // Toast Component
 const Toast: React.FC<{
@@ -233,10 +240,28 @@ const Toast: React.FC<{
 // Global safety check for Vision Camera native module
 const isCameraAvailable = typeof Camera !== 'undefined' && Camera !== null;
 
+// Separate component to safely call useCameraDevice hook.
+// Must only render when isCameraAvailable is true, otherwise the hook crashes.
+const CameraDeviceResolver = React.memo(({ position, onDevice }: { position: 'back' | 'front'; onDevice: (d: any) => void }) => {
+  const device = useCameraDevice(position);
+  React.useEffect(() => { onDevice(device); }, [device]);
+  return null;
+});
+
+// Wrap CameraDeviceResolver so the native module crash is caught locally
+// instead of killing the entire screen.
+const SafeCameraDeviceResolver = React.memo(({ position, onDevice }: { position: 'back' | 'front'; onDevice: (d: any) => void }) => (
+  <ErrorBoundary fallback={null}>
+    <CameraDeviceResolver position={position} onDevice={onDevice} />
+  </ErrorBoundary>
+));
+SafeCameraDeviceResolver.displayName = 'SafeCameraDeviceResolver';
+
 export default function TeacherAttendanceScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { setTabBarVisible } = useAuth();
+  const { setTabBarVisible, userRole } = useAuth();
+  const isTeacherRole = userRole?.toLowerCase().includes('teacher');
   const isMounted = useRef(true);
   // State
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -280,9 +305,10 @@ export default function TeacherAttendanceScreen() {
   const cameraRef = useRef<Camera>(null);
 
   // useCameraDevice must be called unconditionally (React hooks rules).
-  // When camera is unavailable we simply ignore the returned device.
-  const _cameraDevice = useCameraDevice(cameraPosition);
-  const device = isCameraAvailable ? _cameraDevice : undefined;
+  // We use a separate CameraDeviceResolver component that only mounts when
+  // the native module is available, avoiding the null-crash on Android.
+  const [_resolvedDevice, setResolvedDevice] = useState<any>(undefined);
+  const device = isCameraAvailable ? _resolvedDevice : undefined;
 
   // Form
   const [form, setForm] = useState({
@@ -296,6 +322,7 @@ export default function TeacherAttendanceScreen() {
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [dailySessions, setDailySessions] = useState<number>(1);
   const [pickerModal, setPickerModal] = useState<{ visible: boolean; title: string; options: { label: string; value: any }[]; selectedValue: any; onValueChange: (value: any) => void } | null>(null);
+  const [errorModal, setErrorModal] = useState<{ visible: boolean; title: string; message: string } | null>(null);
 
   // Class/Section options
   const [classOptions, setClassOptions] = useState<any[]>([]);
@@ -451,11 +478,15 @@ export default function TeacherAttendanceScreen() {
     load();
 
     if (isCameraAvailable) {
-      Camera.requestCameraPermission().then(permission => {
-        if (isMounted.current) {
-          setHasPermission(permission === 'granted');
-        }
-      });
+      try {
+        Camera.requestCameraPermission().then(permission => {
+          if (isMounted.current) {
+            setHasPermission(permission === 'granted');
+          }
+        });
+      } catch (e) {
+        console.warn('Camera permission request failed (native module not linked):', e);
+      }
     }
   }, []);
 
@@ -496,6 +527,10 @@ export default function TeacherAttendanceScreen() {
     const desiredPosition: 'back' | 'front' = useFor === 'teacher' ? 'front' : 'back';
 
     try {
+      if (!isCameraAvailable) {
+        Alert.alert('Camera Unavailable', 'Camera module is not available on this device.');
+        return;
+      }
       const permission = await Camera.requestCameraPermission();
       const granted = permission === 'granted';
       setHasPermission(granted);
@@ -675,28 +710,37 @@ export default function TeacherAttendanceScreen() {
       if (!isMounted.current) {return;}
 
       const status = err?.response?.status;
-      const backendDetail = err?.response?.data?.detail || err?.response?.data?.message;
+      const backendDetail = err?.response?.data?.detail
+        || err?.response?.data?.message
+        || err?.response?.data?.error
+        || (typeof err?.response?.data === 'string' ? err.response.data : null);
       const errorMsg = backendDetail || err?.message || 'Please try again';
 
-      if (status === 401) {
-        // Face verification failed - user's face doesn't match or not recognized
-        const verificationError = backendDetail?.toLowerCase().includes('face') ||
-                                  backendDetail?.toLowerCase().includes('recogni') ||
-                                  backendDetail?.toLowerCase().includes('match')
-          ? 'Face not recognized. Please try again with a clearer photo.'
-          : backendDetail || 'Identity verification failed. Please try again.';
+      const isFaceRelated = (msg: string) =>
+        msg?.toLowerCase().includes('face') ||
+        msg?.toLowerCase().includes('recogni') ||
+        msg?.toLowerCase().includes('match') ||
+        msg?.toLowerCase().includes('detect') ||
+        msg?.toLowerCase().includes('embed');
 
-        showToast('Verification Failed', verificationError, '❌', '#EF4444');
-        Alert.alert(
-          'Identity Verification Failed',
-          verificationError + ' Do not log out - stay in the app and try again.',
-          [{ text: 'OK' }]
-        );
+      if (status === 401 || (status === 400 && isFaceRelated(errorMsg))) {
+        const verificationError = isFaceRelated(errorMsg)
+          ? errorMsg
+          : 'Face not recognized. Please try again with a clearer photo.';
+
+        setErrorModal({
+          visible: true,
+          title: 'Face Verification Failed',
+          message: verificationError + '\n\nDo not log out — stay in the app and try again.',
+        });
         return;
       }
 
-      Alert.alert('Verification Failed', errorMsg);
-      console.error('Teacher verification error:', err);
+      setErrorModal({
+        visible: true,
+        title: 'Verification Failed',
+        message: errorMsg,
+      });
     } finally {
       if (isMounted.current) {
         setLoading(false);
@@ -1201,6 +1245,8 @@ export default function TeacherAttendanceScreen() {
   return (
     <View style={styles.container}>
 
+      {/* Resolve camera device via a separate component to avoid null native module crash */}
+      {isCameraAvailable && <SafeCameraDeviceResolver position={cameraPosition} onDevice={setResolvedDevice} />}
 
       <Toast
         visible={toast.visible}
@@ -1232,23 +1278,25 @@ export default function TeacherAttendanceScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.tabSwitcher}>
-            <TouchableOpacity
-              style={[styles.tab, step <= 2 && styles.activeTab]}
-              onPress={() => step > 2 && setStep(2)}
-            >
-              <AppText style={[styles.tabText, step <= 2 && styles.activeTabText]}>Verification</AppText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, step > 2 && styles.activeTab]}
-              onPress={() => {
-                if (teacherData) {setStep(3);}
-                else {Alert.alert('Verification Required', 'Please verify your identity first.');}
-              }}
-            >
-              <AppText style={[styles.tabText, step > 2 && styles.activeTabText]}>Attendance</AppText>
-            </TouchableOpacity>
-          </View>
+          {isClassTeacher && (
+            <View style={styles.tabSwitcher}>
+              <TouchableOpacity
+                style={[styles.tab, step <= 2 && styles.activeTab]}
+                onPress={() => step > 2 && setStep(2)}
+              >
+                <AppText style={[styles.tabText, step <= 2 && styles.activeTabText]}>Verification</AppText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tab, step > 2 && styles.activeTab]}
+                onPress={() => {
+                  if (teacherData) {setStep(3);}
+                  else {Alert.alert('Verification Required', 'Please verify your identity first.');}
+                }}
+              >
+                <AppText style={[styles.tabText, step > 2 && styles.activeTabText]}>Attendance</AppText>
+              </TouchableOpacity>
+            </View>
+          )}
 
           <View style={styles.heroContent}>
             <AppText style={styles.heroGreeting}>
@@ -1316,7 +1364,7 @@ export default function TeacherAttendanceScreen() {
         ) : null}
 
         {/* Stepper */}
-        <Stepper step={step} />
+        <Stepper step={step} isClassTeacher={isClassTeacher} />
 
         {/* Step 1: Teacher Verification */}
         {step === 1 && (
@@ -1362,7 +1410,7 @@ export default function TeacherAttendanceScreen() {
                 style={styles.primaryButton}
               />
 
-              {enableManualAttendance && (
+              {enableManualAttendance && !isTeacherRole && (
                 <TouchableOpacity
                   style={styles.manualFallbackBtn}
                   onPress={() => (navigation as any).navigate('MarkAttendance')}
@@ -1445,8 +1493,17 @@ export default function TeacherAttendanceScreen() {
               )}
 
               <View style={styles.buttonRow}>
-                <AppButton title="Continue →" onPress={() => setStep(3)} style={StyleSheet.flatten([styles.primaryButton, { flex: 1 }])} />
-                <AppButton title="Reset" onPress={resetFlow} type="secondary" style={{ flex: 1 }} />
+                {isClassTeacher ? (
+                  <>
+                    <AppButton title="Continue →" onPress={() => setStep(3)} style={StyleSheet.flatten([styles.primaryButton, { flex: 1 }])} />
+                    <AppButton title="Reset" onPress={resetFlow} type="secondary" style={{ flex: 1 }} />
+                  </>
+                ) : (
+                  <>
+                    <AppButton title="Back to Dashboard" onPress={() => (navigation as any).navigate('TeacherDashboard')} style={StyleSheet.flatten([styles.primaryButton, { flex: 2 }])} />
+                    <AppButton title="Reset" onPress={resetFlow} type="secondary" style={{ flex: 1 }} />
+                  </>
+                )}
               </View>
             </View>
           </AppCard>
@@ -1782,6 +1839,32 @@ export default function TeacherAttendanceScreen() {
       </Modal>
 
       {pickerModal && <CustomPickerModal {...pickerModal} onClose={() => setPickerModal(null)} />}
+
+      {errorModal && (
+        <Modal
+          visible={errorModal.visible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setErrorModal(null)}
+        >
+          <View style={styles.errorModalOverlay}>
+            <View style={styles.errorModalContent}>
+              <View style={styles.errorModalIconContainer}>
+                <AlertCircle size={40} color="#EF4444" />
+              </View>
+              <AppText style={styles.errorModalTitle}>{errorModal.title}</AppText>
+              <AppText style={styles.errorModalMessage}>{errorModal.message}</AppText>
+              <TouchableOpacity
+                style={styles.errorModalButton}
+                onPress={() => setErrorModal(null)}
+                activeOpacity={0.8}
+              >
+                <AppText style={styles.errorModalButtonText}>OK</AppText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -2619,5 +2702,66 @@ const styles = StyleSheet.create({
     ...Theme.typography.caption,
     color: Theme.colors.textSec,
     marginTop: 2,
+  },
+  errorModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  errorModalContent: {
+    backgroundColor: Theme.colors.card,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 340,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  errorModalIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  errorModalTitle: {
+    ...Theme.typography.h3,
+    color: '#D32F2F',
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  errorModalMessage: {
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  errorModalButton: {
+    backgroundColor: '#D32F2F',
+    height: 48,
+    borderRadius: 12,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#D32F2F',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  errorModalButtonText: {
+    ...Theme.typography.body,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });

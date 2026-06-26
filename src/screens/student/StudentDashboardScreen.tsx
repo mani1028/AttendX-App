@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   StyleSheet,
   View,
+  Text,
   ScrollView,
   Image,
   TouchableOpacity,
@@ -49,7 +50,7 @@ import {
   getQuestionPapers,
   downloadQuestionPaper,
 } from '../../services/studentService';
-import { buildApiUrl } from '../../services/api';
+import { normalizePhotoUri } from '../../utils/normalizePhotoUri';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeJsonParse } from '../../utils/storage';
@@ -87,27 +88,6 @@ const arrayBufferToBase64 = (data: ArrayBuffer): string => {
 const getStudentDashboardCacheKey = (schoolCode: string, studentId: string): string | null => {
   if (!schoolCode || !studentId) {return null;}
   return `student_dashboard_cache:${schoolCode}:${studentId}`;
-};
-
-const normalizeDashboardPhotoUri = (value: string | null | undefined): string | null => {
-  const uri = String(value || '').trim();
-  if (!uri) {return null;}
-  if (
-    uri.startsWith('data:') ||
-    uri.startsWith('http://') ||
-    uri.startsWith('https://') ||
-    uri.startsWith('file://') ||
-    uri.startsWith('content://')
-  ) {
-    return uri;
-  }
-  if (uri.startsWith('/')) {
-    return buildApiUrl(uri);
-  }
-  if (uri.toLowerCase().startsWith('api/')) {
-    return buildApiUrl(`/${uri}`);
-  }
-  return uri;
 };
 
 export default function StudentDashboardScreen() {
@@ -277,7 +257,7 @@ export default function StudentDashboardScreen() {
           (freshProfile as any)?.student_photograph ||
           ''
         ).trim();
-        const normalizedProfilePhoto = normalizeDashboardPhotoUri(profilePhoto);
+        const normalizedProfilePhoto = normalizePhotoUri(profilePhoto);
 
         if (normalizedProfilePhoto && isMounted.current) {
           setProfilePhotoUrl(normalizedProfilePhoto);
@@ -290,7 +270,7 @@ export default function StudentDashboardScreen() {
 
         if (scopedCacheKey) {
           const cached = await AsyncStorage.getItem(scopedCacheKey);
-          const normalizedCached = normalizeDashboardPhotoUri(cached);
+          const normalizedCached = normalizePhotoUri(cached);
           if (normalizedCached && isMounted.current) {
             setProfilePhotoUrl(normalizedCached);
             setProfilePhotoError(false);
@@ -299,7 +279,7 @@ export default function StudentDashboardScreen() {
         }
 
         const resolved = (await getStudentProfilePhotoDataUri()) || (await getStudentProfilePhotoUrl());
-        const normalizedResolved = normalizeDashboardPhotoUri(resolved);
+        const normalizedResolved = normalizePhotoUri(resolved);
         if (normalizedResolved && isMounted.current) {
           setProfilePhotoUrl(normalizedResolved);
           setProfilePhotoError(false);
@@ -395,8 +375,12 @@ export default function StudentDashboardScreen() {
           colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
           start={{x: 0, y: 0}}
           end={{x: 1, y: 1}}
-          style={[styles.headerContent, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}
+          style={[styles.headerContent, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), overflow: 'hidden' }]}
         >
+          {/* Decorative circles */}
+          <View style={styles.decCircle1} />
+          <View style={styles.decCircle2} />
+
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={() => navigateRoot('Profile')}>
               {profilePhotoUrl && !profilePhotoError ? (
@@ -416,13 +400,13 @@ export default function StudentDashboardScreen() {
               )}
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.notificationBtn}
+              style={styles.iconBtn}
               onPress={() => navigateRoot('Notifications')}
             >
               <Bell size={22} color={Theme.colors.card} />
               {unreadCount > 0 && (
                 <View style={styles.badge}>
-                  <AppText style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+                  <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -625,10 +609,9 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.primary,
     paddingHorizontal: 20,
     paddingBottom: 40,
-
-
     marginBottom: 20,
     marginHorizontal: -20,
+    overflow: 'hidden',
   },
   headerTop: {
     flexDirection: 'row',
@@ -665,27 +648,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  badge: {
-    position: 'absolute',
-    top: 5,
-    right: 5,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: Theme.colors.error,
-    borderWidth: 2,
-    borderColor: Theme.colors.card,
-    justifyContent: 'center',
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    paddingHorizontal: 2,
-    zIndex: 1,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
-  badgeText: {
-    color: Theme.colors.card,
-    ...Theme.typography.label,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
+  badge: { position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 14 },
   greeting: {
     ...Theme.typography.h1,
     color: C.colors.background,
@@ -889,5 +861,23 @@ const styles = StyleSheet.create({
     ...Theme.typography.bodyMd,
     color: C.colors.blue,
     fontWeight: '600',
+  },
+  decCircle1: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    top: -50,
+    right: -40,
+  },
+  decCircle2: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    bottom: -20,
+    left: 60,
   },
 });

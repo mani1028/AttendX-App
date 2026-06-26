@@ -53,11 +53,6 @@ function normalizePhotoSource(value: unknown): string | null {
     return photo;
   }
 
-  const lower = photo.toLowerCase();
-  if (/\.(png|jpe?g|webp|gif)(\?.*)?$/.test(lower)) {
-    return photo;
-  }
-
   const compact = photo.replace(/\s+/g, '');
   const likelyBase64 = compact.length > 80 && /^[A-Za-z0-9+/=_-]+$/.test(compact);
   if (likelyBase64) {
@@ -65,7 +60,7 @@ function normalizePhotoSource(value: unknown): string | null {
     return `data:image/jpeg;base64,${normalized}`;
   }
 
-  return photo;
+  return buildApiUrl(`/${photo}`);
 }
 
 function arrayBufferToBase64(data: ArrayBuffer): string {
@@ -255,7 +250,7 @@ export async function verifyTeacher(payload: any): Promise<any> {
   // Backend expects JSON by default now
   // Suppress global 401 logout for face-verification requests so we can show an error
   // message instead of logging the user out when recognition fails.
-  return postFirstSuccessful(endpoints, payload, { suppressLogoutOn401: true });
+  return postFirstSuccessful(endpoints, payload, { suppressLogoutOn401: true, suppressErrorLog: true });
 }
 
 export async function uploadStudentImage(payload: any): Promise<any> {
@@ -543,21 +538,35 @@ export async function getTeacherProfile(): Promise<any> {
       raw.teacher_photograph,
       raw.profile_photo_url,
       raw.photo_url,
+      raw.photo_path,
       raw.photo,
       raw.avatar,
       root.teacher_photograph,
       root.profile_photo_url,
+      root.photo_path,
       storedUser?.teacher_photograph,
       storedUser?.profile_photo_url,
       storedUser?.photo_url,
+      storedUser?.photo_path,
     ));
 
-    if (!photoSource) {
+    const isBase64 = photoSource?.startsWith('data:');
+    const isS3OrExternal = photoSource && (
+      photoSource.includes('amazonaws.com') ||
+      photoSource.includes('s3.') ||
+      photoSource.includes('blob.core.windows.net') ||
+      photoSource.includes('googleapis.com') ||
+      photoSource.includes('cloudinary.com')
+    );
+    const isApiUrl = photoSource && !isBase64 && !isS3OrExternal;
+
+    if (!photoSource || isApiUrl) {
       const resolvedTeacherId = toText(firstDefined(raw.teacher_id, raw.teacherId, raw.employee_id, raw.employeeId, root.teacher_id, root.employee_id, storedUser?.teacher_id, storedUser?.employee_id)).trim();
       const resolvedSchoolCode = toText(firstDefined(raw.school_code, root.school_code, storedUser?.school_code)).trim();
-      photoSource = await getTeacherProfilePhotoDataUri(resolvedTeacherId, resolvedSchoolCode);
-
-      if (!photoSource) {
+      const dataUri = await getTeacherProfilePhotoDataUri(resolvedTeacherId, resolvedSchoolCode);
+      if (dataUri) {
+        photoSource = dataUri;
+      } else if (!photoSource) {
         photoSource = await getTeacherProfilePhotoUrl(resolvedTeacherId, resolvedSchoolCode);
       }
     }

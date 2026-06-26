@@ -132,7 +132,7 @@ const StandardPageHeader: React.FC<StandardPageHeaderProps> = ({
         style={[
           styles.dashboardHeader,
           {
-            paddingTop: insets.top + 16,
+            paddingTop: insets.top + 12,
             borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
             borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
           },
@@ -229,7 +229,7 @@ const StandardPageHeader: React.FC<StandardPageHeaderProps> = ({
       end={{ x: 1, y: 1 }}
       style={[
         styles.headerStandard,
-        { paddingTop: insets.top + 20, paddingHorizontal: 0 },
+        { paddingTop: insets.top + 12, paddingHorizontal: 0 },
         containerStyle,
       ]}
     >

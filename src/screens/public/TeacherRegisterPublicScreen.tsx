@@ -282,7 +282,7 @@ export default function TeacherRegisterPublicScreen() {
   };
 
   const openCamera = () => {
-    launchCamera({ mediaType: 'photo', quality: 0.9 }, (response: any) => {
+    launchCamera({ mediaType: 'photo', quality: 0.7, maxWidth: 800, maxHeight: 800 }, (response: any) => {
       if (response.assets && response.assets[0]) {
         const asset = response.assets[0];
         setPhotoFile(asset);
@@ -293,7 +293,7 @@ export default function TeacherRegisterPublicScreen() {
   };
 
   const openGallery = () => {
-    launchImageLibrary({ mediaType: 'photo', quality: 0.9 }, (response: any) => {
+    launchImageLibrary({ mediaType: 'photo', quality: 0.7, maxWidth: 800, maxHeight: 800 }, (response: any) => {
       if (response.assets && response.assets[0]) {
         const asset = response.assets[0];
         setPhotoFile(asset);

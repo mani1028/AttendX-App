@@ -60,6 +60,8 @@ import TeacherViewAttendanceScreen from '../screens/teacher/ViewAttendanceScreen
 import MarkAttendanceScreen from '../screens/teacher/MarkAttendanceScreen';
 import TeacherFaceReviewScreen from '../screens/teacher/TeacherFaceReviewScreen';
 import TeacherStudentRegistrationScreen from '../screens/teacher/StudentRegistrationScreen';
+import TeacherMyAttendanceScreen from '../screens/teacher/TeacherMyAttendanceScreen';
+import TeacherQuestionPapersScreen from '../screens/teacher/TeacherQuestionPapersScreen';
 // ─── Student Screens ────────────────────────────────────────────────────────
 import StudentDashboardScreen from '../screens/student/StudentDashboardScreen';
 import StudentAttendanceScreen from '../screens/student/StudentAttendanceScreen';
@@ -87,6 +89,7 @@ import PrincipalTeacherRegistrationRequestsScreen from '../screens/principal/Tea
 import PrincipalStudentPromotionScreen from '../screens/principal/StudentPromotionScreen';
 import StudentAttendanceReportScreen from '../screens/principal/StudentAttendanceReport';
 import PrincipalFaceReviewScreen from '../screens/principal/PrincipalFaceReviewScreen';
+import Student360Screen from '../screens/principal/Student360Screen';
 
 // ─── Director Screens (Old Principal) ───────────────────────────────────────
 import DirectorDashboardScreen from '../screens/director/DirectorDashboardScreen';
@@ -335,6 +338,8 @@ export default function AppNavigator() {
           <Stack.Screen name="MarkAttendance" component={MarkAttendanceScreen} />
           <Stack.Screen name="TeacherFaceReview" component={TeacherFaceReviewScreen} />
           <Stack.Screen name="TeacherStudentRegistration" component={TeacherStudentRegistrationScreen} />
+          <Stack.Screen name="TeacherMyAttendance" component={TeacherMyAttendanceScreen} />
+          <Stack.Screen name="TeacherQuestionPapers" component={TeacherQuestionPapersScreen} />
           <Stack.Screen name="StudentAttendance" component={StudentAttendanceScreen} />
           <Stack.Screen name="StudentMarks" component={StudentMarksScreen} />
           <Stack.Screen name="StudentHomework" component={StudentHomeworkScreen} />
@@ -358,6 +363,7 @@ export default function AppNavigator() {
           <Stack.Screen name="PrincipalTeacherRegistrationRequests" component={PrincipalTeacherRegistrationRequestsScreen} />
           <Stack.Screen name="PrincipalStudentPromotion" component={PrincipalStudentPromotionScreen} />
           <Stack.Screen name="PrincipalFaceReview" component={PrincipalFaceReviewScreen} />
+          <Stack.Screen name="Student360" component={Student360Screen} />
           <Stack.Screen name="DirectorDashboard" component={DirectorDashboardScreen} />
           <Stack.Screen name="DirectorBranchDetails" component={DirectorBranchDetailsScreen} />
           <Stack.Screen name="DirectorPrincipalRegistration" component={PrincipalRegistrationScreen} />

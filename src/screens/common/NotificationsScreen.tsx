@@ -255,8 +255,8 @@ export default function NotificationsScreen() {
   const { refreshUnreadCount } = useUnreadNotifications();
   const handleScroll = useScrollTabBar();
   const isAccountant = userRole?.toLowerCase() === 'accountant';
-  const headerColors = isAccountant ? ['#6648dc', '#818cf8'] : [Theme.colors.primary, '#2563eb'];
-  const primaryColor = isAccountant ? '#6648dc' : Theme.colors.primary;
+  const headerColors = [Theme.colors.gradientStart, Theme.colors.gradientEnd];
+  const primaryColor = Theme.colors.gradientStart;
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -699,8 +699,8 @@ const styles = StyleSheet.create({
   header: {
     paddingBottom: 28,
     paddingHorizontal: 20,
-
-
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
     overflow: 'hidden',
   },
   decCircle1: {

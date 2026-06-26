@@ -571,13 +571,18 @@ export default function QuestionPapersScreen() {
 
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
+      <LinearGradient
+        colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}
+      >
         <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
           <Icon name="arrow-left" size={24} color={C.colors.card} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Question Papers</Text>
         <View style={styles.backBtn} />
-      </View>
+      </LinearGradient>
 
       {/* Papers List */}
       <ScrollView
@@ -740,7 +745,6 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.background,
   },
   header: {
-    backgroundColor: C.colors.primary,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',

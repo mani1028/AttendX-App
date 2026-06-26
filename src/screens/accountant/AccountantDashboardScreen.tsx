@@ -4,6 +4,7 @@ import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import LinearGradient from 'react-native-linear-gradient';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Text,
   ActivityIndicator,
   Dimensions,
   NativeSyntheticEvent,
@@ -271,6 +272,9 @@ export default function AccountantDashboardScreen() {
         }
       >
         <LinearGradient colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]} start={{x: 0, y: 0}} end={{x: 1, y: 1}} style={[styles.hero, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 30 }]}>
+          {/* Decorative circles */}
+          <View style={styles.heroGlowOne} />
+          <View style={styles.heroGlowTwo} />
           <View style={{ paddingHorizontal: 20 }}>
             <View style={styles.heroRow}>
               <TouchableOpacity
@@ -287,16 +291,14 @@ export default function AccountantDashboardScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.iconButton}
+                style={styles.iconBtn}
                 onPress={() => navigation.navigate('Notifications')}
                 accessibilityLabel="Notifications"
               >
                 <Bell size={20} color={Theme.colors.card} />
                 {unreadCount > 0 && (
                   <View style={styles.badge}>
-                    <AppText style={styles.badgeText} weight="bold">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </AppText>
+                    <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -509,25 +511,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.18)',
   },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: Theme.colors.error,
-    borderWidth: 2,
-    borderColor: Theme.colors.card,
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1,
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
-  badgeText: {
-    color: Theme.colors.card,
-    fontSize: 9,
-    fontWeight: '900',
-  },
+  badge: { position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 14 },
   heroKicker: {
     color: '#dbeafe',
     ...Theme.typography.body,

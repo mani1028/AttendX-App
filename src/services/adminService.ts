@@ -209,6 +209,20 @@ export async function toggleAgentStatus(id: string, isActive: boolean): Promise<
   throw new Error('Failed to update agent status');
 }
 
+export async function getAgentMe(): Promise<any> {
+  const endpoints = [
+    '/schools/agents/me',
+    '/admin/schools/agents/me',
+    '/agents/me',
+  ];
+  try {
+    const data = await getFirstSuccessful<any>(endpoints);
+    return data;
+  } catch (err) {
+    return null;
+  }
+}
+
 export async function getRevenueStats(): Promise<any> {
   const endpoints = [
     '/schools/revenue/stats',

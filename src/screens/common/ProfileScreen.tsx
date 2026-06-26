@@ -11,6 +11,7 @@ import {
   Modal,
   TextInput,
   Image,
+  Platform,
 } from 'react-native';
 import {
   ChevronLeft,
@@ -148,10 +149,6 @@ const normalizePhotoUri = (value: unknown): string | null => {
     return buildApiUrl(photo);
   }
 
-  if (/\.(png|jpe?g|webp|gif)(\?.*)?$/i.test(photo)) {
-    return photo;
-  }
-
   const compact = photo.replace(/\s+/g, '');
   const likelyBase64 = compact.length > 80 && /^[A-Za-z0-9+/=_-]+$/.test(compact);
   if (likelyBase64) {
@@ -159,14 +156,42 @@ const normalizePhotoUri = (value: unknown): string | null => {
     return `data:image/jpeg;base64,${normalized}`;
   }
 
-  return photo;
+  return buildApiUrl(`/${photo}`);
 };
 
-const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number = 8000): Promise<T | null> => {
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number = 15000): Promise<T | null> => {
   const timeoutPromise = new Promise<null>((resolve) => {
     setTimeout(() => resolve(null), timeoutMs);
   });
   return Promise.race([promise, timeoutPromise]);
+};
+
+const isOwnApiUrl = (url: string | null): boolean => {
+  if (!url) {return false;}
+  if (url.startsWith('/') || url.startsWith('api/')) {return true;}
+  if (url.startsWith('data:') || url.startsWith('file:') || url.startsWith('content:')) {return false;}
+
+  const cleanUrl = url.toLowerCase();
+  
+  // Exclude known cloud storage domains
+  if (
+    cleanUrl.includes('amazonaws.com') ||
+    cleanUrl.includes('s3.') ||
+    cleanUrl.includes('blob.core.windows.net') ||
+    cleanUrl.includes('googleapis.com') ||
+    cleanUrl.includes('cloudinary.com')
+  ) {
+    return false;
+  }
+
+  // Allow localhost/IP and attendx.ai/attendx.com domains
+  return (
+    cleanUrl.includes('attendx.ai') ||
+    cleanUrl.includes('attendx.com') ||
+    cleanUrl.includes('192.168.') ||
+    cleanUrl.includes('localhost') ||
+    cleanUrl.includes('10.0.2.2')
+  );
 };
 
 export default function ProfileScreen() {
@@ -261,7 +286,8 @@ export default function ProfileScreen() {
 
       const entityId = roleBucket === 'student' ? storedStudentId : (storedTeacherId || storedEmployeeId);
       const profileCacheKey = entityId ? `profile_cache:${roleBucket}:${storedSchoolCode || 'unknown'}:${entityId}` : `profile_cache:${roleBucket}:${storedSchoolCode || 'unknown'}:anon`;
-      const photoCacheKey = getPhotoCacheKey(roleBucket, entityId, storedSchoolCode);
+      const isDirOrAdmin = normalizedRole === 'director' || normalizedRole === 'admin';
+      const photoCacheKey = (!isDirOrAdmin && entityId) ? getPhotoCacheKey(roleBucket, entityId, storedSchoolCode) : null;
 
       const cachedProfileRaw = await AsyncStorage.getItem(profileCacheKey);
       if (cachedProfileRaw && isMounted.current) {
@@ -291,19 +317,19 @@ export default function ProfileScreen() {
         try {
           if (roleBucket === 'student') {
             if (storedStudentId && storedSchoolCode) {
-              freshData = await withTimeout(getStudentProfileDetails(storedStudentId, storedSchoolCode), 5000);
+              freshData = await withTimeout(getStudentProfileDetails(storedStudentId, storedSchoolCode));
             }
-            if (!freshData) {freshData = await withTimeout(getStudentProfile(), 5000);}
+            if (!freshData) {freshData = await withTimeout(getStudentProfile());}
           } else if (normalizedRole === 'director') {
             try {
-              const profRes = await withTimeout(API.get('/director/profile', { suppressFallback404Log: true } as any), 5000);
+              const profRes = await withTimeout(API.get('/director/profile', { suppressFallback404Log: true } as any));
               if (profRes && profRes.data) {
                 freshData = profRes.data.director || profRes.data.profile || profRes.data.user || profRes.data;
               }
             } catch (err) {
               console.warn('Failed to fetch GET /director/profile, trying overview...', err);
               try {
-                const overviewRes = await withTimeout(API.get('/director/dashboard/overview'), 5000);
+                const overviewRes = await withTimeout(API.get('/director/dashboard/overview'));
                 if (overviewRes && overviewRes.data) {
                   freshData = overviewRes.data.director || overviewRes.data.profile || overviewRes.data.user || overviewRes.data.school || null;
                 }
@@ -313,8 +339,30 @@ export default function ProfileScreen() {
             }
           } else if (normalizedRole === 'agent') {
             freshData = null;
-          } else if (normalizedRole === 'principal' || (normalizedRole !== 'admin')) {
-            freshData = await withTimeout(getTeacherProfile(), 5000);
+          } else if (normalizedRole === 'principal') {
+            try {
+              const storedBranchId = (await AsyncStorage.getItem('branch_id')) || '';
+              const decodedToken = decodeJwt(userToken) || {};
+              const branchId = storedBranchId || decodedToken.branch_id;
+              if (branchId) {
+                const res = await withTimeout(API.get(`/director/branch/${branchId}`));
+                if (res && res.data) {
+                  const branchData = res.data;
+                  freshData = {
+                    name: branchData.principal_name,
+                    email: branchData.principal_email,
+                    address: branchData.principal_address,
+                    employee_id: branchData.principal_employee_id,
+                    branch_id: branchData.branch_id,
+                    branch_name: branchData.branch_name,
+                  };
+                }
+              }
+            } catch (err) {
+              console.warn('Failed to fetch principal branch details:', err);
+            }
+          } else if (normalizedRole !== 'admin') {
+            freshData = await withTimeout(getTeacherProfile());
           }
         } catch (e) {
           console.warn('Failed to fetch profile:', e);
@@ -345,6 +393,8 @@ export default function ProfileScreen() {
           storedPrincipalAddress,
           storedDirectorEmail,
           storedDirectorEmployeeId,
+          storedDesignation,
+          storedDepartment,
         ] =
           await AsyncStorage.multiGet([
             'email',
@@ -366,6 +416,8 @@ export default function ProfileScreen() {
             'principal_address',
             'director_email',
             'director_employee_id',
+            'designation',
+            'department_subject',
           ]).then(items => items.map(([, value]) => value || ''));
 
         const profileSource = (freshData as any) || {};
@@ -439,8 +491,8 @@ export default function ProfileScreen() {
           ),
           student_id: firstNonEmptyText(profileSource?.student_id, storedStudentId2, storedUser?.student_id),
           parent_guardian_email: firstNonEmptyText(profileSource?.parent_guardian_email, profileSource?.parent_email, profileSource?.guardian_email, profileSource?.father_email, profileSource?.mother_email, profileSource?.father_guardian_email, storedUser?.parent_guardian_email),
-          designation: firstNonEmptyText(profileSource?.designation, profileSource?.teacher_designation, storedUser?.designation),
-          department_subject: firstNonEmptyText(profileSource?.department_subject, profileSource?.department, profileSource?.subject, storedUser?.department_subject),
+          designation: firstNonEmptyText(profileSource?.designation, profileSource?.teacher_designation, storedDesignation, storedUser?.designation),
+          department_subject: firstNonEmptyText(profileSource?.department_subject, profileSource?.department, profileSource?.subject, storedDepartment, storedUser?.department_subject),
           address: firstNonEmptyText(
             profileSource?.address,
             profileSource?.director_address,
@@ -513,7 +565,7 @@ export default function ProfileScreen() {
         );
 
         let resolvedPhoto = directProfilePhoto;
-        if (!resolvedPhoto && resolvedEntityId && freshData) {
+        if (!resolvedPhoto && resolvedEntityId && freshData && normalizedRole !== 'director' && normalizedRole !== 'admin') {
           try {
             resolvedPhoto = roleBucket === 'student'
               ? ((await withTimeout(Promise.resolve(getStudentProfilePhotoDataUri(resolvedEntityId, storedSchoolCode)))) ||
@@ -725,20 +777,26 @@ export default function ProfileScreen() {
 
       if (isStudent) {
         await updateStudentProfile(updateData);
+      } else if (roleKey === 'principal') {
+        const body: any = {};
+        if (editField.key === 'phone') {
+          body.phone = editField.value;
+        } else if (editField.key === 'email') {
+          body.email = editField.value;
+        } else if (editField.key === 'name') {
+          body.name = editField.value;
+        } else if (editField.key === 'address') {
+          body.address = editField.value;
+        }
+        await API.put('/principal/profile', body);
       } else if (isDirector) {
         const { buildApiUrl } = require('../../services/api');
         const API = require('../../services/api').default;
         const body = { ...updateData };
-        if (editField.key === 'phone') {
-          body.director_phone = editField.value;
-          body.director_mobile = editField.value;
-          body.mobile = editField.value;
-        } else if (editField.key === 'email') {
+        if (editField.key === 'email') {
           body.director_email = editField.value;
         } else if (editField.key === 'name') {
           body.director_name = editField.value;
-        } else if (editField.key === 'address') {
-          body.director_address = editField.value;
         }
         await API.put('/director/profile', body);
       } else {
@@ -823,7 +881,9 @@ export default function ProfileScreen() {
               <Image
                 source={{
                   uri: profilePhotoUrl,
-                  headers: userToken ? { Authorization: `Bearer ${userToken}` } : undefined,
+                  headers: (userToken && isOwnApiUrl(profilePhotoUrl))
+                    ? { Authorization: `Bearer ${userToken}` }
+                    : undefined,
                 }}
                 style={styles.profileAvatarImage}
                 onError={() => setProfilePhotoError(true)}
@@ -870,15 +930,6 @@ export default function ProfileScreen() {
                 {renderInfoRow('Full Name', userInfo.name, User, 'name')}
                 <View style={styles.divider} />
                 {renderInfoRow('Email', userInfo.email, Mail, 'email')}
-
-                {roleKey !== 'admin' && (
-                  <>
-                    <View style={styles.divider} />
-                    {renderInfoRow('Phone', userInfo.phone, Phone, 'phone')}
-                    <View style={styles.divider} />
-                    {renderInfoRow('Address', userInfo.address, MapPin, 'address')}
-                  </>
-                )}
               </>
             )}
             {isStudent && (
@@ -1311,9 +1362,17 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: Theme.colors.primary,
     paddingHorizontal: 20,
-    paddingBottom: 30,
-
-
+    paddingBottom: 35,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    ...Platform.select({
+      android: { elevation: 6 },
+      ios: {},
+    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   headerTop: {
     flexDirection: 'row',
@@ -1373,6 +1432,7 @@ const styles = StyleSheet.create({
   innerContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
+    marginTop: 12,
   },
   section: {
     marginTop: 25,

@@ -1106,16 +1106,20 @@ export default function MarksEntryScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
         {/* Navy Standard Header */}
-        <StandardPageHeader title="Marks Entry" onBackPress={() => navigation.goBack()} />
+        <StandardPageHeader
+          title="Marks Entry"
+          onBackPress={() => navigation.goBack()}
+          containerStyle={styles.headerStandard}
+        />
 
         {/* Filter Card */}
-        <AppCard style={styles.mainCard} elevated={false}>
+        <AppCard style={styles.mainCard} elevated={true}>
           <View style={styles.selectionRow}>
             <View style={[styles.selectionField, { marginRight: 10 }]}>
               <AppText weight="bold" style={styles.selectionLabel}>Class</AppText>
               <TouchableOpacity accessibilityRole="button" style={styles.selectionDropdown} onPress={() => openInlinePicker('class')}>
-                <Users size={18} color={Theme.colors.textSec} style={{ marginRight: Theme.spacing.sm }} />
-                <AppText weight="semibold" style={styles.selectionDropdownText} numberOfLines={1}>
+                <Users size={18} color={classId ? Theme.colors.primary : Theme.colors.textSec} style={{ marginRight: Theme.spacing.sm }} />
+                <AppText weight="semibold" style={[styles.selectionDropdownText, !classId && { color: Theme.colors.textMuted }]} numberOfLines={1}>
                   {classId ? `Class ${classes.find(c => c.class_id === classId)?.class_name || classId}` : 'Select Class'}
                 </AppText>
                 <ChevronRight size={16} color={Theme.colors.textSec} style={{ transform: [{ rotate: '90deg' }] }} />
@@ -1132,8 +1136,8 @@ export default function MarksEntryScreen() {
                 onPress={() => openInlinePicker('section')}
                 disabled={!classId}
               >
-                <LayoutGrid size={18} color={Theme.colors.textSec} style={{ marginRight: Theme.spacing.sm }} />
-                <AppText weight="semibold" style={styles.selectionDropdownText} numberOfLines={1}>
+                <LayoutGrid size={18} color={sectionId ? Theme.colors.primary : Theme.colors.textSec} style={{ marginRight: Theme.spacing.sm }} />
+                <AppText weight="semibold" style={[styles.selectionDropdownText, !sectionId && { color: Theme.colors.textMuted }]} numberOfLines={1}>
                   {sectionId ? `Section ${sections.find(s => s.section_id === sectionId)?.section_name || sectionId}` : 'Select Section'}
                 </AppText>
                 <ChevronRight size={16} color={Theme.colors.textSec} style={{ transform: [{ rotate: '90deg' }] }} />
@@ -1148,8 +1152,8 @@ export default function MarksEntryScreen() {
             <View style={[styles.selectionField, { marginRight: 10 }]}>
               <AppText weight="bold" style={styles.selectionLabel}>Exam</AppText>
               <TouchableOpacity accessibilityRole="button" style={styles.selectionDropdown} onPress={() => openInlinePicker('exam')}>
-                <ClipboardList size={18} color={Theme.colors.textSec} style={{ marginRight: Theme.spacing.sm }} />
-                <AppText weight="semibold" style={styles.selectionDropdownText} numberOfLines={1}>
+                <ClipboardList size={18} color={examId ? Theme.colors.primary : Theme.colors.textSec} style={{ marginRight: Theme.spacing.sm }} />
+                <AppText weight="semibold" style={[styles.selectionDropdownText, !examId && { color: Theme.colors.textMuted }]} numberOfLines={1}>
                   {examId ? exams.find(e => e.exam_id === examId)?.exam_name || examId : 'Select Exam'}
                 </AppText>
                 <ChevronRight size={16} color={Theme.colors.textSec} style={{ transform: [{ rotate: '90deg' }] }} />
@@ -1166,8 +1170,8 @@ export default function MarksEntryScreen() {
                 onPress={() => openInlinePicker('subject')}
                 disabled={!classId}
               >
-                <BookOpen size={18} color={Theme.colors.textSec} style={{ marginRight: Theme.spacing.sm }} />
-                <AppText weight="semibold" style={styles.selectionDropdownText} numberOfLines={1}>
+                <BookOpen size={18} color={subjectId ? Theme.colors.primary : Theme.colors.textSec} style={{ marginRight: Theme.spacing.sm }} />
+                <AppText weight="semibold" style={[styles.selectionDropdownText, !subjectId && { color: Theme.colors.textMuted }]} numberOfLines={1}>
                   {subjectId ? subjects.find(s => s.subject_id === subjectId)?.subject_name || subjectId : 'Select Subject'}
                 </AppText>
                 <ChevronRight size={16} color={Theme.colors.textSec} style={{ transform: [{ rotate: '90deg' }] }} />
@@ -1400,15 +1404,16 @@ const styles = StyleSheet.create({
   mainCard: {
     marginTop: -80,
     marginHorizontal: Theme.spacing.md,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: Theme.colors.card,
     padding: Theme.spacing.lg,
+    borderRadius: Theme.radius.xxxl,
     ...Platform.select({
-      android: { elevation: 15 },
+      android: { elevation: 12 },
       ios: {
         shadowColor: Theme.colors.primary,
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.12,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 16,
       },
     }),
     marginBottom: 25,
@@ -1418,9 +1423,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     padding: Theme.spacing.md,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: Theme.colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.background,
+    borderBottomColor: Theme.colors.border,
   },
   cardTitle: {
     fontSize: 16,
@@ -1438,33 +1443,34 @@ const styles = StyleSheet.create({
   },
   selectionLabel: {
     ...Theme.typography.body,
-    color: Theme.colors.text,
+    color: Theme.colors.textSec,
     marginBottom: Theme.spacing.sm,
     fontWeight: '700',
   },
   selectionDropdown: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Theme.colors.background,
+    backgroundColor: Theme.colors.inputBg,
     borderWidth: 1.5,
-    borderColor: Theme.colors.background,
+    borderColor: Theme.colors.border,
     borderRadius: 18,
     paddingHorizontal: Theme.spacing.md,
     height: 56,
   },
   selectionDropdownDisabled: {
-    backgroundColor: '#F9FAFB',
-    opacity: 0.5,
+    backgroundColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
+    opacity: 0.6,
   },
   selectionDropdownText: {
     flex: 1,
     ...Theme.typography.body,
-    color: Theme.colors.textSec,
+    color: Theme.colors.text,
     fontWeight: '600',
     marginLeft: Theme.spacing.xs,
   },
   selectionHelperText: {
-    marginTop: 10,
+    marginTop: 6,
     ...Theme.typography.caption,
     color: Theme.colors.textMuted,
     fontWeight: '500',

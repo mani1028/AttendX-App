@@ -762,7 +762,7 @@ export default function PrincipalRegistrationScreen() {
 
   return (
     <View style={styles.container}>
-
+      <StandardPageHeader title="Principal Registration" onBackPress={() => navigation.goBack()} />
 
       <Toast
         visible={toast.visible}
@@ -776,9 +776,6 @@ export default function PrincipalRegistrationScreen() {
         contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Vibrant Gradient Header with Stepper */}
-        <StandardPageHeader title="Principal Registration" onBackPress={() => navigation.goBack()} />
-
         {/* Form Card */}
         <AppCard style={styles.formCard} padded={false}>
           <View style={styles.cardHeader}>

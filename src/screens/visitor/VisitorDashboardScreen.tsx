@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -526,11 +527,11 @@ export default function VisitorDashboardScreen() {
             <AppText style={styles.headerTitle}>Visitor Portal</AppText>
           </View>
           <View style={styles.headerIcons}>
-            <TouchableOpacity accessibilityRole="button" style={styles.refreshIconBtn} onPress={() => navigation.navigate('Notifications')}>
+            <TouchableOpacity accessibilityRole="button" style={styles.iconBtn} onPress={() => navigation.navigate('Notifications')}>
               <Bell size={20} color={Theme.colors.card} />
               {unreadCount > 0 && (
-                <View style={styles.badgeNotification}>
-                  <AppText style={styles.badgeTextNotification}>{unreadCount > 9 ? '9+' : unreadCount}</AppText>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -1072,25 +1073,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 18,
   },
-  badgeNotification: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: Theme.colors.error,
-    borderWidth: 2,
-    borderColor: Theme.colors.card,
-    justifyContent: 'center',
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    paddingHorizontal: 2,
-  },
-  badgeTextNotification: {
-    color: Theme.colors.card,
-    fontSize: 9,
-    fontWeight: '900',
-    textAlign: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   modalMessage: {
     fontSize: 13,

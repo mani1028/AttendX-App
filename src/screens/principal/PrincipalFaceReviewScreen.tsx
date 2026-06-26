@@ -30,6 +30,7 @@ import {
   Scan,
 } from 'lucide-react-native';
 import API from '../../services/api';
+import { normalizePhotoUri } from '../../utils/normalizePhotoUri';
 
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { Theme } from '../../theme/tokens';
@@ -306,8 +307,6 @@ export default function PrincipalFaceReviewScreen() {
   const stu = summary.students || {};
   const stf = summary.staff || {};
 
-  const baseUrl = (API.defaults.baseURL || '').replace(/\/api\/?$/, '');
-
   const statusFilters: Array<{ key: StatusFilter; label: string }> = [
     { key: 'all', label: 'All' },
     { key: 'no_photo', label: '❌ No Photo' },
@@ -336,7 +335,7 @@ export default function PrincipalFaceReviewScreen() {
       <View key={id} style={styles.card}>
         <View style={styles.photoArea}>
           {item.photo_url ? (
-            <Image source={{ uri: `${baseUrl}${item.photo_url}` }} style={styles.photo} onError={() => {}} />
+            <Image source={{ uri: normalizePhotoUri(item.photo_url) || '' }} style={styles.photo} onError={() => {}} />
           ) : (
             <View style={styles.noPhotoWrap}>
               {isStaff

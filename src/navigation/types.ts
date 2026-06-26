@@ -42,7 +42,6 @@ export type RootStackParamList = {
   MarkAttendance: undefined;
   TeacherFaceReview: undefined;
   TeacherStudentRegistration: undefined;
-  ManageData: undefined;
   TeacherMyAttendance: undefined;
   TeacherQuestionPapers: undefined;
 
