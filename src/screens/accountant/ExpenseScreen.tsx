@@ -28,6 +28,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { Theme, C } from '../../theme/tokens';
 import * as accountantService from '../../services/accountantService';
 import { formatErrorMessage } from '../../utils/helpers';
@@ -193,7 +194,7 @@ const ExpenseScreen = () => {
         <AppText style={styles.summaryCount}>{filteredExpenses.length} entries</AppText>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.categoryScroll]}>
         {categorySummary.map((cat) => {
           const palette = categoryPalette[cat.name] || categoryPalette.Other;
           return (
@@ -242,7 +243,7 @@ const ExpenseScreen = () => {
       <StandardPageHeader title="Expense Tracking" onBackPress={() => navigation.goBack()} />
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.content}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
@@ -295,7 +296,7 @@ const ExpenseScreen = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={[styles.modalBody, innerPageLayoutStyles.scrollViewFront]}>
               <AppText style={styles.label}>Title</AppText>
               <TextInput
                 style={styles.input}
@@ -450,8 +451,7 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 100,
-    marginTop: -20,
-    backgroundColor: Theme.colors.background,
+        backgroundColor: Theme.colors.background,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
   },

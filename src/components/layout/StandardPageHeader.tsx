@@ -1,50 +1,34 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { ChevronLeft, Calendar, Bell, RefreshCw } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppText from '../common/AppText';
 import { Theme } from '../../theme/tokens';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
-import LinearGradient from 'react-native-linear-gradient';
-
-// ────────────────────────────────────────────────────────────────────────────
-// StandardPageHeader
-//
-// Unified header component used across ALL roles.
-//
-// Two modes:
-//
-// 1. Inner-page mode (default) — compact nav bar with back button + centred title.
-//    Props: title, onBackPress, rightIcon?, subtitle?, showCalendar?
-//
-// 2. Dashboard mode — full-height hero with avatar, greeting, bell, date badge.
-//    Activate by passing `dashboardMode={true}`. Requires: userName.
-//    Optional: portalLabel, dateBadge, onNotificationsPress, onRefreshPress,
-//              unreadCount, onAvatarPress, greeting (overrides auto-computed).
-// ────────────────────────────────────────────────────────────────────────────
+import HeroHeaderShell, { heroHeaderStyles } from './HeroHeaderShell';
+import { innerPageLayoutStyles } from './innerPageLayoutStyles';
 
 interface StandardPageHeaderProps {
-  // ── Shared ──
   title: string;
   backgroundColor?: string;
   containerStyle?: ViewStyle;
 
-  // ── Inner-page mode ──
   onBackPress?: () => void;
   rightIcon?: React.ReactNode;
   onRightIconPress?: () => void;
+  /** Multiple right-side action buttons (Notifications-style) */
+  rightActions?: React.ReactNode;
   subtitle?: string;
   showCalendar?: boolean;
-  /** @deprecated use greeting/greetingSubtext on dashboard mode */
+  /** @deprecated No longer shown — title sits beside back button */
+  titleIcon?: React.ReactNode;
+  /** Numeric badge beside title (e.g. unread count) */
+  titleBadge?: number;
   greeting?: string;
-  /** @deprecated */
   greetingSubtext?: string;
 
-  // ── Dashboard mode ──
   dashboardMode?: boolean;
   userName?: string;
   portalLabel?: string;
-  /** Custom greeting line — defaults to "GOOD MORNING / AFTERNOON / EVENING" */
   greetingOverride?: string;
   pageTitle?: string;
   pageSubtitle?: string;
@@ -54,11 +38,13 @@ interface StandardPageHeaderProps {
   onRefreshPress?: () => void;
   onAvatarPress?: () => void;
   refreshing?: boolean;
-  /** Hide/show the back button in inner-page mode */
   showBack?: boolean;
+  /** When true, render without overlap wrapper — place as first child inside ScrollView. */
+  scrollWithContent?: boolean;
+  /** When false, fixed header without pulling scroll content into the hero curve. */
+  overlapContent?: boolean;
 }
 
-// ─── Helper ──────────────────────────────────────────────────────────────────
 function getAutoGreeting(): string {
   const h = new Date().getHours();
   if (h < 12) { return 'MORNING'; }
@@ -68,29 +54,22 @@ function getAutoGreeting(): string {
 
 function getInitials(name: string): string {
   if (!name) { return '?'; }
-  return name
-    .trim()
-    .split(' ')
-    .map(w => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  return name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
 const StandardPageHeader: React.FC<StandardPageHeaderProps> = ({
   title,
   onBackPress,
   rightIcon,
   onRightIconPress,
+  rightActions,
   subtitle,
   containerStyle,
   backgroundColor = Theme.colors.primary,
   showCalendar,
+  titleBadge,
   greeting,
   greetingSubtext,
-
-  // Dashboard mode
   dashboardMode = false,
   userName,
   portalLabel,
@@ -104,13 +83,32 @@ const StandardPageHeader: React.FC<StandardPageHeaderProps> = ({
   onAvatarPress,
   refreshing = false,
   showBack = true,
+  scrollWithContent = false,
+  overlapContent = true,
 }) => {
-  const insets = useSafeAreaInsets();
-
+  const useInnerPage = !scrollWithContent && overlapContent;
+  const useOverlapWrapper = !scrollWithContent && overlapContent;
   const gradientColors =
     backgroundColor && backgroundColor !== Theme.colors.primary
-      ? [backgroundColor, backgroundColor]
-      : ([Theme.colors.gradientStart, Theme.colors.gradientEnd] as [string, string]);
+      ? ([backgroundColor, backgroundColor] as [string, string])
+      : ([HEADER_CONSTANTS.GRADIENT_START, HEADER_CONSTANTS.GRADIENT_END] as [string, string]);
+
+  const renderRightActions = () => {
+    if (rightActions) { return rightActions; }
+    if (rightIcon || showCalendar) {
+      return (
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={heroHeaderStyles.iconBtn}
+          onPress={onRightIconPress}
+          accessibilityLabel="Right action"
+        >
+          {showCalendar ? <Calendar size={20} color={Theme.colors.card} /> : rightIcon}
+        </TouchableOpacity>
+      );
+    }
+    return null;
+  };
 
   // ── Dashboard Mode ─────────────────────────────────────────────────────────
   if (dashboardMode) {
@@ -125,54 +123,20 @@ const StandardPageHeader: React.FC<StandardPageHeaderProps> = ({
     });
 
     return (
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[
-          styles.dashboardHeader,
-          {
-            paddingTop: insets.top + 12,
-            borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-            borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-          },
-          containerStyle,
-        ]}
-      >
-        {/* Row 1 — Avatar + Greeting + Actions */}
-        <View style={styles.dashRow1}>
-          <View style={styles.dashLeft}>
-            {/* Avatar */}
-            <TouchableOpacity
-              style={styles.avatarCircle}
-              activeOpacity={0.8}
-              onPress={onAvatarPress}
-              accessibilityLabel="Open profile"
-            >
-              <AppText style={styles.avatarText} weight="bold">{initials}</AppText>
-            </TouchableOpacity>
-
-            {/* Greeting copy */}
-            <View style={styles.greetingStack}>
-              <AppText style={styles.greetingLabel}>{greetingLine}</AppText>
-              <AppText style={styles.greetingName} numberOfLines={1}>
-                {displayName} 👋
-              </AppText>
-            </View>
-          </View>
-
-          {/* Action icons */}
-          <View style={styles.dashActions}>
+      <HeroHeaderShell colors={gradientColors} style={containerStyle}>
+        <View style={heroHeaderStyles.topBar}>
+          <View style={heroHeaderStyles.iconBtnSpacer} />
+          <View style={heroHeaderStyles.actions}>
             {onNotificationsPress && (
               <TouchableOpacity
-                style={styles.iconBtn}
+                style={heroHeaderStyles.iconBtn}
                 onPress={onNotificationsPress}
                 accessibilityLabel="Notifications"
               >
-                <Bell size={18} color={Theme.colors.card} />
+                <Bell size={20} color={Theme.colors.card} />
                 {unreadCount > 0 && (
-                  <View style={styles.badge}>
-                    <AppText style={styles.badgeText} weight="bold">
+                  <View style={styles.notifDot}>
+                    <AppText style={styles.notifDotText} weight="bold">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </AppText>
                   </View>
@@ -181,10 +145,10 @@ const StandardPageHeader: React.FC<StandardPageHeaderProps> = ({
             )}
             {onRefreshPress && (
               <TouchableOpacity
-                style={styles.iconBtn}
+                style={heroHeaderStyles.iconBtn}
                 onPress={onRefreshPress}
-                accessibilityLabel="Refresh"
                 disabled={refreshing}
+                accessibilityLabel="Refresh"
               >
                 <RefreshCw size={18} color={Theme.colors.card} />
               </TouchableOpacity>
@@ -192,24 +156,38 @@ const StandardPageHeader: React.FC<StandardPageHeaderProps> = ({
           </View>
         </View>
 
-        {/* Portal label */}
-        {portalLabel && (
-          <AppText style={styles.portalLabel}>{portalLabel}</AppText>
-        )}
+        <View style={heroHeaderStyles.contentRow}>
+          <TouchableOpacity
+            style={heroHeaderStyles.titleIconRing}
+            activeOpacity={0.85}
+            onPress={onAvatarPress}
+            disabled={!onAvatarPress}
+          >
+            <AppText style={heroHeaderStyles.titleIconLetter} weight="bold">{initials}</AppText>
+          </TouchableOpacity>
+          <View style={heroHeaderStyles.textBlock}>
+            <AppText style={heroHeaderStyles.subtitle}>{greetingLine}</AppText>
+            <AppText style={heroHeaderStyles.title} numberOfLines={1}>
+              {displayName} 👋
+            </AppText>
+          </View>
+        </View>
 
-        {/* Row 2 — Page title + Date badge */}
-        <View style={styles.dashRow2}>
+        {portalLabel ? (
+          <AppText style={styles.portalLabel}>{portalLabel}</AppText>
+        ) : null}
+
+        <View style={styles.dashFooterRow}>
           <View style={{ flex: 1, marginRight: 12 }}>
-            <AppText style={styles.dashTitle} numberOfLines={1} adjustsFontSizeToFit>
+            <AppText style={heroHeaderStyles.title} numberOfLines={1} adjustsFontSizeToFit>
               {displayTitle}
             </AppText>
-            {(pageSubtitle || subtitle) && (
-              <AppText style={styles.dashSubtitle} numberOfLines={1}>
+            {(pageSubtitle || subtitle) ? (
+              <AppText style={heroHeaderStyles.subtitle} numberOfLines={1}>
                 {pageSubtitle || subtitle}
               </AppText>
-            )}
+            ) : null}
           </View>
-
           {showDateBadge && (
             <View style={styles.dateBadge}>
               <Calendar size={11} color={Theme.colors.card} />
@@ -217,209 +195,120 @@ const StandardPageHeader: React.FC<StandardPageHeaderProps> = ({
             </View>
           )}
         </View>
-      </LinearGradient>
+      </HeroHeaderShell>
     );
   }
 
-  // ── Inner-page Mode ────────────────────────────────────────────────────────
-  return (
-    <LinearGradient
-      colors={gradientColors}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[
-        styles.headerStandard,
-        { paddingTop: insets.top + 12, paddingHorizontal: 0 },
-        containerStyle,
-      ]}
-    >
-      <View style={[styles.navRow, { paddingHorizontal: 20 }]}>
-        {/* Back button — shown when showBack=true and onBackPress provided */}
-        {showBack && onBackPress ? (
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={styles.backButton}
-            onPress={onBackPress}
-            accessibilityLabel="Go back"
-          >
-            <ChevronLeft size={22} strokeWidth={2} color={Theme.colors.card} />
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: HEADER_CONSTANTS.ICON_BUTTON_SIZE }} />
-        )}
+  const hasRightSlot =
+    !!rightActions ||
+    !!rightIcon ||
+    showCalendar ||
+    (titleBadge != null && titleBadge > 0);
 
-        <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle} numberOfLines={1}>
-            {title}
-          </AppText>
-          {subtitle && <AppText style={styles.subtitle}>{subtitle}</AppText>}
+  const headerShell = (
+    <HeroHeaderShell
+      colors={gradientColors}
+      innerPage={useInnerPage}
+      style={containerStyle}
+    >
+      <View style={styles.navRow}>
+        <View style={styles.navLeading}>
+          {showBack && onBackPress ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={heroHeaderStyles.iconBtn}
+              onPress={onBackPress}
+              accessibilityLabel="Go back"
+            >
+              <ChevronLeft size={22} strokeWidth={2} color={Theme.colors.card} />
+            </TouchableOpacity>
+          ) : null}
+
+          <View style={styles.titleBlock}>
+            <AppText style={styles.pageTitle} numberOfLines={1}>
+              {title}
+            </AppText>
+            {subtitle ? (
+              <AppText style={styles.pageSubtitle} numberOfLines={1}>
+                {subtitle}
+              </AppText>
+            ) : null}
+          </View>
         </View>
 
-        {(rightIcon || showCalendar) ? (
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={styles.rightButton}
-            onPress={onRightIconPress}
-            accessibilityLabel="Right action"
-          >
-            {showCalendar ? <Calendar size={22} color={Theme.colors.card} /> : rightIcon}
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: HEADER_CONSTANTS.ICON_BUTTON_SIZE }} />
-        )}
+        {hasRightSlot ? (
+          <View style={heroHeaderStyles.actions}>
+            {titleBadge != null && titleBadge > 0 && (
+              <View style={heroHeaderStyles.titleBadge}>
+                <AppText style={heroHeaderStyles.titleBadgeText}>{titleBadge}</AppText>
+              </View>
+            )}
+            {renderRightActions()}
+          </View>
+        ) : null}
       </View>
 
-      {/* Legacy greeting slot (kept for backward compat) */}
-      {greeting && (
-        <View style={[styles.greetingContainer, { paddingHorizontal: 20 }]}>
-          <AppText style={styles.greetingText}>{greeting}</AppText>
-          {greetingSubtext && (
-            <AppText style={styles.greetingSubtext}>{greetingSubtext}</AppText>
-          )}
+      {greeting ? (
+        <View style={styles.legacyGreeting}>
+          <AppText style={styles.legacyGreetingTitle}>{greeting}</AppText>
+          {greetingSubtext ? (
+            <AppText style={heroHeaderStyles.subtitle}>{greetingSubtext}</AppText>
+          ) : null}
         </View>
-      )}
-    </LinearGradient>
+      ) : null}
+    </HeroHeaderShell>
   );
+
+  // ── Inner-page Mode — fixed overlap OR scroll-embedded header ───────────────
+  if (scrollWithContent) {
+    return headerShell;
+  }
+
+  if (useOverlapWrapper) {
+    return (
+      <View style={innerPageLayoutStyles.headerWrapper}>
+        {headerShell}
+      </View>
+    );
+  }
+
+  return headerShell;
 };
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  // ── Inner-page ──────────────────────────────────────────────
-  headerStandard: {
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-  },
   navRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
+    minHeight: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
   },
-  backButton: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-  },
-  headerTitleContainer: {
+  navLeading: {
     flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 12,
-  },
-  headerTitle: {
-    ...Theme.typography.h3,
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    textAlign: 'center',
-  },
-  subtitle: {
-    ...Theme.typography.caption,
-    color: `rgba(255,255,255,${HEADER_CONSTANTS.SUBTITLE_OPACITY})`,
-    marginTop: Theme.spacing.xs,
-    textAlign: 'center',
-  },
-  rightButton: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-  },
-  greetingContainer: {
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  greetingText: {
-    ...Theme.typography.h2,
-    color: Theme.colors.card,
-    marginBottom: Theme.spacing.xs,
-  },
-  greetingSubtext: {
-    ...Theme.typography.body,
-    color: 'rgba(255,255,255,0.8)',
-  },
-
-  // ── Dashboard mode ──────────────────────────────────────────
-  dashboardHeader: {
-    paddingBottom: 24,
-    paddingHorizontal: 18,
-  },
-  dashRow1: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  dashLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    minWidth: 0,
+  },
+  titleBlock: {
     flex: 1,
-  },
-  avatarCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
+    minWidth: 0,
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
   },
-  avatarText: {
-    color: Theme.colors.card,
-    fontSize: 16,
-    fontWeight: '700',
+  pageTitle: {
+    fontSize: HEADER_CONSTANTS.INNER_PAGE_TITLE_SIZE,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: -0.3,
+    textAlign: 'left',
+    lineHeight: 28,
   },
-  greetingStack: {
-    flex: 1,
-  },
-  greetingLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.7)',
-    fontWeight: '600',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  greetingName: {
-    fontSize: 16,
-    color: Theme.colors.card,
-    fontWeight: '700',
-  },
-  dashActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  iconBtn: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-  },
-  badge: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    minWidth: 15,
-    height: 15,
-    borderRadius: 8,
-    backgroundColor: Theme.colors.error,
-    borderWidth: 1.5,
-    borderColor: Theme.colors.gradientStart,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 2,
-  },
-  badgeText: {
-    color: Theme.colors.card,
-    fontSize: 8,
-    textAlign: 'center',
+  pageSubtitle: {
+    fontSize: HEADER_CONSTANTS.HERO_SUBTITLE_SIZE,
+    color: 'rgba(255,255,255,0.72)',
+    marginTop: 2,
+    fontWeight: '500',
+    textAlign: 'left',
   },
   portalLabel: {
     fontSize: 11,
@@ -427,25 +316,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1,
     textTransform: 'uppercase',
-    marginTop: 8,
-    marginBottom: 2,
+    marginTop: 12,
   },
-  dashRow2: {
+  dashFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 12,
-  },
-  dashTitle: {
-    fontSize: 20,
-    color: Theme.colors.card,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  dashSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.75)',
-    marginTop: 2,
+    marginTop: 14,
   },
   dateBadge: {
     flexDirection: 'row',
@@ -460,6 +337,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Theme.colors.card,
     fontWeight: '700',
+  },
+  notifDot: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 15,
+    height: 15,
+    borderRadius: 8,
+    backgroundColor: Theme.colors.error,
+    borderWidth: 1.5,
+    borderColor: HEADER_CONSTANTS.GRADIENT_START,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  notifDotText: {
+    color: Theme.colors.card,
+    fontSize: 8,
+    textAlign: 'center',
+  },
+  legacyGreeting: {
+    marginTop: 16,
+  },
+  legacyGreetingTitle: {
+    ...Theme.typography.h2,
+    color: Theme.colors.card,
+    marginBottom: Theme.spacing.xs,
   },
 });
 

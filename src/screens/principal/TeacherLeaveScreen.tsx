@@ -16,9 +16,7 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ChevronLeft,
   Calendar,
   ChevronRight,
   FileText,
@@ -27,13 +25,15 @@ import {
   XCircle,
   Clock,
 } from 'lucide-react-native';
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import API from '../../services/api';
 import { formatErrorMessage } from '../../utils/helpers';
 import AppText from '../../components/common/AppText';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 const { width } = Dimensions.get('window');
+const PAGE_GUTTER = 14;
 
 interface TeacherLeave {
   leave_id: number;
@@ -71,7 +71,6 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 export default function TeacherLeaveScreen({ navigation }: any) {
-  const insets = useSafeAreaInsets();
   const [leaves, setLeaves] = useState<TeacherLeave[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -190,68 +189,52 @@ export default function TeacherLeaveScreen({ navigation }: any) {
     <View style={styles.container}>
 
 
-      <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => safeGoBack(navigation, 'PrincipalDashboard')}
-          >
-            <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>Teacher Leaves</AppText>
+      <StandardPageHeader
+        title="Leave Approvals"
+        subtitle={`${totalLeaves} total requests • ${stats.pending} pending`}
+        onBackPress={() => safeGoBack(navigation, 'PrincipalDashboard')}
+      />
+
+      <ScrollView
+        style={[styles.content, innerPageLayoutStyles.scrollViewFront]}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
+      >
+        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+          <View style={styles.filterTabs}>
+            <AppText style={styles.filterLabel} weight="semibold">Filter by Status</AppText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScrollContent}>
+              {(['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const).map((tab) => (
+                <TouchableOpacity
+                  key={tab}
+                  onPress={() => setFilter(tab)}
+                  style={[styles.filterTab, filter === tab && styles.filterTabActive]}
+                >
+                  <AppText style={[styles.filterTabText, filter === tab && styles.filterTabTextActive]} weight="semibold">
+                    {tab === 'ALL' ? 'All Requests' : tab.charAt(0) + tab.slice(1).toLowerCase()}
+                  </AppText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
-          <View style={styles.headerSpacer} />
-        </View>
 
-        <View style={styles.headerContent}>
-          <AppText weight="bold" style={styles.headerGreeting}>Leave Approvals</AppText>
-          <AppText style={styles.headerSubtext}>{totalLeaves} total requests • {stats.pending} pending</AppText>
+          {loading ? (
+            <View style={styles.centerContainer}>
+              <ActivityIndicator size="large" color={C.primary} />
+            </View>
+          ) : filteredLeaves.length > 0 ? (
+            <View style={styles.leavesList}>
+              {filteredLeaves.map(renderLeaveCard)}
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <FileText size={64} color={Theme.colors.border} />
+              <AppText style={styles.emptyText}>No {filter.toLowerCase()} leave requests found</AppText>
+            </View>
+          )}
         </View>
-      </View>
-
-      <View style={styles.contentOverlap}>
-        <View style={styles.filterTabs}>
-          <AppText style={styles.filterLabel} weight="semibold">Filter by Status</AppText>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScrollContent}>
-            {(['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const).map((tab) => (
-              <TouchableOpacity
-                key={tab}
-                onPress={() => setFilter(tab)}
-                style={[styles.filterTab, filter === tab && styles.filterTabActive]}
-              >
-                <AppText style={[styles.filterTabText, filter === tab && styles.filterTabTextActive]} weight="semibold">
-                  {tab === 'ALL' ? 'All Requests' : tab.charAt(0) + tab.slice(1).toLowerCase()}
-                </AppText>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {loading ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={C.primary} />
-          </View>
-        ) : (
-          <ScrollView
-            style={styles.content}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 100 }}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
-          >
-            {filteredLeaves.length > 0 ? (
-              <View style={styles.leavesList}>
-                {filteredLeaves.map(renderLeaveCard)}
-              </View>
-            ) : (
-              <View style={styles.emptyContainer}>
-                <FileText size={64} color={Theme.colors.border} />
-                <AppText style={styles.emptyText}>No {filter.toLowerCase()} leave requests found</AppText>
-              </View>
-            )}
-          </ScrollView>
-        )}
-      </View>
+      </ScrollView>
 
       {/* Leave Detail Modal */}
       <Modal
@@ -270,7 +253,7 @@ export default function TeacherLeaveScreen({ navigation }: any) {
             </View>
 
             {selectedLeave && (
-              <ScrollView style={styles.modalScroll}>
+              <ScrollView style={[styles.modalScroll, innerPageLayoutStyles.scrollViewFront]}>
                 <View style={styles.detailTeacherInfo}>
                   <View style={styles.largeAvatar}>
                     <Text style={styles.largeAvatarText}>{selectedLeave.teacher_full_name.charAt(0)}</Text>
@@ -338,65 +321,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  contentOverlap: {
+  pageBody: {
+    paddingHorizontal: PAGE_GUTTER,
+    paddingBottom: 100,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  content: {
     flex: 1,
-    marginTop: -20,
-  },
-  headerStandard: {
-    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 10 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
-    fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
-    textAlign: 'center',
-  },
-  headerContent: {
-    marginTop: Theme.spacing.lg,
-  },
-  headerGreeting: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    ...Theme.typography.h1,
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    ...Theme.typography.body,
-    marginTop: Theme.spacing.xs,
-  },
-  headerSpacer: {
-    width: 40,
   },
   heroCard: {
     backgroundColor: Theme.colors.card,
@@ -449,14 +382,12 @@ const styles = StyleSheet.create({
   filterTabs: {
     backgroundColor: Theme.colors.card,
     paddingVertical: 12,
-    marginHorizontal: 20,
-    marginTop: 15,
+    paddingHorizontal: 12,
+    marginTop: 14,
+    marginBottom: Theme.spacing.md,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
   },
   filterScrollContent: {
     paddingHorizontal: 12,
@@ -479,16 +410,12 @@ const styles = StyleSheet.create({
   filterTabTextActive: {
     color: Theme.colors.card,
   },
-  content: {
-    flex: 1,
-  },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   leavesList: {
-    paddingHorizontal: 20,
     paddingTop: Theme.spacing.xs,
   },
   leaveCard: {

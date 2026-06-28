@@ -23,8 +23,8 @@ android {
         applicationId "com.visys.attendx"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion 35
-        versionCode 7
-        versionName "1.0.6"
+        versionCode 9
+        versionName "1.0.8"
 
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
@@ -60,6 +60,12 @@ android {
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             manifestPlaceholders = [usesCleartextTraffic: "false"]
+        }
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
         }
     }
 }

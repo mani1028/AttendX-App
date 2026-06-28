@@ -18,13 +18,15 @@ import {
     NativeSyntheticEvent,
     NativeScrollEvent,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { getTeachersForLeave, getLeaveRequests, submitLeaveRequest } from '../../services/studentService';
 import { useAuth } from '../../context/AuthContext';
 import Icon from 'react-native-vector-icons/Feather';
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { RefreshCw } from 'lucide-react-native';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 
 const { width, height } = Dimensions.get('window');
 
@@ -218,7 +220,6 @@ const LeaveHistoryCard: React.FC<{ request: LeaveRequest; onView: () => void }> 
 };
 
 export default function LeaveScreen({ navigation }: any) {
-    const insets = useSafeAreaInsets();
     const { setTabBarVisible } = useAuth();
     const isMounted = useRef(true);
     const initialHistoryLimit = 10;
@@ -454,38 +455,30 @@ export default function LeaveScreen({ navigation }: any) {
 
     const selectedTeacher = teachers.find(t => String(t.teacher_id) === String(teacherId));
 
+    const canGoBack = navigation.canGoBack();
+
     return (
         <View style={styles.container}>
-
-
-            <View style={[styles.header, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 20 }]}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs')}
-                >
-                    <Icon name="arrow-left" size={24} color={C.colors.card} />
-                </TouchableOpacity>
-                <View style={styles.headerTitleContainer}>
-                    <Text style={styles.headerTitle}>Leave Requests</Text>
-                    <Text style={styles.headerSubtitle}>{history.length} Records</Text>
-                </View>
-                <TouchableOpacity
-                    style={styles.notificationIcon}
-                    onPress={() => navigation.navigate('Notifications')}
-                >
-                    <Icon name="bell" size={22} color={C.colors.card} />
-                </TouchableOpacity>
-            </View>
-
-            <View style={styles.refreshWrapper}>
-                <TouchableOpacity style={styles.refreshPill} onPress={refreshAll}>
-                    <Text style={styles.refreshPillText}>Refresh</Text>
-                    <Icon name="refresh-cw" size={14} color={C.colors.blue} />
-                </TouchableOpacity>
-            </View>
+            <StandardPageHeader
+                title="Leave Requests"
+                subtitle={`${history.length} record${history.length === 1 ? '' : 's'}`}
+                onBackPress={() => (canGoBack ? navigation.goBack() : navigation.navigate('MainTabs'))}
+                showBack={canGoBack}
+                rightActions={(
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        style={heroHeaderStyles.iconBtn}
+                        onPress={refreshAll}
+                        accessibilityLabel="Refresh leave requests"
+                    >
+                        <RefreshCw size={20} color={Theme.colors.card} />
+                    </TouchableOpacity>
+                )}
+            />
 
             <ScrollView
-                contentContainerStyle={styles.contentContainer}
+                style={innerPageLayoutStyles.scrollViewFront}
+                contentContainerStyle={innerPageLayoutStyles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 onScroll={handleScroll}
                 scrollEventThrottle={16}
@@ -493,6 +486,7 @@ export default function LeaveScreen({ navigation }: any) {
                     <RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor={C.colors.primary} />
                 }
             >
+                <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
                 <View style={styles.formCard}>
                     <Text style={styles.cardTitle}>APPLY LEAVE</Text>
 
@@ -652,6 +646,7 @@ export default function LeaveScreen({ navigation }: any) {
                         </>
                     )}
                 </View>
+                </View>
             </ScrollView>
 
             {/* Leave Detail Modal */}
@@ -801,11 +796,14 @@ export default function LeaveScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: C.colors.background,
-    },
-    header: {
+  container: {
+    flex: 1,
+    backgroundColor: C.colors.background,
+  },
+  pageBody: {
+    paddingHorizontal: 20,
+  },
+  header: {
         backgroundColor: C.colors.primary,
         paddingHorizontal: Theme.spacing.md,
         flexDirection: 'row',

@@ -14,7 +14,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ChevronLeft,
   RefreshCw,
   BarChart2,
   PieChart,
@@ -30,17 +29,18 @@ import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
-
 import { safeGoBack } from '../../utils/navigationHelpers';
 import { Theme, C } from '../../theme/tokens';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 
 
 
 
-// Local theme bridge
+const PAGE_GUTTER = 14;
 
 interface MonthlyCollection {
   month: string;
@@ -158,53 +158,40 @@ const Reports = () => {
     ? totalCollections / collections.length
     : 0;
 
+  const isAccountant = userRole?.toLowerCase() === 'accountant';
+
   return (
     <View style={styles.container}>
 
+      <StandardPageHeader
+        title="Financial Reports"
+        subtitle="Visualize collection trends and financial health"
+        onBackPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={() => fetchReports()}
+            accessibilityLabel="Refresh"
+          >
+            <RefreshCw size={20} color={Theme.colors.card} />
+          </TouchableOpacity>
+        )}
+      />
 
-      {/* Standardized Header */}
-      {(() => {
-        const isAccountant = userRole?.toLowerCase() === 'accountant';
-        return (
-          <View style={[styles.headerStandard, {
-            paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
-            backgroundColor: isAccountant ? Theme.colors.primary : HEADER_CONSTANTS.BACKGROUND_COLOR,
-          }]}>
-            <View style={styles.headerTop}>
-              <TouchableOpacity accessibilityRole="button"
-                style={styles.iconButton}
-                onPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
-              >
-                <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
-              </TouchableOpacity>
-              <View style={styles.headerTitleContainer}>
-                <AppText weight="bold" style={styles.headerTitle}>Financial Reports</AppText>
-              </View>
-              <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={() => fetchReports()}>
-                <RefreshCw size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.headerContent}>
-              <AppText weight="bold" style={styles.headerGreeting}>Analytics & Insights</AppText>
-              <AppText style={styles.headerSubtext}>Visualize collection trends and financial health</AppText>
-            </View>
-          </View>
-        );
-      })()}
-
-      <View style={styles.contentOverlap}>
-        <ScrollView
-          style={styles.scrollView}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
-          }
-        >
+      <ScrollView
+        style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
+        }
+      >
+        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
         <View style={styles.subHeader}>
           <View style={styles.subHeaderRow}>
-            <FileText size={16} color={Theme.colors.primary} />
+            <FileText size={16} color={C.textSec} />
             <AppText style={styles.subHeaderText} weight="semibold">Monthly fee collection analysis</AppText>
           </View>
         </View>
@@ -354,8 +341,8 @@ const Reports = () => {
         )}
         {/* Bottom Spacer for Tab Bar */}
         <View style={{ height: insets.bottom + 140 }} />
+        </View>
       </ScrollView>
-    </View>
     </View>
   );
 };
@@ -365,78 +352,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  headerStandard: {
-    backgroundColor: C.navy,
-    paddingHorizontal: 20,
-    paddingBottom: HEADER_CONSTANTS.BORDER_RADIUS + 28,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 10 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
-  contentOverlap: {
+  scrollView: {
     flex: 1,
-    backgroundColor: C.bg,
-    borderTopLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderTopRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    marginTop: -HEADER_CONSTANTS.BORDER_RADIUS,
-    zIndex: 10,
-    overflow: 'hidden',
   },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
-    fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
-    textAlign: 'center',
-  },
-  headerContent: {
-    marginTop: Theme.spacing.lg,
-  },
-  headerGreeting: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: 28,
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    ...Theme.typography.body,
-    marginTop: Theme.spacing.xs,
+  pageBody: {
+    paddingHorizontal: PAGE_GUTTER,
   },
   subHeader: {
-    backgroundColor: C.primarySoft,
+    backgroundColor: C.card,
     paddingVertical: 12,
-    paddingHorizontal: Theme.spacing.md,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: C.primaryBorder,
+    borderColor: C.border,
     marginBottom: Theme.spacing.sm,
     marginTop: 14,
-    marginHorizontal: Theme.spacing.md,
     borderRadius: 12,
+    ...Platform.select({
+      android: { elevation: 3 },
+      ios: {
+        shadowColor: Theme.colors.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+    }),
   },
   subHeaderRow: {
     flexDirection: 'row',
@@ -445,14 +384,10 @@ const styles = StyleSheet.create({
   },
   subHeaderText: {
     ...Theme.typography.body,
-    color: Theme.colors.primary,
-  },
-  scrollView: {
-    flex: 1,
+    color: C.textSec,
   },
   reportSection: {
     backgroundColor: C.card,
-    margin: Theme.spacing.md,
     marginBottom: Theme.spacing.sm,
     padding: Theme.spacing.md,
     borderRadius: 16,

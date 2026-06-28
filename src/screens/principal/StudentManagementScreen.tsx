@@ -18,7 +18,6 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { launchImageLibrary, launchCamera, type CameraOptions, type ImageLibraryOptions } from 'react-native-image-picker';
@@ -60,11 +59,17 @@ import API, { buildApiUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../theme/tokens';
 
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import {
+  innerPageLayoutStyles,
+  segmentedControlIconColor,
+} from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import AppText from '../../components/common/AppText';
 import AvatarBubble from '../../components/common/AvatarBubble';
 import AppButton from '../../components/common/AppButton';
+import { BLOOD_GROUPS, validateStudentRegistrationStep } from '../../utils/studentRegistrationValidation';
 import { Theme, C } from '../../theme/tokens';
 
 
@@ -521,7 +526,6 @@ const Stepper = ({ currentStep }: { currentStep: number }) => (
 );
 
 export default function StudentPage() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const isCompactScreen = width < 520;
@@ -558,43 +562,10 @@ export default function StudentPage() {
   const ITEMS_PER_PAGE = 10;
 
   const validateStep = (s: number) => {
-    const errors: Record<string, string> = {};
-    const f = formData;
-
-    if (s === 0) {
-      if (!isValidName(f.first_name)) {errors.first_name = 'Valid first name required.';}
-      if (!isValidName(f.last_name)) {errors.last_name = 'Valid last name required.';}
-      if (!f.gender) {errors.gender = 'Gender is required.';}
-      if (!f.date_of_birth) {errors.date_of_birth = 'Date of birth is required.';}
-      else {
-        const { valid, error } = isValidDateOfBirth(f.date_of_birth);
-        if (!valid) {errors.date_of_birth = error || 'Invalid DOB.';}
-      }
-      if (!isValidAadhaar(f.aadhaar_number)) {errors.aadhaar_number = 'Aadhaar must be 12 digits.';}
-    } else if (s === 1) {
-      if (!f.class_grade) {errors.class_grade = 'Class is required.';}
-      if (!f.section) {errors.section = 'Section is required.';}
-      if (!f.admission_number) {errors.admission_number = 'Admission number is required.';}
-      if (!f.roll_number) {errors.roll_number = 'Roll number is required.';}
-      if (!f.academic_year) {errors.academic_year = 'Academic year is required.';}
-      else if (!/^\d{4}-\d{2}$/.test(f.academic_year)) {errors.academic_year = 'Format: YYYY-YY (e.g. 2023-24).';}
-    } else if (s === 2) {
-      if (!isValidName(f.father_guardian_name) && !isValidName(f.mother_guardian_name)) {
-        errors.father_guardian_name = 'At least one guardian name is required.';
-      }
-      if (f.father_guardian_mobile && !isValidMobile(f.father_guardian_mobile)) {errors.father_guardian_mobile = 'Invalid mobile.';}
-      if (f.mother_guardian_mobile && !isValidMobile(f.mother_guardian_mobile)) {errors.mother_guardian_mobile = 'Invalid mobile.';}
-      if (f.parent_guardian_email && !isValidEmail(f.parent_guardian_email)) {errors.parent_guardian_email = 'Invalid email.';}
-    } else if (s === 3) {
-      if (!f.village_town_city) {errors.village_town_city = 'City/Village is required.';}
-      if (!f.state) {errors.state = 'State is required.';}
-      if (f.pin_code && !isValidPin(f.pin_code)) {errors.pin_code = 'Invalid PIN code.';}
-      if (!f.emergency_contact_number) {errors.emergency_contact_number = 'Emergency contact is required.';}
-      else if (!isValidMobile(f.emergency_contact_number)) {errors.emergency_contact_number = 'Invalid mobile.';}
-    } else if (s === 4) {
-      if (!selectedPhoto) {errors.photo = 'Student photo is required.';}
-    }
-
+    const errors = validateStudentRegistrationStep(s, formData, {
+      hasPhoto: Boolean(selectedPhoto),
+      requireRollNumber: false,
+    });
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -758,6 +729,28 @@ export default function StudentPage() {
 
             <View style={styles.row}>
               <View style={[styles.formGroup, styles.flexOne]}>
+                <AppText style={styles.label} weight="semibold">Nationality <AppText style={styles.requiredStar}>*</AppText></AppText>
+                <TextInput
+                  style={[styles.input, fieldErrors.nationality && styles.inputError]}
+                  value={formData.nationality}
+                  onChangeText={v => setFormData(p => ({ ...p, nationality: v }))}
+                  placeholder="e.g. Indian"
+                />
+                {fieldErrors.nationality && <AppText style={styles.errorText}>{fieldErrors.nationality}</AppText>}
+              </View>
+              <View style={[styles.formGroup, styles.flexOne]}>
+                <AppText style={styles.label} weight="semibold">Mother Tongue</AppText>
+                <TextInput
+                  style={styles.input}
+                  value={formData.mother_tongue}
+                  onChangeText={v => setFormData(p => ({ ...p, mother_tongue: v }))}
+                  placeholder="e.g. Telugu"
+                />
+              </View>
+            </View>
+
+            <View style={styles.row}>
+              <View style={[styles.formGroup, styles.flexOne]}>
                 <AppText style={styles.label} weight="semibold">Aadhaar Number</AppText>
                 <TextInput
                   style={[styles.input, fieldErrors.aadhaar_number && styles.inputError]}
@@ -778,7 +771,7 @@ export default function StudentPage() {
                     style={styles.picker}
                   >
                     <Picker.Item label="Select" value="" />
-                    {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(bg => (
+                    {BLOOD_GROUPS.map(bg => (
                       <Picker.Item key={bg} label={bg} value={bg} />
                     ))}
                   </Picker>
@@ -861,7 +854,7 @@ export default function StudentPage() {
                 {fieldErrors.admission_number && <AppText style={styles.errorText}>{fieldErrors.admission_number}</AppText>}
               </View>
               <View style={[styles.formGroup, styles.flexOne]}>
-                <AppText style={styles.label} weight="semibold">Roll Number <AppText style={styles.requiredStar}>*</AppText></AppText>
+                <AppText style={styles.label} weight="semibold">Roll Number</AppText>
                 <TextInput
                   style={[styles.input, fieldErrors.roll_number && styles.inputError]}
                   value={formData.roll_number}
@@ -911,7 +904,7 @@ export default function StudentPage() {
           <View style={styles.formGrid}>
             <AppText style={styles.stepTitle} weight="bold">Guardian Information</AppText>
             <View style={styles.formGroup}>
-              <AppText style={styles.label} weight="semibold">Father/Guardian Name</AppText>
+              <AppText style={styles.label} weight="semibold">Father/Guardian Name <AppText style={styles.requiredStar}>*</AppText></AppText>
               <TextInput
                 style={[styles.input, fieldErrors.father_guardian_name && styles.inputError]}
                 value={formData.father_guardian_name}
@@ -922,7 +915,7 @@ export default function StudentPage() {
             </View>
             <View style={styles.row}>
               <View style={[styles.formGroup, styles.flexOne]}>
-                <AppText style={styles.label} weight="semibold">Mobile Number</AppText>
+                <AppText style={styles.label} weight="semibold">Father Mobile <AppText style={styles.requiredStar}>*</AppText></AppText>
                 <TextInput
                   style={[styles.input, fieldErrors.father_guardian_mobile && styles.inputError]}
                   value={formData.father_guardian_mobile}
@@ -947,13 +940,14 @@ export default function StudentPage() {
             <View style={styles.divider} />
 
             <View style={styles.formGroup}>
-              <AppText style={styles.label} weight="semibold">Mother/Guardian Name</AppText>
+              <AppText style={styles.label} weight="semibold">Mother/Guardian Name <AppText style={styles.requiredStar}>*</AppText></AppText>
               <TextInput
-                style={styles.input}
+                style={[styles.input, fieldErrors.mother_guardian_name && styles.inputError]}
                 value={formData.mother_guardian_name}
                 onChangeText={v => setFormData(p => ({ ...p, mother_guardian_name: v }))}
                 placeholder="Full name"
               />
+              {fieldErrors.mother_guardian_name && <AppText style={styles.errorText}>{fieldErrors.mother_guardian_name}</AppText>}
             </View>
             <View style={styles.row}>
               <View style={[styles.formGroup, styles.flexOne]}>
@@ -980,7 +974,7 @@ export default function StudentPage() {
             </View>
 
             <View style={styles.formGroup}>
-              <AppText style={styles.label} weight="semibold">Guardian Email</AppText>
+              <AppText style={styles.label} weight="semibold">Parent / Guardian Email <AppText style={styles.requiredStar}>*</AppText></AppText>
               <TextInput
                 style={[styles.input, fieldErrors.parent_guardian_email && styles.inputError]}
                 value={formData.parent_guardian_email}
@@ -996,15 +990,28 @@ export default function StudentPage() {
 
         {step === 3 && (
           <View style={styles.formGrid}>
-            <AppText style={styles.stepTitle} weight="bold">Contact & Address</AppText>
-            <View style={styles.formGroup}>
-              <AppText style={styles.label} weight="semibold">House/Flat No. & Street</AppText>
-              <TextInput
-                style={styles.input}
-                value={formData.house_no}
-                onChangeText={v => setFormData(p => ({ ...p, house_no: v }))}
-                placeholder="Enter house no, building name..."
-              />
+            <AppText style={styles.stepTitle} weight="bold">Current Address</AppText>
+            <View style={styles.row}>
+              <View style={[styles.formGroup, styles.flexOne]}>
+                <AppText style={styles.label} weight="semibold">House No. <AppText style={styles.requiredStar}>*</AppText></AppText>
+                <TextInput
+                  style={[styles.input, fieldErrors.house_no && styles.inputError]}
+                  value={formData.house_no}
+                  onChangeText={v => setFormData(p => ({ ...p, house_no: v }))}
+                  placeholder="e.g. 12-3A"
+                />
+                {fieldErrors.house_no && <AppText style={styles.errorText}>{fieldErrors.house_no}</AppText>}
+              </View>
+              <View style={[styles.formGroup, styles.flexOne]}>
+                <AppText style={styles.label} weight="semibold">Street / Locality <AppText style={styles.requiredStar}>*</AppText></AppText>
+                <TextInput
+                  style={[styles.input, fieldErrors.street_locality && styles.inputError]}
+                  value={formData.street_locality}
+                  onChangeText={v => setFormData(p => ({ ...p, street_locality: v }))}
+                  placeholder="Street or locality"
+                />
+                {fieldErrors.street_locality && <AppText style={styles.errorText}>{fieldErrors.street_locality}</AppText>}
+              </View>
             </View>
             <View style={styles.row}>
               <View style={[styles.formGroup, styles.flexOne]}>
@@ -1018,16 +1025,27 @@ export default function StudentPage() {
                 {fieldErrors.village_town_city && <AppText style={styles.errorText}>{fieldErrors.village_town_city}</AppText>}
               </View>
               <View style={[styles.formGroup, styles.flexOne]}>
-                <AppText style={styles.label} weight="semibold">District</AppText>
+                <AppText style={styles.label} weight="semibold">Mandal / Taluk <AppText style={styles.requiredStar}>*</AppText></AppText>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, fieldErrors.mandal_taluk && styles.inputError]}
+                  value={formData.mandal_taluk}
+                  onChangeText={v => setFormData(p => ({ ...p, mandal_taluk: v }))}
+                  placeholder="Mandal or Taluk"
+                />
+                {fieldErrors.mandal_taluk && <AppText style={styles.errorText}>{fieldErrors.mandal_taluk}</AppText>}
+              </View>
+            </View>
+            <View style={styles.row}>
+              <View style={[styles.formGroup, styles.flexOne]}>
+                <AppText style={styles.label} weight="semibold">District <AppText style={styles.requiredStar}>*</AppText></AppText>
+                <TextInput
+                  style={[styles.input, fieldErrors.district && styles.inputError]}
                   value={formData.district}
                   onChangeText={v => setFormData(p => ({ ...p, district: v }))}
                   placeholder="District name"
                 />
+                {fieldErrors.district && <AppText style={styles.errorText}>{fieldErrors.district}</AppText>}
               </View>
-            </View>
-            <View style={styles.row}>
               <View style={[styles.formGroup, styles.flexOne]}>
                 <AppText style={styles.label} weight="semibold">State <AppText style={styles.requiredStar}>*</AppText></AppText>
                 <TextInput
@@ -1039,7 +1057,7 @@ export default function StudentPage() {
                 {fieldErrors.state && <AppText style={styles.errorText}>{fieldErrors.state}</AppText>}
               </View>
               <View style={[styles.formGroup, styles.flexOne]}>
-                <AppText style={styles.label} weight="semibold">PIN Code</AppText>
+                <AppText style={styles.label} weight="semibold">PIN Code <AppText style={styles.requiredStar}>*</AppText></AppText>
                 <TextInput
                   style={[styles.input, fieldErrors.pin_code && styles.inputError]}
                   value={formData.pin_code}
@@ -1064,6 +1082,7 @@ export default function StudentPage() {
                   onChangeText={v => setFormData(p => ({ ...p, emergency_contact_name: v }))}
                   placeholder="Contact person"
                 />
+                {fieldErrors.emergency_contact_name && <AppText style={styles.errorText}>{fieldErrors.emergency_contact_name}</AppText>}
               </View>
               <View style={[styles.formGroup, styles.flexOne]}>
                 <AppText style={styles.label} weight="semibold">Emergency Phone <AppText style={styles.requiredStar}>*</AppText></AppText>
@@ -1083,7 +1102,10 @@ export default function StudentPage() {
 
         {step === 4 && (
           <View style={styles.photoUploadContainer}>
-            <AppText style={styles.stepTitle} weight="bold">Student Photograph</AppText>
+            <AppText style={styles.stepTitle} weight="bold">
+              Student Photograph
+              <AppText style={styles.requiredStar}> *</AppText>
+            </AppText>
             <AppText style={styles.stepSubtitle}>Please upload a clear, front-facing passport size photograph of the student.</AppText>
 
             <View style={styles.photoFrame}>
@@ -1508,54 +1530,49 @@ export default function StudentPage() {
   return (
     <View style={styles.container}>
 
+      <StandardPageHeader
+        title="Student Management"
+        subtitle="Student directory and registration"
+        onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={handleRefresh}
+          >
+            <RefreshCw size={20} color={Theme.colors.card} />
+          </TouchableOpacity>
+        )}
+      />
 
       <ScrollView
-        style={styles.scrollView}
+       style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />}
       >
-        {/* Standardized Header */}
-        <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity accessibilityRole="button"
-              style={styles.iconButton}
-              onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
-            >
-              <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
-            </TouchableOpacity>
-            <View style={styles.headerTitleContainer}>
-              <AppText weight="bold" style={styles.headerTitle}>Student Management</AppText>
-            </View>
-            <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={handleRefresh}>
-              <RefreshCw size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Tab Switcher - integrated into header background for seamless look */}
-          <View style={styles.tabSwitcher}>
-            <TouchableOpacity accessibilityRole="button"
-              style={[styles.tabBtn, activeTab === 'list' && styles.tabBtnActive]}
-              onPress={() => setActiveTab('list')}
-            >
-              <Users size={16} color={activeTab === 'list' ? C.primary : Theme.colors.card} />
-              <AppText style={[styles.tabBtnText, activeTab === 'list' && styles.tabBtnTextActive]} weight="bold">
-                Student Directory
-              </AppText>
-            </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button"
-              style={[styles.tabBtn, activeTab === 'enroll' && styles.tabBtnActive]}
-              onPress={() => setActiveTab('enroll')}
-            >
-              <Plus size={16} color={activeTab === 'enroll' ? C.primary : Theme.colors.card} />
-              <AppText style={[styles.tabBtnText, activeTab === 'enroll' && styles.tabBtnTextActive]} weight="bold">
-                Student Register
-              </AppText>
-            </TouchableOpacity>
-          </View>
+        <View style={[innerPageLayoutStyles.segmentedControl, styles.tabSwitcher]}>
+          <TouchableOpacity accessibilityRole="button"
+            style={[innerPageLayoutStyles.segmentedTab, activeTab === 'list' && innerPageLayoutStyles.segmentedTabActive]}
+            onPress={() => setActiveTab('list')}
+          >
+            <Users size={16} color={segmentedControlIconColor(activeTab === 'list')} />
+            <AppText style={[innerPageLayoutStyles.segmentedTabText, activeTab === 'list' && innerPageLayoutStyles.segmentedTabTextActive]} weight="bold">
+              Student Directory
+            </AppText>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button"
+            style={[innerPageLayoutStyles.segmentedTab, activeTab === 'enroll' && innerPageLayoutStyles.segmentedTabActive]}
+            onPress={() => setActiveTab('enroll')}
+          >
+            <Plus size={16} color={segmentedControlIconColor(activeTab === 'enroll')} />
+            <AppText style={[innerPageLayoutStyles.segmentedTabText, activeTab === 'enroll' && innerPageLayoutStyles.segmentedTabTextActive]} weight="bold">
+              Student Register
+            </AppText>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.contentOverlap}>
+        <View style={[styles.contentOverlap, innerPageLayoutStyles.contentFront]}>
           <View style={styles.content}>
             {activeTab === 'list' ? (
               <>
@@ -1820,7 +1837,7 @@ export default function StudentPage() {
                 <X size={20} color={C.t2} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.pickerList}>
+            <ScrollView style={[styles.pickerList, innerPageLayoutStyles.scrollViewFront]}>
               {classes.map((c) => {
                 const normalizedSection = String(c.section || '').trim();
                 const isActive = selected?.label === c.label;
@@ -1876,7 +1893,7 @@ export default function StudentPage() {
                 <X size={18} color={C.text} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={[styles.modalBody, innerPageLayoutStyles.scrollViewFront]}>
               {viewStudent && (
                 <View style={styles.profileSheet}>
                   <LinearGradient
@@ -2112,92 +2129,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  headerStandard: {
-    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 10 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
   contentOverlap: {
     flex: 1,
     backgroundColor: C.bg,
     zIndex: 10,
   },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: Theme.colors.card,
-    fontSize: 18,
-    textAlign: 'center',
-  },
-  headerContent: {
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  headerGreeting: {
-    color: Theme.colors.card,
-    fontSize: 24,
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: 'rgba(255,255,255,0.7)',
-    ...Theme.typography.body,
-    marginTop: Theme.spacing.xs,
-  },
-  headerSpacer: {
-    width: 40,
-  },
   tabSwitcher: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 14,
-    padding: Theme.spacing.xs,
-    width: '100%',
+    marginHorizontal: Theme.spacing.md,
     marginTop: Theme.spacing.md,
-  },
-  tabBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  tabBtnActive: {
-    backgroundColor: Theme.colors.background,
-  },
-  tabBtnText: {
-    fontSize: 13,
-    color: Theme.colors.card,
-  },
-  tabBtnTextActive: {
-    color: C.primary,
+    marginBottom: Theme.spacing.sm,
   },
   enrollmentContainer: {
     flex: 1,
@@ -2258,8 +2198,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 2,
     backgroundColor: C.border,
-    marginTop: -20,
-    marginHorizontal: -10,
+        marginHorizontal: -10,
     zIndex: -1,
   },
   stepConnectorDone: {

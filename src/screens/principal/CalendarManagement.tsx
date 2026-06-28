@@ -1,4 +1,3 @@
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 // src/screens/principal/CalendarManagement.tsx
 
 import React, { useState, useEffect } from 'react';
@@ -14,9 +13,9 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import LinearGradient from 'react-native-linear-gradient';
 import { ChevronLeft, ChevronRight, Plus, X, Edit2, Trash2, Eye } from 'lucide-react-native';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import API, { buildApiUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
@@ -91,7 +90,6 @@ const MONTH_NAMES = [
 ];
 
 export default function CalendarManagement() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
@@ -376,36 +374,14 @@ export default function CalendarManagement() {
     <View style={styles.root}>
 
 
-      {/* Standardized Header with Gradient Background */}
-      <LinearGradient
-        colors={[C.primaryDark || '#172554', C.primary || Theme.colors.primary]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}
-      >
-        <View style={styles.headerTop}>
-          {navigation.canGoBack() ? (
-            <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={() => navigation.goBack()}>
-              <ChevronLeft size={24} color={Theme.colors.card} />
-            </TouchableOpacity>
-          ) : (
-            <View style={{ width: 40 }} />
-          )}
+      <StandardPageHeader
+        title="Calendar Planning"
+        subtitle="Plan holidays, festivals, and events for the year"
+        onBackPress={() => navigation.goBack()}
+        showBack={navigation.canGoBack()}
+      />
 
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>School Calendar</AppText>
-          </View>
-
-          <View style={{ width: 40 }} />
-        </View>
-
-        <View style={styles.headerContent}>
-          <AppText weight="bold" style={styles.headerGreeting}>Calendar Planning</AppText>
-          <AppText style={styles.headerSubtext}>Plan holidays, festivals, and events for the year</AppText>
-        </View>
-      </LinearGradient>
-
-      <ScrollView style={styles.scrollViewContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.scrollViewContainer, innerPageLayoutStyles.scrollViewFront]} showsVerticalScrollIndicator={false}>
         {/* Subtitle description */}
         <View style={styles.descriptionRow}>
           <AppText style={styles.descriptionText}>
@@ -596,7 +572,7 @@ export default function CalendarManagement() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView style={innerPageLayoutStyles.scrollViewFront} showsVerticalScrollIndicator={false}>
               <View style={styles.formGroup}>
                 <AppText style={styles.label} weight="semibold">Event Title *</AppText>
                 <TextInput
@@ -772,7 +748,7 @@ export default function CalendarManagement() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingBottom: Theme.spacing.md }}>
+            <ScrollView style={innerPageLayoutStyles.scrollViewFront} showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingBottom: Theme.spacing.md }}>
               {selectedDayEvents.map((evt) => (
                 <View
                   key={evt.event_id || evt.id}
@@ -906,7 +882,7 @@ export default function CalendarManagement() {
                 <AppText style={styles.loadingText}>Loading holidays...</AppText>
               </View>
             ) : googleHolidays.length > 0 ? (
-              <ScrollView style={styles.holidaysList}>
+              <ScrollView style={[styles.holidaysList, innerPageLayoutStyles.scrollViewFront]}>
                 <AppText style={styles.holidaysListTitle} weight="bold">
                   📌 Available Holidays ({googleHolidays.length})
                 </AppText>
@@ -1028,58 +1004,6 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: Theme.colors.card,
     fontSize: 13,
-  },
-  headerStandard: {
-    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 10 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
-    textAlign: 'center',
-  },
-  headerContent: {
-    marginTop: Theme.spacing.lg,
-  },
-  headerGreeting: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: 28,
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    ...Theme.typography.body,
-    marginTop: Theme.spacing.xs,
   },
   descriptionRow: {
     marginHorizontal: Theme.spacing.md,

@@ -39,10 +39,12 @@ import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronDown, ChevronLeft } from 'lucide-react-native';
 import { Theme } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import CustomPickerModal from '../../components/common/CustomPickerModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -460,6 +462,13 @@ export default function BranchDetailsScreen() {
   const [selectedSection, setSelectedSection] = useState<string>('');
   const [selectedExam, setSelectedExam] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [filterPicker, setFilterPicker] = useState<{
+    visible: boolean;
+    title: string;
+    options: { label: string; value: string }[];
+    selectedValue: string;
+    onValueChange: (value: string) => void;
+  } | null>(null);
 
   // Marks states
   const [examMarks, setExamMarks] = useState<ExamMark[]>([]);
@@ -857,6 +866,79 @@ export default function BranchDetailsScreen() {
 
   const currentExam = exams.find(e => e.exam_id === selectedExam);
 
+  const classOptions = useMemo(
+    () => [
+      { label: 'All Classes', value: '' },
+      ...classSections.map(cls => ({ label: `Class ${cls.class_name}`, value: cls.class_name })),
+    ],
+    [classSections],
+  );
+
+  const sectionOptions = useMemo(() => {
+    if (!selectedClass) { return []; }
+    const sections = classSections.find(c => c.class_name === selectedClass)?.sections ?? [];
+    return [
+      { label: 'All Sections', value: '' },
+      ...sections.map(sec => ({ label: `Section ${sec}`, value: sec })),
+    ];
+  }, [classSections, selectedClass]);
+
+  const examOptions = useMemo(
+    () => exams.map(exam => ({ label: exam.exam_name, value: exam.exam_id })),
+    [exams],
+  );
+
+  const classLabel = selectedClass ? `Class ${selectedClass}` : 'All Classes';
+  const sectionLabel = selectedSection ? `Section ${selectedSection}` : 'All Sections';
+  const examLabel = currentExam?.exam_name || 'Select Exam';
+
+  const openClassPicker = (resetExam = false) => {
+    setFilterPicker({
+      visible: true,
+      title: 'Select Class',
+      options: classOptions,
+      selectedValue: selectedClass,
+      onValueChange: (value) => {
+        setSelectedClass(value);
+        setSelectedSection('');
+        if (resetExam) { setSelectedExam(''); }
+      },
+    });
+  };
+
+  const openSectionPicker = (resetExam = false) => {
+    setFilterPicker({
+      visible: true,
+      title: 'Select Section',
+      options: sectionOptions,
+      selectedValue: selectedSection,
+      onValueChange: (value) => {
+        setSelectedSection(value);
+        if (resetExam) { setSelectedExam(''); }
+      },
+    });
+  };
+
+  const openExamPicker = () => {
+    setFilterPicker({
+      visible: true,
+      title: 'Select Exam',
+      options: examOptions,
+      selectedValue: selectedExam,
+      onValueChange: setSelectedExam,
+    });
+  };
+
+  const renderFilterDropdown = (label: string, displayValue: string, onPress: () => void) => (
+    <View style={styles.filterField}>
+      <AppText style={styles.filterLabel}>{label}</AppText>
+      <TouchableOpacity accessibilityRole="button" style={styles.dropdownSelect} onPress={onPress}>
+        <AppText style={styles.dropdownSelectText} numberOfLines={1}>{displayValue}</AppText>
+        <ChevronDown size={18} color={Theme.colors.textSec} />
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
 
@@ -864,7 +946,7 @@ export default function BranchDetailsScreen() {
       <StandardPageHeader title="Branch Details" onBackPress={() => navigation.goBack()} />
 
       <ScrollView
-        contentContainerStyle={[styles.contentContainer, { marginTop: -20 }]}
+        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={[styles.contentContainer]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -928,57 +1010,8 @@ export default function BranchDetailsScreen() {
         {activeTab === 'students' && (
           <>
             <View style={styles.filterRow}>
-              <View style={styles.filterField}>
-                <AppText style={styles.filterLabel}>Class</AppText>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.chipContainer}>
-                    <TouchableOpacity
-                      style={[styles.chip, !selectedClass && styles.chipActive]}
-                      onPress={() => { setSelectedClass(''); setSelectedSection(''); }}
-                    >
-                      <AppText style={[styles.chipText, !selectedClass && styles.chipTextActive]}>All</AppText>
-                    </TouchableOpacity>
-                    {classSections.map(cls => (
-                      <TouchableOpacity
-                        key={cls.class_name}
-                        style={[styles.chip, selectedClass === cls.class_name && styles.chipActive]}
-                        onPress={() => { setSelectedClass(cls.class_name); setSelectedSection(''); }}
-                      >
-                        <AppText style={[styles.chipText, selectedClass === cls.class_name && styles.chipTextActive]}>
-                          Class {cls.class_name}
-                        </AppText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              </View>
-
-              {selectedClass && (
-                <View style={styles.filterField}>
-                  <AppText style={styles.filterLabel}>Section</AppText>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={styles.chipContainer}>
-                      <TouchableOpacity
-                        style={[styles.chip, !selectedSection && styles.chipActive]}
-                        onPress={() => setSelectedSection('')}
-                      >
-                        <AppText style={[styles.chipText, !selectedSection && styles.chipTextActive]}>All</AppText>
-                      </TouchableOpacity>
-                      {classSections.find(c => c.class_name === selectedClass)?.sections.map(sec => (
-                        <TouchableOpacity
-                          key={sec}
-                          style={[styles.chip, selectedSection === sec && styles.chipActive]}
-                          onPress={() => setSelectedSection(sec)}
-                        >
-                          <AppText style={[styles.chipText, selectedSection === sec && styles.chipTextActive]}>
-                            Section {sec}
-                          </AppText>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </ScrollView>
-                </View>
-              )}
+              {renderFilterDropdown('Class', classLabel, () => openClassPicker(false))}
+              {selectedClass && renderFilterDropdown('Section', sectionLabel, () => openSectionPicker(false))}
 
               <View style={styles.searchContainer}>
                 <TextInput
@@ -1159,76 +1192,9 @@ export default function BranchDetailsScreen() {
         {activeTab === 'marks' && (
           <>
             <View style={styles.filterRow}>
-              <View style={styles.filterField}>
-                <AppText style={styles.filterLabel}>Class</AppText>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.chipContainer}>
-                    <TouchableOpacity
-                      style={[styles.chip, !selectedClass && styles.chipActive]}
-                      onPress={() => { setSelectedClass(''); setSelectedSection(''); setSelectedExam(''); }}
-                    >
-                      <AppText style={[styles.chipText, !selectedClass && styles.chipTextActive]}>All</AppText>
-                    </TouchableOpacity>
-                    {classSections.map(cls => (
-                      <TouchableOpacity
-                        key={cls.class_name}
-                        style={[styles.chip, selectedClass === cls.class_name && styles.chipActive]}
-                        onPress={() => { setSelectedClass(cls.class_name); setSelectedSection(''); setSelectedExam(''); }}
-                      >
-                        <AppText style={[styles.chipText, selectedClass === cls.class_name && styles.chipTextActive]}>
-                          Class {cls.class_name}
-                        </AppText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              </View>
-
-              {selectedClass && (
-                <View style={styles.filterField}>
-                  <AppText style={styles.filterLabel}>Section</AppText>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={styles.chipContainer}>
-                      <TouchableOpacity
-                        style={[styles.chip, !selectedSection && styles.chipActive]}
-                        onPress={() => { setSelectedSection(''); setSelectedExam(''); }}
-                      >
-                        <AppText style={[styles.chipText, !selectedSection && styles.chipTextActive]}>All</AppText>
-                      </TouchableOpacity>
-                      {classSections.find(c => c.class_name === selectedClass)?.sections.map(sec => (
-                        <TouchableOpacity
-                          key={sec}
-                          style={[styles.chip, selectedSection === sec && styles.chipActive]}
-                          onPress={() => { setSelectedSection(sec); setSelectedExam(''); }}
-                        >
-                          <AppText style={[styles.chipText, selectedSection === sec && styles.chipTextActive]}>
-                            Section {sec}
-                          </AppText>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </ScrollView>
-                </View>
-              )}
-
-              <View style={styles.filterField}>
-                <AppText style={styles.filterLabel}>Exam</AppText>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.chipContainer}>
-                    {exams.map(exam => (
-                      <TouchableOpacity
-                        key={exam.exam_id}
-                        style={[styles.chip, selectedExam === exam.exam_id && styles.chipActive]}
-                        onPress={() => setSelectedExam(exam.exam_id)}
-                      >
-                        <AppText style={[styles.chipText, selectedExam === exam.exam_id && styles.chipTextActive]}>
-                          {exam.exam_name}
-                        </AppText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              </View>
+              {renderFilterDropdown('Class', classLabel, () => openClassPicker(true))}
+              {selectedClass && renderFilterDropdown('Section', sectionLabel, () => openSectionPicker(true))}
+              {renderFilterDropdown('Exam', examLabel, openExamPicker)}
             </View>
 
             {loading ? (
@@ -1383,7 +1349,7 @@ export default function BranchDetailsScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={[styles.modalBody, innerPageLayoutStyles.scrollViewFront]}>
               {selectedStudent && (
                 <>
                   <View style={styles.studentInfoGrid}>
@@ -1502,6 +1468,17 @@ export default function BranchDetailsScreen() {
           </View>
         </View>
       </Modal>
+
+      {filterPicker && (
+        <CustomPickerModal
+          visible={filterPicker.visible}
+          title={filterPicker.title}
+          options={filterPicker.options}
+          selectedValue={filterPicker.selectedValue}
+          onValueChange={filterPicker.onValueChange}
+          onClose={() => setFilterPicker(null)}
+        />
+      )}
     </View>
   );
 }
@@ -1636,6 +1613,24 @@ const styles = StyleSheet.create({
     color: Theme.colors.textSec,
     marginBottom: 6,
     textTransform: 'uppercase',
+  },
+  dropdownSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Theme.colors.card,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 48,
+  },
+  dropdownSelectText: {
+    ...Theme.typography.bodyMd,
+    color: Theme.colors.text,
+    fontWeight: '500',
+    flex: 1,
+    marginRight: 8,
   },
   chipContainer: {
     flexDirection: 'row',

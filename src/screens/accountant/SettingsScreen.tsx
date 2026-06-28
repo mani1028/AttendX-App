@@ -13,6 +13,7 @@ import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { Theme } from '../../theme/tokens';
 
 
@@ -31,20 +32,28 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-
-
-      <StandardPageHeader title="Accountant Settings" onBackPress={() => navigation.goBack()} />
-
       <ScrollView
-        contentContainerStyle={styles.content}
+        style={styles.scrollView}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
       >
+        <StandardPageHeader
+          scrollWithContent
+          title="Accountant Settings"
+          subtitle="Configure financial years and accounting rules"
+          onBackPress={() => navigation.goBack()}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
+
+        <View style={innerPageLayoutStyles.scrollBody}>
         <AppText style={styles.title}>System Settings</AppText>
         <AppText style={styles.subtitle}>Configure financial years and accounting rules.</AppText>
 
         <View style={styles.placeholder}>
           <AppText style={styles.placeholderText}>Configuration options are being enabled.</AppText>
+        </View>
         </View>
       </ScrollView>
     </View>
@@ -56,13 +65,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
-  content: {
-    padding: 20,
-    paddingBottom: 100,
-    marginTop: -20,
-    backgroundColor: Theme.colors.background,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+  scrollView: {
+    flex: 1,
   },
   title: {
     fontSize: 24,

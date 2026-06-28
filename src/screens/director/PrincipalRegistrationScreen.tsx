@@ -24,6 +24,7 @@ import { Theme } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 // Types
 interface ClassSection {
@@ -772,7 +773,7 @@ export default function PrincipalRegistrationScreen() {
       />
 
       <ScrollView
-        style={styles.scrollView}
+       style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
         contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
       >
@@ -980,8 +981,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    marginTop: -20,
-  },
+      },
   scrollViewContent: {
     padding: Theme.spacing.md,
     paddingBottom: 150,

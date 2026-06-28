@@ -53,6 +53,7 @@ import CustomPickerModal from '../../components/common/CustomPickerModal';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 // Types
 interface ClassItem {
@@ -259,7 +260,7 @@ const FilterModal: React.FC<{
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalBody}>
+          <ScrollView style={[styles.modalBody, innerPageLayoutStyles.scrollViewFront]}>
             <View style={styles.filterGroup}>
               <AppText weight="bold" style={styles.modalLabel}>Class</AppText>
               <TouchableOpacity accessibilityRole="button"
@@ -1100,7 +1101,7 @@ export default function MarksEntryScreen() {
 
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
@@ -1109,11 +1110,9 @@ export default function MarksEntryScreen() {
         <StandardPageHeader
           title="Marks Entry"
           onBackPress={() => navigation.goBack()}
-          containerStyle={styles.headerStandard}
         />
-
         {/* Filter Card */}
-        <AppCard style={styles.mainCard} elevated={true}>
+<AppCard style={[styles.mainCard, innerPageLayoutStyles.contentFront]} elevated={true}>
           <View style={styles.selectionRow}>
             <View style={[styles.selectionField, { marginRight: 10 }]}>
               <AppText weight="bold" style={styles.selectionLabel}>Class</AppText>
@@ -1402,7 +1401,8 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   mainCard: {
-    marginTop: -80,
+    zIndex: 1,
+    position: 'relative',
     marginHorizontal: Theme.spacing.md,
     backgroundColor: Theme.colors.card,
     padding: Theme.spacing.lg,

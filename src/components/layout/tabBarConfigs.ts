@@ -16,6 +16,12 @@ export const adminTabs: TabConfig[] = [
   { name: 'Profile', label: 'Profile', icon: 'User' },
 ];
 
+export const agentTabs: TabConfig[] = [
+  { name: 'Dashboard', label: 'Home', icon: 'Home' },
+  { name: 'RegisterSchool', label: 'Register', icon: 'PlusCircle' },
+  { name: 'Profile', label: 'Profile', icon: 'User' },
+];
+
 export const directorTabs: TabConfig[] = [
   { name: 'Home', label: 'Home', icon: 'Home' },
   { name: 'Branches', label: 'Branches', icon: 'Building' },
@@ -40,11 +46,16 @@ export const teacherTabs: TabConfig[] = [
   { name: 'Marks', label: 'Marks', icon: 'Award' },
 ];
 
-export const studentTabs: TabConfig[] = [
+export const studentMainTabs: TabConfig[] = [
   { name: 'Home', label: 'Home', icon: 'Home' },
-  { name: 'Homework', label: 'Homework', icon: 'BookOpen' },
-  { name: 'Leave', label: 'Leave', icon: 'Calendar' },
-  { name: 'Marks', label: 'Marks', icon: 'Award' },
+  { name: 'Homework', label: 'Home Work', icon: 'BookOpen' },
+  { name: 'Leave', label: 'Leave', icon: 'CalendarCheck' },
+  { name: 'Marks', label: 'Marks', icon: 'GraduationCap' },
+];
+
+export const studentOverflowTabs: TabConfig[] = [
   { name: 'Fees', label: 'Fees', icon: 'CreditCard' },
   { name: 'Papers', label: 'Papers', icon: 'FileText' },
 ];
+
+export const studentTabs: TabConfig[] = [...studentMainTabs, ...studentOverflowTabs];

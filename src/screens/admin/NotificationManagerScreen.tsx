@@ -29,6 +29,7 @@ import API from '../../services/api';
 import AppText from '../../components/common/AppText';
 import { Theme } from '../../theme/tokens';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { formatErrorMessage } from '../../utils/helpers';
 import { safeGoBack } from '../../utils/navigationHelpers';
 
@@ -237,7 +238,7 @@ const NotificationManagerScreen = () => {
           <ActivityIndicator size="large" color={Theme.colors.primary} style={styles.loader} />
         ) : (
           <ScrollView
-            style={styles.list}
+           style={[styles.list, innerPageLayoutStyles.scrollViewFront]}
             contentContainerStyle={styles.listContent}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
           >
@@ -265,7 +266,7 @@ const NotificationManagerScreen = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={[styles.modalBody, innerPageLayoutStyles.scrollViewFront]}>
               <AppText style={styles.label}>Title</AppText>
               <TextInput
                 style={styles.input}
@@ -421,8 +422,7 @@ const styles = StyleSheet.create({
   },
   contentArea: {
     flex: 1,
-    marginTop: -20,
-    borderTopLeftRadius: 24,
+        borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     backgroundColor: Theme.colors.background,
     paddingTop: 20,

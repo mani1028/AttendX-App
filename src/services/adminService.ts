@@ -121,6 +121,11 @@ export async function sendReminder(id: string): Promise<any> {
   throw new Error('Failed to send reminder');
 }
 
+export async function getSchoolDetails(schoolDbId: string): Promise<any> {
+  const endpoints = [`/schools/${schoolDbId}`, `/admin/schools/${schoolDbId}`];
+  return getFirstSuccessful<any>(endpoints);
+}
+
 export async function getSchoolSubscription(id: string): Promise<any> {
   const endpoints = [
     `/schools/${id}/subscription`,
@@ -237,10 +242,51 @@ export async function getRevenueStats(): Promise<any> {
   }
 }
 
+export async function getAllAttendanceModes(): Promise<any[]> {
+  const endpoints = [
+    '/schools/all/attendance-modes',
+    '/admin/schools/all/attendance-modes',
+    'schools/all/attendance-modes',
+  ];
+  try {
+    const data = await getFirstSuccessful<any>(endpoints);
+    return Array.isArray(data?.schools) ? data.schools : (Array.isArray(data) ? data : []);
+  } catch {
+    return [];
+  }
+}
+
+export async function updateSchoolAttendanceSettings(
+  schoolDbId: string,
+  payload: Record<string, unknown>,
+): Promise<any> {
+  const endpoints = [
+    `/schools/${schoolDbId}/attendance-settings`,
+    `/admin/schools/${schoolDbId}/attendance-settings`,
+  ];
+  for (const endpoint of endpoints) {
+    try {
+      const res = await API.put(endpoint, payload);
+      return res.data;
+    } catch {
+      // try next
+    }
+  }
+  throw new Error('Failed to update attendance settings');
+}
+
 export async function getAllPlans(): Promise<any[]> {
   try {
     const res = await API.get('/pricing/admin/all');
-    return res.data;
+    const data = res.data;
+    const plans = Array.isArray(data)
+      ? data
+      : (data?.plans || data?.items || data?.data || []);
+    return [...plans].sort(
+      (a, b) =>
+        Number(a?.sort_order ?? a?.sortOrder ?? 999) -
+        Number(b?.sort_order ?? b?.sortOrder ?? 999),
+    );
   } catch (err) {
     return [];
   }

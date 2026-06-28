@@ -8,11 +8,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
 import { Check, Loader2, AlertCircle, CreditCard, Calendar, Lock, Info, Shield, GitBranch, ChevronLeft, CheckCircle2 } from 'lucide-react-native';
 
-import { normalizePricingPlan, sortPricingPlans } from '../../utils/pricingPlans';
+import { normalizePricingPlan, sortPricingPlans, parsePublicPricingPlans, selectPublicPaidPlans, getEffectiveBranchLimit, formatBranchLimit, isAtBranchLimit } from '../../utils/pricingPlans';
 import { WebView } from 'react-native-webview';
 import { Theme } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { getPublicPaymentSettings, isAutoPayGloballyEnabled } from '../../services/paymentService';
 
 
 
@@ -30,6 +32,12 @@ interface Plan {
   plan_code?: string;
   hasPromo?: boolean;
   isCurrent?: boolean;
+  perBranch?: boolean;
+  unitPriceText?: string;
+  totalPriceText?: string;
+  priceBreakdown?: string;
+  branchCount?: number;
+  max_branches?: number;
 }
 interface SubscriptionInfo {
   school_name?: string;
@@ -83,10 +91,28 @@ export default function RenewalPaymentScreen() {
 
   // Compute display plans reactively from raw plans and billing cycle
   const displayPlans = useMemo(() => {
-    const trialFiltered = plans.filter(p => !String(p.title || '').toLowerCase().includes('trial'));
-    const normalized = trialFiltered.map(p => normalizePricingPlan(p, billingCycle));
+    const branches = Math.max(1, branchCount || 1);
+    const selected = selectPublicPaidPlans(plans, 3);
+    const normalized = selected.map(p => normalizePricingPlan(p, billingCycle, branches));
     return sortPricingPlans(normalized);
-  }, [plans, billingCycle]);
+  }, [plans, billingCycle, branchCount]);
+
+  const branchLimit = useMemo(() => getEffectiveBranchLimit(subInfo), [subInfo]);
+  const atBranchLimit = useMemo(() => isAtBranchLimit(branchCount, branchLimit), [branchCount, branchLimit]);
+
+  const fetchPricingPlans = useCallback(async (): Promise<any[]> => {
+    const endpoints = ['pricing/public/plans', '/pricing/public/plans', 'pricing/plans'];
+    for (const endpoint of endpoints) {
+      try {
+        const res = await API.get(endpoint, { suppressFallback404Log: true } as any);
+        const parsed = parsePublicPricingPlans(res.data);
+        if (parsed.length > 0) { return parsed; }
+      } catch {
+        // try next endpoint
+      }
+    }
+    return [];
+  }, []);
 
   // Helper formatting functions (mirrored from web)
   const fmtDate = (v?: string) => {
@@ -120,38 +146,33 @@ export default function RenewalPaymentScreen() {
     setLoading(true);
     setError('');
     try {
-      const [statusRes, plansRes, settingsRes] = await Promise.allSettled([
+      const [statusRes, loadedPlans, settings] = await Promise.all([
         API.post('payment/subscription-status', { school_id: code }),
-        API.get('pricing/public/plans'),
-        API.get('pricing/public/settings'),
+        fetchPricingPlans(),
+        getPublicPaymentSettings(),
       ]);
 
-      if (statusRes.status === 'fulfilled') {
-        const data = statusRes.value.data as SubscriptionInfo;
-        setSubInfo(data);
-        setBranchCount(data.total_branches || 0);
-        if (data.billing_cycle === 'monthly' || data.billing_cycle === 'yearly') {setBillingCycle(data.billing_cycle);}
-        if (data.auto_renew) {setWantsAutoPay(true);}
+      const data = statusRes.data as SubscriptionInfo;
+      setSubInfo(data);
+      setBranchCount(data.total_branches || 0);
+      if (data.billing_cycle === 'monthly' || data.billing_cycle === 'yearly') {
+        setBillingCycle(data.billing_cycle);
       }
-
-      if (plansRes.status === 'fulfilled') {
-        const loadedPlans = Array.isArray(plansRes.value.data) ? plansRes.value.data : [];
-        setPlans(loadedPlans);
+      const autoPayEnabled = isAutoPayGloballyEnabled(settings);
+      setEnableAutoPayGlobal(autoPayEnabled);
+      if (data.auto_renew && autoPayEnabled) {
+        setWantsAutoPay(true);
       } else {
-        throw new Error('Could not load pricing plans');
+        setWantsAutoPay(false);
       }
 
-      if (settingsRes.status === 'fulfilled') {
-        const enabled = settingsRes.value.data.enable_auto_pay !== 'false';
-        setEnableAutoPayGlobal(enabled);
-        if (!enabled) {setWantsAutoPay(false);}
-      }
+      setPlans(loadedPlans);
     } catch (e: any) {
       setError('Unable to load billing information. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchPricingPlans]);
 
   useEffect(() => {
     load();
@@ -212,7 +233,7 @@ export default function RenewalPaymentScreen() {
 
   const handleSelect = useCallback(
     async (plan: any) => {
-      if (plan.isCustomPricing || (plan.priceValue <= 0 && !plan.isFree)) {
+      if (plan.isCustomPricing || plan.priceValue <= 0) {
         Alert.alert('Contact', 'Please contact us at https://attendx.ai/contact');
         return;
       }
@@ -348,7 +369,7 @@ export default function RenewalPaymentScreen() {
     );
   }
 
-  if (error) {
+  if (error && !subInfo) {
     return (
       <View style={styles.errorContainer}>
         <AlertCircle size={48} color={Theme.colors.error} />
@@ -393,26 +414,33 @@ export default function RenewalPaymentScreen() {
         </View>
       </Modal>
 
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity accessibilityRole="button" onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ChevronLeft size={24} color={Theme.colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Subscription & Renewal</Text>
-          <View style={{ width: 40 }} />
-        </View>
-      </View>
-
-      {/* Loading or data */}
       {loading ? (
         <View style={styles.loaderWrap}>
           <ActivityIndicator size="large" color={Theme.colors.primary} />
           <Text style={styles.loaderMsg}>Loading subscription data…</Text>
         </View>
-      ) : subInfo ? (
-        <ScrollView style={styles.scrollContent} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <StandardPageHeader
+            title="Subscription & Renewal"
+            subtitle="Choose a plan and renew your subscription"
+            onBackPress={() => navigation.goBack()}
+          />
+
           <View style={styles.content}>
+            {error ? (
+              <View style={styles.inlineError}>
+                <AlertCircle size={18} color={Theme.colors.error} />
+                <Text style={styles.inlineErrorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            {subInfo ? (
+              <>
             {/* Status Panel */}
             <View style={styles.card}>
               <View style={styles.statusHeader}>
@@ -424,11 +452,25 @@ export default function RenewalPaymentScreen() {
               </View>
               <View style={styles.statusBody}>
                 <Text style={styles.label}>Plan</Text>
-                <Text style={styles.value}>{subInfo.current_plan || 'Trial Period'}</Text>
+                <Text style={styles.value}>{subInfo.current_plan || 'No Active Plan'}</Text>
                 <Text style={styles.label}>Status</Text>
                 <Text style={styles.value}>{formatStatus(subInfo.status)}</Text>
+                <Text style={styles.label}>Auto-Renewal</Text>
+                <Text style={styles.value}>{subInfo.auto_renew ? 'Enabled' : 'Disabled'}</Text>
                 <Text style={styles.label}>Valid Until</Text>
                 <Text style={styles.value}>{fmtDate(subInfo.subscription_end_at || subInfo.trial_end_at)}</Text>
+                <View style={styles.branchRow}>
+                  <GitBranch size={16} color={Theme.colors.primary} />
+                  <Text style={styles.branchRowLabel}>Active Branches</Text>
+                  <Text style={[styles.branchRowValue, atBranchLimit && styles.branchRowValueLimit]}>
+                    {branchCount} / {formatBranchLimit(branchLimit)}
+                  </Text>
+                </View>
+                {branchCount > 0 && (
+                  <Text style={styles.branchHint}>
+                    Plans are billed per branch. Your total updates with each active branch.
+                  </Text>
+                )}
               </View>
             </View>
 
@@ -492,7 +534,7 @@ export default function RenewalPaymentScreen() {
                 displayPlans.map(plan => {
                   const isCurrent = Boolean(subInfo?.current_plan && plan.title?.toLowerCase() === subInfo.current_plan.toLowerCase());
                   const loadingP = loadingPlan === plan.id;
-                  const canCheckout = !plan.isCustomPricing && (plan.priceValue > 0 || plan.isFree);
+                  const canCheckout = !plan.isCustomPricing && plan.priceValue > 0;
                   const isPopular = plan.highlighted && !isCurrent;
 
                   const features: string[] = plan.features && plan.features.length > 0 ? plan.features : ['Core Features Included', 'Student & Staff Attendance', 'Support Tier Included'];
@@ -528,19 +570,30 @@ export default function RenewalPaymentScreen() {
 
                       {/* Pricing Row */}
                       <View style={styles.planCardPricing}>
-                        <Text style={styles.planCardPrice}>
-                          {plan.isCustomPricing
-                            ? 'Custom Pricing'
-                            : plan.isFree
-                              ? 'Free'
-                              : plan.selectedPriceText}
-                        </Text>
-                        {!plan.isCustomPricing && !plan.isFree && (
-                          <Text style={styles.planCardPeriod}>
-                            / {billingCycle === 'monthly' ? 'month' : 'year'}
+                        {plan.hasPromo && plan.originalPriceText ? (
+                          <Text style={styles.planCardStrike}>{plan.originalPriceText}/branch</Text>
+                        ) : null}
+                        <View style={styles.planCardPriceRow}>
+                          <Text style={styles.planCardPrice}>
+                            {plan.isCustomPricing
+                              ? 'Contact Sales'
+                              : plan.totalPriceText || plan.selectedPriceText}
                           </Text>
-                        )}
+                          {!plan.isCustomPricing && (plan.totalPriceText || plan.priceValue > 0) && (
+                            <Text style={styles.planCardPeriod}>
+                              / {billingCycle === 'monthly' ? 'month' : 'year'}
+                            </Text>
+                          )}
+                        </View>
                       </View>
+                      {plan.priceBreakdown ? (
+                        <Text style={styles.planPriceBreakdown}>{plan.priceBreakdown}</Text>
+                      ) : null}
+                      {plan.perBranch && plan.unitPriceText ? (
+                        <Text style={styles.planPerBranchMeta}>
+                          {plan.unitPriceText} per branch · {plan.branchCount || branchCount || 1} active
+                        </Text>
+                      ) : null}
 
                       {/* Features Checklist */}
                       <View style={styles.planFeaturesList}>
@@ -582,9 +635,11 @@ export default function RenewalPaymentScreen() {
                 })
               )}
             </View>
+              </>
+            ) : null}
           </View>
         </ScrollView>
-      ) : null}
+      )}
     </View>
   );
 }
@@ -594,33 +649,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: Theme.colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(30, 58, 138, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Theme.colors.text,
+  scrollView: {
+    flex: 1,
   },
   scrollContent: {
-    flex: 1,
+    paddingBottom: 100,
   },
   loaderWrap: {
     marginTop: 60,
@@ -656,7 +689,22 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: Theme.spacing.md,
-    paddingTop: Theme.spacing.md,
+    paddingTop: Theme.spacing.sm,
+  },
+  inlineError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Theme.colors.errorBg,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  inlineErrorText: {
+    flex: 1,
+    color: Theme.colors.error,
+    fontSize: 13,
+    fontWeight: '600',
   },
   card: {
     backgroundColor: Theme.colors.card,
@@ -809,12 +857,14 @@ const styles = StyleSheet.create({
     color: '#b45309',
   },
   planCardPricing: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
     marginBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: Theme.colors.background,
     paddingBottom: Theme.spacing.md,
+  },
+  planCardPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
   },
   planCardPrice: {
     fontSize: 28,
@@ -826,6 +876,62 @@ const styles = StyleSheet.create({
     color: Theme.colors.textSec,
     marginLeft: Theme.spacing.xs,
     fontWeight: '600',
+  },
+  planCardStrike: {
+    fontSize: 13,
+    color: Theme.colors.textMuted,
+    textDecorationLine: 'line-through',
+    marginRight: 8,
+  },
+  planPriceBreakdown: {
+    fontSize: 12,
+    color: Theme.colors.primary,
+    fontWeight: '700',
+    marginTop: -12,
+    marginBottom: 10,
+  },
+  planPerBranchMeta: {
+    fontSize: 11,
+    color: Theme.colors.textSec,
+    marginTop: -8,
+    marginBottom: 10,
+    fontWeight: '600',
+  },
+  branchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Theme.colors.border,
+  },
+  branchRowLabel: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    color: Theme.colors.textSec,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  branchRowValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Theme.colors.primary,
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  branchRowValueLimit: {
+    color: '#92400e',
+    backgroundColor: '#fef3c7',
+  },
+  branchHint: {
+    fontSize: 11,
+    color: Theme.colors.textMuted,
+    marginTop: 8,
+    lineHeight: 16,
   },
   planFeaturesList: {
     marginBottom: Theme.spacing.lg,

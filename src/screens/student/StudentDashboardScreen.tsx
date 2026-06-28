@@ -4,25 +4,16 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   StyleSheet,
   View,
-  Text,
   ScrollView,
-  Image,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
   Modal,
-  Platform,
   Alert,
-  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import LinearGradient from 'react-native-linear-gradient';
 import {
-  Bell,
-  ChevronDown,
   ClipboardList,
   CalendarDays,
   FileText,
@@ -31,12 +22,15 @@ import {
   XCircle,
   X,
   FileBox,
+  ChevronRight,
+  History,
 } from 'lucide-react-native';
 import { WebView } from 'react-native-webview';
-import RNFS from 'react-native-fs';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
-import AvatarBubble from '../../components/common/AvatarBubble';
+import DashboardHeroHeader from '../../components/dashboard/DashboardHeroHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import QuickActionGrid, { QuickActionItem } from '../../components/dashboard/QuickActionGrid';
 
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import type { RootStackParamList } from '../../navigation/types';
@@ -51,12 +45,11 @@ import {
   downloadQuestionPaper,
 } from '../../services/studentService';
 import { normalizePhotoUri } from '../../utils/normalizePhotoUri';
+import { resolveStudentRollNumber } from '../../utils/helpers';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeJsonParse } from '../../utils/storage';
 import AccountSwitcher from '../../components/common/AccountSwitcher';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const getStudentPhotoCacheKey = (studentId: string, schoolCode: string): string | null => {
   if (!studentId) {return null;}
@@ -90,10 +83,65 @@ const getStudentDashboardCacheKey = (schoolCode: string, studentId: string): str
   return `student_dashboard_cache:${schoolCode}:${studentId}`;
 };
 
+function DashboardSection({
+  title,
+  actionLabel,
+  onAction,
+  children,
+}: {
+  title: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={styles.sectionCard}>
+      <View style={styles.sectionHeader}>
+        <AppText style={styles.sectionTitle}>{title}</AppText>
+        {actionLabel && onAction ? (
+          <TouchableOpacity style={styles.sectionAction} onPress={onAction} accessibilityRole="button">
+            <AppText style={styles.viewAll}>{actionLabel}</AppText>
+            <ChevronRight size={16} color={C.colors.blue} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function DashboardEmptyRow({
+  icon: Icon,
+  message,
+  actionLabel,
+  onAction,
+}: {
+  icon: React.ComponentType<{ size?: number; color?: string }>;
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <View style={styles.emptyRow}>
+      <View style={styles.emptyIconWrap}>
+        <Icon size={20} color={C.colors.textMuted} />
+      </View>
+      <View style={styles.emptyCopy}>
+        <AppText style={styles.emptyMessage}>{message}</AppText>
+        {actionLabel && onAction ? (
+          <TouchableOpacity onPress={onAction} accessibilityRole="button">
+            <AppText style={styles.emptyAction}>{actionLabel}</AppText>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 export default function StudentDashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { userName, setTabBarVisible } = useAuth();
+  const { userName } = useAuth();
   const isMounted = useRef(true);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -115,6 +163,7 @@ export default function StudentDashboardScreen() {
   const [recentPapers, setRecentPapers] = useState<any[]>([]);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [profilePhotoError, setProfilePhotoError] = useState(false);
+  const [rollNumber, setRollNumber] = useState('');
   const { unreadCount, refreshUnreadCount } = useUnreadNotifications();
 
   // Viewer state
@@ -252,6 +301,15 @@ export default function StudentDashboardScreen() {
         const scopedCacheKey = getStudentPhotoCacheKey(studentId, schoolCode);
 
         const freshProfile = await getStudentProfile();
+        const resolvedRoll = resolveStudentRollNumber(
+          (freshProfile as any)?.roll_number,
+          (freshProfile as any)?.roll_no,
+          (await AsyncStorage.getItem('roll_no')),
+          (await AsyncStorage.getItem('roll_number')),
+        );
+        if (resolvedRoll && isMounted.current) {
+          setRollNumber(resolvedRoll);
+        }
         const profilePhoto = String(
           (freshProfile as any)?.profile_photo_url ||
           (freshProfile as any)?.student_photograph ||
@@ -346,7 +404,7 @@ export default function StudentDashboardScreen() {
   const quickAccess = [
     { name: 'Homework', icon: ClipboardList, color: '#EEF2FF', iconColor: '#2563EB', screen: 'StudentHomework' },
     { name: 'Attendance', icon: CheckCircle2, color: '#FEF2F2', iconColor: '#DC2626', screen: 'StudentAttendance' },
-    { name: 'Holidays', icon: CalendarDays, color: '#F0FDF4', iconColor: '#16A34A', screen: 'PrincipalCalendarManagement' },
+    { name: 'Holidays', icon: CalendarDays, color: '#F0FDF4', iconColor: '#16A34A', screen: 'MainTabs', params: { screen: 'Leave' } },
     { name: 'Marks', icon: BarChart3, color: '#FFFBEB', iconColor: '#D97706', screen: 'StudentMarks' },
   ];
 
@@ -366,191 +424,171 @@ export default function StudentDashboardScreen() {
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 180, paddingHorizontal: 20 }}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom + 100,
+          paddingHorizontal: HEADER_CONSTANTS.DASHBOARD_HORIZONTAL,
+        }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <LinearGradient
-          colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
-          start={{x: 0, y: 0}}
-          end={{x: 1, y: 1}}
-          style={[styles.headerContent, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), overflow: 'hidden' }]}
-        >
-          {/* Decorative circles */}
-          <View style={styles.decCircle1} />
-          <View style={styles.decCircle2} />
-
-          <View style={styles.headerTop}>
-            <TouchableOpacity onPress={() => navigateRoot('Profile')}>
-              {profilePhotoUrl && !profilePhotoError ? (
-                <Image
-                  source={{ uri: profilePhotoUrl }}
-                  style={styles.avatar}
-                  onError={() => setProfilePhotoError(true)}
-                />
-              ) : (
-                /* Use your initials component instead of the random URL */
-                <AvatarBubble
-                  displayName={userName || 'Student'}
-                  size={44}
-                  textSize={18}
-                  primaryColor={Theme.colors.card}
-                />
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={() => navigateRoot('Notifications')}
-            >
-              <Bell size={22} color={Theme.colors.card} />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.welcomeSection}>
-            <TouchableOpacity
-              style={styles.headerInfoContainer}
-              onPress={() => setSwitcherVisible(true)}
-              activeOpacity={0.7}
-            >
-              <View>
-                <View style={styles.greetingRow}>
-                  <AppText style={styles.greeting}>HI {userName?.split(' ')[0]?.toUpperCase() || 'STUDENT'} 👋</AppText>
-                  <ChevronDown size={18} color={Theme.colors.card} style={styles.chevronIcon} />
-                </View>
-                <AppText style={styles.subGreeting}>Here's your academic overview.</AppText>
+        <DashboardHeroHeader
+          userName={userName || 'Student'}
+          greetingLine={`HI ${userName?.split(' ')[0]?.toUpperCase() || 'STUDENT'}`}
+          subtitle={
+            rollNumber
+              ? `Roll No: ${rollNumber} • Here's your academic overview.`
+              : "Here's your academic overview."
+          }
+          unreadCount={unreadCount}
+          onAvatarPress={() => navigateRoot('Profile')}
+          onGreetingPress={() => setSwitcherVisible(true)}
+          onNotificationsPress={() => navigateRoot('Notifications')}
+          photoUri={profilePhotoUrl}
+          photoError={profilePhotoError}
+          onPhotoError={() => setProfilePhotoError(true)}
+          fullBleed
+          footer={(
+            <>
+              <View style={styles.statsGrid}>
+                {stats.map((stat, i) => (
+                  <View key={`stat-${i}`} style={styles.statCard}>
+                    <AppText style={styles.statLabel}>{stat.label}</AppText>
+                    <AppText style={styles.statValue}>{stat.value}</AppText>
+                  </View>
+                ))}
               </View>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.statsGrid}>
-            {stats.map((stat, i) => (
-              <View key={`stat-${i}`} style={styles.statCard}>
-                <AppText style={styles.statLabel}>{stat.label}</AppText>
-                <AppText style={styles.statValue}>{stat.value}</AppText>
+              <View style={styles.attendancePctCard}>
+                <View>
+                  <AppText style={styles.statLabel}>Attendance %</AppText>
+                  <AppText style={styles.statValue}>{attendanceData.percentage}%</AppText>
+                </View>
+                <View style={styles.chartPlaceholder}>
+                  <Svg height="40" width="100" viewBox="0 0 100 40">
+                    <Path
+                      d="M5 30 Q 30 30, 60 15 T 95 5"
+                      fill="none"
+                      stroke={C.colors.blue}
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                    />
+                  </Svg>
+                </View>
               </View>
-            ))}
-          </View>
-
-          <View style={styles.attendancePctCard}>
-            <View>
-              <AppText style={styles.statLabel}>Attendance %</AppText>
-              <AppText style={styles.statValue}>{attendanceData.percentage}%</AppText>
-            </View>
-            <View style={styles.chartPlaceholder}>
-               <Svg height="40" width="100" viewBox="0 0 100 40">
-                  <Path
-                    d="M5 30 Q 30 30, 60 15 T 95 5"
-                    fill="none"
-                    stroke={C.colors.blue}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                  />
-               </Svg>
-            </View>
-          </View>
-        </LinearGradient>
+            </>
+          )}
+        />
 
 
-        <View style={styles.contentContainer}>
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <AppText style={styles.sectionTitle}>Recent Question Papers</AppText>
-              <TouchableOpacity onPress={() => navigation.navigate('StudentQuestionPapers')}>
-                <AppText style={styles.viewAll}>View All →</AppText>
-              </TouchableOpacity>
-            </View>
+        <View style={[styles.sheet, innerPageLayoutStyles.contentFront]}>
+          <DashboardSection title="Quick Access">
+            <QuickActionGrid>
+              {quickAccess.map((item, i) => {
+                const IconComponent = item.icon;
+                return (
+                  <QuickActionItem key={`quick-${i}`}>
+                    <TouchableOpacity
+                      style={styles.gridItemInner}
+                      onPress={() => item.screen && navigateRoot(item.screen as any, (item as any).params)}
+                      accessibilityRole="button"
+                      accessibilityLabel={item.name}
+                    >
+                      <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
+                        <IconComponent size={22} color={item.iconColor} />
+                      </View>
+                      <AppText style={styles.gridLabel}>{item.name}</AppText>
+                    </TouchableOpacity>
+                  </QuickActionItem>
+                );
+              })}
+            </QuickActionGrid>
+          </DashboardSection>
+
+          <DashboardSection
+            title="Recent Question Papers"
+            actionLabel="View all"
+            onAction={() => navigateRoot('StudentQuestionPapers')}
+          >
             {recentPapers.length > 0 ? (
               recentPapers.map((paper, index) => (
-                <View key={index} style={styles.paperCardRow}>
-                  <View style={[styles.activityIcon, { backgroundColor: C.colors.blueLight }]}>
-                    <FileText size={22} color={C.colors.blue} />
+                <View
+                  key={`paper-${paper.paper_id || index}`}
+                  style={[styles.listRow, index > 0 && styles.listRowDivider]}
+                >
+                  <View style={[styles.rowIcon, { backgroundColor: C.colors.blueLight }]}>
+                    <FileText size={20} color={C.colors.blue} />
                   </View>
-                  <View style={styles.activityInfo}>
-                    <AppText style={styles.activityTitle} numberOfLines={1}>{paper.title}</AppText>
-                    <AppText style={styles.activityDate}>
+                  <View style={styles.rowBody}>
+                    <AppText style={styles.rowTitle} numberOfLines={1}>{paper.title}</AppText>
+                    <AppText style={styles.rowMeta} numberOfLines={1}>
                       {paper.subject_name} • {paper.exam_type}
                     </AppText>
                   </View>
                   <TouchableOpacity
-                    style={styles.viewPaperBtn}
+                    style={styles.rowActionBtn}
                     onPress={() => handleViewPaper(paper.paper_id, paper.title)}
+                    accessibilityRole="button"
                   >
-                    <AppText style={styles.viewPaperBtnText}>View</AppText>
+                    <AppText style={styles.rowActionText}>View</AppText>
                   </TouchableOpacity>
                 </View>
               ))
             ) : (
-              <View style={styles.activityCard}>
-                 <AppText style={styles.activityDetail}>No recent papers found.</AppText>
-              </View>
+              <DashboardEmptyRow
+                icon={FileBox}
+                message="No question papers yet."
+                actionLabel="Browse papers"
+                onAction={() => navigateRoot('StudentQuestionPapers')}
+              />
             )}
-          </View>
+          </DashboardSection>
 
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <AppText style={styles.sectionTitle}>Quick Access</AppText>
-            </View>
-            <View style={styles.quickAccessGrid}>
-                  {quickAccess.map((item, i) => {
-                    const IconComponent = item.icon;
-                    return (
-                <TouchableOpacity
-                  key={`quick-${i}`}
-                  style={styles.gridItem}
-                      onPress={() => item.screen && navigateRoot(item.screen as any, (item as any).params)}
-                >
-                  <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-                    <IconComponent size={24} color={item.iconColor} />
-                  </View>
-                  <AppText style={styles.gridLabel}>{item.name}</AppText>
-                </TouchableOpacity>
-              );})}
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <AppText style={styles.sectionTitle}>Recent Activity</AppText>
-              <TouchableOpacity onPress={() => navigation.navigate('StudentAttendance')}>
-                <AppText style={styles.viewAll}>View All</AppText>
-              </TouchableOpacity>
-            </View>
+          <DashboardSection
+            title="Recent Activity"
+            actionLabel="View all"
+            onAction={() => navigateRoot('StudentAttendance')}
+          >
             {recentAttendance.length > 0 ? (
-              recentAttendance.map((item, index) => (
-                <View key={index} style={styles.activityCardRow}>
-                  <View style={[styles.activityIcon, { backgroundColor: item.status?.toLowerCase() === 'present' ? C.colors.successBg : C.colors.errorBg }]}>
-                    {item.status?.toLowerCase() === 'present' ? (
-                      <CheckCircle2 size={22} color={C.colors.success} />
-                    ) : (
-                      <XCircle size={22} color={C.colors.error} />
-                    )}
-                  </View>
-                  <View style={styles.activityInfo}>
-                    <AppText style={styles.activityTitle}>Attendance Marked</AppText>
-                    <AppText style={styles.activityDate}>
-                      {new Date(item.attendance_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              recentAttendance.slice(0, 5).map((item, index) => {
+                const isPresent = item.status?.toLowerCase() === 'present';
+                return (
+                  <View
+                    key={`activity-${item.attendance_date || index}`}
+                    style={[styles.listRow, index > 0 && styles.listRowDivider]}
+                  >
+                    <View style={[styles.rowIcon, { backgroundColor: isPresent ? C.colors.successBg : C.colors.errorBg }]}>
+                      {isPresent ? (
+                        <CheckCircle2 size={20} color={C.colors.success} />
+                      ) : (
+                        <XCircle size={20} color={C.colors.error} />
+                      )}
+                    </View>
+                    <View style={styles.rowBody}>
+                      <AppText style={styles.rowTitle}>Attendance marked</AppText>
+                      <AppText style={styles.rowMeta}>
+                        {new Date(item.attendance_date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </AppText>
+                    </View>
+                    <AppText style={[styles.rowStatus, { color: isPresent ? C.colors.success : C.colors.error }]}>
+                      {item.status}
                     </AppText>
                   </View>
-                  <AppText style={[styles.activityStatus, { color: item.status?.toLowerCase() === 'present' ? C.colors.success : C.colors.error }]}>
-                    {item.status}
-                  </AppText>
-                </View>
-              ))
+                );
+              })
             ) : (
-              <View style={styles.activityCard}>
-                 <AppText style={styles.activityDetail}>No recent activity found.</AppText>
-              </View>
+              <DashboardEmptyRow
+                icon={History}
+                message="No attendance activity yet."
+                actionLabel="View attendance"
+                onAction={() => navigateRoot('StudentAttendance')}
+              />
             )}
-          </View>
+          </DashboardSection>
         </View>
-
-        <View style={{ height: insets.bottom + 140 }} />
       </ScrollView>
 
       {/* PDF Viewer Modal */}
@@ -613,62 +651,6 @@ const styles = StyleSheet.create({
     marginHorizontal: -20,
     overflow: 'hidden',
   },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  welcomeSection: {
-    marginBottom: 10,
-  },
-  headerInfoContainer: {
-    alignSelf: 'flex-start',
-  },
-  greetingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  chevronIcon: {
-    marginLeft: 6,
-    opacity: 0.8,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: C.colors.background,
-  },
-  notificationBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  badge: { position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 14 },
-  greeting: {
-    ...Theme.typography.h1,
-    color: C.colors.background,
-    lineHeight: 32,
-  },
-  subGreeting: {
-    ...Theme.typography.body,
-    color: C.colors.backgroundAlt + 'AD', // ~0.68 opacity
-    marginTop: 2,
-    fontWeight: '600',
-  },
   statsGrid: {
     marginTop: Theme.spacing.md,
     flexDirection: 'row',
@@ -711,118 +693,133 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
   },
-  contentContainer: {
-    backgroundColor: C.colors.background,
+  sheet: {
+    marginTop: -20,
   },
-  section: {
-    paddingTop: Theme.spacing.md,
+  sectionCard: {
+    backgroundColor: C.colors.card,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 14,
+    ...C.shadow.sm,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
+  },
+  sectionAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: C.colors.text,
-    lineHeight: 24,
+    lineHeight: 22,
   },
   viewAll: {
-    ...Theme.typography.bodyMd,
+    fontSize: 13,
     color: C.colors.blue,
     fontWeight: '700',
   },
-  quickAccessGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  gridItem: {
-    width: (SCREEN_WIDTH - 60) / 4,
+  gridItemInner: {
     alignItems: 'center',
-    marginBottom: Theme.spacing.md,
+    width: '100%',
+    paddingVertical: 4,
   },
   iconContainer: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Theme.spacing.sm,
+    marginBottom: 8,
   },
   gridLabel: {
-    ...Theme.typography.label,
+    fontSize: 11,
     color: C.colors.text,
     fontWeight: '600',
     textAlign: 'center',
     lineHeight: 14,
   },
-  activityCard: {
-    backgroundColor: C.colors.card,
-    borderRadius: 18,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 12,
-    ...C.shadow.sm,
-  },
-  activityCardRow: {
-    backgroundColor: C.colors.card,
-    borderRadius: 18,
-    padding: Theme.spacing.md,
+  listRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    ...C.shadow.sm,
+    paddingVertical: 10,
   },
-  activityIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  listRowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.colors.border,
+  },
+  rowIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
-  activityInfo: {
+  rowBody: {
     flex: 1,
+    minWidth: 0,
   },
-  activityTitle: {
-    ...Theme.typography.h3,
+  rowTitle: {
+    fontSize: 15,
+    fontWeight: '700',
     color: C.colors.text,
   },
-  activityDate: {
-    ...Theme.typography.body,
+  rowMeta: {
+    fontSize: 12,
     color: C.colors.textMuted,
-    marginTop: 3,
+    marginTop: 2,
   },
-  activityStatus: {
-    fontSize: 13,
+  rowStatus: {
+    fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
+    marginLeft: 8,
   },
-  activityDetail: {
-    ...Theme.typography.body,
-    color: C.colors.textMuted,
+  rowActionBtn: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    marginLeft: 8,
   },
-  paperCardRow: {
-    backgroundColor: C.colors.card,
-    borderRadius: 18,
-    padding: 10,
+  rowActionText: {
+    color: C.colors.blue,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  emptyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Theme.spacing.sm,
-    ...C.shadow.sm,
-  },
-  viewPaperBtn: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 10,
   },
-  viewPaperBtnText: {
+  emptyIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  emptyCopy: {
+    flex: 1,
+  },
+  emptyMessage: {
+    fontSize: 14,
+    color: C.colors.textMuted,
+    lineHeight: 20,
+  },
+  emptyAction: {
+    marginTop: 4,
+    fontSize: 13,
     color: C.colors.blue,
-    ...Theme.typography.bodyMd,
     fontWeight: '700',
   },
   viewerContainer: {

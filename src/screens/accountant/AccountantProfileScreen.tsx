@@ -7,11 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ChevronLeft,
   Building2,
   CalendarDays,
   Mail,
@@ -25,28 +22,16 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import AppCard from '../../components/common/AppCard';
-
-import { colors } from '../../theme/tokens';
-import type { RootStackParamList } from '../../navigation/types';
 import { Theme } from '../../theme/tokens';
+import type { RootStackParamList } from '../../navigation/types';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import {
+  getAccountantProfile,
+  type AccountantProfileData,
+} from '../../services/accountantService';
 
-
-type AccountantProfile = {
-  name: string;
-  email: string;
-  phone: string;
-  employeeId: string;
-  role: string;
-  schoolCode: string;
-  branchId: string;
-  branchName: string;
-  designation: string;
-  department: string;
-  userId: string;
-  joinedAt: string;
-};
-
-const emptyProfile: AccountantProfile = {
+const emptyProfile: AccountantProfileData = {
   name: '',
   email: '',
   phone: '',
@@ -61,18 +46,31 @@ const emptyProfile: AccountantProfile = {
   joinedAt: '',
 };
 
-const toText = (value: unknown): string => {
-  if (typeof value === 'string') {return value.trim();}
-  if (typeof value === 'number') {return String(value).trim();}
-  return '';
+const formatRoleLabel = (role?: string): string => {
+  const key = String(role || 'accountant').trim().toLowerCase();
+  if (key === 'accountant') {
+    return 'Accountant';
+  }
+  return key
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 };
 
-const firstText = (...values: unknown[]): string => {
-  for (const value of values) {
-    const text = toText(value);
-    if (text) {return text;}
+const formatJoinedDate = (value?: string): string => {
+  if (!value) {
+    return '';
   }
-  return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 };
 
 const getInitials = (name: string) => {
@@ -86,12 +84,13 @@ const getInitials = (name: string) => {
   return initials || 'A';
 };
 
+const displayValue = (value?: string) => (value?.trim() ? value.trim() : 'Not available');
+
 export default function AccountantProfileScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const insets = useSafeAreaInsets();
   const { userName, userRole, logout, setTabBarVisible } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<AccountantProfile>(emptyProfile);
+  const [profile, setProfile] = useState<AccountantProfileData>(emptyProfile);
 
   useEffect(() => {
     setTabBarVisible(true);
@@ -99,63 +98,56 @@ export default function AccountantProfileScreen() {
   }, [setTabBarVisible]);
 
   useEffect(() => {
+    let active = true;
+
     const loadProfile = async () => {
+      setLoading(true);
       try {
-        const storedUserRaw = await AsyncStorage.getItem('user');
-        const storedUser = storedUserRaw ? JSON.parse(storedUserRaw) : {};
-
-        const [storedEmail, storedPhone, storedName, storedBranchName, storedBranchId, storedSchoolCode, storedEmployeeId, storedUserId, storedDesignation, storedJoinedAt] =
-          await AsyncStorage.multiGet([
-            'email',
-            'phone',
-            'user_name',
-            'branch_name',
-            'branch_id',
-            'school_code',
-            'employee_id',
-            'user_id',
-            'designation',
-            'date_of_joining',
-          ]).then(items => items.map(([, value]) => value || ''));
-
-        setProfile({
-          name: firstText(storedName, storedUser?.name, userName, 'Accountant'),
-          email: firstText(storedEmail, storedUser?.email),
-          phone: firstText(storedPhone, storedUser?.phone, storedUser?.mobile),
-          employeeId: firstText(storedEmployeeId, storedUser?.employee_id, storedUser?.employeeId),
-          role: firstText(userRole, storedUser?.role, 'accountant'),
-          schoolCode: firstText(storedSchoolCode, storedUser?.school_code, storedUser?.schoolCode),
-          branchId: firstText(storedBranchId, storedUser?.branch_id, storedUser?.branchId),
-          branchName: firstText(storedBranchName, storedUser?.branch_name, storedUser?.branchName),
-          designation: firstText(storedDesignation, storedUser?.designation, 'Accountant'),
-          department: firstText(storedUser?.department, storedUser?.department_subject, 'Accounts'),
-          userId: firstText(storedUserId, storedUser?.user_id, storedUser?.id),
-          joinedAt: firstText(storedJoinedAt, storedUser?.date_of_joining, storedUser?.joined_at),
-        });
-      } catch (error) {
-        console.error('Error loading accountant profile:', error);
-        setProfile(prev => ({
-          ...prev,
+        const data = await getAccountantProfile({
           name: userName || 'Accountant',
           role: userRole || 'accountant',
-        }));
+        });
+        if (active) {
+          setProfile(data);
+        }
+      } catch (error) {
+        console.error('Error loading accountant profile:', error);
+        if (active) {
+          setProfile(prev => ({
+            ...prev,
+            name: userName || 'Accountant',
+            role: userRole || 'accountant',
+            designation: 'Accountant',
+          }));
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
     loadProfile();
+    return () => {
+      active = false;
+    };
   }, [userName, userRole]);
 
   const initials = useMemo(() => getInitials(profile.name), [profile.name]);
+  const roleLabel = useMemo(() => formatRoleLabel(profile.role), [profile.role]);
+  const joinedLabel = useMemo(() => formatJoinedDate(profile.joinedAt), [profile.joinedAt]);
 
   const fields = [
-    { label: 'Email', value: profile.email || 'Not available', icon: Mail },
-    { label: 'Phone', value: profile.phone || 'Not available', icon: Phone },
-    { label: 'Employee ID', value: profile.employeeId || 'Not available', icon: UserCircle2 },
-    { label: 'Branch', value: profile.branchName || profile.branchId || 'Not available', icon: Building2 },
-    { label: 'School Code', value: profile.schoolCode || 'Not available', icon: ShieldCheck },
-    { label: 'Department', value: profile.department || 'Accounts', icon: Wallet },
+    { label: 'Email', value: displayValue(profile.email), icon: Mail },
+    { label: 'Phone', value: displayValue(profile.phone), icon: Phone },
+    { label: 'Employee ID', value: displayValue(profile.employeeId), icon: UserCircle2 },
+    {
+      label: 'Branch',
+      value: displayValue(profile.branchName || profile.branchId),
+      icon: Building2,
+    },
+    { label: 'School Code', value: displayValue(profile.schoolCode), icon: ShieldCheck },
+    { label: 'Department', value: displayValue(profile.department), icon: Wallet },
   ];
 
   const handleLogout = async () => {
@@ -165,93 +157,107 @@ export default function AccountantProfileScreen() {
 
   return (
     <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <StandardPageHeader
+          scrollWithContent
+          title="Accountant Profile"
+          subtitle={profile.name || 'Finance & Accounts'}
+          onBackPress={() => navigation.goBack()}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
 
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={{ position: 'absolute', top: -1000, left: 0, right: 0, height: 1000, backgroundColor: Theme.colors.primary }} />
-
-        <View style={[styles.hero, { paddingTop: insets.top + 14 }]}>
-          <View style={styles.heroRow}>
-            <TouchableOpacity accessibilityRole="button" style={styles.backButton} onPress={() => navigation.goBack()} accessibilityLabel="Go back">
-              <ChevronLeft size={20} color={Theme.colors.card} />
-            </TouchableOpacity>
-            <AppText style={styles.heroTitle} weight="bold">Accountant Profile</AppText>
-            <View style={styles.backButtonSpacer} />
-          </View>
-
-          <View style={styles.avatarShell}>
-            <View style={styles.avatarInner}>
-              <AppText style={styles.avatarText} weight="bold">{initials}</AppText>
+        <View style={innerPageLayoutStyles.scrollBody}>
+          <AppCard style={styles.heroCard}>
+            <View style={styles.heroTop}>
+              <View style={styles.avatarInner}>
+                <AppText style={styles.avatarText} weight="bold">{initials}</AppText>
+              </View>
+              <View style={styles.heroTextBlock}>
+                <AppText style={styles.name} weight="bold">{profile.name || 'Accountant'}</AppText>
+                <AppText style={styles.roleBadge}>{roleLabel.toUpperCase()}</AppText>
+              </View>
             </View>
-          </View>
 
-          <AppText style={styles.name} weight="bold">{profile.name || 'Accountant'}</AppText>
-          <AppText style={styles.role}>{profile.designation || 'Accountant'}</AppText>
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryPill}>
+                <CalendarDays size={14} color={Theme.colors.primary} />
+                <AppText style={styles.summaryPillText} weight="semibold">Finance Team</AppText>
+              </View>
+              <View style={styles.summaryPillSoft}>
+                <MapPin size={14} color="#16a34a" />
+                <AppText style={styles.summaryPillTextSoft} weight="semibold">
+                  {profile.branchName || profile.branchId || 'Branch Linked'}
+                </AppText>
+              </View>
+            </View>
+
+            <AppText style={styles.summaryText}>
+              Manage collections, dues, expenses, and payroll from a single finance workspace.
+            </AppText>
+          </AppCard>
+
+          {loading ? (
+            <View style={styles.loadingBlock}>
+              <ActivityIndicator size="large" color={Theme.colors.primary} />
+              <AppText style={styles.loadingText}>Loading profile...</AppText>
+            </View>
+          ) : (
+            <>
+              <AppText style={styles.sectionTitle} weight="bold">Profile Details</AppText>
+              <View style={styles.fieldGrid}>
+                {fields.map(field => {
+                  const IconComponent = field.icon;
+                  return (
+                    <AppCard key={field.label} style={styles.fieldCard}>
+                      <View style={styles.fieldIconWrap}>
+                        <IconComponent size={16} color={Theme.colors.primary} />
+                      </View>
+                      <AppText style={styles.fieldLabel} weight="semibold">{field.label}</AppText>
+                      <AppText style={styles.fieldValue} numberOfLines={2}>{field.value}</AppText>
+                    </AppCard>
+                  );
+                })}
+              </View>
+
+              <AppText style={styles.sectionTitle} weight="bold">Account Info</AppText>
+              <AppCard style={styles.infoCard}>
+                <View style={styles.infoRow}>
+                  <AppText style={styles.infoLabel}>Role</AppText>
+                  <AppText style={styles.infoValue}>{roleLabel}</AppText>
+                </View>
+                <View style={styles.divider} />
+                <View style={styles.infoRow}>
+                  <AppText style={styles.infoLabel}>Designation</AppText>
+                  <AppText style={styles.infoValue}>{profile.designation || roleLabel}</AppText>
+                </View>
+                <View style={styles.divider} />
+                <View style={styles.infoRow}>
+                  <AppText style={styles.infoLabel}>User ID</AppText>
+                  <AppText style={styles.infoValue}>{displayValue(profile.userId)}</AppText>
+                </View>
+                <View style={styles.divider} />
+                <View style={styles.infoRow}>
+                  <AppText style={styles.infoLabel}>Joined</AppText>
+                  <AppText style={styles.infoValue}>{joinedLabel || 'Not available'}</AppText>
+                </View>
+              </AppCard>
+
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={styles.logoutButton}
+                onPress={handleLogout}
+                activeOpacity={0.85}
+              >
+                <LogOut size={18} color={Theme.colors.card} />
+                <AppText style={styles.logoutText} weight="semibold">Sign Out</AppText>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
-
-        {loading ? (
-          <View style={styles.loadingBlock}>
-            <ActivityIndicator size="large" color={Theme.colors.primary} />
-            <AppText style={styles.loadingText}>Loading profile...</AppText>
-          </View>
-        ) : (
-          <>
-            <AppCard style={styles.summaryCard}>
-              <View style={styles.summaryRow}>
-                <View style={styles.summaryPill}>
-                  <CalendarDays size={14} color={Theme.colors.primary} />
-                  <AppText style={styles.summaryPillText} weight="semibold">Finance Team</AppText>
-                </View>
-                <View style={styles.summaryPillSoft}>
-                  <MapPin size={14} color="#16a34a" />
-                  <AppText style={styles.summaryPillTextSoft} weight="semibold">{profile.branchName || 'Branch Linked'}</AppText>
-                </View>
-              </View>
-              <AppText style={styles.summaryText}>
-                Manage collections, dues, expenses, and payroll from a single finance workspace.
-              </AppText>
-            </AppCard>
-
-            <AppText style={styles.sectionTitle} weight="bold">Profile Details</AppText>
-            <View style={styles.fieldGrid}>
-              {fields.map(field => {
-                const IconComponent = field.icon;
-                return (
-                  <AppCard key={field.label} style={styles.fieldCard}>
-                    <View style={styles.fieldIconWrap}>
-                      <IconComponent size={16} color={Theme.colors.primary} />
-                    </View>
-                    <AppText style={styles.fieldLabel} weight="semibold">{field.label}</AppText>
-                    <AppText style={styles.fieldValue} numberOfLines={2}>{field.value}</AppText>
-                  </AppCard>
-                );
-              })}
-            </View>
-
-            <AppText style={styles.sectionTitle} weight="bold">Account Info</AppText>
-            <AppCard style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <AppText style={styles.infoLabel}>Role</AppText>
-                <AppText style={styles.infoValue}>{profile.role || 'accountant'}</AppText>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.infoRow}>
-                <AppText style={styles.infoLabel}>User ID</AppText>
-                <AppText style={styles.infoValue}>{profile.userId || 'Not available'}</AppText>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.infoRow}>
-                <AppText style={styles.infoLabel}>Joined</AppText>
-                <AppText style={styles.infoValue}>{profile.joinedAt || 'Not available'}</AppText>
-              </View>
-            </AppCard>
-
-            <TouchableOpacity accessibilityRole="button" style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.85}>
-              <LogOut size={18} color={Theme.colors.card} />
-              <AppText style={styles.logoutText} weight="semibold">Sign Out</AppText>
-            </TouchableOpacity>
-          </>
-        )}
       </ScrollView>
     </View>
   );
@@ -260,98 +266,53 @@ export default function AccountantProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: Theme.colors.background,
   },
-  hero: {
-    backgroundColor: Theme.colors.primary,
-    paddingHorizontal: Theme.spacing.md,
-    paddingBottom: Theme.spacing.lg,
-    alignItems: 'center',
-    marginHorizontal: -16,
+  scrollView: {
+    flex: 1,
   },
-  heroRow: {
-    width: '100%',
+  heroCard: {
+    marginBottom: Theme.spacing.lg,
+    borderRadius: 22,
+    padding: 18,
+    ...Theme.shadow.sm,
+  },
+  heroTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backButtonSpacer: {
-    width: 38,
-    height: 38,
-  },
-  heroTitle: {
-    color: Theme.colors.card,
-    fontSize: 18,
-  },
-  avatarShell: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
+    gap: 14,
+    marginBottom: 14,
   },
   avatarInner: {
-    width: 74,
-    height: 74,
-    borderRadius: 37,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: Theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     color: Theme.colors.card,
-    fontSize: 26,
+    fontSize: 24,
+  },
+  heroTextBlock: {
+    flex: 1,
+    minWidth: 0,
   },
   name: {
-    color: Theme.colors.card,
-    fontSize: 24,
-    marginBottom: Theme.spacing.xs,
-    textAlign: 'center',
+    color: Theme.colors.text,
+    fontSize: 22,
+    marginBottom: 4,
   },
-  role: {
-    color: '#bfdbfe',
-    fontSize: 13,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  content: {
-    padding: Theme.spacing.md,
-    paddingBottom: 36,
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    minHeight: '100%',
-  },
-  loadingBlock: {
-    alignItems: 'center',
-    paddingVertical: 42,
-  },
-  loadingText: {
-    marginTop: 12,
-    color: colors.textMuted,
-  },
-  summaryCard: {
-    marginTop: -8,
-    marginBottom: Theme.spacing.md,
-    borderRadius: 22,
+  roleBadge: {
+    color: Theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
   },
   summaryRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
     gap: 10,
     marginBottom: 12,
   },
@@ -382,13 +343,21 @@ const styles = StyleSheet.create({
     ...Theme.typography.caption,
   },
   summaryText: {
-    color: colors.textMuted,
+    color: Theme.colors.textMuted,
     ...Theme.typography.body,
     lineHeight: 20,
   },
+  loadingBlock: {
+    alignItems: 'center',
+    paddingVertical: 42,
+  },
+  loadingText: {
+    marginTop: 12,
+    color: Theme.colors.textMuted,
+  },
   sectionTitle: {
     fontSize: 18,
-    color: colors.textPrimary,
+    color: Theme.colors.text,
     marginBottom: 12,
     marginTop: Theme.spacing.xs,
   },
@@ -415,12 +384,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   fieldLabel: {
-    color: colors.textPrimary,
+    color: Theme.colors.text,
     ...Theme.typography.caption,
     marginBottom: 6,
   },
   fieldValue: {
-    color: colors.textMuted,
+    color: Theme.colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -435,18 +404,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   infoLabel: {
-    color: colors.textMuted,
+    color: Theme.colors.textMuted,
     fontSize: 13,
   },
   infoValue: {
-    color: colors.textPrimary,
+    color: Theme.colors.text,
     fontSize: 13,
     textAlign: 'right',
     flex: 1,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: Theme.colors.border,
     marginVertical: 12,
   },
   logoutButton: {

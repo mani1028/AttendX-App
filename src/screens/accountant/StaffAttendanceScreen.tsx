@@ -12,8 +12,7 @@ import {
   FlatList,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import {
   ChevronLeft,
@@ -22,10 +21,14 @@ import {
   RefreshCw,
   Save,
   X,
+  ChevronDown,
+  CheckCircle2,
   ChevronLeft as ChevronLeftSmall,
   ChevronRight,
 } from 'lucide-react-native';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import API from '../../services/api';
 
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
@@ -56,6 +59,50 @@ const parseDate = (s: string): Date => {
 };
 
 type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'HALF_DAY';
+
+const normalizeStatus = (value: unknown): AttendanceStatus => {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (normalized === 'PRESENT' || normalized === 'ABSENT' || normalized === 'HALF_DAY') {
+    return normalized;
+  }
+  return 'ABSENT';
+};
+
+const staffMemberKey = (staff: Pick<StaffMember, 'id' | 'employee_id'>): string =>
+  String(staff.employee_id || staff.id || '').trim();
+
+const normalizeStaffMember = (raw: Record<string, unknown>): StaffMember => {
+  const employeeId = String(raw.employee_id ?? raw.staff_id ?? raw.id ?? '').trim();
+  const session1 = normalizeStatus(raw.session1_status ?? raw.status);
+  const sessionsPerDay = Math.max(1, Number(raw.sessions_per_day ?? 1) || 1);
+  return {
+    id: employeeId,
+    employee_id: employeeId,
+    name: String(raw.name ?? raw.staff_name ?? 'Unknown').trim(),
+    role: String(raw.role ?? raw.staff_role ?? 'staff').toLowerCase(),
+    sessions_per_day: sessionsPerDay,
+    session1_status: session1,
+    session2_status:
+      raw.session2_status != null ? normalizeStatus(raw.session2_status) : undefined,
+    status: raw.status != null ? normalizeStatus(raw.status) : session1,
+  };
+};
+
+const combinedSessionStatus = (
+  session1: AttendanceStatus,
+  session2?: AttendanceStatus,
+): AttendanceStatus => {
+  if (!session2) {
+    return session1;
+  }
+  if (session1 === 'PRESENT' && session2 === 'PRESENT') {
+    return 'PRESENT';
+  }
+  if (session1 === 'ABSENT' && session2 === 'ABSENT') {
+    return 'ABSENT';
+  }
+  return 'HALF_DAY';
+};
 
 interface StaffMember {
   id: string;
@@ -289,7 +336,6 @@ function CalendarModal({ teacher, onClose, publicHolidays }: CalendarModalProps)
 ───────────────────────────────────────────────────────────── */
 export default function StaffAttendanceScreen() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
 
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [attendanceDate, setAttendanceDate] = useState(toDateString(new Date()));
@@ -299,6 +345,11 @@ export default function StaffAttendanceScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [calendarTeacher, setCalendarTeacher] = useState<StaffMember | null>(null);
   const [publicHolidays, setPublicHolidays] = useState<string[]>([]);
+  const [statusPicker, setStatusPicker] = useState<{
+    staffId: string;
+    session: 1 | 2;
+    value: AttendanceStatus;
+  } | null>(null);
 
   const fetchHolidays = useCallback(async () => {
     try {
@@ -322,7 +373,7 @@ export default function StaffAttendanceScreen() {
         branch_id: bid,
         date: attendanceDate,
       }, { headers });
-      setStaffList(res.data.staff || []);
+      setStaffList((res.data.staff || []).map((row: Record<string, unknown>) => normalizeStaffMember(row)));
     } catch (e: any) {
       const status = e?.response?.status;
       if (status === 401) {setError('Session expired. Please login again.');}
@@ -333,12 +384,36 @@ export default function StaffAttendanceScreen() {
 
   useEffect(() => { fetchStaff(); fetchHolidays(); }, [fetchStaff]);
 
-  const handleStatusChange = (staffId: string, status: AttendanceStatus, session: 1 | 2 = 1) => {
+  const handleStatusChange = (staffKey: string, status: AttendanceStatus, session: 1 | 2 = 1) => {
     setStaffList(prev => prev.map(s => {
-      if (s.id !== staffId) {return s;}
-      if (session === 1) {return { ...s, session1_status: status };}
-      return { ...s, session2_status: status };
+      if (staffMemberKey(s) !== staffKey) {return s;}
+      if (session === 1) {
+        const next = { ...s, session1_status: status };
+        return s.sessions_per_day === 1
+          ? { ...next, status }
+          : { ...next, status: combinedSessionStatus(status, next.session2_status) };
+      }
+      const next = { ...s, session2_status: status };
+      return { ...next, status: combinedSessionStatus(next.session1_status, status) };
     }));
+  };
+
+  const openDatePicker = () => {
+    const currentDate = parseDate(attendanceDate);
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: currentDate,
+        mode: 'date',
+        maximumDate: new Date(),
+        onChange: (event, date) => {
+          if (event.type === 'set' && date) {
+            setAttendanceDate(toDateString(date));
+          }
+        },
+      });
+      return;
+    }
+    setShowDatePicker(true);
   };
 
   const handleSave = async () => {
@@ -347,14 +422,23 @@ export default function StaffAttendanceScreen() {
       const headers = await getHeaders();
       const sc = (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
       const bid = (await storage.getString(StorageKeys.BRANCH_ID)) || '01';
-      const updates = staffList.map(s => ({
-        staff_id: s.id,
-        role: s.role,
-        status: s.sessions_per_day === 1 ? s.session1_status : s.status,
-        session1_status: s.session1_status,
-        session2_status: s.session2_status,
-        sessions_per_day: s.sessions_per_day,
-      }));
+      const updates = staffList
+        .filter(s => Boolean(staffMemberKey(s)))
+        .map(s => {
+          const staffId = staffMemberKey(s);
+          const isTwoSession = s.sessions_per_day === 2;
+          const session1 = s.session1_status || 'ABSENT';
+          const session2 = s.session2_status || 'ABSENT';
+          return {
+            staff_id: staffId,
+            employee_id: staffId,
+            role: s.role,
+            status: isTwoSession ? combinedSessionStatus(session1, session2) : session1,
+            session1_status: session1,
+            session2_status: isTwoSession ? session2 : undefined,
+            sessions_per_day: s.sessions_per_day,
+          };
+        });
       await API.post('/manage/accountant/staff-attendance', {
         school_code: sc, branch_id: bid, date: attendanceDate, updates,
       }, { headers });
@@ -368,45 +452,63 @@ export default function StaffAttendanceScreen() {
   const statusOptions: AttendanceStatus[] = ['PRESENT', 'ABSENT', 'HALF_DAY'];
   const statusLabel: Record<AttendanceStatus, string> = { PRESENT: 'Present', ABSENT: 'Absent', HALF_DAY: 'Half Day' };
   const statusColor: Record<AttendanceStatus, { bg: string; text: string }> = {
-    PRESENT:  { bg: '#bbf7d0', text: '#166534' },
+    PRESENT:  { bg: '#dcfce7', text: '#166534' },
     ABSENT:   { bg: '#fee2e2', text: '#991b1b' },
     HALF_DAY: { bg: '#ffedd5', text: '#9a3412' },
   };
 
-  const renderStatusToggle = (value: AttendanceStatus, onPress: (v: AttendanceStatus) => void, twoSession = false) => (
-    <View style={styles.statusToggleRow}>
-      {(twoSession ? statusOptions.slice(0, 2) : statusOptions).map(opt => (
-        <TouchableOpacity accessibilityRole="button"
-          key={opt}
-          style={[styles.statusChip, value === opt && { backgroundColor: statusColor[opt].bg, borderColor: statusColor[opt].text }]}
-          onPress={() => onPress(opt)}>
-          <Text style={[styles.statusChipText, value === opt && { color: statusColor[opt].text, fontWeight: '700' }]}>
-            {statusLabel[opt]}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
+  const renderStatusDropdown = (
+    staffId: string,
+    session: 1 | 2,
+    value: AttendanceStatus,
+  ) => (
+    <TouchableOpacity
+      accessibilityRole="button"
+      style={[
+        styles.statusDropdown,
+        {
+          backgroundColor: statusColor[value].bg,
+          borderColor: statusColor[value].text,
+        },
+      ]}
+      onPress={() => setStatusPicker({ staffId, session, value })}
+    >
+      <Text style={[styles.statusDropdownText, { color: statusColor[value].text }]}>
+        {statusLabel[value]}
+      </Text>
+      <ChevronDown size={16} color={statusColor[value].text} />
+    </TouchableOpacity>
   );
 
   const renderStaffRow = (staff: StaffMember) => {
+    const staffKey = staffMemberKey(staff);
     const isTwoSession = staff.sessions_per_day === 2;
     return (
-      <View key={staff.id} style={styles.staffRow}>
+      <View key={staffKey} style={styles.staffRow}>
         <View style={styles.staffInfo}>
           <Text style={styles.staffName}>{staff.name}</Text>
-          <Text style={styles.staffMeta}>{staff.employee_id || staff.id} · <Text style={{ textTransform: 'capitalize' }}>{staff.role}</Text></Text>
+          <Text style={styles.staffMeta}>
+            {staff.employee_id || staff.id} ·{' '}
+            <Text style={{ textTransform: 'capitalize' }}>{staff.role}</Text>
+          </Text>
         </View>
+
         <View style={styles.staffControls}>
           {isTwoSession ? (
             <>
-              <Text style={styles.sessionLabel}>Morning</Text>
-              {renderStatusToggle(staff.session1_status || 'ABSENT', v => handleStatusChange(staff.id, v, 1), true)}
-              <Text style={[styles.sessionLabel, { marginTop: 6 }]}>Evening</Text>
-              {renderStatusToggle((staff.session2_status as AttendanceStatus) || 'ABSENT', v => handleStatusChange(staff.id, v, 2), true)}
+              <View style={styles.sessionBlock}>
+                <Text style={styles.sessionLabel}>Morning</Text>
+                {renderStatusDropdown(staffKey, 1, staff.session1_status || 'ABSENT')}
+              </View>
+              <View style={styles.sessionBlock}>
+                <Text style={styles.sessionLabel}>Evening</Text>
+                {renderStatusDropdown(staffKey, 2, (staff.session2_status as AttendanceStatus) || 'ABSENT')}
+              </View>
             </>
           ) : (
-            renderStatusToggle(staff.session1_status || 'ABSENT', v => handleStatusChange(staff.id, v, 1))
+            renderStatusDropdown(staffKey, 1, staff.session1_status || 'ABSENT')
           )}
+
           {staff.role === 'teacher' ? (
             <TouchableOpacity accessibilityRole="button" style={styles.calBtn} onPress={() => setCalendarTeacher(staff)}>
               <Calendar size={15} color={Theme.colors.primary} />
@@ -419,36 +521,59 @@ export default function StaffAttendanceScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <StandardPageHeader
+          scrollWithContent
+          title="Staff Attendance"
+          subtitle="Manage daily staff attendance and leaves"
+          onBackPress={() => navigation.goBack()}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          rightActions={(
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={heroHeaderStyles.iconBtn}
+              onPress={fetchStaff}
+              accessibilityLabel="Refresh staff attendance"
+            >
+              <RefreshCw size={20} color={Theme.colors.card} />
+            </TouchableOpacity>
+          )}
+        />
 
-
-      <StandardPageHeader
-        title="Staff Attendance"
-        greeting="Staff Attendance"
-        greetingSubtext="Manage daily staff attendance and leaves"
-        onBackPress={() => navigation.goBack()}
-      />
-
-      <View style={styles.contentOverlap}>
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={innerPageLayoutStyles.scrollBody}>
         {/* Date picker row */}
         <View style={styles.dateRow}>
           <Text style={styles.dateLabel}>Date:</Text>
-          <TouchableOpacity accessibilityRole="button" style={styles.datePicker} onPress={() => setShowDatePicker(true)}>
+          <TouchableOpacity accessibilityRole="button" style={styles.datePicker} onPress={openDatePicker}>
             <Calendar size={16} color={Theme.colors.primary} />
             <Text style={styles.dateText}>{attendanceDate}</Text>
           </TouchableOpacity>
-          {showDatePicker ? (
+          {Platform.OS === 'ios' && showDatePicker ? (
             <DateTimePicker
               value={parseDate(attendanceDate)}
               mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              display="spinner"
               maximumDate={new Date()}
               onChange={(_, d) => {
-                setShowDatePicker(false);
-                if (d) {setAttendanceDate(toDateString(d));}
+                if (d) {
+                  setAttendanceDate(toDateString(d));
+                }
               }}
             />
+          ) : null}
+          {Platform.OS === 'ios' && showDatePicker ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={styles.dateDoneBtn}
+              onPress={() => setShowDatePicker(false)}
+            >
+              <Text style={styles.dateDoneText}>Done</Text>
+            </TouchableOpacity>
           ) : null}
         </View>
 
@@ -463,17 +588,12 @@ export default function StaffAttendanceScreen() {
         {/* Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Attendance for {attendanceDate}</Text>
-            <TouchableOpacity accessibilityRole="button"
-              style={[styles.saveBtn, (saving || loading || staffList.length === 0) && { opacity: 0.5 }]}
-              onPress={handleSave}
-              disabled={saving || loading || staffList.length === 0}>
-              {saving ? (
-                <ActivityIndicator size="small" color={Theme.colors.card} />
-              ) : (
-                <><Save size={14} color={Theme.colors.card} /><Text style={styles.saveBtn}>Save</Text></>
-              )}
-            </TouchableOpacity>
+            <View style={styles.cardHeaderText}>
+              <Text style={styles.cardTitle}>Attendance for {attendanceDate}</Text>
+              {!loading && staffList.length > 0 ? (
+                <Text style={styles.cardSubtitle}>{staffList.length} staff members</Text>
+              ) : null}
+            </View>
           </View>
 
           {loading ? (
@@ -487,17 +607,32 @@ export default function StaffAttendanceScreen() {
             </View>
           ) : (
             <View style={styles.staffList}>
-              {/* Column headers */}
-              <View style={styles.colHeader}>
-                <Text style={[styles.colHeaderText, { flex: 1 }]}>Staff Member</Text>
-                <Text style={[styles.colHeaderText, { flex: 1.2 }]}>Attendance</Text>
-              </View>
               {staffList.map(s => renderStaffRow(s))}
             </View>
           )}
+
+          {!loading && staffList.length > 0 ? (
+            <View style={styles.saveBar}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={[styles.saveButton, (saving || loading || staffList.length === 0) && styles.saveButtonDisabled]}
+                onPress={handleSave}
+                disabled={saving || loading || staffList.length === 0}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color={Theme.colors.card} />
+                ) : (
+                  <>
+                    <Save size={18} color={Theme.colors.card} />
+                    <Text style={styles.saveButtonText}>Save Attendance</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
-        </ScrollView>
-      </View>
+        </View>
+      </ScrollView>
 
       {/* Calendar modal */}
       {calendarTeacher ? (
@@ -507,6 +642,54 @@ export default function StaffAttendanceScreen() {
           publicHolidays={publicHolidays}
         />
       ) : null}
+
+      {/* Status picker */}
+      <Modal
+        visible={statusPicker !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setStatusPicker(null)}
+      >
+        <View style={styles.pickerOverlay}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={styles.pickerBackdrop}
+            activeOpacity={1}
+            onPress={() => setStatusPicker(null)}
+          />
+          <View style={styles.pickerSheet}>
+            <Text style={styles.pickerTitle}>Select Attendance</Text>
+            {statusOptions.map(option => {
+              const selected = statusPicker?.value === option;
+              return (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  key={option}
+                  style={[
+                    styles.pickerOption,
+                    {
+                      backgroundColor: statusColor[option].bg,
+                      borderColor: statusColor[option].text,
+                    },
+                    selected && styles.pickerOptionSelected,
+                  ]}
+                  onPress={() => {
+                    if (statusPicker) {
+                      handleStatusChange(statusPicker.staffId, option, statusPicker.session);
+                    }
+                    setStatusPicker(null);
+                  }}
+                >
+                  <Text style={[styles.pickerOptionText, { color: statusColor[option].text }]}>
+                    {statusLabel[option]}
+                  </Text>
+                  {selected ? <CheckCircle2 size={18} color={statusColor[option].text} /> : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -516,8 +699,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
   contentOverlap: {
     flex: 1,
-    marginTop: -20,
-  },
+      },
 
   header: {
     backgroundColor: Theme.colors.primary,
@@ -552,6 +734,12 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.border, paddingVertical: Theme.spacing.sm, paddingHorizontal: 14,
   },
   dateText: { ...Theme.typography.body, color: Theme.colors.text, fontWeight: '500' },
+  dateDoneBtn: {
+    marginLeft: 'auto',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  dateDoneText: { color: Theme.colors.primary, fontWeight: '700', fontSize: 14 },
 
   errorBox: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -560,51 +748,119 @@ const styles = StyleSheet.create({
   errorBoxText: { flex: 1, color: Theme.colors.error, fontSize: 13 },
 
   card: {
-    backgroundColor: Theme.colors.card, borderRadius: 12,
+    backgroundColor: Theme.colors.card, borderRadius: 16,
     borderWidth: 1, borderColor: Theme.colors.border,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
     overflow: 'hidden',
   },
   cardHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: 14, borderBottomWidth: 1, borderBottomColor: Theme.colors.border,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
   },
+  cardHeaderText: { gap: 2 },
   cardTitle: { ...Theme.typography.bodyMd, fontWeight: '800', color: Theme.colors.text },
-  saveBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#0D7377', borderRadius: 8, paddingVertical: Theme.spacing.sm, paddingHorizontal: 14,
+  cardSubtitle: { ...Theme.typography.caption, color: Theme.colors.textMuted },
+
+  saveBar: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+    backgroundColor: Theme.colors.backgroundAlt,
   },
-  saveBtnText: { color: Theme.colors.card, fontSize: 13, fontWeight: '700' },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Theme.colors.primary,
+    borderRadius: 12,
+    minHeight: 48,
+    paddingHorizontal: 16,
+    shadowColor: Theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  saveButtonDisabled: { opacity: 0.5 },
+  saveButtonText: { color: Theme.colors.card, fontSize: 15, fontWeight: '700' },
 
   centered: { alignItems: 'center', paddingVertical: Theme.spacing.xl },
   loadingText: { color: Theme.colors.textMuted, fontSize: 13, marginTop: Theme.spacing.sm },
   emptyText: { color: Theme.colors.textMuted, ...Theme.typography.body },
 
   staffList: { padding: 12, gap: 0 },
-  colHeader: {
-    flexDirection: 'row', paddingVertical: Theme.spacing.sm, paddingHorizontal: Theme.spacing.xs,
-    borderBottomWidth: 1, borderBottomColor: Theme.colors.border, marginBottom: Theme.spacing.xs,
-  },
-  colHeaderText: { ...Theme.typography.label, fontWeight: '800', color: Theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
 
   staffRow: {
-    flexDirection: 'row', paddingVertical: 12, paddingHorizontal: Theme.spacing.xs,
-    borderBottomWidth: 1, borderBottomColor: `${Theme.colors.border}88`, gap: 8,
-    alignItems: 'flex-start',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: `${Theme.colors.border}88`,
+    gap: 12,
   },
-  staffInfo: { flex: 1 },
+  staffInfo: { width: '100%' },
   staffName: { ...Theme.typography.body, fontWeight: '700', color: Theme.colors.text },
   staffMeta: { ...Theme.typography.caption, color: Theme.colors.textMuted, marginTop: 2 },
-  staffControls: { flex: 1.2 },
+  staffControls: { width: '100%', gap: 8 },
 
-  sessionLabel: { fontSize: 10, fontWeight: '700', color: Theme.colors.textMuted, textTransform: 'uppercase', marginBottom: Theme.spacing.xs, letterSpacing: 0.5 },
+  sessionBlock: { gap: 6 },
+  sessionLabel: { fontSize: 10, fontWeight: '700', color: Theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
 
-  statusToggleRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
-  statusChip: {
-    paddingVertical: Theme.spacing.xs, paddingHorizontal: Theme.spacing.sm, borderRadius: 6,
-    borderWidth: 1, borderColor: Theme.colors.border, backgroundColor: Theme.colors.background,
+  statusDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    minHeight: 44,
   },
-  statusChipText: { ...Theme.typography.label, color: Theme.colors.textMuted, fontWeight: '500' },
+  statusDropdownText: { ...Theme.typography.body, fontWeight: '700' },
+
+  pickerOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  pickerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  pickerSheet: {
+    backgroundColor: Theme.colors.card,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    paddingBottom: 28,
+    gap: 10,
+  },
+  pickerTitle: {
+    ...Theme.typography.bodyMd,
+    fontWeight: '800',
+    color: Theme.colors.text,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  pickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  pickerOptionSelected: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  pickerOptionText: { ...Theme.typography.body, fontWeight: '700' },
 
   calBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: Theme.spacing.sm,

@@ -1,14 +1,9 @@
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
-import { Theme } from '../../theme/tokens';
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
-import LinearGradient from 'react-native-linear-gradient';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Theme, C } from '../../theme/tokens';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Text,
   ActivityIndicator,
   Dimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
   Platform,
   RefreshControl,
   ScrollView,
@@ -30,16 +25,33 @@ import {
   Users,
   Wallet,
   CalendarCheck,
+  ReceiptText,
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
-import { colors } from '../../theme/tokens';
+import DashboardHeroHeader from '../../components/dashboard/DashboardHeroHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import QuickActionGrid, { QuickActionItem } from '../../components/dashboard/QuickActionGrid';
 import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
 import { getDashboardSummary } from '../../services/accountantService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const PAGE_GUTTER = 14;
+const CARD_GAP = 12;
+const STAT_CARD_WIDTH = (SCREEN_WIDTH - PAGE_GUTTER * 2 - CARD_GAP) / 2;
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) {
+    return 'Morning';
+  }
+  if (hour < 17) {
+    return 'Afternoon';
+  }
+  return 'Evening';
+}
 
 type DashboardSummary = {
   total_fees_collected: number;
@@ -54,12 +66,6 @@ const DEFAULT_SUMMARY: DashboardSummary = {
   total_expenses: 0,
   net_balance: 0,
 };
-
-const HORIZONTAL_PADDING = 16;
-const CARD_GAP = 12;
-const QUICK_CARD_GAP = 10;
-const STAT_CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
-const QUICK_CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - QUICK_CARD_GAP * 3) / 4;
 
 /**
  * Safe date formatting without relying on Intl API
@@ -113,22 +119,11 @@ function formatCompactCurrency(value: number): string {
   return formatCurrency(value);
 }
 
-function getInitials(name?: string | null): string {
-  const initials = (name || 'Accountant')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase() || '')
-    .join('');
-  return initials || 'A';
-}
-
 export default function AccountantDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const { userName, setTabBarVisible } = useAuth();
   const { unreadCount } = useUnreadNotifications();
-  const initials = getInitials(userName);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingSummary, setLoadingSummary] = useState(true);
   const [schoolCode, setSchoolCode] = useState('');
@@ -245,6 +240,7 @@ export default function AccountantDashboardScreen() {
 
   const quickActions = [
     { label: 'Collections', icon: CreditCard, route: 'AccountantPaymentEntry', color: '#6648dc', tint: 'rgba(102, 72, 220, 0.10)' },
+    { label: 'Payment History', icon: ReceiptText, route: 'AccountantPaymentHistory', color: '#0ea5e9', tint: 'rgba(14, 165, 233, 0.10)' },
     { label: 'Reports & Trends', icon: BarChart3, route: 'AccountantReports', color: '#a855f7', tint: 'rgba(168, 85, 247, 0.10)' },
     { label: 'Pending Dues', icon: Clock, route: 'AccountantFeeManagement', color: '#f97316', tint: 'rgba(249, 115, 22, 0.10)' },
     { label: 'Fees', icon: CircleDollarSign, route: 'AccountantFeeManagement', color: '#16a34a', tint: 'rgba(22, 163, 74, 0.10)' },
@@ -257,171 +253,166 @@ export default function AccountantDashboardScreen() {
 
   return (
     <View style={styles.container}>
-
-
       <ScrollView
-        contentContainerStyle={[styles.contentContainer, { paddingBottom: 0, paddingTop: 0 }]}
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: contentBottomPadding },
+        ]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Theme.colors.card}
+            tintColor={Theme.colors.primary}
           />
         }
       >
-        <LinearGradient colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]} start={{x: 0, y: 0}} end={{x: 1, y: 1}} style={[styles.hero, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 30 }]}>
-          {/* Decorative circles */}
-          <View style={styles.heroGlowOne} />
-          <View style={styles.heroGlowTwo} />
-          <View style={{ paddingHorizontal: 20 }}>
-            <View style={styles.heroRow}>
-              <TouchableOpacity
-                style={styles.avatarWrap}
-                activeOpacity={0.85}
-                onPress={() => navigation.navigate('AccountantProfile')}
-                accessibilityLabel="Open profile"
-              >
-                <View style={styles.avatarRing}>
-                  <View style={styles.avatar}>
-                    <AppText style={styles.avatarText} weight="bold">{initials}</AppText>
+        <DashboardHeroHeader
+          userName={userName || 'Accountant'}
+          greetingLine={`GOOD ${getGreeting().toUpperCase()}`}
+          subtitle={
+            schoolCode
+              ? `School: ${schoolCode} • Finance workspace`
+              : 'Collections, dues, expenses & balance'
+          }
+          unreadCount={unreadCount}
+          onAvatarPress={() => navigation.navigate('AccountantProfile')}
+          onNotificationsPress={() => navigation.navigate('Notifications')}
+          onRefreshPress={onRefresh}
+          refreshing={refreshing || loadingSummary}
+          pageTitle="Financial Dashboard"
+          pageSubtitle="Collections, dues, expenses & net balance"
+          showDateBadge
+          fullBleed
+          style={{ marginHorizontal: -PAGE_GUTTER }}
+        />
+
+        <View style={innerPageLayoutStyles.contentFront}>
+          <View style={styles.statsGrid}>
+            {summaryCards.map((card, index) => {
+              const IconComponent = card.icon;
+              return (
+                <View key={card.label} style={[styles.statCard, { width: STAT_CARD_WIDTH }]}>
+                  <View style={[styles.statIconWrap, { backgroundColor: card.tint }]}>
+                    <IconComponent size={18} color={card.iconColor} />
                   </View>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.iconBtn}
-                onPress={() => navigation.navigate('Notifications')}
-                accessibilityLabel="Notifications"
-              >
-                <Bell size={20} color={Theme.colors.card} />
-                {unreadCount > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
-
-            <AppText style={styles.heroKicker} weight="semibold">Accountant Portal</AppText>
-            <AppText style={styles.heroTitle} weight="bold">Hello, {userName?.split(' ')[0] || 'Accountant'} 👋</AppText>
-            <AppText style={styles.heroSub}>Here&apos;s what&apos;s happening today.</AppText>
-          </View>
-        </LinearGradient>
-
-        <View style={styles.statsGrid}>
-          {summaryCards.map((card, index) => {
-            const IconComponent = card.icon;
-            return (
-              <View key={card.label} style={[styles.statCard, { width: STAT_CARD_WIDTH }]}>
-                <View style={[styles.statIconWrap, { backgroundColor: card.tint }]}>
-                  <IconComponent size={18} color={card.iconColor} />
-                </View>
-                <AppText style={styles.statValue} weight="bold">
-                  {loadingSummary ? '—' : formatCompactCurrency(card.value)}
-                </AppText>
-                <AppText style={styles.statLabel} weight="semibold" numberOfLines={2}>
-                  {card.label}
-                </AppText>
-                {index === 0 && (
-                  <View style={styles.rateRow}>
-                    <View style={styles.rateTrack}>
+                  <AppText style={styles.statValue} weight="bold">
+                    {loadingSummary ? '—' : formatCompactCurrency(card.value)}
+                  </AppText>
+                  <AppText style={styles.statLabel} weight="semibold" numberOfLines={2}>
+                    {card.label}
+                  </AppText>
+                  {index === 0 && (
+                    <View style={styles.rateRow}>
+                      <View style={styles.rateTrack}>
                         <View style={[styles.rateFill, { width: `${safeCollectionRate}%` }]} />
-                    </View>
-                    <AppText style={styles.rateText} weight="semibold">
+                      </View>
+                      <AppText style={styles.rateText} weight="semibold">
                         {safeCollectionRate.toFixed(0)}% collected
-                    </AppText>
-                  </View>
-                )}
-              </View>
-            );
-          })}
-        </View>
-
-        <View style={styles.sectionRow}>
-          <AppText style={styles.sectionTitle} weight="bold">Quick Access</AppText>
-        </View>
-
-        <View style={styles.quickGrid}>
-          {quickActions.map(action => {
-            const IconComponent = action.icon;
-            return (
-              <TouchableOpacity
-                key={action.label}
-                style={[styles.quickCard, { width: QUICK_CARD_WIDTH }]}
-                activeOpacity={0.78}
-                onPress={() => {
-                  if (action.label === 'Salaries') {
-                    navigation.navigate('MainTabs', { screen: 'Salaries' } as any);
-                  } else {
-                    navigation.navigate(action.route as any);
-                  }
-                }}
-              >
-                <View style={[styles.quickIconWrap, { backgroundColor: action.tint }]}>
-                  <IconComponent size={20} color={action.color} strokeWidth={2.2} />
+                      </AppText>
+                    </View>
+                  )}
                 </View>
-                <AppText style={styles.quickLabel} weight="semibold" numberOfLines={2}>
-                  {action.label}
-                </AppText>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
 
-        <View style={styles.summaryPanel}>
-          <View style={styles.sectionRow}>
-            <AppText style={styles.sectionTitle} weight="bold">Finance Snapshot</AppText>
-            {loadingSummary ? (
-              <View style={styles.syncChip}>
-                <ActivityIndicator size="small" color="#6648dc" />
-                <AppText style={styles.syncChipText} weight="semibold">Syncing</AppText>
+          <View style={styles.quickAccessPanel}>
+            <View style={styles.panelHead}>
+              <AppText style={styles.sectionTitle} weight="bold">Quick Access</AppText>
+              <AppText style={styles.sectionSub}>
+                Jump to collections, dues, payroll, and finance reports.
+              </AppText>
+            </View>
+
+            <QuickActionGrid style={styles.quickGrid}>
+              {quickActions.map(action => {
+                const IconComponent = action.icon;
+                return (
+                  <QuickActionItem key={action.label}>
+                    <TouchableOpacity
+                      style={styles.quickCard}
+                      activeOpacity={0.78}
+                      onPress={() => {
+                        if (action.label === 'Salaries') {
+                          navigation.navigate('MainTabs', { screen: 'Salaries' } as any);
+                        } else {
+                          navigation.navigate(action.route as any);
+                        }
+                      }}
+                    >
+                      <View style={[styles.quickIconWrap, { backgroundColor: action.tint }]}>
+                        <IconComponent size={20} color={action.color} strokeWidth={2.2} />
+                      </View>
+                      <AppText style={styles.quickLabel} weight="semibold" numberOfLines={2}>
+                        {action.label}
+                      </AppText>
+                    </TouchableOpacity>
+                  </QuickActionItem>
+                );
+              })}
+            </QuickActionGrid>
+          </View>
+
+          <View style={styles.summaryPanel}>
+            <View style={styles.summaryPanelHead}>
+              <View style={styles.summaryPanelTitleWrap}>
+                <AppText style={styles.summaryPanelTitle} weight="bold">Finance Snapshot</AppText>
+                <AppText style={styles.summaryPanelSub}>Today&apos;s finance overview</AppText>
               </View>
-            ) : (
-              <View style={styles.syncChip}>
-                <Calendar size={14} color="#6648dc" />
-                <AppText style={styles.syncChipText} weight="semibold">
-                  {formatDateSafe(new Date())}
-                </AppText>
+              {loadingSummary ? (
+                <View style={styles.syncChip}>
+                  <ActivityIndicator size="small" color="#6648dc" />
+                  <AppText style={styles.syncChipText} weight="semibold">Syncing</AppText>
+                </View>
+              ) : (
+                <View style={styles.syncChip}>
+                  <Calendar size={14} color="#6648dc" />
+                  <AppText style={styles.syncChipText} weight="semibold">
+                    {formatDateSafe(new Date())}
+                  </AppText>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.snapshotItem}>
+              <View style={styles.snapshotCopy}>
+                <AppText style={styles.snapshotLabel} weight="semibold">Pending dues exposure</AppText>
+                <AppText style={styles.snapshotHint}>Students with unpaid or partial fees</AppText>
               </View>
-            )}
-          </View>
-
-          <View style={styles.snapshotItem}>
-            <View>
-              <AppText style={styles.snapshotLabel} weight="semibold">Pending dues exposure</AppText>
-              <AppText style={styles.snapshotHint}>Students with unpaid or partial fees</AppText>
+              <AppText style={styles.snapshotValue} weight="bold">
+                {formatCompactCurrency(summary.total_pending_fees)}
+              </AppText>
             </View>
-            <AppText style={styles.snapshotValue} weight="bold">
-              {formatCompactCurrency(summary.total_pending_fees)}
-            </AppText>
-          </View>
 
-          <View style={styles.snapshotItem}>
-            <View>
-              <AppText style={styles.snapshotLabel} weight="semibold">Collection rate</AppText>
-              <AppText style={styles.snapshotHint}>Today&apos;s summary against outstanding dues</AppText>
+            <View style={styles.snapshotItem}>
+              <View style={styles.snapshotCopy}>
+                <AppText style={styles.snapshotLabel} weight="semibold">Collection rate</AppText>
+                <AppText style={styles.snapshotHint}>Collected against outstanding dues</AppText>
+              </View>
+              <AppText style={styles.snapshotValue} weight="bold">
+                {safeCollectionRate.toFixed(1)}%
+              </AppText>
             </View>
-            <AppText style={styles.snapshotValue} weight="bold">
-              {safeCollectionRate.toFixed(1)}%
-            </AppText>
-          </View>
 
-          <View style={styles.snapshotItem}>
-            <View>
-              <AppText style={styles.snapshotLabel} weight="semibold">Net balance</AppText>
-              <AppText style={styles.snapshotHint}>Overall funds after expenses</AppText>
+            <View style={styles.snapshotItem}>
+              <View style={styles.snapshotCopy}>
+                <AppText style={styles.snapshotLabel} weight="semibold">Net balance</AppText>
+                <AppText style={styles.snapshotHint}>Overall funds after expenses</AppText>
+              </View>
+              <AppText
+                style={[
+                  styles.snapshotValue,
+                  summary.net_balance < 0 ? styles.negativeValue : styles.positiveValue,
+                ]}
+                weight="bold"
+              >
+                {formatCompactCurrency(summary.net_balance)}
+              </AppText>
             </View>
-            <AppText
-              style={[
-                styles.snapshotValue,
-                summary.net_balance < 0 ? styles.negativeValue : styles.positiveValue,
-              ]}
-              weight="bold"
-            >
-              {formatCompactCurrency(summary.net_balance)}
-            </AppText>
           </View>
         </View>
       </ScrollView>
@@ -434,127 +425,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
-  hero: {
-    backgroundColor: Theme.colors.primary,
-    paddingHorizontal: 0,
-    paddingBottom: 40,
-    marginBottom: 20,
-    overflow: 'hidden',
-    marginHorizontal: -16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.18,
-        shadowRadius: 18,
-      },
-      android: { elevation: 6 },
-    }),
+  scrollView: {
+    flex: 1,
   },
-  heroGlowOne: {
-    position: 'absolute',
-    top: -42,
-    right: -54,
-    width: 176,
-    height: 176,
-    borderRadius: 88,
-    backgroundColor: 'rgba(148, 163, 184, 0.12)',
-  },
-  heroGlowTwo: {
-    position: 'absolute',
-    bottom: -28,
-    left: -22,
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: 'rgba(96, 165, 250, 0.16)',
-  },
-  heroRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Theme.spacing.md,
-  },
-  avatarWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarRing: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    borderWidth: 2,
-    borderColor: '#2dd4bf',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#2f6bff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: Theme.colors.card,
-    ...Theme.typography.bodyMd,
-    letterSpacing: 0.3,
-  },
-  iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  badge: { position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 14 },
-  heroKicker: {
-    color: '#dbeafe',
-    ...Theme.typography.body,
-    marginBottom: Theme.spacing.xs,
-    letterSpacing: 0.2,
-  },
-  heroTitle: {
-    color: Theme.colors.card,
-    fontSize: 36,
-    lineHeight: 44,
-    marginBottom: 2,
-    marginTop: Theme.spacing.xs,
-  },
-  heroSub: {
-    color: '#bfdbfe',
-    ...Theme.typography.bodyMd,
-  },
-  contentContainer: {
-    paddingHorizontal: HORIZONTAL_PADDING,
-    paddingTop: Theme.spacing.sm,
-    paddingBottom: Theme.spacing.xxl,
+  scrollContent: {
+    paddingHorizontal: PAGE_GUTTER,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: CARD_GAP,
-    marginBottom: 18,
+    marginTop: -30,
+    marginBottom: 16,
+    zIndex: 1,
+    position: 'relative',
+    ...Platform.select({ android: { elevation: 4 } }),
   },
   statCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 22,
+    backgroundColor: C.card,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.18)',
+    borderColor: C.border,
     padding: 14,
     minHeight: 136,
     ...Platform.select({
@@ -605,29 +497,44 @@ const styles = StyleSheet.create({
     ...Theme.typography.label,
     color: Theme.colors.textSec,
   },
-  sectionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
+  quickAccessPanel: {
+    backgroundColor: C.card,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+    marginBottom: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: Theme.colors.text,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.06,
+        shadowRadius: 16,
+      },
+      android: { elevation: 2 },
+    }),
+  },
+  panelHead: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   sectionTitle: {
-    fontSize: 19,
+    fontSize: 18,
     color: Theme.colors.text,
   },
-  viewAll: {
-    color: '#6648dc',
-    ...Theme.typography.body,
+  sectionSub: {
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
+    marginTop: 2,
   },
   quickGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 16,
-    marginBottom: 20,
+    paddingHorizontal: 12,
+    paddingBottom: 14,
   },
   quickCard: {
     alignItems: 'center',
+    width: '100%',
   },
   quickIconWrap: {
     width: 46,
@@ -644,11 +551,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   summaryPanel: {
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    padding: 18,
+    backgroundColor: C.card,
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingBottom: 6,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.14)',
+    borderColor: C.border,
+    marginBottom: 8,
     ...Platform.select({
       ios: {
         shadowColor: Theme.colors.text,
@@ -658,6 +567,29 @@ const styles = StyleSheet.create({
       },
       android: { elevation: 3 },
     }),
+  },
+  summaryPanelHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingTop: 18,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+    marginBottom: 4,
+  },
+  summaryPanelTitleWrap: {
+    flex: 1,
+  },
+  summaryPanelTitle: {
+    fontSize: 17,
+    color: Theme.colors.text,
+  },
+  summaryPanelSub: {
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
+    marginTop: 2,
   },
   syncChip: {
     flexDirection: 'row',
@@ -675,10 +607,14 @@ const styles = StyleSheet.create({
   snapshotItem: {
     paddingVertical: 14,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(148, 163, 184, 0.14)',
+    borderTopColor: C.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
+  },
+  snapshotCopy: {
+    flex: 1,
   },
   snapshotLabel: {
     ...Theme.typography.body,

@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import {
   ChevronLeft,
@@ -31,8 +30,12 @@ import {
 } from 'lucide-react-native';
 import API from '../../services/api';
 import { normalizePhotoUri } from '../../utils/normalizePhotoUri';
-
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import {
+  innerPageLayoutStyles,
+  segmentedControlIconColor,
+} from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { Theme } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
@@ -214,7 +217,6 @@ const PAGE_SIZE = 20;
 
 export default function PrincipalFaceReviewScreen() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('students');
   const [students, setStudents] = useState<PersonItem[]>([]);
@@ -388,31 +390,28 @@ export default function PrincipalFaceReviewScreen() {
     <View style={styles.container}>
 
 
-      {/* Header */}
-      <View style={[
-        styles.header,
-        {
-          paddingTop: insets.top + 16,
-          borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-          borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-        },
-      ]}>
-        <TouchableOpacity accessibilityRole="button" onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft size={22} color={Theme.colors.card} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Scan size={18} color={Theme.colors.card} />
-          <View>
-            <Text style={styles.headerTitle}>Face Photo Review</Text>
-            <Text style={styles.headerSub}>Principal Control</Text>
-          </View>
-        </View>
-        <TouchableOpacity accessibilityRole="button" onPress={() => load(page)} style={styles.refreshBtn}>
-          <RefreshCw size={18} color={Theme.colors.card} />
-        </TouchableOpacity>
-      </View>
+      <StandardPageHeader
+        title="Face Photo Review"
+        subtitle="Principal Control"
+        onBackPress={() => navigation.goBack()}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={() => load(page)}
+            accessibilityLabel="Refresh"
+          >
+            <RefreshCw size={18} color={Theme.colors.card} />
+          </TouchableOpacity>
+        )}
+      />
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={innerPageLayoutStyles.contentFront}>
 
         {/* Summary stats */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll}>
@@ -430,16 +429,16 @@ export default function PrincipalFaceReviewScreen() {
         </ScrollView>
 
         {/* Tabs */}
-        <View style={styles.tabs}>
+        <View style={[innerPageLayoutStyles.segmentedControl, styles.tabs]}>
           {(['students', 'staff'] as ActiveTab[]).map(tab => (
             <TouchableOpacity accessibilityRole="button"
               key={tab}
-              style={[styles.tab, activeTab === tab && styles.tabActive]}
+              style={[innerPageLayoutStyles.segmentedTab, activeTab === tab && innerPageLayoutStyles.segmentedTabActive]}
               onPress={() => { setActiveTab(tab); setPage(1); }}>
               {tab === 'students'
-                ? <Users size={15} color={activeTab === tab ? Theme.colors.primary : Theme.colors.textMuted} />
-                : <Briefcase size={15} color={activeTab === tab ? Theme.colors.primary : Theme.colors.textMuted} />}
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                ? <Users size={15} color={segmentedControlIconColor(activeTab === tab)} />
+                : <Briefcase size={15} color={segmentedControlIconColor(activeTab === tab)} />}
+              <Text style={[innerPageLayoutStyles.segmentedTabText, activeTab === tab && innerPageLayoutStyles.segmentedTabTextActive]}>
                 {tab === 'students' ? 'Students' : 'Staff'}{' '}
                 <Text style={styles.tabCount}>
                   ({tab === 'students' ? (stu.total || 0) : (stf.total || 0)})
@@ -562,6 +561,7 @@ export default function PrincipalFaceReviewScreen() {
             </TouchableOpacity>
           </View>
         ) : null}
+        </View>
       </ScrollView>
 
       {modal ? (
@@ -575,43 +575,7 @@ export default function PrincipalFaceReviewScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
 
-  header: {
-    backgroundColor: Theme.colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    gap: 10,
-    shadowColor: Theme.colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  backBtn: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { color: Theme.colors.card, fontSize: 17, fontWeight: '700' },
-  headerSub: { color: 'rgba(255,255,255,0.7)', ...Theme.typography.label },
-  refreshBtn: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  scroll: { flex: 1 },
-  scrollContent: { padding: Theme.spacing.md, paddingBottom: 40 },
-
-  statsScroll: { marginBottom: Theme.spacing.md },
+  statsScroll: { marginBottom: Theme.spacing.md, marginHorizontal: Theme.spacing.md },
   statCard: {
     backgroundColor: Theme.colors.card,
     borderRadius: 12,
@@ -630,25 +594,9 @@ const styles = StyleSheet.create({
   statLabel: { ...Theme.typography.label, color: Theme.colors.textMuted, marginTop: 3, fontWeight: '500' },
 
   tabs: {
-    flexDirection: 'row',
-    borderBottomWidth: 2,
-    borderBottomColor: Theme.colors.border,
+    marginHorizontal: Theme.spacing.md,
     marginBottom: 14,
   },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-    marginBottom: -2,
-  },
-  tabActive: { borderBottomColor: Theme.colors.primary },
-  tabText: { ...Theme.typography.body, fontWeight: '600', color: Theme.colors.textMuted },
-  tabTextActive: { color: Theme.colors.primary },
   tabCount: { ...Theme.typography.caption, fontWeight: '400' },
 
   searchWrap: {

@@ -2,9 +2,8 @@ import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Buffer } from 'buffer';
 import { View, TouchableOpacity, ScrollView, Alert, StyleSheet, Platform, ActivityIndicator, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, BarChart3, PenSquare, ClipboardList } from 'lucide-react-native';
+import { BarChart3, PenSquare, ClipboardList } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
@@ -14,9 +13,10 @@ import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
 import { Theme, C } from '../../theme/tokens';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 
 
@@ -34,7 +34,6 @@ interface Exam {
 
 export default function PrincipalDataExportPage() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
@@ -814,35 +813,20 @@ export default function PrincipalDataExportPage() {
     <View style={styles.container}>
 
 
-      {/* Standardized Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.iconButton}
-            onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
-          >
-            <ChevronLeft size={24} color={Theme.colors.card} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>Data Export</AppText>
-          </View>
-          <View style={styles.headerSpacer} />
-        </View>
+      <StandardPageHeader
+        title="Data Export"
+        subtitle="Export attendance, marks, or combined data"
+        onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+      />
 
-        <View style={styles.headerContent}>
-          <AppText weight="bold" style={styles.headerGreeting}>Data Export Center</AppText>
-          <AppText style={styles.headerSubtext}>Export attendance, marks, or combined data</AppText>
-        </View>
-      </View>
-
-      <View style={styles.contentOverlap}>
-        <ScrollView
-          style={styles.scrollView}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.card}>
+      <ScrollView
+        style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[innerPageLayoutStyles.contentFront, styles.card]}>
             <View style={styles.header}>
               <AppText style={styles.title} weight="bold">Advanced Filters</AppText>
               <AppText style={styles.subtitle}>
@@ -890,8 +874,7 @@ export default function PrincipalDataExportPage() {
             </View>
 
           </View>
-        </ScrollView>
-      </View>
+      </ScrollView>
 
       {/* Date Pickers */}
       {(showAttendanceDatePicker || showCombinedDatePicker) && (
@@ -955,69 +938,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
-  },
-  headerStandard: {
-    backgroundColor: C.navy,
-    paddingHorizontal: 20,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 10 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
-  contentOverlap: {
-    flex: 1,
-    backgroundColor: C.bg,
-    borderTopLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderTopRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    marginTop: -HEADER_CONSTANTS.BORDER_RADIUS,
-    zIndex: 10,
-    overflow: 'hidden',
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: Theme.colors.card,
-    ...Theme.typography.h3,
-    textAlign: 'center',
-  },
-  headerContent: {
-    marginTop: Theme.spacing.lg,
-  },
-  headerGreeting: {
-    color: Theme.colors.card,
-    ...Theme.typography.h1,
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: 'rgba(255,255,255,0.7)',
-    ...Theme.typography.body,
-    marginTop: Theme.spacing.xs,
-  },
-  headerSpacer: {
-    width: 40,
   },
   scrollView: {
     flex: 1,

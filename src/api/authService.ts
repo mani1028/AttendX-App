@@ -23,6 +23,8 @@ type LoginResponse = {
     full_name?: string;
     username?: string;
     user_name?: string;
+    email?: string;
+    email_id?: string;
     name?: string;
     is_class_teacher?: boolean;
     token?: string;
@@ -64,6 +66,9 @@ export type NormalizedLoginResponse = {
   user?: {
     userId?: string;
     studentId?: string;
+    student_id?: string;
+    roll_no?: string;
+    roll_number?: string;
     employeeId?: string;
     branchId?: string;
     name?: string;
@@ -74,6 +79,9 @@ export type NormalizedLoginResponse = {
     principal_address?: string;
     principal_mobile?: string;
   };
+  roll_no?: string;
+  roll_number?: string;
+  student_id?: string;
   schoolName?: string;
   branchName?: string;
 };
@@ -160,25 +168,40 @@ function normalizeLoginResponse(data: LoginResponse, fallbackRole: AppRole): Nor
   const role = normalizeBackendRole(payload.role ?? payload.user_role) ?? fallbackRole;
   const token = pickTokenValue(payload.token, payload.access_token, payload.accessToken, payload.user?.token, payload.user?.access_token);
   const name = payload.user?.name ?? payload.user?.full_name ?? payload.user?.username ?? payload.user?.user_name;
+  const loginUsername = payload.user?.username ?? payload.user?.user_name ?? payload.username;
+  const loginEmail = payload.user?.email ?? payload.email ?? payload.user?.email_id;
   // Student login returns roll_no in user object; fall back to student_id for other cases
   const studentId = payload.user?.student_id ?? payload.user?.roll_no ?? payload.user?.roll_number;
+  const rollNumber = payload.user?.roll_no ?? payload.user?.roll_number ?? payload.user?.student_id;
 
   const principalEmployeeId = payload.user?.principal_employee_id ?? payload.principal_employee_id;
   const principalEmail = payload.user?.principal_email ?? payload.principal_email;
   const principalAddress = payload.user?.principal_address ?? payload.principal_address;
   const principalMobile = payload.user?.principal_mobile ?? payload.principal_mobile;
+  const resolvedEmployeeId =
+    role === 'director' || role === 'admin'
+      ? payload.user?.employee_id
+      : payload.user?.employee_id ?? principalEmployeeId;
 
   return {
     token,
     accessToken: token,
     role,
     schoolCode: payload.school_code ?? payload.schoolCode ?? payload.school_id,
+    roll_no: rollNumber ? String(rollNumber) : undefined,
+    roll_number: rollNumber ? String(rollNumber) : undefined,
+    student_id: studentId ? String(studentId) : undefined,
     user: {
       userId: payload.user?.id != null ? String(payload.user.id) : undefined,
       studentId: studentId ? String(studentId) : undefined,
-      employeeId: payload.user?.employee_id ?? principalEmployeeId,
+      student_id: studentId ? String(studentId) : undefined,
+      roll_no: rollNumber ? String(rollNumber) : undefined,
+      roll_number: rollNumber ? String(rollNumber) : undefined,
+      employeeId: resolvedEmployeeId,
       branchId: payload.user?.branch_id,
       name,
+      username: loginUsername,
+      email: loginEmail,
       isClassTeacher: payload.user?.is_class_teacher ?? false,
       bloodGroup: payload.user?.blood_group ?? payload.user?.bloodGroup ?? payload.blood_group ?? payload.bloodGroup,
       principal_employee_id: principalEmployeeId,

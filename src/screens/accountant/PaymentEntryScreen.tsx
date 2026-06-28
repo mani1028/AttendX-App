@@ -13,6 +13,7 @@ import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { Theme } from '../../theme/tokens';
 
 
@@ -36,7 +37,7 @@ export default function PaymentEntryScreen() {
       <StandardPageHeader title="Payment Entry" onBackPress={() => navigation.goBack()} />
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.content}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
@@ -59,8 +60,7 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 100,
-    marginTop: -20,
-    backgroundColor: Theme.colors.background,
+        backgroundColor: Theme.colors.background,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
   },

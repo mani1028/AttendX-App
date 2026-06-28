@@ -14,10 +14,8 @@ import {
   Switch,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  ChevronLeft,
   Settings,
   Check,
   Info,
@@ -28,15 +26,19 @@ import {
   CheckCircle2,
   Sliders,
   BookOpen,
+  RefreshCw,
 } from 'lucide-react-native';
 import API from '../../services/api';
 import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
 import { Theme, C } from '../../theme/tokens';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 
@@ -46,7 +48,6 @@ import { StorageKeys } from '../../storage/StorageKeys';
 
 export default function PrincipalSettingsPage() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
@@ -189,38 +190,32 @@ export default function PrincipalSettingsPage() {
 
   return (
     <View style={styles.container}>
-
-
-      {/* Standardized Header */}
-      <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.iconButton}
-            onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+      <StandardPageHeader
+        title="Settings"
+        subtitle="Adjust system-wide preferences and notifications"
+        onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={onRefresh}
+            accessibilityLabel="Refresh settings"
           >
-            <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
+            <RefreshCw size={20} color={Theme.colors.card} />
           </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>Settings</AppText>
-          </View>
-          <View style={styles.headerSpacer} />
-        </View>
+        )}
+      />
 
-        <View style={styles.headerContent}>
-          <AppText weight="bold" style={styles.headerGreeting}>Configurations</AppText>
-          <AppText style={styles.headerSubtext}>Adjust system-wide preferences and notifications</AppText>
-        </View>
-      </View>
-
-      <View style={styles.contentOverlap}>
-        <ScrollView
-          style={styles.scrollView}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
-          }
-        >
+      <ScrollView
+        style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
+        }
+      >
+        <View style={innerPageLayoutStyles.contentFront}>
           <View style={styles.card}>
             <View style={styles.header}>
               <Settings size={18} color={C.text} />
@@ -376,9 +371,9 @@ export default function PrincipalSettingsPage() {
               )}
             </View>
           </View>
-          </ScrollView>
         </View>
-      </View>
+      </ScrollView>
+    </View>
   );
 }
 

@@ -15,13 +15,12 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft } from 'lucide-react-native';
 import API from '../../services/api';
 
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import AppButton from '../../components/common/AppButton';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
@@ -40,7 +39,6 @@ interface PredictionResult {
 }
 
 export default function SkinDiseaseScreen() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
@@ -252,27 +250,14 @@ export default function SkinDiseaseScreen() {
     <View style={styles.container}>
 
 
-      {/* Navy Hero Header */}
-      <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.iconButton}
-            onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
-          >
-            <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
-          </TouchableOpacity>
-          <AppText weight="bold" style={styles.heroTitle}>Skin Analysis</AppText>
-          <View style={{ width: HEADER_CONSTANTS.ICON_BUTTON_SIZE }} />
-        </View>
-
-        <View style={styles.heroContent}>
-          <AppText weight="bold" style={styles.heroGreeting}>Health Check</AppText>
-          <AppText style={[styles.heroSubtext, { color: `rgba(255,255,255,${HEADER_CONSTANTS.SUBTITLE_OPACITY})` }]}>AI-powered detection of dermatological conditions</AppText>
-        </View>
-      </View>
+      <StandardPageHeader
+        title="Skin Analysis"
+        subtitle="AI-powered detection of dermatological conditions"
+        onBackPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never))}
+      />
 
       <ScrollView
-        style={styles.mainContent}
+       style={[styles.mainContent, innerPageLayoutStyles.scrollViewFront]}
         contentContainerStyle={styles.contentContainer}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -439,42 +424,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
-  headerStandard: {
-    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  iconButton: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  heroTitle: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
-    fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
-  },
-  heroContent: {
-    marginTop: 20,
-  },
-  heroGreeting: {
-    color: Theme.colors.card,
-    fontSize: 22,
-  },
-  heroSubtext: {
-    fontSize: HEADER_CONSTANTS.SUBTITLE_FONT_SIZE,
-    marginTop: Theme.spacing.xs,
-  },
   mainContent: {
     flex: 1,
   },
@@ -483,8 +432,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   card: {
-    marginTop: -20,
-    padding: Theme.spacing.lg,
+        padding: Theme.spacing.lg,
     marginBottom: 20,
     backgroundColor: Theme.colors.card,
     borderRadius: 24,

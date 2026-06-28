@@ -16,16 +16,18 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Feather';
+import { RefreshCw } from 'lucide-react-native';
 import { getSubjects, getHomework } from '../../services/studentService';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import BottomSheetModal from '../../components/common/BottomSheetModal';
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 
 const { width } = Dimensions.get('window');
 const ALL_SUBJECTS = 'All Subjects';
@@ -118,7 +120,6 @@ const HomeworkCard: React.FC<{
 };
 
 export default function HomeworkScreen() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { userName, setTabBarVisible } = useAuth();
   const [schoolCode, setSchoolCode] = useState<string>('');
@@ -270,36 +271,30 @@ export default function HomeworkScreen() {
   };
 
   const pendingCount = filteredHomework.filter(hw => hw.status !== 'SUBMITTED').length;
-
-  // Header Section
-  const renderHeader = () => (
-    <View style={[styles.header, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 20 }]}>
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs')}
-      >
-        <Icon name="arrow-left" size={24} color={C.colors.card} />
-      </TouchableOpacity>
-      <View style={styles.headerTitleContainer}>
-        <Text style={styles.headerTitle}>Homework</Text>
-      </View>
-      <TouchableOpacity
-        style={styles.notificationIcon}
-        onPress={() => navigation.navigate('Notifications')}
-      >
-        <Icon name="bell" size={24} color={C.colors.card} />
-      </TouchableOpacity>
-    </View>
-  );
+  const canGoBack = navigation.canGoBack();
 
   return (
     <View style={styles.container}>
-
-
-      {renderHeader()}
+      <StandardPageHeader
+        title="Homework"
+        subtitle={`${pendingCount} pending assignment${pendingCount === 1 ? '' : 's'}`}
+        onBackPress={() => (canGoBack ? navigation.goBack() : navigation.navigate('MainTabs'))}
+        showBack={canGoBack}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={refreshAll}
+            accessibilityLabel="Refresh homework"
+          >
+            <RefreshCw size={20} color={Theme.colors.card} />
+          </TouchableOpacity>
+        )}
+      />
 
       <ScrollView
-        contentContainerStyle={styles.contentContainer}
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -307,6 +302,7 @@ export default function HomeworkScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor={C.colors.primary} />
         }
       >
+        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
         <View style={styles.mainCard}>
           {/* Filter Row */}
           <View style={styles.filterRow}>
@@ -352,6 +348,7 @@ export default function HomeworkScreen() {
             ))}
           </View>
         )}
+        </View>
       </ScrollView>
 
       {/* Date Picker Modal */}
@@ -525,6 +522,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.colors.background,
+  },
+  pageBody: {
+    paddingHorizontal: 20,
   },
   contentContainer: {
     paddingBottom: 40,

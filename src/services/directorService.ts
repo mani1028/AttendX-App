@@ -163,3 +163,206 @@ export async function getStudentExamsData(studentId: string): Promise<any> {
     return null;
   }
 }
+
+export interface DirectorDashboardStats {
+  branches: number;
+  teachers: number;
+  students: number;
+  activeBranches: number;
+  inactiveBranches: number;
+  principals: number;
+  classes: number;
+  sections: number;
+  pendingLeaves: number;
+  teacherAttendanceToday: number;
+  studentAttendanceToday: number;
+  teacherPresentToday: number | null;
+  studentPresentToday: number | null;
+}
+
+function asNumber(...values: unknown[]): number {
+  for (const value of values) {
+    if (value === null || value === undefined || value === '') { continue; }
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) { return parsed; }
+  }
+  return 0;
+}
+
+/** Normalize attendance to 0–100% (web may send pct, present/total, or raw counts). */
+export function resolveAttendancePercent(
+  pctCandidates: unknown[],
+  present?: unknown,
+  total?: unknown,
+): number {
+  for (const candidate of pctCandidates) {
+    const value = asNumber(candidate);
+    if (value > 0 && value <= 100) { return Math.round(value); }
+  }
+
+  const presentCount = asNumber(present);
+  const totalCount = asNumber(total);
+  if (totalCount > 0) {
+    if (presentCount >= 0) {
+      return Math.round((presentCount / totalCount) * 100);
+    }
+    const raw = asNumber(...pctCandidates);
+    if (raw > 0 && raw <= totalCount) {
+      return Math.round((raw / totalCount) * 100);
+    }
+  }
+
+  const raw = asNumber(...pctCandidates);
+  return Math.min(100, Math.max(0, Math.round(raw)));
+}
+
+export function parseDirectorDashboardPayload(data: any): {
+  stats: DirectorDashboardStats;
+  branches: any[];
+} {
+  const root = data && typeof data === 'object' ? data : {};
+  const summary = root.summary || root.stats || root;
+  const cards = summary.cards || root.cards || {};
+  const breakdown = root.today_breakdown || summary.today_breakdown || {};
+  const teachersBreakdown = breakdown.teachers || summary.teachers || {};
+  const studentsBreakdown = breakdown.students || summary.students || {};
+
+  const teachers = asNumber(summary.total_teachers, summary.staff, summary.teachers, cards.total_teachers);
+  const students = asNumber(summary.total_students, summary.students, cards.total_students);
+  const branchesTotal = asNumber(summary.total_branches, summary.branches);
+
+  const rawBranches = Array.isArray(root.items)
+    ? root.items
+    : Array.isArray(root.branches)
+      ? root.branches
+      : [];
+
+  const normalizeBranch = (branch: any) => {
+    const teachersCount = asNumber(branch.teachers_count, branch.total_teachers, branch.teachers);
+    const studentsCount = asNumber(branch.students_count, branch.total_students, branch.students);
+    return {
+      ...branch,
+      branch_id: String(branch.branch_id ?? branch.id ?? branch.branch_code ?? ''),
+      branch_name: branch.branch_name ?? branch.name ?? branch.branch_code ?? '',
+      branch_status: branch.branch_status ?? branch.status ?? 'ACTIVE',
+      teachers_count: teachersCount,
+      students_count: studentsCount,
+      classes_count: asNumber(branch.classes_count, branch.total_classes),
+      sections_count: asNumber(branch.sections_count, branch.total_sections),
+      pending_leave_requests: asNumber(branch.pending_leave_requests, branch.pending_leaves),
+      teacher_attendance_today: resolveAttendancePercent(
+        [
+          branch.teacher_attendance_pct,
+          branch.teacher_attendance_today,
+          branch.teacher_attendance_marked_today,
+          teachersBreakdown.attendance_pct,
+        ],
+        branch.teachers_present_today ?? branch.teachers_present,
+        branch.teachers_count ?? teachersCount,
+      ),
+      student_attendance_today: resolveAttendancePercent(
+        [
+          branch.student_attendance_pct,
+          branch.student_attendance_today,
+          branch.student_attendance_marked_today,
+          studentsBreakdown.attendance_pct,
+        ],
+        branch.students_present_today ?? branch.students_present,
+        branch.students_count ?? studentsCount,
+      ),
+    };
+  };
+
+  const branches = rawBranches.map(normalizeBranch);
+
+  return {
+    stats: {
+      branches: branchesTotal || branches.length,
+      teachers,
+      students,
+      activeBranches: asNumber(
+        summary.active_branches,
+        branches.filter((b: any) => String(b.branch_status).toUpperCase() === 'ACTIVE').length,
+      ),
+      inactiveBranches: asNumber(
+        summary.inactive_branches,
+        branches.filter((b: any) => String(b.branch_status).toUpperCase() === 'INACTIVE').length,
+      ),
+      principals: asNumber(summary.total_directors, summary.total_principals, summary.total_hms),
+      classes: asNumber(summary.total_classes, cards.total_classes),
+      sections: asNumber(summary.total_sections),
+      pendingLeaves: asNumber(summary.pending_leave_requests, summary.pending_leaves),
+      teacherAttendanceToday: resolveAttendancePercent(
+        [
+          summary.teacher_attendance_pct,
+          summary.teacher_attendance_today_pct,
+          summary.teacher_attendance_marked_today,
+          summary.teacher_attendance_today,
+          teachersBreakdown.attendance_pct,
+        ],
+        teachersBreakdown.present,
+        teachersBreakdown.total ?? teachers,
+      ),
+      studentAttendanceToday: resolveAttendancePercent(
+        [
+          summary.student_attendance_pct,
+          summary.student_attendance_today_pct,
+          summary.student_attendance_marked_today,
+          summary.student_attendance_today,
+          studentsBreakdown.attendance_pct,
+        ],
+        studentsBreakdown.present,
+        studentsBreakdown.total ?? students,
+      ),
+      teacherPresentToday:
+        teachersBreakdown.present !== undefined && teachersBreakdown.present !== null
+          ? asNumber(teachersBreakdown.present)
+          : null,
+      studentPresentToday:
+        studentsBreakdown.present !== undefined && studentsBreakdown.present !== null
+          ? asNumber(studentsBreakdown.present)
+          : null,
+    },
+    branches,
+  };
+}
+
+export async function getDirectorDashboardOverview(schoolCode: string): Promise<{
+  stats: DirectorDashboardStats;
+  branches: any[];
+}> {
+  const endpoints = [
+    'director/dashboard/overview',
+    'director/stats',
+    'director/dashboard/stats',
+  ];
+
+  let lastError: unknown;
+  for (const endpoint of endpoints) {
+    try {
+      const response = await API.get(endpoint, {
+        headers: { 'x-school-code': schoolCode, 'X-School-Code': schoolCode },
+        suppressFallback404Log: true,
+      } as any);
+      const data = response?.data;
+      if (
+        data?.ok ||
+        data?.summary ||
+        data?.stats ||
+        data?.total_branches !== undefined ||
+        Array.isArray(data?.items) ||
+        Array.isArray(data?.branches)
+      ) {
+        return parseDirectorDashboardPayload(data);
+      }
+    } catch (error) {
+      lastError = error;
+      if ((error as any)?.response?.status === 401 || (error as any)?.response?.status === 403) {
+        throw error;
+      }
+    }
+  }
+
+  if (lastError) { throw lastError; }
+  return parseDirectorDashboardPayload({});
+}

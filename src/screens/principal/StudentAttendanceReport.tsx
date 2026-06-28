@@ -20,9 +20,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ChevronLeft,
   Bell,
   Calendar,
   Download,
@@ -37,8 +35,9 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import API from '../../services/api';
 import { colors } from '../../theme/tokens';
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import AppButton from '../../components/common/AppButton';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
@@ -62,7 +61,6 @@ interface AttendanceRecord {
 }
 
 export default function StudentAttendanceReport() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<RootStackParamList, 'PrincipalStudentAttendanceReport'>>();
   const { studentId, studentName } = route.params;
@@ -138,35 +136,21 @@ export default function StudentAttendanceReport() {
     <View style={styles.container}>
 
 
-      {/* Navy Standard Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
-          >
-            <ChevronLeft size={24} color={Theme.colors.card} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>Attendance Report</AppText>
-          </View>
-          <View style={styles.headerSpacer} />
-        </View>
+      <StandardPageHeader
+        title="Attendance Report"
+        subtitle={`${studentName} • ID: ${studentId}`}
+        onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+      />
 
-        <View style={styles.headerContent}>
-          <AppText weight="bold" style={styles.headerGreeting}>{studentName}</AppText>
-          <AppText style={styles.headerSubtext}>Student ID: {studentId}</AppText>
-        </View>
-      </View>
-
-      <View style={styles.contentOverlap}>
-        <ScrollView
-          contentContainerStyle={styles.contentContainer}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        >
+      <ScrollView
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <View style={innerPageLayoutStyles.contentFront}>
           {/* Date Range Selection */}
           <View style={styles.selectionCard}>
             <View style={styles.fieldRow}>
@@ -289,8 +273,8 @@ export default function StudentAttendanceReport() {
               ))}
             </View>
           )}
-        </ScrollView>
-      </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -299,71 +283,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Theme.colors.background,
-  },
-  headerStandard: {
-    backgroundColor: C.navy,
-    paddingHorizontal: 20,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-    elevation: 10,
-  },
-  contentOverlap: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-    borderTopLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderTopRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    marginTop: -HEADER_CONSTANTS.BORDER_RADIUS,
-    zIndex: 10,
-    overflow: 'hidden',
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: Theme.colors.card,
-    ...Theme.typography.h3,
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  headerContent: {
-    marginTop: Theme.spacing.lg,
-  },
-  headerGreeting: {
-    color: Theme.colors.card,
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: 'rgba(255,255,255,0.7)',
-    ...Theme.typography.body,
-    marginTop: Theme.spacing.xs,
-  },
-  contentContainer: {
-    padding: Theme.spacing.md,
-    paddingBottom: 40,
   },
   selectionCard: {
     backgroundColor: Theme.colors.card,

@@ -35,7 +35,7 @@ import {
   Filter,
   LayoutGrid,
 } from 'lucide-react-native';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useNavigation, NavigationProp, useRoute, RouteProp } from '@react-navigation/native';
 import API from '../../services/api';
 import { Theme } from '../../theme/tokens';
 import AppButton from '../../components/common/AppButton';
@@ -45,6 +45,7 @@ import AppText from '../../components/common/AppText';
 import CustomPickerModal from '../../components/common/CustomPickerModal';
 import type { RootStackParamList } from '../../navigation/types';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -311,7 +312,7 @@ const ImageModal: React.FC<{
               <>
                 <Image source={{ uri: images[activeIndex] }} style={styles.imageModalMain} />
                 {images.length > 1 && (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageModalThumbs}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.imageModalThumbs]}>
                     {images.filter(Boolean).map((img, idx) => (
                       <TouchableOpacity
                         key={idx}
@@ -338,8 +339,11 @@ const ImageModal: React.FC<{
 export default function ViewAttendanceScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'TeacherViewAttendance'>>();
+  const routeParams = route.params;
   const today = new Date().toISOString().split('T')[0];
   const { setTabBarVisible } = useAuth();
+  const autoLoadedRef = useRef(false);
   const [activeTab, setActiveTab] = useState<'attendance' | 'overview'>('attendance');
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
@@ -441,12 +445,16 @@ export default function ViewAttendanceScreen() {
     };
   };
 
-  const handleView = async () => {
-    if (!selClass || !selSection) {
+  const handleView = async (classOverride?: string, sectionOverride?: string, dateOverride?: string) => {
+    const cls = classOverride ?? selClass;
+    const sec = sectionOverride ?? selSection;
+    const dt = dateOverride ?? viewDate;
+
+    if (!cls || !sec) {
       Alert.alert('Required', 'Please select class and section');
       return;
     }
-    if (!viewDate) {
+    if (!dt) {
       Alert.alert('Required', 'Please select a date');
       return;
     }
@@ -457,7 +465,7 @@ export default function ViewAttendanceScreen() {
     const studentMap = new Map<string, Student>();
 
     try {
-      const { presentIds, allStudents } = await fetchOneDay(selClass, selSection, viewDate);
+      const { presentIds, allStudents } = await fetchOneDay(cls, sec, dt);
 
       if (Array.isArray(allStudents)) {
         allStudents.forEach(s => {
@@ -484,7 +492,7 @@ export default function ViewAttendanceScreen() {
 
       setStudents(sorted);
       setTotalDays(1);
-      setViewedInfo({ class: selClass, section: selSection, date: viewDate, days: 1 });
+      setViewedInfo({ class: cls, section: sec, date: dt, days: 1 });
 
       if (sorted.length === 0) {
         Alert.alert('No Data', 'No attendance records found for this date');
@@ -496,6 +504,34 @@ export default function ViewAttendanceScreen() {
       setLoading(false);
     }
   };
+
+  // Pre-select class/section when opened from dashboard class card
+  useEffect(() => {
+    const initialClass = routeParams?.class_grade?.trim();
+    const initialSection = routeParams?.section?.trim();
+    if (!initialClass) { return; }
+
+    setSelClass(initialClass);
+    if (initialSection) {
+      setSelSection(initialSection);
+      setSelSectionOptions(prev => (prev.length ? prev : [initialSection]));
+    }
+    if (routeParams?.date) {
+      setViewDate(routeParams.date);
+    }
+  }, [routeParams?.class_grade, routeParams?.section, routeParams?.date]);
+
+  useEffect(() => {
+    const initialClass = routeParams?.class_grade?.trim();
+    const initialSection = routeParams?.section?.trim();
+    if (!initialClass || !initialSection || !schoolCode || !branchId) { return; }
+    if (autoLoadedRef.current) { return; }
+
+    autoLoadedRef.current = true;
+    handleView(initialClass, initialSection, routeParams?.date || today);
+  }, [routeParams?.class_grade, routeParams?.section, routeParams?.date, schoolCode, branchId, today]);
+
+  const handleViewPress = () => handleView();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -638,7 +674,7 @@ export default function ViewAttendanceScreen() {
       {/* Navy Standard Header */}
       <StandardPageHeader title="View Attendance" onBackPress={() => navigation.goBack()} />
       <ScrollView
-        contentContainerStyle={styles.contentContainer}
+        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.contentContainer}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
@@ -709,7 +745,7 @@ export default function ViewAttendanceScreen() {
 
               <AppButton
                 title={loading ? 'Searching...' : 'Search Attendance'}
-                onPress={handleView}
+                onPress={handleViewPress}
                 disabled={loading || !selClass || !selSection}
                 style={styles.searchBtn}
               />
@@ -964,8 +1000,7 @@ const styles = StyleSheet.create({
   tabWrapper: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    marginTop: -15,
-    paddingVertical: 6,
+        paddingVertical: 6,
     borderRadius: 22,
     backgroundColor: 'transparent',
     gap: 12,

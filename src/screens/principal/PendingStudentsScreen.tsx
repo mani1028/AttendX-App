@@ -14,10 +14,8 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  ChevronLeft,
   AlertCircle,
   Clock,
   CircleDollarSign,
@@ -31,9 +29,10 @@ import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
 import { Theme, C } from '../../theme/tokens';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 
@@ -55,9 +54,9 @@ interface PendingStudent {
 }
 
 const PendingStudents = () => {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { setTabBarVisible } = useAuth();
+  const { setTabBarVisible, userRole } = useAuth();
+  const isAccountant = userRole?.toLowerCase() === 'accountant';
   const [students, setStudents] = useState<PendingStudent[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -218,38 +217,29 @@ const PendingStudents = () => {
 
   return (
     <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <StandardPageHeader
+          scrollWithContent
+          title="Pending Students"
+          subtitle="Monitor student fee status and collection"
+          backgroundColor={isAccountant ? Theme.colors.primary : undefined}
+          onBackPress={() => safeGoBack(
+            navigation as any,
+            isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard',
+          )}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
 
-
-      {/* Standardized Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.iconButton}
-            onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
-          >
-            <ChevronLeft size={24} color={Theme.colors.card} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>Pending Fees</AppText>
-          </View>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        <View style={styles.headerContent}>
-          <AppText weight="bold" style={styles.headerGreeting}>Pending Students</AppText>
-          <AppText style={styles.headerSubtext}>Monitor student fee status and collection</AppText>
-        </View>
-      </View>
-
-      <View style={styles.contentOverlap}>
-        <ScrollView
-          style={styles.scrollView}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        >
+        <View style={innerPageLayoutStyles.scrollBody}>
           <View style={styles.header}>
             <View style={styles.headerRow}>
               <AlertCircle size={24} color={Theme.colors.error} />
@@ -329,8 +319,8 @@ const PendingStudents = () => {
             <AppText style={styles.emptyText} weight="regular">No pending fees! All students are up-to-date. ✓</AppText>
           </View>
         )}
+        </View>
       </ScrollView>
-    </View>
 
       {/* Student Details Modal */}
       <Modal
@@ -447,76 +437,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
-  },
-  headerStandard: {
-    backgroundColor: C.navy,
-    paddingHorizontal: 20,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 10 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
-  contentOverlap: {
-    flex: 1,
-    backgroundColor: C.bg,
-    borderTopLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderTopRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    marginTop: -HEADER_CONSTANTS.BORDER_RADIUS,
-    zIndex: 10,
-    overflow: 'hidden',
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: Theme.colors.card,
-    ...Theme.typography.h3,
-    textAlign: 'center',
-    flex: 1,
-  },
-  headerContent: {
-    marginTop: Theme.spacing.lg,
-  },
-  headerGreeting: {
-    color: Theme.colors.card,
-    ...Theme.typography.h1,
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: 'rgba(255,255,255,0.7)',
-    ...Theme.typography.body,
-    marginTop: Theme.spacing.xs,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   scrollView: {
     flex: 1,

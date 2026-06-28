@@ -768,6 +768,66 @@ export async function updateTeacherProfile(data: any): Promise<any> {
 
 /* ============ STUDENT REGISTRATION REQUESTS (Class Teacher Only) ============ */
 
+const TEACHER_STUDENT_REGISTER_ENDPOINTS = [
+  'manage/student/register-request',
+  'student/register-request',
+];
+
+/** Submit a new student from the teacher registration form (multipart with photo). */
+export async function submitStudentRegistration(
+  schoolCode: string,
+  branchId: string,
+  formData: FormData,
+): Promise<any> {
+  const headers = {
+    'X-School-Code': schoolCode,
+    'X-Branch-Id': branchId,
+  };
+
+  const tryNextStatuses = new Set([404, 405, 502, 503, 504]);
+  const retryableStatuses = new Set([502, 503, 504]);
+  const attempts: Array<{ endpoint: string; status?: number; message?: string }> = [];
+  let lastError: any = null;
+
+  for (let index = 0; index < TEACHER_STUDENT_REGISTER_ENDPOINTS.length; index++) {
+    const endpoint = TEACHER_STUDENT_REGISTER_ENDPOINTS[index];
+    const isLastEndpoint = index === TEACHER_STUDENT_REGISTER_ENDPOINTS.length - 1;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await API.post(endpoint, formData, {
+          headers,
+          suppressFallback404Log: true,
+          suppressErrorLog: !isLastEndpoint,
+        } as any);
+        return response.data;
+      } catch (error: any) {
+        lastError = error;
+        const status = error?.response?.status;
+        const detail = error?.response?.data?.detail || error?.response?.data?.message || error?.message;
+
+        if (retryableStatuses.has(status) && attempt < 2) {
+          await new Promise<void>(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+          continue;
+        }
+
+        if (status && !tryNextStatuses.has(status)) {
+          throw error;
+        }
+
+        attempts.push({ endpoint, status, message: typeof detail === 'string' ? detail : JSON.stringify(detail) });
+        break;
+      }
+    }
+  }
+
+  const summary = attempts.map(item => `${item.endpoint} (${item.status || 'network'})`).join(', ');
+  if (lastError) {
+    throw lastError;
+  }
+  throw new Error(`Could not register student. Tried: ${summary}`);
+}
+
 export async function getStudentRegistrationRequests(
   schoolCode: string,
   branchId: string,
@@ -892,6 +952,121 @@ export async function getAttendanceHistory(
   );
 }
 
+function monthDateRange(month?: string, year?: string): { from_date: string; to_date: string } {
+  const now = new Date();
+  const monthIndex = month ? Math.max(Number(month) - 1, 0) : now.getMonth();
+  const yearValue = year && Number.isFinite(Number(year)) ? Number(year) : now.getFullYear();
+  const firstDay = new Date(yearValue, monthIndex, 1);
+  const lastDay = new Date(yearValue, monthIndex + 1, 0);
+  const pad = (value: number) => String(value).padStart(2, '0');
+
+  return {
+    from_date: `${firstDay.getFullYear()}-${pad(firstDay.getMonth() + 1)}-${pad(firstDay.getDate())}`,
+    to_date: `${lastDay.getFullYear()}-${pad(lastDay.getMonth() + 1)}-${pad(lastDay.getDate())}`,
+  };
+}
+
+function normalizeTeacherAttendanceItems(data: any): any[] {
+  const items = Array.isArray(data?.items)
+    ? data.items
+    : Array.isArray(data?.attendance)
+      ? data.attendance
+      : Array.isArray(data?.days)
+        ? data.days
+        : Array.isArray(data)
+          ? data
+          : [];
+
+  return items.map((item: any) => {
+    let status = toText(firstDefined(item.status, item.attendance_status), '').toUpperCase();
+    if (!status && item.has_leave) {
+      status = 'LEAVE';
+    }
+    if (status === 'ON_LEAVE') {
+      status = 'LEAVE';
+    }
+
+    return {
+      ...item,
+      date: toText(firstDefined(item.date, item.attendance_date), ''),
+      status,
+      session1_status: item.session1_status,
+      session2_status: item.session2_status,
+      dailySessions:
+        Number(firstDefined(item.sessions_per_day, item.daily_sessions)) ||
+        (item.session2_status ? 2 : 1),
+    };
+  });
+}
+
+export async function getTeacherMyAttendance(params: {
+  school_code: string;
+  employee_id: string;
+  month?: string;
+  year?: string;
+}): Promise<any[]> {
+  const branchId =
+    (await storage.getString(StorageKeys.BRANCH_ID)) ||
+    (await AsyncStorage.getItem('branch_id')) ||
+    (await AsyncStorage.getItem('branchId')) ||
+    '01';
+  const { from_date, to_date } = monthDateRange(params.month, params.year);
+  const headers = {
+    'X-School-Code': params.school_code,
+    'X-Branch-Id': branchId,
+  };
+
+  const attempts: Array<{ endpoint: string; params: Record<string, string | undefined> }> = [
+    {
+      endpoint: 'manage/staff/attendance/unified',
+      params: {
+        school_code: params.school_code,
+        employee_id: params.employee_id,
+        branch_id: branchId,
+        from_date,
+        to_date,
+      },
+    },
+    {
+      endpoint: 'manage/teacher/attendance/my-attendance',
+      params: {
+        school_code: params.school_code,
+        employee_id: params.employee_id,
+        month: params.month,
+        year: params.year,
+      },
+    },
+    {
+      endpoint: 'staff/my-attendance',
+      params: {
+        school_code: params.school_code,
+        employee_id: params.employee_id,
+        month: params.month,
+        year: params.year,
+      },
+    },
+  ];
+
+  let lastError: unknown;
+  for (const attempt of attempts) {
+    try {
+      const data = await getRequest<any>(attempt.endpoint, {
+        params: attempt.params,
+        headers,
+        suppressFallback404Log: true,
+      } as any);
+      return normalizeTeacherAttendanceItems(data);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+  return [];
+}
+
 export async function markSelfAttendance(
   schoolCode: string,
   branchId: string,
@@ -957,21 +1132,112 @@ export async function submitMarksEntry(
   );
 }
 
+export interface TeacherPaperSubject {
+  subject_id: string | number;
+  subject_name: string;
+}
+
+export interface TeacherPaperSection {
+  section_id: string | number;
+  section_name: string;
+  subjects: TeacherPaperSubject[];
+}
+
+export interface TeacherPaperClassAssignment {
+  class_id: string | number;
+  class_name: string;
+  sections: TeacherPaperSection[];
+}
+
+export async function getTeacherPaperAssignments(): Promise<TeacherPaperClassAssignment[]> {
+  try {
+    const data = await getFirstSuccessful(
+      ['staff/assignments/classes-sections-subjects'],
+      { suppressFallback404Log: true },
+    );
+    const root = asRecord(data);
+    const wrapped = asRecord(firstDefined(root.data, root.result));
+    const classes = firstNonEmptyArray(
+      root.classes,
+      wrapped.classes,
+      Array.isArray(data) ? (data as any[]) : undefined,
+    );
+
+    return classes.map((item: any) => {
+      const cls = asRecord(item);
+      const sections = Array.isArray(cls.sections) ? cls.sections : [];
+      return {
+        class_id: firstDefined(cls.class_id, cls.id, cls.classId) ?? '',
+        class_name: toText(firstDefined(cls.class_name, cls.name, cls.className), ''),
+        sections: sections.map((sec: any) => {
+          const section = asRecord(sec);
+          const subjects = Array.isArray(section.subjects) ? section.subjects : [];
+          return {
+            section_id: firstDefined(section.section_id, section.id, section.sectionId) ?? '',
+            section_name: toText(firstDefined(section.section_name, section.name, section.sectionName), ''),
+            subjects: subjects.map((sub: any) => {
+              const subject = asRecord(sub);
+              return {
+                subject_id: firstDefined(subject.subject_id, subject.id, subject.subjectId) ?? '',
+                subject_name: toText(firstDefined(subject.subject_name, subject.name, subject.subjectName), ''),
+              };
+            }),
+          };
+        }),
+      };
+    });
+  } catch (error) {
+    console.error('[Service] getTeacherPaperAssignments failed:', error);
+    return [];
+  }
+}
+
+export async function getTeacherQuestionPaperExamTypes(): Promise<string[]> {
+  try {
+    const data = await getFirstSuccessful(
+      ['staff/question-papers/exam-types'],
+      { suppressFallback404Log: true },
+    );
+    const root = asRecord(data);
+    const wrapped = asRecord(firstDefined(root.data, root.result));
+    const examTypes = firstNonEmptyArray<string>(
+      root.exam_types,
+      root.examTypes,
+      wrapped.exam_types,
+      wrapped.examTypes,
+      Array.isArray(data) ? (data as string[]) : undefined,
+    );
+    return examTypes.map(type => toText(type, '')).filter(Boolean);
+  } catch (error) {
+    console.error('[Service] getTeacherQuestionPaperExamTypes failed:', error);
+    return [];
+  }
+}
+
+function appendSchoolBranchToFormData(
+  formData: FormData,
+  schoolCode: string,
+  branchId: string,
+): void {
+  try {
+    if (formData && typeof (formData as any).append === 'function') {
+      try {
+        (formData as any).append('school_code', schoolCode);
+        (formData as any).append('school_id', schoolCode);
+      } catch (e) { /* noop */ }
+      try {
+        (formData as any).append('branch_id', branchId);
+      } catch (e) { /* noop */ }
+    }
+  } catch (e) { /* noop */ }
+}
+
 export async function uploadQuestionPapers(
   schoolCode: string,
   branchId: string,
   formData: FormData
 ): Promise<any> {
-  try {
-    if (formData && typeof (formData as any).append === 'function') {
-      try {
-        (formData as any).append('school_code', schoolCode);
-      } catch (e) { }
-      try {
-        (formData as any).append('branch_id', branchId);
-      } catch (e) { }
-    }
-  } catch (e) { }
+  appendSchoolBranchToFormData(formData, schoolCode, branchId);
 
   return postFirstSuccessful(
     ['staff/question-papers/upload'],
@@ -984,6 +1250,177 @@ export async function uploadQuestionPapers(
       },
     }
   );
+}
+
+export async function updateTeacherQuestionPaper(
+  paperId: string,
+  schoolCode: string,
+  branchId: string,
+  formData: FormData,
+): Promise<any> {
+  appendSchoolBranchToFormData(formData, schoolCode, branchId);
+  const encodedPaperId = encodeURIComponent(paperId);
+  const response = await API.put(`staff/question-papers/${encodedPaperId}`, formData, {
+    headers: {
+      'X-School-Code': schoolCode,
+      'X-Branch-Id': branchId,
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+}
+
+export async function deleteTeacherQuestionPaper(paperId: string): Promise<void> {
+  const encodedPaperId = encodeURIComponent(paperId);
+  await API.delete(`staff/question-papers/${encodedPaperId}`);
+}
+
+function mapTeacherQuestionPaperRecord(paper: any) {
+  const p = asRecord(paper);
+  return {
+    paper_id: toText(firstDefined(p.paper_id, p.id, p.paperId), ''),
+    title: toText(firstDefined(p.title, p.name), 'Untitled Paper'),
+    description: toText(firstDefined(p.description, p.instructions), ''),
+    exam_type: toText(firstDefined(p.exam_type, p.type, p.examType), ''),
+    subject_id: firstDefined(p.subject_id, p.subjectId),
+    subject_name: toText(firstDefined(p.subject_name, p.subject, p.subjectName), ''),
+    class_id: firstDefined(p.class_id, p.classId),
+    class_name: toText(firstDefined(p.class_name, p.className, p.class), ''),
+    section_id: firstDefined(p.section_id, p.sectionId),
+    section_name: toText(firstDefined(p.section_name, p.sectionName, p.section), ''),
+    created_at: toText(firstDefined(p.created_at, p.uploaded_at, p.date), ''),
+    file_size: Number(firstDefined(p.file_size, p.size, p.fileSize)) || 0,
+    status: toText(firstDefined(p.status, p.publish_status), 'published').toLowerCase(),
+    is_published: Boolean(firstDefined(p.is_published, p.isPublished, p.published) ?? true),
+  };
+}
+
+const TEACHER_QUESTION_PAPER_LIST_ENDPOINTS = [
+  'staff/question-papers',
+  'staff/question-papers/list',
+  'manage/staff/question-papers',
+];
+
+/** List question papers uploaded for teacher's classes (no mock data). */
+export async function getTeacherQuestionPapers(params?: Record<string, any>): Promise<any[]> {
+  try {
+    const data = await getFirstSuccessful<any>(TEACHER_QUESTION_PAPER_LIST_ENDPOINTS, {
+      params,
+      suppressFallback404Log: true,
+    });
+    const root = asRecord(data);
+    const wrapped = asRecord(firstDefined(root.data, root.result));
+
+    const flat = firstNonEmptyArray(
+      root.items,
+      root.papers,
+      root.question_papers,
+      wrapped.items,
+      wrapped.papers,
+      wrapped.question_papers,
+      Array.isArray(data) ? data : undefined,
+    );
+
+    if (flat.length) {
+      return flat.map(mapTeacherQuestionPaperRecord);
+    }
+
+    const subjects = firstNonEmptyArray(
+      root.subjects,
+      root.papers_by_subject,
+      wrapped.subjects,
+      wrapped.papers_by_subject,
+    );
+
+    if (subjects.length) {
+      const papers: any[] = [];
+      subjects.forEach((sub: any) => {
+        const s = asRecord(sub);
+        const subjectName = toText(firstDefined(s.subject_name, s.name), '');
+        const rawPapers = Array.isArray(s.papers) ? s.papers : [];
+        rawPapers.forEach((p: any) => {
+          const mapped = mapTeacherQuestionPaperRecord(p);
+          papers.push({
+            ...mapped,
+            subject_name: subjectName || mapped.subject_name,
+          });
+        });
+      });
+      return papers;
+    }
+
+    return [];
+  } catch (error) {
+    console.error('[Service] getTeacherQuestionPapers failed:', error);
+    throw error;
+  }
+}
+
+/** Download a question paper file uploaded by staff. */
+export async function downloadTeacherQuestionPaper(paperId: string): Promise<ArrayBuffer> {
+  const encodedPaperId = encodeURIComponent(paperId);
+  const endpoints = [
+    `staff/question-papers/${encodedPaperId}/download`,
+    `manage/staff/question-papers/${encodedPaperId}/download`,
+    `staff/question-papers/download/${encodedPaperId}`,
+    'staff/question-papers/download',
+  ];
+  const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || '';
+  const branchId = await storage.getString(StorageKeys.BRANCH_ID) || '';
+  const employeeId =
+    (await AsyncStorage.getItem('teacher_id')) ||
+    (await AsyncStorage.getItem('teacherId')) ||
+    (await storage.getString(StorageKeys.EMPLOYEE_ID)) ||
+    '';
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await API.get<ArrayBuffer>(endpoint, {
+        responseType: 'arraybuffer',
+        params: {
+          school_code: schoolCode,
+          branch_id: branchId,
+          employee_id: employeeId,
+          paper_id: paperId,
+          id: paperId,
+        },
+        headers: {
+          'X-School-Code': schoolCode || undefined,
+          'X-Branch-Id': branchId || undefined,
+        },
+        ...FALLBACK_404_CONFIG,
+      } as any);
+
+      if (response?.data && response.status === 200) {
+        const contentType = (response.headers as any)?.['content-type'] || '';
+        if (contentType.includes('application/json')) {
+          throw new Error('JSON_RESPONSE_TRIGGER_FALLBACK');
+        }
+        return response.data;
+      }
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error('Could not download this question paper. The file may no longer be available.');
+}
+
+function firstNonEmptyArray<T>(...candidates: Array<T[] | undefined | null>): T[] {
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate) && candidate.length > 0) {
+      return candidate;
+    }
+  }
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
+  }
+  return [];
 }
 
 /* ============ LEAVE MANAGEMENT ============ */
@@ -1096,6 +1533,66 @@ export async function getTeacherNotifications(
       suppressFallback404Log: false,
     } as any
   );
+}
+
+/**
+ * Manage student profiles (class teacher / principal)
+ */
+export async function getManageStudents(params: {
+  school_code: string;
+  branch_id: string;
+  class_grade?: string;
+  section?: string;
+}): Promise<any[]> {
+  const response = await API.get('manage/students', { params });
+  const data = response.data || {};
+  return Array.isArray(data.students) ? data.students : (Array.isArray(data) ? data : []);
+}
+
+export async function updateManageStudent(payload: {
+  school_code: string;
+  branch_id: string;
+  data_type: 'students';
+  data: Record<string, unknown>;
+}): Promise<any> {
+  const response = await API.put('manage/update', payload);
+  return response.data;
+}
+
+export async function deleteManageStudent(payload: {
+  school_code: string;
+  branch_id: string;
+  data_type: 'students';
+  id: string;
+}): Promise<any> {
+  const response = await API.delete('manage/delete', { data: payload });
+  return response.data;
+}
+
+export async function getStaffRegistrationRequests(summary = true): Promise<any[]> {
+  const response = await API.get('staff/staff-registration-requests', {
+    params: summary ? { summary: true } : undefined,
+  });
+  const data = response.data || {};
+  return Array.isArray(data.requests) ? data.requests : [];
+}
+
+export async function getStaffRegistrationRequestDetail(id: string): Promise<any> {
+  const response = await API.get(`staff/staff-registration-requests/${encodeURIComponent(id)}`);
+  return response.data;
+}
+
+export async function acceptStaffRegistrationRequest(id: string, staffData: Record<string, unknown>): Promise<any> {
+  const response = await API.post(
+    `staff/staff-registration-requests/${encodeURIComponent(id)}/accept`,
+    staffData,
+  );
+  return response.data;
+}
+
+export async function rejectStaffRegistrationRequest(id: string): Promise<any> {
+  const response = await API.delete(`staff/staff-registration-requests/${encodeURIComponent(id)}/reject`);
+  return response.data;
 }
 
 /**

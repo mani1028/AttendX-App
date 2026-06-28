@@ -13,10 +13,8 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import {
-  ChevronLeft,
   Search,
   RefreshCw,
   CheckCircle,
@@ -31,8 +29,10 @@ import {
   Scan,
 } from 'lucide-react-native';
 import API from '../../services/api';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { Theme } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
@@ -251,7 +251,6 @@ function PhotoUploadModal({ target, onClose, onSuccess }: PhotoModalProps) {
 ───────────────────────────────────────────────────────────── */
 export default function TeacherFaceReviewScreen() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
 
   const [data, setData] = useState<ReviewData>({
     items: [],
@@ -433,30 +432,28 @@ export default function TeacherFaceReviewScreen() {
 
   return (
     <View style={styles.container}>
+      <StandardPageHeader
+        title="Face Photo Review"
+        subtitle={data.class_grade ? `Class ${data.class_grade}${data.section ? `-${data.section}` : ''}` : 'Review student face photos'}
+        onBackPress={() => navigation.goBack()}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={load}
+            accessibilityLabel="Refresh face review list"
+          >
+            <RefreshCw size={20} color={Theme.colors.card} />
+          </TouchableOpacity>
+        )}
+      />
 
-
-      {/* Header */}
-      <View style={[
-        styles.header,
-        {
-          paddingTop: insets.top + 16,
-          borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-          borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-        },
-      ]}>
-        <TouchableOpacity accessibilityRole="button" onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft size={22} color={Theme.colors.card} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Scan size={18} color={Theme.colors.card} />
-          <Text style={styles.headerTitle}>Face Photo Review</Text>
-        </View>
-        <TouchableOpacity accessibilityRole="button" onPress={load} style={styles.refreshBtn}>
-          <RefreshCw size={18} color={Theme.colors.card} />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={[styles.scroll, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={[styles.scrollContent, innerPageLayoutStyles.scrollContent]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={innerPageLayoutStyles.contentFront}>
 
         {/* Teacher info */}
         {data.teacher_name ? (
@@ -626,6 +623,7 @@ export default function TeacherFaceReviewScreen() {
             <Text style={styles.logDoneText}>Quarterly review marked complete! Next review due in 90 days.</Text>
           </View>
         ) : null}
+        </View>
       </ScrollView>
 
       {/* Photo Modal */}
@@ -639,38 +637,6 @@ export default function TeacherFaceReviewScreen() {
 /* ─── Styles ─── */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
-
-  header: {
-    backgroundColor: Theme.colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    gap: 10,
-    shadowColor: Theme.colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  backBtn: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { color: Theme.colors.card, fontSize: 17, fontWeight: '700' },
-  refreshBtn: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
   scroll: { flex: 1 },
   scrollContent: { padding: Theme.spacing.md, paddingBottom: 40 },

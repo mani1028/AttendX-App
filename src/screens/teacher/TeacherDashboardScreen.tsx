@@ -8,14 +8,10 @@ import {
   NativeScrollEvent,
   TouchableOpacity,
   RefreshControl,
-  Dimensions,
-  Image,
   ActivityIndicator,
   Text,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-} from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -25,7 +21,6 @@ import {
   UserPlus,
   Heart,
   ClipboardEdit,
-  Bell,
   BookOpen,
   BadgeCheck,
   Scan,
@@ -43,14 +38,14 @@ import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import { safeNavigate } from '../../utils/navigationHelpers';
-import AvatarBubble from '../../components/common/AvatarBubble';
 import AccountSwitcher from '../../components/common/AccountSwitcher';
+import DashboardHeroHeader from '../../components/dashboard/DashboardHeroHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import QuickActionGrid, { QuickActionItem } from '../../components/dashboard/QuickActionGrid';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getTeacherProfile, getAssignedClasses, getAttendanceReport, getTeacherCapability } from '../../services/teacherService';
 import { TeacherProfile as ApiTeacherProfile, TeacherCapability } from '../../types/api.types';
 import { normalizePhotoUri } from '../../utils/normalizePhotoUri';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface TeacherProfile extends Partial<ApiTeacherProfile> {
   name: string;
@@ -103,7 +98,6 @@ export default function TeacherDashboardScreen() {
   const effectiveIsClassTeacher = (capability !== undefined)
     ? Boolean(capability?.is_class_teacher)
     : Boolean(profile?.is_class_teacher || authIsClassTeacher);
-  const teacherFirstName = (userName || profile?.name || 'Teacher').split(' ')[0];
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -240,53 +234,23 @@ export default function TeacherDashboardScreen() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={fetchDashboardData} tintColor={Theme.colors.primary} />}
       >
-        <Animated.View style={[styles.headerWrapper]}>
-          <LinearGradient
-            colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.header, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}
-          >
-            {/* Decorative circles */}
-            <View style={styles.decCircle1} />
-            <View style={styles.decCircle2} />
+        <DashboardHeroHeader
+          userName={userName || profile?.name || 'Teacher'}
+          greetingLine={greeting.toUpperCase()}
+          subtitle={todayDateStr}
+          unreadCount={unreadCount}
+          onAvatarPress={() => navigation.navigate('Profile')}
+          onNotificationsPress={() => navigation.navigate('Notifications')}
+          photoUri={profilePhotoUrl}
+          photoError={profilePhotoError}
+          onPhotoError={() => setProfilePhotoError(true)}
+          fullBleed
+        />
 
-            <View style={{ paddingHorizontal: 20 }}>
-              <View style={styles.headerTop}>
-                <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.profileBtn}>
-                  {profilePhotoUrl && !profilePhotoError ? (
-                    <Image
-                      source={{ uri: profilePhotoUrl }}
-                      style={styles.avatar}
-                      onError={() => setProfilePhotoError(true)}
-                    />
-                  ) : (
-                    <AvatarBubble displayName={userName || 'T'} size={56} primaryColor={Theme.colors.card} />
-                  )}
-                </TouchableOpacity>
-
-                <View style={styles.headerCenter}>
-                  <Text style={styles.welcomeText}>{greeting},</Text>
-                  <Text style={styles.nameText}>{teacherFirstName} 👋</Text>
-                  <Text style={styles.dateText}>{todayDateStr}</Text>
-                </View>
-
-                <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.iconBtn}>
-                  <Bell size={22} color={Theme.colors.card} />
-                  {unreadCount > 0 && (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </LinearGradient>
-        </Animated.View>
-
+        <View style={innerPageLayoutStyles.contentFront}>
         {/* Today's Inspiration Banner */}
         <LinearGradient
-          colors={['#1e3a8a', '#3b82f6']}
+          colors={[HEADER_CONSTANTS.GRADIENT_START, HEADER_CONSTANTS.GRADIENT_END]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.quoteBanner}
@@ -357,24 +321,25 @@ export default function TeacherDashboardScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={{ height: 12 }} />
-          <View style={styles.grid}>
+          <QuickActionGrid>
             {quickActions.map((action, i) => {
               const ActionIcon = action.icon;
               return (
-                <TouchableOpacity
-                  key={i}
-                  style={styles.gridItem}
-                  onPress={() => safeNavigate(navigation, action.route as any)}
-                  activeOpacity={0.6}
-                >
-                  <View style={[styles.actionIcon, { backgroundColor: action.color + '15' }]}>
-                    <ActionIcon size={26} color={action.color} strokeWidth={2.2} />
-                  </View>
-                  <Text style={styles.actionText}>{action.label}</Text>
-                </TouchableOpacity>
+                <QuickActionItem key={i}>
+                  <TouchableOpacity
+                    style={styles.gridItemInner}
+                    onPress={() => safeNavigate(navigation, action.route as any)}
+                    activeOpacity={0.6}
+                  >
+                    <View style={[styles.actionIcon, { backgroundColor: action.color + '15' }]}>
+                      <ActionIcon size={26} color={action.color} strokeWidth={2.2} />
+                    </View>
+                    <Text style={styles.actionText}>{action.label}</Text>
+                  </TouchableOpacity>
+                </QuickActionItem>
               );
             })}
-          </View>
+          </QuickActionGrid>
         </View>
 
         {/* Quick Stats Summary */}
@@ -446,7 +411,10 @@ export default function TeacherDashboardScreen() {
                   <View style={styles.classCardFooter}>
                     <TouchableOpacity
                       style={[styles.classCardBtn, { backgroundColor: '#EFF6FF' }]}
-                      onPress={() => navigation.navigate('TeacherAttendance')}
+                      onPress={() => navigation.navigate('TeacherViewAttendance', {
+                        class_grade: String(item.class_grade || ''),
+                        section: String(item.section || ''),
+                      })}
                     >
                       <CalendarCheck2 size={14} color="#3B82F6" />
                       <Text style={[styles.classCardBtnText, { color: '#3B82F6' }]}>Attendance</Text>
@@ -472,6 +440,7 @@ export default function TeacherDashboardScreen() {
         </View>
 
         <View style={{ height: insets.bottom + 140 }} />
+        </View>
       </ScrollView>
       <AccountSwitcher visible={switcherVisible} onClose={() => setSwitcherVisible(false)} />
     </View>
@@ -481,47 +450,8 @@ export default function TeacherDashboardScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.colors.background },
-  headerWrapper: {
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    overflow: 'hidden',
-    shadowColor: Theme.colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-    marginBottom: 20,
-    marginHorizontal: -20,
-  },
-  header: {
-    paddingHorizontal: 0,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-  },
-  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerCenter: { flex: 1, marginHorizontal: Theme.spacing.md },
-  profileBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
-  },
-  avatar: { width: '100%', height: '100%' },
-  welcomeText: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  nameText: { color: Theme.colors.card, ...Theme.typography.h1, marginTop: 2 },
-  dateText: { color: 'rgba(255,255,255,0.7)', ...Theme.typography.caption, marginTop: 2, fontWeight: '500' },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badge: { position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 14 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 0 },
+  gridItemInner: { alignItems: 'center', width: '100%' },
+  scrollContent: { paddingHorizontal: HEADER_CONSTANTS.DASHBOARD_HORIZONTAL, paddingTop: 0 },
   section: { marginBottom: 26 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 22, color: Theme.colors.text, fontWeight: '800' },
@@ -554,11 +484,6 @@ const styles = StyleSheet.create({
   analyticsStatValue: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
   analyticsStatLabel: { fontSize: 13, color: Theme.colors.textSec, fontWeight: '600', marginTop: 2 },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 16, justifyContent: 'space-between' },
-  gridItem: {
-    width: (SCREEN_WIDTH - 70) / 4,
-    alignItems: 'center',
-  },
   actionIcon: {
     width: 46,
     height: 46,
@@ -758,23 +683,5 @@ const styles = StyleSheet.create({
     color: Theme.colors.textMuted,
     fontWeight: '600',
     textTransform: 'uppercase',
-  },
-  decCircle1: {
-    position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    top: -50,
-    right: -40,
-  },
-  decCircle2: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    bottom: -30,
-    left: -20,
   },
 });

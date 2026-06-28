@@ -1,7 +1,7 @@
 import { Theme, C } from '../../theme/tokens';
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,24 +11,18 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  Platform,
-  Dimensions,
   RefreshControl,
-  PermissionsAndroid,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
-import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Feather';
+import { RefreshCw } from 'lucide-react-native';
 import { getQuestionPapers, getExamTypes, downloadQuestionPaper } from '../../services/studentService';
-import { useAuth } from '../../context/AuthContext';
+import { resolveApiErrorMessage } from '../../utils/helpers';
 import BottomSheetModal from '../../components/common/BottomSheetModal';
-
-const { width } = Dimensions.get('window');
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 
 // Types
 interface Paper {
@@ -92,32 +86,6 @@ const arrayBufferToBase64 = (data: ArrayBuffer): string => {
   }
 
   throw new Error('Base64 encoder is unavailable');
-};
-
-const requestStoragePermission = async (): Promise<boolean> => {
-  if (Platform.OS === 'android') {
-    // Android 10 (API 29) and above do not need WRITE_EXTERNAL_STORAGE for scoped storage downloads
-    if (Platform.Version >= 29) {
-      return true;
-    }
-    try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-        {
-          title: 'Storage Permission Required',
-          message: 'App needs access to your storage to download files',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        }
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } catch (err) {
-      console.error('Storage permission error:', err);
-      return false;
-    }
-  }
-  return true;
 };
 
 // Paper Card Component
@@ -272,6 +240,13 @@ const FilterModal: React.FC<{
   const [selectedSubject, setSelectedSubject] = useState(currentFilterSubject);
   const [selectedExamType, setSelectedExamType] = useState(currentFilterExamType);
 
+  useEffect(() => {
+    if (visible) {
+      setSelectedSubject(currentFilterSubject);
+      setSelectedExamType(currentFilterExamType);
+    }
+  }, [visible, currentFilterSubject, currentFilterExamType]);
+
   const handleReset = () => {
     setSelectedSubject('all');
     setSelectedExamType('all');
@@ -376,14 +351,9 @@ const FilterModal: React.FC<{
           <Text style={styles.resetModalBtnText}>Reset</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.applyModalBtn} onPress={handleApply}>
-          <LinearGradient
-            colors={[C.colors.blue, C.colors.primaryLight]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.applyModalGradient}
-          >
+          <View style={styles.applyModalGradient}>
             <Text style={styles.applyModalBtnText}>Apply Filters</Text>
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
       </View>
     </BottomSheetModal>
@@ -391,9 +361,9 @@ const FilterModal: React.FC<{
 };
 
 export default function QuestionPapersScreen() {
-  const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
-  const { setTabBarVisible } = useAuth();
+  const navigation = useNavigation<any>();
+  const handleScroll = useScrollTabBar();
+  const canGoBack = navigation.canGoBack();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -405,6 +375,7 @@ export default function QuestionPapersScreen() {
   const [subjectOptions, setSubjectOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Fetch exam types
   const fetchExamTypes = useCallback(async () => {
@@ -420,6 +391,7 @@ export default function QuestionPapersScreen() {
   const fetchPapers = useCallback(async (isRefresh = false) => {
     const isActuallyRefresh = isRefresh === true;
     if (!isActuallyRefresh) {setLoading(true);}
+    setLoadError(null);
     try {
       const params: any = {};
       if (filterSubject !== 'all') {params.subject_id = filterSubject;}
@@ -451,8 +423,10 @@ export default function QuestionPapersScreen() {
       }
     } catch (err: any) {
       console.error('Failed to fetch question papers:', err);
-      const errorMsg = err?.message || 'Failed to load question papers';
-      Alert.alert('Error', errorMsg);
+      setSubjects([]);
+      setLoadError(
+        resolveApiErrorMessage(err, 'Could not load question papers. Pull down to retry.'),
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -525,7 +499,10 @@ export default function QuestionPapersScreen() {
         // Ignore cancel
       } else {
         console.error(`Failed to ${isDownload ? 'download' : 'view'} paper:`, err);
-        Alert.alert('Error', err.message || `Could not ${isDownload ? 'download' : 'open'} the file`);
+        Alert.alert(
+          isDownload ? 'Download failed' : 'Could not open file',
+          resolveApiErrorMessage(err, `Could not ${isDownload ? 'download' : 'open'} the file.`),
+        );
       }
     } finally {
       setProcessingId(null);
@@ -555,39 +532,47 @@ export default function QuestionPapersScreen() {
 
   const hasActiveFilters =
     searchTerm !== '' || filterSubject !== 'all' || filterExamType !== 'all';
-  const handleScroll = useScrollTabBar();
 
+  const headerSubtitle = loading
+    ? 'Loading papers...'
+    : loadError
+      ? 'Unable to load papers'
+      : `${totalFilteredPapers} paper${totalFilteredPapers === 1 ? '' : 's'} available`;
 
   const handleBackPress = () => {
-    if (navigation.canGoBack()) {
+    if (canGoBack) {
       navigation.goBack();
       return;
     }
-    navigation.navigate('StudentDashboard' as never);
+    navigation.navigate('MainTabs' as never);
+  };
+
+  const toggleExamTypeQuick = (type: string) => {
+    setFilterExamType(prev => (prev === type ? 'all' : type));
   };
 
   return (
     <View style={styles.container}>
+      <StandardPageHeader
+        title="Question Papers"
+        subtitle={headerSubtitle}
+        onBackPress={handleBackPress}
+        showBack={canGoBack}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={onRefresh}
+            accessibilityLabel="Refresh papers"
+          >
+            <RefreshCw size={20} color={Theme.colors.card} />
+          </TouchableOpacity>
+        )}
+      />
 
-
-      {/* Header */}
-      <LinearGradient
-        colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}
-      >
-        <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
-          <Icon name="arrow-left" size={24} color={C.colors.card} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Question Papers</Text>
-        <View style={styles.backBtn} />
-      </LinearGradient>
-
-      {/* Papers List */}
       <ScrollView
-        style={styles.listContainer}
-        contentContainerStyle={styles.listContent}
+        style={[styles.listContainer, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
@@ -595,7 +580,9 @@ export default function QuestionPapersScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Search and Filter Bar */}
+        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+        {/* Search and Filter Card */}
+        <View style={styles.toolbarCard}>
         <View style={styles.searchSection}>
           <View style={styles.searchContainer}>
             <Icon name="search" size={18} color={C.colors.textMuted} />
@@ -606,7 +593,6 @@ export default function QuestionPapersScreen() {
               value={searchTerm}
               onChangeText={setSearchTerm}
               returnKeyType="search"
-              onSubmitEditing={() => fetchPapers()}
             />
             {searchTerm !== '' ? (
               <TouchableOpacity onPress={() => setSearchTerm('')}>
@@ -627,6 +613,31 @@ export default function QuestionPapersScreen() {
             </Text>
             {hasActiveFilters && <View style={styles.filterDot} />}
           </TouchableOpacity>
+        </View>
+
+        {examTypes.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.examTypeRow}>
+            <TouchableOpacity
+              style={[styles.examTypeChip, filterExamType === 'all' && styles.examTypeChipActive]}
+              onPress={() => setFilterExamType('all')}
+            >
+              <Text style={[styles.examTypeChipText, filterExamType === 'all' && styles.examTypeChipTextActive]}>
+                All Types
+              </Text>
+            </TouchableOpacity>
+            {examTypes.map(type => (
+              <TouchableOpacity
+                key={type}
+                style={[styles.examTypeChip, filterExamType === type && styles.examTypeChipActive]}
+                onPress={() => toggleExamTypeQuick(type)}
+              >
+                <Text style={[styles.examTypeChipText, filterExamType === type && styles.examTypeChipTextActive]}>
+                  {type}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
         </View>
 
         {/* Active Filters */}
@@ -687,7 +698,16 @@ export default function QuestionPapersScreen() {
           </View>
         )}
 
-        {loading ? (
+        {loadError ? (
+          <View style={styles.errorContainer}>
+            <Icon name="alert-circle" size={40} color={C.colors.error} />
+            <Text style={styles.errorTitle}>Could not load papers</Text>
+            <Text style={styles.errorText}>{loadError}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={() => fetchPapers()}>
+              <Text style={styles.retryBtnText}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={C.colors.primary} />
             <Text style={styles.loadingText}>Loading question papers...</Text>
@@ -722,7 +742,7 @@ export default function QuestionPapersScreen() {
             />
           ))
         )}
-
+        </View>
       </ScrollView>
 
       {/* Filter Modal */}
@@ -744,36 +764,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.colors.background,
   },
-  header: {
+  pageBody: {
     paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    ...Theme.typography.h3,
-    color: C.colors.card,
-    textAlign: 'center',
-    flex: 1,
+  toolbarCard: {
+    backgroundColor: C.colors.card,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    ...C.shadow.sm,
   },
   listContainer: {
     flex: 1,
   },
-  listContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
   searchSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Theme.spacing.md,
-    marginBottom: Theme.spacing.sm,
     gap: 12,
   },
   searchContainer: {
@@ -829,6 +835,30 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.error,
     borderWidth: 2,
     borderColor: C.colors.card,
+  },
+  examTypeRow: {
+    marginTop: 14,
+  },
+  examTypeChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: C.colors.background,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: C.colors.border,
+  },
+  examTypeChipActive: {
+    backgroundColor: C.colors.blueLight,
+    borderColor: C.colors.blue,
+  },
+  examTypeChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.colors.textSec,
+  },
+  examTypeChipTextActive: {
+    color: C.colors.blue,
   },
   activeFilters: {
     marginTop: 12,
@@ -1072,6 +1102,45 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: C.colors.textSec,
   },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 220,
+    paddingVertical: 36,
+    paddingHorizontal: Theme.spacing.lg,
+    backgroundColor: C.colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.colors.border,
+    ...C.shadow.sm,
+    width: '100%',
+    marginBottom: 16,
+  },
+  errorTitle: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '600',
+    color: C.colors.text,
+  },
+  errorText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: C.colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  retryBtn: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: C.colors.primary,
+  },
+  retryBtnText: {
+    color: C.colors.card,
+    fontWeight: '600',
+    fontSize: 14,
+  },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1221,6 +1290,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: C.colors.blue,
   },
   applyModalBtnText: {
     fontSize: 16,

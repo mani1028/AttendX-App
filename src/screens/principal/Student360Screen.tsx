@@ -1,441 +1,594 @@
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  useWindowDimensions,
+  TextInput,
+  ActivityIndicator,
+  Linking,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  ChevronLeft,
+  Search,
   User,
   Calendar,
   BookOpen,
   DollarSign,
   Award,
-  TrendingUp,
-  Clock,
-  FileText,
   Phone,
   Mail,
+  FileText,
+  ChevronRight,
+  X,
 } from 'lucide-react-native';
-import { Theme, colors } from '../../theme/tokens';
+import { Theme } from '../../theme/tokens';
 import type { RootStackParamList } from '../../navigation/types';
 import AvatarBubble from '../../components/common/AvatarBubble';
+import AppText from '../../components/common/AppText';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { getProfile } from '../../services/studentService';
+import {
+  getStudentPromotionHistory,
+  searchPrincipalStudents,
+  type PrincipalStudentSearchResult,
+} from '../../services/principalService';
 
-type TabKey = 'attendance' | 'academics' | 'fees' | 'health';
+const PAGE_GUTTER = 14;
+
+type TabKey = 'overview' | 'academics' | 'contact';
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-  { key: 'attendance', label: 'Attendance', icon: <Calendar size={14} /> },
+  { key: 'overview', label: 'Overview', icon: <User size={14} /> },
   { key: 'academics', label: 'Academics', icon: <BookOpen size={14} /> },
-  { key: 'fees', label: 'Fees', icon: <DollarSign size={14} /> },
-  { key: 'health', label: 'Health', icon: <Award size={14} /> },
+  { key: 'contact', label: 'Contact', icon: <Phone size={14} /> },
 ];
 
-const MOCK_STUDENT = {
-  id: 'STU-042',
-  name: 'Aarav Mehta',
-  class: 'Class 8 - A',
-  section: 'Section A',
-  rollNo: '42',
-  fatherName: 'Rajesh Mehta',
-  phone: '+91 98765 43210',
-  email: 'rajesh.mehta@email.com',
-  avatar: undefined as string | undefined,
-};
+function pickText(...values: unknown[]): string {
+  for (const value of values) {
+    if (value !== null && value !== undefined && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return '—';
+}
 
-const MOCK_ATTENDANCE = {
-  rate: 92,
-  present: 184,
-  absent: 10,
-  late: 6,
-  total: 200,
-  monthly: [
-    { month: 'Jun 2026', present: 22, absent: 1, late: 1 },
-    { month: 'May 2026', present: 21, absent: 2, late: 0 },
-    { month: 'Apr 2026', present: 19, absent: 1, late: 3 },
-    { month: 'Mar 2026', present: 23, absent: 0, late: 1 },
-    { month: 'Feb 2026', present: 20, absent: 2, late: 1 },
-  ],
-};
-
-const MOCK_ACADEMICS = {
-  overallGrade: 'A',
-  percentage: 87,
-  subjects: [
-    { name: 'Mathematics', marks: 92, total: 100, grade: 'A+' },
-    { name: 'Science', marks: 85, total: 100, grade: 'A' },
-    { name: 'English', marks: 78, total: 100, grade: 'B+' },
-    { name: 'Social Studies', marks: 88, total: 100, grade: 'A' },
-    { name: 'Hindi', marks: 91, total: 100, grade: 'A+' },
-    { name: 'Computer Science', marks: 95, total: 100, grade: 'A+' },
-  ],
-  remarks: 'Aarav is a diligent student with consistent performance. Excellent participation in class discussions.',
-  teacher: 'Mrs. Sharma',
-};
-
-const MOCK_FEES = {
-  total: 45000,
-  paid: 30000,
-  pending: 15000,
-  dueDate: '15 Jul 2026',
-  history: [
-    { date: '01 Apr 2026', amount: 15000, status: 'Paid', method: 'UPI' },
-    { date: '01 Jan 2026', amount: 15000, status: 'Paid', method: 'Card' },
-    { date: '15 Jul 2026', amount: 15000, status: 'Pending', method: '-' },
-  ],
-};
-
-const MOCK_HEALTH = {
-  bloodGroup: 'B+',
-  height: '152 cm',
-  weight: '45 kg',
-  allergies: 'None',
-  medications: 'None',
-  lastCheckup: '12 May 2026',
-  emergencyContact: { name: 'Priya Mehta', relation: 'Mother', phone: '+91 98765 43211' },
-  records: [
-    { date: '12 May 2026', type: 'Annual Checkup', status: 'Healthy', notes: 'All vitals normal' },
-    { date: '20 Nov 2025', type: 'Eye Test', status: 'Normal', notes: 'Vision 6/6 both eyes' },
-    { date: '15 Aug 2025', type: 'Dental Checkup', status: 'Healthy', notes: 'No cavities' },
-  ],
-};
-
-const formatCurrency = (n: number) => `₹${n.toLocaleString('en-IN')}`;
-
-const AttendanceCircle: React.FC<{ rate: number }> = ({ rate }) => {
-  const { width: SCREEN_W } = useWindowDimensions();
-  const size = SCREEN_W * 0.28;
-  const r = size / 2 - 8;
-  const circumference = 2 * Math.PI * r;
-  const offset = circumference - (rate / 100) * circumference;
-
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <View style={[s.circleWrap, { width: size, height: size }]}>
-      <View style={[s.circleTrack, { width: size, height: size, borderRadius: size / 2 }]}>
-        <View
-          style={[
-            s.circleFill,
-            {
-              width: size,
-              height: size,
-              borderRadius: size / 2,
-              borderColor: rate >= 90 ? Theme.colors.success : Theme.colors.warning,
-              borderTopColor: 'transparent',
-              borderRightColor: rate >= 50 ? (rate >= 90 ? Theme.colors.success : Theme.colors.warning) : 'transparent',
-              transform: [{ rotate: '-90deg' }],
-            },
-          ]}
-        />
-        <View style={s.circleInner}>
-          <Text style={[Theme.typography.h1, { color: rate >= 90 ? Theme.colors.success : Theme.colors.warning }]}>{rate}%</Text>
-          <Text style={[Theme.typography.caption, { color: Theme.colors.textMuted }]}>Attendance</Text>
-        </View>
-      </View>
+    <View style={styles.infoRow}>
+      <AppText style={styles.infoLabel}>{label}</AppText>
+      <AppText style={styles.infoValue} weight="semibold">{value}</AppText>
     </View>
   );
-};
+}
 
 export default function Student360Screen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'Student360'>>();
   const insets = useSafeAreaInsets();
-  const { width: SCREEN_W } = useWindowDimensions();
-  const [activeTab, setActiveTab] = useState<TabKey>('attendance');
 
-  const student = useMemo(() => {
-    const params = route.params;
-    return {
-      ...MOCK_STUDENT,
-      name: params?.studentName || MOCK_STUDENT.name,
-      id: params?.studentId || MOCK_STUDENT.id,
-    };
-  }, [route.params]);
+  const [schoolCode, setSchoolCode] = useState('');
+  const [branchId, setBranchId] = useState('');
+  const [query, setQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<PrincipalStudentSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
 
-  const renderAttendance = () => (
-    <View>
-      <View style={s.attendanceTop}>
-        <AttendanceCircle rate={MOCK_ATTENDANCE.rate} />
-        <View style={s.attendanceCounts}>
-          <View style={[s.countItem, { backgroundColor: Theme.colors.successBg }]}>
-            <Text style={[Theme.typography.h3, { color: Theme.colors.success }]}>{MOCK_ATTENDANCE.present}</Text>
-            <Text style={[Theme.typography.caption, { color: Theme.colors.textMuted }]}>Present</Text>
-          </View>
-          <View style={[s.countItem, { backgroundColor: Theme.colors.errorBg }]}>
-            <Text style={[Theme.typography.h3, { color: Theme.colors.error }]}>{MOCK_ATTENDANCE.absent}</Text>
-            <Text style={[Theme.typography.caption, { color: Theme.colors.textMuted }]}>Absent</Text>
-          </View>
-          <View style={[s.countItem, { backgroundColor: Theme.colors.warningBg }]}>
-            <Text style={[Theme.typography.h3, { color: Theme.colors.warning }]}>{MOCK_ATTENDANCE.late}</Text>
-            <Text style={[Theme.typography.caption, { color: Theme.colors.textMuted }]}>Late</Text>
-          </View>
-        </View>
+  const [selectedStudent, setSelectedStudent] = useState<PrincipalStudentSearchResult | null>(null);
+  const [profile, setProfile] = useState<Record<string, any> | null>(null);
+  const [history, setHistory] = useState<any[]>([]);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+
+  const headers = useMemo(
+    () => ({
+      'X-School-Code': schoolCode,
+      'x-school-code': schoolCode,
+      'X-Branch-Id': branchId,
+      'x-branch-id': branchId,
+    }),
+    [schoolCode, branchId],
+  );
+
+  useEffect(() => {
+    (async () => {
+      const code =
+        (await AsyncStorage.getItem('school_code')) ||
+        (await AsyncStorage.getItem('schoolCode')) ||
+        '';
+      const branch =
+        (await AsyncStorage.getItem('branch_id')) ||
+        (await AsyncStorage.getItem('branchId')) ||
+        '';
+      setSchoolCode(code);
+      setBranchId(branch);
+    })();
+  }, []);
+
+  useEffect(() => {
+    const initialId = route.params?.studentId;
+    const initialName = route.params?.studentName;
+    if (initialId) {
+      setQuery(initialId);
+      setSelectedStudent({
+        roll_no: initialId,
+        student_full_name: initialName,
+        name: initialName,
+      });
+    }
+  }, [route.params?.studentId, route.params?.studentName]);
+
+  const loadStudentProfile = useCallback(async (student: PrincipalStudentSearchResult) => {
+    const rollNo = pickText(student.roll_no, student.roll_number, student.student_id);
+    if (!rollNo || rollNo === '—') {
+      setProfileError('Student ID is missing for this record.');
+      return;
+    }
+
+    setLoadingProfile(true);
+    setProfileError('');
+    try {
+      const [profileData, historyRows] = await Promise.all([
+        getProfile(rollNo, schoolCode),
+        getStudentPromotionHistory(rollNo, headers),
+      ]);
+      setProfile(profileData || null);
+      setHistory(Array.isArray(historyRows) ? historyRows : []);
+      if (!profileData) {
+        setProfileError('Student profile not found.');
+      }
+    } catch (error: any) {
+      setProfile(null);
+      setHistory([]);
+      setProfileError(error?.response?.data?.detail || error?.message || 'Failed to load student profile.');
+    } finally {
+      setLoadingProfile(false);
+    }
+  }, [headers, schoolCode]);
+
+  useEffect(() => {
+    if (selectedStudent && schoolCode) {
+      loadStudentProfile(selectedStudent);
+    }
+  }, [selectedStudent, schoolCode, loadStudentProfile]);
+
+  useEffect(() => {
+    if (!schoolCode) { return undefined; }
+
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      setSearchResults([]);
+      setSearchError('');
+      return undefined;
+    }
+
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      setSearchError('');
+      try {
+        const rows = await searchPrincipalStudents(trimmed, headers);
+        setSearchResults(rows);
+      } catch (error: any) {
+        setSearchResults([]);
+        setSearchError(error?.response?.data?.detail || error?.message || 'Search failed.');
+      } finally {
+        setSearching(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [query, schoolCode, headers]);
+
+  const displayName = pickText(
+    profile?.student_full_name,
+    profile?.name,
+    selectedStudent?.student_full_name,
+    selectedStudent?.name,
+  );
+
+  const displayClass = profile
+    ? `Class ${pickText(profile.class_grade, profile.class)} - ${pickText(profile.section, '—')}`
+    : selectedStudent
+      ? `Class ${pickText(selectedStudent.class_grade)} - ${pickText(selectedStudent.section)}`
+      : '';
+
+  const rollNo = pickText(
+    profile?.roll_number,
+    profile?.roll_no,
+    selectedStudent?.roll_number,
+    selectedStudent?.roll_no,
+  );
+
+  const handleSelectStudent = (student: PrincipalStudentSearchResult) => {
+    setSelectedStudent(student);
+    setActiveTab('overview');
+    setSearchResults([]);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedStudent(null);
+    setProfile(null);
+    setHistory([]);
+    setProfileError('');
+    setQuery('');
+    setSearchResults([]);
+  };
+
+  const handleCall = (phone: string) => {
+    const normalized = phone.replace(/\s/g, '');
+    if (!normalized || normalized === '—') {
+      Alert.alert('Unavailable', 'No phone number on file.');
+      return;
+    }
+    Linking.openURL(`tel:${normalized}`).catch(() => {
+      Alert.alert('Error', 'Could not open the dialer.');
+    });
+  };
+
+  const handleEmail = (email: string) => {
+    if (!email || email === '—') {
+      Alert.alert('Unavailable', 'No email on file.');
+      return;
+    }
+    Linking.openURL(`mailto:${email}`).catch(() => {
+      Alert.alert('Error', 'Could not open the mail app.');
+    });
+  };
+
+  const renderSearch = () => (
+    <View style={styles.searchCard}>
+      <AppText style={styles.searchTitle} weight="bold">Find a Student</AppText>
+      <AppText style={styles.searchSub}>
+        Search by student name, roll number, or student ID.
+      </AppText>
+
+      <View style={styles.searchInputWrap}>
+        <Search size={18} color={Theme.colors.textMuted} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Name or student ID..."
+          placeholderTextColor={Theme.colors.textMuted}
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+        />
+        {query.length > 0 && (
+          <TouchableOpacity accessibilityRole="button" onPress={() => setQuery('')}>
+            <X size={18} color={Theme.colors.textMuted} />
+          </TouchableOpacity>
+        )}
       </View>
 
-      <Text style={[Theme.typography.h4, { color: Theme.colors.text, marginTop: Theme.spacing.lg, marginBottom: Theme.spacing.sm }]}>Monthly Trend</Text>
-      {MOCK_ATTENDANCE.monthly.map((m, i) => (
-        <View key={i} style={s.monthRow}>
-          <Text style={[Theme.typography.body, { color: Theme.colors.text, flex: 1 }]}>{m.month}</Text>
-          <View style={s.monthBarWrap}>
-            <View style={[s.monthBar, { width: `${(m.present / 25) * 100}%` as any, backgroundColor: Theme.colors.success }]} />
-          </View>
-          <Text style={[Theme.typography.caption, { color: Theme.colors.textMuted, width: 60, textAlign: 'right' }]}>{m.present}/{m.present + m.absent + m.late}</Text>
+      {searching ? (
+        <View style={styles.searchLoading}>
+          <ActivityIndicator size="small" color={Theme.colors.primary} />
+          <AppText style={styles.searchLoadingText}>Searching...</AppText>
         </View>
-      ))}
+      ) : null}
+
+      {searchError ? (
+        <AppText style={styles.searchError}>{searchError}</AppText>
+      ) : null}
+
+      {!searching && query.trim().length >= 2 && searchResults.length === 0 && !searchError ? (
+        <AppText style={styles.emptySearchText}>No students matched your search.</AppText>
+      ) : null}
+
+      {searchResults.map((student) => {
+        const name = pickText(student.student_full_name, student.name, 'Unknown');
+        const id = pickText(student.roll_number, student.roll_no, student.student_id);
+        const classLabel = `Class ${pickText(student.class_grade)} - ${pickText(student.section)}`;
+        return (
+          <TouchableOpacity
+            key={`${id}-${name}`}
+            accessibilityRole="button"
+            style={styles.resultRow}
+            onPress={() => handleSelectStudent(student)}
+          >
+            <AvatarBubble displayName={name} size={42} textSize={16} primaryColor={Theme.colors.primary} />
+            <View style={styles.resultCopy}>
+              <AppText style={styles.resultName} weight="bold">{name}</AppText>
+              <AppText style={styles.resultMeta}>ID: {id} • {classLabel}</AppText>
+            </View>
+            <ChevronRight size={18} color={Theme.colors.textMuted} />
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
+  const renderOverview = () => (
+    <View>
+      <InfoRow label="Student Name" value={displayName} />
+      <InfoRow label="Roll Number" value={rollNo} />
+      <InfoRow label="Admission No." value={pickText(profile?.admission_number)} />
+      <InfoRow label="Class & Section" value={displayClass} />
+      <InfoRow label="Academic Year" value={pickText(profile?.academic_year)} />
+      <InfoRow label="Status" value={pickText(profile?.student_status, profile?.status, 'ACTIVE')} />
+      <InfoRow label="Gender" value={pickText(profile?.gender, profile?.student_gender)} />
+      <InfoRow label="Date of Birth" value={pickText(profile?.date_of_birth, profile?.dob)} />
+      <InfoRow label="Father / Guardian" value={pickText(profile?.father_guardian_name, profile?.parent_guardian_name)} />
     </View>
   );
 
   const renderAcademics = () => (
     <View>
-      <View style={s.gradeRow}>
-        <View style={[s.gradeBadge, { backgroundColor: Theme.colors.successBg }]}>
-          <Text style={[Theme.typography.h1, { color: Theme.colors.success }]}>{MOCK_ACADEMICS.overallGrade}</Text>
+      {history.length === 0 ? (
+        <View style={styles.emptyPanel}>
+          <BookOpen size={36} color={Theme.colors.textMuted} />
+          <AppText style={styles.emptyPanelTitle} weight="bold">No academic history yet</AppText>
+          <AppText style={styles.emptyPanelText}>Promotion and exam history will appear here.</AppText>
         </View>
-        <View style={{ flex: 1, marginLeft: Theme.spacing.md }}>
-          <Text style={[Theme.typography.body, { color: Theme.colors.textMuted }]}>Overall Percentage</Text>
-          <Text style={[Theme.typography.h2, { color: Theme.colors.text }]}>{MOCK_ACADEMICS.percentage}%</Text>
-        </View>
-        <TrendingUp size={24} color={Theme.colors.success} />
-      </View>
-
-      <Text style={[Theme.typography.h4, { color: Theme.colors.text, marginTop: Theme.spacing.lg, marginBottom: Theme.spacing.sm }]}>Subject Marks</Text>
-      {MOCK_ACADEMICS.subjects.map((s2, i) => (
-        <View key={i} style={s.subjectCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={[Theme.typography.body, { color: Theme.colors.text }]}>{s2.name}</Text>
-            <View style={s.progressBarBg}>
-              <View style={[s.progressBar, { width: `${s2.marks}%` as any, backgroundColor: s2.marks >= 90 ? Theme.colors.success : s2.marks >= 75 ? Theme.colors.info : Theme.colors.warning }]} />
+      ) : (
+        history.map((item, index) => (
+          <View key={`${item?.id || index}`} style={styles.historyRow}>
+            <View style={styles.historyDot} />
+            <View style={{ flex: 1 }}>
+              <AppText style={styles.historyTitle} weight="semibold">
+                {pickText(item?.to_class_name, item?.class_grade, item?.title, 'Record')}
+              </AppText>
+              <AppText style={styles.historySub}>
+                {pickText(item?.academic_year, item?.year, item?.created_at?.slice?.(0, 10))}
+              </AppText>
+              {item?.remarks ? (
+                <AppText style={styles.historyRemarks}>{String(item.remarks)}</AppText>
+              ) : null}
             </View>
           </View>
-          <View style={s.subjectRight}>
-            <Text style={[Theme.typography.h4, { color: Theme.colors.text }]}>{s2.marks}/{s2.total}</Text>
-            <Text style={[Theme.typography.caption, { color: s2.marks >= 90 ? Theme.colors.success : s2.marks >= 75 ? Theme.colors.info : Theme.colors.warning }]}>{s2.grade}</Text>
-          </View>
-        </View>
-      ))}
-
-      <View style={s.remarkBox}>
-        <FileText size={16} color={Theme.colors.textMuted} />
-        <View style={{ marginLeft: Theme.spacing.sm, flex: 1 }}>
-          <Text style={[Theme.typography.caption, { color: Theme.colors.textMuted }]}>Teacher Remarks</Text>
-          <Text style={[Theme.typography.body, { color: Theme.colors.text, marginTop: 2 }]}>{MOCK_ACADEMICS.remarks}</Text>
-          <Text style={[Theme.typography.caption, { color: Theme.colors.primary, marginTop: Theme.spacing.xs }]}>— {MOCK_ACADEMICS.teacher}</Text>
-        </View>
-      </View>
+        ))
+      )}
     </View>
   );
 
-  const renderFees = () => (
+  const renderContact = () => (
     <View>
-      <View style={s.feesSummary}>
-        <View style={s.feeItem}>
-          <Text style={[Theme.typography.label, { color: Theme.colors.textMuted }]}>Total Fees</Text>
-          <Text style={[Theme.typography.h3, { color: Theme.colors.text }]}>{formatCurrency(MOCK_FEES.total)}</Text>
-        </View>
-        <View style={[s.feeItem, { borderLeftWidth: 1, borderLeftColor: Theme.colors.border, paddingLeft: Theme.spacing.md }]}>
-          <Text style={[Theme.typography.label, { color: Theme.colors.textMuted }]}>Paid</Text>
-          <Text style={[Theme.typography.h3, { color: Theme.colors.success }]}>{formatCurrency(MOCK_FEES.paid)}</Text>
-        </View>
-        <View style={[s.feeItem, { borderLeftWidth: 1, borderLeftColor: Theme.colors.border, paddingLeft: Theme.spacing.md }]}>
-          <Text style={[Theme.typography.label, { color: Theme.colors.textMuted }]}>Pending</Text>
-          <Text style={[Theme.typography.h3, { color: Theme.colors.error }]}>{formatCurrency(MOCK_FEES.pending)}</Text>
-        </View>
-      </View>
+      <InfoRow label="Parent Mobile" value={pickText(profile?.parent_guardian_mobile, profile?.father_mobile, profile?.mobile_number)} />
+      <InfoRow label="Parent Email" value={pickText(profile?.parent_guardian_email, profile?.email_id)} />
+      <InfoRow label="Address" value={pickText(profile?.address, profile?.permanent_address, profile?.current_address)} />
 
-      <View style={[s.dueRow, { backgroundColor: Theme.colors.warningBg, borderColor: Theme.colors.warning }]}>
-        <Clock size={16} color={Theme.colors.warning} />
-        <Text style={[Theme.typography.body, { color: Theme.colors.warning, marginLeft: Theme.spacing.sm }]}>Next due: {MOCK_FEES.dueDate}</Text>
+      <View style={styles.contactActions}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={[styles.actionBtn, { backgroundColor: Theme.colors.primary }]}
+          onPress={() => handleCall(pickText(profile?.parent_guardian_mobile, profile?.father_mobile, profile?.mobile_number))}
+        >
+          <Phone size={16} color="#fff" />
+          <AppText style={styles.actionBtnText} weight="semibold">Call Parent</AppText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={[styles.actionBtn, { backgroundColor: Theme.colors.info }]}
+          onPress={() => handleEmail(pickText(profile?.parent_guardian_email, profile?.email_id))}
+        >
+          <Mail size={16} color="#fff" />
+          <AppText style={styles.actionBtnText} weight="semibold">Email Parent</AppText>
+        </TouchableOpacity>
       </View>
-
-      <Text style={[Theme.typography.h4, { color: Theme.colors.text, marginTop: Theme.spacing.lg, marginBottom: Theme.spacing.sm }]}>Payment History</Text>
-      {MOCK_FEES.history.map((p, i) => (
-        <View key={i} style={s.paymentRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={[Theme.typography.body, { color: Theme.colors.text }]}>{p.date}</Text>
-            <Text style={[Theme.typography.caption, { color: Theme.colors.textMuted }]}>{p.method}</Text>
-          </View>
-          <Text style={[Theme.typography.h4, { color: Theme.colors.text }]}>{formatCurrency(p.amount)}</Text>
-          <View style={[s.statusPill, { backgroundColor: p.status === 'Paid' ? Theme.colors.successBg : Theme.colors.warningBg }]}>
-            <Text style={[Theme.typography.caption, { color: p.status === 'Paid' ? Theme.colors.success : Theme.colors.warning }]}>{p.status}</Text>
-          </View>
-        </View>
-      ))}
     </View>
   );
 
-  const renderHealth = () => (
-    <View>
-      <View style={s.healthGrid}>
-        {[
-          { label: 'Blood Group', value: MOCK_HEALTH.bloodGroup },
-          { label: 'Height', value: MOCK_HEALTH.height },
-          { label: 'Weight', value: MOCK_HEALTH.weight },
-          { label: 'Allergies', value: MOCK_HEALTH.allergies },
-          { label: 'Medications', value: MOCK_HEALTH.medications },
-          { label: 'Last Checkup', value: MOCK_HEALTH.lastCheckup },
-        ].map((item, i) => (
-          <View key={i} style={s.healthCell}>
-            <Text style={[Theme.typography.caption, { color: Theme.colors.textMuted }]}>{item.label}</Text>
-            <Text style={[Theme.typography.bodyMd, { color: Theme.colors.text, marginTop: 2 }]}>{item.value}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={[s.emergencyCard, { backgroundColor: Theme.colors.errorBg, borderColor: Theme.colors.error }]}>
-        <Phone size={16} color={Theme.colors.error} />
-        <View style={{ marginLeft: Theme.spacing.sm, flex: 1 }}>
-          <Text style={[Theme.typography.label, { color: Theme.colors.textMuted }]}>Emergency Contact</Text>
-          <Text style={[Theme.typography.bodyMd, { color: Theme.colors.text }]}>{MOCK_HEALTH.emergencyContact.name} ({MOCK_HEALTH.emergencyContact.relation})</Text>
-          <Text style={[Theme.typography.body, { color: Theme.colors.primary }]}>{MOCK_HEALTH.emergencyContact.phone}</Text>
+  const renderTabContent = () => {
+    if (loadingProfile) {
+      return (
+        <View style={styles.loadingPanel}>
+          <ActivityIndicator size="large" color={Theme.colors.primary} />
+          <AppText style={styles.loadingText}>Loading student profile...</AppText>
         </View>
-      </View>
+      );
+    }
 
-      <Text style={[Theme.typography.h4, { color: Theme.colors.text, marginTop: Theme.spacing.lg, marginBottom: Theme.spacing.sm }]}>Health Records</Text>
-      {MOCK_HEALTH.records.map((rec, i) => (
-        <View key={i} style={s.recordRow}>
-          <View style={[s.recordDot, { backgroundColor: rec.status === 'Healthy' || rec.status === 'Normal' ? Theme.colors.success : Theme.colors.info }]} />
-          <View style={{ flex: 1, marginLeft: Theme.spacing.sm }}>
-            <Text style={[Theme.typography.body, { color: Theme.colors.text }]}>{rec.type}</Text>
-            <Text style={[Theme.typography.caption, { color: Theme.colors.textMuted }]}>{rec.date} — {rec.notes}</Text>
-          </View>
-          <Text style={[Theme.typography.caption, { color: rec.status === 'Healthy' || rec.status === 'Normal' ? Theme.colors.success : Theme.colors.info }]}>{rec.status}</Text>
+    if (profileError) {
+      return (
+        <View style={styles.emptyPanel}>
+          <FileText size={36} color={Theme.colors.error} />
+          <AppText style={styles.emptyPanelTitle} weight="bold">{profileError}</AppText>
         </View>
-      ))}
-    </View>
-  );
+      );
+    }
 
-  const renderContent = () => {
     switch (activeTab) {
-      case 'attendance': return renderAttendance();
-      case 'academics': return renderAcademics();
-      case 'fees': return renderFees();
-      case 'health': return renderHealth();
-      default: return null;
+      case 'overview':
+        return renderOverview();
+      case 'academics':
+        return renderAcademics();
+      case 'contact':
+        return renderContact();
+      default:
+        return null;
     }
   };
 
   return (
-    <View style={[s.root, { paddingTop: insets.top, backgroundColor: Theme.colors.background }]}>
-      <ScrollView contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + Theme.spacing.xl }]} showsVerticalScrollIndicator={false}>
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-            <ChevronLeft size={22} color={Theme.colors.text} />
-          </TouchableOpacity>
-          <Text style={[Theme.typography.h2, { color: Theme.colors.text }]}>Student 360</Text>
-          <View style={{ width: 36 }} />
-        </View>
+    <View style={styles.root}>
+      <StandardPageHeader
+        title="Student 360"
+        subtitle={selectedStudent ? displayName : 'Search by name or student ID'}
+        onBackPress={() => navigation.goBack()}
+      />
 
-        <View style={[s.profileCard, { backgroundColor: Theme.colors.card, borderColor: Theme.colors.border }]}>
-          <AvatarBubble
-            displayName={student.name}
-            size={64}
-            textSize={24}
-            primaryColor={Theme.colors.primary}
-          />
-          <View style={s.profileInfo}>
-            <Text style={[Theme.typography.h3, { color: Theme.colors.text }]}>{student.name}</Text>
-            <Text style={[Theme.typography.body, { color: Theme.colors.textMuted }]}>{student.class} • Roll No. {student.rollNo}</Text>
-            <View style={s.profileMeta}>
-              <View style={s.metaPill}>
-                <User size={12} color={Theme.colors.textMuted} />
-                <Text style={[Theme.typography.caption, { color: Theme.colors.textMuted, marginLeft: 4 }]}>{student.id}</Text>
+      <ScrollView
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={[styles.scrollContent, innerPageLayoutStyles.scrollContent, { paddingBottom: insets.bottom + Theme.spacing.xl }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+          {!selectedStudent ? (
+            renderSearch()
+          ) : (
+            <>
+              <View style={styles.profileCard}>
+                <AvatarBubble
+                  displayName={displayName}
+                  size={64}
+                  textSize={24}
+                  primaryColor={Theme.colors.primary}
+                />
+                <View style={styles.profileInfo}>
+                  <AppText style={styles.profileName} weight="bold">{displayName}</AppText>
+                  <AppText style={styles.profileMeta}>{displayClass} • Roll {rollNo}</AppText>
+                  <AppText style={styles.profileMeta}>Admission: {pickText(profile?.admission_number)}</AppText>
+                </View>
+                <TouchableOpacity accessibilityRole="button" style={styles.changeBtn} onPress={handleClearSelection}>
+                  <Search size={16} color={Theme.colors.primary} />
+                  <AppText style={styles.changeBtnText} weight="semibold">Search</AppText>
+                </TouchableOpacity>
               </View>
-              <View style={s.metaPill}>
-                <Phone size={12} color={Theme.colors.textMuted} />
-                <Text style={[Theme.typography.caption, { color: Theme.colors.textMuted, marginLeft: 4 }]}>{student.phone}</Text>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContainer}>
+                {TABS.map((tab) => (
+                  <TouchableOpacity
+                    key={tab.key}
+                    accessibilityRole="button"
+                    onPress={() => setActiveTab(tab.key)}
+                    style={[styles.tabPill, activeTab === tab.key && styles.tabPillActive]}
+                  >
+                    {tab.icon}
+                    <AppText style={[styles.tabPillText, activeTab === tab.key && styles.tabPillTextActive]} weight="semibold">
+                      {tab.label}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <View style={styles.contentCard}>
+                {renderTabContent()}
               </View>
-            </View>
-          </View>
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabsContainer}>
-          {TABS.map((tab) => (
-            <TouchableOpacity
-              key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
-              style={[s.tabPill, activeTab === tab.key ? s.tabPillActive : { backgroundColor: Theme.colors.card, borderColor: Theme.colors.border }]}
-            >
-              {tab.icon}
-              <Text style={[Theme.typography.caption, { marginLeft: 4, color: activeTab === tab.key ? '#fff' : Theme.colors.textMuted }]}>{tab.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        <View style={[s.contentCard, { backgroundColor: Theme.colors.card, borderColor: Theme.colors.border }]}>
-          {renderContent()}
+            </>
+          )}
         </View>
       </ScrollView>
-
-      <View style={[s.bottomBar, { paddingBottom: insets.bottom + Theme.spacing.sm, backgroundColor: Theme.colors.card, borderTopColor: Theme.colors.border }]}>
-        <TouchableOpacity style={[s.actionBtn, { backgroundColor: Theme.colors.primary }]}>
-          <Phone size={16} color="#fff" />
-          <Text style={[Theme.typography.caption, { color: '#fff', marginLeft: Theme.spacing.xs }]}>Call Parent</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[s.actionBtn, { backgroundColor: Theme.colors.info }]}>
-          <Mail size={16} color="#fff" />
-          <Text style={[Theme.typography.caption, { color: '#fff', marginLeft: Theme.spacing.xs }]}>Send Message</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[s.actionBtn, { backgroundColor: Theme.colors.success }]}>
-          <FileText size={16} color="#fff" />
-          <Text style={[Theme.typography.caption, { color: '#fff', marginLeft: Theme.spacing.xs }]}>View Reports</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1 },
-  scrollContent: { paddingHorizontal: Theme.spacing.md, paddingBottom: Theme.spacing.xl },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Theme.spacing.sm,
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Theme.colors.background },
+  scrollContent: { flexGrow: 1 },
+  pageBody: {
+    paddingHorizontal: PAGE_GUTTER,
+    paddingTop: 14,
   },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: Theme.radius.full,
+  searchCard: {
     backgroundColor: Theme.colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: Theme.radius.lg,
     borderWidth: 1,
     borderColor: Theme.colors.border,
+    padding: Theme.spacing.md,
+  },
+  searchTitle: {
+    fontSize: 18,
+    color: Theme.colors.text,
+  },
+  searchSub: {
+    ...Theme.typography.body,
+    color: Theme.colors.textMuted,
+    marginTop: 4,
+    marginBottom: Theme.spacing.md,
+  },
+  searchInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: 12,
+    backgroundColor: Theme.colors.background,
+    paddingHorizontal: 12,
+    height: 48,
+  },
+  searchInput: {
+    flex: 1,
+    ...Theme.typography.bodyMd,
+    color: Theme.colors.text,
+    paddingVertical: 0,
+  },
+  searchLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: Theme.spacing.md,
+  },
+  searchLoadingText: {
+    color: Theme.colors.textMuted,
+  },
+  searchError: {
+    color: Theme.colors.error,
+    marginTop: Theme.spacing.sm,
+  },
+  emptySearchText: {
+    color: Theme.colors.textMuted,
+    marginTop: Theme.spacing.md,
+    textAlign: 'center',
+  },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+    marginTop: 4,
+  },
+  resultCopy: { flex: 1 },
+  resultName: {
+    color: Theme.colors.text,
+    fontSize: 15,
+  },
+  resultMeta: {
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
+    marginTop: 2,
   },
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Theme.spacing.md,
+    backgroundColor: Theme.colors.card,
     borderRadius: Theme.radius.lg,
     borderWidth: 1,
-    marginTop: Theme.spacing.sm,
+    borderColor: Theme.colors.border,
+    padding: Theme.spacing.md,
     marginBottom: Theme.spacing.md,
   },
   profileInfo: {
     flex: 1,
     marginLeft: Theme.spacing.md,
+    marginRight: Theme.spacing.sm,
+  },
+  profileName: {
+    fontSize: 18,
+    color: Theme.colors.text,
   },
   profileMeta: {
-    flexDirection: 'row',
-    marginTop: Theme.spacing.xs,
-    gap: Theme.spacing.sm,
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
+    marginTop: 2,
   },
-  metaPill: {
-    flexDirection: 'row',
+  changeBtn: {
     alignItems: 'center',
-    backgroundColor: Theme.colors.backgroundAlt,
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: 2,
-    borderRadius: Theme.radius.full,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: Theme.colors.background,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  changeBtnText: {
+    ...Theme.typography.caption,
+    color: Theme.colors.primary,
+    marginTop: 2,
   },
   tabsContainer: {
-    paddingHorizontal: Theme.spacing.xs,
-    paddingBottom: Theme.spacing.md,
     gap: Theme.spacing.sm,
+    paddingBottom: Theme.spacing.md,
   },
   tabPill: {
     flexDirection: 'row',
@@ -444,155 +597,115 @@ const s = StyleSheet.create({
     paddingVertical: Theme.spacing.sm,
     borderRadius: Theme.radius.full,
     borderWidth: 1,
+    borderColor: Theme.colors.border,
+    backgroundColor: Theme.colors.card,
+    marginRight: Theme.spacing.sm,
   },
   tabPillActive: {
     backgroundColor: Theme.colors.primary,
     borderColor: Theme.colors.primary,
   },
+  tabPillText: {
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
+    marginLeft: 4,
+  },
+  tabPillTextActive: {
+    color: '#fff',
+  },
   contentCard: {
-    borderRadius: Theme.spacing.lg,
+    backgroundColor: Theme.colors.card,
+    borderRadius: Theme.radius.lg,
     borderWidth: 1,
+    borderColor: Theme.colors.border,
     padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.lg,
   },
-  circleWrap: { alignItems: 'center', justifyContent: 'center' },
-  circleTrack: { borderWidth: 6, borderColor: Theme.colors.border, alignItems: 'center', justifyContent: 'center' },
-  circleFill: { position: 'absolute', top: 0, left: 0, borderWidth: 6 },
-  circleInner: { alignItems: 'center', justifyContent: 'center' },
-  attendanceTop: {
+  infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  attendanceCounts: { flex: 1, marginLeft: Theme.spacing.lg, gap: Theme.spacing.sm },
-  countItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.sm,
-    borderRadius: Theme.radius.md,
-  },
-  monthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.sm,
+    gap: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: Theme.colors.border,
   },
-  monthBarWrap: {
+  infoLabel: {
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
     flex: 1,
+  },
+  infoValue: {
+    ...Theme.typography.body,
+    color: Theme.colors.text,
+    flex: 1.2,
+    textAlign: 'right',
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+  },
+  historyDot: {
+    width: 8,
     height: 8,
-    backgroundColor: Theme.colors.border,
-    borderRadius: Theme.radius.full,
-    marginHorizontal: Theme.spacing.sm,
-    overflow: 'hidden',
+    borderRadius: 4,
+    backgroundColor: Theme.colors.primary,
+    marginTop: 6,
+    marginRight: 10,
   },
-  monthBar: { height: '100%', borderRadius: Theme.radius.full },
-  gradeRow: {
+  historyTitle: {
+    color: Theme.colors.text,
+  },
+  historySub: {
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
+    marginTop: 2,
+  },
+  historyRemarks: {
+    ...Theme.typography.caption,
+    color: Theme.colors.text,
+    marginTop: 4,
+  },
+  contactActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.backgroundAlt,
-    borderRadius: Theme.radius.lg,
-    padding: Theme.spacing.md,
-  },
-  gradeBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: Theme.radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  subjectCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-  },
-  progressBarBg: {
-    height: 6,
-    backgroundColor: Theme.colors.border,
-    borderRadius: Theme.radius.full,
-    marginTop: Theme.spacing.xs,
-    overflow: 'hidden',
-  },
-  progressBar: { height: '100%', borderRadius: Theme.radius.full },
-  subjectRight: { alignItems: 'flex-end', marginLeft: Theme.spacing.md, minWidth: 60 },
-  remarkBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: Theme.colors.backgroundAlt,
-    borderRadius: Theme.radius.md,
-    padding: Theme.spacing.md,
+    gap: 10,
     marginTop: Theme.spacing.md,
-  },
-  feesSummary: {
-    flexDirection: 'row',
-    backgroundColor: Theme.colors.backgroundAlt,
-    borderRadius: Theme.radius.lg,
-    padding: Theme.spacing.md,
-  },
-  feeItem: { flex: 1, alignItems: 'center' },
-  dueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: Theme.radius.md,
-    borderWidth: 1,
-    padding: Theme.spacing.sm,
-    marginTop: Theme.spacing.md,
-  },
-  paymentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-  },
-  statusPill: {
-    marginLeft: Theme.spacing.sm,
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: 2,
-    borderRadius: Theme.radius.full,
-  },
-  healthGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Theme.spacing.sm,
-  },
-  healthCell: {
-    width: '48%',
-    backgroundColor: Theme.colors.backgroundAlt,
-    borderRadius: Theme.radius.md,
-    padding: Theme.spacing.sm,
-  },
-  emergencyCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    borderRadius: Theme.radius.md,
-    borderWidth: 1,
-    padding: Theme.spacing.md,
-    marginTop: Theme.spacing.md,
-  },
-  recordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Theme.spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-  },
-  recordDot: { width: 8, height: 8, borderRadius: 4 },
-  bottomBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingTop: Theme.spacing.sm,
-    borderTopWidth: 1,
   },
   actionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.sm,
-    borderRadius: Theme.radius.md,
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  actionBtnText: {
+    color: '#fff',
+    fontSize: 13,
+  },
+  loadingPanel: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    gap: 10,
+  },
+  loadingText: {
+    color: Theme.colors.textMuted,
+  },
+  emptyPanel: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    gap: 8,
+  },
+  emptyPanelTitle: {
+    color: Theme.colors.text,
+    fontSize: 16,
+  },
+  emptyPanelText: {
+    ...Theme.typography.body,
+    color: Theme.colors.textMuted,
+    textAlign: 'center',
   },
 });

@@ -21,11 +21,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import { WebView } from 'react-native-webview';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { XCircle, CheckCircle2, ChevronDown, AlertTriangle, Users, Info, Clock, User, Trash2 } from 'lucide-react-native';
 import CustomPickerModal from '../../components/common/CustomPickerModal';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles, SCROLL_PAGE_GUTTER } from '../../components/layout/innerPageLayoutStyles';
 import { ENV } from '../../config/api.config';
 import { useAuth } from '../../context/AuthContext';
 import * as principalService from '../../services/principalService';
@@ -81,14 +82,24 @@ interface Employee {
   salary_amount: number;
 }
 
+interface LeaveBreakdown {
+  CASUAL: number;
+  SICK: number;
+  PAID: number;
+  COMP_OFF: number;
+}
+
 interface Attendance {
   teacher_id: string;
   present_days: number;
   absent_days: number;
+  lop_days: number;
   late_days: number;
   paid_leave_days: number;
   total_days: number;
+  applicable_working_days: number;
   attendance_percentage: number;
+  leave_breakdown?: LeaveBreakdown;
 }
 
 interface PayrollResult {
@@ -98,6 +109,8 @@ interface PayrollResult {
   late_days: number;
   paid_leave_used: number;
   lop_days: number;
+  applicable_working_days: number;
+  attendance_percentage: number;
   basic: number;
   hra: number;
   da: number;
@@ -115,6 +128,7 @@ interface PayrollResult {
   net: number;
   mode: string;
   cfg: any;
+  leave_breakdown?: LeaveBreakdown;
 }
 
 interface FixedConfig {
@@ -165,7 +179,7 @@ const DEFAULT_CORP: CorporateConfig = {
   extra_deductions: [],
 };
 
-// ==================== CALCULATORS ====================
+// ==================== HELPERS ====================
 
 function fmt(n: number): string {
   if (!Number.isFinite(n)) {
@@ -183,6 +197,18 @@ function fmt(n: number): string {
   return `${groupedWhole}.${fractionPart}`;
 }
 
+function formatDesignation(value?: string): string {
+  if (!value?.trim()) {
+    return 'Staff';
+  }
+  return value
+    .trim()
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
 function isPeriodInFuture(month: string, year: number): boolean {
   const now = new Date();
   const mi = MONTHS.indexOf(month);
@@ -195,16 +221,90 @@ function uid(): string {
   return Math.random().toString(36).slice(2, 8);
 }
 
+function mapAttendanceFromBackend(
+  att: Record<string, unknown>,
+  teacherId: string,
+  fallbackWorkingDays: number,
+): Attendance {
+  const lopDays = Number(att.lop_days ?? att.absent_days ?? 0);
+  const applicableWorkingDays = Number(att.applicable_working_days) > 0
+    ? Number(att.applicable_working_days)
+    : fallbackWorkingDays;
+  return {
+    teacher_id: teacherId,
+    present_days: Number(att.present_days || 0),
+    absent_days: lopDays,
+    lop_days: lopDays,
+    late_days: Number(att.late_days || 0),
+    paid_leave_days: Number(att.paid_leave_days || 0),
+    total_days: Number(att.total_days) || applicableWorkingDays,
+    applicable_working_days: applicableWorkingDays,
+    attendance_percentage: Number(att.attendance_percentage || 0),
+  };
+}
 
+function emptyAttendance(teacherId: string, wDays: number): Attendance {
+  return {
+    teacher_id: teacherId,
+    present_days: 0,
+    absent_days: wDays,
+    lop_days: wDays,
+    late_days: 0,
+    paid_leave_days: 0,
+    total_days: wDays,
+    applicable_working_days: wDays,
+    attendance_percentage: 0,
+  };
+}
+
+async function fetchLeaveBreakdown(
+  schoolCode: string,
+  employeeId: string,
+  monthIndex: number,
+  year: number,
+): Promise<LeaveBreakdown> {
+  try {
+    const response = await API.post('manage/principal/teacher-leave-balance', {
+      school_code: schoolCode,
+      employee_id: employeeId,
+      month: monthIndex + 1,
+      year,
+    });
+    const balance = response.data?.balance;
+    if (!balance) {
+      return { CASUAL: 0, SICK: 0, PAID: 0, COMP_OFF: 0 };
+    }
+    return {
+      CASUAL: Number(balance.casual_used || 0),
+      SICK: Number(balance.sick_used || 0),
+      PAID: Number(balance.paid_used || 0),
+      COMP_OFF: Number(balance.comp_off_used || 0),
+    };
+  } catch {
+    return { CASUAL: 0, SICK: 0, PAID: 0, COMP_OFF: 0 };
+  }
+}
+
+function resolveAttendancePct(att: Attendance, workingDays: number): number {
+  if (att.attendance_percentage > 0) {
+    return att.attendance_percentage;
+  }
+  const effectiveDays = (att.present_days || 0) + (att.late_days || 0) + (att.paid_leave_days || 0);
+  return workingDays > 0 ? Math.round(effectiveDays / workingDays * 10000) / 100 : 0;
+}
 
 // ==================== CALCULATORS ====================
 
 function calcFixed(emp: Employee, att: Attendance, cfg: FixedConfig, leavePolicy: LeavePolicy): PayrollResult {
   const basic = Number(emp.salary_amount) || 0;
-  const perDay = cfg.working_days > 0 ? basic / cfg.working_days : 0;
-  const lop_days = att.absent_days || 0;
+  const workingDays = att.applicable_working_days > 0
+    ? att.applicable_working_days
+    : (cfg.working_days > 0 ? cfg.working_days : 26);
+  const perDay = workingDays > 0 ? basic / workingDays : 0;
+  const lop_days = att.lop_days !== undefined ? Number(att.lop_days) : Number(att.absent_days || 0);
   const paid_leave_used = att.paid_leave_days || 0;
-  const lop_deduction = perDay * lop_days;
+  const lop_deduction = Math.round(perDay * lop_days * 100) / 100;
+  const attendance_pct = resolveAttendancePct(att, workingDays);
   const net = Math.max(0, basic - lop_deduction);
 
   return {
@@ -214,6 +314,8 @@ function calcFixed(emp: Employee, att: Attendance, cfg: FixedConfig, leavePolicy
     late_days: att.late_days || 0,
     paid_leave_used,
     lop_days,
+    applicable_working_days: workingDays,
+    attendance_percentage: attendance_pct,
     basic,
     hra: 0,
     da: 0,
@@ -231,6 +333,7 @@ function calcFixed(emp: Employee, att: Attendance, cfg: FixedConfig, leavePolicy
     net,
     mode: 'fixed',
     cfg: cfg as any,
+    leave_breakdown: att.leave_breakdown || { CASUAL: 0, SICK: 0, PAID: 0, COMP_OFF: 0 },
   };
 }
 
@@ -245,10 +348,14 @@ function calcCorporate(emp: Employee, att: Attendance, cfg: CorporateConfig, lea
     .reduce((s: number, a: ExtraItem) => s + ctc * a.pct / 100, 0);
   const gross = basic + hra + da + ta + other_allowance + extra_allowances_total;
 
-  const lop_days = att.absent_days || 0;
+  const workingDays = att.applicable_working_days > 0
+    ? att.applicable_working_days
+    : (cfg.working_days > 0 ? cfg.working_days : 26);
+  const perDayGross = workingDays > 0 ? gross / workingDays : 0;
+  const lop_days = att.lop_days !== undefined ? Number(att.lop_days) : Number(att.absent_days || 0);
   const paid_leave_used = att.paid_leave_days || 0;
-  const perDayGross = cfg.working_days > 0 ? gross / cfg.working_days : 0;
-  const lop_deduction = perDayGross * lop_days;
+  const lop_deduction = Math.round(perDayGross * lop_days * 100) / 100;
+  const attendance_pct = resolveAttendancePct(att, workingDays);
   const pf = basic * cfg.pf_pct / 100;
   const esi = basic * cfg.esi_pct / 100;
   const other_deduction = basic * cfg.other_deduction_pct / 100;
@@ -265,6 +372,8 @@ function calcCorporate(emp: Employee, att: Attendance, cfg: CorporateConfig, lea
     late_days: att.late_days || 0,
     paid_leave_used,
     lop_days,
+    applicable_working_days: workingDays,
+    attendance_percentage: attendance_pct,
     basic,
     hra,
     da,
@@ -282,6 +391,7 @@ function calcCorporate(emp: Employee, att: Attendance, cfg: CorporateConfig, lea
     net,
     mode: 'corporate',
     cfg,
+    leave_breakdown: att.leave_breakdown || { CASUAL: 0, SICK: 0, PAID: 0, COMP_OFF: 0 },
   };
 }
 
@@ -307,6 +417,7 @@ async function generatePayslipPDF(
       lop_deduction: result.lop_deduction,
       present_days: result.present_days,
       paid_leave_used: result.paid_leave_used,
+      applicable_working_days: result.applicable_working_days,
       pf: result.pf, esi: result.esi,
       professional_tax: result.professional_tax,
       other_deduction: result.other_deduction,
@@ -401,7 +512,7 @@ const CorporateConfigForm: React.FC<{ cfg: CorporateConfig; onChange: (cfg: Corp
   const sampleNet = Math.max(0, sampleGross - (samplePF + sampleESI + cfg.professional_tax + sampleBasic * cfg.other_deduction_pct / 100 + extraDeds.reduce((s, d) => s + sampleBasic * d.pct / 100, 0)));
 
   return (
-    <ScrollView style={styles.configForm}>
+    <View style={styles.configForm}>
       <Field label="Basic % of CTC" width="100%"><PctInput value={cfg.basic_pct} onChange={(v) => onChange({ ...cfg, basic_pct: v })} /></Field>
       <View style={styles.divider} />
       <View>
@@ -480,7 +591,7 @@ const CorporateConfigForm: React.FC<{ cfg: CorporateConfig; onChange: (cfg: Corp
           </View>
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 
@@ -503,7 +614,7 @@ const PayslipModal: React.FC<{ result: PayrollResult; month: string; year: strin
   const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Payslip – ${empName}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui, -apple-system, sans-serif;background:#fff;color:#111;font-size:12px;padding:20px}.header{padding:20px 16px;border-bottom:2px solid #111;display:flex;justify-content:space-between}.franchise-name{font-size:18px;font-weight:800}.slip-label{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#555;margin-top:3px}.period-box{text-align:right}.period-month{font-size:14px;font-weight:700}.period-gen{font-size:8px;color:#777;margin-top:3px}.info-grid{display:grid;grid-template-columns:repeat(3,1fr);border-left:1px solid #d1d5db;border-top:1px solid #d1d5db}.info-cell{padding: Theme.spacing.smpx 12px;border-right:1px solid #d1d5db;border-bottom:1px solid #d1d5db}.info-label{font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#777;margin-bottom:2px}.info-value{font-size:12px;font-weight:600}.att-grid{display:grid;grid-template-columns:repeat(5,1fr);border-left:1px solid #d1d5db;border-bottom:1px solid #d1d5db}.att-cell{padding:10px 6px;text-align:center;border-right:1px solid #d1d5db}.att-num{font-size:18px;font-weight:800}.att-label{font-size:7px;text-transform:uppercase;letter-spacing:1px;color:#777;margin-top:3px}.earn-ded-grid{display:grid;grid-template-columns:1fr 1fr;border-left:1px solid #d1d5db}.col-header{padding:6px 12px;font-size:8px;font-weight:800;letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid #d1d5db;border-top:1px solid #d1d5db;background:#f9fafb}.row{display:flex;justify-content:space-between;padding:5px 12px;border-bottom:1px solid #ececec}.total-row{display:flex;justify-content:space-between;padding:6px 12px;font-weight:700;border-top:2px solid #111;border-bottom:1px solid #d1d5db}.net-band{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border:2px solid #111;margin:12px}.net-label{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#555;margin-bottom:4px}.net-amt{font-size:24px;font-weight:800}.net-side{text-align:right;font-size:9px}.footer{display:flex;justify-content:space-between;align-items:flex-end;padding:14px 20px;border-top:1px solid #d1d5db;font-size:9px;color:#666}.sig-box{border:1px dashed #aaa;padding:12px 20px;text-align:center;min-width:100px}</style></head><body>
 <div class="header"><div><div class="franchise-name">${companyName || 'Organization'}</div><div class="slip-label">SALARY SLIP · ${mode === 'fixed' ? 'FIXED PAYROLL' : 'CORPORATE PAYROLL'}</div></div><div class="period-box"><div class="period-month">${month} ${year}</div><div class="period-gen">Generated: ${formatDateSafe(new Date())}</div></div></div>
 <div class="info-grid"><div class="info-cell"><div class="info-label">EMPLOYEE NAME</div><div class="info-value">${emp.teacher_full_name || 'N/A'}</div></div><div class="info-cell"><div class="info-label">EMPLOYEE ID</div><div class="info-value">${emp.employee_id || 'N/A'}</div></div><div class="info-cell"><div class="info-label">DESIGNATION</div><div class="info-value">${emp.designation || '—'}</div></div><div class="info-cell"><div class="info-label">DATE OF JOINING</div><div class="info-value">${emp.date_of_joining ? formatDateSafe(emp.date_of_joining) : '—'}</div></div><div class="info-cell"><div class="info-label">EMPLOYMENT TYPE</div><div class="info-value">${emp.employment_type || '—'}</div></div><div class="info-cell"><div class="info-label">PAY PERIOD</div><div class="info-value">${month} ${year}</div></div></div>
-<div class="att-grid"><div class="att-cell"><div class="att-num">${result.cfg.working_days}</div><div class="att-label">WORKING DAYS</div></div><div class="att-cell"><div class="att-num">${result.present_days}</div><div class="att-label">DAYS PRESENT</div></div><div class="att-cell"><div class="att-num">${result.late_days || 0}</div><div class="att-label">LATE DAYS</div></div><div class="att-cell"><div class="att-num">${result.paid_leave_used}</div><div class="att-label">PAID LEAVE USED</div></div><div class="att-cell"><div class="att-num">${result.lop_days}</div><div class="att-label">LOP DAYS</div></div></div>
+<div class="att-grid"><div class="att-cell"><div class="att-num">${result.applicable_working_days || result.cfg.working_days}</div><div class="att-label">WORKING DAYS</div></div><div class="att-cell"><div class="att-num">${result.present_days}</div><div class="att-label">DAYS PRESENT</div></div><div class="att-cell"><div class="att-num">${result.late_days || 0}</div><div class="att-label">LATE DAYS</div></div><div class="att-cell"><div class="att-num">${result.paid_leave_used}</div><div class="att-label">PAID LEAVE USED</div></div><div class="att-cell"><div class="att-num">${result.lop_days}</div><div class="att-label">LOP DAYS</div></div></div>
 <div class="earn-ded-grid"><div><div class="col-header">EARNINGS</div><div class="row"><span>Basic Salary</span><span>${formatMoney(result.basic)}</span></div>${mode === 'corporate' && result.hra > 0 ? `<div class="row"><span>HRA (${(result.cfg as CorporateConfig).hra_pct}%)</span><span>${formatMoney(result.hra)}</span></div>` : ''}${mode === 'corporate' && result.da > 0 ? `<div class="row"><span>DA (${(result.cfg as CorporateConfig).da_pct}%)</span><span>${formatMoney(result.da)}</span></div>` : ''}${mode === 'corporate' && result.ta > 0 ? `<div class="row"><span>TA (${(result.cfg as CorporateConfig).ta_pct}%)</span><span>${formatMoney(result.ta)}</span></div>` : ''}<div class="total-row"><span>Gross Earnings</span><span>${formatMoney(result.gross)}</span></div></div>
 <div><div class="col-header">DEDUCTIONS</div>${result.lop_deduction > 0 ? `<div class="row"><span>Loss of Pay (${result.lop_days}d)</span><span>–${formatMoney(result.lop_deduction)}</span></div>` : ''}${result.pf > 0 ? `<div class="row"><span>Provident Fund (${(result.cfg as CorporateConfig).pf_pct}%)</span><span>–${formatMoney(result.pf)}</span></div>` : ''}${result.esi > 0 ? `<div class="row"><span>ESI (${(result.cfg as CorporateConfig).esi_pct}%)</span><span>–${formatMoney(result.esi)}</span></div>` : ''}${result.professional_tax > 0 ? `<div class="row"><span>Professional Tax</span><span>–${formatMoney(result.professional_tax)}</span></div>` : ''}<div class="total-row"><span>Total Deductions</span><span>–${formatMoney(result.total_deductions)}</span></div></div></div>
 <div class="net-band"><div><div class="net-label">NET PAY (TAKE HOME)</div><div class="net-amt">${formatMoney(result.net)}</div></div><div class="net-side"><div>Gross Earnings ${formatMoney(result.gross)}</div><div style="margin-top:3px">Total Deductions –${formatMoney(result.total_deductions)}</div></div></div>
@@ -530,7 +641,7 @@ const PayslipModal: React.FC<{ result: PayrollResult; month: string; year: strin
 
 // ==================== BULK PAYROLL TAB (COMPLETE) ====================
 
-const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({ schoolCode, companyName }) => {
+const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string; pageChrome?: React.ReactNode }> = ({ schoolCode, companyName, pageChrome }) => {
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollTabBar();
   const now = new Date();
@@ -600,21 +711,53 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
     const mi = MONTHS.indexOf(month);
     const startDateStr = `${year}-${String(mi + 1).padStart(2, '0')}-01`;
     const endDate = new Date(year, mi + 1, 0);
-    const endDateStr = `${year}-${String(mi + 1).padStart(2, '0')}-${endDate.getDate()}`;
+    const endDateStr = `${year}-${String(mi + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
     try {
-      const response = await API.get(`accountant/payroll/attendance?school_code=${encodeURIComponent(schoolCode)}&start_date=${startDateStr}&end_date=${endDateStr}`);
+      const response = await API.get(
+        `accountant/payroll/attendance?school_code=${encodeURIComponent(schoolCode)}&start_date=${startDateStr}&end_date=${endDateStr}&working_days=${wDays}`,
+      );
       const data = response.data;
       const map: Record<string, Attendance> = {};
       if (Array.isArray(data)) {
-        data.forEach((att: Attendance) => { map[att.teacher_id] = att; });
-        employees.forEach(emp => { if (!map[emp.teacher_id]) {map[emp.teacher_id] = { teacher_id: emp.teacher_id, present_days: 0, absent_days: wDays, late_days: 0, paid_leave_days: 0, total_days: wDays, attendance_percentage: 0 };} });
+        data.forEach((att: Record<string, unknown>) => {
+          const emp = employees.find(e =>
+            e.teacher_id === att.teacher_id ||
+            e.employee_id === att.employee_id ||
+            e.teacher_id === att.employee_id,
+          );
+          if (emp) {
+            map[emp.teacher_id] = mapAttendanceFromBackend(att, emp.teacher_id, wDays);
+          }
+        });
+        employees.forEach(emp => {
+          if (!map[emp.teacher_id]) {
+            map[emp.teacher_id] = emptyAttendance(emp.teacher_id, wDays);
+          }
+        });
+      } else {
+        employees.forEach(emp => {
+          map[emp.teacher_id] = emptyAttendance(emp.teacher_id, wDays);
+        });
       }
+
+      const breakdownResults = await Promise.all(
+        employees.map(async emp => ({
+          teacher_id: emp.teacher_id,
+          breakdown: await fetchLeaveBreakdown(schoolCode, emp.employee_id, mi, year),
+        })),
+      );
+      breakdownResults.forEach(({ teacher_id, breakdown }) => {
+        if (map[teacher_id]) {
+          map[teacher_id].leave_breakdown = breakdown;
+        }
+      });
+
       setAttMap(map); setAttFetched(true);
     } catch (err) { Alert.alert('Error', 'Failed to fetch attendance data'); } finally { setLoadingAtt(false); }
   };
 
   const generateForEmployee = (emp: Employee) => {
-    const att = attMap[emp.teacher_id] || { teacher_id: emp.teacher_id, present_days: 0, absent_days: wDays, late_days: 0, paid_leave_days: 0, total_days: wDays, attendance_percentage: 0 };
+    const att = attMap[emp.teacher_id] || emptyAttendance(emp.teacher_id, wDays);
     const result = mode === 'fixed' ? calcFixed(emp, att, fixedCfg, leavePolicy) : calcCorporate(emp, att, corpCfg, leavePolicy);
     setGeneratedMap(prev => ({ ...prev, [emp.teacher_id]: result }));
   };
@@ -626,7 +769,7 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
     if (genCount === 0) { Alert.alert('Info', 'No payroll records to save.'); return; }
     setSavingAll(true);
     try {
-      const records = Object.values(generatedMap).map(result => ({ teacher_id: result.employee.teacher_id, employee_id: result.employee.employee_id, teacher_name: result.employee.teacher_full_name, email: result.employee.email_id, designation: result.employee.designation, employment_type: result.employee.employment_type, doj: result.employee.date_of_joining, salary: result.basic, present_days: result.present_days, absent_days: result.absent_days, lop_days: result.lop_days, lop_deduction: result.lop_deduction, gross_salary: result.gross, pf: result.pf || 0, esi: result.esi || 0, professional_tax: result.professional_tax || 0, other_deduction: result.other_deduction || 0, net_salary: result.net, mode: result.mode, working_days: wDays }));
+      const records = Object.values(generatedMap).map(result => ({ teacher_id: result.employee.teacher_id, employee_id: result.employee.employee_id, teacher_name: result.employee.teacher_full_name, email: result.employee.email_id, designation: result.employee.designation, employment_type: result.employee.employment_type, doj: result.employee.date_of_joining, salary: result.basic, present_days: result.present_days, absent_days: result.absent_days, lop_days: result.lop_days, lop_deduction: result.lop_deduction, gross_salary: result.gross, pf: result.pf || 0, esi: result.esi || 0, professional_tax: result.professional_tax || 0, other_deduction: result.other_deduction || 0, net_salary: result.net, mode: result.mode, working_days: result.applicable_working_days || wDays }));
       const response = await API.post('accountant/payroll/save-all', { school_code: schoolCode, pay_month: month, pay_year: year, working_days: wDays, records: records });
       const data = response.data;
       if (data.success) {Alert.alert('Success', `✅ ${data.saved_count} payroll records saved!`);}
@@ -661,16 +804,58 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
   const totalDed = Object.values(generatedMap).reduce((s, r) => s + r.total_deductions, 0);
   const totalNet = Object.values(generatedMap).reduce((s, r) => s + r.net, 0);
   const isPeriodFuture = isPeriodInFuture(month, year);
+  const showEmployeeList = attFetched && !loadingAtt;
+
+  const renderListEmpty = () => {
+    if (loadingAtt) {
+      return (
+        <View style={styles.awaitingCard}>
+          <ActivityIndicator size="large" color={Theme.colors.primary} />
+          <Text style={styles.awaitingTitle}>Fetching attendance…</Text>
+          <Text style={styles.awaitingDesc}>Loading {month} {year} attendance for all staff.</Text>
+        </View>
+      );
+    }
+    if (!attFetched) {
+      return (
+        <View style={styles.awaitingCard}>
+          <Users size={36} color={Theme.colors.textSec} />
+          <Text style={styles.awaitingTitle}>Staff list hidden</Text>
+          <Text style={styles.awaitingDesc}>
+            Fetch {month} {year} attendance above to view staff and generate payroll.
+          </Text>
+        </View>
+      );
+    }
+    if (searchQuery.trim()) {
+      return (
+        <View style={styles.awaitingCard}>
+          <Text style={styles.awaitingTitle}>No matching staff</Text>
+          <Text style={styles.awaitingDesc}>Try a different name or employee ID.</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyStateText}>No staff members found</Text>
+      </View>
+    );
+  };
 
   return (
     <FlatList
       style={styles.tabContainer}
-      contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 120, 140) }}
+      contentContainerStyle={[
+        innerPageLayoutStyles.scrollPageContent,
+        { paddingBottom: Math.max(insets.bottom + 120, 140) },
+      ]}
       onScroll={handleScroll}
       scrollEventThrottle={16}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListHeaderComponent={
         <>
+          {pageChrome}
+          <View style={innerPageLayoutStyles.scrollBody}>
           <View style={styles.card}>
             <View style={styles.cardSection}>
               <Text style={styles.sectionHeaderText}>Pay Period & Settings</Text>
@@ -745,8 +930,8 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
                 <View style={styles.fixedInfoBox}>
                   <Info size={16} color={Theme.colors.blue} />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.fixedInfoText}>Formula: Net = Basic Salary − (Absent Days × Per-day Rate)</Text>
-                    <Text style={styles.fixedInfoSubtext}>No allowances, no PF/ESI deductions.</Text>
+                    <Text style={styles.fixedInfoText}>Formula: Net = Basic Salary − (LOP Days × Per-day Rate)</Text>
+                    <Text style={styles.fixedInfoSubtext}>Per-day rate uses applicable working days (pro-rated for mid-month joiners).</Text>
                   </View>
                 </View>
               ) : (
@@ -754,10 +939,84 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
               )}
             </View>
             {employees.length > 0 && (<View style={styles.cardSection}><View style={styles.fetchRow}><TouchableOpacity accessibilityRole="button" style={[styles.fetchButton, (loadingAtt || isPeriodFuture) && styles.fetchButtonDisabled]} onPress={fetchAttendance} disabled={loadingAtt || isPeriodFuture}>{loadingAtt ? <ActivityIndicator size="small" color="#4f46e5" /> : <Text style={styles.fetchButtonText}>Fetch {month} {year} Attendance</Text>}</TouchableOpacity>{attFetched && (<><TouchableOpacity accessibilityRole="button" style={styles.viewAttButton} onPress={() => setShowAttTable(!showAttTable)}><Text style={styles.viewAttButtonText}>{showAttTable ? 'Hide' : 'View'} Attendance Summary</Text></TouchableOpacity><View style={styles.attLoadedBadge}><Text style={styles.attLoadedText}>✓ Attendance loaded for {Object.keys(attMap).length} staff</Text></View></>)}</View></View>)}
+            {showAttTable && attFetched && employees.length > 0 && (
+              <View style={styles.attSummaryContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View>
+                    <View style={styles.attSummaryHeaderRow}>
+                      <Text style={[styles.attSummaryHeaderCell, styles.attSummaryNameCol]}>Staff</Text>
+                      <Text style={styles.attSummaryHeaderCell}>Present</Text>
+                      <Text style={[styles.attSummaryHeaderCell, styles.attSummaryLopCol]}>LOP</Text>
+                      <Text style={styles.attSummaryHeaderCell}>Casual</Text>
+                      <Text style={styles.attSummaryHeaderCell}>Sick</Text>
+                      <Text style={styles.attSummaryHeaderCell}>Paid</Text>
+                      <Text style={styles.attSummaryHeaderCell}>Comp</Text>
+                      <Text style={styles.attSummaryHeaderCell}>Att %</Text>
+                    </View>
+                    {employees.filter(e => attMap[e.teacher_id]).slice(0, 10).map(emp => {
+                      const att = attMap[emp.teacher_id];
+                      const breakdown = att.leave_breakdown || { CASUAL: 0, SICK: 0, PAID: 0, COMP_OFF: 0 };
+                      const pct = resolveAttendancePct(att, att.applicable_working_days || wDays);
+                      const pctColor = pct >= 80 ? styles.attPctGreen : pct >= 70 ? styles.attPctYellow : styles.attPctRed;
+                      return (
+                        <View key={emp.teacher_id} style={styles.attSummaryRow}>
+                          <View style={styles.attSummaryNameCol}>
+                            <Text style={styles.attSummaryName} numberOfLines={1}>{emp.teacher_full_name}</Text>
+                            <Text style={styles.attSummaryId}>{emp.employee_id}</Text>
+                          </View>
+                          <Text style={[styles.attSummaryCell, styles.attSummaryPresent]}>{att.present_days || 0}</Text>
+                          <Text style={[styles.attSummaryCell, styles.attSummaryLopCol, styles.attSummaryLop]}>{att.lop_days || 0}</Text>
+                          <Text style={styles.attSummaryCell}>{breakdown.CASUAL || 0}</Text>
+                          <Text style={styles.attSummaryCell}>{breakdown.SICK || 0}</Text>
+                          <Text style={styles.attSummaryCell}>{breakdown.PAID || 0}</Text>
+                          <Text style={styles.attSummaryCell}>{breakdown.COMP_OFF || 0}</Text>
+                          <Text style={[styles.attSummaryCell, styles.attSummaryPct, pctColor]}>{pct.toFixed(1)}%</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+                {employees.length > 10 && (
+                  <Text style={styles.attSummaryFootnote}>Showing first 10 of {employees.length} staff</Text>
+                )}
+              </View>
+            )}
           </View>
-          {attFetched && employees.length > 0 && genCount === 0 && !isPeriodFuture && (<View style={styles.generatePrompt}><View><Text style={styles.generatePromptTitle}>Ready to Generate Payroll</Text><Text style={styles.generatePromptDesc}>{month} {year} · {employees.length} staff members with attendance loaded</Text></View><TouchableOpacity accessibilityRole="button" style={styles.generateButton} onPress={generateAll}><Text style={styles.generateButtonText}>Generate All Payroll</Text></TouchableOpacity></View>)}
-          {attFetched && employees.length > 0 && (<View style={styles.resultsContainer}>
-            {genCount > 0 && (<View style={styles.summaryBar}><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Generated</Text><Text style={styles.summaryValue}>{genCount}/{employees.length}</Text></View><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Total Gross</Text><Text style={styles.summaryValue}>₹{fmt(totalGross)}</Text></View><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Total Deductions</Text><Text style={[styles.summaryValue, styles.summaryValueRed]}>₹{fmt(totalDed)}</Text></View><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Total Net</Text><Text style={[styles.summaryValue, styles.summaryValueGreen]}>₹{fmt(totalNet)}</Text></View></View>)}
+          {attFetched && employees.length > 0 && genCount === 0 && !isPeriodFuture && (
+            <View style={styles.generatePrompt}>
+              <View style={styles.generatePromptCopy}>
+                <Text style={styles.generatePromptTitle}>Ready to Generate Payroll</Text>
+                <Text style={styles.generatePromptDesc}>
+                  {month} {year} · {employees.length} staff with attendance loaded
+                </Text>
+              </View>
+              <TouchableOpacity accessibilityRole="button" style={styles.generateButton} onPress={generateAll}>
+                <Text style={styles.generateButtonText}>Generate All</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {attFetched && employees.length > 0 && (
+            <View style={styles.resultsContainer}>
+            {genCount > 0 && (
+              <View style={styles.summaryBar}>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Generated</Text>
+                  <Text style={styles.summaryValue}>{genCount}/{employees.length}</Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Total Gross</Text>
+                  <Text style={styles.summaryValue}>₹{fmt(totalGross)}</Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Deductions</Text>
+                  <Text style={[styles.summaryValue, styles.summaryValueRed]}>₹{fmt(totalDed)}</Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Total Net</Text>
+                  <Text style={[styles.summaryValue, styles.summaryValueGreen]}>₹{fmt(totalNet)}</Text>
+                </View>
+              </View>
+            )}
             <View style={styles.actionBar}>
               <TextInput
                 style={styles.searchInput}
@@ -793,9 +1052,10 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
               </View>
             </View>
           </View>)}
+          </View>
         </>
       }
-      data={filteredEmps}
+      data={showEmployeeList ? filteredEmps : []}
       keyExtractor={(item, index) => item.teacher_id || item.employee_id || (item as any).id || (item as any)._id || `employee-${index}`}
       renderItem={({ item: emp }) => {
         const att = attMap[emp.teacher_id];
@@ -807,9 +1067,11 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{(emp.teacher_full_name || 'T').charAt(0).toUpperCase()}</Text>
               </View>
-              <View>
-                <Text style={styles.employeeNameText}>{emp.teacher_full_name}</Text>
-                <Text style={styles.employeeIdText}>{emp.employee_id} · {emp.designation}</Text>
+              <View style={styles.employeeTextBlock}>
+                <Text style={styles.employeeNameText} numberOfLines={1}>{emp.teacher_full_name}</Text>
+                <Text style={styles.employeeIdText} numberOfLines={1}>
+                  {emp.employee_id} · {formatDesignation(emp.designation)}
+                </Text>
               </View>
             </View>
             <View style={styles.employeeStatsGrid}>
@@ -824,8 +1086,12 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
                     <Text style={[styles.statValue, styles.statValueGreen]}>{att.present_days ?? '—'}</Text>
                   </View>
                   <View style={styles.statItem}>
-                    <Text style={styles.statLabel}>Absent</Text>
-                    <Text style={[styles.statValue, styles.statValueRed]}>{att.absent_days ?? '—'}</Text>
+                    <Text style={styles.statLabel}>LOP</Text>
+                    <Text style={[styles.statValue, styles.statValueRed]}>{att.lop_days ?? att.absent_days ?? '—'}</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statLabel}>Work Days</Text>
+                    <Text style={styles.statValue}>{att.applicable_working_days ?? '—'}</Text>
                   </View>
                 </>
               )}
@@ -850,10 +1116,14 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
               ) : (
                 <View style={styles.actionButtonsGroup}>
                   <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.viewBtn]} onPress={() => result && setOpenPayslip(result)}>
-                    <Text style={styles.actionBtn}>View</Text>
+                    <Text style={styles.actionBtnText}>View</Text>
                   </TouchableOpacity>
                   <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.pdfBtn]} onPress={() => result && handleDownloadPDF(result, emp.teacher_id)} disabled={downloadingId === emp.teacher_id}>
-                    {downloadingId === emp.teacher_id ? <ActivityIndicator size="small" color={Theme.colors.card} /> : <Text style={styles.actionBtn}>PDF</Text>}
+                    {downloadingId === emp.teacher_id ? (
+                      <ActivityIndicator size="small" color={Theme.colors.card} />
+                    ) : (
+                      <Text style={[styles.actionBtnText, styles.actionBtnTextLight]}>PDF</Text>
+                    )}
                   </TouchableOpacity>
                   <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.recalcBtn]} onPress={() => generateForEmployee(emp)}>
                     <Text style={styles.recalcBtnText}>⟳</Text>
@@ -864,7 +1134,7 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
           </View>
         );
       }}
-      ListEmptyComponent={<View style={styles.emptyState}><Text style={styles.emptyStateText}>No staff members found</Text></View>}
+      ListEmptyComponent={renderListEmpty}
       ListFooterComponent={
         <>
           {openPayslip && <PayslipModal result={openPayslip} month={month} year={String(year)} companyName={companyName} schoolCode={schoolCode} onClose={() => setOpenPayslip(null)} />}
@@ -877,7 +1147,7 @@ const BulkPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({
 
 // ==================== INDIVIDUAL PAYROLL TAB ====================
 
-const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({ schoolCode, companyName }) => {
+const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string; pageChrome?: React.ReactNode }> = ({ schoolCode, companyName, pageChrome }) => {
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollTabBar();
   const now = new Date();
@@ -929,13 +1199,31 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
     const mi = MONTHS.indexOf(month);
     const startDateStr = `${year}-${String(mi + 1).padStart(2, '0')}-01`;
     const endDate = new Date(year, mi + 1, 0);
-    const endDateStr = `${year}-${String(mi + 1).padStart(2, '0')}-${endDate.getDate()}`;
+    const endDateStr = `${year}-${String(mi + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
     try {
-      const response = await API.get(`accountant/payroll/attendance?school_code=${encodeURIComponent(schoolCode)}&teacher_id=${encodeURIComponent(selectedId!)}&start_date=${startDateStr}&end_date=${endDateStr}`);
+      const response = await API.get(
+        `accountant/payroll/attendance?school_code=${encodeURIComponent(schoolCode)}&teacher_id=${encodeURIComponent(selectedId!)}&start_date=${startDateStr}&end_date=${endDateStr}&working_days=${wDays}`,
+      );
       const data = response.data;
-      if (Array.isArray(data)) { const att = data.find(a => a.teacher_id === selectedId); setEmpConfig(c => ({ ...c, att: att || { teacher_id: selectedId, present_days: 0, absent_days: wDays, late_days: 0, paid_leave_days: 0, total_days: wDays, attendance_percentage: 0 }, attFetched: true, loadingAtt: false })); }
-      else { setEmpConfig(c => ({ ...c, att: { teacher_id: selectedId!, present_days: 0, absent_days: wDays, late_days: 0, paid_leave_days: 0, total_days: wDays, attendance_percentage: 0 }, attFetched: true, loadingAtt: false })); }
-    } catch (err) { setEmpConfig(c => ({ ...c, attFetched: true, loadingAtt: false })); Alert.alert('Error', 'Failed to fetch attendance data'); }
+      let att: Attendance;
+      if (Array.isArray(data)) {
+        const raw = data.find(a =>
+          a.teacher_id === selectedId ||
+          a.employee_id === selectedEmp.employee_id,
+        );
+        att = raw
+          ? mapAttendanceFromBackend(raw, selectedId!, wDays)
+          : emptyAttendance(selectedId!, wDays);
+      } else {
+        att = emptyAttendance(selectedId!, wDays);
+      }
+      const breakdown = await fetchLeaveBreakdown(schoolCode, selectedEmp.employee_id, mi, year);
+      att.leave_breakdown = breakdown;
+      setEmpConfig(c => ({ ...c, att, attFetched: true, loadingAtt: false }));
+    } catch (err) {
+      setEmpConfig(c => ({ ...c, attFetched: true, loadingAtt: false }));
+      Alert.alert('Error', 'Failed to fetch attendance data');
+    }
   };
 
   const handleSendSingleEmail = async () => {
@@ -959,10 +1247,15 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
   return (
     <ScrollView
       style={styles.tabContainer}
-      contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 120, 140) }}
+      contentContainerStyle={[
+        innerPageLayoutStyles.scrollPageContent,
+        { paddingBottom: Math.max(insets.bottom + 120, 140) },
+      ]}
       onScroll={handleScroll}
       scrollEventThrottle={16}
     >
+      {pageChrome}
+      <View style={innerPageLayoutStyles.scrollBody}>
       <View style={styles.card}>
         <View style={styles.cardSection}>
           <Text style={styles.sectionHeaderText}>Select Staff Member & Period</Text>
@@ -1066,7 +1359,7 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
                   {empConfig.attFetched && (
                     <>
                       <View style={styles.attLoadedBadge}>
-                        <Text style={styles.attLoadedText}>✓ Present: {empConfig.att?.present_days ?? 0} · Absent: {empConfig.att?.absent_days ?? 0}</Text>
+                        <Text style={styles.attLoadedText}>✓ Present: {empConfig.att?.present_days ?? 0} · LOP: {empConfig.att?.lop_days ?? empConfig.att?.absent_days ?? 0} · Work days: {empConfig.att?.applicable_working_days ?? wDays}</Text>
                       </View>
                       <TouchableOpacity accessibilityRole="button" style={styles.generateButton} onPress={generate}>
                         <Text style={styles.generateButtonText}>{empConfig.result ? 'Recalculate' : 'Generate Payroll'}</Text>
@@ -1112,13 +1405,14 @@ const IndividualPayrollTab: React.FC<{ schoolCode: string; companyName: string }
       {loadingEmps && (<View style={styles.loadingContainer}><ActivityIndicator size="large" color="#4f46e5" /><Text style={styles.loadingText}>Loading staff…</Text></View>)}
       {openPayslip && <PayslipModal result={openPayslip} month={month} year={String(year)} companyName={companyName} schoolCode={schoolCode} onClose={() => setOpenPayslip(null)} />}
       {pickerModal && <CustomPickerModal {...pickerModal} onClose={() => setPickerModal(null)} />}
+      </View>
     </ScrollView>
   );
 };
 
 // ==================== HOURS-BASED PAYROLL TAB ====================
 
-const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }> = ({ schoolCode, companyName }) => {
+const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string; pageChrome?: React.ReactNode }> = ({ schoolCode, companyName, pageChrome }) => {
   const insets = useSafeAreaInsets();
   const handleScroll = useScrollTabBar();
   const now = new Date();
@@ -1181,7 +1475,17 @@ const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }
   const totalHoursAll = employees.reduce((s, e) => s + e.totalHours, 0);
 
   return (
-    <ScrollView style={styles.tabContainer} onScroll={handleScroll} scrollEventThrottle={16}>
+    <ScrollView
+      style={styles.tabContainer}
+      contentContainerStyle={[
+        innerPageLayoutStyles.scrollPageContent,
+        { paddingBottom: Math.max(insets.bottom + 120, 140) },
+      ]}
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
+    >
+      {pageChrome}
+      <View style={innerPageLayoutStyles.scrollBody}>
       <View style={styles.infoBanner}><Text style={styles.infoBannerText}>⏰ Hours-Based Payroll — Only Part-Time staff appear here. Attendance is estimated at 8 hours/present day for the selected period.</Text></View>
       <View style={styles.card}>
         <View style={styles.cardSection}>
@@ -1291,6 +1595,7 @@ const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }
         </View>
       )}
       {pickerModal && <CustomPickerModal {...pickerModal} onClose={() => setPickerModal(null)} />}
+      </View>
     </ScrollView>
   );
 };
@@ -1299,11 +1604,12 @@ const HoursBasedPayrollTab: React.FC<{ schoolCode: string; companyName: string }
 
 export default function PayrollScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const insets = useSafeAreaInsets();
-  const handleScroll = useScrollTabBar();
   const [activeTab, setActiveTab] = useState('bulk');
   const [schoolCode, setSchoolCode] = useState('');
   const [companyName, setCompanyName] = useState('School');
+  const isTabRoot = route.name === 'Payroll';
 
   useEffect(() => {
     (async () => {
@@ -1315,45 +1621,55 @@ export default function PayrollScreen() {
   }, []);
 
   const tabs = [
-    { key: 'bulk', label: 'Bulk Payroll', desc: 'All staff · same payroll type' },
+    { key: 'bulk', label: 'Bulk', desc: 'All staff · same payroll type' },
     { key: 'individual', label: 'Individual', desc: 'One staff member at a time' },
-    { key: 'hours', label: 'Hours Based', desc: 'Part-Time · paid per hour' },
+    { key: 'hours', label: 'Hours', desc: 'Part-Time · paid per hour' },
   ];
+
+  const pageChrome = (
+    <>
+      <StandardPageHeader
+        scrollWithContent
+        title="Staff Payroll"
+        subtitle="Calculate and manage salaries"
+        onBackPress={() => navigation.goBack()}
+        showBack={!isTabRoot}
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+      />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabsScroll}
+        contentContainerStyle={styles.tabsContainer}
+      >
+        {tabs.map(tab => {
+          const isActive = activeTab === tab.key;
+          return (
+            <TouchableOpacity
+              accessibilityRole="button"
+              key={tab.key}
+              style={[styles.tab, isActive && styles.tabActive]}
+              onPress={() => setActiveTab(tab.key)}
+            >
+              {tab.key === 'bulk' && <Users size={16} color={isActive ? Theme.colors.primary : Theme.colors.textSec} />}
+              {tab.key === 'individual' && <User size={16} color={isActive ? Theme.colors.primary : Theme.colors.textSec} />}
+              {tab.key === 'hours' && <Clock size={16} color={isActive ? Theme.colors.primary : Theme.colors.textSec} />}
+              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </>
+  );
 
   return (
     <View style={styles.mainContainer}>
-
-      <StandardPageHeader
-        title="Payroll Processing"
-        greeting="Staff Payroll"
-        greetingSubtext="Calculate and manage salaries"
-        onBackPress={() => navigation.goBack()}
-      />
-      <View style={styles.contentOverlap}>
-        <View style={styles.tabsContainer}>
-          {tabs.map(tab => {
-            const isActive = activeTab === tab.key;
-            return (
-              <TouchableOpacity accessibilityRole="button"
-                key={tab.key}
-                style={[styles.tab, isActive && styles.tabActive]}
-                onPress={() => setActiveTab(tab.key)}
-              >
-                {tab.key === 'bulk' && <Users size={16} color={isActive ? Theme.colors.primary : Theme.colors.textSec} />}
-                {tab.key === 'individual' && <User size={16} color={isActive ? Theme.colors.primary : Theme.colors.textSec} />}
-                {tab.key === 'hours' && <Clock size={16} color={isActive ? Theme.colors.primary : Theme.colors.textSec} />}
-                <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-        <View style={styles.contentContainer}>
-          {activeTab === 'bulk' && <BulkPayrollTab schoolCode={schoolCode} companyName={companyName} />}
-          {activeTab === 'individual' && <IndividualPayrollTab schoolCode={schoolCode} companyName={companyName} />}
-          {activeTab === 'hours' && <HoursBasedPayrollTab schoolCode={schoolCode} companyName={companyName} />}
-        </View>
+      <View style={styles.tabContentArea}>
+        {activeTab === 'bulk' && <BulkPayrollTab schoolCode={schoolCode} companyName={companyName} pageChrome={pageChrome} />}
+        {activeTab === 'individual' && <IndividualPayrollTab schoolCode={schoolCode} companyName={companyName} pageChrome={pageChrome} />}
+        {activeTab === 'hours' && <HoursBasedPayrollTab schoolCode={schoolCode} companyName={companyName} pageChrome={pageChrome} />}
       </View>
     </View>
   );
@@ -1362,42 +1678,32 @@ export default function PayrollScreen() {
 // ==================== STYLES ====================
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: '#f3f4f6' },
-  contentOverlap: {
-    flex: 1,
-    marginTop: -28,
-    backgroundColor: Theme.colors.background,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingTop: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 5,
+  mainContainer: { flex: 1, backgroundColor: Theme.colors.background },
+  tabsScroll: {
+    flexGrow: 0,
+    marginBottom: 12,
   },
   tabsContainer: {
-    backgroundColor: Theme.colors.background,
     flexDirection: 'row',
-    borderRadius: 16,
-    padding: Theme.spacing.xs,
-    marginHorizontal: Theme.spacing.md,
-    marginTop: 12,
-    marginBottom: Theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
+    paddingHorizontal: SCROLL_PAGE_GUTTER,
+    gap: 8,
   },
   tab: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderRadius: 12,
-    gap: 8,
+    gap: 6,
+    backgroundColor: Theme.colors.backgroundAlt,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    minWidth: 108,
   },
   tabActive: {
-    backgroundColor: Theme.colors.background,
+    backgroundColor: Theme.colors.card,
+    borderColor: Theme.colors.primary,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -1415,10 +1721,37 @@ const styles = StyleSheet.create({
   },
   tabDesc: { display: 'none' },
   tabDescActive: { display: 'none' },
-  contentContainer: { flex: 1, padding: Theme.spacing.md },
-  tabContainer: { flex: 1 },
-  card: { backgroundColor: Theme.colors.card, borderRadius: 24, borderWidth: 1, borderColor: Theme.colors.background, marginBottom: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
-  cardSection: { padding: 20, borderBottomWidth: 1, borderBottomColor: Theme.colors.background },
+  tabContentArea: {
+    flex: 1,
+    minHeight: 0,
+  },
+  awaitingCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 28,
+    marginTop: 8,
+    marginBottom: 16,
+    backgroundColor: Theme.colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    gap: 10,
+  },
+  awaitingTitle: {
+    ...Theme.typography.body,
+    fontWeight: '700',
+    color: Theme.colors.text,
+    textAlign: 'center',
+  },
+  awaitingDesc: {
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  tabContainer: { flex: 1, backgroundColor: Theme.colors.background },
+  card: { backgroundColor: Theme.colors.card, borderRadius: 20, borderWidth: 1, borderColor: Theme.colors.border, marginBottom: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+  cardSection: { padding: 16, borderBottomWidth: 1, borderBottomColor: Theme.colors.borderLight },
   sectionHeaderText: { ...Theme.typography.label, fontWeight: 'bold', color: Theme.colors.textSec, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
   configGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 16, marginBottom: Theme.spacing.md },
   fieldContainer: { minWidth: 100 },
@@ -1444,7 +1777,7 @@ const styles = StyleSheet.create({
   toggleOptionTitleActive: { color: Theme.colors.primary },
   toggleOptionDesc: { marginTop: 2, color: Theme.colors.textSec, ...Theme.typography.label },
   toggleOptionDescActive: { color: Theme.colors.blue },
-  configForm: { maxHeight: 720 },
+  configForm: { gap: 4 },
   divider: { height: 1, backgroundColor: Theme.colors.background, marginVertical: 12 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { ...Theme.typography.caption, fontWeight: '700', color: Theme.colors.textSec, textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -1462,15 +1795,15 @@ const styles = StyleSheet.create({
   previewHeader: { backgroundColor: Theme.colors.primary, paddingVertical: 12, paddingHorizontal: Theme.spacing.md },
   previewHeaderTitle: { color: Theme.colors.card, ...Theme.typography.caption, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   previewContent: { padding: Theme.spacing.md },
-  previewRow: { flexDirection: 'row', gap: 16 },
-  previewColumn: { flex: 1 },
+  previewRow: { flexDirection: 'column', gap: 16 },
+  previewColumn: { width: '100%' },
   previewSubtitle: { ...Theme.typography.label, fontWeight: '700', marginBottom: Theme.spacing.sm, color: Theme.colors.textSec, textTransform: 'uppercase', letterSpacing: 0.5 },
   previewLine: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: Theme.spacing.xs },
   previewLabel: { color: Theme.colors.textSec, ...Theme.typography.caption },
   previewValue: { color: Theme.colors.text, ...Theme.typography.caption, fontWeight: '600' },
   previewValueRed: { color: '#b91c1c' },
   previewValueGreen: { color: '#166534' },
-  previewColDivider: { width: 1, backgroundColor: Theme.colors.background },
+  previewColDivider: { height: 1, backgroundColor: Theme.colors.border, marginVertical: 4 },
   previewTotalLine: { backgroundColor: Theme.colors.background, borderRadius: 8, padding: Theme.spacing.sm, marginTop: Theme.spacing.sm, borderWidth: 1, borderColor: Theme.colors.border },
   previewTotalLabel: { color: Theme.colors.textSec, fontWeight: '700' },
   previewTotalValue: { color: Theme.colors.text, ...Theme.typography.body, fontWeight: '800', marginTop: 2 },
@@ -1497,56 +1830,99 @@ const styles = StyleSheet.create({
   fixedInfoBox: { backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderWidth: 1, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   fixedInfoText: { color: Theme.colors.primary, ...Theme.typography.caption, fontWeight: '600' },
   fixedInfoSubtext: { color: Theme.colors.blue, ...Theme.typography.label, marginTop: Theme.spacing.xs },
-  fetchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 12 },
-  fetchButton: { backgroundColor: Theme.colors.primary, borderRadius: 12, paddingHorizontal: Theme.spacing.md, height: 44, justifyContent: 'center', shadowColor: Theme.colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
+  fetchRow: { gap: 10, marginTop: 12 },
+  fetchButton: { backgroundColor: Theme.colors.primary, borderRadius: 12, paddingHorizontal: Theme.spacing.md, minHeight: 44, justifyContent: 'center', alignItems: 'center', alignSelf: 'stretch', shadowColor: Theme.colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
   fetchButtonDisabled: { opacity: 0.5 },
   fetchButtonText: { color: Theme.colors.card, fontWeight: '700', fontSize: 13 },
-  viewAttButton: { backgroundColor: Theme.colors.background, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, paddingHorizontal: Theme.spacing.md, height: 44, justifyContent: 'center' },
+  viewAttButton: { backgroundColor: Theme.colors.background, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, paddingHorizontal: Theme.spacing.md, minHeight: 44, justifyContent: 'center', alignItems: 'center', alignSelf: 'stretch' },
   viewAttButtonText: { color: '#334155', fontWeight: '700', fontSize: 13 },
-  attLoadedBadge: { backgroundColor: '#ecfdf5', borderColor: '#bbf7d0', borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  attLoadedBadge: { backgroundColor: '#ecfdf5', borderColor: '#bbf7d0', borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' },
   attLoadedText: { color: '#166534', ...Theme.typography.label, fontWeight: '600' },
-  generatePrompt: { marginBottom: Theme.spacing.md, backgroundColor: Theme.colors.background, borderWidth: 1.5, borderColor: Theme.colors.primary, borderRadius: 16, padding: Theme.spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  attSummaryContainer: { marginTop: 12, borderWidth: 1, borderColor: '#bfdbfe', borderRadius: 12, backgroundColor: '#f8fbff', padding: 10 },
+  attSummaryHeaderRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#dbeafe', paddingBottom: 8, marginBottom: 4 },
+  attSummaryRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eff6ff' },
+  attSummaryHeaderCell: { width: 52, textAlign: 'center', fontSize: 9, fontWeight: '700', color: '#1e3a8a', textTransform: 'uppercase' },
+  attSummaryCell: { width: 52, textAlign: 'center', fontSize: 12, fontWeight: '600', color: Theme.colors.text },
+  attSummaryNameCol: { width: 120, paddingRight: 8 },
+  attSummaryLopCol: { backgroundColor: '#f3e8ff' },
+  attSummaryName: { fontSize: 12, fontWeight: '700', color: Theme.colors.text },
+  attSummaryId: { fontSize: 10, color: Theme.colors.textSec, marginTop: 2 },
+  attSummaryPresent: { color: '#166534', fontWeight: '700' },
+  attSummaryLop: { color: '#7e22ce', fontWeight: '800' },
+  attSummaryPct: { fontWeight: '700', fontSize: 11 },
+  attPctGreen: { color: '#166534' },
+  attPctYellow: { color: '#a16207' },
+  attPctRed: { color: '#b91c1c' },
+  attSummaryFootnote: { marginTop: 8, textAlign: 'center', fontSize: 11, color: Theme.colors.textSec },
+  generatePrompt: {
+    marginBottom: Theme.spacing.md,
+    backgroundColor: Theme.colors.card,
+    borderWidth: 1.5,
+    borderColor: Theme.colors.primary,
+    borderRadius: 16,
+    padding: Theme.spacing.md,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  generatePromptCopy: {
+    flex: 1,
+  },
   generatePromptTitle: { ...Theme.typography.body, fontWeight: '700', color: Theme.colors.text },
   generatePromptDesc: { color: Theme.colors.textSec, ...Theme.typography.caption, marginTop: 2 },
-  generateButton: { backgroundColor: '#16a34a', borderRadius: 12, paddingHorizontal: Theme.spacing.md, height: 44, justifyContent: 'center' },
-  generateButtonText: { color: Theme.colors.card, fontWeight: '700', fontSize: 13 },
-  resultsContainer: { backgroundColor: Theme.colors.background, borderRadius: 16, borderWidth: 1, borderColor: Theme.colors.border, padding: Theme.spacing.md, marginBottom: 20 },
-  summaryBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: Theme.spacing.md },
+  generateButton: {
+    backgroundColor: '#16a34a',
+    borderRadius: 12,
+    paddingHorizontal: Theme.spacing.md,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+  },
+  generateButtonText: { color: Theme.colors.card, fontWeight: '700', fontSize: 14 },
+  resultsContainer: { backgroundColor: Theme.colors.card, borderRadius: 16, borderWidth: 1, borderColor: Theme.colors.border, padding: Theme.spacing.md, marginBottom: 16 },
+  summaryBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: Theme.spacing.md },
   summaryBarHours: { flexDirection: 'row', gap: 10, marginBottom: Theme.spacing.md, flexWrap: 'wrap' },
-  summaryItem: { backgroundColor: Theme.colors.background, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Theme.colors.border, flex: 1, minWidth: 100 },
+  summaryItem: { backgroundColor: Theme.colors.backgroundAlt, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Theme.colors.border, flexBasis: '47%', flexGrow: 1 },
   summaryLabel: { color: Theme.colors.textSec, ...Theme.typography.label, textTransform: 'uppercase', letterSpacing: 0.5 },
   summaryValue: { ...Theme.typography.body, color: Theme.colors.text, fontWeight: '700', marginTop: Theme.spacing.xs },
   summaryValueLarge: { color: Theme.colors.text, fontSize: 16, fontWeight: '800', marginTop: Theme.spacing.xs },
   summaryValueRed: { color: '#b91c1c' },
   summaryValueGreen: { color: '#166534' },
-  actionBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10, flexWrap: 'wrap' },
-  searchInput: { flex: 1, minWidth: 220, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 12, height: 44, paddingHorizontal: 14, backgroundColor: Theme.colors.background, color: Theme.colors.text },
-  actionButtonsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  generateAllButton: { backgroundColor: '#eff6ff', borderRadius: 12, paddingHorizontal: 14, height: 44, justifyContent: 'center', borderWidth: 1, borderColor: '#bfdbfe' },
-  generateAllButtonText: { ...Theme.typography.caption, color: Theme.colors.primary, fontWeight: '700' },
-  saveAllButton: { backgroundColor: '#16a34a', borderRadius: 12, paddingHorizontal: 14, height: 44, justifyContent: 'center' },
-  saveAllButtonText: { ...Theme.typography.caption, color: Theme.colors.card, fontWeight: '700' },
-  emailAllButton: { backgroundColor: '#0284c7', borderRadius: 12, paddingHorizontal: 14, height: 44, justifyContent: 'center' },
-  emailAllButtonText: { ...Theme.typography.caption, color: Theme.colors.card, fontWeight: '700' },
-  employeeCard: { borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 20, backgroundColor: Theme.colors.card, padding: Theme.spacing.md, marginBottom: Theme.spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 8, elevation: 1 },
+  actionBar: { gap: 10, marginBottom: 4 },
+  searchInput: { width: '100%', borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 12, minHeight: 44, paddingHorizontal: 14, backgroundColor: Theme.colors.background, color: Theme.colors.text },
+  actionButtonsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  generateAllButton: { flexGrow: 1, flexBasis: '47%', backgroundColor: '#eff6ff', borderRadius: 12, paddingHorizontal: 12, minHeight: 44, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#bfdbfe' },
+  generateAllButtonText: { ...Theme.typography.caption, color: Theme.colors.primary, fontWeight: '700', textAlign: 'center' },
+  saveAllButton: { flexGrow: 1, flexBasis: '47%', backgroundColor: '#16a34a', borderRadius: 12, paddingHorizontal: 12, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  saveAllButtonText: { ...Theme.typography.caption, color: Theme.colors.card, fontWeight: '700', textAlign: 'center' },
+  emailAllButton: { flexGrow: 1, flexBasis: '47%', backgroundColor: '#0284c7', borderRadius: 12, paddingHorizontal: 12, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  emailAllButtonText: { ...Theme.typography.caption, color: Theme.colors.card, fontWeight: '700', textAlign: 'center' },
+  employeeCard: { borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 16, backgroundColor: Theme.colors.card, padding: Theme.spacing.md, marginBottom: Theme.spacing.sm, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1 },
   employeeCardGenerated: { borderColor: Theme.colors.primary, backgroundColor: '#f8faff', borderWidth: 1.5 },
   employeeInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  employeeTextBlock: { flex: 1, minWidth: 0 },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: Theme.colors.primary, alignItems: 'center', justifyContent: 'center' },
   avatarText: { ...Theme.typography.body, color: Theme.colors.card, fontWeight: '700' },
-  employeeNameText: { ...Theme.typography.body, fontWeight: '700', color: Theme.colors.text },
-  employeeIdText: { color: Theme.colors.textSec, ...Theme.typography.label, marginTop: 2 },
+  employeeNameText: { ...Theme.typography.body, fontWeight: '700', color: Theme.colors.text, flexShrink: 1 },
+  employeeIdText: { color: Theme.colors.textSec, ...Theme.typography.label, marginTop: 2, flexShrink: 1 },
   employeeStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  statItem: { backgroundColor: Theme.colors.background, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: Theme.spacing.sm, flex: 1, minWidth: 72 },
+  statItem: { backgroundColor: Theme.colors.backgroundAlt, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: Theme.spacing.sm, flexBasis: '47%', flexGrow: 1 },
   statLabel: { color: Theme.colors.textSec, fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 },
   statValue: { ...Theme.typography.caption, color: Theme.colors.text, fontWeight: '700', marginTop: 2 },
   statValueBold: { fontWeight: '800' },
   statValueRed: { color: '#b91c1c' },
   statValueGreen: { color: '#166534' },
-  employeeActionsRow: { marginTop: 12, alignItems: 'flex-end' },
-  generateEmpButton: { backgroundColor: Theme.colors.primary, borderRadius: 12, paddingHorizontal: Theme.spacing.md, height: 38, justifyContent: 'center' },
+  employeeActionsRow: { marginTop: 12, flexDirection: 'row', justifyContent: 'flex-end' },
+  generateEmpButton: { backgroundColor: Theme.colors.primary, borderRadius: 12, paddingHorizontal: Theme.spacing.lg, minHeight: 40, justifyContent: 'center', alignItems: 'center' },
   generateEmpButtonText: { ...Theme.typography.caption, color: Theme.colors.card, fontWeight: '700' },
-  actionButtonsGroup: { flexDirection: 'row', gap: 8 },
-  actionBtn: { borderRadius: 12, paddingHorizontal: 14, height: 38, justifyContent: 'center' },
+  actionButtonsGroup: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  actionBtn: { borderRadius: 12, paddingHorizontal: 14, minHeight: 40, justifyContent: 'center', alignItems: 'center', minWidth: 64 },
+  actionBtnText: { ...Theme.typography.caption, color: Theme.colors.primary, fontWeight: '700' },
+  actionBtnTextLight: { color: Theme.colors.card },
   viewBtn: { backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe' },
   pdfBtn: { backgroundColor: Theme.colors.primary },
   recalcBtn: { backgroundColor: Theme.colors.background, borderWidth: 1, borderColor: '#cbd5e1' },

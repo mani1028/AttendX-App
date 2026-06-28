@@ -15,9 +15,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Feather';
 import API from '../../services/api';
 import { getStudentMarks, getStudentExams } from '../../services/studentService';
@@ -25,7 +23,10 @@ import AppText from '../../components/common/AppText';
 import AppCard from '../../components/common/AppCard';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { RefreshCw } from 'lucide-react-native';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 
 const { width } = Dimensions.get('window');
 
@@ -184,7 +185,6 @@ const MarksCard: React.FC<{ mark: Mark }> = ({ mark }) => {
 };
 
 export default function StudentMarksScreen() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { userName, setTabBarVisible } = useAuth();
   const handleScroll = useScrollTabBar();
@@ -353,31 +353,30 @@ export default function StudentMarksScreen() {
                           averagePercentage >= 60 ? 'Good' :
                           averagePercentage >= 45 ? 'Average' : 'Needs Improvement';
 
+  const canGoBack = navigation.canGoBack();
+
   return (
     <View style={styles.container}>
-
-
-      <View style={[styles.header, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 20 }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs')}
-        >
-          <Icon name="arrow-left" size={24} color={C.colors.card} />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <AppText style={styles.headerTitle}>Marks & Results</AppText>
-        </View>
-        <TouchableOpacity
-          style={styles.notificationIcon}
-          onPress={() => navigation.navigate('Notifications')}
-        >
-          <Icon name="bell" size={24} color={C.colors.card} />
-        </TouchableOpacity>
-      </View>
+      <StandardPageHeader
+        title="Marks & Results"
+        subtitle={selectedExamName || 'Select an exam to view marks'}
+        onBackPress={() => (canGoBack ? navigation.goBack() : navigation.navigate('MainTabs'))}
+        showBack={canGoBack}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={onRefresh}
+            accessibilityLabel="Refresh marks"
+          >
+            <RefreshCw size={20} color={Theme.colors.card} />
+          </TouchableOpacity>
+        )}
+      />
 
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
+        style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -385,6 +384,7 @@ export default function StudentMarksScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />
         }
       >
+        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
         <View style={styles.mainCard}>
           <AppText style={styles.selectLabel}>Select Exam</AppText>
           <View style={styles.examSelectionRow}>
@@ -450,6 +450,7 @@ export default function StudentMarksScreen() {
             </View>
           )}
         </View>
+        </View>
       </ScrollView>
 
       {/* Exam Selection Modal */}
@@ -511,6 +512,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.colors.background,
+  },
+  pageBody: {
+    paddingHorizontal: 20,
   },
   header: {
     backgroundColor: C.colors.primary,

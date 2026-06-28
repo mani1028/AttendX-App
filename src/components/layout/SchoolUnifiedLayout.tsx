@@ -1,7 +1,7 @@
 import { Theme } from '../../theme/tokens';
 // src/components/layout/SchoolUnifiedLayout.tsx
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,14 +15,26 @@ import {
   Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Menu, LogOut } from 'lucide-react-native';
+import * as LucideIcons from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationPanel from '../common/NotificationPanel';
 import AccountSwitcher from '../common/AccountSwitcher';
 import { useAuth } from '../../context/AuthContext';
 import CalendarView from '../common/CalendarView';
-import { colors } from '../../theme/tokens';
 import { getTeacherProfile } from '../../services/teacherService';
 import { normalizePhotoUri } from '../../utils/normalizePhotoUri';
+import { performLogout } from '../../utils/authSession';
+import API from '../../services/api';
+import {
+  LAYOUT_CONFIG,
+  normalizeLayoutRole,
+  getSidebarSections,
+  filterTeacherMenuItems,
+  filterPrincipalMenuItems,
+  MenuItem,
+} from './layoutConfig';
 
 // Utility function for photo cache key generation
 const getPhotoCacheKey = (roleBucket: 'student' | 'teacher', id: string, schoolCode: string): string | null => {
@@ -30,176 +42,21 @@ const getPhotoCacheKey = (roleBucket: 'student' | 'teacher', id: string, schoolC
   return `profile_photo_url:${roleBucket}:${schoolCode || 'unknown'}:${id}`;
 };
 
-// Types
-interface MenuItem {
-  title: string;
-  route: string;
-  icon?: string;
-}
-
-interface RoleConfig {
-  label: string;
-  roleDisplay: string;
-  menu: MenuItem[];
-  pageTitles?: Record<string, string>;
-}
-
-// Menu items per role (enhanced from web version)
-const MENU_CONFIG: Record<string, RoleConfig> = {
-  admin: {
-    label: 'Global Admin',
-    roleDisplay: 'Administrator',
-    menu: [
-      { title: 'Schools', route: 'AdminDashboard', icon: '🏫' },
-    ],
-    pageTitles: {
-      'AdminDashboard': 'School Dashboard',
-    },
-  },
-
-  accountant: {
-    label: 'Accountant Panel',
-    roleDisplay: 'Accountant',
-    menu: [
-      { title: 'Overview', route: 'AccountantDashboard', icon: '📊' },
-      { title: 'Fees', route: 'DirectorFeeManagement', icon: '💰' },
-      { title: 'Collections', route: 'AccountantPaymentEntry', icon: '💳' },
-      { title: 'Expenses', route: 'DirectorExpense', icon: '📉' },
-      { title: 'Reports', route: 'DirectorReports', icon: '📈' },
-      { title: 'Payroll', route: 'AccountantPayroll', icon: '👥' },
-      { title: 'Salaries', route: 'AccountantSalaries', icon: '💰' },
-      { title: 'Settings', route: 'AccountantSettings', icon: '⚙️' },
-    ],
-    pageTitles: {
-      'AccountantDashboard': 'Finance Workspace - Overview',
-      'DirectorFeeManagement': 'Fee Management',
-      'AccountantPaymentEntry': 'Collection Entry',
-      'DirectorExpense': 'Expense Ledger',
-      'DirectorReports': 'Reports & Trends',
-      'AccountantPayroll': 'Payroll Management',
-      'AccountantSalaries': 'Salaries Management',
-      'AccountantSettings': 'Fee Notifications',
-    },
-  },
-
-  director: {
-    label: 'Director Panel',
-    roleDisplay: 'Director',
-    menu: [
-      { title: 'Dashboard', route: 'DirectorDashboard', icon: '📊' },
-      { title: 'Branches', route: 'DirectorDashboard', icon: '🏢' },
-      { title: 'Add Branch', route: 'DirectorDirectorRegistration', icon: '➕' },
-    ],
-    pageTitles: {
-      'DirectorDashboard': 'Dashboard Overview',
-      'DirectorBranchDetails': 'Branches',
-      'DirectorDirectorRegistration': 'Add Branch',
-    },
-  },
-
-  principal: {
-    label: 'Principal Panel',
-    roleDisplay: 'Principal',
-    menu: [
-      { title: 'Dashboard', route: 'DirectorDashboard', icon: '📊' },
-      { title: 'Staff', route: 'DirectorTeacherManagement', icon: '👨‍🏫' },
-      { title: 'Students', route: 'DirectorStudentManagement', icon: '👨‍🎓' },
-      { title: 'Attendance', route: 'DirectorAttendance', icon: '📅' },
-      { title: 'Calendar', route: 'CalendarManagement', icon: '📆' },
-      { title: 'Teacher Leaves', route: 'TeacherLeaveApproval', icon: '📋' },
-      { title: 'Exams', route: 'DirectorExams', icon: '📝' },
-      { title: 'Teacher Assignments', route: 'TeacherAssignment', icon: '👥' },
-      { title: 'Announcements', route: 'DirectorAnnouncements', icon: '📢' },
-      { title: 'Visitors', route: 'VisitorDashboard', icon: '👥' },
-      { title: 'Settings', route: 'DirectorSettings', icon: '⚙️' },
-    ],
-    pageTitles: {
-      'DirectorDashboard': 'Director Dashboard',
-      'DirectorTeacherManagement': 'Staff Management',
-      'DirectorStudentManagement': 'Student Management',
-      'DirectorAttendance': 'Attendance Records',
-      'CalendarManagement': 'Calendar Management',
-      'TeacherLeaveApproval': 'Teacher Leave Requests',
-      'DirectorExams': 'Exam Management',
-      'TeacherAssignment': 'Teacher Assignments',
-      'DirectorAnnouncements': 'Announcements Manager',
-      'VisitorDashboard': 'Visitor Management',
-      'DirectorSettings': 'Director Settings',
-    },
-  },
-
-  teacher: {
-    label: 'Teacher Panel',
-    roleDisplay: 'Teacher',
-    menu: [
-      { title: 'Dashboard', route: 'TeacherDashboard', icon: '📊' },
-      { title: 'Attendance', route: 'TeacherAttendance', icon: '📋' },
-      { title: 'Attendance Verification', route: 'MarkAttendance', icon: '✅' },
-      { title: 'View Attendance', route: 'TeacherViewAttendance', icon: '👀' },
-      { title: 'VitalScan AI', route: 'TeacherVitalScan', icon: '🔬' },
-      { title: 'Skin Disease', route: 'TeacherSkinDisease', icon: '🩺' },
-      { title: 'Homework', route: 'TeacherHomeworkManagement', icon: '📚' },
-      { title: 'Leave Request', route: 'TeacherLeaveRequest', icon: '📅' },
-      { title: 'Leave Approval', route: 'TeacherLeaveApproval', icon: '📋' },
-      { title: 'Marks Entry', route: 'TeacherMarksEntry', icon: '📝' },
-      { title: 'Student List', route: 'TeacherStudentList', icon: '👨‍🎓' },
-      { title: 'Student Registration', route: 'StudentRegistrationRequests', icon: '📝' },
-    ],
-    pageTitles: {
-      'TeacherDashboard': 'Teacher Dashboard',
-      'TeacherAttendance': 'Attendance Logs',
-      'MarkAttendance': 'Mark Attendance',
-      'TeacherViewAttendance': 'View Attendance',
-      'TeacherVitalScan': 'VitalScan AI',
-      'TeacherSkinDisease': 'Skin Disease Detection',
-      'TeacherHomeworkManagement': 'Homework Management',
-      'TeacherLeaveRequest': 'Leave Request',
-      'TeacherLeaveApproval': 'Leave Approval',
-      'TeacherMarksEntry': 'Marks Entry',
-      'TeacherStudentList': 'Student List',
-      'StudentRegistrationRequests': 'Student Registration Requests',
-    },
-  },
-
-  student: {
-    label: 'Student Panel',
-    roleDisplay: 'Student',
-    menu: [
-      { title: 'Dashboard', route: 'StudentDashboard', icon: '📊' },
-      { title: 'Attendance', route: 'StudentAttendance', icon: '📅' },
-      { title: 'Homework', route: 'StudentHomework', icon: '📚' },
-      { title: 'Leave', route: 'StudentLeave', icon: '📋' },
-      { title: 'Marks', route: 'StudentMarks', icon: '📝' },
-      { title: 'Fees', route: 'StudentFee', icon: '💰' },
-      { title: 'Question Papers', route: 'StudentQuestionPapers', icon: '📄' },
-    ],
-    pageTitles: {
-      'StudentDashboard': 'Student Dashboard',
-      'StudentAttendance': 'Attendance Records',
-      'StudentHomework': 'Homework',
-      'StudentLeave': 'Leave Requests',
-      'StudentMarks': 'Marks & Results',
-      'StudentFee': 'Fees & Payments',
-      'StudentQuestionPapers': 'Question Papers',
-    },
-  },
-};
-
-// Theme colors
+// Theme colors (matches web SchoolUnifiedLayout)
 const theme = {
-  bg: '#020617',
-  sidebar: '#050d1a',
-  sidebarBorder: 'rgba(59,130,246,0.12)',
-  primary: Theme.colors.blue,
-  primaryGlow: 'rgba(59,130,246,0.22)',
-  activeNavBg: 'rgba(59,130,246,0.15)',
+  bg: '#060e1f',
+  sidebar: '#0b1530',
+  sidebarBorder: 'rgba(59,130,246,0.15)',
+  primary: '#3b82f6',
+  primaryGlow: 'rgba(59,130,246,0.14)',
+  activeNavBg: 'rgba(59,130,246,0.11)',
   hoverNavBg: 'rgba(255,255,255,0.04)',
-  surface: Theme.colors.text,
-  surfaceBorder: 'rgba(59,130,246,0.1)',
-  textPrimary: Theme.colors.background,
+  surface: '#0d1e3d',
+  surfaceBorder: 'rgba(59,130,246,0.14)',
+  textPrimary: '#f1f5f9',
   textSecondary: '#94a3b8',
-  textDim: Theme.colors.textSec,
-  error: Theme.colors.error,
+  textDim: '#5a7090',
+  error: '#ef4444',
 };
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -211,27 +68,16 @@ interface SchoolUnifiedLayoutProps {
 }
 
 export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLayoutProps) {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const route = useRoute();
+  const insets = useSafeAreaInsets();
+  const normalizedRole = normalizeLayoutRole(role);
+  const config = LAYOUT_CONFIG[normalizedRole] || LAYOUT_CONFIG.teacher;
 
-  // Normalize role values
-  const normalizeRole = (r: string) => {
-    if (!r) {return 'teacher';}
-    const v = String(r).trim().toLowerCase();
-    if (v === 'class_teacher' || v === 'class teacher' || v === 'classteacher' || v === 'class-teacher') {return 'teacher';}
-    if (v === 'director') {return 'director';}
-    if (v === 'principal' || v === 'headmaster' || v === 'head_master') {return 'principal';}
-    if (v === 'admin' || v === 'administrator') {return 'admin';}
-    if (v === 'accountant') {return 'accountant';}
-    if (v === 'student') {return 'student';}
-    return v;
-  };
-
-  const normalizedRole = normalizeRole(role);
-  const config = MENU_CONFIG[normalizedRole] || MENU_CONFIG.teacher;
+  const { savedAccounts, switchToAccount } = useAuth();
 
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [openProfile, setOpenProfile] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [isTablet, setIsTablet] = useState(isTabletWidth);
@@ -241,6 +87,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   const [userRole, setUserRole] = useState(role);
   const [profileDetails, setProfileDetails] = useState<Array<{ label: string; value: string }>>([]);
   const [isClassTeacher, setIsClassTeacher] = useState(false);
+  const [enablePromotion, setEnablePromotion] = useState(true);
 
   const effectiveRoleDisplay = normalizedRole === 'teacher' && isClassTeacher
     ? 'Class Teacher'
@@ -252,7 +99,6 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
   const [profilePhotoError, setProfilePhotoError] = useState(false);
 
-  const { savedAccounts, switchToAccount } = useAuth();
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const lastTapRef = useRef<number | null>(null);
 
@@ -263,7 +109,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
     const handleDimensionChange = () => {
       const width = Dimensions.get('window').width;
       setIsTablet(width >= 640 && width < 1024);
-      if (width >= 1024) {setDrawerOpen(false);}
+      if (width >= 1024) {setIsDrawerOpen(false);}
     };
 
     const subscription = Dimensions.addEventListener('change', handleDimensionChange);
@@ -435,12 +281,10 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
       }
 
       if (role === 'director') {
-        const directorEmployeeId = await AsyncStorage.getItem('director_employee_id');
         const directorEmail = await AsyncStorage.getItem('director_email');
         const branchId = await AsyncStorage.getItem('branch_id');
         const branchName = await AsyncStorage.getItem('branch_name');
 
-        if (directorEmployeeId) {details.push({ label: 'Director Employee ID', value: directorEmployeeId });}
         if (directorEmail) {details.push({ label: 'Director Email', value: directorEmail });}
         if (branchId) {details.push({ label: 'Branch ID', value: branchId });}
         if (branchName) {details.push({ label: 'Branch Name', value: branchName });}
@@ -507,16 +351,24 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
     }
   };
 
+  const handleNavigate = (item: MenuItem) => {
+    setIsDrawerOpen(false);
+    if (item.tabScreen) {
+      navigation.navigate('MainTabs', {
+        screen: item.tabScreen,
+        params: item.tabParams,
+      });
+      return;
+    }
+    navigation.navigate(item.route);
+  };
+
   const handleLogout = () => {
     setDialogMessage('Are you sure you want to sign out?');
     setDialogType('confirm');
     setDialogOnConfirm(() => async () => {
-      await AsyncStorage.multiRemove([
-        'token', 'user_role', 'user_name', 'user_id',
-        'school_code', 'branch_id', 'employee_id', 'teacher_id',
-        'student_id', 'profile_photo_url', 'user',
-      ]);
-      navigation.reset({ index: 0, routes: [{ name: 'Login' as never }] });
+      await performLogout();
+      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
     });
     setDialogVisible(true);
   };
@@ -533,22 +385,30 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
   };
 
   const isCompact = isTablet || !sidebarExpanded;
-  const showCalendarForRole = normalizedRole === 'student' || normalizedRole === 'teacher';
+  const showCalendarForRole = ['student', 'teacher', 'principal', 'accountant', 'director'].includes(normalizedRole);
 
-  // Filter menu items for teachers
-  const visibleMenuItems = config.menu.filter(item => {
+  // Load promotion feature flag for principal
+  useEffect(() => {
+    if (normalizedRole !== 'principal') { return; }
+    API.get('pricing/public/settings', { suppressFallback404Log: true } as any)
+      .then(res => {
+        const enabled = res.data?.enable_promotion;
+        if (typeof enabled === 'boolean') { setEnablePromotion(enabled); }
+      })
+      .catch(() => {});
+  }, [normalizedRole]);
+
+  const visibleMenuItems = (() => {
     if (normalizedRole === 'teacher') {
-      // Remove manual attendance menu option for any teacher role
-      if (item.route === 'MarkAttendance' || item.title === 'Attendance Verification') {
-        return false;
-      }
-      // For non-class teachers, filter out other class-teacher-only screens
-      if (!isClassTeacher) {
-        return ['Dashboard', 'Attendance', 'View Attendance', 'Homework', 'Leave Request', 'Marks Entry', 'VitalScan AI', 'Skin Disease'].includes(item.title);
-      }
+      return filterTeacherMenuItems(config.menu, isClassTeacher);
     }
-    return true;
-  });
+    if (normalizedRole === 'principal') {
+      return filterPrincipalMenuItems(config.menu, enablePromotion);
+    }
+    return config.menu;
+  })();
+
+  const sidebarSections = getSidebarSections(normalizedRole, visibleMenuItems);
 
   // Avatar Component
   const AvatarBubble = ({ size = 36, textSize = 14 }: { size?: number; textSize?: number }) => {
@@ -579,20 +439,45 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
     );
   };
 
-  // Drawer Menu Item
+  const renderMenuIcon = (iconName: MenuItem['icon'], color = theme.textSecondary, size = 18) => {
+    const IconComponent = LucideIcons[iconName] as React.FC<{ size?: number; color?: string }>;
+    if (!IconComponent) { return null; }
+    return <IconComponent size={size} color={color} />;
+  };
+
   const DrawerMenuItem = ({ item, onPress }: { item: MenuItem; onPress: () => void }) => (
     <TouchableOpacity style={styles.drawerItem} onPress={onPress}>
-      <Text style={styles.drawerItemIcon}>{item.icon || '📄'}</Text>
+      <View style={styles.drawerItemIconWrap}>{renderMenuIcon(item.icon)}</View>
       <Text style={styles.drawerItemText}>{item.title}</Text>
     </TouchableOpacity>
   );
 
+  const renderDrawerNav = () => (
+    <ScrollView style={styles.drawerNav} showsVerticalScrollIndicator={false}>
+      {sidebarSections.map((section, sIdx) => (
+        <View key={`section-${sIdx}`}>
+          {section.title ? (
+            <Text style={styles.drawerSectionTitle}>{section.title}</Text>
+          ) : null}
+          {section.items.map((item, index) => (
+            <DrawerMenuItem
+              key={`${item.route}-${item.tabScreen || index}`}
+              item={item}
+              onPress={() => handleNavigate(item)}
+            />
+          ))}
+        </View>
+      ))}
+      <TouchableOpacity style={[styles.drawerItem, styles.drawerLogout]} onPress={handleLogout}>
+        <View style={styles.drawerItemIconWrap}><LogOut size={18} color={theme.error} /></View>
+        <Text style={styles.drawerLogoutText}>Sign Out</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Status Bar background */}
       <View style={styles.statusBar} />
-
-      {/* Main Layout */}
       <View style={styles.layoutContainer}>
         {/* Desktop Sidebar - Only for web platform */}
         {Platform.OS === 'web' && (
@@ -627,11 +512,9 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
                   <TouchableOpacity
                     key={index}
                     style={[styles.navItem, isCompact && styles.navItemCompact]}
-                    onPress={() => {
-                      navigation.navigate(item.route as never);
-                    }}
+                    onPress={() => handleNavigate(item)}
                   >
-                    <Text style={styles.navItemIcon}>{item.icon || '📄'}</Text>
+                    <View style={styles.navItemIconWrap}>{renderMenuIcon(item.icon)}</View>
                     {!isCompact && <Text style={styles.navItemText}>{item.title}</Text>}
                   </TouchableOpacity>
                 ))}
@@ -664,8 +547,8 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
           {/* Header */}
           <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.sidebarBorder }]}>
             <View style={styles.headerLeft}>
-              <TouchableOpacity onPress={() => setDrawerOpen(true)} style={styles.menuButton}>
-                <Text style={styles.menuIcon}>☰</Text>
+              <TouchableOpacity onPress={() => setIsDrawerOpen(true)} style={styles.menuButton}>
+                <Menu size={20} color={theme.textSecondary} />
               </TouchableOpacity>
               <Text style={styles.pageTitle}>{getPageTitle()}</Text>
             </View>
@@ -734,34 +617,19 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
       <AccountSwitcher visible={showAccountSwitcher} onClose={() => setShowAccountSwitcher(false)} />
 
       {/* Mobile Drawer */}
-      <Modal visible={drawerOpen} transparent animationType="slide" onRequestClose={() => setDrawerOpen(false)}>
-        <TouchableOpacity style={styles.drawerOverlay} activeOpacity={1} onPress={() => setDrawerOpen(false)}>
-          <View style={styles.drawer}>
+      <Modal visible={isDrawerOpen} transparent animationType="slide" onRequestClose={() => setIsDrawerOpen(false)}>
+        <TouchableOpacity style={styles.drawerOverlay} activeOpacity={1} onPress={() => setIsDrawerOpen(false)}>
+          <TouchableOpacity activeOpacity={1} style={styles.drawer} onPress={e => e.stopPropagation()}>
             <View style={[styles.drawerHeader, { borderBottomColor: theme.sidebarBorder }]}>
               <AvatarBubble size={48} textSize={18} />
               <View style={styles.drawerHeaderInfo}>
                 <Text style={styles.drawerName}>{displayName}</Text>
-                <Text style={styles.drawerRole}>{config.roleDisplay}</Text>
-                {schoolCode && <Text style={styles.drawerSchoolCode}>🏫 {schoolCode}</Text>}
+                <Text style={styles.drawerRole}>{effectiveRoleDisplay}</Text>
+                {schoolCode ? <Text style={styles.drawerSchoolCode}>{schoolCode}</Text> : null}
               </View>
             </View>
-            <ScrollView style={styles.drawerNav}>
-              {visibleMenuItems.map((item, index) => (
-                <DrawerMenuItem
-                  key={index}
-                  item={item}
-                  onPress={() => {
-                    setDrawerOpen(false);
-                    navigation.navigate(item.route as never);
-                  }}
-                />
-              ))}
-              <TouchableOpacity style={[styles.drawerItem, styles.drawerLogout]} onPress={handleLogout}>
-                <Text style={styles.drawerItemIcon}>🚪</Text>
-                <Text style={styles.drawerLogoutText}>Sign Out</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
+            {renderDrawerNav()}
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
 
@@ -816,6 +684,31 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
 }
 
 const styles = StyleSheet.create({
+  drawerSectionTitle: {
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    color: theme.textDim,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 6,
+  },
+  drawerItemIconWrap: {
+    width: 22,
+    alignItems: 'center',
+  },
+  drawerClose: {
+    padding: 8,
+  },
+  drawerCloseText: {
+    color: theme.textSecondary,
+    fontSize: 18,
+  },
+  navItemIconWrap: {
+    width: 22,
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
     backgroundColor: theme.bg,

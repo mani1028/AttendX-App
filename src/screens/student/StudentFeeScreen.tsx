@@ -16,7 +16,6 @@ import {
   Modal,
   Alert,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
@@ -26,6 +25,10 @@ import { getStudentFee, getPaymentHistory } from '../../services/studentService'
 import { downloadReceipt } from '../../services/accountantService';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
+import { RefreshCw } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -79,7 +82,6 @@ const SummaryCard: React.FC<{
 );
 
 export default function StudentFeeScreen({ navigation }: any) {
-  const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const [fees, setFees] = useState<Fee[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -356,35 +358,38 @@ export default function StudentFeeScreen({ navigation }: any) {
     );
   }
 
+  const canGoBack = navigation.canGoBack();
+
   return (
     <View style={styles.container}>
-
-
-      <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs')}
-        >
-          <Icon name="arrow-left" size={24} color={C.colors.card} />
-        </TouchableOpacity>
-        <AppText style={styles.headerTitle}>Fee & Payments</AppText>
-        <TouchableOpacity
-          style={styles.notificationIcon}
-          onPress={() => navigation.navigate('Notifications')}
-        >
-          <Icon name="bell" size={22} color={C.colors.card} />
-        </TouchableOpacity>
-      </View>
+      <StandardPageHeader
+        title="Fee & Payments"
+        subtitle={`${fees.length} fee record${fees.length === 1 ? '' : 's'}`}
+        onBackPress={() => (canGoBack ? navigation.goBack() : navigation.navigate('MainTabs'))}
+        showBack={canGoBack}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={onRefresh}
+            accessibilityLabel="Refresh fees"
+          >
+            <RefreshCw size={20} color={Theme.colors.card} />
+          </TouchableOpacity>
+        )}
+      />
 
       <ScrollView
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.contentContainer}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />
         }
       >
+        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
         {/* Ledger Info Card */}
         <View style={styles.ledgerCard}>
           <AppText style={styles.ledgerTitle}>MY FEE LEDGER</AppText>
@@ -440,6 +445,7 @@ export default function StudentFeeScreen({ navigation }: any) {
 
         {/* Dynamic Content */}
         {activeTab === 'overview' ? renderOverview() : renderHistory()}
+        </View>
       </ScrollView>
 
       {/* Payment Detail Modal */}
@@ -526,6 +532,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.colors.background,
+  },
+  pageBody: {
+    paddingHorizontal: 20,
   },
   header: {
     backgroundColor: C.colors.primary,

@@ -1,127 +1,223 @@
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  Modal,
+  ScrollView,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+  TouchableOpacity,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, ClipboardList } from 'lucide-react-native';
+import { CheckCircle2, XCircle, Eye, X, RefreshCw } from 'lucide-react-native';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import AppText from '../../components/common/AppText';
-
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
-import { safeGoBack } from '../../utils/navigationHelpers';
+import AppCard from '../../components/common/AppCard';
+import AppButton from '../../components/common/AppButton';
 import { Theme } from '../../theme/tokens';
+import * as teacherService from '../../services/teacherService';
 
+interface StaffRequest {
+  id: string;
+  staff_full_name?: string;
+  employee_id?: string;
+  email?: string;
+  phone?: string;
+  designation?: string;
+  status?: string;
+  created_at?: string;
+}
 
 export default function TeacherRegistrationRequestsScreen() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
+  const [requests, setRequests] = useState<StaffRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selected, setSelected] = useState<any>(null);
+  const [editData, setEditData] = useState<Record<string, string>>({});
+  const [actionLoading, setActionLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const fetchRequests = useCallback(async () => {
+    try {
+      const rows = await teacherService.getStaffRegistrationRequests(true);
+      setRequests(rows);
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.detail || 'Failed to load requests');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchRequests(); }, [fetchRequests]);
+
+  const openDetail = async (id: string) => {
+    setDetailLoading(true);
+    try {
+      const data = await teacherService.getStaffRegistrationRequestDetail(id);
+      setSelected(data);
+      setEditData(data?.staff_data || data || {});
+    } catch {
+      Alert.alert('Error', 'Failed to load request details');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleAccept = async () => {
+    if (!selected?.id) { return; }
+    setActionLoading(true);
+    try {
+      await teacherService.acceptStaffRegistrationRequest(String(selected.id), editData);
+      Alert.alert('Success', 'Teacher registration accepted');
+      setSelected(null);
+      fetchRequests();
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.detail || 'Failed to accept');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReject = () => {
+    if (!selected?.id) { return; }
+    Alert.alert('Reject Request', 'Reject this teacher registration?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Reject',
+        style: 'destructive',
+        onPress: async () => {
+          setActionLoading(true);
+          try {
+            await teacherService.rejectStaffRegistrationRequest(String(selected.id));
+            Alert.alert('Rejected', 'Request rejected');
+            setSelected(null);
+            fetchRequests();
+          } catch (err: any) {
+            Alert.alert('Error', err?.response?.data?.detail || 'Failed to reject');
+          } finally {
+            setActionLoading(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const renderItem = ({ item }: { item: StaffRequest }) => (
+    <AppCard style={styles.card}>
+      <View style={styles.cardTop}>
+        <View style={styles.avatar}>
+          <AppText weight="bold" style={styles.avatarText}>
+            {(item.staff_full_name || '?').slice(0, 2).toUpperCase()}
+          </AppText>
+        </View>
+        <View style={{ flex: 1 }}>
+          <AppText weight="bold" style={styles.name}>{item.staff_full_name || 'Teacher'}</AppText>
+          <AppText style={styles.meta}>{item.email || item.phone || '—'}</AppText>
+          <AppText style={styles.meta}>{item.designation || 'Staff'} • {item.status || 'Pending'}</AppText>
+        </View>
+      </View>
+      <TouchableOpacity style={styles.viewBtn} onPress={() => openDetail(String(item.id))}>
+        <Eye size={16} color={Theme.colors.primary} />
+        <AppText style={styles.viewBtnText}>Review</AppText>
+      </TouchableOpacity>
+    </AppCard>
+  );
 
   return (
     <View style={styles.container}>
+      <StandardPageHeader
+        title="Staff Registration"
+        onBackPress={() => navigation.goBack()}
+        rightIcon={<RefreshCw size={20} color={Theme.colors.card} />}
+        onRightIconPress={() => { setRefreshing(true); fetchRequests(); }}
+      />
 
+      {loading ? (
+        <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 40 }} />
+      ) : (
+        <FlatList
+          data={requests}
+          keyExtractor={item => String(item.id)}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchRequests(); }} />}
+          ListEmptyComponent={
+            <AppText style={styles.empty}>No pending staff registration requests.</AppText>
+          }
+        />
+      )}
 
-      {/* Standard Header */}
-      <View style={[
-        styles.header,
-        {
-          paddingTop: insets.top + 16,
-          borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-          borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-        },
-      ]}>
-        <TouchableOpacity accessibilityRole="button"
-          onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
-          style={styles.backBtn}
-          accessibilityLabel="Go back"
-        >
-          <ChevronLeft size={22} color={Theme.colors.card} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <ClipboardList size={18} color={Theme.colors.card} />
-          <View>
-            <AppText style={styles.headerTitle} weight="bold">Teacher Requests</AppText>
-            <AppText style={styles.headerSub}>Principal Control</AppText>
+      <Modal visible={!!selected} animationType="slide" onRequestClose={() => setSelected(null)}>
+        <View style={styles.modal}>
+          <View style={styles.modalHeader}>
+            <AppText weight="bold" style={styles.modalTitle}>Review Request</AppText>
+            <TouchableOpacity onPress={() => setSelected(null)}>
+              <X size={22} color={Theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          {detailLoading ? (
+            <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 40 }} />
+          ) : (
+            <ScrollView style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.modalBody}>
+              {Object.keys(editData).slice(0, 20).map(key => (
+                <View key={key} style={styles.field}>
+                  <AppText style={styles.fieldLabel}>{key.replace(/_/g, ' ')}</AppText>
+                  <TextInput
+                    style={styles.fieldInput}
+                    value={String(editData[key] ?? '')}
+                    onChangeText={v => setEditData(p => ({ ...p, [key]: v }))}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          )}
+
+          <View style={styles.modalActions}>
+            <AppButton
+              title={actionLoading ? 'Processing...' : 'Accept'}
+              onPress={handleAccept}
+              disabled={actionLoading}
+              leftIcon={<CheckCircle2 size={18} color="#fff" />}
+            />
+            <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} disabled={actionLoading}>
+              <XCircle size={18} color={Theme.colors.error} />
+              <AppText style={styles.rejectText} weight="semibold">Reject</AppText>
+            </TouchableOpacity>
           </View>
         </View>
-      </View>
-
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <AppText style={styles.title} weight="bold">Teacher Registration Requests</AppText>
-        <AppText style={styles.subtitle}>Review and approve new teacher registrations.</AppText>
-        <View style={styles.card}>
-          <AppText style={styles.cardText}>No pending requests.</AppText>
-        </View>
-      </ScrollView>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  header: {
-    backgroundColor: Theme.colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    gap: 10,
-    shadowColor: Theme.colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  backBtn: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerCenter: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerTitle: {
-    color: Theme.colors.card,
-    fontSize: 17,
-  },
-  headerSub: {
-    color: 'rgba(255,255,255,0.7)',
-    ...Theme.typography.label,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-  },
-  title: {
-    fontSize: 22,
-    marginBottom: Theme.spacing.sm,
-    color: Theme.colors.text,
-  },
-  subtitle: {
-    ...Theme.typography.body,
-    color: Theme.colors.textMuted,
-    marginBottom: 20,
-  },
-  card: {
-    padding: 20,
-    backgroundColor: Theme.colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    elevation: 2,
-  },
-  cardText: {
-    color: Theme.colors.textSec,
-    ...Theme.typography.body,
-  },
+  container: { flex: 1, backgroundColor: Theme.colors.background },
+  list: { padding: 16, paddingBottom: 100 },
+  card: { marginBottom: 12, padding: 14 },
+  cardTop: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  avatar: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: '#d97706' },
+  name: { fontSize: 16, color: Theme.colors.text },
+  meta: { fontSize: 12, color: Theme.colors.textMuted, marginTop: 2 },
+  viewBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: `${Theme.colors.primary}12`, borderRadius: 8 },
+  viewBtnText: { color: Theme.colors.primary, fontWeight: '600' },
+  empty: { textAlign: 'center', color: Theme.colors.textMuted, marginTop: 40 },
+  modal: { flex: 1, backgroundColor: Theme.colors.background },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Theme.colors.border, backgroundColor: Theme.colors.card },
+  modalTitle: { fontSize: 18 },
+  modalBody: { padding: 16, paddingBottom: 40 },
+  field: { marginBottom: 12 },
+  fieldLabel: { fontSize: 11, color: Theme.colors.textMuted, textTransform: 'capitalize', marginBottom: 4, fontWeight: '600' },
+  fieldInput: { backgroundColor: Theme.colors.card, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 10, padding: 10, color: Theme.colors.text },
+  modalActions: { padding: 16, gap: 10, borderTopWidth: 1, borderTopColor: Theme.colors.border, backgroundColor: Theme.colors.card },
+  rejectBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12 },
+  rejectText: { color: Theme.colors.error },
 });

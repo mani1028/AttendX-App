@@ -30,3 +30,49 @@ export const formatErrorMessage = (detail: any): string => {
 
   return String(detail);
 };
+
+const PLACEHOLDER_ROLL_VALUES = new Set(['-', '—', '–', 'n/a', 'na', 'null', 'undefined', 'none']);
+
+/** Returns true when a value looks like a real roll number (not a UI placeholder). */
+export function isValidRollNumber(value: unknown): boolean {
+  const text = String(value ?? '').trim();
+  if (!text) {
+    return false;
+  }
+  return !PLACEHOLDER_ROLL_VALUES.has(text.toLowerCase());
+}
+
+/** Picks the first usable roll number from multiple candidate fields. */
+export function resolveStudentRollNumber(...values: unknown[]): string {
+  for (const value of values) {
+    const text = String(value ?? '').trim();
+    if (isValidRollNumber(text)) {
+      return text;
+    }
+  }
+  return '';
+}
+
+/** User-friendly message from axios / fetch errors. */
+export function resolveApiErrorMessage(error: any, fallback: string): string {
+  if (!error) { return fallback; }
+
+  const message = String(error?.message || '');
+  if (message.includes('Network Error') || message.includes('timeout')) {
+    return 'Could not connect to the server. Check your internet and try again.';
+  }
+
+  const status = error?.response?.status;
+  if (status === 401) { return 'Your session expired. Please log in again.'; }
+  if (status === 403) { return 'You do not have permission to view this content.'; }
+  if (status === 404) { return 'This feature is not available on the server yet.'; }
+
+  const detail = formatErrorMessage(
+    error?.response?.data?.detail ??
+    error?.response?.data?.message ??
+    error?.response?.data?.error,
+  );
+  if (detail) { return detail; }
+
+  return fallback;
+}

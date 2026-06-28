@@ -46,6 +46,7 @@ import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { Theme } from '../../theme/tokens';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 const { width } = Dimensions.get('window');
 
@@ -576,18 +577,16 @@ export default function HomeworkManagementScreen() {
 
   return (
     <View style={styles.container}>
-
+      <StandardPageHeader title="Homework Management" onBackPress={() => navigation.goBack()} />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
-        <StandardPageHeader title="Homework Management" onBackPress={() => navigation.goBack()} />
-
-        <View style={styles.pageContent}>
+        <View style={[styles.pageContent, innerPageLayoutStyles.contentFront]}>
           {/* Create Homework Card */}
           <View style={styles.createSection}>
             <TouchableOpacity activeOpacity={0.9} onPress={() => {
@@ -905,7 +904,6 @@ const styles = StyleSheet.create({
   },
   pageContent: {
     paddingHorizontal: 20,
-    paddingTop: Theme.spacing.lg,
   },
   createSection: {
     marginTop: 0,
@@ -1054,8 +1052,7 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.border,
   },
   filterCard: {
-    marginTop: -30,
-    borderRadius: 24,
+        borderRadius: 24,
     padding: Theme.spacing.md,
     backgroundColor: Theme.colors.card,
     elevation: 6,

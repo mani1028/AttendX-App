@@ -27,14 +27,15 @@ import API from '../../services/api';
 
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
-
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { formatErrorMessage } from '../../utils/helpers';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { Theme, C } from '../../theme/tokens';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 
-
-
+const PAGE_GUTTER = 14;
 
 type Announcement = {
   id: number;
@@ -300,38 +301,29 @@ const AnnouncementsScreen = () => {
   return (
     <View style={styles.container}>
 
+      <StandardPageHeader
+        title="Announcements"
+        subtitle="School Bulletins"
+        onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={() => fetchAnnouncements()}
+          >
+            <RefreshCw size={20} color={Theme.colors.card} />
+          </TouchableOpacity>
+        )}
+      />
 
       <ScrollView
-        style={styles.scrollView}
+       style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Standardized Header */}
-        <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.iconButton}
-            onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
-          >
-            <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>Announcements</AppText>
-          </View>
-          <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={() => fetchAnnouncements()}>
-            <RefreshCw size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
-          </TouchableOpacity>
-        </View>
-
-          <View style={styles.headerContent}>
-            <AppText weight="bold" style={styles.headerGreeting}>School Bulletins</AppText>
-            <AppText style={styles.headerGreeting}> </AppText>
-          </View>
-        </View>
-
-        <View style={styles.contentOverlap}>
+        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
           <View style={styles.contentPadding}>
             {/* Form Section */}
             <View style={styles.card}>
@@ -593,6 +585,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
+  pageBody: {
+    paddingHorizontal: PAGE_GUTTER,
+  },
   scrollView: {
     flex: 1,
   },
@@ -600,8 +595,8 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   contentPadding: {
-    padding: 20,
-    paddingTop: Theme.spacing.lg,
+    paddingTop: 14,
+    paddingBottom: Theme.spacing.lg,
   },
 
   card: {

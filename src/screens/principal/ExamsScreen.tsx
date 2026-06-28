@@ -15,10 +15,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import {
-  ChevronLeft,
   RefreshCw,
   Plus,
   BarChart2,
@@ -34,6 +32,12 @@ import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { formatErrorMessage } from '../../utils/helpers';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import {
+  innerPageLayoutStyles,
+  segmentedControlIconColor,
+} from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { Theme, C } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
@@ -92,8 +96,9 @@ const formatAcademicYear = (startYear: number) => {
   return `${startYear}-${endYearShort}`;
 };
 
+const PAGE_GUTTER = 14;
+
 export default function ExamsPage() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const { setTabBarVisible } = useAuth();
@@ -329,7 +334,7 @@ export default function ExamsPage() {
         <AppText style={styles.classText}>{student.class_grade} - {student.section}</AppText>
       </View>
       <View style={styles.tableCellSubjects}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <ScrollView style={innerPageLayoutStyles.scrollViewFront} horizontal showsHorizontalScrollIndicator={false}>
           {student.subjects.map((subject, idx) => (
             <View key={idx} style={styles.subjectChip}>
               <AppText style={styles.subjectName} weight="semibold">{subject.subject_name}</AppText>
@@ -377,7 +382,7 @@ export default function ExamsPage() {
 
       <View style={styles.studentCardMobileDivider} />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.studentCardMobileScroll}>
+      <ScrollView style={innerPageLayoutStyles.scrollViewFront} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.studentCardMobileScroll}>
         {student.subjects.map((subject, idx) => (
           <View key={idx} style={styles.subjectChipMobile}>
             <AppText style={styles.subjectChipMobileName} weight="semibold">
@@ -405,7 +410,7 @@ export default function ExamsPage() {
 
   const renderListTab = () => (
     <ScrollView
-      style={styles.tabContent}
+     style={[styles.tabContent, innerPageLayoutStyles.scrollViewFront]}
       onScroll={handleScroll}
       scrollEventThrottle={16}
       refreshControl={
@@ -431,7 +436,7 @@ export default function ExamsPage() {
 
   const renderAddTab = () => (
     <ScrollView
-      style={styles.tabContent}
+     style={[styles.tabContent, innerPageLayoutStyles.scrollViewFront]}
       onScroll={handleScroll}
       scrollEventThrottle={16}
     >
@@ -501,7 +506,7 @@ export default function ExamsPage() {
 
     return (
       <ScrollView
-        style={styles.tabContent}
+       style={[styles.tabContent, innerPageLayoutStyles.scrollViewFront]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
@@ -550,80 +555,71 @@ export default function ExamsPage() {
     <View style={styles.container}>
 
 
-      {/* Standardized Header */}
-      <View
-        style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}
-      >
-        <View style={styles.headerTop}>
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.iconButton}
-            onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+      <StandardPageHeader
+        title="Exams & Performance"
+        subtitle="Manage examinations and track student results"
+        onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={() => loadExams()}
           >
-            <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
+            <RefreshCw size={20} color={Theme.colors.card} />
           </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>Exam Management</AppText>
-          </View>
-          <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={() => loadExams()}>
-            <RefreshCw size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
-          </TouchableOpacity>
-        </View>
+        )}
+      />
 
-        <View style={styles.headerContent}>
-          <AppText weight="bold" style={styles.headerGreeting}>Exams & Performance</AppText>
-          <AppText style={styles.headerSubtext}>Manage examinations and track student results</AppText>
-        </View>
-      </View>
-
-      {/* Error Message */}
       {error ? (
         <View style={styles.errorContainer}>
           <AppText style={styles.errorText}>⚠ {error}</AppText>
         </View>
       ) : null}
 
-      {/* Tabs */}
-      <View style={styles.tabOuterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScrollContainer}>
-          <TouchableOpacity accessibilityRole="button"
-            style={[styles.tabItem, activeTab === 'list' && styles.tabItemActive]}
-            onPress={() => setActiveTab('list')}
-            activeOpacity={0.8}
-          >
-            <ClipboardList size={16} color={activeTab === 'list' ? Theme.colors.card : C.textMuted} />
-            <AppText style={[styles.tabItemText, activeTab === 'list' && styles.tabItemTextActive]} weight="bold">
-              All Exams
-            </AppText>
-          </TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button"
-            style={[styles.tabItem, activeTab === 'add' && styles.tabItemActive]}
-            onPress={() => setActiveTab('add')}
-            activeOpacity={0.8}
-          >
-            <Plus size={16} color={activeTab === 'add' ? Theme.colors.card : C.textMuted} />
-            <AppText style={[styles.tabItemText, activeTab === 'add' && styles.tabItemTextActive]} weight="bold">
-              Create Exam
-            </AppText>
-          </TouchableOpacity>
-          {selectedExam && (
+      <View style={styles.body}>
+        <View style={[innerPageLayoutStyles.contentFront, styles.tabBarWrap]}>
+          <View style={innerPageLayoutStyles.segmentedControl}>
             <TouchableOpacity accessibilityRole="button"
-              style={[styles.tabItem, activeTab === 'classwise' && styles.tabItemActive]}
-              onPress={() => setActiveTab('classwise')}
+              style={[innerPageLayoutStyles.segmentedTab, activeTab === 'list' && innerPageLayoutStyles.segmentedTabActive]}
+              onPress={() => setActiveTab('list')}
               activeOpacity={0.8}
             >
-              <TrendingUp size={16} color={activeTab === 'classwise' ? Theme.colors.card : C.textMuted} />
-              <AppText style={[styles.tabItemText, activeTab === 'classwise' && styles.tabItemTextActive]} weight="bold">
-                Performance
+              <ClipboardList size={16} color={segmentedControlIconColor(activeTab === 'list')} />
+              <AppText style={[innerPageLayoutStyles.segmentedTabText, activeTab === 'list' && innerPageLayoutStyles.segmentedTabTextActive]} weight="bold">
+                All Exams
               </AppText>
             </TouchableOpacity>
-          )}
-        </ScrollView>
-      </View>
+            <TouchableOpacity accessibilityRole="button"
+              style={[innerPageLayoutStyles.segmentedTab, activeTab === 'add' && innerPageLayoutStyles.segmentedTabActive]}
+              onPress={() => setActiveTab('add')}
+              activeOpacity={0.8}
+            >
+              <Plus size={16} color={segmentedControlIconColor(activeTab === 'add')} />
+              <AppText style={[innerPageLayoutStyles.segmentedTabText, activeTab === 'add' && innerPageLayoutStyles.segmentedTabTextActive]} weight="bold">
+                Create Exam
+              </AppText>
+            </TouchableOpacity>
+            {selectedExam ? (
+              <TouchableOpacity accessibilityRole="button"
+                style={[innerPageLayoutStyles.segmentedTab, activeTab === 'classwise' && innerPageLayoutStyles.segmentedTabActive]}
+                onPress={() => setActiveTab('classwise')}
+                activeOpacity={0.8}
+              >
+                <TrendingUp size={16} color={segmentedControlIconColor(activeTab === 'classwise')} />
+                <AppText style={[innerPageLayoutStyles.segmentedTabText, activeTab === 'classwise' && innerPageLayoutStyles.segmentedTabTextActive]} weight="bold">
+                  Performance
+                </AppText>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
 
-      {/* Tab Content */}
-      {activeTab === 'list' && renderListTab()}
-      {activeTab === 'add' && renderAddTab()}
-      {activeTab === 'classwise' && renderClasswiseTab()}
+        <View style={styles.tabBody}>
+          {activeTab === 'list' && renderListTab()}
+          {activeTab === 'add' && renderAddTab()}
+          {activeTab === 'classwise' && renderClasswiseTab()}
+        </View>
+      </View>
     </View>
   );
 }
@@ -633,58 +629,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  headerStandard: {
-    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 10 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
+  body: {
     flex: 1,
-    alignItems: 'center',
   },
-  headerTitle: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
-    fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
-    textAlign: 'center',
+  tabBarWrap: {
+    paddingHorizontal: PAGE_GUTTER,
+    paddingTop: 14,
+    paddingBottom: Theme.spacing.sm,
   },
-  headerContent: {
-    marginTop: Theme.spacing.lg,
-  },
-  headerGreeting: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: 28,
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    ...Theme.typography.body,
-    marginTop: Theme.spacing.xs,
+  tabBody: {
+    flex: 1,
   },
   toolbar: {
     flexDirection: 'row',
@@ -758,7 +712,7 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     flex: 1,
-    paddingHorizontal: Theme.spacing.md,
+    paddingHorizontal: PAGE_GUTTER,
     paddingTop: Theme.spacing.sm,
   },
   examGrid: {
@@ -1089,8 +1043,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
     borderTopLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     borderTopRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    marginTop: -HEADER_CONSTANTS.BORDER_RADIUS,
-    paddingTop: Theme.spacing.md,
+        paddingTop: Theme.spacing.md,
     zIndex: 10,
   },
   tabScrollContainer: {

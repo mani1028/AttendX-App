@@ -14,10 +14,13 @@ import {
   RefreshControl,
   SafeAreaView,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
-import { Picker } from '@react-native-picker/picker';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import CustomPickerModal from '../../components/common/CustomPickerModal';
+import { ChevronDown } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ENV } from '../../config/api.config';
 import { useAuth } from '../../context/AuthContext';
@@ -253,6 +256,14 @@ const MessageBox: React.FC<MessageBoxProps> = ({ message, isError = false, onClo
 
 // ─── Edit Salary Modal ──────────────────────────────────────────────────────
 
+const SALARY_REASON_OPTIONS = [
+  { label: 'Increment', value: 'increment' },
+  { label: 'Promotion', value: 'promotion' },
+  { label: 'Adjustment', value: 'adjustment' },
+  { label: 'Correction', value: 'correction' },
+  { label: 'Other', value: 'other' },
+];
+
 interface EditSalaryModalProps {
   visible: boolean;
   employee: Employee | null;
@@ -270,6 +281,7 @@ const EditSalaryModal: React.FC<EditSalaryModalProps> = ({
 }) => {
   const [salary, setSalary] = useState('');
   const [reason, setReason] = useState('increment');
+  const [showReasonPicker, setShowReasonPicker] = useState(false);
 
   useEffect(() => {
     if (employee) {
@@ -296,8 +308,18 @@ const EditSalaryModal: React.FC<EditSalaryModalProps> = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
+      <KeyboardAvoidingView
+        style={styles.modalOverlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+        <View style={styles.modalSheet}>
+          <View style={styles.modalHandle} />
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Update Salary</Text>
             <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.modalCloseButton}>
@@ -305,7 +327,12 @@ const EditSalaryModal: React.FC<EditSalaryModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalBody}>
+          <ScrollView
+            contentContainerStyle={styles.modalBodyContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
             <Text style={styles.modalSubtitle}>{employee.name}</Text>
             <Text style={styles.employeeIdText}>ID: {employee.employee_id}</Text>
 
@@ -332,46 +359,54 @@ const EditSalaryModal: React.FC<EditSalaryModalProps> = ({
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Reason for Change</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={reason}
-                  onValueChange={(itemValue) => setReason(itemValue)}
-                  style={styles.picker}
-                >
-                  <Picker.Item label="Increment" value="increment" />
-                  <Picker.Item label="Promotion" value="promotion" />
-                  <Picker.Item label="Adjustment" value="adjustment" />
-                  <Picker.Item label="Correction" value="correction" />
-                  <Picker.Item label="Other" value="other" />
-                </Picker>
-              </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={styles.reasonTrigger}
+                onPress={() => setShowReasonPicker(true)}
+              >
+                <Text style={styles.reasonTriggerText}>
+                  {SALARY_REASON_OPTIONS.find(option => option.value === reason)?.label || 'Select reason'}
+                </Text>
+                <ChevronDown size={18} color={Theme.colors.textSec} />
+              </TouchableOpacity>
             </View>
 
             <View style={styles.infoBox}>
               <Text style={styles.infoText}>
-                💡 This change will be recorded in the salary history.
+                This change will be recorded in the salary history.
               </Text>
             </View>
           </ScrollView>
 
-          <View style={styles.modalFooter}>
-            <TouchableOpacity accessibilityRole="button" style={[styles.modalButton, styles.cancelButton]} onPress={onClose}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button"
-              style={[styles.modalButton, styles.updateButton, loading && styles.disabledButton]}
-              onPress={handleUpdate}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color={Theme.colors.card} />
-              ) : (
-                <Text style={styles.updateButtonText}>Update Salary</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+          <SafeAreaView>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity accessibilityRole="button" style={[styles.modalButton, styles.cancelButton]} onPress={onClose}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button"
+                style={[styles.modalButton, styles.updateButton, loading && styles.disabledButton]}
+                onPress={handleUpdate}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color={Theme.colors.card} />
+                ) : (
+                  <Text style={styles.updateButtonText}>Update Salary</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
+
+      <CustomPickerModal
+        visible={showReasonPicker}
+        title="Reason for Change"
+        options={SALARY_REASON_OPTIONS}
+        selectedValue={reason}
+        onValueChange={setReason}
+        onClose={() => setShowReasonPicker(false)}
+      />
     </Modal>
   );
 };
@@ -403,7 +438,14 @@ const SalaryHistoryModal: React.FC<SalaryHistoryModalProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+        <View style={styles.modalSheet}>
+          <View style={styles.modalHandle} />
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Salary History</Text>
             <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.modalCloseButton}>
@@ -411,7 +453,11 @@ const SalaryHistoryModal: React.FC<SalaryHistoryModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalBody}>
+          <ScrollView
+            contentContainerStyle={styles.modalBodyContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
             <Text style={styles.modalSubtitle}>{employee.name}</Text>
             <Text style={styles.employeeIdText}>ID: {employee.employee_id}</Text>
 
@@ -452,11 +498,13 @@ const SalaryHistoryModal: React.FC<SalaryHistoryModalProps> = ({
             )}
           </ScrollView>
 
-          <View style={styles.modalFooter}>
-            <TouchableOpacity accessibilityRole="button" style={[styles.modalButton, styles.closeButtonFull]} onPress={onClose}>
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
+          <SafeAreaView>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity accessibilityRole="button" style={[styles.modalButton, styles.closeButtonFull]} onPress={onClose}>
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
         </View>
       </View>
     </Modal>
@@ -607,23 +655,26 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
 
   return (
     <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <StandardPageHeader
+          scrollWithContent
+          title="Staff Salaries"
+          greeting="Salaries & Payroll"
+          greetingSubtext="Manage employee compensation"
+          onBackPress={() => navigation.goBack()}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
 
-      <StandardPageHeader
-        title="Staff Salaries"
-        greeting="Salaries & Payroll"
-        greetingSubtext="Manage employee compensation"
-        onBackPress={() => navigation.goBack()}
-      />
-      <View style={styles.contentOverlap}>
-        <ScrollView
-          style={styles.scrollView}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          contentContainerStyle={{ paddingBottom: 100 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
-        >
+        <View style={innerPageLayoutStyles.scrollBody}>
         {/* Message Box */}
         <MessageBox
           message={message}
@@ -678,8 +729,8 @@ const SalariesManagement: React.FC<SalariesManagementProps> = ({ schoolCode }) =
             )}
           </View>
         )}
+        </View>
       </ScrollView>
-      </View>
 
       {/* Edit Salary Modal */}
       <EditSalaryModal
@@ -711,8 +762,7 @@ const styles = StyleSheet.create({
   },
   contentOverlap: {
     flex: 1,
-    marginTop: -30,
-    backgroundColor: '#f3f4f6',
+        backgroundColor: '#f3f4f6',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     overflow: 'hidden',
@@ -897,32 +947,45 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
-  modalContainer: {
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalSheet: {
     backgroundColor: Theme.colors.background,
-    width: '90%',
-    maxHeight: '80%',
-    borderRadius: 16,
+    width: '100%',
+    maxHeight: '92%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 5,
+        elevation: 8,
       },
     }),
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#d1d5db',
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 4,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
@@ -937,9 +1000,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#6b7280',
   },
-  modalBody: {
+  modalBodyContent: {
     padding: Theme.spacing.md,
-    maxHeight: 500,
+    paddingBottom: Theme.spacing.lg,
   },
   modalSubtitle: {
     ...Theme.typography.h4,
@@ -991,14 +1054,21 @@ const styles = StyleSheet.create({
     ...Theme.typography.h3,
     color: Theme.colors.success,
   },
-  pickerContainer: {
+  reasonTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: '#d1d5db',
-    borderRadius: 8,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    minHeight: 48,
     backgroundColor: Theme.colors.background,
   },
-  picker: {
-    height: 50,
+  reasonTriggerText: {
+    ...Theme.typography.body,
+    color: Theme.colors.text,
+    fontWeight: '500',
   },
   infoBox: {
     backgroundColor: '#eff6ff',
@@ -1014,18 +1084,20 @@ const styles = StyleSheet.create({
   },
   modalFooter: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.md,
+    paddingTop: Theme.spacing.sm,
+    paddingBottom: Theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
     gap: 10,
   },
   modalButton: {
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: 10,
-    borderRadius: 8,
-    minWidth: 100,
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
   },
   cancelButton: {
     backgroundColor: '#f3f4f6',

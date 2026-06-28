@@ -34,132 +34,198 @@ const RoleTabBar: React.FC<RoleTabBarProps> = ({
   const insets = useSafeAreaInsets();
   const pressAnim = useRef(new Animated.Value(1)).current;
   const { isTabBarVisible } = useAuth();
-
-  // Animation for hiding/showing the tab bar
   const translateY = useRef(new Animated.Value(0)).current;
+  const tabCount = state.routes.length;
+  const compactLabels = tabCount > 5;
 
   useEffect(() => {
     Animated.spring(translateY, {
-      toValue: isTabBarVisible ? 0 : 150,
+      toValue: isTabBarVisible ? 0 : 120,
       useNativeDriver: true,
       ...motion.springs.bouncy,
     }).start();
   }, [isTabBarVisible, translateY]);
 
   return (
-    <Animated.View style={[styles.tabBar, { bottom: Math.max(insets.bottom, 16), transform: [{ translateY }] }]}>
-      {state.routes.map((route: any, index: number) => {
-        const { options } = descriptors[route.key];
-        const tabConfig = tabs.find(t => t.name === route.name) || tabs[index];
-        if (!tabConfig) {return null;}
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 8 : 6),
+          transform: [{ translateY }],
+        },
+      ]}
+    >
+      <View style={styles.tabBar}>
+        {state.routes.map((route: any, index: number) => {
+          const tabConfig = tabs.find(t => t.name === route.name) || tabs[index];
+          if (!tabConfig) { return null; }
 
-        const isFocused = state.index === index;
-        const IconComponent = LucideIcons[tabConfig.icon] as React.FC<any>;
+          const isFocused = state.index === index;
+          const IconComponent = LucideIcons[tabConfig.icon] as React.FC<any>;
 
-        const onPress = () => {
-          if (tabConfig.isCenter && centerButtonAction) {
-            centerButtonAction();
-            return;
+          const onPress = () => {
+            if (tabConfig.isCenter && centerButtonAction) {
+              centerButtonAction();
+              return;
+            }
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate(route.name);
+            }
+          };
+
+          if (tabConfig.isCenter) {
+            return (
+              <TouchableOpacity
+                key={route.key}
+                onPress={onPress}
+                onPressIn={() =>
+                  Animated.spring(pressAnim, { toValue: 0.94, ...motion.springs.snappy, useNativeDriver: true }).start()
+                }
+                onPressOut={() =>
+                  Animated.spring(pressAnim, { toValue: 1, ...motion.springs.bouncy, useNativeDriver: true }).start()
+                }
+                style={styles.centerSlot}
+                accessibilityRole="button"
+                accessibilityLabel={tabConfig.label}
+                activeOpacity={0.9}
+              >
+                <Animated.View
+                  style={[
+                    styles.centerButton,
+                    { backgroundColor: accentColor, transform: [{ scale: pressAnim }] },
+                  ]}
+                >
+                  {IconComponent && <IconComponent size={26} color="#fff" />}
+                </Animated.View>
+                <Text style={[styles.centerLabel, { color: isFocused ? accentColor : Theme.colors.textMuted }]}>
+                  {tabConfig.label}
+                </Text>
+              </TouchableOpacity>
+            );
           }
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
 
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
-          }
-        };
-
-        if (tabConfig.isCenter) {
           return (
             <TouchableOpacity
               key={route.key}
               onPress={onPress}
-              onPressIn={() => Animated.spring(pressAnim, { toValue: 0.92, ...motion.springs.snappy, useNativeDriver: true }).start()}
-              onPressOut={() => Animated.spring(pressAnim, { toValue: 1, ...motion.springs.bouncy, useNativeDriver: true }).start()}
-              style={[styles.centerButtonWrap, { top: -20 }]}
+              style={styles.tabItem}
               accessibilityRole="button"
+              accessibilityState={{ selected: isFocused }}
               accessibilityLabel={tabConfig.label}
-              activeOpacity={1}
+              activeOpacity={0.7}
             >
-              <Animated.View style={[styles.centerButton, { backgroundColor: accentColor, transform: [{ scale: pressAnim }] }]}>
-                {IconComponent && <IconComponent size={28} color={Theme.colors.card} />}
-              </Animated.View>
+              <View style={styles.iconSlot}>
+                {IconComponent && (
+                  <IconComponent
+                    size={isFocused ? (compactLabels ? 22 : 24) : (compactLabels ? 21 : 22)}
+                    color={isFocused ? accentColor : Theme.colors.textMuted}
+                    strokeWidth={isFocused ? 2.5 : 1.75}
+                  />
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.tabLabel,
+                  compactLabels && styles.tabLabelCompact,
+                  isFocused && styles.tabLabelActive,
+                  { color: isFocused ? accentColor : Theme.colors.textMuted },
+                ]}
+                numberOfLines={1}
+              >
+                {tabConfig.label}
+              </Text>
             </TouchableOpacity>
           );
-        }
-
-        return (
-          <TouchableOpacity
-            key={route.key}
-            onPress={onPress}
-            style={styles.tabItem}
-            accessibilityRole="button"
-            accessibilityLabel={tabConfig.label}
-          >
-            {IconComponent && (
-              <IconComponent
-                size={24}
-                color={isFocused ? accentColor : Theme.colors.textMuted}
-              />
-            )}
-            <Text style={[styles.tabLabel, { color: isFocused ? accentColor : Theme.colors.textMuted }]}>
-              {tabConfig.label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+        })}
+      </View>
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  tabBar: {
+  container: {
     position: 'absolute',
-    left: 20,
-    right: 20,
-    borderRadius: 30,
-    flexDirection: 'row',
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: Theme.colors.card,
-    paddingVertical: 12,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Theme.colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0f172a',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+      },
+      android: { elevation: 12 },
+    }),
+  },
+  tabBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    minHeight: 56,
+    paddingTop: 6,
+    paddingHorizontal: 4,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingBottom: 2,
+    minWidth: 0,
+  },
+  iconSlot: {
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tabLabel: {
-    ...Theme.typography.caption,
-    fontSize: 10,
-    marginTop: Theme.spacing.xs,
-    fontWeight: '600',
+    fontSize: 11,
+    marginTop: 3,
+    fontWeight: '500',
+    textAlign: 'center',
   },
-  centerButtonWrap: {
+  tabLabelActive: {
+    fontWeight: '700',
+  },
+  tabLabelCompact: {
+    fontSize: 9,
+  },
+  centerSlot: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
+    justifyContent: 'flex-end',
+    marginTop: -18,
+    paddingBottom: 2,
   },
   centerButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: Theme.colors.card,
-    elevation: 10,
-    shadowColor: Theme.colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
+    marginBottom: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1e3a8a',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.28,
+        shadowRadius: 8,
+      },
+      android: { elevation: 6 },
+    }),
+  },
+  centerLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 2,
   },
 });
 

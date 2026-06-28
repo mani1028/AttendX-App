@@ -15,10 +15,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ChevronLeft,
   CreditCard,
   Banknote,
   History,
@@ -36,9 +33,10 @@ import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 
 import { formatErrorMessage } from '../../utils/helpers';
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
 import { Theme, C } from '../../theme/tokens';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 
@@ -74,7 +72,6 @@ interface FormData {
 
 const PaymentEntry = () => {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { setTabBarVisible, userRole } = useAuth();
   const isMounted = useRef(true);
   const [fees, setFees] = useState<Fee[]>([]);
@@ -264,49 +261,29 @@ const PaymentEntry = () => {
     </View>
   );
 
+  const isAccountant = userRole?.toLowerCase() === 'accountant';
+
   return (
     <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
+        }
+      >
+        <StandardPageHeader
+          scrollWithContent
+          title="Payment Entry"
+          subtitle="Record student fees and track payment history"
+          onBackPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
 
-
-      {/* Standardized Header */}
-      {(() => {
-        const isAccountant = userRole?.toLowerCase() === 'accountant';
-        return (
-          <View style={[styles.headerStandard, {
-            paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
-            backgroundColor: isAccountant ? Theme.colors.primary : HEADER_CONSTANTS.BACKGROUND_COLOR,
-          }]}>
-            <View style={styles.headerTop}>
-              <TouchableOpacity accessibilityRole="button"
-                style={styles.iconButton}
-                onPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
-              >
-                <ChevronLeft size={24} color={Theme.colors.card} />
-              </TouchableOpacity>
-              <View style={styles.headerTitleContainer}>
-                <AppText weight="bold" style={styles.headerTitle}>Payment Entry</AppText>
-              </View>
-              <View style={styles.headerSpacer} />
-            </View>
-
-            <View style={styles.headerContent}>
-              <AppText weight="bold" style={styles.headerGreeting}>Fees & Payments</AppText>
-              <AppText style={styles.headerSubtext}>Record student fees and track payment history</AppText>
-            </View>
-          </View>
-        );
-      })()}
-
-      <View style={styles.contentOverlap}>
-        <ScrollView
-          style={styles.scrollView}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
-          }
-        >
+        <View style={innerPageLayoutStyles.scrollBody}>
           {/* Form Section */}
           <View style={styles.formSection}>
             <View style={styles.sectionHeaderRow}>
@@ -487,15 +464,27 @@ const PaymentEntry = () => {
           {/* Payment History Section */}
           <View style={styles.historySection}>
             <View style={styles.historyHeader}>
-              <View style={styles.sectionHeaderRow}>
-                <ScrollText size={20} color={C.text} />
-                <AppText style={styles.historyTitle} weight="bold">Payment History</AppText>
+              <View style={styles.historyHeaderLeft}>
+                <View style={styles.sectionHeaderRow}>
+                  <ScrollText size={20} color={C.text} />
+                  <AppText style={styles.historyTitle} weight="bold">Payment History</AppText>
+                </View>
+                {selectedFee && (
+                  <AppText style={styles.historySubtitle}>
+                    {selectedFee.student_name}
+                  </AppText>
+                )}
               </View>
-              {selectedFee && (
-                <AppText style={styles.historySubtitle}>
-                  {selectedFee.student_name}
-                </AppText>
-              )}
+              {isAccountant ? (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={styles.viewAllHistoryBtn}
+                  onPress={() => navigation.navigate('AccountantPaymentHistory' as never)}
+                >
+                  <History size={16} color={Theme.colors.primary} />
+                  <AppText style={styles.viewAllHistoryText} weight="semibold">View All</AppText>
+                </TouchableOpacity>
+              ) : null}
             </View>
 
             {!formData.fee_id ? (
@@ -525,8 +514,8 @@ const PaymentEntry = () => {
               </View>
             )}
           </View>
-        </ScrollView>
-      </View>
+        </View>
+      </ScrollView>
 
       {/* Receipt Modal */}
       <Modal
@@ -632,75 +621,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  headerStandard: {
-    backgroundColor: C.navy,
-    paddingHorizontal: 20,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 10 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
-  contentOverlap: {
-    flex: 1,
-    backgroundColor: C.bg,
-    borderTopLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderTopRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    marginTop: -HEADER_CONSTANTS.BORDER_RADIUS,
-    zIndex: 10,
-    overflow: 'hidden',
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: Theme.colors.card,
-    ...Theme.typography.h3,
-    textAlign: 'center',
-  },
-  headerContent: {
-    marginTop: Theme.spacing.lg,
-  },
-  headerGreeting: {
-    color: Theme.colors.card,
-    ...Theme.typography.h1,
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: 'rgba(255,255,255,0.7)',
-    ...Theme.typography.body,
-    marginTop: Theme.spacing.xs,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -716,7 +636,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderLeftWidth: 4,
     borderLeftColor: C.success,
-    margin: Theme.spacing.md,
     marginBottom: Theme.spacing.sm,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -838,11 +757,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   historySection: {
-    margin: Theme.spacing.md,
     marginTop: Theme.spacing.sm,
   },
   historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
     marginBottom: Theme.spacing.md,
+  },
+  historyHeaderLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
+  viewAllHistoryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+    backgroundColor: `${Theme.colors.primary}10`,
+  },
+  viewAllHistoryText: {
+    color: Theme.colors.primary,
+    fontSize: 12,
   },
   historyTitle: {
     fontSize: 18,

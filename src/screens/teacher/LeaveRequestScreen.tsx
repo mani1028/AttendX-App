@@ -27,6 +27,7 @@ import { Theme } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 // Types
 interface LeaveRequest {
@@ -358,7 +359,7 @@ export default function LeaveRequestScreen() {
 
 
       <ScrollView
-        style={styles.scrollView}
+       style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -370,7 +371,7 @@ export default function LeaveRequestScreen() {
         {/* Navy Hero Header - scrolls with page */}
         <StandardPageHeader title="Leave Request" onBackPress={() => navigation.goBack()} />
         {/* Form Card */}
-        <AppCard style={styles.mainCard}>
+<AppCard style={[styles.mainCard, innerPageLayoutStyles.contentFront]}>
           <View style={styles.cardHeader}>
             <Calendar size={20} color={Theme.colors.primary} />
             <AppText weight="bold" style={styles.cardTitle}>New Application</AppText>

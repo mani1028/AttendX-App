@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,130 +6,26 @@ import {
   TouchableOpacity,
   TextInput,
   RefreshControl,
-  Switch,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Theme, colors } from '../../theme/tokens';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { RootStackParamList } from '../../navigation/types';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
-import AppButton from '../../components/common/AppButton';
 import {
-  ChevronLeft,
   Search,
   CreditCard,
   Building2,
-  CheckCircle2,
-  XCircle,
   Clock,
   AlertTriangle,
   RefreshCw,
+  Repeat,
 } from 'lucide-react-native';
-
-interface SchoolAutoPay {
-  id: string;
-  schoolName: string;
-  planName: string;
-  autoPayEnabled: boolean;
-  paymentMethod: 'card' | 'bank';
-  lastPaymentDate: string;
-  nextPaymentDate: string;
-  nextPaymentAmount: string;
-  status: 'active' | 'pending' | 'failed';
-}
-
-const MOCK_DATA: SchoolAutoPay[] = [
-  {
-    id: '1',
-    schoolName: 'Sunrise Academy',
-    planName: 'Premium',
-    autoPayEnabled: true,
-    paymentMethod: 'card',
-    lastPaymentDate: '2026-05-01',
-    nextPaymentDate: '2026-06-01',
-    nextPaymentAmount: '₹4,999',
-    status: 'active',
-  },
-  {
-    id: '2',
-    schoolName: 'Green Valley School',
-    planName: 'Standard',
-    autoPayEnabled: true,
-    paymentMethod: 'bank',
-    lastPaymentDate: '2026-05-03',
-    nextPaymentDate: '2026-06-03',
-    nextPaymentAmount: '₹2,499',
-    status: 'active',
-  },
-  {
-    id: '3',
-    schoolName: 'Lighthouse Public School',
-    planName: 'Basic',
-    autoPayEnabled: false,
-    paymentMethod: 'card',
-    lastPaymentDate: '2026-04-15',
-    nextPaymentDate: '—',
-    nextPaymentAmount: '₹999',
-    status: 'pending',
-  },
-  {
-    id: '4',
-    schoolName: 'Horizon International',
-    planName: 'Premium',
-    autoPayEnabled: true,
-    paymentMethod: 'card',
-    lastPaymentDate: '2026-04-28',
-    nextPaymentDate: '2026-05-28',
-    nextPaymentAmount: '₹4,999',
-    status: 'failed',
-  },
-  {
-    id: '5',
-    schoolName: 'Crescent Moon Academy',
-    planName: 'Standard',
-    autoPayEnabled: true,
-    paymentMethod: 'bank',
-    lastPaymentDate: '2026-05-05',
-    nextPaymentDate: '2026-06-05',
-    nextPaymentAmount: '₹2,499',
-    status: 'active',
-  },
-  {
-    id: '6',
-    schoolName: 'Royal Oak School',
-    planName: 'Basic',
-    autoPayEnabled: false,
-    paymentMethod: 'bank',
-    lastPaymentDate: '2026-03-20',
-    nextPaymentDate: '—',
-    nextPaymentAmount: '₹999',
-    status: 'pending',
-  },
-  {
-    id: '7',
-    schoolName: 'Silver Bells Academy',
-    planName: 'Premium',
-    autoPayEnabled: true,
-    paymentMethod: 'card',
-    lastPaymentDate: '2026-05-10',
-    nextPaymentDate: '2026-06-10',
-    nextPaymentAmount: '₹4,999',
-    status: 'active',
-  },
-  {
-    id: '8',
-    schoolName: 'Maple Leaf Public School',
-    planName: 'Standard',
-    autoPayEnabled: true,
-    paymentMethod: 'bank',
-    lastPaymentDate: '2026-04-30',
-    nextPaymentDate: '2026-05-30',
-    nextPaymentAmount: '₹2,499',
-    status: 'failed',
-  },
-];
+import { getAutoPaySchools, type AutoPaySchool } from '../../services/paymentService';
 
 const STATUS_CONFIG = {
   active: { label: 'Active', bg: Theme.colors.successBg, text: Theme.colors.success },
@@ -139,154 +35,183 @@ const STATUS_CONFIG = {
 
 export default function AutoPayTrackerScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
-  const [schools, setSchools] = useState<SchoolAutoPay[]>(MOCK_DATA);
+  const [schools, setSchools] = useState<AutoPaySchool[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
+
+  const loadSchools = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    setLoadError('');
+    try {
+      const data = await getAutoPaySchools();
+      setSchools(data);
+    } catch (err) {
+      console.error('Failed to load auto-pay schools:', err);
+      setLoadError('Unable to load auto-pay schools. Pull to retry.');
+      setSchools([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSchools();
+  }, [loadSchools]);
 
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1200);
-  }, []);
+    loadSchools(true);
+  }, [loadSchools]);
 
   const filtered = schools.filter(s =>
     s.schoolName.toLowerCase().includes(search.toLowerCase()) ||
     s.planName.toLowerCase().includes(search.toLowerCase())
   );
 
-  const toggleAutoPay = (id: string) => {
-    setSchools(prev =>
-      prev.map(s => (s.id === id ? { ...s, autoPayEnabled: !s.autoPayEnabled } : s))
-    );
-  };
+  const activeCount = schools.filter(s => s.status === 'active').length;
+  const issueCount = schools.filter(s => s.status !== 'active').length;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft size={24} color={Theme.colors.text} />
-        </TouchableOpacity>
-        <AppText variant="h3" weight="bold" style={styles.headerTitle}>
-          Auto Pay Tracker
-        </AppText>
-        <View style={{ width: 40 }} />
-      </View>
+    <View style={styles.container}>
+      <StandardPageHeader
+        title="Auto Pay Tracker"
+        subtitle="Schools with automatic renewal enabled"
+        onBackPress={() => navigation.goBack()}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={onRefresh}
+            accessibilityLabel="Refresh"
+          >
+            <RefreshCw size={18} color={Theme.colors.card} />
+          </TouchableOpacity>
+        )}
+      />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
-        <View style={styles.searchRow}>
-          <View style={styles.searchBox}>
-            <Search size={18} color={Theme.colors.textMuted} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search schools or plans..."
-              placeholderTextColor={Theme.colors.textMuted}
-              value={search}
-              onChangeText={setSearch}
-            />
+        <View style={innerPageLayoutStyles.contentFront}>
+          <View style={styles.searchRow}>
+            <View style={styles.searchBox}>
+              <Search size={18} color={Theme.colors.textMuted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search schools or plans..."
+                placeholderTextColor={Theme.colors.textMuted}
+                value={search}
+                onChangeText={setSearch}
+              />
+            </View>
           </View>
+
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <AppText variant="label" muted>Auto-Pay Schools</AppText>
+              <AppText variant="h3" weight="bold" style={{ color: Theme.colors.primary }}>
+                {schools.length}
+              </AppText>
+            </View>
+            <View style={styles.statBox}>
+              <AppText variant="label" muted>Active</AppText>
+              <AppText variant="h3" weight="bold" style={{ color: Theme.colors.success }}>
+                {activeCount}
+              </AppText>
+            </View>
+            <View style={styles.statBox}>
+              <AppText variant="label" muted>Needs Attention</AppText>
+              <AppText variant="h3" weight="bold" style={{ color: Theme.colors.warning }}>
+                {issueCount}
+              </AppText>
+            </View>
+          </View>
+
+          {loading ? (
+            <View style={styles.loadingState}>
+              <ActivityIndicator size="large" color={Theme.colors.primary} />
+            </View>
+          ) : loadError ? (
+            <View style={styles.emptyState}>
+              <AlertTriangle size={40} color={Theme.colors.warning} style={{ opacity: 0.7 }} />
+              <AppText variant="body" style={{ marginTop: 12, textAlign: 'center' }}>{loadError}</AppText>
+            </View>
+          ) : filtered.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Repeat size={40} color={Theme.colors.textMuted} style={{ opacity: 0.4 }} />
+              <AppText variant="body" weight="semibold" style={{ marginTop: 12 }}>
+                {search ? 'No matching schools found' : 'No schools with automatic renewal enabled'}
+              </AppText>
+              {!search && (
+                <AppText variant="caption" muted style={{ marginTop: 6, textAlign: 'center' }}>
+                  Schools appear here after a director enables auto-renewal on subscription.
+                </AppText>
+              )}
+            </View>
+          ) : (
+            filtered.map(school => {
+              const st = STATUS_CONFIG[school.status];
+              return (
+                <AppCard key={school.id} style={styles.schoolCard}>
+                  <View style={styles.cardTop}>
+                    <View style={styles.cardTopLeft}>
+                      <View style={styles.schoolIconBox}>
+                        <Building2 size={18} color={colors.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <AppText variant="h4" weight="bold">{school.schoolName}</AppText>
+                        <AppText variant="caption" muted>{school.planName} Plan</AppText>
+                      </View>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
+                      <AppText style={[styles.statusText, { color: st.text }]}>{st.label}</AppText>
+                    </View>
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <View style={styles.cardDetails}>
+                    <View style={styles.detailItem}>
+                      <AppText variant="caption" muted>Method</AppText>
+                      <View style={styles.methodRow}>
+                        <CreditCard size={14} color={Theme.colors.textMuted} />
+                        <AppText variant="body" weight="semibold" style={{ marginLeft: 4 }}>
+                          {school.paymentMethod === 'card' ? 'Card' : 'Bank'}
+                        </AppText>
+                      </View>
+                    </View>
+                    <View style={styles.detailItem}>
+                      <AppText variant="caption" muted>Next Payment</AppText>
+                      <AppText variant="body" weight="bold" style={{ color: Theme.colors.primary }}>
+                        {school.nextPaymentAmount}
+                      </AppText>
+                    </View>
+                  </View>
+
+                  <View style={styles.cardBottom}>
+                    <View style={styles.dateItem}>
+                      <Clock size={12} color={Theme.colors.textMuted} />
+                      <AppText variant="caption" muted> Last: {school.lastPaymentDate}</AppText>
+                    </View>
+                    <View style={styles.dateItem}>
+                      <AlertTriangle size={12} color={Theme.colors.textMuted} />
+                      <AppText variant="caption" muted> Next: {school.nextPaymentDate}</AppText>
+                    </View>
+                  </View>
+                </AppCard>
+              );
+            })
+          )}
         </View>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <AppText variant="label" muted>Enabled</AppText>
-            <AppText variant="h3" weight="bold" style={{ color: Theme.colors.success }}>
-              {schools.filter(s => s.autoPayEnabled).length}
-            </AppText>
-          </View>
-          <View style={styles.statBox}>
-            <AppText variant="label" muted>Disabled</AppText>
-            <AppText variant="h3" weight="bold" style={{ color: Theme.colors.error }}>
-              {schools.filter(s => !s.autoPayEnabled).length}
-            </AppText>
-          </View>
-          <View style={styles.statBox}>
-            <AppText variant="label" muted>Total</AppText>
-            <AppText variant="h3" weight="bold" style={{ color: Theme.colors.primary }}>
-              {schools.length}
-            </AppText>
-          </View>
-        </View>
-
-        {filtered.map(school => {
-          const st = STATUS_CONFIG[school.status];
-          return (
-            <AppCard key={school.id} style={styles.schoolCard}>
-              <View style={styles.cardTop}>
-                <View style={styles.cardTopLeft}>
-                  <View style={styles.schoolIconBox}>
-                    <Building2 size={18} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <AppText variant="h4" weight="bold">{school.schoolName}</AppText>
-                    <AppText variant="caption" muted>{school.planName} Plan</AppText>
-                  </View>
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
-                  <AppText style={[styles.statusText, { color: st.text }]}>{st.label}</AppText>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.cardDetails}>
-                <View style={styles.detailItem}>
-                  <AppText variant="caption" muted>Auto-Pay</AppText>
-                  <View style={styles.toggleRow}>
-                    {school.autoPayEnabled ? (
-                      <CheckCircle2 size={16} color={Theme.colors.success} />
-                    ) : (
-                      <XCircle size={16} color={Theme.colors.error} />
-                    )}
-                    <Switch
-                      value={school.autoPayEnabled}
-                      onValueChange={() => toggleAutoPay(school.id)}
-                      trackColor={{ false: Theme.colors.border, true: Theme.colors.successBg }}
-                      thumbColor={school.autoPayEnabled ? Theme.colors.success : Theme.colors.textMuted}
-                      style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-                    />
-                  </View>
-                </View>
-                <View style={styles.detailItem}>
-                  <AppText variant="caption" muted>Method</AppText>
-                  <View style={styles.methodRow}>
-                    <CreditCard size={14} color={Theme.colors.textMuted} />
-                    <AppText variant="body" weight="semibold" style={{ marginLeft: 4 }}>
-                      {school.paymentMethod === 'card' ? 'Card' : 'Bank'}
-                    </AppText>
-                  </View>
-                </View>
-                <View style={styles.detailItem}>
-                  <AppText variant="caption" muted>Next Payment</AppText>
-                  <AppText variant="body" weight="bold" style={{ color: Theme.colors.primary }}>
-                    {school.nextPaymentAmount}
-                  </AppText>
-                </View>
-              </View>
-
-              <View style={styles.cardBottom}>
-                <View style={styles.dateItem}>
-                  <Clock size={12} color={Theme.colors.textMuted} />
-                  <AppText variant="caption" muted> Last: {school.lastPaymentDate}</AppText>
-                </View>
-                <View style={styles.dateItem}>
-                  <AlertTriangle size={12} color={Theme.colors.textMuted} />
-                  <AppText variant="caption" muted> Next: {school.nextPaymentDate}</AppText>
-                </View>
-              </View>
-            </AppCard>
-          );
-        })}
-
-        {filtered.length === 0 && (
-          <View style={styles.emptyState}>
-            <Search size={40} color={Theme.colors.textMuted} style={{ opacity: 0.4 }} />
-            <AppText variant="body" muted style={{ marginTop: 12 }}>No schools found</AppText>
-          </View>
-        )}
       </ScrollView>
     </View>
   );
@@ -296,30 +221,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Theme.colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.sm,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: Theme.radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Theme.colors.card,
-  },
-  headerTitle: {
-    fontSize: 18,
-    color: Theme.colors.text,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingTop: 16,
-    paddingBottom: 40,
   },
   searchRow: {
     marginBottom: Theme.spacing.md,
@@ -391,16 +292,10 @@ const styles = StyleSheet.create({
   cardDetails: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: Theme.spacing.md,
   },
   detailItem: {
-    alignItems: 'center',
     flex: 1,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
   },
   methodRow: {
     flexDirection: 'row',
@@ -422,6 +317,11 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: Theme.spacing.lg,
+  },
+  loadingState: {
+    alignItems: 'center',
     paddingVertical: 60,
   },
 });

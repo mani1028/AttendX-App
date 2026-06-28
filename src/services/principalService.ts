@@ -92,3 +92,46 @@ export async function getPrincipalTeachers(headers: any): Promise<any[]> {
 
   return [];
 }
+
+export interface PrincipalStudentSearchResult {
+  roll_no: string;
+  roll_number?: string;
+  student_id?: string;
+  student_full_name?: string;
+  name?: string;
+  class_grade?: string;
+  section?: string;
+  admission_number?: string;
+}
+
+export async function searchPrincipalStudents(
+  query: string,
+  headers: Record<string, string>,
+): Promise<PrincipalStudentSearchResult[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) { return []; }
+
+  const response = await API.get('principal/students-search', {
+    headers,
+    params: { q: trimmed },
+    suppressFallback404Log: true,
+  } as any);
+
+  const rows = response.data?.items || response.data?.students || response.data || [];
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function getStudentPromotionHistory(
+  rollNo: string,
+  headers: Record<string, string>,
+): Promise<any[]> {
+  try {
+    const response = await API.get(`principal/promotion/history/${encodeURIComponent(rollNo)}`, {
+      headers,
+      suppressFallback404Log: true,
+    } as any);
+    return response.data?.history || response.data?.items || [];
+  } catch {
+    return [];
+  }
+}

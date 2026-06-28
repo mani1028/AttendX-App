@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import {
   View,
   StyleSheet,
@@ -33,16 +34,35 @@ import {
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import API from '../../services/api';
+import { submitStudentRegistration } from '../../services/teacherService';
 
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import { Theme, C } from '../../theme/tokens';
-
-
-
-// Types
+import BloodGroupPicker from '../../components/common/BloodGroupPicker';
+import FormSelectPicker from '../../components/common/FormSelectPicker';
+import RegistrationFormField, { RequiredSectionTitle, StepRequiredLegend } from '../../components/common/RegistrationFormField';
+import {
+  buildStudentRegistrationFormData,
+  calcAgeFromDOB,
+  formatGenderLabel,
+  formatOptionLabel,
+  GENDER_OPTIONS,
+  getAcademicYearOptions,
+  getDefaultAcademicYear,
+  getPasswordStrength,
+  HOSTEL_DAY_SCHOLAR_OPTIONS,
+  isValidDateOfBirth,
+  MEDIUM_OF_INSTRUCTION_OPTIONS,
+  MODE_OF_TRANSPORT_OPTIONS,
+  safeTrim,
+  validateStudentRegistrationStep,
+  toClassPickerOptions,
+  toSectionPickerOptions,
+} from '../../utils/studentRegistrationValidation';
+import { formatErrorMessage } from '../../utils/helpers';
 interface ClassOption {
   class_name: string;
   sections: string[];
@@ -102,81 +122,7 @@ interface FormData {
 }
 
 // Helper functions
-const safeTrim = (v: any): string => String(v ?? '').trim();
-const isValidEmail = (v: string): boolean => {
-  const s = String(v || '').trim();
-  if (!s) {return true;}
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
-};
-const isValidMobile = (v: string): boolean => /^\d{10}$/.test(String(v || '').trim());
-const isValidPin = (v: string): boolean => /^\d{6}$/.test(String(v || '').trim());
-const isValidAadhaar = (v: string): boolean => {
-  const s = String(v || '').trim();
-  if (!s) {return true;}
-  return /^\d{12}$/.test(s);
-};
-const isValidName = (v: string): boolean => {
-  const s = String(v || '').trim();
-  if (!s) {return false;}
-  return /^[a-zA-Z\s'-]+$/.test(s) && !/^\d+$/.test(s);
-};
-const isStrongPassword = (v: string): boolean => {
-  const s = String(v || '');
-  return s.length >= 8 && /[A-Z]/.test(s) && /[a-z]/.test(s) && /\d/.test(s) && /[^A-Za-z0-9]/.test(s);
-};
-
-const getPasswordStrength = (v: string) => {
-  const s = String(v || '');
-  return {
-    minLength: s.length >= 8,
-    hasUpper: /[A-Z]/.test(s),
-    hasLower: /[a-z]/.test(s),
-    hasNumber: /\d/.test(s),
-    hasSpecial: /[^A-Za-z0-9]/.test(s),
-  };
-};
-
-const calcAgeFromDOB = (dob: string): string => {
-  if (!dob) {return '';}
-  const today = new Date();
-  const birth = new Date(dob);
-  if (isNaN(birth.getTime())) {return '';}
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {age--;}
-  return age >= 0 && age < 120 ? String(age) : '';
-};
-
 const todayISO = (): string => new Date().toISOString().split('T')[0];
-
-const isValidDateOfBirth = (dobString: string): { valid: boolean; error: string | null } => {
-  if (!dobString) {return { valid: true, error: null };}
-
-  const dob = new Date(dobString);
-  if (isNaN(dob.getTime())) {
-    return { valid: false, error: 'Invalid date format' };
-  }
-
-  const year = dob.getFullYear();
-  if (year < 1000 || year > new Date().getFullYear()) {
-    return {
-      valid: false,
-      error: `Invalid year ${year}. Please use a valid year (e.g., 1991, 2024)`,
-    };
-  }
-
-  const today = new Date();
-  const oneYearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
-
-  if (dob > oneYearAgo) {
-    return {
-      valid: false,
-      error: 'Date of Birth must be more than 1 year old',
-    };
-  }
-
-  return { valid: true, error: null };
-};
 
 const STEPS = [
   'Personal Info',
@@ -206,7 +152,7 @@ const INITIAL_FORM: FormData = {
   section: '',
   admission_number: '',
   roll_number: '',
-  academic_year: '',
+  academic_year: getDefaultAcademicYear(),
   medium_of_instruction: 'ENGLISH',
   date_of_admission: todayISO(),
   previous_school_name: '',
@@ -268,23 +214,6 @@ const PasswordRule: React.FC<{ valid: boolean; children: React.ReactNode }> = ({
   </View>
 );
 
-// Form Field Component
-const FormField: React.FC<{
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}> = ({ label, required, error, children }) => (
-  <View style={styles.formGroup}>
-    <AppText weight="semibold" style={styles.formLabel}>
-      {label}
-      {required && <AppText style={styles.requiredStar}> *</AppText>}
-    </AppText>
-    {children}
-    {error && <AppText style={styles.fieldError}>{error}</AppText>}
-  </View>
-);
-
 // Preview Field Component
 const PreviewField: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <View style={styles.previewField}>
@@ -316,6 +245,15 @@ export default function StudentRegisterPublicScreen() {
   const [form, setForm] = useState<FormData>({ ...INITIAL_FORM, nationality: 'Indian', branch_id: publicBranchId });
   const [showRollNumberModal, setShowRollNumberModal] = useState<boolean>(false);
   const [generatedRollNumber, setGeneratedRollNumber] = useState<string>('');
+  const academicYearOptions = useMemo(() => getAcademicYearOptions(), []);
+  const classPickerOptions = useMemo(
+    () => toClassPickerOptions(classOptions),
+    [classOptions],
+  );
+  const sectionPickerOptions = useMemo(
+    () => toSectionPickerOptions(sectionOptions),
+    [sectionOptions],
+  );
 
   // Password visibility
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -326,6 +264,7 @@ export default function StudentRegisterPublicScreen() {
   const [showAdmissionDatePicker, setShowAdmissionDatePicker] = useState<boolean>(false);
 
   const isMounted = useRef(true);
+  const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     isMounted.current = true;
@@ -381,10 +320,14 @@ export default function StudentRegisterPublicScreen() {
     setServerError('');
     setServerSuccess('');
 
-    if (fieldErrors[name]) {
+    if (fieldErrors[name] || (name === 'father_guardian_name' || name === 'mother_guardian_name')) {
       setFieldErrors(prev => {
         const newErrors = { ...prev };
         delete newErrors[name];
+        if (name === 'father_guardian_name' || name === 'mother_guardian_name') {
+          delete newErrors.father_guardian_name;
+          delete newErrors.mother_guardian_name;
+        }
         return newErrors;
       });
     }
@@ -398,22 +341,6 @@ export default function StudentRegisterPublicScreen() {
       }
       return updated;
     });
-  };
-
-  const handleAcademicYearChange = (text: string) => {
-    let value = text.replace(/[^0-9-]/g, '');
-    if (value.length > 7) {value = value.slice(0, 7);}
-    if (value.length === 5 && !value.includes('-')) {value = value.slice(0, 4) + '-' + value.slice(4);}
-    if (value.length === 5 && value[4] !== '-') {value = value.slice(0, 4) + '-' + value.slice(4);}
-
-    if (fieldErrors.academic_year) {
-      setFieldErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors.academic_year;
-        return newErrors;
-      });
-    }
-    handleChange('academic_year', value);
   };
 
   const handleSectionChange = (text: string) => {
@@ -474,6 +401,12 @@ export default function StudentRegisterPublicScreen() {
         const asset = response.assets[0];
         setPhotoFile(asset);
         setPhotoPreview(asset.uri || null);
+        setFieldErrors(prev => {
+          if (!prev.photo) { return prev; }
+          const next = { ...prev };
+          delete next.photo;
+          return next;
+        });
       }
     });
   };
@@ -484,83 +417,22 @@ export default function StudentRegisterPublicScreen() {
         const asset = response.assets[0];
         setPhotoFile(asset);
         setPhotoPreview(asset.uri || null);
+        setFieldErrors(prev => {
+          if (!prev.photo) { return prev; }
+          const next = { ...prev };
+          delete next.photo;
+          return next;
+        });
       }
     });
   };
 
-  const validateStep = (): Record<string, string> => {
-    const errors: Record<string, string> = {};
-
-    if (step === 0) {
-      if (!safeTrim(form.first_name)) {errors.first_name = 'First name is required';}
-      else if (!isValidName(form.first_name)) {errors.first_name = 'First name must contain letters';}
-
-      if (!safeTrim(form.last_name)) {errors.last_name = 'Last name is required';}
-      else if (!isValidName(form.last_name)) {errors.last_name = 'Last name must contain letters';}
-
-      if (!form.gender) {errors.gender = 'Gender is required';}
-      if (!form.date_of_birth) {errors.date_of_birth = 'Date of birth is required';}
-
-      if (!safeTrim(form.nationality)) {errors.nationality = 'Nationality is required';}
-      if (!safeTrim(form.mother_tongue)) {errors.mother_tongue = 'Mother tongue is required';}
-      if (!safeTrim(form.religion)) {errors.religion = 'Religion is required';}
-      if (!safeTrim(form.aadhaar_number)) {errors.aadhaar_number = 'Aadhaar number is required';}
-      if (form.aadhaar_number && !isValidAadhaar(form.aadhaar_number)) {
-        errors.aadhaar_number = 'Aadhaar must be 12 digits';
-      }
-    }
-
-    if (step === 1) {
-      if (!safeTrim(form.class_grade)) {errors.class_grade = 'Class is required';}
-      if (!safeTrim(form.section)) {errors.section = 'Section is required';}
-      if (!safeTrim(form.admission_number)) {errors.admission_number = 'Admission number is required';}
-      if (!safeTrim(form.academic_year)) {errors.academic_year = 'Academic year is required';}
-      if (form.academic_year && !(/^\d{4}-\d{2}$/.test(form.academic_year))) {
-        errors.academic_year = 'Academic year must be in YYYY-YY format (e.g., 2024-25)';
-      }
-    }
-
-    if (step === 2) {
-      if (!safeTrim(form.father_guardian_name)) {errors.father_guardian_name = 'Father name is required';}
-      if (!isValidMobile(form.father_guardian_mobile)) {errors.father_guardian_mobile = 'Enter valid 10-digit number';}
-      if (!safeTrim(form.mother_guardian_name)) {errors.mother_guardian_name = 'Mother name is required';}
-      if (!isValidMobile(form.mother_guardian_mobile)) {errors.mother_guardian_mobile = 'Enter valid 10-digit number';}
-      if (!safeTrim(form.parent_guardian_email)) {errors.parent_guardian_email = 'Parent email is required';}
-      else if (!isValidEmail(form.parent_guardian_email)) {errors.parent_guardian_email = 'Enter valid email';}
-    }
-
-    if (step === 3) {
-      if (!safeTrim(form.house_no)) {errors.house_no = 'House No is required';}
-      if (!safeTrim(form.street_locality)) {errors.street_locality = 'Street is required';}
-      if (!safeTrim(form.village_town_city)) {errors.village_town_city = 'City is required';}
-      if (!safeTrim(form.mandal_taluk)) {errors.mandal_taluk = 'Mandal/Taluk is required';}
-      if (!safeTrim(form.district)) {errors.district = 'District is required';}
-      if (!safeTrim(form.state)) {errors.state = 'State is required';}
-      if (!isValidPin(form.pin_code)) {errors.pin_code = 'Enter valid 6-digit pin code';}
-
-      if (!safeTrim(form.emergency_contact_name)) {errors.emergency_contact_name = 'Contact name is required';}
-      if (!isValidMobile(form.emergency_contact_number)) {errors.emergency_contact_number = 'Enter valid 10-digit number';}
-      if (!safeTrim(form.mode_of_transport)) {errors.mode_of_transport = 'Mode of transport is required';}
-    }
-
-    if (step === 4) {
-      if (!photoFile) {errors.photo = 'Student photograph is required';}
-
-      if (!safeTrim(form.password)) {
-        errors.password = 'Password is required';
-      } else if (!isStrongPassword(form.password)) {
-        errors.password = 'Password must contain uppercase, lowercase, number, and special character';
-      }
-      if (!safeTrim(form.confirm_password)) {
-        errors.confirm_password = 'Please retype password';
-      }
-      if (form.password && form.confirm_password && form.password !== form.confirm_password) {
-        errors.confirm_password = 'Passwords do not match';
-      }
-    }
-
-    return errors;
-  };
+  const validateStep = (): Record<string, string> =>
+    validateStudentRegistrationStep(step, form, {
+      hasPhoto: Boolean(photoFile),
+      includePassword: true,
+      requireRollNumber: false,
+    });
 
   const nextStep = () => {
     if (!isPublicInvite) {
@@ -570,8 +442,11 @@ export default function StudentRegisterPublicScreen() {
     const errs = validateStep();
     if (Object.keys(errs).length > 0) {
       setFieldErrors(errs);
+      setServerError('Please fill all required fields marked with *.');
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
+    setServerError('');
     setFieldErrors({});
     setStep(s => Math.min(s + 1, STEPS.length - 1));
   };
@@ -597,47 +472,39 @@ export default function StudentRegisterPublicScreen() {
     setServerSuccess('');
 
     try {
-      const formData = new FormData();
-
-      formData.append('school_code', publicSchoolCode);
-      formData.append('branch_id', publicBranchId);
-
-      // Use standard FormData file object instead of base64
-      formData.append('student_photograph', {
-        uri: photoFile.uri,
-        type: photoFile.type || 'image/jpeg',
-        name: photoFile.fileName || 'student_photo.jpg',
-      } as any);
-
-      const skip = new Set(['branch_id', 'confirm_password']);
-      Object.entries(form).forEach(([k, v]) => {
-        if (skip.has(k)) {return;}
-        if (k === 'date_of_admission' && !safeTrim(v)) {return;}
-        formData.append(k, v ?? '');
+      const formData = buildStudentRegistrationFormData(form as Record<string, unknown>, {
+        schoolCode: publicSchoolCode,
+        branchId: publicBranchId,
+        photoFile,
       });
 
-      const res = await API.post('/student/register', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'X-School-Code': publicSchoolCode,
-          'X-Branch-Id': publicBranchId,
-        },
-      });
+      const data = await submitStudentRegistration(publicSchoolCode, publicBranchId, formData);
 
       if (!isMounted.current) {return;}
 
-      const assignedRollNumber = res.data?.roll_number || form.roll_number || '—';
-      setGeneratedRollNumber(assignedRollNumber);
-      setShowRollNumberModal(true);
+      if (data?.roll_number) {
+        const assignedRollNumber = data.roll_number || form.roll_number || '—';
+        setGeneratedRollNumber(assignedRollNumber);
+        setShowRollNumberModal(true);
 
-      setTimeout(() => {
-        if (!isMounted.current) {return;}
-        setStep(0);
-        setShowRollNumberModal(false);
-        setPhotoFile(null);
-        setPhotoPreview(null);
-        setForm({ ...INITIAL_FORM, nationality: 'Indian', branch_id: publicBranchId });
-      }, 3000);
+        setTimeout(() => {
+          if (!isMounted.current) {return;}
+          setStep(0);
+          setShowRollNumberModal(false);
+          setPhotoFile(null);
+          setPhotoPreview(null);
+          setForm({ ...INITIAL_FORM, nationality: 'Indian', branch_id: publicBranchId });
+        }, 3000);
+      } else {
+        setServerSuccess('Registration request submitted. School admin will review and approve.');
+        setTimeout(() => {
+          if (!isMounted.current) {return;}
+          setStep(0);
+          setPhotoFile(null);
+          setPhotoPreview(null);
+          setForm({ ...INITIAL_FORM, nationality: 'Indian', branch_id: publicBranchId });
+        }, 2500);
+      }
     } catch (err: any) {
       if (isMounted.current) {
         const data = err.response?.data;
@@ -656,7 +523,7 @@ export default function StudentRegisterPublicScreen() {
             setServerError(data.detail);
           }
         } else {
-          setServerError(`Submission Error: ${err.message}`);
+          setServerError(formatErrorMessage(data?.detail) || `Submission Error: ${err.message}`);
         }
       }
     } finally {
@@ -693,7 +560,8 @@ export default function StudentRegisterPublicScreen() {
 
 
       <ScrollView
-        contentContainerStyle={styles.contentContainer}
+        ref={scrollRef}
+        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
         {/* Navy Hero Header */}
@@ -729,12 +597,13 @@ export default function StudentRegisterPublicScreen() {
           {/* Step 0: Basic Info */}
           {step === 0 && (
             <View>
+              <StepRequiredLegend />
               <View style={styles.sectionHeader}>
                 <User size={18} color="#6648dc" />
                 <AppText weight="bold" style={styles.sectionTitle}>Personal Details</AppText>
               </View>
 
-              <FormField label="First Name" required error={fieldErrors.first_name}>
+              <RegistrationFormField label="First Name" step={step} fieldKey="first_name" error={fieldErrors.first_name}>
                 <TextInput
                   style={[styles.input, fieldErrors.first_name && styles.inputError]}
                   placeholder="Enter first name"
@@ -742,9 +611,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.first_name}
                   onChangeText={(text) => handleChange('first_name', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Last Name" required error={fieldErrors.last_name}>
+              <RegistrationFormField label="Last Name" step={step} fieldKey="last_name" error={fieldErrors.last_name}>
                 <TextInput
                   style={[styles.input, fieldErrors.last_name && styles.inputError]}
                   placeholder="Enter last name"
@@ -752,33 +621,33 @@ export default function StudentRegisterPublicScreen() {
                   value={form.last_name}
                   onChangeText={(text) => handleChange('last_name', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Gender" required error={fieldErrors.gender}>
+              <RegistrationFormField label="Gender" step={step} fieldKey="gender" error={fieldErrors.gender}>
                 <View style={styles.genderContainer}>
-                  {['Male', 'Female', 'Other'].map(g => (
+                  {GENDER_OPTIONS.map((option) => (
                     <TouchableOpacity accessibilityRole="button"
-                      key={g}
-                      style={[styles.genderBtn, form.gender === g && styles.genderBtnActive]}
-                      onPress={() => handleChange('gender', g)}
+                      key={option.value}
+                      style={[styles.genderBtn, form.gender === option.value && styles.genderBtnActive]}
+                      onPress={() => handleChange('gender', option.value)}
                     >
-                      <AppText weight="semibold" style={[styles.genderText, form.gender === g && styles.genderTextActive]}>{g}</AppText>
+                      <AppText weight="semibold" style={[styles.genderText, form.gender === option.value && styles.genderTextActive]}>
+                        {option.label}
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </View>
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Blood Group">
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. O+"
-                  placeholderTextColor={Theme.colors.textMuted}
+              <RegistrationFormField label="Blood Group" step={step} required={false} error={fieldErrors.blood_group}>
+                <BloodGroupPicker
                   value={form.blood_group}
-                  onChangeText={(text) => handleChange('blood_group', text)}
+                  onChange={(value) => handleChange('blood_group', value)}
+                  error={Boolean(fieldErrors.blood_group)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Date of Birth" required error={fieldErrors.date_of_birth}>
+              <RegistrationFormField label="Date of Birth" step={step} fieldKey="date_of_birth" error={fieldErrors.date_of_birth}>
                 <TouchableOpacity accessibilityRole="button" style={styles.dateBtn} onPress={() => setShowDOBPicker(true)}>
                   <Calendar size={18} color={Theme.colors.textSec} />
                   <AppText style={styles.dateText}>{form.date_of_birth || 'Select date'}</AppText>
@@ -795,13 +664,13 @@ export default function StudentRegisterPublicScreen() {
                     }}
                   />
                 )}
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Age (Auto-calculated)">
+              <RegistrationFormField label="Age (Auto-calculated)" step={step} required={false}>
                 <TextInput style={[styles.input, styles.disabledInput]} value={form.age} editable={false} />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Nationality" required error={fieldErrors.nationality}>
+              <RegistrationFormField label="Nationality" step={step} fieldKey="nationality" error={fieldErrors.nationality}>
                 <TextInput
                   style={[styles.input, fieldErrors.nationality && styles.inputError]}
                   placeholder="Nationality"
@@ -809,9 +678,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.nationality}
                   onChangeText={(text) => handleChange('nationality', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Mother Tongue" required error={fieldErrors.mother_tongue}>
+              <RegistrationFormField label="Mother Tongue" step={step} required={false} error={fieldErrors.mother_tongue}>
                 <TextInput
                   style={[styles.input, fieldErrors.mother_tongue && styles.inputError]}
                   placeholder="e.g. Telugu"
@@ -819,9 +688,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.mother_tongue}
                   onChangeText={(text) => handleChange('mother_tongue', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Religion" required error={fieldErrors.religion}>
+              <RegistrationFormField label="Religion" step={step} required={false} error={fieldErrors.religion}>
                 <TextInput
                   style={[styles.input, fieldErrors.religion && styles.inputError]}
                   placeholder="e.g. Hindu"
@@ -829,9 +698,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.religion}
                   onChangeText={(text) => handleChange('religion', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Caste Category">
+              <RegistrationFormField label="Caste Category" step={step} required={false}>
                 <TextInput
                   style={styles.input}
                   placeholder="e.g. OBC"
@@ -839,9 +708,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.caste_category}
                   onChangeText={(text) => handleChange('caste_category', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Aadhaar Number" required error={fieldErrors.aadhaar_number}>
+              <RegistrationFormField label="Aadhaar Number" step={step} required={false} error={fieldErrors.aadhaar_number}>
                 <TextInput
                   style={[styles.input, fieldErrors.aadhaar_number && styles.inputError]}
                   placeholder="12-digit Aadhaar"
@@ -851,51 +720,55 @@ export default function StudentRegisterPublicScreen() {
                   value={form.aadhaar_number}
                   onChangeText={(text) => handleChange('aadhaar_number', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
             </View>
           )}
 
           {/* Step 1: Academics */}
           {step === 1 && (
             <View>
+              <StepRequiredLegend />
               <View style={styles.sectionHeader}>
                 <BookOpen size={18} color="#6648dc" />
                 <AppText weight="bold" style={styles.sectionTitle}>Academic Details</AppText>
               </View>
 
-              <FormField label="Class" required error={fieldErrors.class_grade}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.chipContainer}>
-                    {classOptions.map(cls => (
-                      <TouchableOpacity accessibilityRole="button"
-                        key={cls.class_name}
-                        style={[styles.chip, form.class_grade === cls.class_name && styles.chipActive]}
-                        onPress={() => handleClassChange(cls.class_name)}
-                      >
-                        <AppText weight="semibold" style={[styles.chipText, form.class_grade === cls.class_name && styles.chipTextActive]}>
-                          Class {cls.class_name}
-                        </AppText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              </FormField>
+              <RegistrationFormField label="Class" step={step} fieldKey="class_grade" error={fieldErrors.class_grade}>
+                <FormSelectPicker
+                  value={form.class_grade}
+                  onChange={handleClassChange}
+                  options={classPickerOptions}
+                  title="Select Class"
+                  placeholder={classPickerOptions.length ? 'Select class' : 'No classes available'}
+                  error={Boolean(fieldErrors.class_grade)}
+                />
+              </RegistrationFormField>
 
-              {form.class_grade && (
-                <FormField label="Section" required error={fieldErrors.section}>
+              <RegistrationFormField label="Section" step={step} fieldKey="section" error={fieldErrors.section}>
+                {form.class_grade && sectionPickerOptions.length > 0 ? (
+                  <FormSelectPicker
+                    value={form.section}
+                    onChange={(value) => handleChange('section', value)}
+                    options={sectionPickerOptions}
+                    title="Select Section"
+                    placeholder="Select section"
+                    error={Boolean(fieldErrors.section)}
+                  />
+                ) : (
                   <TextInput
                     style={[styles.input, styles.sectionInput, fieldErrors.section && styles.inputError]}
-                    placeholder="Enter section (A, B, C...)"
+                    placeholder={form.class_grade ? 'Enter section (A, B, C...)' : 'Select class first'}
                     placeholderTextColor={Theme.colors.textMuted}
                     value={form.section}
                     onChangeText={handleSectionChange}
                     autoCapitalize="characters"
                     maxLength={3}
+                    editable={Boolean(form.class_grade)}
                   />
-                </FormField>
-              )}
+                )}
+              </RegistrationFormField>
 
-              <FormField label="Admission Number" required error={fieldErrors.admission_number}>
+              <RegistrationFormField label="Admission Number" step={step} fieldKey="admission_number" error={fieldErrors.admission_number}>
                 <TextInput
                   style={[styles.input, fieldErrors.admission_number && styles.inputError]}
                   placeholder="e.g. ADM2024001"
@@ -903,30 +776,40 @@ export default function StudentRegisterPublicScreen() {
                   value={form.admission_number}
                   onChangeText={(text) => handleChange('admission_number', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Academic Year" required error={fieldErrors.academic_year}>
+              <RegistrationFormField label="Roll Number" step={step} required={false} error={fieldErrors.roll_number}>
                 <TextInput
-                  style={[styles.input, fieldErrors.academic_year && styles.inputError]}
-                  placeholder="e.g. 2024-25"
+                  style={[styles.input, fieldErrors.roll_number && styles.inputError]}
+                  placeholder="Leave blank to auto-assign"
                   placeholderTextColor={Theme.colors.textMuted}
+                  value={form.roll_number}
+                  onChangeText={(text) => handleChange('roll_number', text)}
+                />
+              </RegistrationFormField>
+
+              <RegistrationFormField label="Academic Year" step={step} fieldKey="academic_year" error={fieldErrors.academic_year}>
+                <FormSelectPicker
                   value={form.academic_year}
-                  onChangeText={handleAcademicYearChange}
-                  maxLength={7}
+                  onChange={(value) => handleChange('academic_year', value)}
+                  options={academicYearOptions}
+                  title="Select Academic Year"
+                  placeholder="YYYY-YY (e.g. 2024-25)"
+                  error={Boolean(fieldErrors.academic_year)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Medium of Instruction">
-                <TextInput
-                  style={styles.input}
-                  placeholder="Default: ENGLISH"
-                  placeholderTextColor={Theme.colors.textMuted}
+              <RegistrationFormField label="Medium of Instruction" step={step} required={false}>
+                <FormSelectPicker
                   value={form.medium_of_instruction}
-                  onChangeText={(text) => handleChange('medium_of_instruction', text)}
+                  onChange={(value) => handleChange('medium_of_instruction', value)}
+                  options={[...MEDIUM_OF_INSTRUCTION_OPTIONS]}
+                  title="Select Medium"
+                  placeholder="Default: ENGLISH"
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Date of Admission">
+              <RegistrationFormField label="Date of Admission" step={step} required={false}>
                 <TouchableOpacity accessibilityRole="button" style={styles.dateBtn} onPress={() => setShowAdmissionDatePicker(true)}>
                   <Calendar size={18} color={Theme.colors.textSec} />
                   <AppText style={styles.dateText}>{form.date_of_admission || 'Select date'}</AppText>
@@ -943,9 +826,9 @@ export default function StudentRegisterPublicScreen() {
                     }}
                   />
                 )}
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Previous School Name">
+              <RegistrationFormField label="Previous School Name" step={step} required={false}>
                 <TextInput
                   style={styles.input}
                   placeholder="Enter previous school name"
@@ -953,9 +836,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.previous_school_name}
                   onChangeText={(text) => handleChange('previous_school_name', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Transfer Certificate (TC) Number">
+              <RegistrationFormField label="Transfer Certificate (TC) Number" step={step} required={false}>
                 <TextInput
                   style={styles.input}
                   placeholder="TC Number"
@@ -963,19 +846,20 @@ export default function StudentRegisterPublicScreen() {
                   value={form.transfer_certificate_number}
                   onChangeText={(text) => handleChange('transfer_certificate_number', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
             </View>
           )}
 
           {/* Step 2: Parent / Guardian Info */}
           {step === 2 && (
             <View>
+              <StepRequiredLegend />
               <View style={styles.sectionHeader}>
                 <Users size={18} color="#6648dc" />
                 <AppText weight="bold" style={styles.sectionTitle}>Parent / Guardian Details</AppText>
               </View>
 
-              <FormField label="Father / Guardian Name" required error={fieldErrors.father_guardian_name}>
+              <RegistrationFormField label="Father / Guardian Name" step={step} fieldKey="father_guardian_name" error={fieldErrors.father_guardian_name}>
                 <TextInput
                   style={[styles.input, fieldErrors.father_guardian_name && styles.inputError]}
                   placeholder="Full name"
@@ -983,9 +867,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.father_guardian_name}
                   onChangeText={(text) => handleChange('father_guardian_name', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Father Mobile" required error={fieldErrors.father_guardian_mobile}>
+              <RegistrationFormField label="Father Mobile" step={step} fieldKey="father_guardian_mobile" error={fieldErrors.father_guardian_mobile}>
                 <TextInput
                   style={[styles.input, fieldErrors.father_guardian_mobile && styles.inputError]}
                   placeholder="10-digit mobile"
@@ -995,9 +879,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.father_guardian_mobile}
                   onChangeText={(text) => handleChange('father_guardian_mobile', text.replace(/\D/g, '').slice(0, 10))}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Father Occupation">
+              <RegistrationFormField label="Father Occupation" step={step} required={false}>
                 <TextInput
                   style={styles.input}
                   placeholder="Occupation"
@@ -1005,9 +889,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.father_guardian_occupation}
                   onChangeText={(text) => handleChange('father_guardian_occupation', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Mother / Guardian Name" required error={fieldErrors.mother_guardian_name}>
+              <RegistrationFormField label="Mother / Guardian Name" step={step} fieldKey="mother_guardian_name" error={fieldErrors.mother_guardian_name}>
                 <TextInput
                   style={[styles.input, fieldErrors.mother_guardian_name && styles.inputError]}
                   placeholder="Full name"
@@ -1015,9 +899,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.mother_guardian_name}
                   onChangeText={(text) => handleChange('mother_guardian_name', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Mother Mobile" required error={fieldErrors.mother_guardian_mobile}>
+              <RegistrationFormField label="Mother Mobile" step={step} required={false} error={fieldErrors.mother_guardian_mobile}>
                 <TextInput
                   style={[styles.input, fieldErrors.mother_guardian_mobile && styles.inputError]}
                   placeholder="10-digit mobile"
@@ -1027,9 +911,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.mother_guardian_mobile}
                   onChangeText={(text) => handleChange('mother_guardian_mobile', text.replace(/\D/g, '').slice(0, 10))}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Mother Occupation">
+              <RegistrationFormField label="Mother Occupation" step={step} required={false}>
                 <TextInput
                   style={styles.input}
                   placeholder="Occupation"
@@ -1037,9 +921,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.mother_guardian_occupation}
                   onChangeText={(text) => handleChange('mother_guardian_occupation', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Parent / Guardian Email" required error={fieldErrors.parent_guardian_email}>
+              <RegistrationFormField label="Parent / Guardian Email" step={step} fieldKey="parent_guardian_email" error={fieldErrors.parent_guardian_email}>
                 <TextInput
                   style={[styles.input, fieldErrors.parent_guardian_email && styles.inputError]}
                   placeholder="email@example.com"
@@ -1049,19 +933,20 @@ export default function StudentRegisterPublicScreen() {
                   value={form.parent_guardian_email}
                   onChangeText={(text) => handleChange('parent_guardian_email', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
             </View>
           )}
 
           {/* Step 3: Contact & Address */}
           {step === 3 && (
             <View>
+              <StepRequiredLegend />
               <View style={styles.sectionHeader}>
                 <BookOpen size={18} color="#6648dc" />
                 <AppText weight="bold" style={styles.sectionTitle}>Current Address</AppText>
               </View>
 
-              <FormField label="House No." required error={fieldErrors.house_no}>
+              <RegistrationFormField label="House No." step={step} fieldKey="house_no" error={fieldErrors.house_no}>
                 <TextInput
                   style={[styles.input, fieldErrors.house_no && styles.inputError]}
                   placeholder="e.g. 12-3A"
@@ -1069,9 +954,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.house_no}
                   onChangeText={(text) => handleChange('house_no', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Street / Locality" required error={fieldErrors.street_locality}>
+              <RegistrationFormField label="Street / Locality" step={step} fieldKey="street_locality" error={fieldErrors.street_locality}>
                 <TextInput
                   style={[styles.input, fieldErrors.street_locality && styles.inputError]}
                   placeholder="Street or locality"
@@ -1079,9 +964,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.street_locality}
                   onChangeText={(text) => handleChange('street_locality', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Village / Town / City" required error={fieldErrors.village_town_city}>
+              <RegistrationFormField label="Village / Town / City" step={step} fieldKey="village_town_city" error={fieldErrors.village_town_city}>
                 <TextInput
                   style={[styles.input, fieldErrors.village_town_city && styles.inputError]}
                   placeholder="City or village"
@@ -1089,9 +974,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.village_town_city}
                   onChangeText={(text) => handleChange('village_town_city', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Mandal / Taluk" required error={fieldErrors.mandal_taluk}>
+              <RegistrationFormField label="Mandal / Taluk" step={step} fieldKey="mandal_taluk" error={fieldErrors.mandal_taluk}>
                 <TextInput
                   style={[styles.input, fieldErrors.mandal_taluk && styles.inputError]}
                   placeholder="Mandal or Taluk"
@@ -1099,9 +984,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.mandal_taluk}
                   onChangeText={(text) => handleChange('mandal_taluk', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="District" required error={fieldErrors.district}>
+              <RegistrationFormField label="District" step={step} fieldKey="district" error={fieldErrors.district}>
                 <TextInput
                   style={[styles.input, fieldErrors.district && styles.inputError]}
                   placeholder="District"
@@ -1109,9 +994,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.district}
                   onChangeText={(text) => handleChange('district', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="State" required error={fieldErrors.state}>
+              <RegistrationFormField label="State" step={step} fieldKey="state" error={fieldErrors.state}>
                 <TextInput
                   style={[styles.input, fieldErrors.state && styles.inputError]}
                   placeholder="State"
@@ -1119,9 +1004,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.state}
                   onChangeText={(text) => handleChange('state', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="PIN Code" required error={fieldErrors.pin_code}>
+              <RegistrationFormField label="PIN Code" step={step} fieldKey="pin_code" error={fieldErrors.pin_code}>
                 <TextInput
                   style={[styles.input, fieldErrors.pin_code && styles.inputError]}
                   placeholder="6-digit PIN"
@@ -1131,14 +1016,14 @@ export default function StudentRegisterPublicScreen() {
                   value={form.pin_code}
                   onChangeText={(text) => handleChange('pin_code', text.replace(/\D/g, '').slice(0, 6))}
                 />
-              </FormField>
+              </RegistrationFormField>
 
               <View style={[styles.sectionHeader, { marginTop: 20 }]}>
                 <Heart size={18} color="#6648dc" />
                 <AppText weight="bold" style={styles.sectionTitle}>Health, Emergency & Transport</AppText>
               </View>
 
-              <FormField label="Allergies Details">
+              <RegistrationFormField label="Allergies Details" step={step} required={false}>
                 <TextInput
                   style={styles.input}
                   placeholder="Any allergies"
@@ -1146,9 +1031,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.allergies_details}
                   onChangeText={(text) => handleChange('allergies_details', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Medical Conditions">
+              <RegistrationFormField label="Medical Conditions" step={step} required={false}>
                 <TextInput
                   style={styles.input}
                   placeholder="Any medical conditions"
@@ -1156,9 +1041,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.medical_conditions}
                   onChangeText={(text) => handleChange('medical_conditions', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Emergency Contact Name" required error={fieldErrors.emergency_contact_name}>
+              <RegistrationFormField label="Emergency Contact Name" step={step} fieldKey="emergency_contact_name" error={fieldErrors.emergency_contact_name}>
                 <TextInput
                   style={[styles.input, fieldErrors.emergency_contact_name && styles.inputError]}
                   placeholder="Contact person name"
@@ -1166,9 +1051,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.emergency_contact_name}
                   onChangeText={(text) => handleChange('emergency_contact_name', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Emergency Contact Number" required error={fieldErrors.emergency_contact_number}>
+              <RegistrationFormField label="Emergency Contact Number" step={step} fieldKey="emergency_contact_number" error={fieldErrors.emergency_contact_number}>
                 <TextInput
                   style={[styles.input, fieldErrors.emergency_contact_number && styles.inputError]}
                   placeholder="10-digit number"
@@ -1178,9 +1063,9 @@ export default function StudentRegisterPublicScreen() {
                   value={form.emergency_contact_number}
                   onChangeText={(text) => handleChange('emergency_contact_number', text.replace(/\D/g, '').slice(0, 10))}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Nearest Hospital / Doctor">
+              <RegistrationFormField label="Nearest Hospital / Doctor" step={step} required={false}>
                 <TextInput
                   style={styles.input}
                   placeholder="Hospital or doctor name"
@@ -1188,19 +1073,20 @@ export default function StudentRegisterPublicScreen() {
                   value={form.nearest_hospital_doctor}
                   onChangeText={(text) => handleChange('nearest_hospital_doctor', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Mode of Transport" required error={fieldErrors.mode_of_transport}>
-                <TextInput
-                  style={[styles.input, fieldErrors.mode_of_transport && styles.inputError]}
-                  placeholder="e.g. Bus, Private"
-                  placeholderTextColor={Theme.colors.textMuted}
+              <RegistrationFormField label="Mode of Transport" step={step} required={false} error={fieldErrors.mode_of_transport}>
+                <FormSelectPicker
                   value={form.mode_of_transport}
-                  onChangeText={(text) => handleChange('mode_of_transport', text)}
+                  onChange={(value) => handleChange('mode_of_transport', value)}
+                  options={[...MODE_OF_TRANSPORT_OPTIONS]}
+                  title="Select Mode of Transport"
+                  placeholder="Select transport mode"
+                  error={Boolean(fieldErrors.mode_of_transport)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Bus Route / Vehicle Number">
+              <RegistrationFormField label="Bus Route / Vehicle Number" step={step} required={false}>
                 <TextInput
                   style={styles.input}
                   placeholder="Bus route or vehicle no."
@@ -1208,26 +1094,27 @@ export default function StudentRegisterPublicScreen() {
                   value={form.bus_route_vehicle_number}
                   onChangeText={(text) => handleChange('bus_route_vehicle_number', text)}
                 />
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Hostel / Day Scholar">
-                <TextInput
-                  style={styles.input}
-                  placeholder="Hostel or Day Scholar"
-                  placeholderTextColor={Theme.colors.textMuted}
+              <RegistrationFormField label="Hostel / Day Scholar" step={step} required={false}>
+                <FormSelectPicker
                   value={form.hostel_day_scholar}
-                  onChangeText={(text) => handleChange('hostel_day_scholar', text)}
+                  onChange={(value) => handleChange('hostel_day_scholar', value)}
+                  options={[...HOSTEL_DAY_SCHOLAR_OPTIONS]}
+                  title="Hostel / Day Scholar"
+                  placeholder="Select option"
                 />
-              </FormField>
+              </RegistrationFormField>
             </View>
           )}
 
           {/* Step 4: Photo & Password */}
           {step === 4 && (
             <View>
+              <StepRequiredLegend />
               <View style={styles.sectionHeader}>
                 <Camera size={18} color="#6648dc" />
-                <AppText weight="bold" style={styles.sectionTitle}>Student Photograph</AppText>
+                <RequiredSectionTitle title="Student Photograph" required />
               </View>
 
               {fieldErrors.photo && <AppText style={styles.fieldError}>{fieldErrors.photo}</AppText>}
@@ -1249,7 +1136,7 @@ export default function StudentRegisterPublicScreen() {
                 <AppText weight="bold" style={styles.sectionTitle}>Login Credentials</AppText>
               </View>
 
-              <FormField label="Password" required error={fieldErrors.password}>
+              <RegistrationFormField label="Password" step={4} fieldKey="password" error={fieldErrors.password}>
                 <View style={styles.passwordContainer}>
                   <TextInput
                     style={[styles.input, fieldErrors.password && styles.inputError, styles.passwordInput]}
@@ -1267,9 +1154,9 @@ export default function StudentRegisterPublicScreen() {
                   </TouchableOpacity>
                 </View>
                 {form.password && <PasswordStrength password={form.password} />}
-              </FormField>
+              </RegistrationFormField>
 
-              <FormField label="Retype Password" required error={fieldErrors.confirm_password}>
+              <RegistrationFormField label="Retype Password" step={4} fieldKey="confirm_password" error={fieldErrors.confirm_password}>
                 <View style={styles.passwordContainer}>
                   <TextInput
                     style={[styles.input, fieldErrors.confirm_password && styles.inputError, styles.passwordInput]}
@@ -1286,13 +1173,14 @@ export default function StudentRegisterPublicScreen() {
                     {showConfirmPassword ? <EyeOff size={20} color={Theme.colors.textSec} /> : <Eye size={20} color={Theme.colors.textSec} />}
                   </TouchableOpacity>
                 </View>
-              </FormField>
+              </RegistrationFormField>
             </View>
           )}
 
           {/* Step 5: Preview */}
           {step === 5 && (
             <View>
+              <StepRequiredLegend />
               <View style={styles.previewHeader}>
                 {photoPreview ? (
                   <Image source={{ uri: photoPreview }} style={styles.previewPhoto} />
@@ -1322,7 +1210,7 @@ export default function StudentRegisterPublicScreen() {
                 <View style={styles.previewGrid}>
                   <PreviewField label="First Name" value={form.first_name} />
                   <PreviewField label="Last Name" value={form.last_name} />
-                  <PreviewField label="Gender" value={form.gender} />
+                  <PreviewField label="Gender" value={formatGenderLabel(form.gender)} />
                   <PreviewField label="Date of Birth" value={form.date_of_birth} />
                   <PreviewField label="Age" value={form.age ? `${form.age} yrs` : '—'} />
                   <PreviewField label="Blood Group" value={form.blood_group} />
@@ -1345,7 +1233,7 @@ export default function StudentRegisterPublicScreen() {
                   <PreviewField label="Admission No." value={form.admission_number} />
                   <PreviewField label="Roll Number" value={form.roll_number} />
                   <PreviewField label="Academic Year" value={form.academic_year} />
-                  <PreviewField label="Medium" value={form.medium_of_instruction} />
+                  <PreviewField label="Medium" value={formatOptionLabel(form.medium_of_instruction, MEDIUM_OF_INSTRUCTION_OPTIONS)} />
                   <PreviewField label="Date of Admission" value={form.date_of_admission} />
                   <PreviewField label="Previous School" value={form.previous_school_name} />
                   <PreviewField label="TC Number" value={form.transfer_certificate_number} />
@@ -1392,9 +1280,9 @@ export default function StudentRegisterPublicScreen() {
                   <PreviewField label="Emergency Contact" value={form.emergency_contact_name} />
                   <PreviewField label="Emergency Mobile" value={form.emergency_contact_number} />
                   <PreviewField label="Nearest Hospital" value={form.nearest_hospital_doctor} />
-                  <PreviewField label="Mode of Transport" value={form.mode_of_transport} />
+                  <PreviewField label="Mode of Transport" value={formatOptionLabel(form.mode_of_transport, MODE_OF_TRANSPORT_OPTIONS)} />
                   <PreviewField label="Bus Route" value={form.bus_route_vehicle_number} />
-                  <PreviewField label="Hostel/Day Scholar" value={form.hostel_day_scholar} />
+                  <PreviewField label="Hostel/Day Scholar" value={formatOptionLabel(form.hostel_day_scholar, HOSTEL_DAY_SCHOLAR_OPTIONS)} />
                 </View>
               </View>
 
@@ -1557,8 +1445,7 @@ const styles = StyleSheet.create({
   stepperContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: -30,
-    marginBottom: 20,
+        marginBottom: 20,
     marginHorizontal: 20,
     padding: 20,
     backgroundColor: Theme.colors.card,
@@ -1640,6 +1527,11 @@ const styles = StyleSheet.create({
   },
   requiredStar: {
     color: '#EF4444',
+  },
+  fieldHint: {
+    fontSize: 12,
+    color: Theme.colors.textSec,
+    marginBottom: Theme.spacing.sm,
   },
   input: {
     borderWidth: 1,

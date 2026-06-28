@@ -1,54 +1,104 @@
 import { Theme } from '../../theme/tokens';
-import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Animated, ActivityIndicator } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, CreditCard, ShieldCheck, Zap, Download, Clock, CheckCircle2, XCircle, AlertCircle, AlertTriangle } from 'lucide-react-native';
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Animated,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  SafeAreaView,
+} from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import {
+  CreditCard,
+  ShieldCheck,
+  Zap,
+  Download,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  AlertTriangle,
+  Repeat,
+  Ban,
+  Eye,
+  X,
+} from 'lucide-react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
+import { Buffer } from 'buffer';
+import { WebView } from 'react-native-webview';
 import AppText from '../../components/common/AppText';
 import API from '../../services/api';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import {
+  cancelAutoRenewal,
+  downloadDirectorReceiptPdf,
+  fetchDirectorReceiptHtml,
+  getSubscriptionStatus,
+} from '../../services/paymentService';
 
 
 export default function DirectorBillingScreen() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<any>(null);
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
+  const [autoRenew, setAutoRenew] = useState(false);
+  const [cancellingAutoRenew, setCancellingAutoRenew] = useState(false);
   const [payments, setPayments] = useState<any[]>([]);
+  const [schoolCode, setSchoolCode] = useState('');
+  const [receiptPreview, setReceiptPreview] = useState<{
+    paymentId: string;
+    title: string;
+    html: string;
+  } | null>(null);
+  const [loadingReceiptId, setLoadingReceiptId] = useState<string | null>(null);
+  const [downloadingPaymentId, setDownloadingPaymentId] = useState<string | null>(null);
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const slideAnim = React.useRef(new Animated.Value(20)).current;
 
-  useEffect(() => {
-    fetchSubscription();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const fetchSubscription = async () => {
+  const fetchSubscription = useCallback(async () => {
     try {
-      const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE);
+      const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || '';
+      setSchoolCode(schoolCode);
       const headers = schoolCode ? { 'X-School-Code': schoolCode } : {};
 
-      const res = await API.get('/director/dashboard/overview', { headers, suppressFallback404Log: true } as any);
-      if (res.data?.ok) {
-        setSubscription(res.data.subscription || null);
+      const [overviewRes, statusRes] = await Promise.allSettled([
+        API.get('/director/dashboard/overview', { headers, suppressFallback404Log: true } as any),
+        schoolCode ? getSubscriptionStatus(schoolCode) : Promise.resolve(null),
+      ]);
 
-        // Fetch renewal-payment data from DB
-        let paymentData = res.data.payments || res.data.subscription?.payments;
+      if (overviewRes.status === 'fulfilled' && overviewRes.value.data?.ok) {
+        const data = overviewRes.value.data;
+        setSubscription(data.subscription || null);
+
+        let paymentData = data.payments || data.subscription?.payments;
         if (!paymentData) {
           try {
             const payRes = await API.get('/director/payments', { headers, suppressFallback404Log: true } as any);
             if (payRes.data?.ok) {
               paymentData = payRes.data.payments || payRes.data.data || [];
             }
-          } catch (e) {
-            // Ignore if endpoint doesn't exist
+          } catch {
+            // ignore
           }
         }
         setPayments(Array.isArray(paymentData) ? paymentData : []);
+      }
+
+      if (statusRes.status === 'fulfilled' && statusRes.value) {
+        const statusData = statusRes.value as Record<string, unknown>;
+        setAutoRenew(Boolean(statusData.auto_renew));
+      } else if (overviewRes.status === 'fulfilled') {
+        setAutoRenew(Boolean(overviewRes.value.data?.subscription?.auto_renew));
       }
     } catch (err) {
       console.log('Failed to fetch subscription', err);
@@ -59,12 +109,126 @@ export default function DirectorBillingScreen() {
         Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
       ]).start();
     }
+  }, [fadeAnim, slideAnim]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      fetchSubscription();
+    }, [fetchSubscription]),
+  );
+
+  const handleDisableAutoRenew = () => {
+    Alert.alert(
+      'Disable Auto-Renewal?',
+      'Your subscription stays active until the end of the current billing cycle. Automatic charges will stop after that.',
+      [
+        { text: 'Keep Auto-Renewal', style: 'cancel' },
+        {
+          text: 'Disable',
+          style: 'destructive',
+          onPress: async () => {
+            setCancellingAutoRenew(true);
+            try {
+              const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || '';
+              await cancelAutoRenewal(schoolCode);
+              setAutoRenew(false);
+              Alert.alert('Success', 'Automatic renewal has been disabled.');
+              await fetchSubscription();
+            } catch (err: any) {
+              Alert.alert(
+                'Error',
+                err?.response?.data?.detail || err?.message || 'Failed to disable auto-renewal.',
+              );
+            } finally {
+              setCancellingAutoRenew(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleBackPress = () => {
     if (navigation.canGoBack()) {navigation.goBack();}
     else {(navigation as any).navigate('DirectorDashboard');}
   };
+
+  const arrayBufferToBase64 = (data: ArrayBuffer | unknown): string => {
+    if (data instanceof ArrayBuffer) {
+      return Buffer.from(new Uint8Array(data)).toString('base64');
+    }
+    return Buffer.from(data as any).toString('base64');
+  };
+
+  const handleViewReceipt = async (paymentId: string | number) => {
+    if (!schoolCode || !paymentId) {
+      Alert.alert('Error', 'School code missing. Please log in again.');
+      return;
+    }
+
+    const id = String(paymentId);
+    setLoadingReceiptId(id);
+    try {
+      const html = await fetchDirectorReceiptHtml(paymentId, schoolCode);
+      setReceiptPreview({
+        paymentId: id,
+        title: `Receipt #SP-${id}`,
+        html,
+      });
+    } catch (err: any) {
+      Alert.alert(
+        'Error',
+        err?.response?.data?.detail || err?.message || 'Failed to open invoice.',
+      );
+    } finally {
+      setLoadingReceiptId(null);
+    }
+  };
+
+  const handleDownloadReceipt = async (paymentId?: string | number) => {
+    const targetId = paymentId ?? receiptPreview?.paymentId;
+    if (!schoolCode || !targetId) {
+      Alert.alert('Error', 'School code missing. Please log in again.');
+      return;
+    }
+
+    const id = String(targetId);
+    setDownloadingPaymentId(id);
+    try {
+      const data = await downloadDirectorReceiptPdf(targetId, schoolCode);
+      const fileName = `Receipt_${id}.pdf`;
+      const filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
+      const base64Data = arrayBufferToBase64(data);
+
+      await RNFS.writeFile(filePath, base64Data, 'base64');
+      const exists = await RNFS.exists(filePath);
+      if (!exists) { throw new Error('Written file not found'); }
+
+      const finalUrl = Platform.OS === 'android'
+        ? `content://com.visys.attendx.fileprovider/internal_files/${fileName}`
+        : `file://${filePath}`;
+
+      await Share.open({
+        url: finalUrl,
+        type: 'application/pdf',
+        title: 'Subscription Invoice',
+        failOnCancel: false,
+      });
+    } catch (err: any) {
+      const message = String(err?.message || '').toLowerCase();
+      if (!message.includes('user did not share') && !message.includes('cancel')) {
+        Alert.alert(
+          'Error',
+          err?.response?.data?.detail || err?.message || 'Failed to download invoice.',
+        );
+      }
+    } finally {
+      setDownloadingPaymentId(null);
+    }
+  };
+
+  const closeReceiptPreview = () => setReceiptPreview(null);
 
   if (loading) {
     return (
@@ -79,7 +243,7 @@ export default function DirectorBillingScreen() {
   const rawExpiry = subscription?.subscription_end_at || subscription?.trial_end_at;
   const validUntil = rawExpiry ? new Date(rawExpiry).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A';
 
-  const renewalCost = subscription?.renewal_cost || subscription?.last_payment_amount || (subscription?.current_plan_code === 'starter' ? 599 : subscription?.current_plan_code === 'professional' ? 1500 : null);
+  const renewalCost = subscription?.renewal_cost ?? subscription?.last_payment_amount ?? null;
   const displayCost = renewalCost ? `₹${renewalCost}` : '';
 
   const getStatusConfig = (status: string) => {
@@ -143,18 +307,18 @@ export default function DirectorBillingScreen() {
     <View style={styles.container}>
 
 
-      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity accessibilityRole="button" onPress={handleBackPress} style={styles.backBtn}>
-            <ChevronLeft size={24} color={Theme.colors.text} />
-          </TouchableOpacity>
-          <AppText style={styles.headerTitle}>Billing & Plan</AppText>
-          <View style={{ width: 40 }} />
-        </View>
-      </View>
+      <StandardPageHeader
+        title="Billing & Plan"
+        subtitle="Manage subscription and payment history"
+        onBackPress={handleBackPress}
+      />
 
-      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+      <ScrollView
+        style={[styles.content, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View style={[innerPageLayoutStyles.contentFront, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
 
           <View style={styles.heroCard}>
             <LinearGradient colors={[Theme.colors.primary, '#3B82F6']} style={styles.heroGradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
@@ -203,6 +367,37 @@ export default function DirectorBillingScreen() {
             </View>
           )}
 
+          {autoRenew && (
+            <View style={styles.autoRenewCard}>
+              <View style={styles.autoRenewHeader}>
+                <View style={styles.autoRenewIcon}>
+                  <Repeat size={18} color={Theme.colors.success} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppText style={styles.autoRenewTitle} weight="bold">Automatic Renewal Active</AppText>
+                  <AppText style={styles.autoRenewSub}>
+                    Your plan renews automatically at the end of each billing cycle.
+                  </AppText>
+                </View>
+              </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={styles.disableAutoRenewBtn}
+                onPress={handleDisableAutoRenew}
+                disabled={cancellingAutoRenew}
+              >
+                {cancellingAutoRenew ? (
+                  <ActivityIndicator size="small" color={Theme.colors.error} />
+                ) : (
+                  <>
+                    <Ban size={16} color={Theme.colors.error} />
+                    <AppText style={styles.disableAutoRenewText} weight="bold">Disable Auto-Renewal</AppText>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
           <AppText style={styles.sectionTitle}>Payment Method</AppText>
           <View style={styles.card}>
             <View style={styles.methodRow}>
@@ -227,23 +422,51 @@ export default function DirectorBillingScreen() {
                   : 'N/A';
                 return (
                   <View key={payment.id || i} style={[styles.invoiceRow, i > 0 && styles.borderTop]}>
-                    <View style={[styles.invoiceIcon, { backgroundColor: pStatusConfig.bgColor }]}>
-                      <PaymentIcon size={20} color={pStatusConfig.color} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <AppText style={styles.invoiceName}>{payment.plan_name || 'Renewal Plan'}</AppText>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                        <AppText style={styles.invoiceDate}>{formattedDate}</AppText>
-                        <View style={[styles.rowStatusBadge, { backgroundColor: pStatusConfig.bgColor }]}>
-                          <AppText style={[styles.rowStatusText, { color: pStatusConfig.color }]}>
-                            {pStatusConfig.label}
-                          </AppText>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      style={styles.invoiceMain}
+                      onPress={() => handleViewReceipt(payment.id)}
+                      disabled={loadingReceiptId === String(payment.id)}
+                    >
+                      <View style={[styles.invoiceIcon, { backgroundColor: pStatusConfig.bgColor }]}>
+                        {loadingReceiptId === String(payment.id) ? (
+                          <ActivityIndicator size="small" color={pStatusConfig.color} />
+                        ) : (
+                          <PaymentIcon size={20} color={pStatusConfig.color} />
+                        )}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <AppText style={styles.invoiceName}>{payment.plan_name || 'Renewal Plan'}</AppText>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                          <AppText style={styles.invoiceDate}>{formattedDate}</AppText>
+                          <View style={[styles.rowStatusBadge, { backgroundColor: pStatusConfig.bgColor }]}>
+                            <AppText style={[styles.rowStatusText, { color: pStatusConfig.color }]}>
+                              {pStatusConfig.label}
+                            </AppText>
+                          </View>
                         </View>
                       </View>
-                    </View>
-                    <AppText style={styles.invoiceAmt}>₹ {payment.amount || '0'}</AppText>
-                    <TouchableOpacity accessibilityRole="button" style={styles.downloadBtn}>
-                      <Download size={18} color={Theme.colors.textSec} />
+                      <AppText style={styles.invoiceAmt}>₹ {payment.amount || '0'}</AppText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      style={styles.viewBtn}
+                      onPress={() => handleViewReceipt(payment.id)}
+                      disabled={loadingReceiptId === String(payment.id)}
+                    >
+                      <Eye size={18} color={Theme.colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      style={styles.downloadBtn}
+                      onPress={() => handleDownloadReceipt(payment.id)}
+                      disabled={downloadingPaymentId === String(payment.id)}
+                    >
+                      {downloadingPaymentId === String(payment.id) ? (
+                        <ActivityIndicator size="small" color={Theme.colors.textSec} />
+                      ) : (
+                        <Download size={18} color={Theme.colors.textSec} />
+                      )}
                     </TouchableOpacity>
                   </View>
                 );
@@ -257,20 +480,62 @@ export default function DirectorBillingScreen() {
 
         </Animated.View>
       </ScrollView>
+
+      <Modal
+        visible={Boolean(receiptPreview)}
+        animationType="slide"
+        onRequestClose={closeReceiptPreview}
+      >
+        <SafeAreaView style={styles.receiptModal}>
+          <View style={styles.receiptModalHeader}>
+            <View style={{ flex: 1 }}>
+              <AppText style={styles.receiptModalTitle} weight="bold">
+                {receiptPreview?.title || 'Invoice'}
+              </AppText>
+              <AppText style={styles.receiptModalSub}>Subscription payment receipt</AppText>
+            </View>
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={styles.receiptCloseBtn}
+              onPress={closeReceiptPreview}
+            >
+              <X size={22} color={Theme.colors.textSec} />
+            </TouchableOpacity>
+          </View>
+
+          {receiptPreview?.html ? (
+            <WebView
+              originWhitelist={['*']}
+              source={{ html: receiptPreview.html }}
+              style={styles.receiptWebView}
+            />
+          ) : null}
+
+          <View style={styles.receiptModalFooter}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={styles.receiptDownloadBtn}
+              onPress={() => handleDownloadReceipt()}
+              disabled={downloadingPaymentId === receiptPreview?.paymentId}
+            >
+              {downloadingPaymentId === receiptPreview?.paymentId ? (
+                <ActivityIndicator size="small" color={Theme.colors.card} />
+              ) : (
+                <>
+                  <Download size={18} color={Theme.colors.card} />
+                  <AppText style={styles.receiptDownloadText} weight="bold">Download PDF</AppText>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: Theme.colors.background,
-  },
-  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(59,130,246,0.1)', justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: Theme.colors.text },
   heroCard: {
     shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 10 },
@@ -302,11 +567,13 @@ const styles = StyleSheet.create({
   methodName: { fontSize: 16, fontWeight: '800', color: Theme.colors.text, marginBottom: 2 },
   methodSub: { fontSize: 13, color: Theme.colors.textSec, fontWeight: '500' },
   invoiceRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
+  invoiceMain: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   borderTop: { borderTopWidth: 1, borderTopColor: Theme.colors.background },
   invoiceIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginRight: Theme.spacing.md },
   invoiceName: { ...Theme.typography.bodyMd, fontWeight: '700', color: Theme.colors.text, marginBottom: 2 },
   invoiceDate: { fontSize: 13, color: Theme.colors.textSec, fontWeight: '500' },
-  invoiceAmt: { fontSize: 16, fontWeight: '800', color: Theme.colors.primary, marginRight: 12 },
+  invoiceAmt: { fontSize: 16, fontWeight: '800', color: Theme.colors.primary, marginRight: 8 },
+  viewBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
   downloadBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: Theme.colors.background, justifyContent: 'center', alignItems: 'center' },
   emptyState: { paddingVertical: 20, alignItems: 'center' },
   emptyStateText: { ...Theme.typography.body, color: '#94a3b8', fontWeight: '500' },
@@ -343,5 +610,105 @@ const styles = StyleSheet.create({
     color: '#b45309',
     fontWeight: '500',
     lineHeight: 16,
+  },
+  autoRenewCard: {
+    backgroundColor: Theme.colors.card,
+    borderRadius: 16,
+    padding: Theme.spacing.md,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: Theme.colors.successBg,
+  },
+  autoRenewHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 14,
+  },
+  autoRenewIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Theme.colors.successBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  autoRenewTitle: {
+    fontSize: 15,
+    color: Theme.colors.text,
+    marginBottom: 4,
+  },
+  autoRenewSub: {
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+    lineHeight: 18,
+  },
+  disableAutoRenewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.errorBg,
+    backgroundColor: '#fff5f5',
+  },
+  disableAutoRenewText: {
+    color: Theme.colors.error,
+    fontSize: 14,
+  },
+  receiptModal: {
+    flex: 1,
+    backgroundColor: Theme.colors.background,
+  },
+  receiptModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.background,
+    backgroundColor: Theme.colors.card,
+  },
+  receiptModalTitle: {
+    fontSize: 18,
+    color: Theme.colors.text,
+  },
+  receiptModalSub: {
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+    marginTop: 2,
+  },
+  receiptCloseBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: Theme.colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  receiptWebView: {
+    flex: 1,
+    backgroundColor: Theme.colors.card,
+  },
+  receiptModalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.background,
+    backgroundColor: Theme.colors.card,
+  },
+  receiptDownloadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Theme.colors.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
+  receiptDownloadText: {
+    color: Theme.colors.card,
+    fontSize: 15,
   },
 });

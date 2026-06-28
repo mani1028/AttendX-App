@@ -102,7 +102,7 @@ export const API_CONFIG = {
       examTypes: 'student-dashboard/question-papers/exam-types',
       schoolHolidays: 'student/school-holidays',
       registerRequest: 'student/register-request',
-      register: 'student/register',
+      register: 'student/register-request',
     },
     manage: {
       classesSections: 'manage/classes-sections',

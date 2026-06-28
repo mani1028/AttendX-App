@@ -37,6 +37,7 @@ import { Theme, C } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import AppButton from '../../components/common/AppButton';
 
 
@@ -395,7 +396,7 @@ export default function PrincipalTeacherAssignmentsScreen() {
       />
 
       <ScrollView
-        style={styles.page}
+       style={[styles.page, innerPageLayoutStyles.scrollViewFront]}
         contentContainerStyle={styles.pageContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -774,7 +775,7 @@ export default function PrincipalTeacherAssignmentsScreen() {
             )}
 
             {filteredTeachers && filteredTeachers.length > 0 ? (
-              <ScrollView style={styles.pickerScrollView}>
+              <ScrollView style={[styles.pickerScrollView, innerPageLayoutStyles.scrollViewFront]}>
                 {filteredTeachers.map(teacher => (
                   <TouchableOpacity accessibilityRole="button"
                     key={String(teacher.teacher_id)}

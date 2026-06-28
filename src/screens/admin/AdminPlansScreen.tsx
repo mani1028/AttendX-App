@@ -21,6 +21,7 @@ import AppText from '../../components/common/AppText';
 import AppButton from '../../components/common/AppButton';
 import Loader from '../../components/common/Loader';
 import { formatErrorMessage } from '../../utils/helpers';
+import { formatStoredPriceDisplay } from '../../utils/pricingPlans';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
 
 // Pricing Plan Interface
@@ -134,7 +135,12 @@ const PlanFormModal: React.FC<{
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalBody}>
+          <ScrollView
+            style={styles.modalBodyScroll}
+            contentContainerStyle={styles.modalBodyContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.formGroup}>
               <AppText style={styles.formLabel}>Plan Code</AppText>
               <TextInput
@@ -403,11 +409,11 @@ const PlansManagementModal: React.FC<{
                 <View style={styles.planLimits}>
                   <View style={styles.limitItem}>
                     <AppText style={styles.priceLabel}>Monthly</AppText>
-                    <AppText style={styles.priceValue}>₹{plan.monthly_price || '0'}</AppText>
+                    <AppText style={styles.priceValue}>{formatStoredPriceDisplay(plan.monthly_price)}</AppText>
                   </View>
                   <View style={styles.limitItem}>
                     <AppText style={styles.priceLabel}>Yearly</AppText>
-                    <AppText style={styles.priceValue}>₹{plan.yearly_price || '0'}</AppText>
+                    <AppText style={styles.priceValue}>{formatStoredPriceDisplay(plan.yearly_price)}</AppText>
                   </View>
                   <View style={styles.limitItem}>
                     <AppText style={styles.priceLabel}>Branches</AppText>
@@ -458,10 +464,11 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    maxHeight: '85%',
+    maxHeight: '90%',
     backgroundColor: colors.surface,
     borderRadius: 20,
     overflow: 'hidden',
+    flexDirection: 'column',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.15,
@@ -478,7 +485,14 @@ const styles = StyleSheet.create({
   },
   modalTitle: { ...Theme.typography.h3, color: colors.textPrimary },
   modalClose: { padding: Theme.spacing.xs },
-  modalBody: { padding: 20 },
+  modalBodyScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  modalBodyContent: {
+    padding: 20,
+    paddingBottom: 8,
+  },
   modalFooter: { flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: colors.border },
   formGroup: { marginBottom: Theme.spacing.md },
   formLabel: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 6 },

@@ -14,6 +14,7 @@ import AppCard from '../../components/common/AppCard';
 import API from '../../services/api';
 import * as adminService from '../../services/adminService';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 interface School {
   id: string;
@@ -123,7 +124,7 @@ const SecureDeleteModal: React.FC<{
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: Theme.spacing.lg }}>
+          <ScrollView style={[styles.modalBody, innerPageLayoutStyles.scrollViewFront]} contentContainerStyle={{ paddingBottom: Theme.spacing.lg }}>
             {step === 1 && (
               <View style={{ gap: 16 }}>
                 <View style={[styles.warningBanner, { backgroundColor: colors.errorSoft, borderColor: colors.errorSoft }]}>
@@ -379,8 +380,8 @@ export default function SettingsScreen() {
       <StandardPageHeader title="Settings" onBackPress={() => navigation.goBack()} />
 
       <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={[styles.contentContainer, { marginTop: -20 }]}
+       style={{ flex: 1 }}
+        contentContainerStyle={[styles.contentContainer]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}

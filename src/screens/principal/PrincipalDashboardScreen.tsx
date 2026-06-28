@@ -19,7 +19,7 @@ import {
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, RefreshCw, Calendar as CalendarIcon, Users, User, Grid, TrendingUp, Home, GitBranch, AlertCircle, BarChart3, ClipboardList, Megaphone, Settings, Eye } from 'lucide-react-native';
+import { Bell, RefreshCw, Calendar as CalendarIcon, Users, User, UserPlus, Grid, TrendingUp, Home, GitBranch, AlertCircle, BarChart3, ClipboardList, Megaphone, Settings, Eye } from 'lucide-react-native';
 import { Svg, Circle } from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
 import API from '../../services/api';
@@ -29,15 +29,14 @@ import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeNavigate } from '../../utils/navigationHelpers';
+import DashboardHeroHeader from '../../components/dashboard/DashboardHeroHeader';
+import QuickActionGrid, { QuickActionItem } from '../../components/dashboard/QuickActionGrid';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const PAGE_GUTTER = 14;
 const QUICK_ACTION_COLUMNS = 4;
 const QUICK_ACTION_GRID_GAP = 12;
-const QUICK_ACTION_PANEL_HORIZONTAL = 16;
-const QUICK_ACTION_CARD_HORIZONTAL = 16;
-const QUICK_ACTION_ITEM_WIDTH = '24%';
 
 interface ClassData {
   class_id?: string;
@@ -224,7 +223,8 @@ const QUICK_ACTIONS = [
   { label: 'Notices', route: 'PrincipalAnnouncements', icon: Megaphone, bg: 'rgba(236, 72, 153, 0.08)', color: '#ec4899' },
   { label: 'Settings', route: 'PrincipalSettings', icon: Settings, bg: 'rgba(100, 116, 139, 0.08)', color: Theme.colors.textSec },
   { label: 'Profile', route: 'Profile', icon: User, bg: 'rgba(139, 92, 246, 0.08)', color: '#8b5cf6' },
-  { label: 'Teacher Leaves', route: 'TeacherLeaveApproval', icon: CalendarIcon, bg: 'rgba(234, 88, 12, 0.08)', color: '#ea580c' },
+  { label: 'Teacher Leaves', route: 'PrincipalTeacherLeaves', icon: CalendarIcon, bg: 'rgba(234, 88, 12, 0.08)', color: '#ea580c' },
+  { label: 'Staff Requests', route: 'PrincipalTeacherRegistrationRequests', icon: UserPlus, bg: 'rgba(217, 119, 6, 0.08)', color: '#d97706' },
   { label: 'Student 360', route: 'Student360', icon: Eye, bg: 'rgba(6, 182, 212, 0.08)', color: '#06b6d4' },
 ] as const;
 
@@ -399,7 +399,6 @@ export default function PrincipalDashboardScreen() {
   const teacherAtt = breakdown?.teachers || {};
   const studentAtt = breakdown?.students || {};
   const sortedClasses = [...classes].sort((a, b) => (b.attendance_pct ?? 0) - (a.attendance_pct ?? 0));
-  const userInitial = (userName || 'Principal').trim().charAt(0).toUpperCase();
 
   return (
     <View style={styles.container}>
@@ -407,88 +406,25 @@ export default function PrincipalDashboardScreen() {
 
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.text} />
         }
       >
-        {/* ── Principal Hero Header ── */}
-        <LinearGradient
-          colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[
-            styles.heroHeader,
-            {
-              paddingTop: insets.top + 16,
-              paddingBottom: 28,
-              paddingHorizontal: 18,
-              borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-              borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-              overflow: 'hidden',
-            },
-          ]}
-        >
-          {/* Decorative circles */}
-          <View style={styles.decCircle1} />
-          <View style={styles.decCircle2} />
-
-          {/* Row 1: Avatar + Greeting + Actions */}
-          <View style={styles.heroTopRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => safeNavigate(navigation, 'Profile')}
-                style={styles.profileAvatar}
-              >
-                <AppText style={styles.profileAvatarText} weight="bold">
-                  {userInitial}
-                </AppText>
-              </TouchableOpacity>
-              <View>
-                <AppText style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '600', letterSpacing: 0.8 }}>
-                  Good {getGreeting().toLowerCase()}
-                </AppText>
-                <AppText style={{ fontSize: 16, color: Theme.colors.card, fontWeight: '700' }} numberOfLines={1}>
-                  {((userName || 'Principal').split(' ')[0]).replace(/^\w/, c => c.toUpperCase())} 👋
-                </AppText>
-              </View>
-            </View>
-            <View style={styles.heroActions}>
-              <TouchableOpacity
-                style={styles.iconBtn}
-                onPress={() => safeNavigate(navigation, 'Notifications')}
-                accessibilityLabel="Notifications"
-              >
-                <Bell size={18} color={Theme.colors.card} />
-                {unreadCount > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Row 2: Page title + Date badge */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 }}>
-            <View style={{ flex: 1, marginRight: 12 }}>
-              <AppText style={{ fontSize: 20, color: Theme.colors.card, fontWeight: '800', letterSpacing: -0.3 }} numberOfLines={1} adjustsFontSizeToFit>
-                Principal Dashboard
-              </AppText>
-              <AppText style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 }} numberOfLines={1}>
-                {schoolCode ? `School: ${schoolCode} • ` : ''}Manage your school
-              </AppText>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, gap: 5 }}>
-              <CalendarIcon size={12} color={Theme.colors.card} />
-              <AppText style={{ fontSize: 11, color: Theme.colors.card, fontWeight: '700' }}>
-                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </AppText>
-            </View>
-          </View>
-        </LinearGradient>
+        <DashboardHeroHeader
+          userName={userName || 'Principal'}
+          greetingLine={`GOOD ${getGreeting().toUpperCase()}`}
+          subtitle={schoolCode ? `School: ${schoolCode} • Manage your school` : 'Manage your school'}
+          unreadCount={unreadCount}
+          onAvatarPress={() => safeNavigate(navigation, 'Profile')}
+          onNotificationsPress={() => safeNavigate(navigation, 'Notifications')}
+          pageTitle="Principal Dashboard"
+          showDateBadge
+          fullBleed
+          style={{ marginHorizontal: -PAGE_GUTTER }}
+        />
 
       {/* Error Banner */}
       {error ? (
@@ -565,26 +501,27 @@ export default function PrincipalDashboardScreen() {
           </View>
         </View>
 
-        <View style={styles.quickActionGrid}>
+        <QuickActionGrid style={styles.quickActionGrid}>
           {QUICK_ACTIONS.map((action) => {
             const IconComponent = action.icon;
             return (
-              <TouchableOpacity
-                key={action.label}
-                style={styles.quickActionItem}
-                onPress={() => safeNavigate(navigation, action.route as any)}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: action.bg }]}>
-                  <IconComponent size={18} color={action.color} />
-                </View>
-                <AppText style={styles.quickActionLabel} weight="semibold">
-                  {action.label}
-                </AppText>
-              </TouchableOpacity>
+              <QuickActionItem key={action.label}>
+                <TouchableOpacity
+                  style={styles.quickActionItemInner}
+                  onPress={() => safeNavigate(navigation, action.route as any)}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.quickActionIcon, { backgroundColor: action.bg }]}>
+                    <IconComponent size={18} color={action.color} />
+                  </View>
+                  <AppText style={styles.quickActionLabel} weight="semibold">
+                    {action.label}
+                  </AppText>
+                </TouchableOpacity>
+              </QuickActionItem>
             );
           })}
-        </View>
+        </QuickActionGrid>
       </View>
 
       {/* Main Grid */}
@@ -687,7 +624,7 @@ export default function PrincipalDashboardScreen() {
 
       {/* Section Overview */}
       {(loading || classes.length > 0) && (
-        <View style={[styles.panel, { marginBottom: 20, marginHorizontal: Theme.spacing.md }]}>
+        <View style={[styles.panel, styles.sectionOverviewPanel]}>
           <View style={styles.panelHead}>
             <View>
               <AppText style={styles.panelTitle} weight="bold">Section Overview</AppText>
@@ -781,10 +718,9 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  heroHeader: {
-    paddingHorizontal: Theme.spacing.md,
-    paddingBottom: 22,
-    marginBottom: 10,
+  scrollContent: {
+    paddingHorizontal: PAGE_GUTTER,
+    paddingBottom: 120,
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -868,7 +804,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: C.errorSoft,
-    marginHorizontal: Theme.spacing.md,
     marginBottom: Theme.spacing.md,
     padding: 12,
     borderRadius: 10,
@@ -881,21 +816,22 @@ const styles = StyleSheet.create({
     color: C.error,
   },
   grid4: {
-    paddingHorizontal: Theme.spacing.md,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
+    gap: 10,
     marginTop: -30,
-    marginBottom: 18,
+    marginBottom: 16,
+    zIndex: 1,
+    position: 'relative',
+    ...Platform.select({ android: { elevation: 4 } }),
   },
   statCard: {
     backgroundColor: C.card,
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: C.border,
-    padding: Theme.spacing.md,
-    width: '48%',
+    padding: 12,
+    width: '48.5%',
     shadowColor: Theme.colors.primary,
     shadowOpacity: 0.05,
     shadowRadius: 10,
@@ -955,15 +891,13 @@ const styles = StyleSheet.create({
     marginTop: Theme.spacing.xs,
   },
   mainGrid: {
-    paddingHorizontal: Theme.spacing.md,
     gap: 16,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   quickAccessPanel: {
     backgroundColor: C.card,
-    borderRadius: 24,
-    marginHorizontal: Theme.spacing.md,
-    marginBottom: 20,
+    borderRadius: 20,
+    marginBottom: 16,
     shadowColor: Theme.colors.text,
     shadowOpacity: 0.06,
     shadowRadius: 20,
@@ -971,6 +905,13 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: 'rgba(148, 163, 184, 0.12)',
+  },
+  quickActionGrid: {
+    paddingHorizontal: 12,
+    paddingBottom: 14,
+  },
+  sectionOverviewPanel: {
+    marginBottom: 20,
   },
   panel: {
     backgroundColor: C.card,
@@ -985,9 +926,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   panelHead: {
-    paddingHorizontal: 18,
-    paddingTop: Theme.spacing.md,
-    paddingBottom: Theme.spacing.sm,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 10,
   },
   panelTitle: {
     ...Theme.typography.body,
@@ -998,24 +939,17 @@ const styles = StyleSheet.create({
     color: C.muted,
     marginTop: 2,
   },
-  quickActionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: Theme.spacing.md,
-    justifyContent: 'space-between',
-    rowGap: 16,
-  },
-  quickActionItem: {
-    width: QUICK_ACTION_ITEM_WIDTH,
+  quickActionItemInner: {
     alignItems: 'center',
+    width: '100%',
   },
   quickActionIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 5,
   },
   quickActionLabel: {
     ...Theme.typography.label,
@@ -1132,8 +1066,8 @@ const styles = StyleSheet.create({
   classGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    padding: Theme.spacing.md,
+    gap: 10,
+    padding: 12,
   },
   classChip: {
     borderRadius: 16,

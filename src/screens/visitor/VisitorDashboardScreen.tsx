@@ -19,7 +19,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
 import { Bell } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import LinearGradient from 'react-native-linear-gradient';
+import DashboardHeroHeader from '../../components/dashboard/DashboardHeroHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { visitorApi, qrApi } from '../../services/visitorApi';
 import { Theme, colors } from '../../theme/tokens';
 import AppButton from '../../components/common/AppButton';
@@ -514,48 +516,21 @@ export default function VisitorDashboardScreen() {
     <View style={styles.container}>
 
 
-      {/* Standardized Navy Header */}
-      <LinearGradient
-        colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.headerStandard, { paddingTop: insets.top + 10, paddingBottom: 30, paddingHorizontal: 0 }]}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingHorizontal: 20 }}>
-          <View style={{ width: 40 }} />
-          <View style={styles.headerTitleContainer}>
-            <AppText style={styles.headerTitle}>Visitor Portal</AppText>
-          </View>
-          <View style={styles.headerIcons}>
-            <TouchableOpacity accessibilityRole="button" style={styles.iconBtn} onPress={() => navigation.navigate('Notifications')}>
-              <Bell size={20} color={Theme.colors.card} />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </LinearGradient>
+      <DashboardHeroHeader
+        userName={userName || 'User'}
+        greetingLine="VISITOR PORTAL"
+        subtitle="Manage campus visitors and check-ins."
+        unreadCount={unreadCount}
+        onNotificationsPress={() => navigation.navigate('Notifications')}
+        showDateBadge
+        fullBleed={false}
+      />
 
       <ScrollView
+        style={innerPageLayoutStyles.scrollViewFront}
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
-        {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <View>
-            <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'User'}!</AppText>
-            <AppText style={styles.welcomeSub}>Manage campus visitors and check-ins.</AppText>
-          </View>
-          <View style={styles.dateBadge}>
-            <Icon name="calendar" size={12} color={colors.textMuted} />
-            <AppText style={styles.dateText}>
-              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </AppText>
-          </View>
-        </View>
 
         {/* Header */}
         <View style={styles.header}>

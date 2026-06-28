@@ -19,9 +19,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import RNFS from 'react-native-fs';
-import LinearGradient from 'react-native-linear-gradient';
 import Share from 'react-native-share';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
   RefreshCw,
@@ -49,8 +47,13 @@ import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 
 import { safeGoBack } from '../../utils/navigationHelpers';
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { Theme, C } from '../../theme/tokens';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import {
+  innerPageLayoutStyles,
+  segmentedControlIconColor,
+} from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 
@@ -900,7 +903,6 @@ const StudentsView: React.FC<{
 };
 
 export default function PrincipalAttendanceScreen() {
-  const insets = useSafeAreaInsets();
   const route = useRoute<any>();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
@@ -1128,63 +1130,25 @@ export default function PrincipalAttendanceScreen() {
     <View style={styles.container}>
 
 
-      {/* Standardized Header with Gradient Background */}
-      <LinearGradient
-        colors={[C.primaryDark || '#172554', C.primary || Theme.colors.primary]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.headerStandard, { paddingTop: insets.top + 20 }]}
-      >
-        <View style={styles.headerTop}>
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.iconButton}
-            onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+      <StandardPageHeader
+        title="Attendance Management"
+        subtitle={
+          view === 'teachers'
+            ? `${filteredTeachers.length} Staff • Monitor daily presence`
+            : `${classItems.length} Classes • Monitor daily presence`
+        }
+        onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={onRefresh}
+            accessibilityLabel="Refresh"
           >
-            <ChevronLeft size={24} color={Theme.colors.card} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>Attendance Management</AppText>
-          </View>
-          <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={onRefresh}>
             <RefreshCw size={20} color={Theme.colors.card} />
           </TouchableOpacity>
-        </View>
-
-        <View style={styles.headerContent}>
-          <View style={styles.headerGreetingRow}>
-            <AppText weight="bold" style={styles.headerGreeting}>Attendance Hub</AppText>
-            <View style={styles.headerCountBadge}>
-              <AppText style={styles.headerCountBadgeText} weight="bold">
-                {view === 'teachers' ? `${filteredTeachers.length} Staff` : `${classItems.length} Classes`}
-              </AppText>
-            </View>
-          </View>
-          <AppText style={styles.headerSubtext}>Monitor daily presence for staff and students</AppText>
-        </View>
-      </LinearGradient>
-
-      {view === 'students' && (
-        <View style={styles.fixedPickerBar}>
-          <TouchableOpacity accessibilityRole="button" style={styles.pickerPill} onPress={() => setShowClassDropdown(true)} activeOpacity={0.85}>
-            <View style={styles.pickerPillContent}>
-              <View style={styles.pickerTextGroup}>
-                <AppText style={styles.pickerLabel}>Class</AppText>
-                <AppText style={styles.pickerValue} weight="bold">{selectedClassLabel}</AppText>
-              </View>
-              <ChevronRight size={16} color={C.muted} />
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button" style={styles.pickerPill} onPress={() => setShowSectionDropdown(true)} activeOpacity={0.85}>
-            <View style={styles.pickerPillContent}>
-              <View style={styles.pickerTextGroup}>
-                <AppText style={styles.pickerLabel}>Section</AppText>
-                <AppText style={styles.pickerValue} weight="bold">{selectedSectionLabel}</AppText>
-              </View>
-              <ChevronRight size={16} color={C.muted} />
-            </View>
-          </TouchableOpacity>
-        </View>
-      )}
+        )}
+      />
 
       {toast.visible && (
         <View style={[styles.toast, toast.type === 'error' ? styles.toastError : styles.toastSuccess]}>
@@ -1193,35 +1157,70 @@ export default function PrincipalAttendanceScreen() {
       )}
 
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
+        style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={[styles.contentContainer, innerPageLayoutStyles.scrollContent]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
       >
+        <View style={innerPageLayoutStyles.contentFront}>
         {/* Full-width Segmented View Tab Switcher */}
-        <View style={styles.segmentedTabContainer}>
+        <View style={[innerPageLayoutStyles.segmentedControl, styles.segmentedTabContainer]}>
           <TouchableOpacity accessibilityRole="button"
-            style={[styles.segmentedTab, view === 'teachers' && styles.segmentedTabActive]}
+            style={[innerPageLayoutStyles.segmentedTab, view === 'teachers' && innerPageLayoutStyles.segmentedTabActive]}
             onPress={() => setView('teachers')}
             activeOpacity={0.8}
           >
-            <Users size={16} color={view === 'teachers' ? C.primary : C.muted} style={{ marginRight: 6 }} />
-            <AppText style={[styles.segmentedTabText, view === 'teachers' && styles.segmentedTabTextActive]} weight="bold">
+            <Users size={16} color={segmentedControlIconColor(view === 'teachers')} />
+            <AppText style={[innerPageLayoutStyles.segmentedTabText, view === 'teachers' && innerPageLayoutStyles.segmentedTabTextActive]} weight="bold">
               Teachers
             </AppText>
           </TouchableOpacity>
           <TouchableOpacity accessibilityRole="button"
-            style={[styles.segmentedTab, view === 'students' && styles.segmentedTabActive]}
+            style={[innerPageLayoutStyles.segmentedTab, view === 'students' && innerPageLayoutStyles.segmentedTabActive]}
             onPress={() => setView('students')}
             activeOpacity={0.8}
           >
-            <Users2 size={16} color={view === 'students' ? C.primary : C.muted} style={{ marginRight: 6 }} />
-            <AppText style={[styles.segmentedTabText, view === 'students' && styles.segmentedTabTextActive]} weight="bold">
+            <Users2 size={16} color={segmentedControlIconColor(view === 'students')} />
+            <AppText style={[innerPageLayoutStyles.segmentedTabText, view === 'students' && innerPageLayoutStyles.segmentedTabTextActive]} weight="bold">
               Students
             </AppText>
           </TouchableOpacity>
         </View>
+
+        {view === 'students' && (
+          <View style={styles.studentFilterRow}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={styles.pickerPill}
+              onPress={() => setShowClassDropdown(true)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.pickerPillContent}>
+                <View style={styles.pickerTextGroup}>
+                  <AppText style={styles.pickerLabel}>Class</AppText>
+                  <AppText style={styles.pickerValue} weight="bold">{selectedClassLabel}</AppText>
+                </View>
+                <ChevronRight size={16} color={C.muted} />
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={[styles.pickerPill, !selectedSection && styles.pickerPillDisabled]}
+              onPress={() => selectedSection && setShowSectionDropdown(true)}
+              activeOpacity={0.85}
+              disabled={!selectedSection}
+            >
+              <View style={styles.pickerPillContent}>
+                <View style={styles.pickerTextGroup}>
+                  <AppText style={styles.pickerLabel}>Section</AppText>
+                  <AppText style={styles.pickerValue} weight="bold">{selectedSectionLabel}</AppText>
+                </View>
+                <ChevronRight size={16} color={C.muted} />
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Clean Controls: Date selection, Scope Selection, and context-aware Export */}
         <View style={styles.controlsRow}>
@@ -1432,6 +1431,7 @@ export default function PrincipalAttendanceScreen() {
           <AppText style={styles.footerText}>🏢 Branch: {branchId || '—'}</AppText>
           <AppText style={styles.footerText}>📅 Data as of {iso(date)}</AppText>
         </View>
+        </View>
       </ScrollView>
 
       <ExportModal
@@ -1515,74 +1515,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  headerStandard: {
-    paddingHorizontal: 20,
-    paddingBottom: 25,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 12 },
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.25,
-        shadowRadius: 10,
-      },
-    }),
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: Theme.colors.card,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  headerContent: {
-    marginTop: 18,
-  },
-  headerGreetingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerGreeting: {
-    color: Theme.colors.card,
-    fontSize: 26,
-    letterSpacing: -0.5,
-  },
-  headerCountBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  headerCountBadgeText: {
-    color: Theme.colors.card,
-    ...Theme.typography.label,
-  },
-  headerSubtext: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 13,
-    marginTop: Theme.spacing.xs,
-  },
   scrollView: {
     flex: 1,
   },
@@ -1590,40 +1522,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   segmentedTabContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(226, 232, 240, 0.5)',
-    borderRadius: 14,
-    padding: Theme.spacing.xs,
     marginHorizontal: Theme.spacing.md,
     marginTop: 18,
     marginBottom: Theme.spacing.md,
-  },
-  segmentedTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  segmentedTabActive: {
-    backgroundColor: C.white,
-    ...Platform.select({
-      android: { elevation: 2 },
-      ios: {
-        shadowColor: C.primary,
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
-  },
-  segmentedTabText: {
-    fontSize: 13,
-    color: C.muted,
-  },
-  segmentedTabTextActive: {
-    color: C.primary,
   },
   controlsRow: {
     flexDirection: 'row',
@@ -1712,13 +1613,11 @@ const styles = StyleSheet.create({
     ...Theme.typography.caption,
     color: C.white,
   },
-  fixedPickerBar: {
+  studentFilterRow: {
     flexDirection: 'row',
     gap: 10,
     paddingHorizontal: Theme.spacing.md,
-    paddingTop: 14,
-    paddingBottom: Theme.spacing.sm,
-    backgroundColor: C.bg,
+    marginBottom: Theme.spacing.md,
   },
   pickerPill: {
     flex: 1,
@@ -1737,6 +1636,9 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
       },
     }),
+  },
+  pickerPillDisabled: {
+    opacity: 0.55,
   },
   pickerPillContent: {
     flexDirection: 'row',

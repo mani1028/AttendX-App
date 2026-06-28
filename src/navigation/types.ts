@@ -19,7 +19,7 @@ export type RootStackParamList = {
   // Admin
   AdminDashboard: undefined;
   NotificationManager: undefined;
-  SchoolDetails: undefined;
+  SchoolDetails: { schoolId: string; schoolName?: string } | undefined;
   AdminSettings: undefined;
   AutoPayTracker: undefined;
   ManualAttendanceManager: undefined;
@@ -38,12 +38,18 @@ export type RootStackParamList = {
   StudentRegistrationRequests: undefined;
   TeacherSkinDisease: undefined;
   TeacherVitalScan: undefined;
-  TeacherViewAttendance: undefined;
+  TeacherViewAttendance: { class_grade?: string; section?: string; date?: string } | undefined;
   MarkAttendance: undefined;
   TeacherFaceReview: undefined;
   TeacherStudentRegistration: undefined;
   TeacherMyAttendance: undefined;
   TeacherQuestionPapers: undefined;
+  ManageData: undefined;
+  AttendanceGallery: undefined;
+  AdminRevenue: undefined;
+  DeleteSchool: undefined;
+  AccountantFaceVerify: undefined;
+  AccountantPaymentHistory: undefined;
 
   // Student
   StudentDashboard: undefined;
@@ -72,6 +78,8 @@ export type RootStackParamList = {
   PrincipalTeacherRegistrationRequests: undefined;
   PrincipalStudentPromotion: undefined;
   PrincipalFaceReview: undefined;
+  PrincipalTeacherLeaves: undefined;
+  PrincipalDataExport: undefined;
   Student360: { studentId?: string; studentName?: string } | undefined;
 
   // Director (Old Principal)
@@ -92,6 +100,7 @@ export type RootStackParamList = {
   AccountantReports: undefined;
   AccountantSettings: undefined;
   AccountantStaffAttendance: undefined;
+  AccountantPendingStudents: undefined;
 
   // Visitor
   VisitForm: { token: string };

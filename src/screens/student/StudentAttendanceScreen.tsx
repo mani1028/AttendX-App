@@ -1,5 +1,6 @@
 import { Theme, C } from '../../theme/tokens';
 import { useNavigation } from '@react-navigation/native';
+import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
@@ -10,16 +11,15 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     RefreshControl,
-    Dimensions,
     Alert,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { getStudentAttendanceByMonth } from '../../services/studentService';
-import Icon from 'react-native-vector-icons/Feather';
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
-
-const { width } = Dimensions.get('window');
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
+import AppText from '../../components/common/AppText';
 
 interface AttendanceData {
     date: string;
@@ -36,8 +36,10 @@ interface MonthlyStats {
     percentage: string;
 }
 
-export default function StudentAttendanceScreen({ navigation }: any) {
-    const insets = useSafeAreaInsets();
+export default function StudentAttendanceScreen() {
+    const navigation = useNavigation<any>();
+    const handleScroll = useScrollTabBar();
+    const canGoBack = navigation.canGoBack();
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [attendance, setAttendance] = useState<AttendanceData[]>([]);
@@ -114,25 +116,41 @@ export default function StudentAttendanceScreen({ navigation }: any) {
         HOLIDAY: C.colors.textMuted,
     };
 
+    const monthLabel = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    const shiftMonth = (delta: number) => {
+        setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+    };
+
     const markedDates = useMemo(() => {
         const marked: any = {};
         attendance.forEach(item => {
-            const isPresent = item.status === 'PRESENT' || item.status === 'LATE';
-            const isAbsent = item.status === 'ABSENT';
-            const isLeave = item.status === 'LEAVE';
-
             let bgColor = 'transparent';
             let textColor = C.colors.text;
 
-            if (isPresent) {
-                bgColor = C.colors.successBg;
-                textColor = C.colors.success;
-            } else if (isAbsent) {
-                bgColor = C.colors.errorBg;
-                textColor = C.colors.error;
-            } else if (isLeave) {
-                bgColor = C.colors.blueLight;
-                textColor = C.colors.blue;
+            switch (item.status) {
+                case 'PRESENT':
+                    bgColor = C.colors.successBg;
+                    textColor = C.colors.success;
+                    break;
+                case 'LATE':
+                    bgColor = C.colors.warningBg;
+                    textColor = C.colors.warning;
+                    break;
+                case 'ABSENT':
+                    bgColor = C.colors.errorBg;
+                    textColor = C.colors.error;
+                    break;
+                case 'LEAVE':
+                    bgColor = C.colors.blueLight;
+                    textColor = C.colors.blue;
+                    break;
+                case 'HOLIDAY':
+                    bgColor = C.colors.backgroundAlt;
+                    textColor = C.colors.textMuted;
+                    break;
+                default:
+                    break;
             }
 
             marked[item.date] = {
@@ -193,34 +211,53 @@ export default function StudentAttendanceScreen({ navigation }: any) {
 
     return (
         <View style={styles.container}>
-
-
-            {/* Header */}
-            <View style={[styles.header, { paddingTop: insets.top + 10, paddingBottom: 20 }]}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Icon name="arrow-left" size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
-                </TouchableOpacity>
-                <View style={styles.headerTitleContainer}>
-                    <Text style={styles.headerTitle}>Attendance History</Text>
-                </View>
-                <TouchableOpacity
-                    style={styles.headerRight}
-                    onPress={onRefresh}
-                >
-                    <Icon name="refresh-cw" size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
-                </TouchableOpacity>
-            </View>
+            <StandardPageHeader
+                title="My Attendance"
+                subtitle={monthLabel}
+                onBackPress={canGoBack ? () => navigation.goBack() : undefined}
+                showBack={canGoBack}
+                rightActions={(
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        style={heroHeaderStyles.iconBtn}
+                        onPress={onRefresh}
+                        accessibilityLabel="Refresh attendance"
+                    >
+                        <RefreshCw size={20} color={Theme.colors.card} />
+                    </TouchableOpacity>
+                )}
+            />
 
             <ScrollView
-                style={styles.scrollView}
+                style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
+                contentContainerStyle={innerPageLayoutStyles.scrollContent}
                 showsVerticalScrollIndicator={false}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />
                 }
             >
+                <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+                {/* Month navigation */}
+                <View style={styles.monthNav}>
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        style={styles.monthNavBtn}
+                        onPress={() => shiftMonth(-1)}
+                    >
+                        <ChevronLeft size={20} color={C.colors.primary} />
+                    </TouchableOpacity>
+                    <AppText weight="bold" style={styles.monthNavLabel}>{monthLabel}</AppText>
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        style={styles.monthNavBtn}
+                        onPress={() => shiftMonth(1)}
+                    >
+                        <ChevronRight size={20} color={C.colors.primary} />
+                    </TouchableOpacity>
+                </View>
+
                 {/* Overall Stats Card */}
                 <View style={styles.statsOverview}>
                     <View style={styles.percentageCircle}>
@@ -232,7 +269,12 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                         <View style={styles.statRow}>
                             <View style={[styles.statDot, { backgroundColor: C.colors.success }]} />
                             <Text style={styles.statLabel}>Present:</Text>
-                            <Text style={styles.statValue}>{stats.present + stats.late}</Text>
+                            <Text style={styles.statValue}>{stats.present}</Text>
+                        </View>
+                        <View style={styles.statRow}>
+                            <View style={[styles.statDot, { backgroundColor: C.colors.warning }]} />
+                            <Text style={styles.statLabel}>Late:</Text>
+                            <Text style={styles.statValue}>{stats.late}</Text>
                         </View>
                         <View style={styles.statRow}>
                             <View style={[styles.statDot, { backgroundColor: C.colors.error }]} />
@@ -299,19 +341,13 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                         <View style={styles.statusInfo}>
                             <Text style={styles.statusLabel}>Attendance Status</Text>
                             <Text style={[styles.statusValue, {
-                                color: getStatusText(selectedDate) === 'PRESENT' ? C.colors.success :
-                                       getStatusText(selectedDate) === 'ABSENT' ? C.colors.error :
-                                       getStatusText(selectedDate) === 'LATE' ? C.colors.warning :
-                                       getStatusText(selectedDate) === 'LEAVE' ? C.colors.blue : C.colors.textMuted,
+                                color: attendanceStatusColors[getStatusText(selectedDate)] || C.colors.textMuted,
                             }]}>
                                 {getStatusText(selectedDate)}
                             </Text>
                         </View>
                         <View style={[styles.statusIndicator, {
-                            backgroundColor: getStatusText(selectedDate) === 'PRESENT' ? C.colors.success :
-                                            getStatusText(selectedDate) === 'ABSENT' ? C.colors.error :
-                                            getStatusText(selectedDate) === 'LATE' ? C.colors.warning :
-                                            getStatusText(selectedDate) === 'LEAVE' ? C.colors.blue : C.colors.textMuted,
+                            backgroundColor: attendanceStatusColors[getStatusText(selectedDate)] || C.colors.textMuted,
                         }]} />
                     </View>
                 </View>
@@ -335,10 +371,13 @@ export default function StudentAttendanceScreen({ navigation }: any) {
                             <View style={[styles.legendDot, { backgroundColor: C.colors.blueLight }]} />
                             <Text style={styles.legendText}>Leave</Text>
                         </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: C.colors.backgroundAlt }]} />
+                            <Text style={styles.legendText}>Holiday</Text>
+                        </View>
                     </View>
                 </View>
-
-                <View style={{ height: 40 }} />
+                </View>
             </ScrollView>
 
             {loading && !refreshing && (
@@ -355,37 +394,34 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: C.colors.background,
     },
-    header: {
-        backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
-        paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
+    scrollView: {
+        flex: 1,
+    },
+    monthNav: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        backgroundColor: C.colors.card,
+        borderRadius: 16,
+        paddingVertical: 10,
+        paddingHorizontal: 8,
+        marginBottom: 16,
+        ...C.shadow.sm,
     },
-    backButton: {
-        width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-        height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
+    monthNavBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: C.colors.background,
         justifyContent: 'center',
-    },
-    headerTitleContainer: {
-        flex: 1,
         alignItems: 'center',
     },
-    headerTitle: {
-        fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
-        fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
-        color: HEADER_CONSTANTS.TEXT_COLOR,
+    monthNavLabel: {
+        fontSize: 16,
+        color: C.colors.text,
     },
-    headerRight: {
-        width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-        height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-        justifyContent: 'center',
-        alignItems: 'flex-end',
-    },
-    scrollView: {
-        flex: 1,
+    pageBody: {
         paddingHorizontal: 20,
-        marginTop: 10,
     },
     statsOverview: {
         flexDirection: 'row',

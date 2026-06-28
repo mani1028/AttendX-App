@@ -10,7 +10,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
@@ -30,14 +29,6 @@ interface FormData {
   address: string;
   password: string;
   directorName: string;
-}
-
-interface PaymentPlan {
-  id: string;
-  name: string;
-  price: number;
-  duration: string;
-  features: string[];
 }
 
 const SCHOOL_CODE_OPTIONS = [
@@ -92,15 +83,12 @@ const SuccessView: React.FC<{
 export default function RegisterSchoolScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
-  const [loading, setLoading] = useState<boolean>(false);
   const [otpSending, setOtpSending] = useState<boolean>(false);
   const [otpVerifying, setOtpVerifying] = useState<boolean>(false);
   const [successId, setSuccessId] = useState<string | null>(null);
   const [schoolEmail, setSchoolEmail] = useState<string | null>(null);
   const [schoolName, setSchoolName] = useState<string | null>(null);
   const [redirectCountdown, setRedirectCountdown] = useState<number>(5);
-  const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
-  const [isCreatingSchool, setIsCreatingSchool] = useState<boolean>(false);
 
   const [emailVerified, setEmailVerified] = useState<boolean>(false);
   const [otpSent, setOtpSent] = useState<boolean>(false);
@@ -161,36 +149,26 @@ export default function RegisterSchoolScreen() {
     } finally { setOtpVerifying(false); }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!emailVerified) {return Alert.alert('Error', 'Please verify email first');}
     if (!formData.schoolName || !formData.directorName || !formData.schoolCode || !formData.board || !formData.password || !formData.address) {
       return Alert.alert('Error', 'Please fill all fields');
     }
-    setShowPaymentModal(true);
-  };
-
-  const handlePaymentSelected = async (planId: string) => {
-    setIsCreatingSchool(true);
-    const payload = {
-      schoolCode: formData.schoolCode,
-      schoolName: formData.schoolName,
-      board: formData.board,
-      email: formData.email,
-      password: formData.password,
-      address: formData.address,
-      plan: planId,
-      directors: [{ name: formData.directorName, phone: '0000000000', email: formData.email, designation: 'Headmaster', position: 'Administrator' }],
-    };
 
     try {
-      const response = await API.post('/schools/create', payload);
-      setSchoolEmail(formData.email);
-      setSchoolName(formData.schoolName);
-      setSuccessId(response.data.school_code);
-      setShowPaymentModal(false);
-    } catch (error: any) {
-      Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail) || 'Registration failed');
-    } finally { setIsCreatingSchool(false); }
+      await AsyncStorage.setItem('registrationData', JSON.stringify({
+        schoolName: formData.schoolName,
+        schoolCode: generatedSchoolCode || formData.schoolCode,
+        board: formData.board,
+        email: formData.email.trim(),
+        password: formData.password,
+        address: formData.address,
+        directorName: formData.directorName,
+      }));
+      (navigation as any).navigate('Pricing');
+    } catch {
+      Alert.alert('Error', 'Could not continue to plan selection. Please try again.');
+    }
   };
 
   return (
@@ -252,7 +230,7 @@ export default function RegisterSchoolScreen() {
                 <AppInput label="ADDRESS" placeholder="123 Education Lane, NY" value={formData.address} onChangeText={t => handleChange('address', t)} />
                 <AppInput label="PORTAL PASSWORD" placeholder="••••••••" value={formData.password} onChangeText={t => handleChange('password', t)} secureTextEntry />
 
-                <AppButton title="COMPLETE REGISTRATION" onPress={handleSubmit} disabled={!emailVerified} style={styles.actionButton} />
+                <AppButton title="CONTINUE TO PLANS" onPress={handleSubmit} disabled={!emailVerified} style={styles.actionButton} />
 
                 <TouchableOpacity accessibilityRole="button" onPress={() => navigation.goBack()} style={styles.linkContainer}>
                   <Text style={styles.linkText}>Back to Login</Text>
@@ -264,23 +242,6 @@ export default function RegisterSchoolScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <Modal visible={showPaymentModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Choose Plan</Text>
-            {['Basic', 'Professional', 'Enterprise'].map(plan => (
-              <TouchableOpacity accessibilityRole="button" key={plan} style={styles.planItem} onPress={() => handlePaymentSelected(plan.toLowerCase())} disabled={isCreatingSchool}>
-                <Text style={styles.planItemText}>{plan}</Text>
-                <Text style={styles.planSelectLabel}>SELECT</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity accessibilityRole="button" onPress={() => setShowPaymentModal(false)} style={styles.modalCloseBtn}>
-              <Text style={styles.modalCloseBtnText}>CANCEL</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </ScreenContainer>
   );
 }
@@ -320,12 +281,4 @@ const styles = StyleSheet.create({
   detailValue: { fontSize: 24, fontWeight: '800', color: '#1E293B' },
   detailValueSmall: { ...Theme.typography.h4, color: Theme.colors.textSec },
   successCountdown: { ...Theme.typography.caption, color: Theme.colors.textMuted, marginTop: 12 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 30 },
-  modalContent: { backgroundColor: Theme.colors.card, borderRadius: 24, padding: Theme.spacing.lg, gap: 12 },
-  modalTitle: { ...Theme.typography.h3, color: '#1E293B', textAlign: 'center', marginBottom: 12 },
-  planItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Theme.spacing.md, backgroundColor: Theme.colors.background, borderRadius: 12, borderWidth: 1, borderColor: Theme.colors.border },
-  planItemText: { ...Theme.typography.h4, color: '#1E293B' },
-  planSelectLabel: { ...Theme.typography.caption, fontWeight: '700', color: '#2563EB' },
-  modalCloseBtn: { marginTop: Theme.spacing.sm, alignItems: 'center', padding: 12 },
-  modalCloseBtnText: { color: '#EF4444', fontWeight: '700' },
 });

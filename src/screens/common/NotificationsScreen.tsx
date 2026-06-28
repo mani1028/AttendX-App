@@ -15,9 +15,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ChevronLeft,
   Bell,
   Calendar,
   Info,
@@ -46,6 +44,9 @@ import {
   saveScopedNotificationIds,
 } from '../../utils/notificationStorage';
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 
 interface Notification {
   id: string;
@@ -250,12 +251,10 @@ function NotificationCard({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function NotificationsScreen() {
   const navigation = useNavigation<any>();
-  const insets = useSafeAreaInsets();
   const { setTabBarVisible, userRole } = useAuth();
   const { refreshUnreadCount } = useUnreadNotifications();
   const handleScroll = useScrollTabBar();
   const isAccountant = userRole?.toLowerCase() === 'accountant';
-  const headerColors = [Theme.colors.gradientStart, Theme.colors.gradientEnd];
   const primaryColor = Theme.colors.gradientStart;
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -436,56 +435,30 @@ export default function NotificationsScreen() {
     <View style={styles.container}>
 
 
-      {/* ── Hero Header ── */}
-      <LinearGradient
-        colors={headerColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 10 }]}
-      >
-        {/* Decorative circles */}
-        <View style={styles.decCircle1} />
-        <View style={styles.decCircle2} />
-
-        {/* Top bar */}
-        <View style={styles.headerTopBar}>
-          <TouchableOpacity onPress={handleBackPress} style={styles.iconBtn}>
-            <ChevronLeft size={22} color={Theme.colors.card} />
-          </TouchableOpacity>
-          <View style={styles.headerActions}>
-            <TouchableOpacity onPress={markAllRead} style={styles.iconBtn}>
+      <StandardPageHeader
+        title="Notifications"
+        subtitle={
+          unreadCount > 0
+            ? `${unreadCount} unread message${unreadCount !== 1 ? 's' : ''}`
+            : "You're all caught up!"
+        }
+        onBackPress={handleBackPress}
+        titleBadge={unreadCount > 0 ? unreadCount : undefined}
+        rightActions={(
+          <>
+            <TouchableOpacity onPress={markAllRead} style={heroHeaderStyles.iconBtn}>
               <CheckCheck size={20} color={Theme.colors.card} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowActionMenu(true)} style={styles.iconBtn}>
+            <TouchableOpacity onPress={() => setShowActionMenu(true)} style={heroHeaderStyles.iconBtn}>
               <MoreVertical size={20} color={Theme.colors.card} />
             </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Title area */}
-        <View style={styles.headerContent}>
-          <View style={styles.headerIconRing}>
-            <Bell size={26} color={Theme.colors.card} />
-          </View>
-          <View style={styles.headerTextBlock}>
-            <AppText style={styles.headerTitle}>Notifications</AppText>
-            <AppText style={styles.headerSubtitle}>
-              {unreadCount > 0
-                ? `${unreadCount} unread message${unreadCount !== 1 ? 's' : ''}`
-                : "You're all caught up!"}
-            </AppText>
-          </View>
-          {unreadCount > 0 && (
-            <View style={styles.unreadBadge}>
-              <AppText style={styles.unreadBadgeText}>{unreadCount}</AppText>
-            </View>
-          )}
-        </View>
-      </LinearGradient>
+          </>
+        )}
+      />
 
       {/* ── List ── */}
       <ScrollView
-        style={styles.scroll}
+       style={[styles.scroll, innerPageLayoutStyles.scrollViewFront]}
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -644,7 +617,7 @@ export default function NotificationsScreen() {
                   </View>
 
                   <ScrollView
-                    style={styles.detailScrollArea}
+                   style={[styles.detailScrollArea, innerPageLayoutStyles.scrollViewFront]}
                     showsVerticalScrollIndicator={false}
                     bounces={false}
                   >
@@ -695,42 +668,6 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
   },
 
-  // Header
-  header: {
-    paddingBottom: 28,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    overflow: 'hidden',
-  },
-  decCircle1: {
-    position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    top: -50,
-    right: -40,
-  },
-  decCircle2: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    bottom: -20,
-    left: 60,
-  },
-  headerTopBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
   iconBtn: {
     width: 40,
     height: 40,
@@ -738,50 +675,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  headerIconRing: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.25)',
-  },
-  headerTextBlock: { flex: 1 },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: Theme.colors.card,
-    letterSpacing: -0.3,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.72)',
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  unreadBadge: {
-    minWidth: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Theme.colors.error,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  unreadBadgeText: {
-    color: Theme.colors.card,
-    fontSize: 13,
-    fontWeight: '800',
   },
 
   // Scroll

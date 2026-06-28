@@ -36,7 +36,7 @@ export const tokens = {
       sky: '#38bdf8',
       skyLight: '#e0f2fe',
       gradientStart: '#1e3a8a',
-      gradientEnd: '#1e3a8a',
+      gradientEnd: '#3b82f6',
       gradientBlue: '#38bdf8',
       inputBg: '#f8fafc',
       // Role Accents (Unified Navy Blue)
@@ -82,7 +82,7 @@ export const tokens = {
       sky: '#7dd3fc',
       skyLight: '#0369a1',
       gradientStart: '#1e3a8a',
-      gradientEnd: '#1e3a8a',
+      gradientEnd: '#3b82f6',
       gradientBlue: '#38bdf8',
       inputBg: '#1e293b',
       // Role Accents (Unified Navy Blue)

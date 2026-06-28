@@ -21,7 +21,6 @@ import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ChevronLeft,
   Bell,
   Calendar,
   Search,
@@ -47,6 +46,9 @@ import { useAuth } from '../../context/AuthContext';
 
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { Theme, C } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
@@ -405,32 +407,24 @@ export default function AttendanceManagementScreen() {
     <View style={styles.container}>
 
 
-      {/* Standardized Header */}
-      <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.iconButton}
-            onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+      <StandardPageHeader
+        title="Attendance Hub"
+        subtitle="Monitor daily presence across the institution"
+        onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={() => Alert.alert('Notifications', 'No notifications')}
           >
-            <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
+            <Bell size={22} color={Theme.colors.card} />
           </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>Attendance</AppText>
-          </View>
-          <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={() => Alert.alert('Notifications', 'No notifications')}>
-            <Bell size={22} color={HEADER_CONSTANTS.TEXT_COLOR} />
-          </TouchableOpacity>
-        </View>
+        )}
+      />
 
-        <View style={styles.headerContent}>
-          <AppText weight="bold" style={styles.headerGreeting}>Attendance Hub</AppText>
-          <AppText style={styles.headerSubtext}>Monitor daily presence across the institution</AppText>
-        </View>
-      </View>
-
-      <View style={styles.contentOverlap}>
+      <View style={[styles.contentOverlap, innerPageLayoutStyles.contentFront]}>
         <ScrollView
-          style={styles.scrollView}
+         style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
           contentContainerStyle={styles.contentContainer}
           onScroll={handleScroll}
           scrollEventThrottle={16}
@@ -707,63 +701,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  headerStandard: {
-    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 10 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
-    fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
-    textAlign: 'center',
-  },
-  headerContent: {
-    marginTop: Theme.spacing.lg,
-  },
-  headerGreeting: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: 28,
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    ...Theme.typography.body,
-    marginTop: Theme.spacing.xs,
-  },
   contentOverlap: {
     flex: 1,
-    marginTop: -HEADER_CONSTANTS.BORDER_RADIUS,
-    backgroundColor: C.bg,
+        backgroundColor: C.bg,
     borderTopLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     borderTopRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     overflow: 'hidden',

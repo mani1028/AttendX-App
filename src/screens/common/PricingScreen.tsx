@@ -23,8 +23,16 @@ import { useAuth } from '../../context/AuthContext';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import { Theme } from '../../theme/tokens';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
+import { getPublicPaymentSettings, isAutoPayGloballyEnabled } from '../../services/paymentService';
+import {
+  normalizePricingPlan,
+  parsePublicPricingPlans,
+  selectPublicPaidPlans,
+} from '../../utils/pricingPlans';
 
 
 
@@ -32,55 +40,19 @@ import { StorageKeys } from '../../storage/StorageKeys';
 interface Plan {
   id: string;
   name: string;
+  plan_code?: string;
   price: number;
-  priceDisplay?: number;
+  priceDisplay?: string;
+  priceBreakdown?: string;
   duration: string;
   icon: string;
   features: string[];
   popular?: boolean;
   color: string;
+  isCustomPricing?: boolean;
 }
 
-const plans: Plan[] = [
-  {
-    id: 'starter',
-    name: 'Smart School',
-    price: 4999,
-    priceDisplay: 599,
-    duration: 'Monthly',
-    icon: '🛡️',
-    features: [
-      'Face Recognition Attendance',
-      'Student + Teacher Dashboard',
-      'Homework Management',
-      'Marks & Exams Tracking',
-      'Parent Notifications',
-      'Leave Requests (Parent Control)',
-      'Multi-Class & Section Support',
-    ],
-    popular: true,
-    color: '#6648dc',
-  },
-  {
-    id: 'professional',
-    name: 'Advanced Institution',
-    price: 9999,
-    priceDisplay: 1500,
-    duration: 'Monthly',
-    icon: '👑',
-    features: [
-      'Multi-Branch Management',
-      'Centralized Attendance System',
-      'Advanced Analytics & Reports',
-      'Role-Based Dashboards (Admin/Teacher/Student)',
-      'API Integration',
-      'SMS & WhatsApp Alerts',
-      'Custom Branding',
-      '24/7 Priority Support',
-    ],
-    color: '#8b5cf6',
-  },
-];
+const PLAN_ICONS = ['🚀', '⭐', '👑'];
 
 // Plan Card Component
 const PlanCard: React.FC<{
@@ -89,7 +61,11 @@ const PlanCard: React.FC<{
   loading: string | null;
 }> = ({ plan, onSelect, loading }) => {
   const isLoading = loading === plan.name;
-  const displayPrice = plan.price === 0 ? 'Free' : `₹${plan.priceDisplay || plan.price}`;
+  const displayPrice = plan.isCustomPricing
+    ? 'Contact Sales'
+    : plan.price === 0
+      ? '—'
+      : plan.priceDisplay || `₹${plan.price}`;
 
   return (
     <AppCard style={StyleSheet.flatten([styles.planCard, plan.popular && styles.planCardPopular])}>
@@ -111,8 +87,13 @@ const PlanCard: React.FC<{
 
       <View style={styles.planPriceContainer}>
         <Text style={styles.planPrice}>{displayPrice}</Text>
-        {plan.price !== 0 && <Text style={styles.planPriceSuffix}>/ month</Text>}
+        {!plan.isCustomPricing && plan.price !== 0 && (
+          <Text style={styles.planPriceSuffix}>/ month · 1 branch</Text>
+        )}
       </View>
+      {plan.priceBreakdown ? (
+        <Text style={styles.planBreakdown}>{plan.priceBreakdown}</Text>
+      ) : null}
 
       <View style={styles.featuresContainer}>
         {plan.features.map((feature, idx) => (
@@ -134,7 +115,7 @@ const PlanCard: React.FC<{
           <ActivityIndicator size="small" color={Theme.colors.card} />
         ) : (
           <Text style={[styles.selectBtnText, plan.popular && styles.selectBtnTextPopular]}>
-            {plan.price === 0 ? 'Activate Trial' : 'Get Started'}
+            {plan.isCustomPricing ? 'Contact Sales' : 'Get Started'}
           </Text>
         )}
       </TouchableOpacity>
@@ -147,7 +128,8 @@ export default function PricingScreen() {
   const { userToken, setTabBarVisible } = useAuth();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [registrationData, setRegistrationData] = useState<any>(null);
-  const [plansList, setPlansList] = useState<Plan[]>(plans);
+  const [plansList, setPlansList] = useState<Plan[]>([]);
+  const [autoPayInfoEnabled, setAutoPayInfoEnabled] = useState(false);
   useEffect(() => {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
@@ -159,41 +141,51 @@ export default function PricingScreen() {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        let res;
-        try {
-          res = await API.get('/plans', { suppressFallback404Log: true } as any);
-        } catch (e) {
+        const endpoints = ['pricing/public/plans', '/pricing/public/plans', 'pricing/plans', '/plans', '/payment/plans'];
+        let loaded: any[] = [];
+
+        for (const endpoint of endpoints) {
           try {
-            res = await API.get('/payment/plans', { suppressFallback404Log: true } as any);
-          } catch (e2) {
-            return; // keep default plans
+            const res = await API.get(endpoint, { suppressFallback404Log: true } as any);
+            const parsed = parsePublicPricingPlans(res.data);
+            if (parsed.length > 0) {
+              loaded = parsed;
+              break;
+            }
+          } catch {
+            // try next endpoint
           }
         }
 
-        if (res && res.data) {
-          const apiPlans = Array.isArray(res.data.plans) ? res.data.plans : Array.isArray(res.data) ? res.data : [];
-          // Filter out explicitly hidden plans
-          const visiblePlans = apiPlans.filter((p: any) => p.is_hidden !== true && p.status !== 'inactive');
+        const normalized = selectPublicPaidPlans(loaded, 3).map((plan, idx) => {
+          const mapped = normalizePricingPlan(plan, 'monthly', 1);
+          return {
+            id: String(mapped.registrationPlan || mapped.id),
+            name: mapped.title,
+            plan_code: mapped.plan_code,
+            price: mapped.priceValue,
+            priceDisplay: mapped.totalPriceText,
+            priceBreakdown: mapped.priceBreakdown,
+            duration: 'Monthly',
+            icon: PLAN_ICONS[idx] || '🚀',
+            features: mapped.features.length > 0 ? mapped.features : ['Core features included'],
+            popular: mapped.highlighted,
+            color: mapped.highlighted ? Theme.colors.blue : '#64748b',
+            isCustomPricing: mapped.isCustomPricing,
+          } satisfies Plan;
+        });
 
-          if (visiblePlans.length > 0) {
-            setPlansList(visiblePlans.map((p: any, idx: number) => ({
-              id: p.id || p.plan_id || p.code || `plan_${idx}`,
-              name: p.name || p.plan_name || p.title || 'Plan',
-              price: p.price !== undefined ? p.price : 0,
-              priceDisplay: p.priceDisplay || p.price,
-              duration: p.duration || p.billing_cycle || 'Monthly',
-              icon: p.icon || '🚀',
-              features: Array.isArray(p.features) ? p.features : (typeof p.features === 'string' ? p.features.split(',') : []),
-              popular: p.popular || p.is_popular || false,
-              color: p.color || Theme.colors.blue,
-            })));
-          }
+        if (normalized.length > 0) {
+          setPlansList(normalized);
         }
       } catch (err) {
         console.log('Failed to fetch plans', err);
       }
     };
     fetchPlans();
+    getPublicPaymentSettings()
+      .then(settings => setAutoPayInfoEnabled(isAutoPayGloballyEnabled(settings)))
+      .catch(() => setAutoPayInfoEnabled(false));
   }, []);
 
   useEffect(() => {
@@ -241,24 +233,22 @@ export default function PricingScreen() {
       return;
     }
 
+    if (plan.isCustomPricing) {
+      Alert.alert('Contact Sales', 'Please contact us at https://attendx.ai/contact for custom pricing.');
+      return;
+    }
+
     setLoadingPlan(plan.name);
 
     if (registrationData.isLoggedIn) {
       try {
         const orderRes = await API.post('/payment/create-order-by-plan', {
           school_name: registrationData.schoolName,
-          plan: plan.id,
+          plan: plan.plan_code || plan.id,
           email: registrationData.email,
         });
 
-        const { order_id, status, payment_url } = orderRes.data;
-
-        if (status === 'trial') {
-          Alert.alert('Success', 'Trial activated successfully!', [
-            { text: 'OK', onPress: () => navigation.goBack() },
-          ]);
-          return;
-        }
+        const { order_id, payment_url } = orderRes.data;
 
         if (payment_url) {
           await Linking.openURL(payment_url);
@@ -283,6 +273,8 @@ export default function PricingScreen() {
 
     const payload = {
       schoolName: registrationData.schoolName,
+      schoolCode: registrationData.schoolCode,
+      board: registrationData.board,
       email: registrationData.email,
       password: registrationData.password,
       address: registrationData.address,
@@ -293,23 +285,19 @@ export default function PricingScreen() {
         designation: 'Headmaster',
         position: 'Administrator',
       }],
-      plan: plan.id,
+      plan: plan.plan_code || plan.id,
     };
 
     try {
-      if (plan.price === 0) {
-        await API.post('/schools/create', payload);
-        await AsyncStorage.removeItem('registrationData');
-        Alert.alert('Success', 'Trial activated successfully!', [
-          { text: 'OK', onPress: () => navigation.replace('Login' as any) },
-        ]);
+      if (plan.price === 0 || plan.isCustomPricing) {
+        Alert.alert('Unavailable', 'Please choose a paid plan or contact sales.');
         return;
       }
 
-      // For paid plans - create order
-      const orderRes = await API.post('/payment/create-order', {
+      const orderRes = await API.post('/payment/create-order-by-plan', {
         school_name: registrationData.schoolName,
-        amount: Math.round(plan.price / 100),
+        plan: plan.plan_code || plan.id,
+        email: registrationData.email,
       });
 
       // For mobile, we need to handle payment differently
@@ -341,46 +329,51 @@ export default function PricingScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Background */}
-      <View style={styles.background} />
+      <StandardPageHeader
+        title="Choose Your Plan"
+        subtitle="Per-branch pricing — scale as your institution grows"
+        onBackPress={() => navigation.goBack()}
+      />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity accessibilityRole="button" onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>←</Text>
-            <Text style={styles.backBtnLabel}>
-              {userToken ? 'Back to Billing' : 'Edit Registration Details'}
+        <View style={innerPageLayoutStyles.contentFront}>
+        {autoPayInfoEnabled && !registrationData?.isLoggedIn && (
+          <View style={styles.autoPayBanner}>
+            <Text style={styles.autoPayBannerText}>
+              New school registration uses a one-time payment. After login, directors can enable automatic renewal from Subscription & Renewal.
             </Text>
-          </TouchableOpacity>
-
-          <Text style={styles.title}>Choose Your Plan</Text>
-          <Text style={styles.subtitle}>
-            Scale your institution with our secure, isolated data architecture.
-          </Text>
-        </View>
-
+          </View>
+        )}
         {/* Pricing Cards */}
         <View style={styles.cardsContainer}>
-          {plansList.map((plan) => (
+          {plansList.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <ActivityIndicator size="large" color={Theme.colors.primary} />
+            <Text style={styles.emptyText}>Loading plans…</Text>
+          </View>
+        ) : (
+          plansList.map((plan) => (
             <PlanCard
               key={plan.id}
               plan={plan}
               onSelect={handlePlanSelect}
               loading={loadingPlan}
             />
-          ))}
+          ))
+        )}
         </View>
 
         {/* Footer */}
         <Text style={styles.footerText}>
           Secure checkout powered by Razorpay. All data is encrypted via SSL.
         </Text>
+        </View>
       </ScrollView>
     </View>
   );
@@ -391,61 +384,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
-  background: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: Theme.colors.background,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: Theme.spacing.xl,
-  },
-  backBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    marginBottom: 20,
-    paddingVertical: Theme.spacing.sm,
-    paddingHorizontal: Theme.spacing.md,
-    borderRadius: 20,
-    backgroundColor: 'rgba(59,130,246,0.1)',
-  },
-  backBtnText: {
-    ...Theme.typography.body,
-    color: Theme.colors.blue,
-    fontWeight: '700',
-  },
-  backBtnLabel: {
-    fontSize: 13,
-    color: Theme.colors.blue,
-    fontWeight: '600',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: Theme.colors.text,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  subtitle: {
-    ...Theme.typography.bodyMd,
-    color: Theme.colors.textSec,
-    textAlign: 'center',
-    maxWidth: 300,
-    lineHeight: 22,
-  },
   cardsContainer: {
     gap: 20,
     marginBottom: Theme.spacing.xl,
+    paddingHorizontal: Theme.spacing.md,
   },
   planCard: {
     padding: Theme.spacing.lg,
@@ -538,6 +480,21 @@ const styles = StyleSheet.create({
     marginLeft: Theme.spacing.xs,
     fontWeight: '500',
   },
+  planBreakdown: {
+    fontSize: 12,
+    color: Theme.colors.blue,
+    fontWeight: '700',
+    marginBottom: Theme.spacing.md,
+  },
+  emptyWrap: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    gap: 12,
+  },
+  emptyText: {
+    color: Theme.colors.textSec,
+    fontSize: 14,
+  },
   featuresContainer: {
     gap: 12,
     marginBottom: 28,
@@ -598,5 +555,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
     paddingHorizontal: 20,
+  },
+  autoPayBanner: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+  },
+  autoPayBannerText: {
+    fontSize: 13,
+    color: '#1e40af',
+    lineHeight: 20,
+    fontWeight: '500',
   },
 });

@@ -17,7 +17,6 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ChevronLeft,
   RefreshCw,
   Plus,
   Trash2,
@@ -33,9 +32,11 @@ import API from '../../services/api';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { formatErrorMessage } from '../../utils/helpers';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { Theme, C } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
@@ -284,51 +285,42 @@ const ExpenseManagement = () => {
     );
   };
 
+  const isAccountant = userRole?.toLowerCase() === 'accountant';
+
   return (
     <View style={styles.container}>
-
-
-        <ScrollView
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          innerPageLayoutStyles.scrollPageContent,
+          { paddingBottom: insets.bottom + 100 },
+        ]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
       >
-        {/* Standardized Header */}
-        {(() => {
-          const isAccountant = userRole?.toLowerCase() === 'accountant';
-          return (
-            <View style={[styles.headerStandard, {
-              paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
-              backgroundColor: isAccountant ? Theme.colors.primary : HEADER_CONSTANTS.BACKGROUND_COLOR,
-            }]}>
-              <View style={styles.headerTop}>
-                <TouchableOpacity accessibilityRole="button"
-                  style={styles.backBtn}
-                  onPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
-                >
-                  <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
-                </TouchableOpacity>
-                <View style={styles.headerTitleContainer}>
-                  <AppText weight="bold" style={styles.headerTitle}>Expense Tracker</AppText>
-                </View>
-                <TouchableOpacity accessibilityRole="button" style={styles.refreshIconBtn} onPress={onRefresh}>
-                  <RefreshCw size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
-                </TouchableOpacity>
-              </View>
+        <StandardPageHeader
+          scrollWithContent
+          title="Expense Management"
+          subtitle="Track and manage school expenditures"
+          backgroundColor={isAccountant ? Theme.colors.primary : undefined}
+          onBackPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          rightActions={(
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={heroHeaderStyles.iconBtn}
+              onPress={onRefresh}
+            >
+              <RefreshCw size={20} color={Theme.colors.card} />
+            </TouchableOpacity>
+          )}
+        />
 
-              <View style={styles.headerContent}>
-                <AppText weight="bold" style={styles.headerGreeting}>Expense Management</AppText>
-                <AppText style={styles.headerSubtext}>Track and manage school expenditures</AppText>
-              </View>
-            </View>
-          );
-        })()}
-
-      <View style={styles.contentOverlap}>
+        <View style={innerPageLayoutStyles.scrollBody}>
         {/* Form Section */}
         <View style={styles.formSection}>
           <View style={styles.sectionHeaderRow}>
@@ -372,7 +364,7 @@ const ExpenseManagement = () => {
 
             <View>
               <AppText style={styles.label} weight="semibold">Category</AppText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.categoryScroll, innerPageLayoutStyles.scrollViewFront]}>
                 <View style={styles.categoryContainer}>
                   {categories.map((cat) => {
                     const isSelected = formData.category === cat;
@@ -513,7 +505,7 @@ const ExpenseManagement = () => {
             </View>
           )}
         </View>
-      </View>
+        </View>
       </ScrollView>
 
       {/* Date Picker Modal */}
@@ -567,76 +559,15 @@ const ExpenseManagement = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Theme.colors.primary,
-  },
-  headerStandard: {
-    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM + 15,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 10 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
+    backgroundColor: C.bg,
   },
   contentOverlap: {
-    marginTop: -20,
-    backgroundColor: C.bg,
+        backgroundColor: C.bg,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingTop: Theme.spacing.md,
     flex: 1,
     minHeight: 800,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
-    textAlign: 'center',
-  },
-  headerContent: {
-    marginTop: Theme.spacing.lg,
-  },
-  headerGreeting: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    ...Theme.typography.h1,
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: `rgba(255,255,255,${HEADER_CONSTANTS.SUBTITLE_OPACITY})`,
-    fontSize: HEADER_CONSTANTS.SUBTITLE_FONT_SIZE,
-    marginTop: Theme.spacing.xs,
-  },
-  backBtn: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  refreshIconBtn: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   scrollView: {
     flex: 1,
@@ -645,9 +576,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
     padding: Theme.spacing.lg,
     borderRadius: 24,
-    margin: Theme.spacing.md,
     marginBottom: Theme.spacing.md,
-    marginTop: 10,
     shadowColor: Theme.colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06,

@@ -124,10 +124,12 @@ API.interceptors.request.use(async config => {
 
     // Ensure school_code is in params for routes that require it (Accountant, Student Dashboard, etc.)
     const lowerUrl = config.url?.toLowerCase() || '';
+    const isRegistrationSubmit = lowerUrl.includes('register-request');
     if (
       lowerUrl.includes('accountant') ||
       lowerUrl.includes('student-dashboard') ||
-      lowerUrl.includes('student/') ||
+      lowerUrl.includes('manage/student') ||
+      (lowerUrl.includes('student/') && !isRegistrationSubmit) ||
       lowerUrl.includes('profile-photo')
     ) {
       if (!config.params) {config.params = {};}
@@ -148,13 +150,19 @@ API.interceptors.request.use(async config => {
   if (finalStudentId) {
     const sid = finalStudentId.trim();
     const sidUpper = sid.toUpperCase();
+    const lowerUrl = config.url?.toLowerCase() || '';
+    const isRegistrationSubmit = lowerUrl.includes('register-request');
 
-    config.headers['X-Student-Id'] = sidUpper;
-    config.headers['X-Roll-No'] = sidUpper;
+    if (!isRegistrationSubmit) {
+      config.headers['X-Student-Id'] = sidUpper;
+      config.headers['X-Roll-No'] = sidUpper;
+    }
 
     // Also ensure roll_no is in params for dashboard routes if missing, and always uppercase
-    const lowerUrl = config.url?.toLowerCase() || '';
-    if (lowerUrl.includes('student-dashboard') || lowerUrl.includes('student/')) {
+    if (
+      !isRegistrationSubmit &&
+      (lowerUrl.includes('student-dashboard') || lowerUrl.includes('student/'))
+    ) {
       if (!config.params) {config.params = {};}
 
       if (config.params.roll_no) {
@@ -181,6 +189,22 @@ API.interceptors.request.use(async config => {
   }
 
   config.headers['X-Branch-Id'] = (finalBranchId || 'default').trim();
+
+  const rawUserId = await normalizeStorageKey([
+    'user_id',
+    'userId',
+    'principal_employee_id',
+    'employee_id',
+  ]);
+  if (rawUserId) {
+    config.headers['X-User-Id'] = String(rawUserId).trim();
+  } else if (token) {
+    const decoded = decodeJwt(token);
+    const userId = decoded?.sub || decoded?.user_id || decoded?.employee_id;
+    if (userId) {
+      config.headers['X-User-Id'] = String(userId).trim();
+    }
+  }
 
   // Add Academic Year header if available, or try to guess/default
   const academicYear = await normalizeStorageKey(['academic_year', 'academicYear', 'active_year']);

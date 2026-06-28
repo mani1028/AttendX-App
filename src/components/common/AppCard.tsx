@@ -3,6 +3,7 @@ import {
   StyleSheet,
   View,
   ViewStyle,
+  StyleProp,
   TouchableOpacity,
   TouchableOpacityProps,
 } from 'react-native';
@@ -10,7 +11,7 @@ import { Theme } from '../../theme/tokens';
 
 interface AppCardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   padded?: boolean;
   elevated?: boolean;

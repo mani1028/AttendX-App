@@ -22,6 +22,8 @@ import type { RootStackParamList } from '../../navigation/types';
 import { formatErrorMessage } from '../../utils/helpers';
 import { safeGoBack } from '../../utils/navigationHelpers';
 import { Theme } from '../../theme/tokens';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 
 // Types
@@ -283,10 +285,19 @@ export default function VisitFormScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <StandardPageHeader
+        title="Visitor Check-In"
+        subtitle={school?.school_name || 'School visit form'}
+        onBackPress={() => safeGoBack(navigation as any, 'VisitorDashboard')}
+        showBack={navigation.canGoBack()}
+      />
+
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={[styles.scrollContent, innerPageLayoutStyles.scrollContent]}
         showsVerticalScrollIndicator={false}
       >
+        <View style={innerPageLayoutStyles.contentFront}>
         {/* School Header */}
         <AppCard style={styles.headerCard}>
           <Text style={styles.schoolName}>{school?.school_name || 'School'}</Text>
@@ -500,6 +511,7 @@ export default function VisitFormScreen() {
             />
           </View>
         </AppCard>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

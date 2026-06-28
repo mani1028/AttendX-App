@@ -1,15 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   RefreshControl,
-  Linking,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import {
   School,
   MapPin,
@@ -18,17 +16,16 @@ import {
   Users,
   CreditCard,
   Calendar,
-  ChevronRight,
   RefreshCw,
-  ExternalLink,
   AlertCircle,
 } from 'lucide-react-native';
-import API from '../../services/api';
 import AppText from '../../components/common/AppText';
 import { Theme } from '../../theme/tokens';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { safeGoBack } from '../../utils/navigationHelpers';
-import { formatErrorMessage } from '../../utils/helpers';
+import { RootStackParamList } from '../../navigation/types';
+import * as adminService from '../../services/adminService';
 
 interface SchoolDetails {
   id: string;
@@ -60,64 +57,78 @@ interface PaymentRecord {
   description?: string;
 }
 
+type SchoolDetailsRoute = RouteProp<RootStackParamList, 'SchoolDetails'>;
+
 const SchoolDetailsScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute<SchoolDetailsRoute>();
+  const schoolDbId = route.params?.schoolId || '';
+
   const [school, setSchool] = useState<SchoolDetails | null>(null);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const fetchSchoolDetails = useCallback(async () => {
+    if (!schoolDbId) {
+      setErrorMessage('Select a school from the dashboard to view its details.');
+      setSchool(null);
+      setPayments([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    setErrorMessage('');
     try {
-      const [schoolRes, paymentsRes] = await Promise.allSettled([
-        API.get('admin/school/details'),
-        API.get('admin/school/payments'),
+      const [schoolData, paymentData] = await Promise.all([
+        adminService.getSchoolDetails(schoolDbId),
+        adminService.getSchoolPayments(schoolDbId),
       ]);
 
-      if (schoolRes.status === 'fulfilled') {
-        const data = schoolRes.value.data;
-        const s = data.school || data.data || data;
-        setSchool({
-          id: String(s.id ?? s._id ?? ''),
-          name: s.name ?? s.school_name ?? '',
-          school_code: s.school_code ?? '',
-          address: s.address ?? '',
-          city: s.city ?? '',
-          state: s.state ?? '',
-          phone: s.phone ?? s.contact_phone ?? '',
-          email: s.email ?? s.contact_email ?? '',
-          principal_name: s.principal_name ?? s.principal ?? '',
-          principal_email: s.principal_email ?? '',
-          total_students: Number(s.total_students ?? s.students_count ?? 0),
-          total_teachers: Number(s.total_teachers ?? s.teachers_count ?? 0),
-          total_staff: Number(s.total_staff ?? s.staff_count ?? 0),
-          subscription_status: s.subscription_status ?? s.status ?? 'active',
-          subscription_plan: s.subscription_plan ?? s.plan ?? '',
-          subscription_expires: s.subscription_expires ?? s.expires_at ?? '',
-          created_at: s.created_at ?? '',
-          status: s.status ?? 'active',
-        });
-      }
+      const s = schoolData?.school || schoolData?.data || schoolData || {};
+      setSchool({
+        id: String(s.id ?? s._id ?? schoolDbId),
+        name: s.name ?? s.school_name ?? '',
+        school_code: s.school_code ?? s.school_id ?? '',
+        address: s.address ?? '',
+        city: s.city ?? '',
+        state: s.state ?? '',
+        phone: s.phone ?? s.contact_phone ?? '',
+        email: s.email ?? s.contact_email ?? '',
+        principal_name: s.principal_name ?? s.principal ?? '',
+        principal_email: s.principal_email ?? '',
+        total_students: Number(s.total_students ?? s.students_count ?? 0),
+        total_teachers: Number(s.total_teachers ?? s.teachers_count ?? 0),
+        total_staff: Number(s.total_staff ?? s.staff_count ?? 0),
+        subscription_status: s.subscription_status ?? s.status ?? 'active',
+        subscription_plan: s.subscription_plan ?? s.current_plan_name ?? s.plan ?? '',
+        subscription_expires: s.subscription_expires ?? s.subscription_end_at ?? s.expires_at ?? '',
+        created_at: s.created_at ?? '',
+        status: s.status ?? 'active',
+      });
 
-      if (paymentsRes.status === 'fulfilled') {
-        const data = paymentsRes.value.data;
-        const list = Array.isArray(data) ? data : (data.payments || data.data || []);
-        setPayments(list.map((p: any) => ({
-          id: String(p.id ?? ''),
+      setPayments(
+        (Array.isArray(paymentData) ? paymentData : []).map((p: any) => ({
+          id: String(p.id ?? p.payment_id ?? ''),
           amount: Number(p.amount ?? 0),
-          date: p.date ?? p.created_at ?? '',
+          date: p.date ?? p.created_at ?? p.payment_date ?? '',
           method: p.method ?? p.payment_method ?? '',
           status: p.status ?? 'completed',
-          description: p.description ?? '',
-        })));
-      }
+          description: p.description ?? p.notes ?? '',
+        })),
+      );
     } catch (error) {
       console.error('Failed to fetch school details:', error);
+      setErrorMessage('Could not load school details. Please try again.');
+      setSchool(null);
+      setPayments([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [schoolDbId]);
 
   useEffect(() => {
     fetchSchoolDetails();
@@ -129,7 +140,7 @@ const SchoolDetailsScreen = () => {
   }, [fetchSchoolDetails]);
 
   const formatDate = (dateStr: string | undefined) => {
-    if (!dateStr) return 'N/A';
+    if (!dateStr) { return 'N/A'; }
     return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
@@ -165,11 +176,15 @@ const SchoolDetailsScreen = () => {
         <StandardPageHeader title="School Details" onBackPress={() => safeGoBack(navigation as any)} />
         <View style={styles.emptyState}>
           <AlertCircle size={48} color={Theme.colors.border} />
-          <AppText style={styles.emptyText}>School details not available</AppText>
-          <TouchableOpacity style={styles.retryBtn} onPress={fetchSchoolDetails}>
-            <RefreshCw size={16} color={Theme.colors.primary} />
-            <AppText style={styles.retryBtnText}>Retry</AppText>
-          </TouchableOpacity>
+          <AppText style={styles.emptyText}>
+            {errorMessage || 'School details not available'}
+          </AppText>
+          {schoolDbId ? (
+            <TouchableOpacity style={styles.retryBtn} onPress={fetchSchoolDetails}>
+              <RefreshCw size={16} color={Theme.colors.primary} />
+              <AppText style={styles.retryBtnText}>Retry</AppText>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
     );
@@ -180,11 +195,10 @@ const SchoolDetailsScreen = () => {
       <StandardPageHeader title="School Details" onBackPress={() => safeGoBack(navigation as any)} />
 
       <ScrollView
-        style={styles.scrollContent}
+        style={[styles.scrollContent, innerPageLayoutStyles.scrollViewFront]}
         contentContainerStyle={styles.scrollContentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
-        {/* School Header Card */}
         <View style={styles.headerCard}>
           <View style={styles.schoolIcon}>
             <School size={28} color="#fff" />
@@ -193,21 +207,19 @@ const SchoolDetailsScreen = () => {
           <View style={styles.codeBadge}>
             <AppText style={styles.codeText}>Code: {school.school_code}</AppText>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: (school.status === 'active' ? '#dcfce7' : '#fef2f2') }]}>
+          <View style={[styles.statusBadge, { backgroundColor: school.status === 'active' ? '#dcfce7' : '#fef2f2' }]}>
             <AppText style={[styles.statusText, { color: school.status === 'active' ? '#16a34a' : '#ef4444' }]}>
               {school.status === 'active' ? 'Active' : school.status || 'Unknown'}
             </AppText>
           </View>
         </View>
 
-        {/* Stats Row */}
         <View style={styles.statsRow}>
           {renderStatCard('Students', school.total_students || 0, '#2563eb')}
           {renderStatCard('Teachers', school.total_teachers || 0, '#16a34a')}
           {renderStatCard('Staff', school.total_staff || 0, '#f59e0b')}
         </View>
 
-        {/* Contact Information */}
         <View style={styles.sectionCard}>
           <AppText style={styles.sectionTitle}>Contact Information</AppText>
           {renderInfoRow(<MapPin size={18} color={Theme.colors.primary} />, 'Address', [school.address, school.city, school.state].filter(Boolean).join(', '))}
@@ -215,7 +227,6 @@ const SchoolDetailsScreen = () => {
           {renderInfoRow(<Mail size={18} color={Theme.colors.primary} />, 'Email', school.email || '')}
         </View>
 
-        {/* Principal */}
         {school.principal_name ? (
           <View style={styles.sectionCard}>
             <AppText style={styles.sectionTitle}>Principal</AppText>
@@ -224,32 +235,20 @@ const SchoolDetailsScreen = () => {
           </View>
         ) : null}
 
-        {/* Subscription */}
         <View style={styles.sectionCard}>
           <AppText style={styles.sectionTitle}>Subscription</AppText>
-          {renderInfoRow(
-            <CreditCard size={18} color={Theme.colors.primary} />,
-            'Status',
-            school.subscription_status || 'N/A',
-          )}
-          {school.subscription_plan && renderInfoRow(
-            <Calendar size={18} color={Theme.colors.primary} />,
-            'Plan',
-            school.subscription_plan,
-          )}
-          {school.subscription_expires && renderInfoRow(
-            <Calendar size={18} color={Theme.colors.primary} />,
-            'Expires',
-            formatDate(school.subscription_expires),
-          )}
+          {renderInfoRow(<CreditCard size={18} color={Theme.colors.primary} />, 'Status', school.subscription_status || 'N/A')}
+          {school.subscription_plan && renderInfoRow(<Calendar size={18} color={Theme.colors.primary} />, 'Plan', school.subscription_plan)}
+          {school.subscription_expires && renderInfoRow(<Calendar size={18} color={Theme.colors.primary} />, 'Expires', formatDate(school.subscription_expires))}
         </View>
 
-        {/* Payment History */}
-        {payments.length > 0 && (
-          <View style={styles.sectionCard}>
-            <AppText style={styles.sectionTitle}>Recent Payments</AppText>
-            {payments.slice(0, 5).map((payment) => (
-              <View key={payment.id} style={styles.paymentRow}>
+        <View style={styles.sectionCard}>
+          <AppText style={styles.sectionTitle}>Payment History</AppText>
+          {payments.length === 0 ? (
+            <AppText style={styles.emptyPayments}>No payments recorded for this school.</AppText>
+          ) : (
+            payments.slice(0, 10).map(payment => (
+              <View key={payment.id || payment.date} style={styles.paymentRow}>
                 <View style={styles.paymentInfo}>
                   <AppText style={styles.paymentAmount}>₹{payment.amount.toLocaleString('en-IN')}</AppText>
                   <AppText style={styles.paymentDate}>{formatDate(payment.date)}</AppText>
@@ -264,11 +263,10 @@ const SchoolDetailsScreen = () => {
                   </AppText>
                 </View>
               </View>
-            ))}
-          </View>
-        )}
+            ))
+          )}
+        </View>
 
-        {/* Created date */}
         {school.created_at && (
           <View style={styles.footerInfo}>
             <AppText style={styles.footerText}>Created: {formatDate(school.created_at)}</AppText>
@@ -290,7 +288,6 @@ const styles = StyleSheet.create({
   scrollContentContainer: {
     padding: 20,
     paddingBottom: 40,
-    marginTop: -20,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     backgroundColor: Theme.colors.background,
@@ -305,11 +302,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
+    paddingHorizontal: 24,
   },
   emptyText: {
     fontSize: 16,
     color: Theme.colors.textSec,
     marginTop: 16,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   retryBtn: {
     flexDirection: 'row',
@@ -439,6 +439,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: Theme.colors.text,
+  },
+  emptyPayments: {
+    fontSize: 14,
+    color: Theme.colors.textMuted,
+    paddingVertical: 8,
   },
   paymentRow: {
     flexDirection: 'row',

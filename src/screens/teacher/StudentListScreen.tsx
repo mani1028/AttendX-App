@@ -42,9 +42,12 @@ import { updateStudentProfile } from '../../services/studentService';
 import { useAuth } from '../../context/AuthContext';
 import { Theme } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
+import BloodGroupPicker from '../../components/common/BloodGroupPicker';
+import { isValidBloodGroup } from '../../utils/studentRegistrationValidation';
 import type { RootStackParamList } from '../../navigation/types';
 import BottomSheetModal from '../../components/common/BottomSheetModal';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -374,12 +377,18 @@ export default function StudentListScreen() {
   const handleSaveStudent = useCallback(async () => {
     if (!viewStudent?.student_id) {return;}
 
+    const bloodGroup = String(editStudent.blood_group || '').trim();
+    if (bloodGroup && !isValidBloodGroup(bloodGroup)) {
+      Alert.alert('Invalid Blood Group', 'Select a valid blood group from the list.');
+      return;
+    }
+
     const payload = {
       student_id: viewStudent.student_id,
       student_full_name: String(editStudent.student_full_name || '').trim(),
       gender: String(editStudent.gender || '').trim(),
       date_of_birth: String(editStudent.date_of_birth || '').trim(),
-      blood_group: String(editStudent.blood_group || '').trim(),
+      blood_group: bloodGroup,
       father_guardian_name: String(editStudent.father_guardian_name || '').trim(),
       father_guardian_mobile: String(editStudent.father_guardian_mobile || '').trim(),
       mother_guardian_name: String(editStudent.mother_guardian_name || '').trim(),
@@ -456,7 +465,7 @@ export default function StudentListScreen() {
       <StandardPageHeader title="Student List" onBackPress={() => navigation.goBack()} />
 
       <ScrollView
-        contentContainerStyle={styles.contentContainer}
+        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.contentContainer}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
@@ -479,7 +488,7 @@ export default function StudentListScreen() {
             </View>
           ) : (
             <>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.chipScroll]}>
                 {classOptions.map((cls, index) => (
                   <TouchableOpacity
                     key={`class-${cls || index}`}
@@ -562,7 +571,7 @@ export default function StudentListScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+        <ScrollView style={[styles.modalBody, innerPageLayoutStyles.scrollViewFront]} showsVerticalScrollIndicator={false}>
           {/* Profile Header */}
           <View style={styles.modalProfileHeader}>
             <View style={styles.modalAvatarContainer}>
@@ -653,11 +662,10 @@ export default function StudentListScreen() {
                 <View>
                   <AppText weight="bold" style={styles.infoLabel}>Blood Group</AppText>
                   {isEditingStudent ? (
-                    <TextInput
-                      style={styles.editInput}
+                    <BloodGroupPicker
                       value={String(editStudent.blood_group || '')}
-                      onChangeText={(value) => setEditStudent(prev => ({ ...prev, blood_group: value }))}
-                      placeholder="Blood Group"
+                      onChange={(value) => setEditStudent(prev => ({ ...prev, blood_group: value }))}
+                      style={styles.editInput}
                     />
                   ) : (
                     <AppText weight="bold" style={styles.infoValue}>{viewStudent?.blood_group || '—'}</AppText>

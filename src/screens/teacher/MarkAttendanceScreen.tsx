@@ -22,6 +22,7 @@ import { getStudentsByClass, markAttendance, getClassesSections } from '../../se
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 interface ClassData {
   id: string;
@@ -254,7 +255,7 @@ export default function MarkAttendanceScreen() {
       <StandardPageHeader title="Mark Attendance" onBackPress={() => navigation.goBack()} />
 
       <ScrollView
-        style={styles.scrollStyle}
+       style={[styles.scrollStyle, innerPageLayoutStyles.scrollViewFront]}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >

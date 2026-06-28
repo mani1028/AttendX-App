@@ -107,10 +107,19 @@ export const setSessionData = async (data: any) => {
         storageOps.push(['teacherId', String(teacherId)]);
       }
 
-      const employeeId = data.user.employee_id ?? data.user.employeeId ?? data.user.principal_employee_id;
-      if (employeeId) {
+      const normalizedRole = String(role || data.user?.role || '').trim().toLowerCase();
+      const isDirectorRole = normalizedRole === 'director' || normalizedRole === 'admin';
+
+      const employeeId = data.user.employee_id ?? data.user.employeeId;
+      if (employeeId && !isDirectorRole) {
         storageOps.push(['employee_id', String(employeeId)]);
         storageOps.push(['employeeId', String(employeeId)]);
+      } else if (normalizedRole === 'principal') {
+        const principalEmpId = data.user.principal_employee_id;
+        if (principalEmpId) {
+          storageOps.push(['employee_id', String(principalEmpId)]);
+          storageOps.push(['employeeId', String(principalEmpId)]);
+        }
       }
 
       if (data.user.principal_employee_id) {
@@ -135,9 +144,26 @@ export const setSessionData = async (data: any) => {
         storageOps.push(['studentId', String(studentId)]);
       }
 
+      const userRollNo =
+        data.user.roll_no ??
+        data.user.rollNo ??
+        data.user.roll_number ??
+        data.user.rollNumber ??
+        studentId;
+      if (userRollNo && !storageOps.some(([k]) => k === 'roll_no')) {
+        storageOps.push(['roll_no', String(userRollNo)]);
+        storageOps.push(['roll_number', String(userRollNo)]);
+      }
+
       const email = data.user.email ?? data.user.principal_email;
       if (email) {
         storageOps.push(['email', email]);
+        await storage.setString(StorageKeys.USER_EMAIL, email);
+      }
+
+      const loginUsername = data.user.username ?? data.user.user_name;
+      if (loginUsername) {
+        storageOps.push(['username', String(loginUsername)]);
       }
 
       if (data.user.principal_email) {

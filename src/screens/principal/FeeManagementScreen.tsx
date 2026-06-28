@@ -15,7 +15,6 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
@@ -47,6 +46,8 @@ import { useAuth } from '../../context/AuthContext';
 
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { Theme, C } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
@@ -85,7 +86,6 @@ interface FormData {
 const FeeManagement = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const insets = useSafeAreaInsets();
   const { setTabBarVisible, userRole } = useAuth();
   const isMounted = useRef(true);
   const [students, setStudents] = useState<Student[]>([]);
@@ -453,48 +453,29 @@ const FeeManagement = () => {
 
   return (
     <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
+        }
+      >
+        <StandardPageHeader
+          scrollWithContent
+          title="Accounts & Fees"
+          subtitle="Manage student dues and payment records"
+          backgroundColor={userRole?.toLowerCase() === 'accountant' ? Theme.colors.primary : undefined}
+          onBackPress={() => safeGoBack(
+            navigation as any,
+            userRole?.toLowerCase() === 'accountant' ? 'AccountantDashboard' : 'PrincipalDashboard',
+          )}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
 
-
-      {/* Standardized Header */}
-      {(() => {
-        const isAccountant = userRole?.toLowerCase() === 'accountant';
-        return (
-          <View style={[styles.headerStandard, {
-            paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets),
-            backgroundColor: isAccountant ? Theme.colors.primary : HEADER_CONSTANTS.BACKGROUND_COLOR,
-          }]}>
-            <View style={styles.headerTop}>
-              <TouchableOpacity accessibilityRole="button"
-                style={styles.iconButton}
-                onPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
-              >
-                <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
-              </TouchableOpacity>
-              <View style={styles.headerTitleContainer}>
-                <AppText weight="bold" style={styles.headerTitle}>Fee Management</AppText>
-              </View>
-              <View style={styles.headerSpacer} />
-            </View>
-
-            <View style={styles.headerContent}>
-              <AppText weight="bold" style={styles.headerGreeting}>Accounts & Fees</AppText>
-              <AppText style={styles.headerSubtext}>Manage student dues and payment records</AppText>
-            </View>
-          </View>
-        );
-      })()}
-
-      <View style={styles.contentOverlap}>
-        <ScrollView
-          style={styles.scrollView}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
-          }
-        >
+        <View style={innerPageLayoutStyles.scrollBody}>
           {/* Summary Cards */}
           <View style={styles.summaryContainer}>
             <View style={styles.summaryCard}>
@@ -647,7 +628,7 @@ const FeeManagement = () => {
                 value={feeSearchQuery}
                 onChangeText={setFeeSearchQuery}
               />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusFilterScroll}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.statusFilterScroll, innerPageLayoutStyles.scrollViewFront]}>
                 <View style={styles.statusFilterContainer}>
                   {(['all', 'pending', 'partial', 'paid'] as const).map((status) => (
                     <TouchableOpacity accessibilityRole="button"
@@ -714,8 +695,8 @@ const FeeManagement = () => {
               })()
             )}
           </View>
-        </ScrollView>
-      </View>
+        </View>
+      </ScrollView>
 
 
       {/* Date Picker */}
@@ -951,7 +932,7 @@ const FeeManagement = () => {
               />
             </View>
 
-            <ScrollView style={styles.modalStudentList} keyboardShouldPersistTaps="always">
+            <ScrollView style={[styles.modalStudentList, innerPageLayoutStyles.scrollViewFront]} keyboardShouldPersistTaps="always">
               {(() => {
                 const search = modalSearchText.trim().toLowerCase();
                 const filtered = students.filter(student => {
@@ -1012,66 +993,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  headerStandard: {
-    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 10 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
-    fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
-    textAlign: 'center',
-  },
-  headerContent: {
-    marginTop: Theme.spacing.lg,
-  },
-  headerGreeting: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    ...Theme.typography.h1,
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    ...Theme.typography.body,
-    marginTop: Theme.spacing.xs,
-  },
-  headerSpacer: {
-    width: 40,
-  },
   contentOverlap: {
     flex: 1,
-    marginTop: -HEADER_CONSTANTS.BORDER_RADIUS,
-    backgroundColor: C.bg,
+        backgroundColor: C.bg,
     borderTopLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     borderTopRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
     overflow: 'hidden',
@@ -1088,7 +1012,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderLeftWidth: 4,
     borderLeftColor: C.primary,
-    marginHorizontal: Theme.spacing.md,
     marginBottom: Theme.spacing.lg,
     borderWidth: 1,
     borderColor: C.border,
@@ -1266,8 +1189,6 @@ const styles = StyleSheet.create({
   },
   summaryContainer: {
     flexDirection: 'row',
-    marginHorizontal: Theme.spacing.md,
-    marginTop: Theme.spacing.lg,
     marginBottom: 20,
     gap: 12,
   },

@@ -2,6 +2,7 @@ import API, { buildApiUrl } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFeesByStudent, getPaymentHistoryByFee } from './accountantService';
 import { formatLocalDateKey, getMonthSundayDates } from '../utils/holidayUtils';
+import { resolveStudentRollNumber } from '../utils/helpers';
 import { safeJsonParse } from '../utils/storage';
 import { storage } from '../storage/storage';
 import { StorageKeys } from '../storage/StorageKeys';
@@ -55,9 +56,8 @@ const SCHOOL_HOLIDAYS_ENDPOINTS = [
   'manage/student-dashboard/school-holidays',
 ];
 const STUDENT_REGISTER_REQUEST_ENDPOINTS = [
-  'student-dashboard/register-request',
   'student/register-request',
-  'manage/student-dashboard/register-request',
+  'manage/student/register-request',
 ];
 
 const LEAVE_TEACHERS_ENDPOINTS = [
@@ -798,12 +798,22 @@ export async function getStudentProfile(): Promise<any> {
       storedUser?.blood_group,
     ));
 
+    const storedRollNo = String(
+      (await AsyncStorage.getItem('roll_no')) ||
+      (await AsyncStorage.getItem('roll_number')) ||
+      storedUser?.roll_no ||
+      storedUser?.roll_number ||
+      ''
+    ).trim();
+
     const rollNumber = toText(firstDefined(
       raw.roll_number,
       raw.roll_no,
       raw.rollNo,
       raw.roll,
+      storedRollNo,
       storedUser?.roll_number,
+      storedUser?.roll_no,
     ));
 
     return {
@@ -817,7 +827,8 @@ export async function getStudentProfile(): Promise<any> {
       student_id: toText(firstDefined(raw.student_id, raw.studentId, root.student_id, storedUser?.student_id, storedUser?.studentId)),
       class_grade: toText(firstDefined(raw.class_grade, raw.class_name, raw.student_class, storedUser?.class_grade, storedUser?.class_name)),
       section: toText(firstDefined(raw.section, raw.section_name, storedUser?.section)),
-      roll_number: rollNumber,
+      roll_number: resolveStudentRollNumber(rollNumber),
+      roll_no: resolveStudentRollNumber(rollNumber),
       school_code: toText(firstDefined(raw.school_code, root.school_code, storedUser?.school_code)),
       school_name: toText(firstDefined(raw.school_name, raw.school, storedUser?.school_name)),
       branch_id: toText(firstDefined(raw.branch_id, storedUser?.branch_id)),
@@ -1309,19 +1320,26 @@ export async function getSchoolHolidays(params: any = {}): Promise<any[]> {
 }
 
 export async function submitStudentRegisterRequest(formData: FormData): Promise<any> {
-  for (const endpoint of STUDENT_REGISTER_REQUEST_ENDPOINTS) {
+  for (let index = 0; index < STUDENT_REGISTER_REQUEST_ENDPOINTS.length; index++) {
+    const endpoint = STUDENT_REGISTER_REQUEST_ENDPOINTS[index];
+    const isLastEndpoint = index === STUDENT_REGISTER_REQUEST_ENDPOINTS.length - 1;
     try {
       const response = await API.post(endpoint, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'X-School-Code': await storage.getString(StorageKeys.SCHOOL_CODE) || undefined,
+          'X-Branch-Id': await storage.getString(StorageKeys.BRANCH_ID) || undefined,
         },
+        suppressFallback404Log: true,
+        suppressErrorLog: !isLastEndpoint,
         ...FALLBACK_404_CONFIG,
       } as any);
       return response.data;
     } catch (error: any) {
-      if (error?.response?.status !== 404) {
-        throw error;
+      const status = error?.response?.status;
+      if (status === 404 || status === 405 || status === 503 || status === 502 || status === 504) {
+        continue;
       }
+      throw error;
     }
   }
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import {
   View,
   Text,
@@ -698,7 +699,7 @@ export default function PrincipalRegistrationPublicScreen() {
         onClose={() => setToast(prev => ({ ...prev, visible: false }))}
       />
 
-      <ScrollView contentContainerStyle={styles.contentContainer}>
+      <ScrollView style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.contentContainer}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>📋 Principal Registration</Text>

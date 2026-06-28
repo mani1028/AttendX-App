@@ -16,7 +16,6 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Animated,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -60,6 +59,9 @@ import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AvatarBubble from '../../components/common/AvatarBubble';
+import DashboardHeroHeader from '../../components/dashboard/DashboardHeroHeader';
+import QuickActionGrid, { QuickActionItem } from '../../components/dashboard/QuickActionGrid';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import type { RootStackParamList } from '../../navigation/types';
@@ -68,6 +70,10 @@ import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { Theme } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
+import {
+  getDirectorDashboardOverview,
+  type DirectorDashboardStats,
+} from '../../services/directorService';
 
 
 
@@ -91,19 +97,7 @@ interface Branch {
   health_status: string;
 }
 
-interface Stats {
-  branches: number;
-  teachers: number;
-  students: number;
-  activeBranches: number;
-  inactiveBranches: number;
-  principals: number;
-  classes: number;
-  sections: number;
-  pendingLeaves: number;
-  teacherAttendanceToday: number;
-  studentAttendanceToday: number;
-}
+interface Stats extends DirectorDashboardStats {}
 
 
 
@@ -333,6 +327,58 @@ const BranchCard: React.FC<{ branch: Branch; onPress: () => void }> = ({ branch,
 };
 
 // Branch Management Card Component for list view
+const DashboardBranchPreviewCard: React.FC<{
+  branch: Branch;
+  onPress: () => void;
+}> = ({ branch, onPress }) => (
+  <TouchableOpacity
+    accessibilityRole="button"
+    style={styles.dashboardBranchCard}
+    onPress={onPress}
+    activeOpacity={0.82}
+  >
+    <View style={styles.dashboardBranchTop}>
+      <View style={styles.dashboardBranchIconWrap}>
+        <School size={18} color={Theme.colors.primary} />
+      </View>
+      <View style={styles.dashboardBranchMeta}>
+        <AppText style={styles.dashboardBranchName} weight="bold" numberOfLines={1}>
+          {branch.branch_name}
+        </AppText>
+        <AppText style={styles.dashboardBranchId}>Branch ID · {branch.branch_id}</AppText>
+      </View>
+      <ChevronRight size={18} color={colors.textMuted} />
+    </View>
+
+    <View style={styles.dashboardBranchBadges}>
+      <StatusBadge status={branch.branch_status} />
+      <HealthBadge status={branch.health_status} />
+    </View>
+
+    <View style={styles.dashboardBranchPrincipalRow}>
+      <User size={13} color={colors.textMuted} />
+      <AppText style={styles.dashboardBranchPrincipal} numberOfLines={1}>
+        {branch.principal_name || 'No principal assigned'}
+      </AppText>
+    </View>
+
+    <View style={styles.dashboardBranchStats}>
+      <View style={styles.dashboardBranchStat}>
+        <Layers size={12} color={Theme.colors.primary} />
+        <AppText style={styles.dashboardBranchStatText}>{branch.classes_count || 0} Classes</AppText>
+      </View>
+      <View style={styles.dashboardBranchStat}>
+        <Users size={12} color={Theme.colors.success} />
+        <AppText style={styles.dashboardBranchStatText}>{branch.teachers_count || 0} Staff</AppText>
+      </View>
+      <View style={styles.dashboardBranchStat}>
+        <GraduationCap size={12} color={Theme.colors.warning} />
+        <AppText style={styles.dashboardBranchStatText}>{branch.students_count || 0} Students</AppText>
+      </View>
+    </View>
+  </TouchableOpacity>
+);
+
 const BranchManagementCard: React.FC<{
   branch: Branch;
   onEdit: () => void;
@@ -368,9 +414,20 @@ const BranchManagementCard: React.FC<{
         </View>
 
         <View style={styles.managementStatsRow}>
-          <AppText style={styles.managementStatsText}>
-            🏫 {branch.classes_count || 0} Classes  •  👨‍🏫 {branch.teachers_count || 0} Staff  •  🎓 {branch.students_count || 0} Students
-          </AppText>
+          <View style={styles.managementStatItem}>
+            <Layers size={12} color={Theme.colors.primary} />
+            <AppText style={styles.managementStatsText}>{branch.classes_count || 0} Classes</AppText>
+          </View>
+          <View style={styles.managementStatDivider} />
+          <View style={styles.managementStatItem}>
+            <Users size={12} color={Theme.colors.success} />
+            <AppText style={styles.managementStatsText}>{branch.teachers_count || 0} Staff</AppText>
+          </View>
+          <View style={styles.managementStatDivider} />
+          <View style={styles.managementStatItem}>
+            <GraduationCap size={12} color={Theme.colors.warning} />
+            <AppText style={styles.managementStatsText}>{branch.students_count || 0} Students</AppText>
+          </View>
         </View>
       </View>
 
@@ -397,9 +454,14 @@ const QUICK_ACTIONS = [
   { label: 'My Profile', route: 'Profile', icon: User, bg: 'rgba(59, 130, 246, 0.08)', color: Theme.colors.blue },
 ] as const;
 
+const formatAttendanceBadge = (total: number, pct: number, present: number | null): string => {
+  if (total === 0) { return 'No data'; }
+  if (pct === 0 && present === null) { return 'Not marked'; }
+  return `${pct}% Present`;
+};
+
 export default function DirectorDashboardScreen() {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName, setTabBarVisible } = useAuth();
   const { unreadCount } = useUnreadNotifications();
@@ -431,6 +493,8 @@ export default function DirectorDashboardScreen() {
     pendingLeaves: 0,
     teacherAttendanceToday: 0,
     studentAttendanceToday: 0,
+    teacherPresentToday: null,
+    studentPresentToday: null,
   });
   const [branches, setBranches] = useState<Branch[]>([]);
   const [view, setView] = useState<'dashboard' | 'branches' | 'adddirector' | 'settings'>('dashboard');
@@ -490,17 +554,11 @@ export default function DirectorDashboardScreen() {
   const [selectedBranchId, setSelectedBranchId] = useState<string>('ALL');
   const [branchSelectorVisible, setBranchSelectorVisible] = useState<boolean>(false);
   const [editBranchModalVisible, setEditBranchModalVisible] = useState<boolean>(false);
-  const [showAllBranches, setShowAllBranches] = useState<boolean>(false);
   const [branchSearchTerm, setBranchSearchTerm] = useState<string>('');
-  const [branchCardsPage, setBranchCardsPage] = useState<number>(1);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
 
   const [showRegistrationModal, setShowRegistrationModal] = useState<boolean>(false);
-  const responsiveKpiCardStyle = useMemo(() => {
-    const cardWidth = (width - 52) / 2;
-    return { width: cardWidth, minWidth: cardWidth, marginHorizontal: 0 };
-  }, [width]);
 
   // Edit states
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -515,7 +573,16 @@ export default function DirectorDashboardScreen() {
   const [directorPhone, setDirectorPhone] = useState<string>('');
 
   const ROWS_PER_PAGE = 7;
-  const BRANCH_CARDS_PER_PAGE = 6;
+  const DASHBOARD_BRANCH_LIMIT = 5;
+
+  const navigateToBranchesTab = useCallback(() => {
+    const routeNames = (navigation.getState?.()?.routeNames ?? []) as string[];
+    if (routeNames.includes('Branches')) {
+      (navigation as any).navigate('Branches');
+      return;
+    }
+    (navigation as any).navigate('MainTabs', { screen: 'Branches' });
+  }, [navigation]);
 
   // Load school code and director details
   useEffect(() => {
@@ -551,62 +618,23 @@ export default function DirectorDashboardScreen() {
     if (!schoolCode) {return;}
     setLoading(true);
     try {
-      const endpoints = ['director/dashboard/overview', 'director/stats'];
-      let res;
-      for (const endpoint of endpoints) {
-        try {
-          res = await API.get(endpoint, {
-            headers: { 'x-school-code': schoolCode },
-            suppressFallback404Log: true,
-          } as any);
-          if (res) {break;}
-        } catch (e) {
-          // try next
-        }
+      const { stats: statsData, branches: branchArray } = await getDirectorDashboardOverview(schoolCode);
+
+      if (isMounted.current) {
+        setStats(statsData);
+        setBranches(branchArray);
       }
 
-      if (!res) {
-        throw new Error('Dashboard stats endpoint not found');
-      }
-
-      const data = res.data || {};
-      // Handle different response structures
-      if (data.ok || (data.summary && !data.error) || data.stats || data.total_branches !== undefined) {
-        const summary = data.summary || data.stats || data || {};
-        const statsData: Stats = {
-          branches: Number(summary.total_branches ?? summary.branches ?? 0),
-          teachers: Number(summary.total_teachers ?? summary.staff ?? summary.teachers ?? 0),
-          students: Number(summary.total_students ?? summary.students ?? 0),
-          activeBranches: Number(summary.active_branches ?? summary.branches ?? 0),
-          inactiveBranches: Number(summary.inactive_branches ?? 0),
-          principals: Number(summary.total_directors ?? summary.total_principals ?? summary.total_hms ?? 0),
-          classes: Number(summary.total_classes ?? 0),
-          sections: Number(summary.total_sections ?? 0),
-          pendingLeaves: Number(summary.pending_leave_requests ?? 0),
-          teacherAttendanceToday: Number(summary.teacher_attendance_marked_today ?? 0),
-          studentAttendanceToday: Number(summary.student_attendance_marked_today ?? 0),
-        };
-        const branchData = data.items || data.branches || [];
-        const branchArray = Array.isArray(branchData) ? branchData : [];
-
-        if (isMounted.current) {
-          setStats(statsData);
-          setBranches(branchArray);
-        }
-
-        // Cache data
-        await Promise.all([
-          AsyncStorage.setItem(`director_stats_${schoolCode}`, JSON.stringify(statsData)),
-          AsyncStorage.setItem(`director_branches_${schoolCode}`, JSON.stringify(branchArray)),
-        ]).catch(() => { });
-      }
+      await Promise.all([
+        AsyncStorage.setItem(`director_stats_${schoolCode}`, JSON.stringify(statsData)),
+        AsyncStorage.setItem(`director_branches_${schoolCode}`, JSON.stringify(branchArray)),
+      ]).catch(() => { });
     } catch (err: any) {
       if (!isMounted.current) {return;}
       if (err?.response?.status === 401) {return;}
       console.error('Failed to fetch dashboard data:', err);
-      // Only alert if we don't have cached data
       if (branches.length === 0) {
-        Alert.alert('Error', 'Failed to load dashboard data');
+        Alert.alert('Error', 'Failed to load dashboard data. Pull down to retry.');
       }
     } finally {
       if (isMounted.current) {
@@ -692,13 +720,11 @@ export default function DirectorDashboardScreen() {
   const totalPages = Math.max(1, Math.ceil(filteredBranches.length / ROWS_PER_PAGE));
   const paginatedBranches = filteredBranches.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE);
 
-  // Branch cards pagination
-  const branchCardsTotalPages = Math.max(1, Math.ceil(filteredBranches.length / BRANCH_CARDS_PER_PAGE));
-  const branchCards = useMemo(() => {
-    if (!showAllBranches) {return filteredBranches.slice(0, BRANCH_CARDS_PER_PAGE);}
-    const start = (branchCardsPage - 1) * BRANCH_CARDS_PER_PAGE;
-    return filteredBranches.slice(start, start + BRANCH_CARDS_PER_PAGE);
-  }, [filteredBranches, showAllBranches, branchCardsPage]);
+  // Dashboard shows at most 5 branch previews
+  const dashboardBranchPreview = useMemo(
+    () => filteredBranches.slice(0, DASHBOARD_BRANCH_LIMIT),
+    [filteredBranches],
+  );
 
   // Selected branch object
   const selectedBranch = useMemo(() => {
@@ -723,6 +749,8 @@ export default function DirectorDashboardScreen() {
         pendingLeaves: selectedBranch.pending_leave_requests || 0,
         teacherAttendanceToday: selectedBranch.teacher_attendance_today || 0,
         studentAttendanceToday: selectedBranch.student_attendance_today || 0,
+        teacherPresentToday: null,
+        studentPresentToday: null,
       };
     }
     return stats;
@@ -844,95 +872,33 @@ export default function DirectorDashboardScreen() {
       >
 
 
-        <LinearGradient
-          colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[
-            styles.heroHeader,
-            {
-                paddingTop: insets.top + 12,
-                borderBottomLeftRadius: 24,
-                borderBottomRightRadius: 24,
-                paddingBottom: 36,
-                paddingHorizontal: 0,
-              },
-            ]}
-          >
-            <View style={{ paddingHorizontal: 18 }}>
-              {/* Row 1: Avatar, Greeting, Notifications, Refresh */}
-              <View style={styles.heroTopRow}>
-                <View style={styles.heroProfileInfo}>
-                  <TouchableOpacity activeOpacity={0.8} onPress={() => safeNavigate(navigation, 'Profile')}>
-                    <AvatarBubble
-                      displayName={userName || 'Director'}
-                      size={38}
-                      textSize={16}
-                      primaryColor={Theme.colors.card}
-                    />
-                  </TouchableOpacity>
-                  <View style={styles.heroGreetingBox}>
-                    <AppText style={styles.heroGreetingText} weight="semibold">
-                      GOOD {getGreeting().toUpperCase()}
-                    </AppText>
-                    <AppText style={styles.heroNameText} weight="bold" numberOfLines={1}>
-                      {((userName || 'Director').split(' ')[0]).replace(/^\w/, (c) => c.toUpperCase())} 👋
-                    </AppText>
-                  </View>
-                </View>
-                <View style={styles.heroActions}>
-                  <TouchableOpacity accessibilityRole="button" style={styles.iconBtn} onPress={() => safeNavigate(navigation, 'Notifications')}>
-                    <Bell size={18} color={Theme.colors.card} />
-                    {unreadCount > 0 && (
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity accessibilityRole="button" style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
-                    <RefreshCw size={18} color={Theme.colors.card} />
-                  </TouchableOpacity>
-                </View>
-              </View>
+        <DashboardHeroHeader
+          userName={userName || 'Director'}
+          greetingLine={`GOOD ${getGreeting().toUpperCase()}`}
+          subtitle={schoolCode ? `School ID: ${schoolCode} • Manage branches` : 'Manage branches'}
+          unreadCount={unreadCount}
+          onAvatarPress={() => safeNavigate(navigation, 'Profile')}
+          onNotificationsPress={() => safeNavigate(navigation, 'Notifications')}
+          onRefreshPress={onRefresh}
+          refreshing={loading}
+          pageTitle="Director Control Center"
+          showDateBadge
+          fullBleed
+        />
 
-              {/* Row 2: Title & Date Badge */}
-              <View style={styles.welcomeSection}>
-                <View style={{ flex: 1, marginRight: 12 }}>
-                  <AppText style={styles.welcomeTitle} weight="bold" numberOfLines={1} adjustsFontSizeToFit>Director Control Center</AppText>
-
-                  {/* Row 3: School ID */}
-                  <AppText style={styles.welcomeSub} numberOfLines={1}>
-                    {schoolCode ? `School ID: ${schoolCode} • ` : ''}Manage branches
-                  </AppText>
-                </View>
-
-                {/* Row 4: Date Card */}
-                <View style={styles.dateRow}>
-                  <View style={styles.dateBadge}>
-                    <Calendar size={12} color={Theme.colors.card} />
-                    <AppText style={styles.dateText} weight="bold">
-                      {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </AppText>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </LinearGradient>
-
-        <View style={styles.mainContentWrapper}>
-          {/* Stats Cards Grid overlapping header */}
+        <View style={innerPageLayoutStyles.contentFront}>
           {view === 'dashboard' && (
             <View style={styles.statsGrid}>
               <KpiCard
                 title={selectedBranchId === 'ALL' ? 'Branches' : 'Branch'}
                 value={displayedStats.branches}
-                sub={`${displayedStats.activeBranches} active branches`}
+                sub={`${displayedStats.activeBranches} active branch${displayedStats.activeBranches === 1 ? '' : 'es'}`}
                 icon={School}
-                iconBg="rgba(59, 130, 246, 0.1)"
+                iconBg="rgba(59, 130, 246, 0.12)"
                 iconColor={Theme.colors.blue}
                 badge={displayedStats.inactiveBranches > 0 ? `${displayedStats.inactiveBranches} Inactive` : 'All Active'}
                 badgeUp={displayedStats.inactiveBranches === 0}
-                cardStyle={responsiveKpiCardStyle}
+                cardStyle={styles.kpiCardHalf}
                 onPress={handleKpiClick}
               />
               <KpiCard
@@ -940,11 +906,19 @@ export default function DirectorDashboardScreen() {
                 value={displayedStats.teachers}
                 sub="Total school staff"
                 icon={Users}
-                iconBg="rgba(59, 130, 246, 0.1)"
-                iconColor={Theme.colors.blue}
-                badge={`${displayedStats.teacherAttendanceToday}% Present`}
+                iconBg="rgba(16, 185, 129, 0.12)"
+                iconColor={Theme.colors.success}
+                badge={
+                  displayedStats.teachers === 0
+                    ? 'No staff'
+                    : formatAttendanceBadge(
+                        displayedStats.teachers,
+                        displayedStats.teacherAttendanceToday,
+                        displayedStats.teacherPresentToday,
+                      )
+                }
                 badgeUp={displayedStats.teacherAttendanceToday >= 75}
-                cardStyle={responsiveKpiCardStyle}
+                cardStyle={styles.kpiCardHalf}
                 onPress={handleKpiClick}
               />
               <KpiCard
@@ -952,23 +926,31 @@ export default function DirectorDashboardScreen() {
                 value={displayedStats.students}
                 sub="Enrolled students"
                 icon={GraduationCap}
-                iconBg="rgba(59, 130, 246, 0.1)"
-                iconColor={Theme.colors.blue}
-                badge={`${displayedStats.studentAttendanceToday}% Present`}
+                iconBg="rgba(245, 158, 11, 0.12)"
+                iconColor={Theme.colors.warning}
+                badge={
+                  displayedStats.students === 0
+                    ? 'No students'
+                    : formatAttendanceBadge(
+                        displayedStats.students,
+                        displayedStats.studentAttendanceToday,
+                        displayedStats.studentPresentToday,
+                      )
+                }
                 badgeUp={displayedStats.studentAttendanceToday >= 75}
-                cardStyle={responsiveKpiCardStyle}
+                cardStyle={styles.kpiCardHalf}
                 onPress={handleKpiClick}
               />
               <KpiCard
                 title="Classes"
                 value={displayedStats.classes}
-                sub={`${displayedStats.sections} sections`}
+                sub={`${displayedStats.sections} section${displayedStats.sections === 1 ? '' : 's'}`}
                 icon={Layers}
-                iconBg="rgba(59, 130, 246, 0.1)"
-                iconColor={Theme.colors.blue}
+                iconBg="rgba(124, 58, 237, 0.12)"
+                iconColor="#7c3aed"
                 badge={displayedStats.pendingLeaves > 0 ? `${displayedStats.pendingLeaves} Leaves` : 'No Leaves'}
                 badgeUp={displayedStats.pendingLeaves === 0}
-                cardStyle={responsiveKpiCardStyle}
+                cardStyle={styles.kpiCardHalf}
                 onPress={handleKpiClick}
               />
             </View>
@@ -988,28 +970,30 @@ export default function DirectorDashboardScreen() {
                 <View style={styles.sectionHeader}>
                   <AppText style={styles.sectionTitle}>Quick Access</AppText>
                 </View>
-                <View style={styles.quickAccessGrid}>
+                <QuickActionGrid>
                   {QUICK_ACTIONS.map((action) => {
                     const IconComponent = action.icon;
                     return (
-                      <TouchableOpacity accessibilityRole="button"
-                        key={action.label}
-                        style={styles.gridItem}
-                        onPress={() => safeNavigate(navigation, action.route as any)}
-                        activeOpacity={0.75}
-                      >
-                        <View style={[styles.iconContainer, { backgroundColor: action.bg }]}>
-                          <IconComponent size={24} color={action.color} />
-                        </View>
-                        <View style={styles.gridLabelContainer}>
-                          <AppText style={styles.gridLabel} weight="semibold" numberOfLines={2} adjustsFontSizeToFit>
-                            {action.label}
-                          </AppText>
-                        </View>
-                      </TouchableOpacity>
+                      <QuickActionItem key={action.label}>
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          style={styles.gridItemInner}
+                          onPress={() => safeNavigate(navigation, action.route as any)}
+                          activeOpacity={0.75}
+                        >
+                          <View style={[styles.iconContainer, { backgroundColor: action.bg }]}>
+                            <IconComponent size={24} color={action.color} />
+                          </View>
+                          <View style={styles.gridLabelContainer}>
+                            <AppText style={styles.gridLabel} weight="semibold" numberOfLines={2} adjustsFontSizeToFit>
+                              {action.label}
+                            </AppText>
+                          </View>
+                        </TouchableOpacity>
+                      </QuickActionItem>
                     );
                   })}
-                </View>
+                </QuickActionGrid>
               </View>
 
               {/* Filter Selector outside panel */}
@@ -1023,7 +1007,7 @@ export default function DirectorDashboardScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <School size={18} color={Theme.colors.primary} />
                     <AppText style={styles.branchSelectorValue} numberOfLines={1}>
-                      {selectedBranchId === 'ALL' ? 'All Branches (No Filter)' : `Branch: ${selectedBranchId}`}
+                      {selectedBranchId === 'ALL' ? 'All Branches' : `Branch: ${selectedBranchId}`}
                     </AppText>
                   </View>
                   <ChevronDown size={18} color={colors.textMuted} />
@@ -1040,43 +1024,55 @@ export default function DirectorDashboardScreen() {
 
 
               {/* Branch Management Section in Dashboard */}
-              <AppCard style={styles.chartCard}>
+              <AppCard style={styles.branchManagementPanel}>
                 <View style={styles.chartHeader}>
-                  <AppText style={styles.cardTitle}>Branch Management</AppText>
-                  <TouchableOpacity accessibilityRole="button" onPress={() => setShowAllBranches(!showAllBranches)}>
-                    <AppText style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>
-                      {showAllBranches ? 'Show Less' : 'View All'}
+                  <View style={{ flex: 1 }}>
+                    <AppText style={styles.cardTitle}>Branch Management</AppText>
+                    <AppText style={styles.branchPanelSubtitle}>
+                      {filteredBranches.length} branch{filteredBranches.length === 1 ? '' : 'es'} registered
                     </AppText>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.branchCardsGrid}>
-                  {branchCards.map(branch => (
-                    <BranchManagementCard
-                      key={branch.branch_id}
-                      branch={branch}
-                      onEdit={() => startEdit(branch)}
-                      onView={() => handleViewBranch(branch)}
-                    />
-                  ))}
-                </View>
-                {showAllBranches && branchCardsTotalPages > 1 && (
-                  <View style={[styles.pagination, { marginTop: Theme.spacing.md }]}>
-                    <TouchableOpacity accessibilityRole="button"
-                      style={[styles.pageBtn, branchCardsPage === 1 && styles.pageBtnDisabled]}
-                      onPress={() => setBranchCardsPage(Math.max(1, branchCardsPage - 1))}
-                      disabled={branchCardsPage === 1}
-                    >
-                      <ChevronLeft size={18} color={branchCardsPage === 1 ? colors.border : colors.textMuted} />
-                    </TouchableOpacity>
-                    <AppText style={styles.pageInfo}>Page {branchCardsPage} of {branchCardsTotalPages}</AppText>
-                    <TouchableOpacity accessibilityRole="button"
-                      style={[styles.pageBtn, branchCardsPage === branchCardsTotalPages && styles.pageBtnDisabled]}
-                      onPress={() => setBranchCardsPage(Math.min(branchCardsTotalPages, branchCardsPage + 1))}
-                      disabled={branchCardsPage === branchCardsTotalPages}
-                    >
-                      <ChevronRight size={18} color={branchCardsPage === branchCardsTotalPages ? colors.border : colors.textMuted} />
-                    </TouchableOpacity>
                   </View>
+                  {filteredBranches.length > DASHBOARD_BRANCH_LIMIT && (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      style={styles.viewAllBtn}
+                      onPress={navigateToBranchesTab}
+                    >
+                      <AppText style={styles.viewAllBtnText}>View All</AppText>
+                      <ChevronRight size={14} color={Theme.colors.primary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {dashboardBranchPreview.length === 0 ? (
+                  <View style={styles.branchEmptyState}>
+                    <School size={28} color={colors.textMuted} />
+                    <AppText style={styles.branchEmptyTitle} weight="semibold">No branches yet</AppText>
+                    <AppText style={styles.branchEmptyText}>Add your first branch to get started.</AppText>
+                  </View>
+                ) : (
+                  <View style={styles.branchCardsGrid}>
+                    {dashboardBranchPreview.map(branch => (
+                      <DashboardBranchPreviewCard
+                        key={branch.branch_id}
+                        branch={branch}
+                        onPress={navigateToBranchesTab}
+                      />
+                    ))}
+                  </View>
+                )}
+
+                {filteredBranches.length > DASHBOARD_BRANCH_LIMIT && (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    style={styles.viewAllFooterBtn}
+                    onPress={navigateToBranchesTab}
+                  >
+                    <AppText style={styles.viewAllFooterText}>
+                      View all {filteredBranches.length} branches
+                    </AppText>
+                    <ChevronRight size={16} color={Theme.colors.primary} />
+                  </TouchableOpacity>
                 )}
               </AppCard>
             </>
@@ -1269,7 +1265,7 @@ export default function DirectorDashboardScreen() {
                   styles.branchSelectItemText,
                   selectedBranchId === 'ALL' && styles.branchSelectItemTextActive,
                 ]} weight="bold">
-                  All Branches (No Filter)
+                  All Branches
                 </AppText>
               </TouchableOpacity>
 
@@ -1390,9 +1386,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
+    rowGap: 12,
+    columnGap: 12,
     marginBottom: 20,
     marginTop: -24,
+    zIndex: 1,
+    position: 'relative',
+    ...Platform.select({ android: { elevation: 4 } }),
   },
   notificationBtn: {
     width: 36,
@@ -1487,15 +1487,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  quickAccessGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginTop: Theme.spacing.sm,
-  },
-  gridItem: {
-    width: '23%',
+  gridItemInner: {
     alignItems: 'center',
+    width: '100%',
   },
   iconContainer: {
     width: 44,
@@ -1628,12 +1622,157 @@ const styles = StyleSheet.create({
   branchSelectItemSubActive: {
     color: 'rgba(255, 255, 255, 0.72)',
   },
+  branchManagementPanel: {
+    padding: 18,
+    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  branchPanelSubtitle: {
+    ...Theme.typography.caption,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  viewAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+  },
+  viewAllBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Theme.colors.primary,
+  },
+  viewAllFooterBtn: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: Theme.colors.background,
+  },
+  viewAllFooterText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Theme.colors.primary,
+  },
+  branchEmptyState: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    gap: 6,
+  },
+  branchEmptyTitle: {
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  branchEmptyText: {
+    ...Theme.typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  dashboardBranchCard: {
+    backgroundColor: Theme.colors.background,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+  },
+  dashboardBranchTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dashboardBranchIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dashboardBranchMeta: {
+    flex: 1,
+    minWidth: 0,
+  },
+  dashboardBranchName: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    letterSpacing: -0.2,
+  },
+  dashboardBranchId: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  dashboardBranchBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+  },
+  dashboardBranchPrincipalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  dashboardBranchPrincipal: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.textMuted,
+    fontWeight: '500',
+  },
+  dashboardBranchStats: {
+    flexDirection: 'row',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 8,
+  },
+  dashboardBranchStat: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(30, 58, 138, 0.04)',
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+  },
+  dashboardBranchStatText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
   branchManagementCard: {
     backgroundColor: colors.surface,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 10,
+    padding: 14,
     marginBottom: Theme.spacing.xs,
     ...Platform.select({
       ios: {
@@ -1685,12 +1824,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   managementStatsRow: {
-    backgroundColor: 'rgba(30, 58, 138, 0.04)',
-    paddingVertical: 6,
-    paddingHorizontal: Theme.spacing.sm,
-    borderRadius: 6,
-    marginTop: Theme.spacing.xs,
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(30, 58, 138, 0.04)',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginTop: Theme.spacing.xs,
+  },
+  managementStatItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  managementStatDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: colors.border,
   },
   managementStatsText: {
     ...Theme.typography.label,
@@ -1752,9 +1904,13 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 120,
+    paddingHorizontal: HEADER_CONSTANTS.DASHBOARD_HORIZONTAL,
   },
   mainContentWrapper: {
     padding: 18,
+    zIndex: 1,
+    position: 'relative',
+    ...Platform.select({ android: { elevation: 4 } }),
   },
   errorContainer: {
     flex: 1,
@@ -2069,7 +2225,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   kpiCard: {
-    height: 126,
+    minHeight: 126,
     backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 12,
@@ -2086,6 +2242,9 @@ const styles = StyleSheet.create({
         elevation: 3,
       },
     }),
+  },
+  kpiCardHalf: {
+    width: '48%',
   },
   kpiHeader: {
     flexDirection: 'row',
@@ -2447,17 +2606,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     backgroundColor: Theme.colors.background,
     fontWeight: '600',
-  },
-  viewAllBtn: {
-    backgroundColor: colors.accent,
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  viewAllBtnText: {
-    color: Theme.colors.card,
-    fontSize: 13,
-    fontWeight: '700',
   },
   showLessBtn: {
     backgroundColor: Theme.colors.background,

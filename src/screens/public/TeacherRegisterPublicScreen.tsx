@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import {
   View,
   Text,
@@ -22,9 +23,8 @@ import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import { Theme } from '../../theme/tokens';
-
-
-// Types
+import BloodGroupPicker from '../../components/common/BloodGroupPicker';
+import { isValidBloodGroup } from '../../utils/studentRegistrationValidation';
 interface FormData {
   branch_id: string;
   teacher_full_name: string;
@@ -390,6 +390,9 @@ export default function TeacherRegisterPublicScreen() {
       if (formData.aadhaar_number && !isValidAadhaar(formData.aadhaar_number)) {
         errors.aadhaar_number = 'Aadhaar must be 12 digits';
       }
+      if (formData.blood_group && !isValidBloodGroup(formData.blood_group)) {
+        errors.blood_group = 'Select a valid blood group.';
+      }
     }
 
     if (step === 1) {
@@ -588,7 +591,7 @@ export default function TeacherRegisterPublicScreen() {
         onClose={() => setServerSuccess('')}
       />
 
-      <ScrollView contentContainerStyle={styles.contentContainer}>
+      <ScrollView style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.contentContainer}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>👨‍🏫 Teacher Registration</Text>
@@ -671,12 +674,11 @@ export default function TeacherRegisterPublicScreen() {
                 />
               </FormField>
 
-              <FormField label="Blood Group">
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. O+"
+              <FormField label="Blood Group" error={fieldErrors.blood_group}>
+                <BloodGroupPicker
                   value={formData.blood_group}
-                  onChangeText={(text) => handleChange('blood_group', text)}
+                  onChange={(value) => handleChange('blood_group', value)}
+                  error={Boolean(fieldErrors.blood_group)}
                 />
               </FormField>
 

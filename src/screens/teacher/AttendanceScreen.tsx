@@ -377,10 +377,19 @@ export default function TeacherAttendanceScreen() {
     if (!activeSchoolCode || !activeEmployeeId) {return;}
 
     try {
-      const url = `/manage/teacher/attendance/my-attendance?school_code=${activeSchoolCode}&employee_id=${activeEmployeeId}`;
-      const data = await teacherService.getRequest(url);
+      const now = new Date();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = String(now.getFullYear());
+      const items = await teacherService.getTeacherMyAttendance({
+        school_code: activeSchoolCode,
+        employee_id: activeEmployeeId,
+        month,
+        year,
+      });
       const todayDate = getTodayDateString();
-      const todayAttendance = data?.items?.find((item: any) => item.attendance_date === todayDate);
+      const todayAttendance = items.find(
+        (item: any) => (item.date || item.attendance_date) === todayDate,
+      );
 
       if (todayAttendance) {
         setSessionMarked({

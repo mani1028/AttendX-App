@@ -6,14 +6,14 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Theme, colors } from '../../theme/tokens';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { RootStackParamList } from '../../navigation/types';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import {
-  ChevronLeft,
   ChevronRight,
   CreditCard,
   Landmark,
@@ -174,7 +174,6 @@ const DATE_RANGES = ['This Week', 'This Month', 'Last 3 Months', 'All Time'];
 
 export default function PaymentHistoryScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const insets = useSafeAreaInsets();
   const [transactions] = useState<PaymentTransaction[]>(MOCK_DATA);
   const [activeFilter, setActiveFilter] = useState<FilterStatus>('all');
   const [activeDateRange, setActiveDateRange] = useState('This Month');
@@ -200,22 +199,20 @@ export default function PaymentHistoryScreen() {
     }, 0);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ChevronLeft size={24} color={Theme.colors.text} />
-        </TouchableOpacity>
-        <AppText variant="h3" weight="bold" style={styles.headerTitle}>
-          Payment History
-        </AppText>
-        <View style={{ width: 40 }} />
-      </View>
+    <View style={styles.container}>
+      <StandardPageHeader
+        title="Payment History"
+        subtitle="Review platform payment transactions"
+        onBackPress={() => navigation.goBack()}
+      />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
+        <View style={innerPageLayoutStyles.contentFront}>
         <AppCard style={styles.dateRangeCard}>
           <View style={styles.dateRangeHeader}>
             <Calendar size={16} color={Theme.colors.textMuted} />
@@ -349,6 +346,7 @@ export default function PaymentHistoryScreen() {
             <AppText variant="body" muted style={{ marginTop: 12 }}>No transactions found</AppText>
           </View>
         )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -358,30 +356,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Theme.colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.sm,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: Theme.radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Theme.colors.card,
-  },
-  headerTitle: {
-    fontSize: 18,
-    color: Theme.colors.text,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingTop: 16,
-    paddingBottom: 40,
   },
   dateRangeCard: {
     marginBottom: Theme.spacing.md,

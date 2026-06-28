@@ -36,6 +36,10 @@ export interface PaymentRecord {
   created_at?: string;
   receipt_no?: string;
   transaction_id?: string;
+  student_name?: string;
+  roll_no?: string;
+  fee_type?: string;
+  payment_date?: string;
 }
 
 export interface ExpenseRecord {
@@ -168,6 +172,10 @@ function normalizePayment(item: unknown): PaymentRecord {
     created_at: toText(row.created_at, ''),
     receipt_no: toText(row.receipt_no ?? row.receipt_number, ''),
     transaction_id: toText(row.transaction_id ?? row.txn_id ?? row.reference_id, ''),
+    student_name: toText(row.student_name ?? row.studentName ?? row.name, ''),
+    roll_no: toText(row.roll_no ?? row.roll_number ?? row.rollNumber, ''),
+    fee_type: toText(row.fee_type ?? row.feeType ?? row.fee_category, ''),
+    payment_date: toText(row.payment_date ?? row.paid_at ?? row.date ?? row.created_at, ''),
   };
 }
 
@@ -270,6 +278,25 @@ export async function getPendingStudentsReport(): Promise<any[]> {
   return pickList(response.data, ['students', 'data']);
 }
 
+export async function getMonthlyCollectionsReport(schoolCode?: string): Promise<Array<{ month: string; total: number }>> {
+  const response = await API.get<any>('accountant/reports/monthly-collections', {
+    params: schoolCode ? { school_code: schoolCode } : undefined,
+  });
+  const rows = pickList(response.data, ['collections', 'data']);
+  return rows.map((row: any) => ({
+    month: String(row.month || row.period || ''),
+    total: toNumber(row.total ?? row.amount ?? 0),
+  }));
+}
+
+export async function getAllPaymentHistory(schoolCode?: string): Promise<PaymentRecord[]> {
+  const response = await API.get<any>('accountant/payments/history', {
+    params: schoolCode ? { school_code: schoolCode } : undefined,
+  });
+  const rows = pickList(response.data, ['payments', 'history', 'data']);
+  return rows.map(normalizePayment);
+}
+
 export async function sendFeeAlerts(): Promise<any> {
   const response = await API.post('accountant/notifications/send-fee-alerts');
   return response.data;
@@ -356,4 +383,165 @@ export async function updateExpense(expenseId: string, payload: Partial<{
 export async function deleteExpense(expenseId: string): Promise<any> {
   const response = await API.delete(`accountant/expenses/${encodeURIComponent(expenseId)}`);
   return response.data;
+}
+
+export interface AccountantProfileData {
+  name: string;
+  email: string;
+  phone: string;
+  employeeId: string;
+  role: string;
+  schoolCode: string;
+  branchId: string;
+  branchName: string;
+  designation: string;
+  department: string;
+  userId: string;
+  joinedAt: string;
+}
+
+function firstNonEmptyText(...values: unknown[]): string {
+  for (const value of values) {
+    const text = toText(value, '').trim();
+    if (text) {
+      return text;
+    }
+  }
+  return '';
+}
+
+export async function getAccountantProfile(
+  fallback?: Partial<AccountantProfileData>,
+): Promise<AccountantProfileData> {
+  const [
+    storedEmail,
+    storedPhone,
+    storedName,
+    storedBranchName,
+    storedBranchId,
+    storedSchoolCode,
+    storedEmployeeId,
+    storedUserId,
+    storedDesignation,
+    storedJoinedAt,
+    storedRole,
+    storedUserRaw,
+  ] = await Promise.all([
+    Storage.getItem('email'),
+    Storage.getItem('phone'),
+    Storage.getItem('user_name'),
+    Storage.getItem('branch_name'),
+    Storage.getItem('branch_id'),
+    Storage.getItem('school_code'),
+    Storage.getItem('employee_id'),
+    Storage.getItem('user_id'),
+    Storage.getItem('designation'),
+    Storage.getItem('date_of_joining'),
+    Storage.getItem('userRole'),
+    Storage.getItem('user'),
+  ]);
+
+  let storedUser: Record<string, any> = {};
+  try {
+    storedUser = storedUserRaw ? JSON.parse(storedUserRaw) : {};
+  } catch {
+    storedUser = {};
+  }
+
+  const schoolCode = firstNonEmptyText(storedSchoolCode, storedUser?.school_code, fallback?.schoolCode);
+  const employeeId = firstNonEmptyText(
+    storedEmployeeId,
+    storedUser?.employee_id,
+    storedUser?.employeeId,
+    fallback?.employeeId,
+  );
+
+  let apiProfile: Record<string, any> = {};
+  if (schoolCode && employeeId) {
+    try {
+      const response = await API.get('staff/profile', {
+        params: {
+          employee_id: employeeId,
+          school_code: schoolCode,
+        },
+      });
+      apiProfile = asRecord(response.data);
+    } catch (error) {
+      console.warn('[accountantService] getAccountantProfile API failed:', error);
+    }
+  }
+
+  const role = firstNonEmptyText(storedRole, storedUser?.role, fallback?.role, 'accountant');
+  const accountantDesignation =
+    String(role).toLowerCase() === 'accountant' ? 'Accountant' : firstNonEmptyText(
+      apiProfile.designation,
+      storedDesignation,
+      storedUser?.designation,
+      fallback?.designation,
+      'Accountant',
+    );
+
+  return {
+    name: firstNonEmptyText(
+      apiProfile.staff_full_name,
+      apiProfile.name,
+      apiProfile.teacher_name,
+      storedName,
+      storedUser?.name,
+      storedUser?.full_name,
+      fallback?.name,
+      'Accountant',
+    ),
+    email: firstNonEmptyText(
+      apiProfile.email,
+      apiProfile.email_id,
+      storedEmail,
+      storedUser?.email,
+      storedUser?.email_id,
+      fallback?.email,
+    ),
+    phone: firstNonEmptyText(
+      apiProfile.phone,
+      apiProfile.mobile_number,
+      storedPhone,
+      storedUser?.phone,
+      storedUser?.mobile,
+      storedUser?.mobile_number,
+      fallback?.phone,
+    ),
+    employeeId: firstNonEmptyText(apiProfile.employee_id, employeeId, fallback?.employeeId),
+    role,
+    schoolCode: firstNonEmptyText(apiProfile.school_code, schoolCode, fallback?.schoolCode),
+    branchId: firstNonEmptyText(apiProfile.branch_id, storedBranchId, storedUser?.branch_id, fallback?.branchId),
+    branchName: firstNonEmptyText(
+      apiProfile.branch_name,
+      storedBranchName,
+      storedUser?.branch_name,
+      fallback?.branchName,
+    ),
+    designation: accountantDesignation,
+    department: firstNonEmptyText(
+      apiProfile.department_subject,
+      apiProfile.department,
+      storedUser?.department,
+      storedUser?.department_subject,
+      fallback?.department,
+      'Accounts',
+    ),
+    userId: firstNonEmptyText(
+      storedUserId,
+      storedUser?.user_id,
+      storedUser?.id,
+      apiProfile.user_id,
+      employeeId,
+      fallback?.userId,
+    ),
+    joinedAt: firstNonEmptyText(
+      apiProfile.date_of_joining,
+      apiProfile.joined_at,
+      storedJoinedAt,
+      storedUser?.date_of_joining,
+      fallback?.joinedAt,
+    ),
+  };
 }

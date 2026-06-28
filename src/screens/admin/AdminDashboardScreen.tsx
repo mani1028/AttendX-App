@@ -54,8 +54,7 @@ import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
-import LinearGradient from 'react-native-linear-gradient';
-import AvatarBubble from '../../components/common/AvatarBubble';
+import DashboardHeroHeader from '../../components/dashboard/DashboardHeroHeader';
 import { useAuth } from '../../context/AuthContext';
 import type { RootStackParamList } from '../../navigation/types';
 import { formatErrorMessage } from '../../utils/helpers';
@@ -87,6 +86,7 @@ interface School {
   enable_storage_timeline?: boolean;
   media_retention_timeline?: 'daily' | 'weekly' | 'monthly';
   custom_max_branches?: number | null;
+  attendance_frequency?: number;
   director_name?: string;
 }
 
@@ -190,13 +190,14 @@ const SchoolCard: React.FC<{
   onSubscription: (school: School) => void;
   onResendCredentials: (school: School) => void;
   onSendReminder: (school: School) => void;
+  onViewInfo: (school: School) => void;
   isAgent?: boolean;
   agentPermissions?: {
     can_register_school: boolean;
     can_view_payments: boolean;
     can_edit_features: boolean;
   };
-}> = ({ school, onEdit, onSubscription, onResendCredentials, onSendReminder, isAgent = false, agentPermissions }) => {
+}> = ({ school, onEdit, onSubscription, onResendCredentials, onSendReminder, onViewInfo, isAgent = false, agentPermissions }) => {
   const daysLeft = getDaysLeft(school.trial_end_at || school.subscription_end_at || null);
   const daysLeftColor = getDaysLeftColor(daysLeft);
   const isExpiringSoon = daysLeft !== null && daysLeft <= 3 && daysLeft > 0;
@@ -251,6 +252,12 @@ const SchoolCard: React.FC<{
       )}
 
       <View style={styles.cardActions}>
+        {(!isAgent || agentPermissions?.can_view_payments) && (
+          <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => onViewInfo(school)}>
+            <Home size={12} color={colors.textMuted} />
+            <AppText style={styles.actionBtnText}>Info</AppText>
+          </TouchableOpacity>
+        )}
         {(!isAgent || agentPermissions?.can_edit_features) && (
           <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => onEdit(school)}>
             <Edit2 size={12} color={colors.textMuted} />
@@ -342,6 +349,7 @@ const SchoolFormModal: React.FC<{
   };
 }> = ({ visible, mode, initialData, onClose, onSuccess, isAgent = false, agentPermissions }) => {
   const [activeTab, setActiveTab] = useState<'general' | 'features' | 'limits'>('general');
+  const canManageFeatures = mode === 'create' || !isAgent || !!agentPermissions?.can_edit_features;
   const [loadingSub, setLoadingSub] = useState(false);
   const [formData, setFormData] = useState({
     school_id: '',
@@ -363,6 +371,7 @@ const SchoolFormModal: React.FC<{
     save_attendance_media: false,
     enable_storage_timeline: false,
     media_retention_timeline: 'weekly',
+    attendance_frequency: 1,
   });
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -389,6 +398,7 @@ const SchoolFormModal: React.FC<{
         save_attendance_media: initialData.save_attendance_media ?? false,
         enable_storage_timeline: initialData.enable_storage_timeline ?? false,
         media_retention_timeline: initialData.media_retention_timeline || 'weekly',
+        attendance_frequency: Number(initialData.attendance_frequency ?? 1) === 2 ? 2 : 1,
       });
       setActiveTab('general');
 
@@ -431,6 +441,7 @@ const SchoolFormModal: React.FC<{
         save_attendance_media: false,
         enable_storage_timeline: false,
         media_retention_timeline: 'weekly',
+        attendance_frequency: 1,
       });
       setActiveTab('general');
     }
@@ -453,7 +464,7 @@ const SchoolFormModal: React.FC<{
     setSaving(true);
     try {
       if (mode === 'create') {
-        await adminService.createSchool({
+        const createPayload: Record<string, unknown> = {
           school_id: formData.school_id,
           name: formData.name,
           email: formData.email,
@@ -468,7 +479,14 @@ const SchoolFormModal: React.FC<{
           save_attendance_media: formData.save_attendance_media,
           enable_storage_timeline: formData.enable_storage_timeline,
           media_retention_timeline: formData.media_retention_timeline,
-        });
+          attendance_frequency: formData.attendance_frequency,
+        };
+        if (formData.custom_max_branches.trim()) {
+          const branchVal = formData.custom_max_branches.trim();
+          createPayload.custom_max_branches =
+            branchVal === '∞' ? null : parseInt(branchVal, 10);
+        }
+        await adminService.createSchool(createPayload);
         Alert.alert('Success', 'School registered successfully');
       } else {
         // 1. Update School details & capabilities
@@ -486,6 +504,7 @@ const SchoolFormModal: React.FC<{
           save_attendance_media: formData.save_attendance_media,
           enable_storage_timeline: formData.enable_storage_timeline,
           media_retention_timeline: formData.media_retention_timeline,
+          attendance_frequency: formData.attendance_frequency,
         });
 
         // 2. Update Subscription state & extensions
@@ -548,6 +567,11 @@ const SchoolFormModal: React.FC<{
     { label: 'Monthly (30d)', value: 'monthly' },
   ];
 
+  const attendanceFrequencyOptions = [
+    { label: 'Once', value: 1 },
+    { label: 'Twice', value: 2 },
+  ];
+
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.modalOverlay}>
@@ -576,7 +600,7 @@ const SchoolFormModal: React.FC<{
                   General
                 </AppText>
               </TouchableOpacity>
-              {(!isAgent || agentPermissions?.can_edit_features) && (
+              {canManageFeatures && (
                 <TouchableOpacity accessibilityRole="button"
                   style={[styles.modalTabBtn, activeTab === 'features' && styles.modalTabBtnActive]}
                   onPress={() => setActiveTab('features')}
@@ -586,7 +610,7 @@ const SchoolFormModal: React.FC<{
                   </AppText>
                 </TouchableOpacity>
               )}
-              {(!isAgent || agentPermissions?.can_edit_features) && (
+              {canManageFeatures && (
                 <TouchableOpacity accessibilityRole="button"
                   style={[styles.modalTabBtn, activeTab === 'limits' && styles.modalTabBtnActive]}
                   onPress={() => setActiveTab('limits')}
@@ -789,6 +813,21 @@ const SchoolFormModal: React.FC<{
                           options={reportsOptions}
                           selectedValue={formData.reports}
                           onSelect={(val) => setFormData(prev => ({ ...prev, reports: val }))}
+                        />
+                      </View>
+
+                      <View style={[styles.featureRow, { borderTopWidth: 1, borderTopColor: '#eef2f6', paddingTop: 12, marginTop: 12 }]}>
+                        <View style={styles.featureTextContainer}>
+                          <AppText style={styles.featureTitle}>Daily Attendance</AppText>
+                          <AppText style={styles.featureDesc}>Mark attendance once or twice per day</AppText>
+                        </View>
+                        <InlineSelector
+                          options={attendanceFrequencyOptions}
+                          selectedValue={formData.attendance_frequency}
+                          onSelect={(val) => setFormData(prev => ({
+                            ...prev,
+                            attendance_frequency: Number(val) === 2 ? 2 : 1,
+                          }))}
                         />
                       </View>
                     </View>
@@ -1328,10 +1367,14 @@ export default function AdminDashboardScreen() {
 
   useEffect(() => {
     if (route.params?.openCreateModal) {
-      setCreateModalOpen(true);
+      if (isAgent && !agentPermissions.can_register_school) {
+        Alert.alert('Permission Denied', 'You do not have permission to register schools.');
+      } else {
+        setCreateModalOpen(true);
+      }
       navigation.setParams({ openCreateModal: undefined } as any);
     }
-  }, [route.params?.openCreateModal]);
+  }, [route.params?.openCreateModal, isAgent, agentPermissions.can_register_school, navigation]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -1436,67 +1479,27 @@ export default function AdminDashboardScreen() {
           transform: [{ translateY: headerTranslateY }],
         }}
       >
-        <LinearGradient
-          colors={[Theme.colors.gradientStart, Theme.colors.gradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets), paddingBottom: 20, overflow: 'hidden' }]}
-        >
-          {/* Decorative circles */}
-          <View style={styles.decCircle1} />
-          <View style={styles.decCircle2} />
-          <TouchableOpacity accessibilityRole="button"
-            activeOpacity={0.8}
-            onPress={() => (navigation as any).navigate('Profile')}
-            style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }}
-          >
-            <AvatarBubble
-              displayName={userName || 'Admin'}
-              size={34}
-              textSize={13}
-              primaryColor={Theme.colors.card}
-            />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText style={styles.headerTitle} weight="bold">{isAgent ? 'Agent Portal' : 'Admin Portal'}</AppText>
-          </View>
-          <View style={styles.headerIcons}>
-            <TouchableOpacity accessibilityRole="button" style={styles.iconBtn} onPress={() => (navigation as any).navigate('Notifications')}>
-              <Bell size={20} color={Theme.colors.card} />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" style={styles.refreshIconBtn} onPress={onRefresh} disabled={loading}>
-              <RefreshCw size={20} color={Theme.colors.card} />
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
+        <DashboardHeroHeader
+          userName={userName || 'Admin'}
+          greetingLine={isAgent ? 'AGENT PORTAL' : 'ADMIN PORTAL'}
+          subtitle="Here's what's happening across your schools today."
+          unreadCount={unreadCount}
+          onAvatarPress={() => (navigation as any).navigate('Profile')}
+          onNotificationsPress={() => (navigation as any).navigate('Notifications')}
+          onRefreshPress={onRefresh}
+          refreshing={loading}
+          showDateBadge
+          innerStyle={{ paddingHorizontal: HEADER_CONSTANTS.DASHBOARD_HORIZONTAL }}
+        />
       </Animated.View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 80 }]}
+        contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 130 }]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
       >
-        {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <View>
-            <AppText style={styles.welcomeTitle}>Good {getGreeting()}, {userName?.split(' ')[0] || 'Admin'}!</AppText>
-            <AppText style={styles.welcomeSub}>Here is what is happening across your schools today.</AppText>
-          </View>
-          <View style={styles.dateBadge}>
-            <Calendar size={12} color={colors.textMuted} />
-            <AppText style={styles.dateText}>
-              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </AppText>
-          </View>
-        </View>
-
         {/* Expiring Alert */}
         {expiringSchools.length > 0 && (
           <View style={styles.alertBanner}>
@@ -1567,17 +1570,6 @@ export default function AdminDashboardScreen() {
                 </View>
                 <AppText style={styles.quickActionLabel}>Payments</AppText>
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickActionCard}
-                onPress={() => (navigation as any).navigate('SchoolDetails')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: '#8b5cf6' + '15' }]}>
-                  <Home size={20} color="#8b5cf6" />
-                </View>
-                <AppText style={styles.quickActionLabel}>School Info</AppText>
-              </TouchableOpacity>
             </View>
           </>
         )}
@@ -1646,6 +1638,12 @@ export default function AdminDashboardScreen() {
                 onSubscription={setSubscriptionSchool}
                 onResendCredentials={handleResendCredentials}
                 onSendReminder={handleSendReminder}
+                onViewInfo={(selectedSchool) =>
+                  (navigation as any).navigate('SchoolDetails', {
+                    schoolId: selectedSchool.id,
+                    schoolName: selectedSchool.name,
+                  })
+                }
                 isAgent={isAgent}
                 agentPermissions={agentPermissions}
               />

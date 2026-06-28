@@ -37,13 +37,16 @@ import {
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { getStudentProfile, getStudentProfilePhotoDataUri, getStudentProfilePhotoUrl, getProfile as getStudentProfileDetails, sendOtp, verifyOtp, changePassword, updateStudentProfile } from '../../services/studentService';
 import { getTeacherProfile, getTeacherProfilePhotoDataUri, getTeacherProfilePhotoUrl, updateTeacherProfile } from '../../services/teacherService';
 import { buildApiUrl } from '../../services/api';
 import API from '../../services/api';
-import { formatErrorMessage } from '../../utils/helpers';
+import * as adminService from '../../services/adminService';
+import { formatErrorMessage, resolveStudentRollNumber } from '../../utils/helpers';
 import { safeJsonParse } from '../../utils/storage';
 import { decodeJwt } from '../../utils/jwt';
 
@@ -91,6 +94,7 @@ interface UserProfile {
   mother_guardian_mobile: string;
   parent_guardian_email?: string;
   roll_number?: string;
+  roll_no?: string;
   class_grade?: string;
   section?: string;
   username?: string;
@@ -196,7 +200,6 @@ const isOwnApiUrl = (url: string | null): boolean => {
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { logout, userToken, userName, setTabBarVisible, isTabBarVisible } = useAuth();
   const [loading, setLoading] = useState(true);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
@@ -234,6 +237,9 @@ export default function ProfileScreen() {
   const isStudent = !isAgent && (roleKey === 'student' || roleKey === 'students');
   const isDirector = !isAgent && (roleKey === 'director' || roleKey === 'principal' || roleKey === 'admin');
   const isTeacher = !isAgent && (roleKey === 'teacher' || roleKey === 'teachers' || roleKey === 'staff');
+  const studentRollNumber = isStudent
+    ? resolveStudentRollNumber(userInfo.roll_number, userInfo.roll_no)
+    : '';
 
   const systemSettingsRoute = (() => {
     switch (roleKey) {
@@ -292,6 +298,14 @@ export default function ProfileScreen() {
       const cachedProfileRaw = await AsyncStorage.getItem(profileCacheKey);
       if (cachedProfileRaw && isMounted.current) {
         const parsed = safeJsonParse<Record<string, any>>(cachedProfileRaw, {});
+        const sanitizedRoll = resolveStudentRollNumber(parsed.roll_number, parsed.roll_no);
+        if (sanitizedRoll) {
+          parsed.roll_number = sanitizedRoll;
+          parsed.roll_no = sanitizedRoll;
+        } else {
+          delete parsed.roll_number;
+          delete parsed.roll_no;
+        }
         setUserInfo(prev => ({ ...prev, ...parsed }));
       }
 
@@ -322,23 +336,37 @@ export default function ProfileScreen() {
             if (!freshData) {freshData = await withTimeout(getStudentProfile());}
           } else if (normalizedRole === 'director') {
             try {
-              const profRes = await withTimeout(API.get('/director/profile', { suppressFallback404Log: true } as any));
-              if (profRes && profRes.data) {
-                freshData = profRes.data.director || profRes.data.profile || profRes.data.user || profRes.data;
+              const overviewRes = await withTimeout(
+                API.get('/director/dashboard/overview', { suppressFallback404Log: true } as any),
+              );
+              if (overviewRes?.data) {
+                freshData =
+                  overviewRes.data.director ||
+                  overviewRes.data.profile ||
+                  overviewRes.data.user ||
+                  overviewRes.data.school ||
+                  null;
               }
             } catch (err) {
-              console.warn('Failed to fetch GET /director/profile, trying overview...', err);
-              try {
-                const overviewRes = await withTimeout(API.get('/director/dashboard/overview'));
-                if (overviewRes && overviewRes.data) {
-                  freshData = overviewRes.data.director || overviewRes.data.profile || overviewRes.data.user || overviewRes.data.school || null;
-                }
-              } catch (err2) {
-                console.warn('Failed to fetch director overview:', err2);
-              }
+              console.warn('Failed to fetch director overview:', err);
             }
           } else if (normalizedRole === 'agent') {
-            freshData = null;
+            try {
+              const res = await withTimeout(adminService.getAgentMe());
+              const agent = res?.agent ?? res;
+              if (agent && typeof agent === 'object') {
+                freshData = {
+                  name: agent.full_name ?? agent.name,
+                  username: agent.username,
+                  email: agent.email,
+                  can_register_school: agent.can_register_school,
+                  can_view_payments: agent.can_view_payments,
+                  can_edit_features: agent.can_edit_features,
+                };
+              }
+            } catch (err) {
+              console.warn('Failed to fetch agent profile:', err);
+            }
           } else if (normalizedRole === 'principal') {
             try {
               const storedBranchId = (await AsyncStorage.getItem('branch_id')) || '';
@@ -385,6 +413,8 @@ export default function ProfileScreen() {
           storedTeacherId2,
           storedEmployeeId2,
           storedStudentId2,
+          storedRollNo,
+          storedRollNumber,
           storedBloodGroup,
           storedAddress,
           storedPrincipalEmployeeId,
@@ -395,6 +425,9 @@ export default function ProfileScreen() {
           storedDirectorEmployeeId,
           storedDesignation,
           storedDepartment,
+          storedUserName,
+          storedUsername,
+          storedUserEmail,
         ] =
           await AsyncStorage.multiGet([
             'email',
@@ -408,6 +441,8 @@ export default function ProfileScreen() {
             'teacher_id',
             'employee_id',
             'student_id',
+            'roll_no',
+            'roll_number',
             'blood_group',
             'address',
             'principal_employee_id',
@@ -418,7 +453,11 @@ export default function ProfileScreen() {
             'director_employee_id',
             'designation',
             'department_subject',
+            'user_name',
+            'username',
           ]).then(items => items.map(([, value]) => value || ''));
+
+        const persistedUserEmail = (await storage.getString(StorageKeys.USER_EMAIL)) || storedUserEmail;
 
         const profileSource = (freshData as any) || {};
         const resolvedProfile = {
@@ -440,6 +479,7 @@ export default function ProfileScreen() {
             profileSource?.email_address,
             profileSource?.director_email,
             storedEmail,
+            persistedUserEmail,
             storedDirectorEmail,
             storedPrincipalEmail,
             storedUser?.email,
@@ -479,16 +519,15 @@ export default function ProfileScreen() {
           ),
           school_code: firstNonEmptyText(profileSource?.school_code, profileSource?.schoolCode, storedSchoolCodeFromStore, storedUser?.school_code),
           teacher_id: firstNonEmptyText(profileSource?.teacher_id, storedTeacherId2, storedUser?.teacher_id),
-          employee_id: firstNonEmptyText(
-            profileSource?.employee_id,
-            profileSource?.director_employee_id,
-            storedEmployeeId2,
-            storedDirectorEmployeeId,
-            storedPrincipalEmployeeId,
-            storedUser?.employee_id,
-            storedUser?.principal_employee_id,
-            storedUser?.director_employee_id
-          ),
+          employee_id: normalizedRole === 'director' || normalizedRole === 'admin'
+            ? ''
+            : firstNonEmptyText(
+                profileSource?.employee_id,
+                storedEmployeeId2,
+                storedPrincipalEmployeeId,
+                storedUser?.employee_id,
+                storedUser?.principal_employee_id,
+              ),
           student_id: firstNonEmptyText(profileSource?.student_id, storedStudentId2, storedUser?.student_id),
           parent_guardian_email: firstNonEmptyText(profileSource?.parent_guardian_email, profileSource?.parent_email, profileSource?.guardian_email, profileSource?.father_email, profileSource?.mother_email, profileSource?.father_guardian_email, storedUser?.parent_guardian_email),
           designation: firstNonEmptyText(profileSource?.designation, profileSource?.teacher_designation, storedDesignation, storedUser?.designation),
@@ -512,7 +551,24 @@ export default function ProfileScreen() {
           date_of_joining: firstNonEmptyText(profileSource?.date_of_joining, storedUser?.date_of_joining),
           qualification: firstNonEmptyText(profileSource?.qualification, storedUser?.qualification),
           experience_years: firstNonEmptyText(profileSource?.experience_years, profileSource?.experience, storedUser?.experience_years),
-          roll_number: firstNonEmptyText(profileSource?.roll_number, profileSource?.roll_no, profileSource?.rollNo, storedUser?.roll_number),
+          roll_number: resolveStudentRollNumber(
+            profileSource?.roll_number,
+            profileSource?.roll_no,
+            profileSource?.rollNo,
+            storedUser?.roll_number,
+            storedUser?.roll_no,
+            storedRollNo,
+            storedRollNumber,
+          ),
+          roll_no: resolveStudentRollNumber(
+            profileSource?.roll_no,
+            profileSource?.roll_number,
+            profileSource?.rollNo,
+            storedUser?.roll_no,
+            storedUser?.roll_number,
+            storedRollNo,
+            storedRollNumber,
+          ),
           class_grade: firstNonEmptyText(profileSource?.class_grade, profileSource?.class, storedUser?.class_grade),
           section: firstNonEmptyText(profileSource?.section, storedUser?.section),
           emergency_contact_name: firstNonEmptyText(profileSource?.emergency_contact_name, storedUser?.emergency_contact_name),
@@ -524,7 +580,9 @@ export default function ProfileScreen() {
           username: firstNonEmptyText(
             profileSource?.username,
             storedUser?.username,
-            storedUser?.user_name
+            storedUser?.user_name,
+            storedUsername,
+            storedUserName,
           ),
           can_register_school: profileSource?.can_register_school ?? storedUser?.can_register_school ?? false,
           can_view_payments: profileSource?.can_view_payments ?? storedUser?.can_view_payments ?? false,
@@ -545,6 +603,13 @@ export default function ProfileScreen() {
           resolvedProfile.school_name = resolvedProfile.school_name || resolvedProfile.school_code || 'Unknown School';
 
           setUserInfo(prev => ({ ...prev, ...resolvedProfile, role: resolvedProfile.role || prev.role || 'student' }));
+
+          if (roleBucket === 'student' && resolvedProfile.roll_number) {
+            AsyncStorage.multiSet([
+              ['roll_no', resolvedProfile.roll_number],
+              ['roll_number', resolvedProfile.roll_number],
+            ]).catch(() => {});
+          }
         }
 
         const directProfilePhoto = normalizePhotoUri(
@@ -859,58 +924,69 @@ export default function ProfileScreen() {
     <View style={styles.container}>
 
 
+      <StandardPageHeader
+        title="My Profile"
+        onBackPress={handleBackPress}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={handleLogout}
+            style={[heroHeaderStyles.iconBtn, styles.logoutBtnHeader]}
+            accessibilityLabel="Log out"
+          >
+            <LogOut size={20} color={Theme.colors.card} />
+          </TouchableOpacity>
+        )}
+      />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
-        style={styles.content}
-        contentContainerStyle={{ paddingBottom: 140 }}
+        style={[styles.content, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
       >
-        {/* Header - now scrolls with page */}
-        <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity accessibilityRole="button" onPress={handleBackPress} style={styles.backBtn}>
-              <ChevronLeft size={24} color={Theme.colors.card} />
-            </TouchableOpacity>
-            <AppText style={styles.headerTitle}>My Profile</AppText>
-            <TouchableOpacity accessibilityRole="button" onPress={handleLogout} style={styles.logoutBtn}>
-              <LogOut size={20} color={Theme.colors.card} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.profileSummary}>
-            {profilePhotoUrl && !profilePhotoError ? (
-              <Image
-                source={{
-                  uri: profilePhotoUrl,
-                  headers: (userToken && isOwnApiUrl(profilePhotoUrl))
-                    ? { Authorization: `Bearer ${userToken}` }
-                    : undefined,
-                }}
-                style={styles.profileAvatarImage}
-                onError={() => setProfilePhotoError(true)}
-              />
-            ) : (
-              <AvatarBubble
-                displayName={userInfo.name || 'User'}
-                size={80}
-                textSize={28}
-                primaryColor={Theme.colors.blue}
-              />
-            )}
-            <TouchableOpacity accessibilityRole="button" style={styles.profileTextInfo} onPress={() => setShowAccountSwitcher(true)}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <AppText style={styles.userName}>{userInfo.name}</AppText>
-                <ChevronDown size={20} color={Theme.colors.card} style={{ marginLeft: 6 }} />
-              </View>
-              <AppText style={styles.userRole}>
-                {userInfo.role?.toUpperCase() || 'STUDENT'}
-                {isAgent
-                  ? (userInfo.username ? ` • @${userInfo.username}` : '')
-                  : ` • ID: ${userInfo.student_id || userInfo.employee_id}`
-                }
-              </AppText>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <View style={innerPageLayoutStyles.contentFront}>
+          <AppCard style={styles.profileCard}>
+            <View style={styles.profileSummary}>
+              {profilePhotoUrl && !profilePhotoError ? (
+                <Image
+                  source={{
+                    uri: profilePhotoUrl,
+                    headers: (userToken && isOwnApiUrl(profilePhotoUrl))
+                      ? { Authorization: `Bearer ${userToken}` }
+                      : undefined,
+                  }}
+                  style={styles.profileAvatarImage}
+                  onError={() => setProfilePhotoError(true)}
+                />
+              ) : (
+                <AvatarBubble
+                  displayName={userInfo.name || 'User'}
+                  size={80}
+                  textSize={28}
+                  primaryColor={Theme.colors.blue}
+                />
+              )}
+              <TouchableOpacity accessibilityRole="button" style={styles.profileTextInfo} onPress={() => setShowAccountSwitcher(true)}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <AppText style={styles.userName}>{userInfo.name}</AppText>
+                  <ChevronDown size={20} color={Theme.colors.textSec} style={{ marginLeft: 6 }} />
+                </View>
+                <AppText style={styles.userRole}>
+                  {userInfo.role?.toUpperCase() || 'STUDENT'}
+                  {isAgent
+                    ? (userInfo.username ? ` • @${userInfo.username}` : '')
+                    : roleKey === 'director' || roleKey === 'admin'
+                      ? ''
+                      : roleKey === 'student' && studentRollNumber
+                        ? ` • Roll No: ${studentRollNumber}`
+                        : userInfo.employee_id
+                          ? ` • ID: ${userInfo.employee_id}`
+                          : ''
+                  }
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          </AppCard>
 
         <View style={styles.innerContent}>
         <View style={styles.section}>
@@ -934,7 +1010,7 @@ export default function ProfileScreen() {
             )}
             {isStudent && (
               <>
-                {renderInfoRow('Roll Number', userInfo.roll_number, Hash)}
+                {renderInfoRow('Roll Number', studentRollNumber, Hash)}
                 <View style={styles.divider} />
                 {renderInfoRow('Class', userInfo.class_grade, BookOpen)}
                 <View style={styles.divider} />
@@ -1098,6 +1174,7 @@ export default function ProfileScreen() {
         </View>
 
         <View style={{ height: 40 }} />
+        </View>
         </View>
       </ScrollView>
 
@@ -1359,46 +1436,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
-  header: {
-    backgroundColor: Theme.colors.primary,
-    paddingHorizontal: 20,
-    paddingBottom: 35,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    ...Platform.select({
-      android: { elevation: 6 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+  logoutBtnHeader: {
+    backgroundColor: 'rgba(239, 68, 68, 0.25)',
   },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 25,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoutBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: Theme.colors.card,
-    ...Theme.typography.h3,
+  profileCard: {
+    marginBottom: Theme.spacing.md,
   },
   profileSummary: {
     flexDirection: 'row',
@@ -1418,11 +1460,11 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 22,
     fontWeight: '800',
-    color: Theme.colors.card,
+    color: Theme.colors.text,
   },
   userRole: {
     ...Theme.typography.caption,
-    color: '#94a3b8',
+    color: Theme.colors.textSec,
     fontWeight: '600',
     marginTop: Theme.spacing.xs,
   },
@@ -1430,9 +1472,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   innerContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: Theme.spacing.md,
     paddingBottom: 40,
-    marginTop: 12,
   },
   section: {
     marginTop: 25,

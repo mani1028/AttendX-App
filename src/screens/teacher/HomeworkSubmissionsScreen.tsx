@@ -10,16 +10,14 @@ import {
   Linking,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ChevronLeft,
   User,
   CheckCircle2,
-  XCircle,
   Clock,
   Paperclip,
   ExternalLink,
   Search,
+  RefreshCw,
 } from 'lucide-react-native';
 import API from '../../services/api';
 import AppText from '../../components/common/AppText';
@@ -27,6 +25,9 @@ import Loader from '../../components/common/Loader';
 import AppCard from '../../components/common/AppCard';
 import { Theme } from '../../theme/tokens';
 import type { RootStackParamList } from '../../navigation/types';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 
 const { width } = Dimensions.get('window');
 
@@ -45,7 +46,6 @@ interface Submission {
 type HomeworkSubmissionsRouteProp = RouteProp<RootStackParamList, 'TeacherHomeworkSubmissions'>;
 
 export default function HomeworkSubmissionsScreen() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute<HomeworkSubmissionsRouteProp>();
   const { homeworkId, title } = route.params;
@@ -104,25 +104,28 @@ export default function HomeworkSubmissionsScreen() {
 
   return (
     <View style={styles.container}>
-
-
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <ChevronLeft size={24} color={Theme.colors.card} />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <AppText weight="bold" style={styles.headerTitle}>Submissions</AppText>
-          <AppText style={styles.headerSubtitle} numberOfLines={1}>{title}</AppText>
-        </View>
-      </View>
+      <StandardPageHeader
+        title="Submissions"
+        subtitle={title}
+        onBackPress={() => navigation.goBack()}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={onRefresh}
+            accessibilityLabel="Refresh submissions"
+          >
+            <RefreshCw size={20} color={Theme.colors.card} />
+          </TouchableOpacity>
+        )}
+      />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
+        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
         {loading ? (
           <View style={styles.loaderContainer}>
             <Loader size="lg" color={Theme.colors.primary} />
@@ -179,6 +182,7 @@ export default function HomeworkSubmissionsScreen() {
             </AppCard>
           ))
         )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -189,37 +193,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
-  header: {
-    backgroundColor: Theme.colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
+  pageBody: {
     paddingHorizontal: Theme.spacing.md,
-    paddingBottom: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  headerTitleContainer: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    color: Theme.colors.card,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
-    marginTop: 2,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 100,
   },
   loaderContainer: {
     marginTop: 100,

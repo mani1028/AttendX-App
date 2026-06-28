@@ -19,12 +19,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft } from 'lucide-react-native';
 import API from '../../services/api';
 
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
@@ -48,6 +45,7 @@ SafeCameraDeviceResolver.displayName = 'SafeCameraDeviceResolver';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 // Types
 interface ImageItem {
@@ -99,7 +97,6 @@ const Toast: React.FC<{
 };
 
 export default function VitalScanScreen() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
@@ -500,15 +497,19 @@ export default function VitalScanScreen() {
         </View>
       )}
 
+      <StandardPageHeader
+        title="VitalScan AI"
+        subtitle="AI-powered student health screening"
+        onBackPress={() => navigation.goBack()}
+      />
+
       <ScrollView
+       style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
         contentContainerStyle={styles.contentContainer}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
-        {/* Navy Hero Header */}
-        <StandardPageHeader title="VitalScan AI" onBackPress={() => navigation.goBack()} />
-
         {/* Header Actions Row */}
         <View style={styles.topActionsRow}>
           <TouchableOpacity accessibilityRole="button" style={styles.newBtn} onPress={startNewStudent}>
@@ -769,50 +770,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
-  headerStandard: {
-    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    elevation: 8,
-    shadowColor: Theme.colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backBtn: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
-    fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-  },
-  heroContent: {
-    paddingHorizontal: 20,
-    marginTop: 20,
-  },
-  heroGreeting: {
-    color: Theme.colors.card,
-    fontSize: 26,
-    fontWeight: '800',
-  },
-  heroSubtext: {
-    color: `rgba(255,255,255,${HEADER_CONSTANTS.SUBTITLE_OPACITY})`,
-    fontSize: HEADER_CONSTANTS.SUBTITLE_FONT_SIZE,
-    marginTop: 6,
-    lineHeight: 18,
+  scrollView: {
+    flex: 1,
   },
   contentContainer: {
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
   topActionsRow: {
@@ -820,7 +782,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginBottom: 20,
-    marginTop: -20, // Negative margin to overlap with header
+    marginTop: Theme.spacing.md,
     marginHorizontal: Theme.spacing.md,
   },
   toast: {

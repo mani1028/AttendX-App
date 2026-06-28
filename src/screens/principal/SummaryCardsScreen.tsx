@@ -14,9 +14,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ChevronLeft,
   CircleDollarSign,
   Clock,
   TrendingUp,
@@ -31,6 +29,9 @@ import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import { Theme, C } from '../../theme/tokens';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 
@@ -45,7 +46,6 @@ interface DashboardSummary {
 }
 
 const SummaryCards = () => {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -191,26 +191,32 @@ const SummaryCards = () => {
     <View style={styles.container}>
 
 
-      {/* Standardized Header */}
-      <View style={[styles.headerStandard, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity accessibilityRole="button"
-          style={styles.backBtn}
-          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('PrincipalDashboard' as never)}
-        >
-          <ChevronLeft size={24} color={Theme.colors.card} />
-        </TouchableOpacity>
-        <AppText style={styles.headerTitle} weight="bold">Summary Cards</AppText>
-        <View style={{ width: 40 }} />
-      </View>
+      <StandardPageHeader
+        title="Summary Cards"
+        subtitle="Financial overview at a glance"
+        onBackPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('PrincipalDashboard' as never)}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={onRefresh}
+            accessibilityLabel="Refresh"
+          >
+            <RefreshCw size={18} color={Theme.colors.card} />
+          </TouchableOpacity>
+        )}
+      />
 
       <ScrollView
-        style={styles.scrollView}
+        style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        <View style={innerPageLayoutStyles.contentFront}>
         <View style={styles.cardsContainer}>
           {cardData.map((card, index) => (
             <View key={index} style={styles.cardWrapper}>
@@ -307,6 +313,7 @@ const SummaryCards = () => {
         <View style={styles.footer}>
           <AppText style={styles.footerText}>Last updated: {new Date().toLocaleString()}</AppText>
         </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -316,26 +323,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
-  },
-  headerStandard: {
-    backgroundColor: C.navy,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    color: Theme.colors.card,
-    textAlign: 'center',
-    flex: 1,
   },
   scrollView: {
     flex: 1,

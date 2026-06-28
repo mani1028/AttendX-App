@@ -8,13 +8,10 @@ import {
   RefreshControl,
   Alert,
   Platform,
-  Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ChevronLeft,
   Filter,
   Calendar,
   User,
@@ -25,7 +22,8 @@ import {
   Search,
   ChevronRight,
   Info,
-  Bell,
+  RefreshCw,
+  AlertCircle,
 } from 'lucide-react-native';
 import API from '../../services/api';
 import AppButton from '../../components/common/AppButton';
@@ -34,8 +32,11 @@ import AppText from '../../components/common/AppText';
 import BottomSheetModal from '../../components/common/BottomSheetModal';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { resolveApiErrorMessage } from '../../utils/helpers';
 import { Theme } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
@@ -193,10 +194,8 @@ const LeaveRequestCard: React.FC<{
 };
 
 export default function LeaveApprovalScreen() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
-  const scrollY = useRef(new Animated.Value(0)).current;
   const [schoolCode, setSchoolCode] = useState<string>('');
   const [teacherId, setTeacherId] = useState<string>('');
   const [branchId, setBranchId] = useState<string>('');
@@ -214,6 +213,7 @@ export default function LeaveApprovalScreen() {
   const [items, setItems] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Filters
   const [classId, setClassId] = useState<string>('');
@@ -325,6 +325,7 @@ export default function LeaveApprovalScreen() {
       return;
     }
     setLoading(true);
+    setLoadError(null);
     try {
       const body: any = {
         school_code: schoolCode,
@@ -353,6 +354,9 @@ export default function LeaveApprovalScreen() {
         return;
       }
       setItems([]);
+      setLoadError(
+        resolveApiErrorMessage(e, 'Could not load leave requests. Pull down to retry.'),
+      );
     } finally {
       if (isMounted.current) {
         setLoading(false);
@@ -452,68 +456,37 @@ export default function LeaveApprovalScreen() {
     <View style={styles.container}>
 
 
-      {/* Navy Standard Header (animated on scroll) */}
-      <Animated.View
-        style={[
-          styles.headerStandard,
-          { paddingTop: insets.top + 16 },
-          {
-            transform: [
-              {
-                translateY: scrollY.interpolate({
-                  inputRange: [0, 120],
-                  outputRange: [0, -80],
-                  extrapolate: 'clamp',
-                }),
-              },
-              {
-                scale: scrollY.interpolate({
-                  inputRange: [0, 120],
-                  outputRange: [1, 0.99],
-                  extrapolate: 'clamp',
-                }),
-              },
-            ],
-            opacity: scrollY.interpolate({
-              inputRange: [0, 120],
-              outputRange: [1, 0.98],
-              extrapolate: 'clamp',
-            }),
-          },
-        ]}
-      >
-        <View style={styles.headerTop}>
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.iconButton}
-            onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)}
+      <StandardPageHeader
+        title="Student Leaves"
+        subtitle={
+          loading
+            ? 'Loading requests...'
+            : loadError
+              ? 'Unable to load requests'
+              : 'Review and manage pending leave applications'
+        }
+        onBackPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never))}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={onRefresh}
+            accessibilityLabel="Refresh leave requests"
           >
-            <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
+            <RefreshCw size={20} color={Theme.colors.card} />
           </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>Leave Approvals</AppText>
-          </View>
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.iconButton}
-            onPress={() => (navigation as any).navigate('Notifications')}
-          >
-            <Bell size={22} color={HEADER_CONSTANTS.TEXT_COLOR} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.headerContent}>
-          <AppText weight="bold" style={styles.headerGreeting}>Student Leaves</AppText>
-          <AppText style={[styles.headerSubtext, { color: `rgba(255,255,255,${HEADER_CONSTANTS.SUBTITLE_OPACITY})` }]}>Review and manage pending leave applications</AppText>
-        </View>
-      </Animated.View>
+        )}
+      />
 
       <ScrollView
+        style={innerPageLayoutStyles.scrollViewFront}
         contentContainerStyle={styles.scrollContent}
-        onScroll={(e) => { Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })(e); handleScroll(e); }}
+        onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
-
+        <View style={innerPageLayoutStyles.contentFront}>
         {/* Filter Selection Card */}
         <AppCard style={styles.filterCard}>
           <View style={styles.filterHeader}>
@@ -568,6 +541,15 @@ export default function LeaveApprovalScreen() {
 
         {loading ? (
           <View style={styles.loaderContainer}><Loader /></View>
+        ) : loadError ? (
+          <AppCard style={styles.errorCard}>
+            <AlertCircle size={32} color={Theme.colors.error} />
+            <AppText weight="semibold" style={styles.errorTitle}>Could not load requests</AppText>
+            <AppText style={styles.errorText}>{loadError}</AppText>
+            <TouchableOpacity style={styles.retryBtn} onPress={() => loadRequests()}>
+              <AppText weight="semibold" style={styles.retryBtnText}>Try again</AppText>
+            </TouchableOpacity>
+          </AppCard>
         ) : items.length === 0 ? (
           <View style={styles.emptyState}>
             <Calendar size={48} color="#cbd5e1" />
@@ -586,6 +568,7 @@ export default function LeaveApprovalScreen() {
             ))}
           </View>
         )}
+        </View>
       </ScrollView>
 
       {/* Filter Modal */}
@@ -597,7 +580,7 @@ export default function LeaveApprovalScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.modalBody}>
+        <ScrollView style={[styles.modalBody, innerPageLayoutStyles.scrollViewFront]}>
           <AppText weight="bold" style={styles.modalLabel}>Class</AppText>
           <View style={styles.chipContainer}>
             <TouchableOpacity accessibilityRole="button"
@@ -665,7 +648,7 @@ export default function LeaveApprovalScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.detailsModalBody} showsVerticalScrollIndicator={false}>
+            <ScrollView style={[styles.detailsModalBody, innerPageLayoutStyles.scrollViewFront]} showsVerticalScrollIndicator={false}>
               <View style={styles.detailsStudentSection}>
                 <View style={styles.avatarPlaceholderLarge}>
                   <User size={32} color={Theme.colors.textSec} />
@@ -762,66 +745,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
-  headerStandard: {
-    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: Theme.spacing.md,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 10 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
-    fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
-    textAlign: 'center',
-  },
-  headerContent: {
-    marginTop: 12,
-  },
-  headerGreeting: {
-    color: Theme.colors.card,
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: 'rgba(255,255,255,0.7)',
-    ...Theme.typography.body,
-    marginTop: Theme.spacing.xs,
-  },
   scrollContent: {
     paddingTop: 20,
     paddingBottom: 120,
   },
+  errorCard: {
+    marginHorizontal: Theme.spacing.md,
+    padding: 24,
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  errorTitle: { color: Theme.colors.text, fontSize: 16, marginTop: 4 },
+  errorText: { color: Theme.colors.textMuted, textAlign: 'center', ...Theme.typography.body },
+  retryBtn: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: Theme.colors.primary,
+  },
+  retryBtnText: { color: Theme.colors.card },
   filterCard: {
-    marginTop: -20,
-    borderRadius: 30,
+        borderRadius: 30,
     padding: 18,
     marginHorizontal: Theme.spacing.md,
     backgroundColor: Theme.colors.card,

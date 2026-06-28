@@ -17,7 +17,6 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import RNFS from 'react-native-fs';
@@ -58,10 +57,14 @@ import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
-
 import { formatErrorMessage } from '../../utils/helpers';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import {
+  innerPageLayoutStyles,
+  segmentedControlIconColor,
+} from '../../components/layout/innerPageLayoutStyles';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { Theme, C } from '../../theme/tokens';
 
 
@@ -291,7 +294,6 @@ const Stepper = ({ currentStep }: { currentStep: number }) => (
 
 export default function TeacherPage() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isCompactScreen = width < 520;
   const { setTabBarVisible } = useAuth();
@@ -1035,9 +1037,23 @@ export default function TeacherPage() {
   return (
     <View style={styles.container}>
 
+      <StandardPageHeader
+        title="Staff Management"
+        subtitle="Staff directory and registration"
+        onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+        rightActions={(
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={heroHeaderStyles.iconBtn}
+            onPress={() => loadTeachers()}
+          >
+            <RefreshCw size={20} color={Theme.colors.card} />
+          </TouchableOpacity>
+        )}
+      />
 
       <ScrollView
-        style={styles.scrollView}
+       style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
@@ -1046,34 +1062,17 @@ export default function TeacherPage() {
           ) : undefined
         }
       >
-        {/* Standardized Header */}
-        <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.iconButton}
-            onPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
-          >
-            <ChevronLeft size={24} color={HEADER_CONSTANTS.TEXT_COLOR} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <AppText weight="bold" style={styles.headerTitle}>Staff Management</AppText>
-          </View>
-          <TouchableOpacity accessibilityRole="button" style={styles.iconButton} onPress={() => loadTeachers()}>
-            <RefreshCw size={20} color={HEADER_CONSTANTS.TEXT_COLOR} />
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.headerContentContainer}>
-          <View style={styles.headerToggle}>
+          <View style={[innerPageLayoutStyles.segmentedControl, styles.headerToggle]}>
             <TouchableOpacity accessibilityRole="button"
-              style={[styles.headerToggleBtn, activeTab === 'list' && styles.headerToggleBtnActive]}
+              style={[innerPageLayoutStyles.segmentedTab, activeTab === 'list' && innerPageLayoutStyles.segmentedTabActive]}
               onPress={() => setActiveTab('list')}
             >
-              <Users size={16} color={activeTab === 'list' ? C.primary : Theme.colors.card} />
-              <AppText style={[styles.headerToggleText, activeTab === 'list' && styles.headerToggleTextActive]} weight="bold">Staff Directory</AppText>
+              <Users size={16} color={segmentedControlIconColor(activeTab === 'list')} />
+              <AppText style={[innerPageLayoutStyles.segmentedTabText, activeTab === 'list' && innerPageLayoutStyles.segmentedTabTextActive]} weight="bold">Staff Directory</AppText>
             </TouchableOpacity>
             <TouchableOpacity accessibilityRole="button"
-              style={[styles.headerToggleBtn, activeTab === 'enroll' && styles.headerToggleBtnActive]}
+              style={[innerPageLayoutStyles.segmentedTab, activeTab === 'enroll' && innerPageLayoutStyles.segmentedTabActive]}
               onPress={async () => {
                 setActiveTab('enroll');
                 resetForm();
@@ -1082,12 +1081,11 @@ export default function TeacherPage() {
                 await fetchNextEmployeeId();
               }}
             >
-              <Plus size={16} color={activeTab === 'enroll' ? C.primary : Theme.colors.card} />
-              <AppText style={[styles.headerToggleText, activeTab === 'enroll' && styles.headerToggleTextActive]} weight="bold">Staff Register</AppText>
+              <Plus size={16} color={segmentedControlIconColor(activeTab === 'enroll')} />
+              <AppText style={[innerPageLayoutStyles.segmentedTabText, activeTab === 'enroll' && innerPageLayoutStyles.segmentedTabTextActive]} weight="bold">Staff Register</AppText>
             </TouchableOpacity>
           </View>
         </View>
-      </View>
         {/* Sub Header */}
         <View style={styles.header}>
           <View style={styles.headerActions}>
@@ -1611,7 +1609,7 @@ export default function TeacherPage() {
                 <X size={18} color={C.text} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={[styles.modalBody, innerPageLayoutStyles.scrollViewFront]}>
               {viewTeacher && (
                 <View style={styles.profileSheet}>
                   <LinearGradient
@@ -1753,7 +1751,7 @@ export default function TeacherPage() {
                 <X size={18} color={C.text} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={[styles.modalBody, innerPageLayoutStyles.scrollViewFront]}>
               <View style={styles.formGrid}>
                 {editForm && (() => {
                   const editFields: Array<[string, string, 'text' | 'number' | 'date' | 'select', string[]?]> = [
@@ -1819,59 +1817,6 @@ export default function TeacherPage() {
 }
 
 const styles = StyleSheet.create({
-  headerStandard: {
-    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 10 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
-    fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
-    textAlign: 'center',
-  },
-  headerContent: {
-    marginTop: Theme.spacing.lg,
-  },
-  headerGreeting: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: 28,
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    ...Theme.typography.body,
-    marginTop: Theme.spacing.xs,
-  },
   container: { flex: 1, backgroundColor: C.bg },
   scrollView: { flex: 1 },
   header: {
@@ -2015,8 +1960,7 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: C.border,
     marginHorizontal: -15,
-    marginTop: -18,
-  },
+      },
   stepConnectorDone: {
     backgroundColor: C.success,
   },
@@ -2340,33 +2284,11 @@ const styles = StyleSheet.create({
   footerItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   footerStrong: { color: C.text },
   headerContentContainer: {
-    marginTop: 20,
+    marginTop: Theme.spacing.md,
     marginBottom: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
   },
   headerToggle: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 14,
-    padding: Theme.spacing.xs,
     width: '100%',
-  },
-  headerToggleBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  headerToggleBtnActive: {
-    backgroundColor: Theme.colors.background,
-  },
-  headerToggleText: {
-    fontSize: 13,
-    color: Theme.colors.card,
-  },
-  headerToggleTextActive: {
-    color: C.primary,
   },
 });
