@@ -251,14 +251,18 @@ export default function MarkAttendanceScreen() {
     <View style={styles.container}>
 
 
-      {/* Curved Navy Header - Sticky at the top */}
-      <StandardPageHeader title="Mark Attendance" onBackPress={() => navigation.goBack()} />
-
       <ScrollView
        style={[styles.scrollStyle, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[innerPageLayoutStyles.scrollPageContent, styles.contentContainer]}
         showsVerticalScrollIndicator={false}
       >
+      <StandardPageHeader
+        title="Mark Attendance"
+        onBackPress={() => navigation.goBack()}
+        scrollWithContent
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+      />
+      <View style={innerPageLayoutStyles.scrollBody}>
       <View style={styles.dateSection}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <TouchableOpacity accessibilityRole="button" style={[styles.dateSelector, { flex: 1 }]} onPress={() => setShowDatePicker(true)}>
@@ -370,6 +374,7 @@ export default function MarkAttendanceScreen() {
           style={styles.saveButton}
         />
       )}
+      </View>
     </ScrollView>
   </View>
   );
@@ -385,7 +390,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 40,
-    paddingTop: Theme.spacing.md,
   },
   headerStandard: {
     backgroundColor: Theme.colors.primary,
@@ -577,7 +581,6 @@ const styles = StyleSheet.create({
     color: '#16A34A',
   },
   saveButton: {
-    marginHorizontal: Theme.spacing.md,
     marginTop: 20,
     marginBottom: 12,
   },

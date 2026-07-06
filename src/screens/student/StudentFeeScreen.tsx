@@ -389,7 +389,7 @@ export default function StudentFeeScreen({ navigation }: any) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />
         }
       >
-        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+        <View style={styles.pageBody}>
         {/* Ledger Info Card */}
         <View style={styles.ledgerCard}>
           <AppText style={styles.ledgerTitle}>MY FEE LEDGER</AppText>
@@ -534,7 +534,6 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.background,
   },
   pageBody: {
-    paddingHorizontal: 20,
   },
   header: {
     backgroundColor: C.colors.primary,

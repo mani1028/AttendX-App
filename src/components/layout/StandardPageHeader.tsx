@@ -84,7 +84,7 @@ const StandardPageHeader: React.FC<StandardPageHeaderProps> = ({
   refreshing = false,
   showBack = true,
   scrollWithContent = false,
-  overlapContent = true,
+  overlapContent = false,
 }) => {
   const useInnerPage = !scrollWithContent && overlapContent;
   const useOverlapWrapper = !scrollWithContent && overlapContent;
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   },
   pageSubtitle: {
     fontSize: HEADER_CONSTANTS.HERO_SUBTITLE_SIZE,
-    color: 'rgba(255,255,255,0.72)',
+    color: 'rgba(255,255,255,0.85)',
     marginTop: 2,
     fontWeight: '500',
     textAlign: 'left',

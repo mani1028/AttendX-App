@@ -30,8 +30,6 @@ import {
   User,
   Users,
   CheckCircle2,
-  XCircle,
-  Clock,
   ArrowRight,
   ChevronRight,
   X,
@@ -128,6 +126,23 @@ const getBranchId = async (): Promise<string> => {
 
 const iso = (date: Date): string => date.toISOString().split('T')[0];
 
+const formatPersonName = (name?: string): string => {
+  if (!name?.trim()) { return '—'; }
+  return name
+    .trim()
+    .split(/\s+/)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+};
+
+const attendanceLabel = (status: string): string => {
+  if (status === 'PRESENT') { return 'Present'; }
+  if (status === 'HALF_DAY' || status === 'LATE') { return 'Half day'; }
+  return 'Absent';
+};
+
+const PAGE_PAD = 16;
+
 const CLASS_COLORS = [
   '#6648dc', '#7c3aed', '#db2777', Theme.colors.success, '#d97706', '#0891b2', '#4f46e5', '#16a34a', Theme.colors.error, '#9333ea',
 ];
@@ -137,81 +152,71 @@ const classColor = (grade: string): string => {
   return CLASS_COLORS[isNaN(idx) ? 0 : idx];
 };
 
-// Status Badge Component
+// Status Badge — compact pill; attendance only (not account status)
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const isPresent = status === 'PRESENT';
   const isHalfDay = status === 'HALF_DAY' || status === 'LATE';
 
   const getStyle = () => {
-    if (isPresent) {return styles.badgePresent;}
-    if (isHalfDay) {return styles.badgeHalfDay;}
+    if (isPresent) { return styles.badgePresent; }
+    if (isHalfDay) { return styles.badgeHalfDay; }
     return styles.badgeAbsent;
   };
   const getTextStyle = () => {
-    if (isPresent) {return styles.badgePresentText;}
-    if (isHalfDay) {return styles.badgeHalfDayText;}
+    if (isPresent) { return styles.badgePresentText; }
+    if (isHalfDay) { return styles.badgeHalfDayText; }
     return styles.badgeAbsentText;
   };
-  const getText = () => {
-    if (isPresent) {return 'PRESENT';}
-    if (isHalfDay) {return 'HALF DAY';}
-    return 'ABSENT';
-  };
-  const getIcon = () => {
-    if (isPresent) {return <CheckCircle2 size={12} color={C.success} />;}
-    if (isHalfDay) {return <Clock size={12} color={C.warning} />;}
-    return <XCircle size={12} color={C.error} />;
+  const getDotStyle = () => {
+    if (isPresent) { return styles.badgeDotPresent; }
+    if (isHalfDay) { return styles.badgeDotHalfDay; }
+    return styles.badgeDotAbsent;
   };
 
   return (
     <View style={[styles.badge, getStyle()]}>
-      {getIcon()}
-      <AppText style={[styles.badgeText, getTextStyle()]} weight="bold">{getText()}</AppText>
+      <View style={[styles.badgeDot, getDotStyle()]} />
+      <AppText style={[styles.badgeText, getTextStyle()]} weight="semibold">
+        {attendanceLabel(status || 'ABSENT')}
+      </AppText>
     </View>
   );
 };
 
-// Teacher Card Component
+// Teacher row — single compact line + subtitle
 const TeacherCard: React.FC<{ teacher: Teacher }> = ({ teacher }) => {
   const isActive = teacher.teacher_status?.toUpperCase() === 'ACTIVE';
+  const meta = [
+    teacher.employee_id,
+    teacher.designation,
+    teacher.department_subject,
+  ].filter(Boolean).join(' · ');
 
   return (
-    <AppCard style={styles.teacherCard}>
-      <View style={styles.teacherHeader}>
-        <View style={[styles.teacherAvatar, { backgroundColor: C.primary }]}>
-          <AppText style={styles.teacherAvatarText} weight="bold">
-            {(teacher.teacher_full_name || '?').charAt(0).toUpperCase()}
+    <View style={styles.teacherCard}>
+      <View style={[styles.teacherAvatar, !isActive && styles.teacherAvatarMuted]}>
+        <AppText style={styles.teacherAvatarText} weight="semibold">
+          {(teacher.teacher_full_name || '?').charAt(0).toUpperCase()}
+        </AppText>
+      </View>
+      <View style={styles.teacherInfo}>
+        <AppText style={styles.teacherName} weight="semibold" numberOfLines={1}>
+          {formatPersonName(teacher.teacher_full_name)}
+          {!isActive ? (
+            <AppText style={styles.inactiveSuffix}> · Inactive</AppText>
+          ) : null}
+        </AppText>
+        {meta ? (
+          <AppText style={styles.teacherMeta} numberOfLines={1}>{meta}</AppText>
+        ) : null}
+        {teacher.email_id ? (
+          <AppText style={styles.teacherEmail} numberOfLines={1}>
+            {teacher.email_id.toLowerCase()}
           </AppText>
-        </View>
-        <View style={styles.teacherInfo}>
-          <View style={styles.teacherNameRow}>
-            <AppText style={styles.teacherName} weight="bold">{teacher.teacher_full_name || '—'}</AppText>
-            <View style={[styles.profileBadge, isActive ? styles.profileActive : styles.profileInactive]}>
-              <AppText style={[styles.profileBadgeText, isActive ? styles.profileActiveText : styles.profileInactiveText]} weight="bold">
-                {isActive ? 'ACTIVE' : 'INACTIVE'}
-              </AppText>
-            </View>
-          </View>
-          <AppText style={styles.teacherEmail}>{teacher.email_id || '—'}</AppText>
-        </View>
-        <StatusBadge status={teacher.status || 'ABSENT'} />
+        ) : null}
       </View>
-
-      <View style={styles.teacherMetaGrid}>
-        <View style={styles.metaCol}>
-          <AppText style={styles.metaLabel}>EMP ID</AppText>
-          <AppText style={styles.metaValue} weight="semibold">{teacher.employee_id || '—'}</AppText>
-        </View>
-        <View style={styles.metaCol}>
-          <AppText style={styles.metaLabel}>Designation</AppText>
-          <AppText style={styles.metaValue} weight="semibold">{teacher.designation || '—'}</AppText>
-        </View>
-        <View style={styles.metaCol}>
-          <AppText style={styles.metaLabel}>Department</AppText>
-          <AppText style={styles.metaValue} weight="semibold">{teacher.department_subject || '—'}</AppText>
-        </View>
-      </View>
-    </AppCard>
+      <StatusBadge status={teacher.status || 'ABSENT'} />
+    </View>
   );
 };
 
@@ -626,44 +631,32 @@ const StudentsView: React.FC<{
   if (isCompactScreen) {
     return (
       <View style={styles.compactStack}>
-        <AppCard style={styles.mobilePanelCard}>
-          <View style={styles.panelHeader}>
-            <View>
-              <AppText style={styles.panelTitle} weight="bold">
-                Class {selectedSection.class_grade} - Section {selectedSection.section}
+        <View style={styles.classStatsBar}>
+          <View style={styles.classStatsTop}>
+            <View style={styles.classStatsTitle}>
+              <AppText style={styles.classStatsName} weight="semibold">
+                Class {selectedSection.class_grade} · Section {selectedSection.section}
               </AppText>
-              <AppText style={styles.panelSubtitle}>{iso(date)}</AppText>
+              <AppText style={styles.classStatsDate}>{iso(date)}</AppText>
             </View>
-            <View style={[styles.statChipHeader, attendancePct > 75 ? styles.statSuccessBg : styles.statDangerBg]}>
-              <AppText style={[styles.statChipValueText, { color: attendancePct > 75 ? C.success : C.error }]} weight="bold">
+            <View style={[styles.ratePill, attendancePct >= 75 ? styles.ratePillGood : styles.ratePillLow]}>
+              <AppText style={[styles.ratePillText, { color: attendancePct >= 75 ? C.success : C.error }]} weight="semibold">
                 {attendancePct}%
               </AppText>
-              <AppText style={[styles.statChipLabelText, { color: attendancePct > 75 ? C.success : C.error }]} weight="semibold">
-                Rate
-              </AppText>
             </View>
           </View>
-
-          <View style={styles.statsGridRow}>
-            <View style={[styles.miniStatBox, styles.statTotalBg]}>
-              <AppText style={styles.miniStatVal} weight="bold">{students.length}</AppText>
-              <AppText style={styles.miniStatLabel}>Total</AppText>
-            </View>
-            <View style={[styles.miniStatBox, styles.statPresentBg]}>
-              <AppText style={[styles.miniStatVal, { color: C.success }]} weight="bold">{presentCount}</AppText>
-              <AppText style={styles.miniStatLabel}>Present</AppText>
-            </View>
-            <View style={[styles.miniStatBox, styles.statHalfBg]}>
-              <AppText style={[styles.miniStatVal, { color: C.warning }]} weight="bold">{halfDayCount}</AppText>
-              <AppText style={styles.miniStatLabel}>Half</AppText>
-            </View>
-            <View style={[styles.miniStatBox, styles.statAbsentBg]}>
-              <AppText style={[styles.miniStatVal, { color: C.error }]} weight="bold">{absentCount}</AppText>
-              <AppText style={styles.miniStatLabel}>Absent</AppText>
-            </View>
+          <View style={styles.inlineStatsRow}>
+            <AppText style={styles.inlineStat}>{students.length} total</AppText>
+            <AppText style={styles.inlineStatDot}>·</AppText>
+            <AppText style={[styles.inlineStat, { color: C.success }]}>{presentCount} present</AppText>
+            <AppText style={styles.inlineStatDot}>·</AppText>
+            <AppText style={[styles.inlineStat, { color: C.warning }]}>{halfDayCount} half</AppText>
+            <AppText style={styles.inlineStatDot}>·</AppText>
+            <AppText style={[styles.inlineStat, { color: C.error }]}>{absentCount} absent</AppText>
           </View>
-        </AppCard>
+        </View>
 
+        <View style={styles.pagePad}>
         <View style={styles.searchFilterContainer}>
           <View style={styles.searchBoxWrapper}>
             <Search size={16} color={C.muted} style={{ marginRight: Theme.spacing.sm }} />
@@ -688,12 +681,13 @@ const StudentsView: React.FC<{
                 onPress={() => setStatusFilter(status)}
                 activeOpacity={0.8}
               >
-                <AppText style={[styles.filterChipItemText, statusFilter === status && styles.filterChipItemTextActive]} weight="bold">
-                  {status === '' ? 'All' : status === 'HALF_DAY' ? 'Half Day' : status}
+                <AppText style={[styles.filterChipItemText, statusFilter === status && styles.filterChipItemTextActive]} weight="semibold">
+                  {status === '' ? 'All' : status === 'HALF_DAY' ? 'Half day' : attendanceLabel(status)}
                 </AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
+        </View>
         </View>
 
         {loading ? (
@@ -709,18 +703,19 @@ const StudentsView: React.FC<{
             {filteredStudents.map((student, idx) => (
               <View key={student.student_id || student.roll_number || `mobile-student-${idx}`} style={styles.mobileStudentCard}>
                 <View style={[styles.studentAvatar, { backgroundColor: classColor(selectedSection.class_grade) }]}>
-                  <AppText style={styles.studentAvatarText} weight="bold">
+                  <AppText style={styles.studentAvatarText} weight="semibold">
                     {(student.student_full_name || '?').charAt(0).toUpperCase()}
                   </AppText>
                 </View>
                 <View style={styles.mobileStudentInfo}>
-                  <AppText style={styles.studentNameText} weight="bold">{student.student_full_name || '—'}</AppText>
-                  <AppText style={styles.classSubtitle}>#{idx + 1} • Roll {student.roll_number || '—'}</AppText>
-                  <AppText style={styles.classSubtitle}>{student.admission_number || '—'}</AppText>
+                  <AppText style={styles.studentNameText} weight="semibold" numberOfLines={1}>
+                    {formatPersonName(student.student_full_name)}
+                  </AppText>
+                  <AppText style={styles.studentMetaLine} numberOfLines={1}>
+                    Roll {student.roll_number || '—'} · {student.admission_number || '—'}
+                  </AppText>
                 </View>
-                <View style={styles.inlineBadge}>
-                  <StatusBadge status={student.status || 'ABSENT'} />
-                </View>
+                <StatusBadge status={student.status || 'ABSENT'} />
               </View>
             ))}
           </View>
@@ -973,8 +968,8 @@ export default function PrincipalAttendanceScreen() {
     }
   }, [preselectedSection, studentGroups]);
 
-  const selectedClassLabel = selectedSection ? `Class ${selectedSection.class_grade}` : 'Select class';
-  const selectedSectionLabel = selectedSection ? `Section ${selectedSection.section}` : 'Select section';
+  const selectedClassLabel = selectedSection ? String(selectedSection.class_grade) : '—';
+  const selectedSectionLabel = selectedSection ? String(selectedSection.section) : '—';
 
   const showToast = useCallback((msg: string, type: string = 'success') => {
     setToast({ visible: true, message: msg, type });
@@ -1158,13 +1153,13 @@ export default function PrincipalAttendanceScreen() {
 
       <ScrollView
         style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={[styles.contentContainer, innerPageLayoutStyles.scrollContent]}
+        contentContainerStyle={styles.contentContainer}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
       >
         <View style={innerPageLayoutStyles.contentFront}>
-        {/* Full-width Segmented View Tab Switcher */}
+        <View style={styles.pagePad}>
         <View style={[innerPageLayoutStyles.segmentedControl, styles.segmentedTabContainer]}>
           <TouchableOpacity accessibilityRole="button"
             style={[innerPageLayoutStyles.segmentedTab, view === 'teachers' && innerPageLayoutStyles.segmentedTabActive]}
@@ -1199,9 +1194,9 @@ export default function PrincipalAttendanceScreen() {
               <View style={styles.pickerPillContent}>
                 <View style={styles.pickerTextGroup}>
                   <AppText style={styles.pickerLabel}>Class</AppText>
-                  <AppText style={styles.pickerValue} weight="bold">{selectedClassLabel}</AppText>
+                  <AppText style={styles.pickerValue} weight="semibold">{selectedClassLabel}</AppText>
                 </View>
-                <ChevronRight size={16} color={C.muted} />
+                <ChevronDown size={16} color={C.muted} />
               </View>
             </TouchableOpacity>
             <TouchableOpacity
@@ -1214,9 +1209,9 @@ export default function PrincipalAttendanceScreen() {
               <View style={styles.pickerPillContent}>
                 <View style={styles.pickerTextGroup}>
                   <AppText style={styles.pickerLabel}>Section</AppText>
-                  <AppText style={styles.pickerValue} weight="bold">{selectedSectionLabel}</AppText>
+                  <AppText style={styles.pickerValue} weight="semibold">{selectedSectionLabel}</AppText>
                 </View>
-                <ChevronRight size={16} color={C.muted} />
+                <ChevronDown size={16} color={C.muted} />
               </View>
             </TouchableOpacity>
           </View>
@@ -1237,7 +1232,7 @@ export default function PrincipalAttendanceScreen() {
               onPress={() => setStmtScope('weekly')}
               activeOpacity={0.8}
             >
-              <AppText style={[styles.scopeSwitcherBtnText, stmtScope === 'weekly' && styles.scopeSwitcherBtnTextActive]} weight="bold">
+              <AppText style={[styles.scopeSwitcherBtnText, stmtScope === 'weekly' && styles.scopeSwitcherBtnTextActive]} weight="semibold">
                 Weekly
               </AppText>
             </TouchableOpacity>
@@ -1246,7 +1241,7 @@ export default function PrincipalAttendanceScreen() {
               onPress={() => setStmtScope('monthly')}
               activeOpacity={0.8}
             >
-              <AppText style={[styles.scopeSwitcherBtnText, stmtScope === 'monthly' && styles.scopeSwitcherBtnTextActive]} weight="bold">
+              <AppText style={[styles.scopeSwitcherBtnText, stmtScope === 'monthly' && styles.scopeSwitcherBtnTextActive]} weight="semibold">
                 Monthly
               </AppText>
             </TouchableOpacity>
@@ -1281,20 +1276,19 @@ export default function PrincipalAttendanceScreen() {
           />
         )}
 
-        {/* Redesigned Statements Card with progress bars */}
-        <AppCard style={styles.statementCard}>
+        <AppCard elevated={false} variant="flat" style={styles.statementCard}>
           <View style={styles.statementHeader}>
             <View style={styles.statementTitleContainer}>
-              <AppText style={styles.statementTitle} weight="bold">
-                {stmtScope === 'monthly' ? 'Monthly' : 'Weekly'} Attendance Statement
+              <AppText style={styles.statementTitle} weight="semibold">
+                {stmtScope === 'monthly' ? 'Monthly' : 'Weekly'} summary
               </AppText>
               {loadingStatement ? (
                 <ActivityIndicator size="small" color={C.primary} style={{ marginLeft: Theme.spacing.sm }} />
               ) : (
                 <AppText style={styles.statementRange}>
                   {statement?.period?.start_date && statement?.period?.end_date
-                    ? `${statement.period.start_date} to ${statement.period.end_date}`
-                    : 'Loading range...'}
+                    ? `${statement.period.start_date} – ${statement.period.end_date}`
+                    : 'Loading…'}
                 </AppText>
               )}
             </View>
@@ -1302,7 +1296,7 @@ export default function PrincipalAttendanceScreen() {
           <View style={styles.statementGrid}>
             <View style={styles.statementItem}>
               <View style={styles.statementItemHeader}>
-                <AppText style={styles.statementItemLabel} weight="bold">Teachers</AppText>
+                <AppText style={styles.statementItemLabel} weight="medium">Teachers</AppText>
                 <AppText style={styles.statementItemValue} weight="bold">
                   {statement?.teachers?.attendance_pct ?? 0}%
                 </AppText>
@@ -1317,7 +1311,7 @@ export default function PrincipalAttendanceScreen() {
 
             <View style={styles.statementItem}>
               <View style={styles.statementItemHeader}>
-                <AppText style={styles.statementItemLabel} weight="bold">Students</AppText>
+                <AppText style={styles.statementItemLabel} weight="medium">Students</AppText>
                 <AppText style={styles.statementItemValue} weight="bold">
                   {statement?.students?.attendance_pct ?? 0}%
                 </AppText>
@@ -1333,9 +1327,7 @@ export default function PrincipalAttendanceScreen() {
         </AppCard>
 
         {view === 'teachers' && (
-          <>
-            {/* Unified Search & Status Filters */}
-            <View style={styles.searchFilterContainer}>
+          <View style={styles.searchFilterContainer}>
               <View style={styles.searchBoxWrapper}>
                 <Search size={16} color={C.muted} style={{ marginRight: Theme.spacing.sm }} />
                 <TextInput
@@ -1359,29 +1351,37 @@ export default function PrincipalAttendanceScreen() {
                     onPress={() => setStatusFilter(status)}
                     activeOpacity={0.8}
                   >
-                    <AppText style={[styles.filterChipItemText, statusFilter === status && styles.filterChipItemTextActive]} weight="bold">
-                      {status === '' ? 'All' : status === 'HALF_DAY' ? 'Half Day' : status}
+                    <AppText style={[styles.filterChipItemText, statusFilter === status && styles.filterChipItemTextActive]} weight="semibold">
+                      {status === '' ? 'All' : status === 'HALF_DAY' ? 'Half day' : attendanceLabel(status)}
                     </AppText>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-            </View>
+          </View>
+        )}
+        </View>
 
+        {view === 'teachers' && (
+          <>
             {loadingTeachers ? (
-              <Loader />
+              <View style={styles.pagePad}><Loader /></View>
             ) : paginatedTeachers.length === 0 ? (
-              <View style={styles.emptyStateCard}>
-                <Users size={48} color={C.muted} style={{ marginBottom: 12 }} />
-                <AppText style={styles.emptyTitle} weight="bold">No teachers found</AppText>
-                <AppText style={styles.emptyText}>Try adjusting your search or filters</AppText>
+              <View style={styles.pagePad}>
+                <View style={styles.emptyStateCard}>
+                  <Users size={40} color={C.muted} style={{ marginBottom: 8 }} />
+                  <AppText style={styles.emptyTitle} weight="semibold">No teachers found</AppText>
+                  <AppText style={styles.emptyText}>Try adjusting your search or filters</AppText>
+                </View>
               </View>
             ) : (
               <>
+              <View style={styles.listCard}>
                 {paginatedTeachers.map((teacher, idx) => (
                   <TeacherCard key={teacher.employee_id || teacher.teacher_id || `teacher-${idx}`} teacher={teacher} />
                 ))}
-                {totalPages > 1 && (
-                  <View style={styles.pagination}>
+              </View>
+              {totalPages > 1 && (
+                <View style={[styles.pagination, styles.pagePad]}>
                     <TouchableOpacity accessibilityRole="button"
                       style={[styles.pageBtn, page === 1 && styles.pageBtnDisabled]}
                       onPress={() => setPage(p => Math.max(1, p - 1))}
@@ -1397,8 +1397,8 @@ export default function PrincipalAttendanceScreen() {
                     >
                       <ChevronRight size={20} color={C.text} />
                     </TouchableOpacity>
-                  </View>
-                )}
+                </View>
+              )}
               </>
             )}
           </>
@@ -1406,12 +1406,14 @@ export default function PrincipalAttendanceScreen() {
 
         {view === 'students' && (
           loadingClasses ? (
-            <Loader />
+            <View style={styles.pagePad}><Loader /></View>
           ) : classItems.length === 0 ? (
-            <View style={styles.emptyStateCard}>
-              <BookOpen size={48} color={C.muted} style={{ marginBottom: 12 }} />
-              <AppText style={styles.emptyTitle} weight="bold">No classes available</AppText>
-              <AppText style={styles.emptyText}>No class data found for this date</AppText>
+            <View style={styles.pagePad}>
+              <View style={styles.emptyStateCard}>
+                <BookOpen size={40} color={C.muted} style={{ marginBottom: 8 }} />
+                <AppText style={styles.emptyTitle} weight="semibold">No classes available</AppText>
+                <AppText style={styles.emptyText}>No class data found for this date</AppText>
+              </View>
             </View>
           ) : (
             <StudentsView
@@ -1426,10 +1428,9 @@ export default function PrincipalAttendanceScreen() {
           )
         )}
 
-        <View style={styles.footer}>
-          <AppText style={styles.footerText}>🏫 School: {schoolCode || '—'}</AppText>
-          <AppText style={styles.footerText}>🏢 Branch: {branchId || '—'}</AppText>
-          <AppText style={styles.footerText}>📅 Data as of {iso(date)}</AppText>
+        <View style={[styles.footer, styles.pagePad]}>
+          <AppText style={styles.footerText}>{schoolCode || '—'} · {branchId || '—'}</AppText>
+          <AppText style={styles.footerText}>{iso(date)}</AppText>
         </View>
         </View>
       </ScrollView>
@@ -1519,19 +1520,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
+    paddingTop: 8,
     paddingBottom: 40,
   },
+  pagePad: {
+    paddingHorizontal: PAGE_PAD,
+  },
   segmentedTabContainer: {
-    marginHorizontal: Theme.spacing.md,
-    marginTop: 18,
-    marginBottom: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Theme.spacing.md,
-    marginBottom: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
     gap: 8,
   },
   controlPill: {
@@ -1539,20 +1541,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.white,
-    borderWidth: 1,
+    backgroundColor: C.card,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
-    borderRadius: 12,
+    borderRadius: 10,
     paddingVertical: 10,
-    ...Platform.select({
-      android: { elevation: 1 },
-      ios: {
-        shadowColor: C.primary,
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 1 },
-      },
-    }),
   },
   controlPillText: {
     ...Theme.typography.caption,
@@ -1561,8 +1554,8 @@ const styles = StyleSheet.create({
   scopeSwitcher: {
     flex: 1.2,
     flexDirection: 'row',
-    backgroundColor: 'rgba(226, 232, 240, 0.5)',
-    borderRadius: 12,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 10,
     padding: 3,
   },
   scopeSwitcherBtn: {
@@ -1570,22 +1563,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 7,
-    borderRadius: 9,
+    borderRadius: 8,
   },
   scopeSwitcherBtnActive: {
-    backgroundColor: C.white,
-    ...Platform.select({
-      android: { elevation: 1 },
-      ios: {
-        shadowColor: C.primary,
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        shadowOffset: { width: 0, height: 1 },
-      },
-    }),
+    backgroundColor: C.card,
   },
   scopeSwitcherBtnText: {
-    ...Theme.typography.label,
+    fontSize: 12,
+    fontWeight: '600',
     color: C.muted,
   },
   scopeSwitcherBtnTextActive: {
@@ -1597,17 +1582,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: C.primary,
-    borderRadius: 12,
+    borderRadius: 10,
     paddingVertical: 10,
-    ...Platform.select({
-      android: { elevation: 2 },
-      ios: {
-        shadowColor: C.primary,
-        shadowOpacity: 0.15,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
   },
   exportPillText: {
     ...Theme.typography.caption,
@@ -1616,26 +1592,16 @@ const styles = StyleSheet.create({
   studentFilterRow: {
     flexDirection: 'row',
     gap: 10,
-    paddingHorizontal: Theme.spacing.md,
-    marginBottom: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
   },
   pickerPill: {
     flex: 1,
     backgroundColor: C.card,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
-    borderRadius: 14,
-    paddingHorizontal: 14,
+    borderRadius: 10,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    ...Platform.select({
-      android: { elevation: 2 },
-      ios: {
-        shadowColor: C.primary,
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
   },
   pickerPillDisabled: {
     opacity: 0.55,
@@ -1654,8 +1620,9 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   pickerValue: {
-    fontSize: 13,
+    fontSize: 14,
     color: C.text,
+    fontWeight: '600',
   },
   pickerOverlay: {
     flex: 1,
@@ -1728,13 +1695,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   statementCard: {
-    marginHorizontal: Theme.spacing.md,
-    padding: Theme.spacing.md,
-    marginBottom: Theme.spacing.md,
-    backgroundColor: C.white,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: C.border,
+    marginBottom: Theme.spacing.sm,
+    borderRadius: 12,
   },
   statementHeader: {
     marginBottom: Theme.spacing.md,
@@ -1751,8 +1713,9 @@ const styles = StyleSheet.create({
     color: C.text,
   },
   statementRange: {
-    ...Theme.typography.label,
+    fontSize: 11,
     color: C.muted,
+    fontWeight: '500',
   },
   statementGrid: {
     flexDirection: 'row',
@@ -1760,11 +1723,7 @@ const styles = StyleSheet.create({
   },
   statementItem: {
     flex: 1,
-    backgroundColor: 'rgba(248, 250, 252, 0.8)',
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(228, 233, 242, 0.6)',
+    paddingVertical: 4,
   },
   statementItemHeader: {
     flexDirection: 'row',
@@ -1796,33 +1755,18 @@ const styles = StyleSheet.create({
     color: C.muted,
   },
   searchFilterContainer: {
-    marginHorizontal: Theme.spacing.md,
-    marginBottom: Theme.spacing.md,
-    backgroundColor: C.white,
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-    ...Platform.select({
-      android: { elevation: 1 },
-      ios: {
-        shadowColor: C.primary,
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
+    marginBottom: Theme.spacing.sm,
   },
   searchBoxWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(241, 245, 249, 0.6)',
+    backgroundColor: C.card,
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 44,
-    borderWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.8)',
-    marginBottom: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
+    marginBottom: 10,
   },
   searchInputField: {
     flex: 1,
@@ -1838,124 +1782,99 @@ const styles = StyleSheet.create({
   },
   filterChipItem: {
     paddingVertical: 6,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: 'rgba(241, 245, 249, 0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.6)',
+    backgroundColor: '#F1F5F9',
   },
   filterChipItemActive: {
     backgroundColor: C.primary,
     borderColor: C.primary,
   },
   filterChipItemText: {
-    ...Theme.typography.label,
+    fontSize: 12,
+    fontWeight: '600',
     color: C.muted,
   },
   filterChipItemTextActive: {
     color: C.white,
   },
-  teacherCard: {
-    marginHorizontal: Theme.spacing.md,
-    marginBottom: 12,
-    backgroundColor: C.white,
-    borderRadius: 18,
-    borderWidth: 1,
+  listCard: {
+    marginHorizontal: -PAGE_PAD,
+    backgroundColor: C.card,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
-    padding: Theme.spacing.md,
-    ...Platform.select({
-      android: { elevation: 1 },
-      ios: {
-        shadowColor: C.primary,
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
+    marginBottom: Theme.spacing.sm,
   },
-  teacherHeader: {
+  teacherCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    backgroundColor: C.card,
+    paddingVertical: 12,
+    paddingHorizontal: PAGE_PAD,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
+    gap: 12,
   },
   teacherAvatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: C.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    flexShrink: 0,
+  },
+  teacherAvatarMuted: {
+    opacity: 0.45,
   },
   teacherAvatarText: {
-    fontSize: 18,
+    fontSize: 16,
     color: C.white,
   },
   teacherInfo: {
     flex: 1,
-  },
-  teacherNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
+    minWidth: 0,
   },
   teacherName: {
-    ...Theme.typography.bodyMd,
+    fontSize: 15,
     color: C.text,
+    lineHeight: 20,
+  },
+  inactiveSuffix: {
+    fontSize: 13,
+    color: C.muted,
+    fontWeight: '400',
+  },
+  teacherMeta: {
+    fontSize: 12,
+    color: C.text2,
+    marginTop: 1,
+    lineHeight: 16,
   },
   teacherEmail: {
-    ...Theme.typography.label,
+    fontSize: 11,
     color: C.muted,
     marginTop: 2,
-  },
-  profileBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  profileActive: {
-    backgroundColor: C.successSoft,
-  },
-  profileInactive: {
-    backgroundColor: C.errorSoft,
-  },
-  profileBadgeText: {
-    fontSize: 9,
-  },
-  profileActiveText: {
-    color: C.success,
-  },
-  profileInactiveText: {
-    color: C.error,
-  },
-  teacherMetaGrid: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(226, 232, 240, 0.8)',
-    paddingTop: 12,
-    gap: 8,
-  },
-  metaCol: {
-    flex: 1,
-  },
-  metaLabel: {
-    fontSize: 9,
-    color: C.muted,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  metaValue: {
-    ...Theme.typography.label,
-    color: C.text,
+    lineHeight: 14,
   },
   badge: {
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: 5,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
+    flexShrink: 0,
   },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  badgeDotPresent: { backgroundColor: C.success },
+  badgeDotHalfDay: { backgroundColor: C.warning },
+  badgeDotAbsent: { backgroundColor: C.error },
   badgePresent: {
     backgroundColor: C.successSoft,
   },
@@ -1966,8 +1885,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.errorSoft,
   },
   badgeText: {
-    fontSize: 10,
-    letterSpacing: 0.2,
+    fontSize: 11,
   },
   badgePresentText: {
     color: C.success,
@@ -1979,12 +1897,9 @@ const styles = StyleSheet.create({
     color: C.error,
   },
   emptyStateCard: {
-    marginHorizontal: Theme.spacing.md,
-    padding: 40,
-    backgroundColor: C.white,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: C.border,
+    padding: 32,
+    backgroundColor: C.card,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2036,25 +1951,49 @@ const styles = StyleSheet.create({
     minHeight: 500,
   },
   compactStack: {
-    gap: 12,
+    gap: 8,
   },
+  classStatsBar: {
+    marginHorizontal: -PAGE_PAD,
+    paddingHorizontal: PAGE_PAD,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
+    backgroundColor: C.card,
+    gap: 8,
+  },
+  classStatsTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  classStatsTitle: { flex: 1, minWidth: 0 },
+  classStatsName: { fontSize: 15, color: C.text, lineHeight: 20 },
+  classStatsDate: { fontSize: 12, color: C.muted, marginTop: 2 },
+  ratePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  ratePillGood: { backgroundColor: C.successSoft },
+  ratePillLow: { backgroundColor: C.errorSoft },
+  ratePillText: { fontSize: 13 },
+  inlineStatsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 4,
+  },
+  inlineStat: { fontSize: 12, color: C.text2 },
+  inlineStatDot: { fontSize: 12, color: C.muted },
   mobilePanelCard: {
-    marginHorizontal: Theme.spacing.md,
-    marginBottom: 12,
-    backgroundColor: C.white,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: C.border,
+    marginBottom: Theme.spacing.sm,
+    backgroundColor: C.card,
+    borderRadius: 12,
     padding: Theme.spacing.md,
-    ...Platform.select({
-      android: { elevation: 1 },
-      ios: {
-        shadowColor: C.primary,
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
   },
   statChipHeader: {
     alignItems: 'center',
@@ -2326,18 +2265,21 @@ const styles = StyleSheet.create({
     color: C.muted,
   },
   studentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   studentAvatarText: {
     ...Theme.typography.caption,
     color: Theme.colors.card,
   },
   studentNameText: {
+    fontSize: 15,
     color: C.text,
+    lineHeight: 20,
   },
   attendanceBar: {
     flexDirection: 'row',
@@ -2374,13 +2316,14 @@ const styles = StyleSheet.create({
     color: C.error,
   },
   footer: {
-    marginTop: 20,
-    padding: 12,
-    backgroundColor: C.card,
-    borderRadius: 12,
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
+    gap: 4,
   },
   footerText: {
     ...Theme.typography.label,
@@ -2571,33 +2514,30 @@ const styles = StyleSheet.create({
     borderTopColor: C.border,
   },
   mobileStudentList: {
-    gap: 10,
-    paddingHorizontal: Theme.spacing.md,
-    paddingBottom: 20,
+    marginHorizontal: -PAGE_PAD,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
+    backgroundColor: C.card,
   },
   mobileStudentCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 12,
-    backgroundColor: C.white,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 14,
-    ...Platform.select({
-      android: { elevation: 1 },
-      ios: {
-        shadowColor: C.primary,
-        shadowOpacity: 0.03,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
+    paddingVertical: 12,
+    paddingHorizontal: PAGE_PAD,
+    backgroundColor: C.card,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
+  },
+  studentMetaLine: {
+    fontSize: 12,
+    color: C.muted,
+    marginTop: 1,
+    lineHeight: 16,
   },
   mobileStudentInfo: {
     flex: 1,
-  },
-  inlineBadge: {
-    alignSelf: 'center',
+    minWidth: 0,
   },
 });

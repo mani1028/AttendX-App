@@ -12,6 +12,7 @@ import {
   TextInput,
   Image,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import {
   ChevronLeft,
@@ -235,7 +236,13 @@ export default function ProfileScreen() {
   const roleKey = String(userInfo.role || '').trim().toLowerCase();
   const isAgent = roleKey === 'agent' || roleKey === 'marketing agent' || roleKey === 'marketing_agent';
   const isStudent = !isAgent && (roleKey === 'student' || roleKey === 'students');
-  const isDirector = !isAgent && (roleKey === 'director' || roleKey === 'principal' || roleKey === 'admin');
+  const isAdminPanel =
+    roleKey === 'admin' ||
+    roleKey === 'superadmin' ||
+    roleKey === 'super_admin' ||
+    roleKey === 'super admin' ||
+    roleKey === 'administrator';
+  const isDirector = !isAgent && (roleKey === 'director' || roleKey === 'principal' || isAdminPanel);
   const isTeacher = !isAgent && (roleKey === 'teacher' || roleKey === 'teachers' || roleKey === 'staff');
   const studentRollNumber = isStudent
     ? resolveStudentRollNumber(userInfo.roll_number, userInfo.roll_no)
@@ -292,7 +299,13 @@ export default function ProfileScreen() {
 
       const entityId = roleBucket === 'student' ? storedStudentId : (storedTeacherId || storedEmployeeId);
       const profileCacheKey = entityId ? `profile_cache:${roleBucket}:${storedSchoolCode || 'unknown'}:${entityId}` : `profile_cache:${roleBucket}:${storedSchoolCode || 'unknown'}:anon`;
-      const isDirOrAdmin = normalizedRole === 'director' || normalizedRole === 'admin';
+      const isDirOrAdmin =
+        normalizedRole === 'director' ||
+        normalizedRole === 'admin' ||
+        normalizedRole === 'superadmin' ||
+        normalizedRole === 'super_admin' ||
+        normalizedRole === 'super admin' ||
+        normalizedRole === 'administrator';
       const photoCacheKey = (!isDirOrAdmin && entityId) ? getPhotoCacheKey(roleBucket, entityId, storedSchoolCode) : null;
 
       const cachedProfileRaw = await AsyncStorage.getItem(profileCacheKey);
@@ -389,7 +402,7 @@ export default function ProfileScreen() {
             } catch (err) {
               console.warn('Failed to fetch principal branch details:', err);
             }
-          } else if (normalizedRole !== 'admin') {
+          } else if (!isDirOrAdmin && normalizedRole !== 'principal' && normalizedRole !== 'agent') {
             freshData = await withTimeout(getTeacherProfile());
           }
         } catch (e) {
@@ -427,7 +440,6 @@ export default function ProfileScreen() {
           storedDepartment,
           storedUserName,
           storedUsername,
-          storedUserEmail,
         ] =
           await AsyncStorage.multiGet([
             'email',
@@ -457,7 +469,7 @@ export default function ProfileScreen() {
             'username',
           ]).then(items => items.map(([, value]) => value || ''));
 
-        const persistedUserEmail = (await storage.getString(StorageKeys.USER_EMAIL)) || storedUserEmail;
+        const persistedUserEmail = (await storage.getString(StorageKeys.USER_EMAIL)) || '';
 
         const profileSource = (freshData as any) || {};
         const resolvedProfile = {
@@ -484,7 +496,10 @@ export default function ProfileScreen() {
             storedPrincipalEmail,
             storedUser?.email,
             storedUser?.principal_email,
-            storedUser?.director_email
+            storedUser?.director_email,
+            storedUsername?.includes('@') ? storedUsername : '',
+            storedUser?.username?.includes('@') ? storedUser.username : '',
+            (decodeJwt(userToken) || {}).email,
           ),
           phone: firstNonEmptyText(
             profileSource?.phone,
@@ -519,7 +534,7 @@ export default function ProfileScreen() {
           ),
           school_code: firstNonEmptyText(profileSource?.school_code, profileSource?.schoolCode, storedSchoolCodeFromStore, storedUser?.school_code),
           teacher_id: firstNonEmptyText(profileSource?.teacher_id, storedTeacherId2, storedUser?.teacher_id),
-          employee_id: normalizedRole === 'director' || normalizedRole === 'admin'
+          employee_id: isDirOrAdmin
             ? ''
             : firstNonEmptyText(
                 profileSource?.employee_id,
@@ -630,7 +645,7 @@ export default function ProfileScreen() {
         );
 
         let resolvedPhoto = directProfilePhoto;
-        if (!resolvedPhoto && resolvedEntityId && freshData && normalizedRole !== 'director' && normalizedRole !== 'admin') {
+        if (!resolvedPhoto && resolvedEntityId && freshData && !isDirOrAdmin) {
           try {
             resolvedPhoto = roleBucket === 'student'
               ? ((await withTimeout(Promise.resolve(getStudentProfilePhotoDataUri(resolvedEntityId, storedSchoolCode)))) ||
@@ -922,29 +937,28 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-
-
-      <StandardPageHeader
-        title="My Profile"
-        onBackPress={handleBackPress}
-        rightActions={(
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={handleLogout}
-            style={[heroHeaderStyles.iconBtn, styles.logoutBtnHeader]}
-            accessibilityLabel="Log out"
-          >
-            <LogOut size={20} color={Theme.colors.card} />
-          </TouchableOpacity>
-        )}
-      />
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={[styles.content, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
       >
-        <View style={innerPageLayoutStyles.contentFront}>
+        <StandardPageHeader
+          title="My Profile"
+          onBackPress={handleBackPress}
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          rightActions={(
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={handleLogout}
+              style={[heroHeaderStyles.iconBtn, styles.logoutBtnHeader]}
+              accessibilityLabel="Log out"
+            >
+              <LogOut size={20} color={Theme.colors.card} />
+            </TouchableOpacity>
+          )}
+        />
+        <View style={innerPageLayoutStyles.scrollBody}>
           <AppCard style={styles.profileCard}>
             <View style={styles.profileSummary}>
               {profilePhotoUrl && !profilePhotoError ? (
@@ -975,7 +989,7 @@ export default function ProfileScreen() {
                   {userInfo.role?.toUpperCase() || 'STUDENT'}
                   {isAgent
                     ? (userInfo.username ? ` • @${userInfo.username}` : '')
-                    : roleKey === 'director' || roleKey === 'admin'
+                    : roleKey === 'director' || isAdminPanel
                       ? ''
                       : roleKey === 'student' && studentRollNumber
                         ? ` • Roll No: ${studentRollNumber}`
@@ -988,7 +1002,6 @@ export default function ProfileScreen() {
             </View>
           </AppCard>
 
-        <View style={styles.innerContent}>
         <View style={styles.section}>
           <AppText style={styles.sectionTitle}>Basic Information</AppText>
           <AppCard style={styles.infoCard}>
@@ -1004,8 +1017,12 @@ export default function ProfileScreen() {
             {isDirector && (
               <>
                 {renderInfoRow('Full Name', userInfo.name, User, 'name')}
-                <View style={styles.divider} />
-                {renderInfoRow('Email', userInfo.email, Mail, 'email')}
+                {!isAdminPanel && (
+                  <>
+                    <View style={styles.divider} />
+                    {renderInfoRow('Email', userInfo.email, Mail, 'email')}
+                  </>
+                )}
               </>
             )}
             {isStudent && (
@@ -1175,12 +1192,11 @@ export default function ProfileScreen() {
 
         <View style={{ height: 40 }} />
         </View>
-        </View>
       </ScrollView>
 
       {/* Edit Modal */}
-      <Modal visible={showEditModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
+      <Modal visible={showEditModal} transparent animationType="fade" onRequestClose={() => setShowEditModal(false)}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle}>Edit {editField.label}</AppText>
@@ -1216,11 +1232,11 @@ export default function ProfileScreen() {
               />
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Settings Modal - Simplified for consistent UI */}
-      <Modal visible={showSettingsModal} transparent animationType="slide">
+      <Modal visible={showSettingsModal} transparent animationType="slide" onRequestClose={() => setShowSettingsModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -1243,8 +1259,8 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* Password Change Modal */}
-      <Modal visible={showPasswordChangeModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
+      <Modal visible={showPasswordChangeModal} transparent animationType="slide" onRequestClose={handlePasswordChangeModalClose}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle}>Change Password</AppText>
@@ -1410,7 +1426,7 @@ export default function ProfileScreen() {
               )}
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
       <AccountSwitcher visible={showAccountSwitcher} onClose={() => setShowAccountSwitcher(false)} />
     </View>
@@ -1470,10 +1486,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-  },
-  innerContent: {
-    paddingHorizontal: Theme.spacing.md,
-    paddingBottom: 40,
   },
   section: {
     marginTop: 25,

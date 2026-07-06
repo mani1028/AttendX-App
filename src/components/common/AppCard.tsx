@@ -23,7 +23,7 @@ export default function AppCard({
   style,
   onPress,
   padded = true,
-  elevated = true,
+  elevated = false,
   variant = 'default',
 }: AppCardProps) {
   const cardStyle = [

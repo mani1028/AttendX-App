@@ -31,6 +31,7 @@ import {
   Search,
   Filter,
   FileText,
+  User,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import API from '../../services/api';
@@ -103,14 +104,7 @@ export default function StudentAttendanceReport() {
       setRecords(response.data?.records || []);
     } catch (error) {
       console.error('Error fetching student attendance:', error);
-      // Fallback/Mock data if API is not ready
-      setRecords([
-        { date: '2023-10-01', status: 'PRESENT' },
-        { date: '2023-10-02', status: 'PRESENT' },
-        { date: '2023-10-03', status: 'ABSENT' },
-        { date: '2023-10-04', status: 'PRESENT' },
-        { date: '2023-10-05', status: 'LATE' },
-      ]);
+      setRecords([]);
     } finally {
       setLoading(false);
     }
@@ -138,8 +132,17 @@ export default function StudentAttendanceReport() {
 
       <StandardPageHeader
         title="Attendance Report"
-        subtitle={`${studentName} • ID: ${studentId}`}
+        subtitle={`${studentName || 'Student'}${studentId ? ` • ID: ${studentId}` : ''}`}
         onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+        rightActions={studentId ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={styles.profileBtn}
+            onPress={() => (navigation as any).navigate('Student360', { studentId, studentName })}
+          >
+            <User size={18} color={Theme.colors.card} />
+          </TouchableOpacity>
+        ) : undefined}
       />
 
       <ScrollView
@@ -284,17 +287,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
+  profileBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
   selectionCard: {
     backgroundColor: Theme.colors.card,
-    borderRadius: 24,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 15,
-    elevation: 4,
-    marginBottom: 20,
-    marginTop: -20,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Theme.colors.border,
+    marginBottom: 16,
+    marginTop: 0,
   },
   fieldRow: {
     flexDirection: 'row',

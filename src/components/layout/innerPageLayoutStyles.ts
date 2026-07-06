@@ -1,6 +1,10 @@
 import { Platform, StyleSheet } from 'react-native';
 import { Theme } from '../../theme/tokens';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { TAB_BAR_BODY_HEIGHT, TAB_BAR_EXTRA_GAP } from '../../utils/tabBarLayout';
+
+/** Static tab-bar clearance — pair with `insets.bottom` via `useTabBarScrollPadding`. */
+export const TAB_BAR_SCROLL_BASE = TAB_BAR_BODY_HEIGHT + TAB_BAR_EXTRA_GAP;
 
 /** Inactive segmented-tab label/icon — darker than textMuted for gradient overlap */
 export const SEGMENTED_INACTIVE_COLOR = Theme.colors.textSec;
@@ -8,8 +12,11 @@ export const SEGMENTED_INACTIVE_COLOR = Theme.colors.textSec;
 export const segmentedControlIconColor = (active: boolean) =>
   active ? Theme.colors.primary : SEGMENTED_INACTIVE_COLOR;
 
-/** Horizontal padding when the page header lives inside the main ScrollView. */
-export const SCROLL_PAGE_GUTTER = 14;
+/** Single horizontal inset for inner pages — matches hero header padding. */
+export const PAGE_GUTTER = HEADER_CONSTANTS.PADDING_HORIZONTAL;
+
+/** @deprecated Use PAGE_GUTTER */
+export const SCROLL_PAGE_GUTTER = PAGE_GUTTER;
 
 /** Shared layout tokens for inner pages (Marks Entry pattern). */
 export const innerPageLayoutStyles = StyleSheet.create({
@@ -17,58 +24,49 @@ export const innerPageLayoutStyles = StyleSheet.create({
   headerWrapper: {
     marginBottom: HEADER_CONSTANTS.CONTENT_OVERLAP,
   },
-  /** Wrap scroll content / first section so it paints above the header. */
+  /** Layout wrapper only — no background or elevation (avoids double-card chrome). */
   contentFront: {
     zIndex: 1,
     position: 'relative',
-    ...Platform.select({ android: { elevation: 4 } }),
   },
-  /** ScrollView / FlatList sibling of StandardPageHeader — paints above header. */
+  /** ScrollView sibling of StandardPageHeader — transparent, no sheet chrome. */
   scrollViewFront: {
     flex: 1,
     zIndex: 1,
     position: 'relative',
-    ...Platform.select({ android: { elevation: 4 } }),
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingTop: 12,
+    paddingBottom: TAB_BAR_SCROLL_BASE,
+    paddingHorizontal: PAGE_GUTTER,
   },
   /** ScrollView content when StandardPageHeader is the first child (header scrolls with body). */
   scrollPageContent: {
-    paddingHorizontal: SCROLL_PAGE_GUTTER,
-    paddingBottom: 100,
+    paddingHorizontal: PAGE_GUTTER,
+    paddingBottom: TAB_BAR_SCROLL_BASE,
   },
   /** Pull header edge-to-edge inside padded scroll content. */
   scrollHeaderBleed: {
-    marginHorizontal: -SCROLL_PAGE_GUTTER,
+    marginHorizontal: -PAGE_GUTTER,
     marginBottom: 12,
   },
   scrollBody: {
     paddingBottom: 8,
   },
-  pageBody: {
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-  },
+  /** Wrapper only — horizontal gutter is on the scroll container. */
+  pageBody: {},
   firstCard: {
     zIndex: 1,
     position: 'relative',
-    marginHorizontal: Theme.spacing.md,
     backgroundColor: Theme.colors.card,
     padding: Theme.spacing.lg,
-    borderRadius: Theme.radius.xxxl,
-    marginBottom: Theme.spacing.lg,
-    ...Platform.select({
-      android: { elevation: 12 },
-      ios: {
-        shadowColor: Theme.colors.primary,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 16,
-      },
-    }),
+    borderRadius: Theme.radius.lg,
+    marginBottom: Theme.spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Theme.colors.border,
   },
   /** Pill segmented switch — solid track so inactive tabs stay visible on hero gradient */
   segmentedControl: {

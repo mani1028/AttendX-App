@@ -1,4 +1,4 @@
-import API from './api';
+import API, { getWithRetry } from './api';
 import { getAllSchools } from './adminService';
 
 export interface AutoPaySchool {
@@ -67,12 +67,11 @@ export async function getAutoPaySchools(): Promise<AutoPaySchool[]> {
   const dedicatedEndpoints = [
     '/admin/autopay/schools',
     '/payment/auto-pay/schools',
-    '/schools/auto-renew',
   ];
 
   for (const endpoint of dedicatedEndpoints) {
     try {
-      const res = await API.get(endpoint, { suppressFallback404Log: true } as any);
+      const res = await getWithRetry(endpoint, { suppressFallback404Log: true, suppressNetworkErrorLog: true });
       const list = Array.isArray(res.data)
         ? res.data
         : res.data?.items || res.data?.schools || [];

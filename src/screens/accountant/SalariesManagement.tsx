@@ -92,7 +92,7 @@ const formatCurrencySafe = (value: number): string => {
 
 // ─── API Service ────────────────────────────────────────────────────────────
 
-const API_BASE_URL = `${ENV.API_URL.replace(/\/$/, '')}/api`;
+const API_BASE_URL = ENV.API_URL.replace(/\/$/, '');
 
 const API = {
   get: async (endpoint: string, config?: { params?: Record<string, string> }) => {

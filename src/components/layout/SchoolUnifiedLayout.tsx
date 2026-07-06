@@ -646,7 +646,7 @@ export default function SchoolUnifiedLayout({ children, role }: SchoolUnifiedLay
       </Modal>
 
       {/* Confirmation Dialog */}
-      <Modal visible={dialogVisible} transparent animationType="fade">
+      <Modal visible={dialogVisible} transparent animationType="fade" onRequestClose={closeDialog}>
         <View style={styles.dialogOverlay}>
           <View style={styles.dialogContainer}>
             <View style={[

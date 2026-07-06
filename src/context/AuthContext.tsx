@@ -1,6 +1,6 @@
 // src/context/AuthContext.tsx
 
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Animated } from 'react-native';
 import { InteractionManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -8,34 +8,12 @@ import { getStoredRole, performLogout } from '../utils/authSession';
 import { setAuthToken } from '../services/api';
 import notificationService from '../services/notificationService';
 import eventEmitter from '../utils/eventEmitter';
-import { SavedAccount, getSavedAccounts, switchAccount, addCurrentSessionToSaved, removeAccount } from '../utils/multiAccount';
+import { SavedAccount, getSavedAccounts, switchAccount, addCurrentSessionToSaved, removeAccount, buildAccountId, removeCurrentSessionAccount } from '../utils/multiAccount';
 import { storage } from '../storage/storage';
 import { StorageKeys } from '../storage/StorageKeys';
+import { AuthContext, type AuthContextType } from './authContext.shared';
 
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-interface AuthContextType {
-  userRole: string | null;
-  userToken: string | null;
-  userName: string | null;
-  isClassTeacher: boolean;
-  isLoading: boolean;
-  setIsLoading: (loading: boolean) => void;
-  signIn: (role: string, name: string, token: string, isClassTeacher?: boolean) => Promise<void>;
-  refreshAuth: () => Promise<void>;
-  logout: () => Promise<void>;
-  isTabBarVisible: boolean;
-  setTabBarVisible: (visible: boolean) => void;
-  tabBarTranslate?: Animated.Value;
-
-  // Multi-account
-  savedAccounts: SavedAccount[];
-  switchToAccount: (account: SavedAccount) => Promise<boolean>;
-  logoutAccount: (accountId: string) => Promise<void>;
-  addNewAccount: () => void; // Trigger navigation to login without clearing other accounts
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export type { AuthContextType };
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -140,17 +118,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      // Find current account ID to remove it from saved accounts if we want full logout
-      // Or we can just performLogout which clears current session
-      const token = await storage.getSecure(StorageKeys.AUTH_TOKEN);
-      const role = await storage.getString(StorageKeys.USER_ROLE) || await storage.getString(StorageKeys.USER_ROLE);
-      const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE);
+      const role = await storage.getString(StorageKeys.USER_ROLE) || await AsyncStorage.getItem('role');
+      const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await AsyncStorage.getItem('school_code');
       const userId = await AsyncStorage.getItem('user_id');
       const studentId = await AsyncStorage.getItem('student_id');
-      const employeeId = await storage.getString(StorageKeys.EMPLOYEE_ID);
+      const employeeId = await storage.getString(StorageKeys.EMPLOYEE_ID) || await AsyncStorage.getItem('employee_id');
+      const name = await AsyncStorage.getItem('user_name');
 
       if (role && schoolCode) {
-        const accountId = `${role}:${schoolCode}:${userId || studentId || employeeId}`;
+        const accountId = buildAccountId({
+          role,
+          schoolCode,
+          userId: userId || undefined,
+          studentId: studentId || undefined,
+          employeeId: employeeId || undefined,
+          name: name || undefined,
+        });
         await removeAccount(accountId);
       }
 
@@ -171,24 +154,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const switchToAccount = async (account: SavedAccount) => {
     try {
+      if (!account.token?.trim()) {
+        await removeAccount(account.id);
+        const accounts = await getSavedAccounts();
+        setSavedAccounts(accounts);
+        return false;
+      }
+
       await storage.setSecure(StorageKeys.AUTH_TOKEN, account.token);
       const success = await switchAccount(account);
-      // refreshAuth() is triggered automatically via 'auth-change' event listener
+      if (!success) {
+        await removeAccount(account.id);
+        const accounts = await getSavedAccounts();
+        setSavedAccounts(accounts);
+      }
       return success;
     } catch (e) {
       console.error('Error switching account:', e);
+      await removeAccount(account.id);
+      const accounts = await getSavedAccounts();
+      setSavedAccounts(accounts);
       return false;
     }
   };
 
   const logoutAccount = async (accountId: string) => {
-    const currentToken = await storage.getSecure(StorageKeys.AUTH_TOKEN);
-    const currentRole = await storage.getString(StorageKeys.USER_ROLE) || await storage.getString(StorageKeys.USER_ROLE);
-    const currentSchoolCode = await storage.getString(StorageKeys.SCHOOL_CODE);
+    const currentRole = await storage.getString(StorageKeys.USER_ROLE) || await AsyncStorage.getItem('role');
+    const currentSchoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await AsyncStorage.getItem('school_code');
     const currentUserId = await AsyncStorage.getItem('user_id');
     const currentStudentId = await AsyncStorage.getItem('student_id');
     const currentEmployeeId = await storage.getString(StorageKeys.EMPLOYEE_ID);
-    const currentId = `${currentRole}:${currentSchoolCode}:${currentUserId || currentStudentId || currentEmployeeId}`;
+    const currentName = await AsyncStorage.getItem('user_name');
+    const currentId = buildAccountId({
+      role: currentRole || '',
+      schoolCode: currentSchoolCode || '',
+      userId: currentUserId || undefined,
+      studentId: currentStudentId || undefined,
+      employeeId: currentEmployeeId || undefined,
+      name: currentName || undefined,
+    });
 
     await removeAccount(accountId);
 
@@ -233,23 +237,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // would wipe ALL AsyncStorage including a freshly-stored session.
             setAuthToken(null);
 
-            // Mark the account as expired in saved_accounts
-            try {
-              const role = await storage.getString(StorageKeys.USER_ROLE) || await storage.getString(StorageKeys.USER_ROLE);
-              const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE);
-              const userId = await AsyncStorage.getItem('user_id') || await AsyncStorage.getItem('student_id') || await storage.getString(StorageKeys.EMPLOYEE_ID);
-              const currentId = `${role}:${schoolCode}:${userId}`;
-
-              const savedAccountsRaw = await AsyncStorage.getItem('saved_accounts');
-              if (savedAccountsRaw) {
-                const accounts = JSON.parse(savedAccountsRaw);
-                const updated = accounts.filter((a: any) => a.id !== currentId);
-                await AsyncStorage.setItem('saved_accounts', JSON.stringify(updated));
-                setSavedAccounts(updated);
-              }
-            } catch (e) {}
+            await removeCurrentSessionAccount();
+            const accounts = await getSavedAccounts();
+            setSavedAccounts(accounts);
 
             await AsyncStorage.multiRemove(['token', 'auth_token', 'authToken']);
+            await storage.removeSecure(StorageKeys.AUTH_TOKEN);
           } catch (_) {
             // Storage errors should not block the UI state update
           }
@@ -295,11 +288,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
-export const useAuth = () => {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (!context) {throw new Error('useAuth must be used within an AuthProvider');}
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
   return context;
 };
+
+export { AuthContext };
 
 // ─── Export eventEmitter so other files can emit/listen ─────────────────────────
 export { eventEmitter as AppEvents };

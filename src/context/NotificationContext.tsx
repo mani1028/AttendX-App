@@ -71,18 +71,11 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
       const role = (await AsyncStorage.getItem('user_role')) || (await storage.getString(StorageKeys.USER_ROLE));
       const token = (await storage.getSecure(StorageKeys.AUTH_TOKEN)) || null;
 
-      // If there is no token or token is expired, stop polling and trigger logout
+      // Skip polling when there is no session yet or token is expired.
+      // Do not emit app-logout here — that races with login and can crash dashboards.
+      // Expired sessions are handled by the API 401 interceptor instead.
       if (!token || isJwtExpired(token)) {
         setUnreadCount(0);
-        try {
-          // Ensure global polling stops when auth is invalid
-          if (globalPollingInterval) {
-            clearInterval(globalPollingInterval);
-            globalPollingInterval = null;
-          }
-        } catch (e) {}
-        // Notify app to logout so auth flow can handle token refresh/login
-        eventEmitter.emit('app-logout');
         return;
       }
 
@@ -91,7 +84,15 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
         return;
       }
 
-      let normalizedRole = role.toLowerCase();
+      const roleLower = String(role).toLowerCase();
+      // Portal admin roles don't use staff/student notification inboxes.
+      if (['admin', 'superadmin', 'agent', 'accountant', 'director'].includes(roleLower)) {
+        setUnreadCount(0);
+        consecutiveUnreadFailures = 0;
+        return;
+      }
+
+      let normalizedRole = roleLower;
       if (normalizedRole !== 'principal' && normalizedRole !== 'student') {
         normalizedRole = 'staff';
       }
@@ -102,7 +103,10 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
       // simple retry on transient network errors
       while (attempt < maxAttempts) {
         try {
-          response = await API.get(endpoint);
+          response = await API.get(endpoint, {
+            suppressFallback404Log: true,
+            suppressNetworkErrorLog: true,
+          } as any);
           break;
         } catch (e) {
           attempt += 1;

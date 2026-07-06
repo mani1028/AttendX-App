@@ -1,5 +1,5 @@
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,16 +9,12 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
   Switch,
+  TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  Settings,
-  Check,
-  Info,
   Save,
   Calendar,
   Bell,
@@ -27,9 +23,12 @@ import {
   Sliders,
   BookOpen,
   RefreshCw,
+  GraduationCap,
+  CalendarDays,
+  Fingerprint,
+  BellRing,
 } from 'lucide-react-native';
 import API from '../../services/api';
-import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
@@ -52,12 +51,23 @@ export default function PrincipalSettingsPage() {
   const [schoolCode, setSchoolCode] = useState('');
   const [branchId, setBranchId] = useState('');
   const [dailySessions, setDailySessions] = useState<1 | 2>(1);
+  const [adminLocked, setAdminLocked] = useState(false);
+  const [aadhaarRequired, setAadhaarRequired] = useState(false);
   const [marksNotificationEnabled, setMarksNotificationEnabled] = useState(true);
   const [manualAttendanceEnabled, setManualAttendanceEnabled] = useState(false);
   const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(true);
+  const [casualLeave, setCasualLeave] = useState('1');
+  const [sickLeave, setSickLeave] = useState('1');
+  const [paidLeave, setPaidLeave] = useState('1');
+  const [compOff, setCompOff] = useState('1');
+  const [minAttendance, setMinAttendance] = useState('75');
+  const [minMarks, setMinMarks] = useState('40');
+  const [allowWithDues, setAllowWithDues] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [forcingCredits, setForcingCredits] = useState(false);
+  const [sendingMarks, setSendingMarks] = useState(false);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState<'success' | 'error'>('success');
 
@@ -109,9 +119,11 @@ export default function PrincipalSettingsPage() {
 
     setLoading(true);
     try {
-      const [attendanceRes, marksNotifRes] = await Promise.all([
+      const [attendanceRes, marksNotifRes, leavePolicyRes, promotionRes] = await Promise.all([
         API.get('/principal/attendance/settings', { headers: getHeaders() }),
         API.get('/principal/marks-notification/settings', { headers: getHeaders() }),
+        API.get('/principal/settings/leave-policy', { headers: getHeaders() }),
+        API.get('/principal/promotion/settings', { headers: getHeaders() }),
       ]);
       const appSettingsStr = await AsyncStorage.getItem('app_settings');
       if (appSettingsStr) {
@@ -121,8 +133,26 @@ export default function PrincipalSettingsPage() {
         } catch (e) {}
       }
       setDailySessions(Number(attendanceRes.data?.daily_sessions || 1) === 2 ? 2 : 1);
+      setAdminLocked(Boolean(attendanceRes.data?.admin_locked));
+      setAadhaarRequired(Boolean(attendanceRes.data?.aadhaar_required));
       setManualAttendanceEnabled(Boolean(attendanceRes.data?.enable_manual_attendance ?? false));
       setMarksNotificationEnabled(Boolean(marksNotifRes.data?.enabled ?? true));
+
+      if (leavePolicyRes.data) {
+        const d = leavePolicyRes.data;
+        setCasualLeave(String(d.casual_leave_per_month ?? 1));
+        setSickLeave(String(d.sick_leave_per_month ?? 1));
+        setPaidLeave(String(d.paid_leave_per_month ?? 1));
+        setCompOff(String(d.comp_off_per_month ?? 1));
+      }
+
+      const allRules = promotionRes.data?.settings?.find((s: { class_grade: string }) => s.class_grade === 'ALL');
+      if (allRules) {
+        setMinAttendance(String(allRules.min_attendance_pct ?? 75));
+        setMinMarks(String(allRules.min_marks_pct ?? 40));
+        setAllowWithDues(Boolean(allRules.allow_with_dues));
+      }
+
       setMsg('');
     } catch (err: any) {
       setMsgType('error');
@@ -156,6 +186,19 @@ export default function PrincipalSettingsPage() {
           enable_manual_attendance: Boolean(manualAttendanceEnabled),
         }, { headers: getHeaders() }),
         API.put('/principal/marks-notification/settings', { enabled: Boolean(marksNotificationEnabled) }, { headers: getHeaders() }),
+        API.post('/principal/settings/leave-policy', {
+          school_code: schoolCode,
+          casual_leave: Number(casualLeave) || 0,
+          sick_leave: Number(sickLeave) || 0,
+          paid_leave: Number(paidLeave) || 0,
+          comp_off: Number(compOff) || 0,
+        }, { headers: getHeaders() }),
+        API.post('/principal/promotion/settings', {
+          class_grade: 'ALL',
+          min_attendance_pct: Number(minAttendance) || 0,
+          min_marks_pct: Number(minMarks) || 0,
+          allow_with_dues: Boolean(allowWithDues),
+        }, { headers: getHeaders() }),
       ]);
 
       const appSettingsStr = await AsyncStorage.getItem('app_settings');
@@ -169,9 +212,13 @@ export default function PrincipalSettingsPage() {
       appSettings.notifications = pushNotificationsEnabled;
       await AsyncStorage.setItem('app_settings', JSON.stringify(appSettings));
 
+      const totalLeave =
+        (Number(casualLeave) || 0) + (Number(sickLeave) || 0) +
+        (Number(paidLeave) || 0) + (Number(compOff) || 0);
       setMsgType('success');
       setMsg(
         `Attendance set to ${value} time${value === 2 ? 's' : ''} per day. ` +
+        `Leave policy saved (${totalLeave} total days). ` +
         `Manual attendance is ${manualAttendanceEnabled ? 'enabled' : 'disabled'}.`
       );
 
@@ -187,6 +234,69 @@ export default function PrincipalSettingsPage() {
       setSaving(false);
     }
   };
+
+  const forceMonthlyCredits = () => {
+    Alert.alert(
+      'Force Monthly Leaves',
+      'Add monthly leave credits for all active teachers now? Existing balances will be updated (used leaves are preserved).',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Force Credits',
+          style: 'destructive',
+          onPress: async () => {
+            setForcingCredits(true);
+            setMsg('');
+            try {
+              await API.post('/principal/force-leave-credits', {}, { headers: getHeaders() });
+              setMsgType('success');
+              setMsg('Monthly leave credits added successfully.');
+            } catch (err: any) {
+              setMsgType('error');
+              setMsg(String(err?.response?.data?.detail || 'Failed to force leave credits.'));
+            } finally {
+              setForcingCredits(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const sendMarksNotifications = () => {
+    Alert.alert(
+      'Send Marks Notifications',
+      'Send marks notifications to all students with recently saved marks?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send Now',
+          onPress: async () => {
+            setSendingMarks(true);
+            setMsg('');
+            try {
+              const response = await API.post('/principal/marks/send-notifications', {}, { headers: getHeaders() });
+              const data = response.data || {};
+              setMsgType('success');
+              setMsg(
+                `${data.message || 'Notifications sent.'} ` +
+                `Sent to ${data.students_notified ?? 0} students (${data.notifications_created ?? 0} created).`
+              );
+            } catch (err: any) {
+              setMsgType('error');
+              setMsg(String(err?.response?.data?.detail || 'Failed to send marks notifications.'));
+            } finally {
+              setSendingMarks(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const totalLeaveDays =
+    (Number(casualLeave) || 0) + (Number(sickLeave) || 0) +
+    (Number(paidLeave) || 0) + (Number(compOff) || 0);
 
   return (
     <View style={styles.container}>
@@ -208,20 +318,14 @@ export default function PrincipalSettingsPage() {
 
       <ScrollView
         style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
       >
-        <View style={innerPageLayoutStyles.contentFront}>
-          <View style={styles.card}>
-            <View style={styles.header}>
-              <Settings size={18} color={C.text} />
-              <AppText style={styles.title} weight="bold">Principal Settings</AppText>
-            </View>
-
+        <View style={styles.settingsPanel}>
             <View style={styles.body}>
 
               {/* Daily Attendance Frequency */}
@@ -239,17 +343,46 @@ export default function PrincipalSettingsPage() {
                   <TouchableOpacity accessibilityRole="button"
                     style={[styles.segment, dailySessions === 1 && styles.segmentActive]}
                     onPress={() => setDailySessions(1)}
-                    disabled={loading || saving}
+                    disabled={loading || saving || adminLocked}
                   >
                     <AppText weight={dailySessions === 1 ? 'bold' : 'regular'} style={[styles.segmentText, dailySessions === 1 && styles.segmentTextActive]}>Once</AppText>
                   </TouchableOpacity>
-                  <TouchableOpacity accessibilityRole="button"
-                    style={[styles.segment, dailySessions === 2 && styles.segmentActive]}
-                    onPress={() => setDailySessions(2)}
-                    disabled={loading || saving}
+                  {(!adminLocked || dailySessions === 2) && (
+                    <TouchableOpacity accessibilityRole="button"
+                      style={[styles.segment, dailySessions === 2 && styles.segmentActive]}
+                      onPress={() => setDailySessions(2)}
+                      disabled={loading || saving || adminLocked}
+                    >
+                      <AppText weight={dailySessions === 2 ? 'bold' : 'regular'} style={[styles.segmentText, dailySessions === 2 && styles.segmentTextActive]}>Twice</AppText>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {adminLocked ? (
+                  <AppText style={styles.warningHint}>Locked to once per day by Super Admin.</AppText>
+                ) : null}
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* Aadhaar Requirement (read-only) */}
+              <View style={styles.settingRowContainer}>
+                <View style={styles.settingRowHeader}>
+                  <View style={styles.iconCircle}>
+                    <Fingerprint size={18} color={C.primary} />
+                  </View>
+                  <View style={styles.settingTextContainer}>
+                    <AppText weight="bold" style={styles.settingTitle}>Student Aadhaar Requirement</AppText>
+                    <AppText style={styles.settingDescription}>School-wide setting controlled by Super Admin</AppText>
+                  </View>
+                </View>
+                <View style={[styles.statusPill, aadhaarRequired ? styles.statusPillOn : styles.statusPillOff]}>
+                  <View style={[styles.statusDot, aadhaarRequired ? styles.statusDotOn : styles.statusDotOff]} />
+                  <AppText
+                    weight="semibold"
+                    style={[styles.statusPillText, aadhaarRequired ? styles.statusTextOn : styles.statusTextOff]}
                   >
-                    <AppText weight={dailySessions === 2 ? 'bold' : 'regular'} style={[styles.segmentText, dailySessions === 2 && styles.segmentTextActive]}>Twice</AppText>
-                  </TouchableOpacity>
+                    {aadhaarRequired ? 'Aadhaar column ENABLED' : 'Aadhaar column DISABLED'}
+                  </AppText>
                 </View>
               </View>
 
@@ -299,6 +432,144 @@ export default function PrincipalSettingsPage() {
 
               <View style={styles.divider} />
 
+              {/* Manual Marks Notification */}
+              <View style={styles.settingRowContainer}>
+                <View style={styles.settingRowHeader}>
+                  <View style={styles.iconCircle}>
+                    <BellRing size={18} color={C.primary} />
+                  </View>
+                  <View style={styles.settingTextContainer}>
+                    <AppText weight="bold" style={styles.settingTitle}>Manual Marks Notification</AppText>
+                    <AppText style={styles.settingDescription}>Trigger notifications for marks updated in the last 7 days</AppText>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={[styles.secondaryButton, (loading || sendingMarks) && styles.saveButtonDisabled]}
+                  onPress={sendMarksNotifications}
+                  disabled={loading || sendingMarks}
+                >
+                  {sendingMarks ? (
+                    <ActivityIndicator size="small" color={C.primary} />
+                  ) : (
+                    <>
+                      <BellRing size={16} color={C.primary} />
+                      <AppText style={styles.secondaryButtonText} weight="bold">Send Marks Notifications</AppText>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* Promotion Eligibility Rules */}
+              <View style={styles.settingRowContainer}>
+                <View style={styles.settingRowHeader}>
+                  <View style={styles.iconCircle}>
+                    <GraduationCap size={18} color={C.primary} />
+                  </View>
+                  <View style={styles.settingTextContainer}>
+                    <AppText weight="bold" style={styles.settingTitle}>Promotion Eligibility Rules</AppText>
+                    <AppText style={styles.settingDescription}>Thresholds for automatic promotion suggestions</AppText>
+                  </View>
+                </View>
+                <View style={styles.numberGrid}>
+                  <View style={styles.numberField}>
+                    <AppText style={styles.numberLabel}>Min. Attendance (%)</AppText>
+                    <TextInput
+                      style={styles.numberInput}
+                      value={minAttendance}
+                      onChangeText={setMinAttendance}
+                      keyboardType="number-pad"
+                      editable={!loading && !saving}
+                    />
+                  </View>
+                  <View style={styles.numberField}>
+                    <AppText style={styles.numberLabel}>Min. Avg Marks (%)</AppText>
+                    <TextInput
+                      style={styles.numberInput}
+                      value={minMarks}
+                      onChangeText={setMinMarks}
+                      keyboardType="number-pad"
+                      editable={!loading && !saving}
+                    />
+                  </View>
+                </View>
+                <View style={[styles.settingRow, { marginTop: 12 }]}>
+                  <View style={styles.settingTextContainer}>
+                    <AppText weight="bold" style={styles.settingTitle}>Allow with Dues</AppText>
+                    <AppText style={styles.settingDescription}>Allow promotion when fees are pending</AppText>
+                  </View>
+                  <Switch
+                    value={allowWithDues}
+                    onValueChange={setAllowWithDues}
+                    disabled={loading || saving}
+                    trackColor={{ false: '#cbd5e1', true: C.primary }}
+                    thumbColor={Platform.OS === 'ios' ? Theme.colors.card : allowWithDues ? Theme.colors.card : '#ffffff'}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* Monthly Leave Policy */}
+              <View style={styles.settingRowContainer}>
+                <View style={styles.settingRowHeader}>
+                  <View style={styles.iconCircle}>
+                    <CalendarDays size={18} color={C.primary} />
+                  </View>
+                  <View style={styles.settingTextContainer}>
+                    <AppText weight="bold" style={styles.settingTitle}>Monthly Leave Policy</AppText>
+                    <AppText style={styles.settingDescription}>Leave days per month for payroll calculations</AppText>
+                  </View>
+                </View>
+                <View style={styles.numberGrid}>
+                  <View style={styles.numberField}>
+                    <AppText style={styles.numberLabel}>Casual Leave</AppText>
+                    <TextInput
+                      style={styles.numberInput}
+                      value={casualLeave}
+                      onChangeText={setCasualLeave}
+                      keyboardType="number-pad"
+                      editable={!loading && !saving}
+                    />
+                  </View>
+                  <View style={styles.numberField}>
+                    <AppText style={styles.numberLabel}>Sick Leave</AppText>
+                    <TextInput
+                      style={styles.numberInput}
+                      value={sickLeave}
+                      onChangeText={setSickLeave}
+                      keyboardType="number-pad"
+                      editable={!loading && !saving}
+                    />
+                  </View>
+                  <View style={styles.numberField}>
+                    <AppText style={styles.numberLabel}>Paid Leave</AppText>
+                    <TextInput
+                      style={styles.numberInput}
+                      value={paidLeave}
+                      onChangeText={setPaidLeave}
+                      keyboardType="number-pad"
+                      editable={!loading && !saving}
+                    />
+                  </View>
+                  <View style={styles.numberField}>
+                    <AppText style={styles.numberLabel}>Comp Off</AppText>
+                    <TextInput
+                      style={styles.numberInput}
+                      value={compOff}
+                      onChangeText={setCompOff}
+                      keyboardType="number-pad"
+                      editable={!loading && !saving}
+                    />
+                  </View>
+                </View>
+                <AppText style={styles.totalHint}>Total available: {totalLeaveDays} days</AppText>
+              </View>
+
+              <View style={styles.divider} />
+
               {/* Push Notifications Setting */}
               <View style={styles.settingRowContainer}>
                 <View style={styles.settingRow}>
@@ -332,6 +603,20 @@ export default function PrincipalSettingsPage() {
                     <>
                       <Save size={16} color={Theme.colors.card} />
                       <AppText style={styles.saveButtonText} weight="bold">Save Settings</AppText>
+                    </>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button"
+                  style={[styles.warningButton, (loading || forcingCredits) && styles.saveButtonDisabled]}
+                  onPress={forceMonthlyCredits}
+                  disabled={loading || forcingCredits}
+                >
+                  {forcingCredits ? (
+                    <ActivityIndicator size="small" color={Theme.colors.card} />
+                  ) : (
+                    <>
+                      <RefreshCw size={16} color={Theme.colors.card} />
+                      <AppText style={styles.saveButtonText} weight="bold">Force Monthly Leaves</AppText>
                     </>
                   )}
                 </TouchableOpacity>
@@ -370,7 +655,6 @@ export default function PrincipalSettingsPage() {
                 </View>
               )}
             </View>
-          </View>
         </View>
       </ScrollView>
     </View>
@@ -448,40 +732,25 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  card: {
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 100,
+  },
+  settingsPanel: {
     backgroundColor: C.card,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
-    margin: Theme.spacing.md,
     overflow: 'hidden',
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#f8fafc',
-  },
-  title: {
-    margin: 0,
-    fontSize: 16,
-    color: C.text,
   },
   body: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 16,
   },
   settingRowContainer: {
-    paddingVertical: 16,
+    paddingVertical: 14,
   },
   settingRow: {
     flexDirection: 'row',
@@ -547,12 +816,105 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   divider: {
-    height: 1,
-    backgroundColor: '#f1f5f9',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: C.border,
+    marginHorizontal: 16,
   },
   actionRow: {
     marginTop: 24,
     marginBottom: 10,
+    gap: 12,
+  },
+  secondaryButton: {
+    marginTop: 8,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: C.primary,
+    backgroundColor: 'rgba(30, 58, 138, 0.04)',
+  },
+  secondaryButtonText: {
+    color: C.primary,
+    fontSize: 14,
+  },
+  warningButton: {
+    backgroundColor: '#f59e0b',
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  warningHint: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#dc2626',
+    fontWeight: '600',
+  },
+  statusPill: {
+    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+  },
+  statusPillOn: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bcf0da',
+  },
+  statusPillOff: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusDotOn: { backgroundColor: '#22c55e' },
+  statusDotOff: { backgroundColor: '#ef4444' },
+  statusPillText: { fontSize: 13 },
+  statusTextOn: { color: '#166534' },
+  statusTextOff: { color: '#991b1b' },
+  numberGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 8,
+  },
+  numberField: {
+    width: '47%',
+    minWidth: 120,
+  },
+  numberLabel: {
+    fontSize: 12,
+    color: C.textMuted,
+    marginBottom: 6,
+  },
+  numberInput: {
+    height: 42,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    color: C.text,
+    backgroundColor: '#fff',
+  },
+  totalHint: {
+    marginTop: 10,
+    fontSize: 12,
+    color: C.textMuted,
   },
   saveButton: {
     backgroundColor: C.primary,
@@ -609,7 +971,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg + 'CC',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
+    borderRadius: 12,
   },
   loadingText: {
     marginTop: 12,

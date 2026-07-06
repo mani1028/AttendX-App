@@ -7,7 +7,11 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { XCircle, CheckCircle2 } from 'lucide-react-native';
 import { Theme } from '../../theme/tokens';
 
@@ -31,7 +35,9 @@ const CustomPickerModal: React.FC<CustomPickerModalProps> = ({
   onClose,
 }) => {
   const activeColor = Theme.colors.primary;
+  const insets = useSafeAreaInsets();
   const [searchText, setSearchText] = useState('');
+  const listMaxHeight = Math.min(350, Dimensions.get('window').height * 0.45);
 
   useEffect(() => {
     if (!visible) {
@@ -48,8 +54,11 @@ const CustomPickerModal: React.FC<CustomPickerModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.pickerOverlay}>
-        <View style={styles.pickerCard}>
+      <KeyboardAvoidingView
+        style={styles.pickerOverlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={[styles.pickerCard, { marginBottom: insets.bottom }]}>
           <View style={styles.pickerHeader}>
             <View>
               <Text style={styles.pickerTitle}>{title}</Text>
@@ -74,7 +83,7 @@ const CustomPickerModal: React.FC<CustomPickerModalProps> = ({
           )}
 
           <View style={styles.pickerShell}>
-            <ScrollView style={{ maxHeight: 350 }}>
+            <ScrollView style={{ maxHeight: listMaxHeight }} keyboardShouldPersistTaps="handled">
               {!Array.isArray(filteredOptions) || filteredOptions.length === 0 ? (
                 <View style={{ padding: 20, alignItems: 'center' }}>
                   <Text style={{ color: Theme.colors.textSec }}>No matching options</Text>
@@ -118,7 +127,7 @@ const CustomPickerModal: React.FC<CustomPickerModalProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

@@ -82,6 +82,7 @@ const styles = StyleSheet.create({
   },
   fullBleed: {
     marginHorizontal: -HEADER_CONSTANTS.DASHBOARD_HORIZONTAL,
+    marginTop: 0,
     marginBottom: 20,
   },
   inner: {

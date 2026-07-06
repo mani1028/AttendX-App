@@ -14,7 +14,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { launchImageLibrary } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import API from '../../services/api';
 
@@ -27,6 +27,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Theme } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
+import { launchCameraWithPermission as launchCamera } from '../../utils/cameraUtils';
 
 
 
@@ -250,19 +251,21 @@ export default function SkinDiseaseScreen() {
     <View style={styles.container}>
 
 
-      <StandardPageHeader
-        title="Skin Analysis"
-        subtitle="AI-powered detection of dermatological conditions"
-        onBackPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never))}
-      />
-
       <ScrollView
        style={[styles.mainContent, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[innerPageLayoutStyles.scrollPageContent, styles.contentContainer]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
+      <StandardPageHeader
+        title="Skin Analysis"
+        subtitle="AI-powered detection of dermatological conditions"
+        onBackPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never))}
+        scrollWithContent
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+      />
+      <View style={innerPageLayoutStyles.scrollBody}>
 
       {/* Image Selection Card */}
       <AppCard style={styles.card}>
@@ -414,6 +417,7 @@ export default function SkinDiseaseScreen() {
           </Text>
         </AppCard>
       </View>
+      </View>
     </ScrollView>
     </View>
   );
@@ -428,7 +432,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 20,
     paddingBottom: 40,
   },
   card: {

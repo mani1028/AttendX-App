@@ -577,16 +577,20 @@ export default function HomeworkManagementScreen() {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader title="Homework Management" onBackPress={() => navigation.goBack()} />
-
       <ScrollView
-        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.scrollContent}
+        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={[innerPageLayoutStyles.scrollPageContent, styles.scrollContent]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
-        <View style={[styles.pageContent, innerPageLayoutStyles.contentFront]}>
+        <StandardPageHeader
+          title="Homework Management"
+          onBackPress={() => navigation.goBack()}
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
+        <View style={[styles.pageContent, innerPageLayoutStyles.scrollBody]}>
           {/* Create Homework Card */}
           <View style={styles.createSection}>
             <TouchableOpacity activeOpacity={0.9} onPress={() => {
@@ -902,9 +906,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 60,
   },
-  pageContent: {
-    paddingHorizontal: 20,
-  },
+  pageContent: {},
   createSection: {
     marginTop: 0,
   },

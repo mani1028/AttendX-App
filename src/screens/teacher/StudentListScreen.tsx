@@ -461,16 +461,21 @@ export default function StudentListScreen() {
     <View style={styles.container}>
 
 
-      {/* Navy Standard Header */}
-      <StandardPageHeader title="Student List" onBackPress={() => navigation.goBack()} />
-
       <ScrollView
-        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.contentContainer}
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={[innerPageLayoutStyles.scrollPageContent, styles.contentContainer]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        <StandardPageHeader
+          title="Student List"
+          onBackPress={() => navigation.goBack()}
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
+        <View style={innerPageLayoutStyles.scrollBody}>
         {/* Class Filter */}
         <View style={styles.filterCard}>
           <View style={styles.filterRow}>
@@ -550,6 +555,7 @@ export default function StudentListScreen() {
             ))}
           </View>
         )}
+        </View>
       </ScrollView>
 
       {/* FAB - Add Student (If allowed) */}
@@ -837,8 +843,6 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   contentContainer: {
-    padding: 20,
-    paddingTop: 30,
     paddingBottom: 100,
   },
   filterCard: {

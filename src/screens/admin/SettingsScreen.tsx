@@ -2,7 +2,7 @@ import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import { Theme } from '../../theme/tokens';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Switch, Modal, TextInput, Platform, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft, CreditCard, ShieldCheck, Bell, Settings, Trash2, AlertTriangle, X, CheckCircle } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -111,7 +111,7 @@ const SecureDeleteModal: React.FC<{
   const canProceed = schoolId.trim() && password.trim() && isConfirmationValid && step === 2;
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
@@ -272,7 +272,7 @@ const SecureDeleteModal: React.FC<{
 
 
 export default function SettingsScreen() {
-  const insets = useSafeAreaInsets();
+  const tabBarScrollPadding = useTabBarScrollPadding();
   const navigation = useNavigation();
 
   const [loading, setLoading] = useState(true);
@@ -375,17 +375,22 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-
-
-      <StandardPageHeader title="Settings" onBackPress={() => navigation.goBack()} />
-
       <ScrollView
-       style={{ flex: 1 }}
-        contentContainerStyle={[styles.contentContainer]}
+        style={{ flex: 1 }}
+        contentContainerStyle={[innerPageLayoutStyles.scrollPageContent, { paddingBottom: tabBarScrollPadding }]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
+        <StandardPageHeader
+          scrollWithContent
+          title="Settings"
+          onBackPress={() => navigation.goBack()}
+          showBack={false}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
+
+        <View style={[innerPageLayoutStyles.scrollBody, styles.contentContainer]}>
         {/* Payment & Billing Toggles */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -470,6 +475,7 @@ export default function SettingsScreen() {
             <AppText style={styles.dangerZoneActionBtnText}>Delete Registered School</AppText>
           </TouchableOpacity>
         </AppCard>
+        </View>
       </ScrollView>
 
       <SecureDeleteModal
@@ -511,9 +517,7 @@ const styles = StyleSheet.create({
     color: Theme.colors.card,
   },
   contentContainer: {
-    padding: 20,
-    paddingTop: 40,
-    paddingBottom: 120,
+    gap: Theme.spacing.md,
   },
   card: {
     backgroundColor: colors.surface,

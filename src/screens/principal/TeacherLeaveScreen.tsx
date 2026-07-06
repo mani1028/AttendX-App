@@ -30,11 +30,8 @@ import { formatErrorMessage } from '../../utils/helpers';
 import AppText from '../../components/common/AppText';
 import { safeGoBack } from '../../utils/navigationHelpers';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
-import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 const { width } = Dimensions.get('window');
-const PAGE_GUTTER = 14;
-
 interface TeacherLeave {
   leave_id: number;
   teacher_id: number;
@@ -148,6 +145,7 @@ export default function TeacherLeaveScreen({ navigation }: any) {
       key={leave.leave_id}
       style={styles.leaveCard}
       onPress={() => setSelectedLeave(leave)}
+      activeOpacity={0.7}
     >
       <View style={styles.cardHeader}>
         <View style={styles.teacherInfo}>
@@ -174,13 +172,10 @@ export default function TeacherLeaveScreen({ navigation }: any) {
 
       <View style={styles.cardFooter}>
         <Text style={styles.appliedOn}>Applied: {new Date(leave.created_at).toLocaleDateString()}</Text>
-        <TouchableOpacity
-          style={styles.viewDetailsBtn}
-          onPress={() => setSelectedLeave(leave)}
-        >
+        <View style={styles.viewDetailsBtn}>
           <Text style={styles.viewDetailsText}>View Details</Text>
           <ChevronRight size={16} color="#3B82F6" />
-        </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -196,12 +191,12 @@ export default function TeacherLeaveScreen({ navigation }: any) {
       />
 
       <ScrollView
-        style={[styles.content, innerPageLayoutStyles.scrollViewFront]}
+        style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
       >
-        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+        <View style={styles.pageBody}>
           <View style={styles.filterTabs}>
             <AppText style={styles.filterLabel} weight="semibold">Filter by Status</AppText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScrollContent}>
@@ -241,9 +236,16 @@ export default function TeacherLeaveScreen({ navigation }: any) {
         visible={!!selectedLeave}
         transparent
         animationType="slide"
+        statusBarTranslucent
         onRequestClose={() => setSelectedLeave(null)}
       >
         <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setSelectedLeave(null)}
+          />
+          {selectedLeave ? (
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Leave Details</Text>
@@ -252,11 +254,10 @@ export default function TeacherLeaveScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
 
-            {selectedLeave && (
-              <ScrollView style={[styles.modalScroll, innerPageLayoutStyles.scrollViewFront]}>
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
                 <View style={styles.detailTeacherInfo}>
                   <View style={styles.largeAvatar}>
-                    <Text style={styles.largeAvatarText}>{selectedLeave.teacher_full_name.charAt(0)}</Text>
+                    <Text style={styles.largeAvatarText}>{(selectedLeave.teacher_full_name || '?').charAt(0)}</Text>
                   </View>
                   <Text style={styles.detailTeacherName}>{selectedLeave.teacher_full_name}</Text>
                   <Text style={styles.detailTeacherSubject}>{selectedLeave.subject || 'Class Teacher'}</Text>
@@ -308,8 +309,8 @@ export default function TeacherLeaveScreen({ navigation }: any) {
                   </View>
                 )}
               </ScrollView>
-            )}
           </View>
+          ) : null}
         </View>
       </Modal>
     </View>
@@ -322,11 +323,12 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   pageBody: {
-    paddingHorizontal: PAGE_GUTTER,
     paddingBottom: 100,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingTop: 12,
+    paddingBottom: 100,
+    paddingHorizontal: 16,
   },
   content: {
     flex: 1,
@@ -380,17 +382,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   filterTabs: {
-    backgroundColor: Theme.colors.card,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    marginTop: 14,
-    marginBottom: Theme.spacing.md,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
+    marginBottom: 12,
   },
   filterScrollContent: {
-    paddingHorizontal: 12,
+    gap: 8,
   },
   filterTab: {
     paddingHorizontal: Theme.spacing.md,
@@ -420,18 +415,11 @@ const styles = StyleSheet.create({
   },
   leaveCard: {
     backgroundColor: Theme.colors.card,
-    borderRadius: 18,
+    borderRadius: 12,
     padding: Theme.spacing.md,
-    marginBottom: Theme.spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: Theme.colors.background,
-    borderLeftWidth: 4,
-    borderLeftColor: C.primary,
+    marginBottom: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Theme.colors.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -530,8 +518,11 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: {
     backgroundColor: Theme.colors.card,

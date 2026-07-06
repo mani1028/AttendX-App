@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
 import {
   RefreshCw,
   BarChart2,
@@ -40,8 +40,6 @@ import { StorageKeys } from '../../storage/StorageKeys';
 
 
 
-const PAGE_GUTTER = 14;
-
 interface MonthlyCollection {
   month: string;
   total: number;
@@ -49,7 +47,7 @@ interface MonthlyCollection {
 }
 
 const Reports = () => {
-  const insets = useSafeAreaInsets();
+  const tabBarScrollPadding = useTabBarScrollPadding();
   const navigation = useNavigation();
   const { setTabBarVisible, userRole } = useAuth();
   const isMounted = useRef(true);
@@ -181,14 +179,14 @@ const Reports = () => {
 
       <ScrollView
         style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        contentContainerStyle={[innerPageLayoutStyles.scrollContent, { paddingBottom: tabBarScrollPadding }]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
       >
-        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+        <View style={styles.pageBody}>
         <View style={styles.subHeader}>
           <View style={styles.subHeaderRow}>
             <FileText size={16} color={C.textSec} />
@@ -339,8 +337,6 @@ const Reports = () => {
             </View>
           </View>
         )}
-        {/* Bottom Spacer for Tab Bar */}
-        <View style={{ height: insets.bottom + 140 }} />
         </View>
       </ScrollView>
     </View>
@@ -356,26 +352,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   pageBody: {
-    paddingHorizontal: PAGE_GUTTER,
   },
   subHeader: {
     backgroundColor: C.card,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
     marginBottom: Theme.spacing.sm,
     marginTop: 14,
     borderRadius: 12,
-    ...Platform.select({
-      android: { elevation: 3 },
-      ios: {
-        shadowColor: Theme.colors.primary,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-    }),
   },
   subHeaderRow: {
     flexDirection: 'row',
@@ -390,18 +376,9 @@ const styles = StyleSheet.create({
     backgroundColor: C.card,
     marginBottom: Theme.spacing.sm,
     padding: Theme.spacing.md,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
-    ...Platform.select({
-      android: { elevation: 2 },
-      ios: {
-        shadowColor: Theme.colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-      },
-    }),
   },
   sectionHeader: {
     flexDirection: 'row',

@@ -13,10 +13,11 @@ class MainActivity : ReactActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
-    // Android 15+ expects edge-to-edge; manage system bar icon appearance via insets controller.
+    // Edge-to-edge: content draws behind status bar; icon appearance set per screen in JS.
     WindowCompat.setDecorFitsSystemWindows(window, false)
+    window.navigationBarColor = android.graphics.Color.WHITE
     val insetsController = WindowInsetsControllerCompat(window, window.decorView)
-    insetsController.isAppearanceLightStatusBars = true
+    insetsController.isAppearanceLightStatusBars = false
     insetsController.isAppearanceLightNavigationBars = true
   }
 

@@ -155,16 +155,17 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: Theme.colors.card,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Theme.colors.border,
+    borderTopWidth: 0,
     ...Platform.select({
       ios: {
         shadowColor: '#0f172a',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
       },
-      android: { elevation: 12 },
+      android: {
+        elevation: 8,
+      },
     }),
   },
   tabBar: {

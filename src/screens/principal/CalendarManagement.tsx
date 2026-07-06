@@ -1,6 +1,6 @@
 // src/screens/principal/CalendarManagement.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,18 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  useWindowDimensions,
+  KeyboardAvoidingView,
 } from 'react-native';
-import { ChevronLeft, ChevronRight, Plus, X, Edit2, Trash2, Eye } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ChevronLeft, ChevronRight, Plus, X, Edit2, Trash2, Eye, CalendarDays } from 'lucide-react-native';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import API, { buildApiUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { storage } from '../../storage/storage';
+import { StorageKeys } from '../../storage/StorageKeys';
 
 import type { RootStackParamList } from '../../navigation/types';
 import AppText from '../../components/common/AppText';
@@ -89,6 +94,32 @@ const MONTH_NAMES = [
   'December',
 ];
 
+const normalizeDateStr = (value?: string | null): string => String(value || '').trim().slice(0, 10);
+
+const normalizeEvent = (event: Event): Event => ({
+  ...event,
+  event_date: normalizeDateStr(event.event_date),
+});
+
+async function getCalendarHeaders(): Promise<Record<string, string>> {
+  const schoolCode =
+    (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+    (await AsyncStorage.getItem('school_code')) ||
+    (await AsyncStorage.getItem('schoolCode')) ||
+    '';
+  const branchId =
+    (await storage.getString(StorageKeys.BRANCH_ID)) ||
+    (await AsyncStorage.getItem('branch_id')) ||
+    (await AsyncStorage.getItem('branchId')) ||
+    '';
+  return {
+    'X-School-Code': schoolCode,
+    'x-school-code': schoolCode,
+    'X-Branch-Id': branchId,
+    'x-branch-id': branchId,
+  };
+}
+
 export default function CalendarManagement() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -107,7 +138,10 @@ export default function CalendarManagement() {
     type: 'holiday',
     color: 'holiday',
   });
-  const [loading, setLoading] = useState<boolean>(false);
+  const [fetching, setFetching] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
+  const { width: screenWidth } = useWindowDimensions();
+  const isCompactActions = screenWidth < 380;
   const [error, setError] = useState<string>('');
   const [selectedCountry, setSelectedCountry] = useState<string>('IN');
   const { userRole } = useAuth();
@@ -137,7 +171,7 @@ export default function CalendarManagement() {
 
   useEffect(() => {
     fetchEvents();
-  }, [currentDate]);
+  }, []);
 
   useEffect(() => {
     if (selectedCountry) {
@@ -145,19 +179,21 @@ export default function CalendarManagement() {
     }
   }, [currentDate, selectedCountry]);
 
-  const fetchEvents = async (): Promise<void> => {
+  const fetchEvents = useCallback(async (): Promise<void> => {
     try {
-      setLoading(true);
-      const response = await API.get('/principal/calendar');
+      setFetching(true);
+      const headers = await getCalendarHeaders();
+      const response = await API.get('/principal/calendar', { headers });
       if (response.data) {
-        setEvents(Array.isArray(response.data) ? response.data : response.data.events || []);
+        const raw = Array.isArray(response.data) ? response.data : response.data.events || [];
+        setEvents(Array.isArray(raw) ? raw.map(normalizeEvent) : []);
       }
     } catch (err) {
       console.error('Failed to fetch events:', err);
     } finally {
-      setLoading(false);
+      setFetching(false);
     }
-  };
+  }, []);
 
   const formatLocalDate = (date: Date): string => {
     const year = date.getFullYear();
@@ -283,33 +319,46 @@ export default function CalendarManagement() {
 
   const handleSaveEvent = async (): Promise<void> => {
     if (!canEdit) {return;}
-    if (!formData.title.trim() || !formData.date) {
+    const title = formData.title.trim();
+    const eventDate = normalizeDateStr(formData.date);
+    if (!title || !eventDate) {
       Alert.alert('Error', 'Title and date are required');
       return;
     }
 
     try {
-      setLoading(true);
+      setSaving(true);
+      const headers = await getCalendarHeaders();
       const payload = {
-        title: formData.title,
-        event_date: formData.date,
+        title,
+        event_date: eventDate,
         description: formData.description,
         event_type: formData.type,
         color_code: COLORS[formData.color] || COLORS[formData.type] || '#6648dc',
       };
 
       if (editingEvent) {
-        await API.put(`/principal/calendar/${editingEvent.event_id || editingEvent.id}`, payload);
+        await API.put(`/principal/calendar/${editingEvent.event_id || editingEvent.id}`, payload, { headers });
       } else {
-        await API.post('/principal/calendar', payload);
+        await API.post('/principal/calendar', payload, { headers });
       }
 
       setShowModal(false);
-      fetchEvents();
-    } catch (err) {
-      Alert.alert('Error', 'Error saving event: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      setEditingEvent(null);
+      await fetchEvents();
+      Alert.alert('Success', editingEvent ? 'Event updated successfully.' : 'Event added successfully.');
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail;
+      if (status === 409) {
+        Alert.alert('Already exists', String(detail || 'This event already exists on the selected date.'));
+      } else if (status === 403) {
+        Alert.alert('Read-only year', String(detail || 'The active academic year is closed for edits.'));
+      } else {
+        Alert.alert('Error', String(detail || err?.message || 'Failed to save event.'));
+      }
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -322,7 +371,8 @@ export default function CalendarManagement() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await API.delete(`/principal/calendar/${eventId}`);
+            const headers = await getCalendarHeaders();
+            await API.delete(`/principal/calendar/${eventId}`, { headers });
             fetchEvents();
           } catch (err) {
             console.error('Failed to delete event:', err);
@@ -357,12 +407,12 @@ export default function CalendarManagement() {
   const getEventsForDate = (date: Date | null): Event[] => {
     if (!date) {return [];}
     const dateStr = formatLocalDate(date);
-    return events.filter((e) => e.event_date === dateStr);
+    return events.filter((e) => normalizeDateStr(e.event_date) === dateStr);
   };
 
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  if (loading && events.length === 0) {
+  if (fetching && events.length === 0) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -381,19 +431,18 @@ export default function CalendarManagement() {
         showBack={navigation.canGoBack()}
       />
 
-      <ScrollView style={[styles.scrollViewContainer, innerPageLayoutStyles.scrollViewFront]} showsVerticalScrollIndicator={false}>
-        {/* Subtitle description */}
-        <View style={styles.descriptionRow}>
-          <AppText style={styles.descriptionText}>
-            Review academic events, holidays, and important dates.
-          </AppText>
-        </View>
-
+      <ScrollView
+        style={[styles.scrollViewContainer, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={innerPageLayoutStyles.contentFront}>
         {/* Action Buttons Row */}
         {canEdit ? (
-          <View style={styles.actionRowContainer}>
+          <View style={[styles.actionRowContainer, isCompactActions && styles.actionRowContainerStacked]}>
             <TouchableOpacity accessibilityRole="button" style={styles.actionRowButton} onPress={() => setShowHolidaysModal(true)}>
-              <AppText style={styles.actionRowButtonText} weight="bold">📅 Public Holidays</AppText>
+              <CalendarDays size={18} color={C.primary} />
+              <AppText style={styles.actionRowButtonText} weight="bold">Public Holidays</AppText>
             </TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" style={[styles.actionRowButton, styles.actionRowButtonPrimary]} onPress={() => handleAddEvent(new Date())}>
               <Plus size={18} color={Theme.colors.card} />
@@ -534,7 +583,7 @@ export default function CalendarManagement() {
                               setEditingEvent(event);
                               setFormData({
                                 title: event.title,
-                                date: event.event_date,
+                                date: normalizeDateStr(event.event_date),
                                 description: event.description || '',
                                 type: event.event_type || 'holiday',
                                 color: 'holiday',
@@ -559,94 +608,115 @@ export default function CalendarManagement() {
         )}
 
         <View style={{ height: 40 }} />
+        </View>
       </ScrollView>
 
       {/* Add/Edit Event Modal */}
-      <Modal visible={showModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <AppText style={styles.modalTitle} weight="bold">{editingEvent ? 'Edit Event' : 'Add Event'}</AppText>
-              <TouchableOpacity accessibilityRole="button" onPress={() => setShowModal(false)}>
-                <X size={24} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={innerPageLayoutStyles.scrollViewFront} showsVerticalScrollIndicator={false}>
-              <View style={styles.formGroup}>
-                <AppText style={styles.label} weight="semibold">Event Title *</AppText>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Summer Vacation, Diwali Festival"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={formData.title}
-                  onChangeText={(text) => setFormData({ ...formData, title: text })}
-                />
+      <Modal
+        visible={showModal}
+        animationType="slide"
+        transparent
+        statusBarTranslucent
+        onRequestClose={() => setShowModal(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalKeyboard}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <AppText style={styles.modalTitle} weight="bold">{editingEvent ? 'Edit Event' : 'Add Event'}</AppText>
+                <TouchableOpacity accessibilityRole="button" onPress={() => setShowModal(false)}>
+                  <X size={24} color={COLORS.text} />
+                </TouchableOpacity>
               </View>
 
-              <View style={styles.formGroup}>
-                <AppText style={styles.label} weight="semibold">Date *</AppText>
-                <TextInput
-                  style={styles.input}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={formData.date}
-                  onChangeText={(text) => setFormData({ ...formData, date: text })}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <AppText style={styles.label} weight="semibold">Event Type</AppText>
-                <View style={styles.pickerContainer}>
-                  {['holiday', 'festival', 'exam', 'event'].map((type) => (
-                    <TouchableOpacity accessibilityRole="button"
-                      key={type}
-                      style={[
-                        styles.typeOption,
-                        formData.type === type && styles.typeOptionActive,
-                      ]}
-                      onPress={() => setFormData({ ...formData, type })}
-                    >
-                      <AppText
-                        style={[
-                          styles.typeOptionText,
-                          formData.type === type && styles.typeOptionTextActive,
-                        ]}
-                        weight="bold"
-                      >
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                      </AppText>
-                    </TouchableOpacity>
-                  ))}
+              <ScrollView
+                style={styles.modalScroll}
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.formGroup}>
+                  <AppText style={styles.label} weight="semibold">Event Title *</AppText>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g., Summer Vacation, Diwali Festival"
+                    placeholderTextColor={COLORS.textMuted}
+                    value={formData.title}
+                    onChangeText={(text) => setFormData({ ...formData, title: text })}
+                  />
                 </View>
-              </View>
 
-              <View style={styles.formGroup}>
-                <AppText style={styles.label} weight="semibold">Description</AppText>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="Additional details about this event..."
-                  placeholderTextColor={COLORS.textMuted}
-                  value={formData.description}
-                  onChangeText={(text) => setFormData({ ...formData, description: text })}
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-            </ScrollView>
+                <View style={styles.formGroup}>
+                  <AppText style={styles.label} weight="semibold">Date *</AppText>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={COLORS.textMuted}
+                    value={formData.date}
+                    onChangeText={(text) => setFormData({ ...formData, date: text })}
+                  />
+                </View>
 
-            <View style={styles.buttonGroup}>
-              <TouchableOpacity accessibilityRole="button" style={styles.cancelButton} onPress={() => setShowModal(false)}>
-                <AppText style={styles.cancelButtonText} weight="bold">Cancel</AppText>
-              </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="button" style={styles.submitButton} onPress={handleSaveEvent} disabled={loading}>
-                <AppText style={styles.submitButtonText} weight="bold">
-                  {loading ? 'Saving...' : editingEvent ? 'Update Event' : 'Add Event'}
-                </AppText>
-              </TouchableOpacity>
+                <View style={styles.formGroup}>
+                  <AppText style={styles.label} weight="semibold">Event Type</AppText>
+                  <View style={styles.pickerContainer}>
+                    {['holiday', 'festival', 'exam', 'event'].map((type) => (
+                      <TouchableOpacity accessibilityRole="button"
+                        key={type}
+                        style={[
+                          styles.typeOption,
+                          formData.type === type && styles.typeOptionActive,
+                        ]}
+                        onPress={() => setFormData({ ...formData, type })}
+                      >
+                        <AppText
+                          style={[
+                            styles.typeOptionText,
+                            formData.type === type && styles.typeOptionTextActive,
+                          ]}
+                          weight="bold"
+                        >
+                          {type.charAt(0).toUpperCase() + type.slice(1)}
+                        </AppText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.formGroup}>
+                  <AppText style={styles.label} weight="semibold">Description</AppText>
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    placeholder="Additional details about this event..."
+                    placeholderTextColor={COLORS.textMuted}
+                    value={formData.description}
+                    onChangeText={(text) => setFormData({ ...formData, description: text })}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+
+                <View style={styles.buttonGroup}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.cancelButton} onPress={() => setShowModal(false)}>
+                    <AppText style={styles.cancelButtonText} weight="bold">Cancel</AppText>
+                  </TouchableOpacity>
+                  <TouchableOpacity accessibilityRole="button" style={styles.submitButton} onPress={handleSaveEvent} disabled={saving}>
+                    {saving ? (
+                      <ActivityIndicator size="small" color={Theme.colors.card} />
+                    ) : (
+                      <AppText style={styles.submitButtonText} weight="bold">
+                        {editingEvent ? 'Update Event' : 'Add Event'}
+                      </AppText>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Preview Modal */}
@@ -703,7 +773,7 @@ export default function CalendarManagement() {
                             setEditingEvent(previewingEvent);
                             setFormData({
                               title: previewingEvent.title,
-                              date: previewingEvent.event_date,
+                              date: normalizeDateStr(previewingEvent.event_date),
                               description: previewingEvent.description || '',
                               type: previewingEvent.event_type || 'holiday',
                               color: 'holiday',
@@ -775,7 +845,7 @@ export default function CalendarManagement() {
                           setEditingEvent(evt);
                           setFormData({
                             title: evt.title,
-                            date: evt.event_date,
+                            date: normalizeDateStr(evt.event_date),
                             description: evt.description || '',
                             type: evt.event_type || 'holiday',
                             color: 'holiday',
@@ -920,34 +990,41 @@ export default function CalendarManagement() {
                     return;
                   }
                   try {
-                    setLoading(true);
+                    setSaving(true);
+                    const headers = await getCalendarHeaders();
+                    let added = 0;
                     for (const holidayKey of holidaysToAdd) {
                       const googleHoliday = googleHolidays.find((h) => `${h.date}-${h.title}` === holidayKey);
                       if (googleHoliday) {
-                        await API.post('/principal/calendar', {
-                          title: googleHoliday.title,
-                          event_date: googleHoliday.date,
-                          description: 'Public Holiday',
-                          event_type: 'holiday',
-                          color_code: Theme.colors.error,
-                        });
+                        try {
+                          await API.post('/principal/calendar', {
+                            title: googleHoliday.title,
+                            event_date: googleHoliday.date,
+                            description: 'Public Holiday',
+                            event_type: 'holiday',
+                            color_code: Theme.colors.error,
+                          }, { headers });
+                          added += 1;
+                        } catch (postErr: any) {
+                          if (postErr?.response?.status !== 409) {throw postErr;}
+                        }
                       }
                     }
                     setSelectedHolidays({});
                     setGoogleHolidays([]);
                     setShowHolidaysModal(false);
                     fetchEvents();
-                    Alert.alert('Success', `Added ${holidaysToAdd.length} holidays successfully`);
+                    Alert.alert('Success', `Added ${added} holiday${added === 1 ? '' : 's'} successfully`);
                   } catch (err) {
                     Alert.alert('Error', 'Failed to add holidays');
                   } finally {
-                    setLoading(false);
+                    setSaving(false);
                   }
                 }}
-                disabled={loading || googleHolidays.length === 0}
+                disabled={saving || googleHolidays.length === 0}
               >
                 <AppText style={styles.submitButtonText} weight="bold">
-                  {loading ? 'Adding...' : 'Add Selected Holidays'}
+                  {saving ? 'Adding...' : 'Add Selected Holidays'}
                 </AppText>
               </TouchableOpacity>
             </View>
@@ -1005,22 +1082,15 @@ const styles = StyleSheet.create({
     color: Theme.colors.card,
     fontSize: 13,
   },
-  descriptionRow: {
-    marginHorizontal: Theme.spacing.md,
-    marginTop: Theme.spacing.md,
-    marginBottom: Theme.spacing.xs,
-  },
-  descriptionText: {
-    ...Theme.typography.body,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
-  },
   actionRowContainer: {
     flexDirection: 'row',
     gap: 12,
     marginHorizontal: Theme.spacing.md,
-    marginTop: 12,
+    marginTop: 14,
     marginBottom: Theme.spacing.sm,
+  },
+  actionRowContainerStacked: {
+    flexDirection: 'column',
   },
   actionRowButton: {
     flex: 1,
@@ -1243,11 +1313,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 20,
   },
+  modalKeyboard: {
+    flex: 1,
+  },
+  modalScroll: {
+    flexGrow: 0,
+  },
+  modalScrollContent: {
+    paddingBottom: 8,
+  },
   modalContent: {
     backgroundColor: C.card,
     borderRadius: 20,
     padding: 20,
-    maxHeight: '90%',
+    maxHeight: '88%',
+    width: '100%',
     borderWidth: 1.5,
     borderColor: C.border,
     shadowColor: '#000',

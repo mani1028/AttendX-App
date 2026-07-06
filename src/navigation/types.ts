@@ -23,8 +23,9 @@ export type RootStackParamList = {
   AdminSettings: undefined;
   AutoPayTracker: undefined;
   ManualAttendanceManager: undefined;
-  PricingManager: undefined;
   PaymentHistory: undefined;
+  AdminBlogManager: undefined;
+  AdminFormLeads: undefined;
 
   // Teacher
   TeacherDashboard: undefined;
@@ -86,8 +87,8 @@ export type RootStackParamList = {
   DirectorDashboard: undefined;
   DirectorBranchDetails: { branchId: string; branchName: string; principalName: string; principalEmail: string; branchStatus: string };
   DirectorPrincipalRegistration: undefined;
-  DirectorBilling: undefined;
-  RenewalPayment: undefined;
+  DirectorBilling: { variant?: 'subscription' | 'payments' } | undefined;
+  RenewalPayment: { upgradeMode?: 'branch' | 'plan'; preselectPlan?: string } | undefined;
 
   // Accountant
   AccountantDashboard: undefined;

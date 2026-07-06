@@ -143,35 +143,36 @@ export default function StudentRegistrationRequestsScreen() {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader
-        title="Approvals"
-        subtitle={headerSubtitle}
-        onBackPress={() =>
-          navigation.canGoBack()
-            ? navigation.goBack()
-            : navigation.navigate('TeacherDashboard' as never)
-        }
-        rightActions={(
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={heroHeaderStyles.iconBtn}
-            onPress={onRefresh}
-            accessibilityLabel="Refresh approvals"
-          >
-            <RefreshCw size={20} color={Theme.colors.card} />
-          </TouchableOpacity>
-        )}
-      />
-
       <ScrollView
         style={innerPageLayoutStyles.scrollViewFront}
-        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />
         }
         showsVerticalScrollIndicator={false}
       >
-        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+        <StandardPageHeader
+          title="Approvals"
+          subtitle={headerSubtitle}
+          onBackPress={() =>
+            navigation.canGoBack()
+              ? navigation.goBack()
+              : navigation.navigate('TeacherDashboard' as never)
+          }
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          rightActions={(
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={heroHeaderStyles.iconBtn}
+              onPress={onRefresh}
+              accessibilityLabel="Refresh approvals"
+            >
+              <RefreshCw size={20} color={Theme.colors.card} />
+            </TouchableOpacity>
+          )}
+        />
+        <View style={[innerPageLayoutStyles.scrollBody, styles.pageBody]}>
           {loadError ? (
             <AppCard style={styles.errorCard}>
               <AlertCircle size={32} color={Theme.colors.error} />
@@ -257,7 +258,7 @@ export default function StudentRegistrationRequestsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
-  pageBody: { paddingHorizontal: Theme.spacing.md },
+  pageBody: { paddingBottom: 96 },
   loaderWrap: { paddingVertical: 48, alignItems: 'center', gap: 12 },
   loaderText: { color: Theme.colors.textMuted, ...Theme.typography.body },
   errorCard: {

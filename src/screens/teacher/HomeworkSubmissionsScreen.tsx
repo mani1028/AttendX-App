@@ -104,28 +104,29 @@ export default function HomeworkSubmissionsScreen() {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader
-        title="Submissions"
-        subtitle={title}
-        onBackPress={() => navigation.goBack()}
-        rightActions={(
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={heroHeaderStyles.iconBtn}
-            onPress={onRefresh}
-            accessibilityLabel="Refresh submissions"
-          >
-            <RefreshCw size={20} color={Theme.colors.card} />
-          </TouchableOpacity>
-        )}
-      />
-
       <ScrollView
         style={innerPageLayoutStyles.scrollViewFront}
-        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
-        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+        <StandardPageHeader
+          title="Submissions"
+          subtitle={title}
+          onBackPress={() => navigation.goBack()}
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          rightActions={(
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={heroHeaderStyles.iconBtn}
+              onPress={onRefresh}
+              accessibilityLabel="Refresh submissions"
+            >
+              <RefreshCw size={20} color={Theme.colors.card} />
+            </TouchableOpacity>
+          )}
+        />
+        <View style={[innerPageLayoutStyles.scrollBody, styles.pageBody]}>
         {loading ? (
           <View style={styles.loaderContainer}>
             <Loader size="lg" color={Theme.colors.primary} />
@@ -193,9 +194,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
-  pageBody: {
-    paddingHorizontal: Theme.spacing.md,
-  },
+  pageBody: {},
   loaderContainer: {
     marginTop: 100,
     alignItems: 'center',

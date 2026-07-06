@@ -3,14 +3,13 @@ import { Platform } from 'react-native';
 export const API_CONFIG = {
   // Development URLs
   dev: {
-    android: 'http://192.168.7.20:8002/api',  // Android Emulator (Localhost host proxy)
-    ios: 'http://192.168.7.20:8002/api',      // iOS Simulator (Localhost)
-    device: 'http://192.168.7.20:8002/api',   // Physical device
+    android: 'http://192.168.1.155:8002/api',  // Android Emulator (Localhost host proxy)
+    ios: 'http://192.168.1.155:8002/api',      // iOS Simulator (Localhost)
+    device: 'http://192.168.1.155:8002/api',   // Physical device
   },
 
 
   // Production URL
-  // production: 'http://192.168.7.20:8002/api',
   production: 'https://portal-api.attendx.ai/api',
   // Timeout in milliseconds
   timeout: 30000,

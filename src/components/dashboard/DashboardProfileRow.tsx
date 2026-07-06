@@ -48,6 +48,8 @@ export interface DashboardProfileRowProps {
   onPhotoError?: () => void;
   style?: ViewStyle;
   showWave?: boolean;
+  /** When false, greeting renders in sentence case (no uppercase transform). */
+  greetingUppercase?: boolean;
   avatarSize?: number;
 }
 
@@ -66,19 +68,20 @@ export default function DashboardProfileRow({
   onPhotoError,
   style,
   showWave = true,
+  greetingUppercase = true,
 }: DashboardProfileRowProps) {
   const displayName = (userName || 'User').split(' ')[0];
-  const greeting = greetingLine || `GOOD ${getAutoGreeting()}`;
+  const greeting = greetingLine || (greetingUppercase ? `GOOD ${getAutoGreeting()}` : `Good ${getAutoGreeting().charAt(0) + getAutoGreeting().slice(1).toLowerCase()}`);
   const initials = getInitials(userName || 'U');
 
   const greetingContent = (
     <>
-      <Text style={styles.greetingLabel}>{greeting}</Text>
+      <Text style={[styles.greetingLabel, !greetingUppercase && styles.greetingLabelNormal]}>{greeting}</Text>
       <Text style={styles.greetingName} numberOfLines={1}>
         {displayName}{showWave ? ' 👋' : ''}
       </Text>
       {subtitle ? (
-        <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
+        <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text>
       ) : null}
     </>
   );
@@ -173,7 +176,7 @@ export function DashboardProfileRowBubble({
         <View style={styles.greetingStack}>
           <Text style={styles.greetingLabel}>{greeting}</Text>
           <Text style={styles.greetingName} numberOfLines={1}>{displayName} 👋</Text>
-          {subtitle ? <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text> : null}
+          {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
         </View>
       </View>
       {onNotificationsPress && (
@@ -240,6 +243,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     lineHeight: 14,
+  },
+  greetingLabelNormal: {
+    textTransform: 'none',
+    letterSpacing: 0.2,
+    fontSize: 12,
   },
   greetingName: {
     fontSize: 16,

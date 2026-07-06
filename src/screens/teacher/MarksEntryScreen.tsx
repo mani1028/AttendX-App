@@ -52,6 +52,7 @@ import { useAuth } from '../../context/AuthContext';
 import CustomPickerModal from '../../components/common/CustomPickerModal';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
+import { useCanNavigateBack } from '../../hooks/useCanNavigateBack';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
@@ -85,6 +86,7 @@ interface SubjectItem {
 
 interface StudentMark {
   student_id: string;
+  roll_no: string;
   student_full_name: string;
   roll_number: string;
   marks_obtained: string;
@@ -250,7 +252,7 @@ const FilterModal: React.FC<{
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
@@ -361,7 +363,7 @@ const ExamConfigModal: React.FC<{
   onClose: () => void;
   saving: boolean;
 }> = ({ visible, maxMarks, passMarks, onMaxMarksChange, onPassMarksChange, onSave, onClose, saving }) => (
-  <Modal visible={visible} transparent animationType="fade">
+  <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <View style={styles.modalOverlay}>
       <View style={styles.configModalContent}>
         <View style={styles.modalHeader}>
@@ -403,6 +405,7 @@ const ExamConfigModal: React.FC<{
 export default function MarksEntryScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const canGoBack = useCanNavigateBack();
   const { setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
   const [schoolCode, setSchoolCode] = useState<string>('');
@@ -588,7 +591,7 @@ export default function MarksEntryScreen() {
 
       if (isMounted.current) {setLoadingExams(true);}
       try {
-        const res = await API.get('/teacher/marks/exams', { headers: { 'x-school-code': schoolCode } });
+        const res = await API.get('/staff/marks/exams', { headers: { 'x-school-code': schoolCode } });
         if (!isMounted.current) {return;}
         const rawExams = Array.isArray(res.data?.exams) ? res.data.exams.filter(Boolean) : [];
         const uniqueExams = Array.from(
@@ -675,7 +678,7 @@ export default function MarksEntryScreen() {
       }
 
       try {
-        const res = await API.get(`/teacher/marks/exam-subjects/${examId}`, { headers: { 'x-school-code': schoolCode } });
+        const res = await API.get(`/staff/marks/exam-subjects/${examId}`, { headers: { 'x-school-code': schoolCode } });
         if (!isMounted.current) {return;}
         const examSubjectsRaw = Array.isArray(res.data?.exam_subjects) ? res.data.exam_subjects.filter(Boolean) : [];
         const found = examSubjectsRaw.find((s: any) => String(s?.subject_id) === String(subjectId));
@@ -716,12 +719,16 @@ export default function MarksEntryScreen() {
         if (cached && isMounted.current) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed)) {
-            const normalized = parsed.map((s: any, idx: number) => ({
-              ...s,
-              student_id: String(s.student_id || s.id || s.student_code || s.roll_number || `std-${idx}`).trim(),
-              student_full_name: String(s.student_full_name || s.student_name || s.name || s.full_name || `Student ${idx + 1}`).trim(),
-              roll_number: String(s.roll_number || s.roll || idx + 1).trim(),
-            }));
+            const normalized = parsed.map((s: any, idx: number) => {
+              const rollNo = String(s.roll_no || s.roll_number || s.roll || `std-${idx}`).trim();
+              return {
+                ...s,
+                roll_no: rollNo,
+                student_id: rollNo,
+                student_full_name: String(s.student_full_name || s.student_name || s.name || s.full_name || `Student ${idx + 1}`).trim(),
+                roll_number: String(s.roll_number || s.roll || idx + 1).trim(),
+              };
+            });
             setStudents(normalized);
           }
         }
@@ -733,20 +740,21 @@ export default function MarksEntryScreen() {
     if (isMounted.current) {setLoadingStudents(true);}
     try {
       const res = await API.get(
-        `/teacher/marks/students/${classId}/${sectionId}/${subjectId}`,
-        { params: { teacher_id: resolvedTeacherId }, headers: { 'x-school-code': schoolCode } }
+        `/staff/marks/students/${classId}/${sectionId}/${subjectId}`,
+        { params: { employee_id: resolvedTeacherId }, headers: { 'x-school-code': schoolCode } }
       );
 
       if (!isMounted.current) {return;}
 
       const studentsRaw = Array.isArray(res.data?.students) ? res.data.students.filter(Boolean) : [];
       let rows: StudentMark[] = studentsRaw.map((s: any, idx: number) => {
-        const studentId = String(s.student_id || s.id || s.student_code || s.roll_number || `std-${idx}`).trim();
+        const rollNo = String(s.roll_no || s.roll_number || s.roll || `std-${idx}`).trim();
         const studentName = String(s.student_full_name || s.student_name || s.name || s.full_name || `Student ${idx + 1}`).trim();
         const rollNumber = String(s.roll_number || s.roll || idx + 1).trim();
         return {
           ...s,
-          student_id: studentId,
+          roll_no: rollNo,
+          student_id: rollNo,
           student_full_name: studentName,
           roll_number: rollNumber,
           isAbsent: false,
@@ -760,18 +768,18 @@ export default function MarksEntryScreen() {
 
       try {
         const marksRes = await API.get(
-          `/teacher/marks/existing/${examId}/${subjectId}/${classId}/${sectionId}`,
+          `/staff/marks/existing/${examId}/${subjectId}/${classId}/${sectionId}`,
           { headers: { 'x-school-code': schoolCode } }
         );
         if (isMounted.current) {
           const marksMap: Record<string, any> = {};
           const marksRaw = Array.isArray(marksRes.data?.marks) ? marksRes.data.marks.filter(Boolean) : [];
           marksRaw.forEach((m: any) => {
-            if (m?.student_id) {marksMap[String(m.student_id)] = m;}
+            if (m?.roll_no) {marksMap[String(m.roll_no)] = m;}
           });
 
           rows = rows.map((s) => {
-            const m = marksMap[String(s.student_id)];
+            const m = marksMap[String(s.roll_no)];
             return {
               ...s,
               isAbsent: m ? Boolean(m.is_absent) : false,
@@ -910,13 +918,13 @@ export default function MarksEntryScreen() {
     try {
       const promises = entries.map(student => {
         const formData = new FormData();
-        formData.append('student_id', student.student_id);
+        formData.append('roll_no', String(student.roll_no || student.student_id));
         formData.append('exam_id', String(examId));
         formData.append('subject_id', String(subjectId));
         formData.append('marks_obtained', student.isAbsent ? '0' : String(student.marks_obtained));
         formData.append('is_absent', student.isAbsent ? 'true' : 'false');
-        formData.append('teacher_id', String(resolvedTeacherId));
-        return API.post('/teacher/marks/enter', formData, {
+        formData.append('employee_id', String(resolvedTeacherId));
+        return API.post('/staff/marks/enter', formData, {
           headers: {
             'x-school-code': schoolCode,
             'Content-Type': 'multipart/form-data',
@@ -980,7 +988,7 @@ export default function MarksEntryScreen() {
       formData.append('subject_id', String(subjectId));
       formData.append('max_marks', String(max));
       formData.append('pass_marks', String(pass));
-      const res = await API.post('/teacher/marks/exam-subject-config', formData, { headers: { 'x-school-code': schoolCode, 'Content-Type': 'multipart/form-data' } });
+      const res = await API.post('/staff/marks/exam-subject-config', formData, { headers: { 'x-school-code': schoolCode, 'Content-Type': 'multipart/form-data' } });
       if (isMounted.current) {
         // Handle various possible response shapes
         const newId = res.data?.exam_subject_id || res.data?.id || res.data?.exam_subject?.id || true;
@@ -1101,7 +1109,8 @@ export default function MarksEntryScreen() {
 
 
       <ScrollView
-        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.scrollContent}
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={[innerPageLayoutStyles.scrollPageContent, styles.scrollContent]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
@@ -1109,10 +1118,15 @@ export default function MarksEntryScreen() {
         {/* Navy Standard Header */}
         <StandardPageHeader
           title="Marks Entry"
+          subtitle="Select class, exam and subject then search"
+          showBack={canGoBack}
           onBackPress={() => navigation.goBack()}
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
         />
+        <View style={innerPageLayoutStyles.scrollBody}>
         {/* Filter Card */}
-<AppCard style={[styles.mainCard, innerPageLayoutStyles.contentFront]} elevated={true}>
+<AppCard style={styles.mainCard} elevated={false} variant="flat">
           <View style={styles.selectionRow}>
             <View style={[styles.selectionField, { marginRight: 10 }]}>
               <AppText weight="bold" style={styles.selectionLabel}>Class</AppText>
@@ -1334,6 +1348,7 @@ export default function MarksEntryScreen() {
             ))}
           </View>
         )}
+        </View>
       </ScrollView>
 
       {inlinePickerModal && (
@@ -1403,20 +1418,13 @@ const styles = StyleSheet.create({
   mainCard: {
     zIndex: 1,
     position: 'relative',
-    marginHorizontal: Theme.spacing.md,
+    marginHorizontal: 0,
     backgroundColor: Theme.colors.card,
     padding: Theme.spacing.lg,
-    borderRadius: Theme.radius.xxxl,
-    ...Platform.select({
-      android: { elevation: 12 },
-      ios: {
-        shadowColor: Theme.colors.primary,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 16,
-      },
-    }),
-    marginBottom: 25,
+    borderRadius: Theme.radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Theme.colors.border,
+    marginBottom: 16,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1521,7 +1529,7 @@ const styles = StyleSheet.create({
     height: 52,
   },
   configCard: {
-    marginHorizontal: Theme.spacing.md,
+    marginHorizontal: 0,
     backgroundColor: Theme.colors.background,
     padding: 20,
     marginBottom: Theme.spacing.md,
@@ -1623,7 +1631,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionBar: {
-    marginHorizontal: Theme.spacing.md,
+    marginHorizontal: 0,
     marginBottom: 20,
     gap: 12,
   },
@@ -1698,7 +1706,7 @@ const styles = StyleSheet.create({
     color: Theme.colors.primary,
   },
   emptyCard: {
-    marginHorizontal: Theme.spacing.md,
+    marginHorizontal: 0,
     padding: Theme.spacing.xxl,
     alignItems: 'center',
     backgroundColor: Theme.colors.background,
@@ -1735,7 +1743,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   listWrapper: {
-    marginHorizontal: Theme.spacing.md,
+    marginHorizontal: 0,
     gap: 12,
   },
   listTitle: {

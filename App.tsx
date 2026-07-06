@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -16,6 +17,8 @@ import { NotificationContextProvider } from './src/context/NotificationContext';
 import notificationService from './src/services/notificationService';
 import { offlineQueueSync } from './src/services/offlineQueueSync';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+
+import { Theme } from './src/theme/tokens';
 
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
@@ -87,20 +90,21 @@ export default function App() {
       <SafeAreaProvider>
         <AuthProvider>
           <NotificationContextProvider>
-            {showIntro ? (
-              <AttendXIntro
-                onComplete={() => setShowIntro(false)}
-                duration={2800}
-              />
-            ) : (
-              <ErrorBoundary>
-                <BottomSheetModalProvider>
+            <ErrorBoundary>
+              <BottomSheetModalProvider>
+                <View style={{ flex: 1, backgroundColor: Theme.colors.background }}>
                   <NavigationContainer>
                     <AppNavigator />
                   </NavigationContainer>
-                </BottomSheetModalProvider>
-              </ErrorBoundary>
-            )}
+                  {showIntro ? (
+                    <AttendXIntro
+                      onComplete={() => setShowIntro(false)}
+                      duration={2800}
+                    />
+                  ) : null}
+                </View>
+              </BottomSheetModalProvider>
+            </ErrorBoundary>
           </NotificationContextProvider>
         </AuthProvider>
       </SafeAreaProvider>

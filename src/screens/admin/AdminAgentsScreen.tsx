@@ -11,6 +11,7 @@ import {
   Switch,
   Platform,
   Modal,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, X, Plus, Edit2, Users, Mail, Power } from 'lucide-react-native';
@@ -22,6 +23,7 @@ import AppButton from '../../components/common/AppButton';
 import Loader from '../../components/common/Loader';
 import { formatErrorMessage } from '../../utils/helpers';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 // Agent Interface
 interface Agent {
@@ -43,6 +45,7 @@ const AgentFormModal: React.FC<{
   onClose: () => void;
   onSuccess: () => void;
 }> = ({ visible, mode, initialData, onClose, onSuccess }) => {
+  const insets = useSafeAreaInsets();
   const [formData, setFormData] = useState({
     full_name: '',
     username: '',
@@ -124,6 +127,10 @@ const AgentFormModal: React.FC<{
       animationType="slide"
       onRequestClose={onClose}
     >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
@@ -242,7 +249,7 @@ const AgentFormModal: React.FC<{
             </View>
           </ScrollView>
 
-          <View style={styles.modalFooter}>
+          <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 20) }]}>
             <View style={{ flex: 1 }}>
               <AppButton title="Cancel" onPress={onClose} type="secondary" />
             </View>
@@ -252,6 +259,7 @@ const AgentFormModal: React.FC<{
           </View>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -313,10 +321,20 @@ const AgentManagementModal: React.FC<{
 
   return (
     <View style={styles.screenContainer}>
-      <StandardPageHeader title="Marketing Agents" onBackPress={() => {}} />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <StandardPageHeader
+          scrollWithContent
+          title="Marketing Agents"
+          showBack={false}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
 
-      {/* Search Bar & Register Btn */}
-      <View style={{ paddingHorizontal: Theme.spacing.md, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: colors.surface }}>
+        <View style={innerPageLayoutStyles.scrollBody}>
+      <View style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: colors.surface, marginBottom: 12 }}>
         <View style={styles.searchContainer}>
           <Search size={16} color={colors.textMuted} style={{ marginRight: Theme.spacing.sm }} />
           <TextInput
@@ -359,7 +377,6 @@ const AgentManagementModal: React.FC<{
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: Theme.spacing.md, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={{ marginTop: 40 }}><Loader /></View>
         ) : filteredAgents.length === 0 ? (
@@ -470,6 +487,7 @@ const AgentManagementModal: React.FC<{
             </View>
           ))
         )}
+        </View>
       </ScrollView>
 
       <AgentFormModal

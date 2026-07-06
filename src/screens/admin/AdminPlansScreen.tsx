@@ -23,6 +23,7 @@ import Loader from '../../components/common/Loader';
 import { formatErrorMessage } from '../../utils/helpers';
 import { formatStoredPriceDisplay } from '../../utils/pricingPlans';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 
 // Pricing Plan Interface
 interface Plan {
@@ -263,11 +264,21 @@ const PlanFormModal: React.FC<{
   );
 };
 
+const handleAdminTabBack = (navigation: ReturnType<typeof useNavigation>) => {
+  const nav = navigation as any;
+  if (nav.canGoBack?.()) {
+    nav.goBack();
+    return;
+  }
+  nav.navigate('Dashboard');
+};
+
 // Plans Management Modal
 const PlansManagementModal: React.FC<{
   visible: boolean;
   onClose: () => void;
 }> = ({ visible, onClose }) => {
+  const navigation = useNavigation();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(false);
   const [formModalOpen, setFormModalOpen] = useState(false);
@@ -279,8 +290,9 @@ const PlansManagementModal: React.FC<{
     try {
       const data = await adminService.getAllPlans();
       setPlans(data);
-    } catch (err) {
-      console.error('Failed to load plans', err);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to load pricing plans');
+      console.warn('[Plans] load failed:', err?.message || err);
     } finally {
       setLoading(false);
     }
@@ -313,10 +325,20 @@ const PlansManagementModal: React.FC<{
 
   return (
     <View style={styles.screenContainer}>
-      <StandardPageHeader title="Pricing Plans" onBackPress={() => {}} />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <StandardPageHeader
+          scrollWithContent
+          title="Pricing Plans"
+          onBackPress={() => handleAdminTabBack(navigation)}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
 
-      {/* Add Plan Btn */}
-      <View style={{ paddingHorizontal: Theme.spacing.md, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface }}>
+        <View style={innerPageLayoutStyles.scrollBody}>
+      <View style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface, marginBottom: 12 }}>
         <TouchableOpacity accessibilityRole="button"
           style={{
             backgroundColor: colors.primary,
@@ -343,7 +365,6 @@ const PlansManagementModal: React.FC<{
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: Theme.spacing.md, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={{ marginTop: 40 }}><Loader /></View>
         ) : plans.length === 0 ? (
@@ -424,6 +445,7 @@ const PlansManagementModal: React.FC<{
             );
           })
         )}
+        </View>
       </ScrollView>
 
       <PlanFormModal

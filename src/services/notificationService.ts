@@ -340,7 +340,12 @@ class NotificationService {
                    (await storage.getString(StorageKeys.USER_ROLE)) ||
                    'student';
 
-      let normalizedRole = role.toLowerCase();
+      const roleLower = String(role).toLowerCase();
+      if (['admin', 'superadmin', 'agent', 'accountant', 'director'].includes(roleLower)) {
+        return 0;
+      }
+
+      let normalizedRole = roleLower;
       if (normalizedRole !== 'principal' && normalizedRole !== 'student') {
         normalizedRole = 'staff';
       }

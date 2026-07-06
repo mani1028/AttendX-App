@@ -2,6 +2,7 @@ import API from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { storage } from '../storage/storage';
 import { StorageKeys } from '../storage/StorageKeys';
+import { getSubscriptionStatus } from './paymentService';
 
 
 async function getFirstSuccessful<T>(endpoints: string[], params: any = {}) {
@@ -365,4 +366,69 @@ export async function getDirectorDashboardOverview(schoolCode: string): Promise<
 
   if (lastError) { throw lastError; }
   return parseDirectorDashboardPayload({});
+}
+
+export interface DirectorBillingData {
+  school: Record<string, unknown> | null;
+  subscription: Record<string, unknown> | null;
+  payments: any[];
+}
+
+function directorSchoolHeaders(schoolCode: string) {
+  return { 'x-school-code': schoolCode, 'X-School-Code': schoolCode };
+}
+
+/** Subscription + payment history — same sources as the web director billing pages. */
+export async function getDirectorBillingData(schoolCode: string): Promise<DirectorBillingData> {
+  if (!schoolCode) {
+    return { school: null, subscription: null, payments: [] };
+  }
+
+  const headers = directorSchoolHeaders(schoolCode);
+  let school: Record<string, unknown> | null = null;
+  let subscription: Record<string, unknown> | null = null;
+  let payments: any[] = [];
+
+  try {
+    const response = await API.get('director/dashboard/overview', {
+      headers,
+      suppressFallback404Log: true,
+    } as any);
+    const data = response?.data || {};
+    if (data.ok || data.subscription || data.payments || data.school) {
+      school = (data.school as Record<string, unknown>) || null;
+      subscription = (data.subscription as Record<string, unknown>) || null;
+      payments = Array.isArray(data.payments) ? data.payments : [];
+    }
+  } catch {
+    // fall through to other sources
+  }
+
+  try {
+    const status = await getSubscriptionStatus(schoolCode);
+    if (status && typeof status === 'object') {
+      subscription = { ...(subscription || {}), ...status };
+    }
+  } catch {
+    // subscription-status is optional when overview already returned data
+  }
+
+  if (payments.length === 0) {
+    try {
+      const payRes = await API.get('director/payments', {
+        headers,
+        params: { school_code: schoolCode },
+        suppressFallback404Log: true,
+      } as any);
+      const data = payRes?.data || {};
+      const list = data.payments || data.data || data.items;
+      if (Array.isArray(list)) {
+        payments = list;
+      }
+    } catch {
+      // no dedicated payments endpoint
+    }
+  }
+
+  return { school, subscription, payments };
 }

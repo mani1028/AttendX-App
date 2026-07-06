@@ -30,15 +30,13 @@ import type { RootStackParamList } from '../../navigation/types';
 import AvatarBubble from '../../components/common/AvatarBubble';
 import AppText from '../../components/common/AppText';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
-import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { innerPageLayoutStyles, SCROLL_PAGE_GUTTER } from '../../components/layout/innerPageLayoutStyles';
 import { getProfile } from '../../services/studentService';
 import {
   getStudentPromotionHistory,
   searchPrincipalStudents,
   type PrincipalStudentSearchResult,
 } from '../../services/principalService';
-
-const PAGE_GUTTER = 14;
 
 type TabKey = 'overview' | 'academics' | 'contact';
 
@@ -419,7 +417,7 @@ export default function Student360Screen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+        <View style={styles.pageBody}>
           {!selectedStudent ? (
             renderSearch()
           ) : (
@@ -473,7 +471,6 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Theme.colors.background },
   scrollContent: { flexGrow: 1 },
   pageBody: {
-    paddingHorizontal: PAGE_GUTTER,
     paddingTop: 14,
   },
   searchCard: {

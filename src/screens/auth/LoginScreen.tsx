@@ -36,7 +36,7 @@ type Props = { navigation: any };
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { signIn, savedAccounts, switchToAccount } = useAuth();
+  const { signIn, savedAccounts, switchToAccount, logoutAccount } = useAuth();
   const [showSwitcher, setShowSwitcher] = useState(false);
   const [showSavedOnly, setShowSavedOnly] = useState(true);
   const route: any = useRoute();
@@ -70,12 +70,19 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       }
       setLoginMessage('Login successful!');
       setLoginMessageType('success');
-      await setSessionData(normalized);
+      const enteredSchoolCode = schoolId.trim().toUpperCase();
+      await setSessionData({
+        ...normalized,
+        school_code: normalized.schoolCode || enteredSchoolCode || undefined,
+        schoolCode: normalized.schoolCode || enteredSchoolCode || undefined,
+      });
       setAuthToken(normalized.token || '');
-
-      setTimeout(() => {
-        signIn(normalized.role, normalized.user?.name || username, normalized.token || '', normalized.user?.isClassTeacher ?? false);
-      }, 500);
+      await signIn(
+        normalized.role,
+        normalized.user?.name || username,
+        normalized.token || '',
+        normalized.user?.isClassTeacher ?? false,
+      );
     } catch (err: any) {
       const msg = formatErrorMessage(err?.response?.data?.detail || err?.message || 'Login failed');
       setLoginMessage(msg);
@@ -121,14 +128,14 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               {savedAccounts.length > 0 && showSavedOnly ? (
                 <View style={styles.savedAccountsContainer}>
                   <Text style={styles.savedAccountsTitle}>Choose an account</Text>
-                  {savedAccounts.map((acc, index) => (
+                  {savedAccounts.map((acc) => (
                     <TouchableOpacity
-                      key={acc.id || String(index)}
+                      key={acc.id}
                       style={styles.savedAccountCard}
                       onPress={async () => {
                         setLoginMessage('');
-                        if (!acc.token) {
-                          // Token expired or logged out, prepopulate and ask for password
+                        if (!acc.token?.trim()) {
+                          await logoutAccount(acc.id);
                           setSchoolId(acc.schoolCode || '');
                           setUsername(acc.employeeId || acc.studentId || acc.userId || '');
                           setPassword('');
@@ -140,9 +147,20 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
                         setLoading(true);
                         try {
-                          await switchToAccount(acc);
-                        } catch(e) {
-                          setLoginMessage('Failed to switch account');
+                          const success = await switchToAccount(acc);
+                          if (!success) {
+                            setSchoolId(acc.schoolCode || '');
+                            setUsername(acc.employeeId || acc.studentId || acc.userId || '');
+                            setPassword('');
+                            setShowSavedOnly(false);
+                            setLoginMessage('Session expired. Please log in again.');
+                            setLoginMessageType('error');
+                          }
+                        } catch {
+                          await logoutAccount(acc.id);
+                          setLoginMessage('Session expired. Please log in again.');
+                          setLoginMessageType('error');
+                          setShowSavedOnly(false);
                         } finally {
                           setLoading(false);
                         }

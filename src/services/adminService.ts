@@ -1,9 +1,58 @@
-import API from './api';
+import API, { getApiBaseUrl, getWithRetry, isTransientNetworkError } from './api';
+
+const WEBSITE_API_SILENT = {
+  suppressFallback404Log: true,
+  suppressNetworkErrorLog: true,
+} as const;
+
+// ponytail: portal-api often ships without /blogs,/forms; api.{domain} has them on same DB/JWT
+function getWebsiteContentApiBase(): string | null {
+  const primary = getApiBaseUrl().replace(/\/+$/, '');
+  const match = primary.match(/^https?:\/\/portal-api\.(.+?)\/api$/i);
+  if (match) {
+    return `https://api.${match[1]}/api/`;
+  }
+  return null;
+}
+
+async function requestWithWebsiteFallback(config: {
+  url: string;
+  method?: string;
+  data?: unknown;
+}) {
+  try {
+    return await API.request({
+      method: 'get',
+      ...config,
+      ...WEBSITE_API_SILENT,
+    });
+  } catch (error: any) {
+    const status = error?.response?.status;
+    if (status && status !== 404 && status !== 405) {
+      throw error;
+    }
+    const fallbackBase = getWebsiteContentApiBase();
+    if (!fallbackBase) {
+      throw error;
+    }
+    if (__DEV__) {
+      console.log(
+        `[API] Website route missing on primary host; retrying ${config.method || 'GET'} ${config.url} via ${fallbackBase}`,
+      );
+    }
+    return await API.request({
+      method: 'get',
+      ...config,
+      baseURL: fallbackBase,
+      ...WEBSITE_API_SILENT,
+    });
+  }
+}
 
 async function getFirstSuccessful<T>(endpoints: string[], params: any = {}) {
   for (const endpoint of endpoints) {
     try {
-      const response = await API.get<T>(endpoint, {
+      const response = await getWithRetry<T>(endpoint, {
         ...params,
         suppressFallback404Log: true,
         suppressNetworkErrorLog: true,
@@ -242,6 +291,194 @@ export async function getRevenueStats(): Promise<any> {
   }
 }
 
+export async function getAllPlatformPayments(): Promise<any[]> {
+  try {
+    const stats = await getRevenueStats();
+    if (Array.isArray(stats?.recent_payments) && stats.recent_payments.length > 0) {
+      return stats.recent_payments;
+    }
+  } catch {
+    // fall through
+  }
+
+  try {
+    const schools = await getAllSchools();
+    const paymentLists = await Promise.all(
+      schools.slice(0, 50).map(async (school) => {
+        const schoolId = school.id || school.school_id;
+        if (!schoolId) return [];
+        const payments = await getSchoolPayments(String(schoolId));
+        return payments.map((p: any) => ({
+          ...p,
+          school_name: school.name || school.school_name || p.school_name,
+          school_id: school.school_id || schoolId,
+        }));
+      }),
+    );
+    return paymentLists.flat().sort((a, b) => {
+      const aDate = new Date(a.paid_at || a.created_at || 0).getTime();
+      const bDate = new Date(b.paid_at || b.created_at || 0).getTime();
+      return bDate - aDate;
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function adminMutate<T>(endpoints: string[], method: 'post' | 'put' | 'patch' | 'delete', body?: any): Promise<T> {
+  for (const endpoint of endpoints) {
+    try {
+      const res = await API.request<T>({ url: endpoint, method, data: body });
+      return res.data;
+    } catch {
+      // try next
+    }
+  }
+  throw new Error(`Admin API ${method} failed`);
+}
+
+async function websiteAdminMutate<T>(
+  endpoints: string[],
+  method: 'post' | 'put' | 'patch' | 'delete',
+  body?: any,
+): Promise<T> {
+  let lastError: any = null;
+  for (const endpoint of endpoints) {
+    try {
+      const res = await requestWithWebsiteFallback({ url: endpoint, method, data: body });
+      return res.data;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw new Error(formatApiErrorDetail(lastError, `Admin API ${method} failed`));
+}
+
+function extractAdminListPayload(data: unknown): any[] {
+  if (Array.isArray(data)) {
+    return data;
+  }
+  if (!data || typeof data !== 'object') {
+    return [];
+  }
+  const record = data as Record<string, unknown>;
+  for (const key of ['items', 'blogs', 'data', 'results', 'records']) {
+    const value = record[key];
+    if (Array.isArray(value)) {
+      return value;
+    }
+  }
+  return [];
+}
+
+function formatApiErrorDetail(error: any, fallback: string): string {
+  if (isTransientNetworkError(error)) {
+    return 'Could not reach the server. Check your connection and try again.';
+  }
+  const detail = error?.response?.data?.detail ?? error?.response?.data?.message;
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail;
+  }
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => item?.msg || item?.message || String(item))
+      .filter(Boolean)
+      .join(', ');
+  }
+  if (error?.message) {
+    return String(error.message);
+  }
+  return fallback;
+}
+
+export function normalizeAdminBlog(raw: Record<string, any>) {
+  return {
+    id: raw.id ?? raw.blog_id ?? raw._id,
+    title: raw.title || raw.name || 'Untitled',
+    author: raw.author || '',
+    category: raw.category || '',
+    desc: raw.desc || raw.description || '',
+    content: raw.content || '',
+    status: raw.status || 'draft',
+    featured: Boolean(raw.featured),
+    date: raw.date || '',
+    image: raw.image || '',
+    url: raw.url || '',
+    created_at: raw.created_at,
+    updated_at: raw.updated_at,
+  };
+}
+
+export async function getAdminBlogs(): Promise<any[]> {
+  const endpoints = ['/blogs/admin/all', '/admin/blogs/all'];
+  let lastError: any = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await requestWithWebsiteFallback({ url: endpoint, method: 'get' });
+      return extractAdminListPayload(response.data).map(normalizeAdminBlog);
+    } catch (error: any) {
+      lastError = error;
+      const status = error?.response?.status;
+      if (status && status !== 404 && status !== 405) {
+        break;
+      }
+    }
+  }
+
+  throw new Error(
+    formatApiErrorDetail(
+      lastError,
+      'Unable to load blogs. Ensure admin_portal.website_blogs exists and the portal API exposes /blogs/admin/* routes.',
+    ),
+  );
+}
+
+export async function createAdminBlog(payload: Record<string, unknown>): Promise<any> {
+  return websiteAdminMutate(['/blogs/admin', '/admin/blogs'], 'post', payload);
+}
+
+export async function updateAdminBlog(id: string, payload: Record<string, unknown>): Promise<any> {
+  return websiteAdminMutate([`/blogs/admin/${id}`, `/admin/blogs/${id}`], 'put', payload);
+}
+
+export async function deleteAdminBlog(id: string): Promise<any> {
+  return websiteAdminMutate([`/blogs/admin/${id}`, `/admin/blogs/${id}`], 'delete');
+}
+
+export async function getAdminForms(): Promise<any[]> {
+  const endpoints = ['/forms/admin/all', '/admin/forms/all'];
+  let lastError: any = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await requestWithWebsiteFallback({ url: endpoint, method: 'get' });
+      return extractAdminListPayload(response.data);
+    } catch (error: any) {
+      lastError = error;
+      const status = error?.response?.status;
+      if (status && status !== 404 && status !== 405) {
+        break;
+      }
+    }
+  }
+
+  throw new Error(
+    formatApiErrorDetail(
+      lastError,
+      'Unable to load form leads. Ensure admin_portal.website_forms exists and the portal API exposes /forms/admin/* routes.',
+    ),
+  );
+}
+
+export async function updateAdminFormStatus(id: string, status: string): Promise<any> {
+  return websiteAdminMutate(
+    [`/forms/admin/${id}/status`, `/admin/forms/${id}/status`],
+    'patch',
+    { status },
+  );
+}
+
 export async function getAllAttendanceModes(): Promise<any[]> {
   const endpoints = [
     '/schools/all/attendance-modes',
@@ -277,7 +514,10 @@ export async function updateSchoolAttendanceSettings(
 
 export async function getAllPlans(): Promise<any[]> {
   try {
-    const res = await API.get('/pricing/admin/all');
+    const res = await getWithRetry('/pricing/admin/all', {
+      suppressFallback404Log: true,
+      suppressNetworkErrorLog: true,
+    });
     const data = res.data;
     const plans = Array.isArray(data)
       ? data
@@ -287,8 +527,10 @@ export async function getAllPlans(): Promise<any[]> {
         Number(a?.sort_order ?? a?.sortOrder ?? 999) -
         Number(b?.sort_order ?? b?.sortOrder ?? 999),
     );
-  } catch (err) {
-    return [];
+  } catch (err: any) {
+    throw new Error(
+      formatApiErrorDetail(err, 'Unable to load pricing plans from public.pricing_plans.'),
+    );
   }
 }
 

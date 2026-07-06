@@ -18,7 +18,9 @@ function normalizeTeacherList(data: any): any[] {
 
   return items.filter(Boolean).map((teacher: any) => ({
     ...teacher,
-    teacher_status: teacher.teacher_status || teacher.status || 'ACTIVE',
+    teacher_full_name: teacher.teacher_full_name || teacher.staff_full_name || '',
+    // ponytail: `status` is attendance (PRESENT/ABSENT), not employment — use staff_status
+    teacher_status: String(teacher.teacher_status || teacher.staff_status || 'ACTIVE').toUpperCase(),
   }));
 }
 

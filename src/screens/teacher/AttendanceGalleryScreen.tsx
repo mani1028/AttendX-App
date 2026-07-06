@@ -164,9 +164,17 @@ export default function AttendanceGalleryScreen() {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader title="Attendance Gallery" onBackPress={() => navigation.goBack()} />
-
-      <ScrollView style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={[innerPageLayoutStyles.scrollPageContent, styles.content]}
+      >
+        <StandardPageHeader
+          title="Attendance Gallery"
+          onBackPress={() => navigation.goBack()}
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
+        <View style={innerPageLayoutStyles.scrollBody}>
         <View style={[innerPageLayoutStyles.segmentedControl, styles.tabs]}>
           <TouchableOpacity
             style={[innerPageLayoutStyles.segmentedTab, activeTab === 'teacher' && innerPageLayoutStyles.segmentedTabActive]}
@@ -218,6 +226,7 @@ export default function AttendanceGalleryScreen() {
             ))}
           </View>
         )}
+        </View>
       </ScrollView>
 
       {showDatePicker && (
@@ -284,7 +293,7 @@ const thumbSize = (SCREEN_W - 48) / 2;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
-  content: { padding: 16, paddingBottom: 100 },
+  content: { paddingBottom: 100 },
   tabs: { marginBottom: 12 },
   dateBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, backgroundColor: Theme.colors.card, borderRadius: 10, marginBottom: 12, borderWidth: 1, borderColor: Theme.colors.border },
   dateText: { color: Theme.colors.text, fontWeight: '600' },

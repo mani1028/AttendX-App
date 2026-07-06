@@ -79,29 +79,31 @@ export default function AutoPayTrackerScreen() {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader
-        title="Auto Pay Tracker"
-        subtitle="Schools with automatic renewal enabled"
-        onBackPress={() => navigation.goBack()}
-        rightActions={(
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={heroHeaderStyles.iconBtn}
-            onPress={onRefresh}
-            accessibilityLabel="Refresh"
-          >
-            <RefreshCw size={18} color={Theme.colors.card} />
-          </TouchableOpacity>
-        )}
-      />
-
       <ScrollView
-        style={innerPageLayoutStyles.scrollViewFront}
-        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        style={{ flex: 1 }}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
-        <View style={innerPageLayoutStyles.contentFront}>
+        <StandardPageHeader
+          scrollWithContent
+          title="Auto Pay Tracker"
+          subtitle="Schools with automatic renewal enabled"
+          onBackPress={() => navigation.goBack()}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          rightActions={(
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={heroHeaderStyles.iconBtn}
+              onPress={onRefresh}
+              accessibilityLabel="Refresh"
+            >
+              <RefreshCw size={18} color={Theme.colors.card} />
+            </TouchableOpacity>
+          )}
+        />
+
+        <View style={innerPageLayoutStyles.scrollBody}>
           <View style={styles.searchRow}>
             <View style={styles.searchBox}>
               <Search size={18} color={Theme.colors.textMuted} />
@@ -117,19 +119,19 @@ export default function AutoPayTrackerScreen() {
 
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
-              <AppText variant="label" muted>Auto-Pay Schools</AppText>
+              <AppText variant="label" muted style={styles.statLabel}>Auto-Pay</AppText>
               <AppText variant="h3" weight="bold" style={{ color: Theme.colors.primary }}>
                 {schools.length}
               </AppText>
             </View>
             <View style={styles.statBox}>
-              <AppText variant="label" muted>Active</AppText>
+              <AppText variant="label" muted style={styles.statLabel}>Active</AppText>
               <AppText variant="h3" weight="bold" style={{ color: Theme.colors.success }}>
                 {activeCount}
               </AppText>
             </View>
             <View style={styles.statBox}>
-              <AppText variant="label" muted>Needs Attention</AppText>
+              <AppText variant="label" muted style={styles.statLabel}>Issues</AppText>
               <AppText variant="h3" weight="bold" style={{ color: Theme.colors.warning }}>
                 {issueCount}
               </AppText>
@@ -252,6 +254,14 @@ const styles = StyleSheet.create({
     borderRadius: Theme.radius.lg,
     padding: Theme.spacing.md,
     alignItems: 'center',
+    minHeight: 72,
+    justifyContent: 'center',
+  },
+  statLabel: {
+    fontSize: 10,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   schoolCard: {
     marginBottom: Theme.spacing.md,

@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { launchImageLibrary } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import {
   Search,
@@ -36,6 +36,7 @@ import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { Theme } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
+import { launchCameraWithPermission as launchCamera } from '../../utils/cameraUtils';
 
 
 
@@ -432,28 +433,29 @@ export default function TeacherFaceReviewScreen() {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader
-        title="Face Photo Review"
-        subtitle={data.class_grade ? `Class ${data.class_grade}${data.section ? `-${data.section}` : ''}` : 'Review student face photos'}
-        onBackPress={() => navigation.goBack()}
-        rightActions={(
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={heroHeaderStyles.iconBtn}
-            onPress={load}
-            accessibilityLabel="Refresh face review list"
-          >
-            <RefreshCw size={20} color={Theme.colors.card} />
-          </TouchableOpacity>
-        )}
-      />
-
       <ScrollView
         style={[styles.scroll, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={[styles.scrollContent, innerPageLayoutStyles.scrollContent]}
+        contentContainerStyle={[innerPageLayoutStyles.scrollPageContent, styles.scrollContent]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={innerPageLayoutStyles.contentFront}>
+        <StandardPageHeader
+          title="Face Photo Review"
+          subtitle={data.class_grade ? `Class ${data.class_grade}${data.section ? `-${data.section}` : ''}` : 'Review student face photos'}
+          onBackPress={() => navigation.goBack()}
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          rightActions={(
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={heroHeaderStyles.iconBtn}
+              onPress={load}
+              accessibilityLabel="Refresh face review list"
+            >
+              <RefreshCw size={20} color={Theme.colors.card} />
+            </TouchableOpacity>
+          )}
+        />
+        <View style={innerPageLayoutStyles.scrollBody}>
 
         {/* Teacher info */}
         {data.teacher_name ? (
@@ -639,7 +641,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
 
   scroll: { flex: 1 },
-  scrollContent: { padding: Theme.spacing.md, paddingBottom: 40 },
+  scrollContent: { paddingBottom: 40 },
 
   teacherInfo: {
     backgroundColor: Theme.colors.card,

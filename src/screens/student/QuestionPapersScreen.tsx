@@ -14,7 +14,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Share from 'react-native-share';
+import { sharePdfBuffer } from '../../utils/sharePdfBuffer';
 import Icon from 'react-native-vector-icons/Feather';
 import { RefreshCw } from 'lucide-react-native';
 import { getQuestionPapers, getExamTypes, downloadQuestionPaper } from '../../services/studentService';
@@ -477,21 +477,12 @@ export default function QuestionPapersScreen() {
       setProcessingId(paperId);
 
       const paperBuffer = await downloadQuestionPaper(paperId);
-      if (!paperBuffer || paperBuffer.byteLength === 0) {
-        throw new Error('Received empty file from server');
-      }
-
-      const base64Data = arrayBufferToBase64(paperBuffer);
-      const dataUri = `data:application/pdf;base64,${base64Data}`;
-
-      const shareOptions = {
-        url: dataUri,
-        type: 'application/pdf',
-        title: isDownload ? 'Save Question Paper' : 'View Question Paper',
-        failOnCancel: false,
-      };
-
-      await Share.open(shareOptions);
+      const safeTitle = title.replace(/[^a-zA-Z0-9._-]/g, '_');
+      await sharePdfBuffer(
+        paperBuffer,
+        `${safeTitle}.pdf`,
+        isDownload ? 'Save Question Paper' : 'View Question Paper',
+      );
 
     } catch (err: any) {
       const message = String(err?.message || '');
@@ -580,7 +571,7 @@ export default function QuestionPapersScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+        <View style={styles.pageBody}>
         {/* Search and Filter Card */}
         <View style={styles.toolbarCard}>
         <View style={styles.searchSection}>
@@ -765,14 +756,14 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.background,
   },
   pageBody: {
-    paddingHorizontal: 20,
   },
   toolbarCard: {
     backgroundColor: C.colors.card,
-    borderRadius: 20,
+    borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    ...C.shadow.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.colors.border,
   },
   listContainer: {
     flex: 1,

@@ -12,7 +12,7 @@ import {
   Platform,
   SafeAreaView,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import {
   CreditCard,
   ShieldCheck,
@@ -34,7 +34,6 @@ import Share from 'react-native-share';
 import { Buffer } from 'buffer';
 import { WebView } from 'react-native-webview';
 import AppText from '../../components/common/AppText';
-import API from '../../services/api';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
@@ -43,12 +42,18 @@ import {
   cancelAutoRenewal,
   downloadDirectorReceiptPdf,
   fetchDirectorReceiptHtml,
-  getSubscriptionStatus,
 } from '../../services/paymentService';
+import { getDirectorBillingData } from '../../services/directorService';
+
+
+import type { RootStackParamList } from '../../navigation/types';
 
 
 export default function DirectorBillingScreen() {
   const navigation = useNavigation();
+  const route = useRoute<RouteProp<RootStackParamList, 'DirectorBilling'>>();
+  const variant = route.params?.variant || 'subscription';
+  const paymentsOnly = variant === 'payments';
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<any>(null);
   const [autoRenew, setAutoRenew] = useState(false);
@@ -67,39 +72,16 @@ export default function DirectorBillingScreen() {
 
   const fetchSubscription = useCallback(async () => {
     try {
-      const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || '';
-      setSchoolCode(schoolCode);
-      const headers = schoolCode ? { 'X-School-Code': schoolCode } : {};
-
-      const [overviewRes, statusRes] = await Promise.allSettled([
-        API.get('/director/dashboard/overview', { headers, suppressFallback404Log: true } as any),
-        schoolCode ? getSubscriptionStatus(schoolCode) : Promise.resolve(null),
-      ]);
-
-      if (overviewRes.status === 'fulfilled' && overviewRes.value.data?.ok) {
-        const data = overviewRes.value.data;
-        setSubscription(data.subscription || null);
-
-        let paymentData = data.payments || data.subscription?.payments;
-        if (!paymentData) {
-          try {
-            const payRes = await API.get('/director/payments', { headers, suppressFallback404Log: true } as any);
-            if (payRes.data?.ok) {
-              paymentData = payRes.data.payments || payRes.data.data || [];
-            }
-          } catch {
-            // ignore
-          }
-        }
-        setPayments(Array.isArray(paymentData) ? paymentData : []);
+      const code = await storage.getString(StorageKeys.SCHOOL_CODE) || '';
+      setSchoolCode(code);
+      if (!code) {
+        return;
       }
 
-      if (statusRes.status === 'fulfilled' && statusRes.value) {
-        const statusData = statusRes.value as Record<string, unknown>;
-        setAutoRenew(Boolean(statusData.auto_renew));
-      } else if (overviewRes.status === 'fulfilled') {
-        setAutoRenew(Boolean(overviewRes.value.data?.subscription?.auto_renew));
-      }
+      const { subscription: sub, payments: paymentList } = await getDirectorBillingData(code);
+      setSubscription(sub);
+      setPayments(paymentList);
+      setAutoRenew(Boolean(sub?.auto_renew));
     } catch (err) {
       console.log('Failed to fetch subscription', err);
     } finally {
@@ -308,8 +290,8 @@ export default function DirectorBillingScreen() {
 
 
       <StandardPageHeader
-        title="Billing & Plan"
-        subtitle="Manage subscription and payment history"
+        title={paymentsOnly ? 'Payment History' : 'Billing & Plan'}
+        subtitle={paymentsOnly ? 'Subscription payment records' : 'Manage subscription and payment history'}
         onBackPress={handleBackPress}
       />
 
@@ -320,6 +302,7 @@ export default function DirectorBillingScreen() {
       >
         <Animated.View style={[innerPageLayoutStyles.contentFront, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
 
+          {!paymentsOnly && (
           <View style={styles.heroCard}>
             <LinearGradient colors={[Theme.colors.primary, '#3B82F6']} style={styles.heroGradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
               <View style={styles.heroHeader}>
@@ -354,8 +337,9 @@ export default function DirectorBillingScreen() {
               </View>
             </LinearGradient>
           </View>
+          )}
 
-          {hasPendingPayment && (
+          {!paymentsOnly && hasPendingPayment && (
             <View style={styles.alertBanner}>
               <AlertTriangle size={18} color="#b45309" />
               <View style={{ flex: 1 }}>
@@ -367,7 +351,7 @@ export default function DirectorBillingScreen() {
             </View>
           )}
 
-          {autoRenew && (
+          {!paymentsOnly && autoRenew && (
             <View style={styles.autoRenewCard}>
               <View style={styles.autoRenewHeader}>
                 <View style={styles.autoRenewIcon}>
@@ -398,6 +382,8 @@ export default function DirectorBillingScreen() {
             </View>
           )}
 
+          {!paymentsOnly && (
+            <>
           <AppText style={styles.sectionTitle}>Payment Method</AppText>
           <View style={styles.card}>
             <View style={styles.methodRow}>
@@ -410,8 +396,10 @@ export default function DirectorBillingScreen() {
               </View>
             </View>
           </View>
+            </>
+          )}
 
-          <AppText style={styles.sectionTitle}>Recent Invoices</AppText>
+          <AppText style={styles.sectionTitle}>{paymentsOnly ? 'All Payments' : 'Recent Invoices'}</AppText>
           <View style={styles.card}>
             {payments.length > 0 ? (
               payments.map((payment, i) => {

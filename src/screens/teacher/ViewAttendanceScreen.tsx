@@ -671,15 +671,21 @@ export default function ViewAttendanceScreen() {
     <View style={styles.container}>
 
 
-      {/* Navy Standard Header */}
-      <StandardPageHeader title="View Attendance" onBackPress={() => navigation.goBack()} />
       <ScrollView
-        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.contentContainer}
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={[innerPageLayoutStyles.scrollPageContent, styles.contentContainer]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        <StandardPageHeader
+          title="View Attendance"
+          onBackPress={() => navigation.goBack()}
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
+        <View style={innerPageLayoutStyles.scrollBody}>
         {activeTab === 'attendance' ? (
           <>
             {/* Class & Date Selection */}
@@ -826,6 +832,7 @@ export default function ViewAttendanceScreen() {
             </View>
           </View>
         )}
+        </View>
       </ScrollView>
 
       <Modal visible={pickerMode !== null} transparent animationType="fade" onRequestClose={() => setPickerMode(null)}>
@@ -1046,8 +1053,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   contentContainer: {
-    padding: Theme.spacing.md,
-    paddingTop: 6,
     paddingBottom: 120,
   },
   selectionCard: {

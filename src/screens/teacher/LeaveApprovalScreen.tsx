@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Alert,
   Platform,
+  Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -35,6 +36,7 @@ import { useAuth } from '../../context/AuthContext';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 
 import { resolveApiErrorMessage } from '../../utils/helpers';
 import { Theme } from '../../theme/tokens';
@@ -166,7 +168,11 @@ const LeaveRequestCard: React.FC<{
 
           <View style={styles.reasonBox}>
             <Info size={14} color={Theme.colors.textSec} style={styles.infoIcon} />
-            <AppText numberOfLines={2} style={styles.reasonText}>{request.reason}</AppText>
+            <View style={styles.reasonCopy}>
+              <AppText numberOfLines={2} style={styles.reasonText}>{request.reason || '—'}</AppText>
+              <AppText style={styles.reasonTapHint}>Tap to view full details</AppText>
+            </View>
+            <ChevronRight size={16} color={Theme.colors.textMuted} />
           </View>
         </View>
       </TouchableOpacity>
@@ -193,7 +199,13 @@ const LeaveRequestCard: React.FC<{
   );
 };
 
-export default function LeaveApprovalScreen() {
+export default function LeaveApprovalScreen({
+  embedded = false,
+  scrollHeader,
+}: {
+  embedded?: boolean;
+  scrollHeader?: React.ReactNode;
+}) {
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const [schoolCode, setSchoolCode] = useState<string>('');
@@ -436,7 +448,7 @@ export default function LeaveApprovalScreen() {
               }
 
               if (e?.response?.status !== 401) {
-                Alert.alert('Error', e?.response?.data?.detail || 'Failed to update leave status');
+                Alert.alert('Error', resolveApiErrorMessage(e, 'Failed to update leave status'));
               }
             }
           },
@@ -454,41 +466,51 @@ export default function LeaveApprovalScreen() {
 
   return (
     <View style={styles.container}>
-
-
-      <StandardPageHeader
-        title="Student Leaves"
-        subtitle={
-          loading
-            ? 'Loading requests...'
-            : loadError
-              ? 'Unable to load requests'
-              : 'Review and manage pending leave applications'
-        }
-        onBackPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never))}
-        rightActions={(
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={heroHeaderStyles.iconBtn}
-            onPress={onRefresh}
-            accessibilityLabel="Refresh leave requests"
-          >
-            <RefreshCw size={20} color={Theme.colors.card} />
-          </TouchableOpacity>
-        )}
-      />
-
       <ScrollView
         style={innerPageLayoutStyles.scrollViewFront}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          embedded ? styles.scrollContentEmbedded : innerPageLayoutStyles.scrollPageContent,
+          styles.scrollContent,
+        ]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
-        <View style={innerPageLayoutStyles.contentFront}>
+        {!embedded ? (
+          <StandardPageHeader
+            title="Student Leaves"
+            subtitle={
+              loading
+                ? 'Loading requests...'
+                : loadError
+                  ? 'Unable to load requests'
+                  : 'Review and manage pending leave applications'
+            }
+            showBack={navigation.canGoBack()}
+            onBackPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never))}
+            scrollWithContent
+            containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+            rightActions={(
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={heroHeaderStyles.iconBtn}
+                onPress={onRefresh}
+                accessibilityLabel="Refresh leave requests"
+              >
+                <RefreshCw size={20} color={Theme.colors.card} />
+              </TouchableOpacity>
+            )}
+          />
+        ) : scrollHeader ? (
+          scrollHeader
+        ) : null}
+        <View style={[
+          embedded ? innerPageLayoutStyles.contentFront : innerPageLayoutStyles.scrollBody,
+          embedded && styles.embeddedGutter,
+        ]}>
         {/* Filter Selection Card */}
-        <AppCard style={styles.filterCard}>
+        <View style={styles.filterSection}>
           <View style={styles.filterHeader}>
             <View style={styles.filterTitleContainer}>
               <Filter size={18} color={Theme.colors.primary} />
@@ -530,7 +552,7 @@ export default function LeaveApprovalScreen() {
               <ChevronRight size={16} color={Theme.colors.textMuted} />
             </TouchableOpacity>
           </View>
-        </AppCard>
+        </View>
 
         {/* Requests List */}
         <View style={styles.sectionHeader}>
@@ -633,109 +655,117 @@ export default function LeaveApprovalScreen() {
         </View>
       </BottomSheetModal>
 
-      {/* Detailed Leave Request Modal */}
-      <BottomSheetModal
+      {/* Leave detail — RN Modal works reliably inside embedded Leaves tab */}
+      <Modal
         visible={selectedRequest !== null}
-        onClose={() => setSelectedRequest(null)}
-        sheetStyle={styles.detailsModalContent}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedRequest(null)}
       >
-        {selectedRequest && (
-          <View style={styles.detailsModalInner}>
-            <View style={styles.modalHeader}>
-              <AppText weight="bold" style={styles.modalTitle}>Leave Application Details</AppText>
-              <TouchableOpacity accessibilityRole="button" onPress={() => setSelectedRequest(null)} style={styles.modalClose}>
-                <XCircle size={24} color={Theme.colors.textSec} />
-              </TouchableOpacity>
+        <View style={styles.detailOverlay}>
+          <TouchableOpacity
+            style={styles.detailBackdrop}
+            activeOpacity={1}
+            onPress={() => setSelectedRequest(null)}
+          />
+          {selectedRequest ? (
+            <View style={styles.detailSheet}>
+              <View style={styles.modalHeader}>
+                <AppText weight="bold" style={styles.modalTitle}>Leave Application Details</AppText>
+                <TouchableOpacity accessibilityRole="button" onPress={() => setSelectedRequest(null)} style={styles.modalClose}>
+                  <XCircle size={24} color={Theme.colors.textSec} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.detailsModalBody} showsVerticalScrollIndicator={false}>
+                <View style={styles.detailsStudentSection}>
+                  <View style={styles.avatarPlaceholderLarge}>
+                    <User size={32} color={Theme.colors.textSec} />
+                  </View>
+                  <View style={styles.detailsStudentMeta}>
+                    <AppText weight="bold" style={styles.detailsStudentName}>
+                      {selectedRequest.student_full_name}
+                    </AppText>
+                    <AppText style={styles.detailsRollNumber}>
+                      Roll No: {selectedRequest.roll_number}
+                    </AppText>
+                  </View>
+                  <StatusBadge status={selectedRequest.status} />
+                </View>
+
+                <View style={styles.detailsDivider} />
+
+                <View style={styles.detailsGrid}>
+                  <View style={styles.detailsGridRow}>
+                    <View style={styles.detailsGridItem}>
+                      <AppText style={styles.detailsGridLabel}>Class & Section</AppText>
+                      <View style={styles.detailsGridValContainer}>
+                        <BookOpen size={16} color={Theme.colors.primary} />
+                        <AppText weight="bold" style={styles.detailsGridValue}>
+                          {selectedRequest.class_grade} - {selectedRequest.section}
+                        </AppText>
+                      </View>
+                    </View>
+
+                    <View style={styles.detailsGridItem}>
+                      <AppText style={styles.detailsGridLabel}>Duration</AppText>
+                      <View style={styles.detailsGridValContainer}>
+                        <Calendar size={16} color={Theme.colors.primary} />
+                        <AppText weight="bold" style={styles.detailsGridValue}>
+                          {(() => {
+                            const diffTime = Math.abs(new Date(selectedRequest.to_date).getTime() - new Date(selectedRequest.from_date).getTime());
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                            return `${diffDays} Day${diffDays > 1 ? 's' : ''}`;
+                          })()}
+                        </AppText>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.detailsSingleItem}>
+                    <AppText style={styles.detailsGridLabel}>Leave Dates</AppText>
+                    <AppText weight="semibold" style={styles.detailsDateRange}>
+                      {formatDate(selectedRequest.from_date)}{selectedRequest.from_date !== selectedRequest.to_date ? ` to ${formatDate(selectedRequest.to_date)}` : ''}
+                    </AppText>
+                  </View>
+                </View>
+
+                <View style={styles.detailsDivider} />
+
+                <AppText style={styles.detailsGridLabel}>Reason for Leave</AppText>
+                <View style={styles.detailsReasonContainer}>
+                  <AppText style={styles.detailsReasonText} selectable>
+                    {selectedRequest.reason || 'No reason provided.'}
+                  </AppText>
+                </View>
+              </ScrollView>
+
+              {selectedRequest.status === 'PENDING' ? (
+                <View style={styles.detailsActionButtons}>
+                  <TouchableOpacity accessibilityRole="button"
+                    style={[styles.detailsActionBtn, styles.detailsRejectBtn]}
+                    onPress={() => actOnLeave(selectedRequest.leave_id, 'REJECTED')}
+                  >
+                    <XCircle size={18} color="#B91C1C" />
+                    <AppText weight="bold" style={styles.detailsRejectBtnText}>Reject</AppText>
+                  </TouchableOpacity>
+                  <TouchableOpacity accessibilityRole="button"
+                    style={[styles.detailsActionBtn, styles.detailsApproveBtn]}
+                    onPress={() => actOnLeave(selectedRequest.leave_id, 'APPROVE')}
+                  >
+                    <CheckCircle2 size={18} color={Theme.colors.card} />
+                    <AppText weight="bold" style={styles.detailsApproveBtnText}>Approve</AppText>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.detailsCloseFooter}>
+                  <AppButton title="Close" onPress={() => setSelectedRequest(null)} />
+                </View>
+              )}
             </View>
-
-            <ScrollView style={[styles.detailsModalBody, innerPageLayoutStyles.scrollViewFront]} showsVerticalScrollIndicator={false}>
-              <View style={styles.detailsStudentSection}>
-                <View style={styles.avatarPlaceholderLarge}>
-                  <User size={32} color={Theme.colors.textSec} />
-                </View>
-                <View style={styles.detailsStudentMeta}>
-                  <AppText weight="bold" style={styles.detailsStudentName}>
-                    {selectedRequest.student_full_name}
-                  </AppText>
-                  <AppText style={styles.detailsRollNumber}>
-                    Roll No: {selectedRequest.roll_number}
-                  </AppText>
-                </View>
-                <StatusBadge status={selectedRequest.status} />
-              </View>
-
-              <View style={styles.detailsDivider} />
-
-              <View style={styles.detailsGrid}>
-                <View style={styles.detailsGridRow}>
-                  <View style={styles.detailsGridItem}>
-                    <AppText style={styles.detailsGridLabel}>Class & Section</AppText>
-                    <View style={styles.detailsGridValContainer}>
-                      <BookOpen size={16} color={Theme.colors.primary} />
-                      <AppText weight="bold" style={styles.detailsGridValue}>
-                        {selectedRequest.class_grade} - {selectedRequest.section}
-                      </AppText>
-                    </View>
-                  </View>
-
-                  <View style={styles.detailsGridItem}>
-                    <AppText style={styles.detailsGridLabel}>Duration</AppText>
-                    <View style={styles.detailsGridValContainer}>
-                      <Calendar size={16} color={Theme.colors.primary} />
-                      <AppText weight="bold" style={styles.detailsGridValue}>
-                        {(() => {
-                          const diffTime = Math.abs(new Date(selectedRequest.to_date).getTime() - new Date(selectedRequest.from_date).getTime());
-                          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-                          return `${diffDays} Day${diffDays > 1 ? 's' : ''}`;
-                        })()}
-                      </AppText>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.detailsSingleItem}>
-                  <AppText style={styles.detailsGridLabel}>Leave Dates</AppText>
-                  <AppText weight="semibold" style={styles.detailsDateRange}>
-                    {formatDate(selectedRequest.from_date)} {selectedRequest.from_date !== selectedRequest.to_date ? ` to ${formatDate(selectedRequest.to_date)}` : ''}
-                  </AppText>
-                </View>
-              </View>
-
-              <View style={styles.detailsDivider} />
-
-              <AppText style={styles.detailsGridLabel}>Reason for Leave</AppText>
-              <View style={styles.detailsReasonContainer}>
-                <AppText style={styles.detailsReasonText}>
-                  {selectedRequest.reason}
-                </AppText>
-              </View>
-            </ScrollView>
-
-            {selectedRequest.status === 'PENDING' && (
-              <View style={styles.detailsActionButtons}>
-                <TouchableOpacity accessibilityRole="button"
-                  style={[styles.detailsActionBtn, styles.detailsRejectBtn]}
-                  onPress={() => {
-                    actOnLeave(selectedRequest.leave_id, 'REJECTED');
-                  }}
-                >
-                  <XCircle size={18} color="#B91C1C" />
-                  <AppText weight="bold" style={styles.detailsRejectBtnText}>Reject</AppText>
-                </TouchableOpacity>
-                <TouchableOpacity accessibilityRole="button"
-                  style={[styles.detailsActionBtn, styles.detailsApproveBtn]}
-                  onPress={() => {
-                    actOnLeave(selectedRequest.leave_id, 'APPROVE');
-                  }}
-                >
-                  <CheckCircle2 size={18} color={Theme.colors.card} />
-                  <AppText weight="bold" style={styles.detailsApproveBtnText}>Approve</AppText>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
-      </BottomSheetModal>
+          ) : null}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -746,11 +776,16 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
   },
   scrollContent: {
-    paddingTop: 20,
     paddingBottom: 120,
   },
+  scrollContentEmbedded: {
+    paddingBottom: 100,
+  },
+  embeddedGutter: {
+    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
+  },
   errorCard: {
-    marginHorizontal: Theme.spacing.md,
+    marginHorizontal: 0,
     padding: 24,
     alignItems: 'center',
     gap: 8,
@@ -766,22 +801,9 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.primary,
   },
   retryBtnText: { color: Theme.colors.card },
-  filterCard: {
-        borderRadius: 30,
-    padding: 18,
-    marginHorizontal: Theme.spacing.md,
-    backgroundColor: Theme.colors.card,
-    ...Platform.select({
-
-      android: { elevation: 6 },
-
-      ios: {},
-
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
+  filterSection: {
+    paddingVertical: 4,
+    marginBottom: 12,
   },
   filterHeader: {
     flexDirection: 'row',
@@ -864,7 +886,6 @@ const styles = StyleSheet.create({
   sectionHeader: {
     marginTop: Theme.spacing.lg,
     marginBottom: 12,
-    marginHorizontal: 20,
   },
   sectionTitle: {
     fontSize: 18,
@@ -872,24 +893,13 @@ const styles = StyleSheet.create({
   },
   requestsList: {
     gap: 12,
-    paddingHorizontal: Theme.spacing.md,
   },
   requestCard: {
-    padding: 20,
-    borderRadius: 28,
+    padding: 16,
+    borderRadius: 12,
     backgroundColor: Theme.colors.card,
-    borderWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    ...Platform.select({
-
-      android: { elevation: 4 },
-
-      ios: {},
-
-    }),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Theme.colors.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -943,18 +953,27 @@ const styles = StyleSheet.create({
   },
   reasonBox: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     backgroundColor: Theme.colors.background,
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Theme.colors.background,
+    borderColor: Theme.colors.border,
+  },
+  reasonCopy: {
+    flex: 1,
   },
   reasonText: {
-    flex: 1,
     ...Theme.typography.body,
     color: Theme.colors.textSec,
     lineHeight: 20,
+  },
+  reasonTapHint: {
+    fontSize: 11,
+    color: Theme.colors.primary,
+    marginTop: 4,
+    fontWeight: '600',
   },
   actionButtons: {
     flexDirection: 'row',
@@ -1083,15 +1102,33 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 12,
   },
-  detailsModalContent: {
-    backgroundColor: Theme.colors.card,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    maxHeight: '85%',
-  },
   detailsModalBody: {
-    padding: Theme.spacing.lg,
+    paddingHorizontal: Theme.spacing.lg,
     paddingTop: Theme.spacing.md,
+    paddingBottom: Theme.spacing.md,
+    maxHeight: '70%',
+  },
+  detailOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  detailBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  detailSheet: {
+    backgroundColor: Theme.colors.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '88%',
+    overflow: 'hidden',
+  },
+  detailsCloseFooter: {
+    paddingHorizontal: Theme.spacing.lg,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 20,
+    paddingTop: Theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
   },
   detailsStudentSection: {
     flexDirection: 'row',
@@ -1214,9 +1251,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: 20,
-  },
-  detailsModalInner: {
-    flex: 1,
   },
   infoIcon: {
     marginTop: 2,

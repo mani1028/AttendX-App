@@ -497,19 +497,21 @@ export default function VitalScanScreen() {
         </View>
       )}
 
-      <StandardPageHeader
-        title="VitalScan AI"
-        subtitle="AI-powered student health screening"
-        onBackPress={() => navigation.goBack()}
-      />
-
       <ScrollView
        style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[innerPageLayoutStyles.scrollPageContent, styles.contentContainer]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
+        <StandardPageHeader
+          title="VitalScan AI"
+          subtitle="AI-powered student health screening"
+          onBackPress={() => navigation.goBack()}
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
+        <View style={innerPageLayoutStyles.scrollBody}>
         {/* Header Actions Row */}
         <View style={styles.topActionsRow}>
           <TouchableOpacity accessibilityRole="button" style={styles.newBtn} onPress={startNewStudent}>
@@ -760,6 +762,7 @@ export default function VitalScanScreen() {
             </View>
           )}
         </AppCard>
+        </View>
       </ScrollView>
     </View>
   );
@@ -774,7 +777,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 20,
     paddingBottom: 40,
   },
   topActionsRow: {
@@ -783,7 +785,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 20,
     marginTop: Theme.spacing.md,
-    marginHorizontal: Theme.spacing.md,
   },
   toast: {
     position: 'absolute',
@@ -882,7 +883,7 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: 20,
-    marginHorizontal: Theme.spacing.md,
+    marginHorizontal: 0,
     borderRadius: 24,
     overflow: 'hidden',
     elevation: 3,
@@ -1075,7 +1076,7 @@ const styles = StyleSheet.create({
   },
   resultsCard: {
     marginBottom: 20,
-    marginHorizontal: Theme.spacing.md,
+    marginHorizontal: 0,
     borderRadius: 24,
     overflow: 'hidden',
     elevation: 4,

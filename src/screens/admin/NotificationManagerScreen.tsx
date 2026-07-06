@@ -200,10 +200,19 @@ const NotificationManagerScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader title="Notification Manager" onBackPress={() => safeGoBack(navigation as any)} />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
+      >
+        <StandardPageHeader
+          scrollWithContent
+          title="Notification Manager"
+          onBackPress={() => safeGoBack(navigation as any)}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
 
-      <View style={styles.contentArea}>
-        {/* Action bar */}
+        <View style={innerPageLayoutStyles.scrollBody}>
         <View style={styles.actionBar}>
           <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilterModal(true)}>
             <Filter size={16} color={Theme.colors.primary} />
@@ -216,7 +225,6 @@ const NotificationManagerScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Active filters */}
         {(filterRole !== 'all' || filterStatus !== 'all') && (
           <View style={styles.activeFilters}>
             {filterRole !== 'all' && (
@@ -236,27 +244,20 @@ const NotificationManagerScreen = () => {
 
         {loading ? (
           <ActivityIndicator size="large" color={Theme.colors.primary} style={styles.loader} />
+        ) : notifications.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Bell size={48} color={Theme.colors.border} />
+            <AppText style={styles.emptyText}>No notifications found</AppText>
+            <AppText style={styles.emptySubtext}>Send your first notification using the button above</AppText>
+          </View>
         ) : (
-          <ScrollView
-           style={[styles.list, innerPageLayoutStyles.scrollViewFront]}
-            contentContainerStyle={styles.listContent}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
-          >
-            {notifications.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Bell size={48} color={Theme.colors.border} />
-                <AppText style={styles.emptyText}>No notifications found</AppText>
-                <AppText style={styles.emptySubtext}>Send your first notification using the button above</AppText>
-              </View>
-            ) : (
-              notifications.map(renderNotificationCard)
-            )}
-          </ScrollView>
+          notifications.map(renderNotificationCard)
         )}
-      </View>
+        </View>
+      </ScrollView>
 
       {/* Compose Modal */}
-      <Modal visible={showComposeModal} animationType="slide" transparent>
+      <Modal visible={showComposeModal} animationType="slide" transparent onRequestClose={() => { setShowComposeModal(false); resetCompose(); }}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
@@ -352,7 +353,7 @@ const NotificationManagerScreen = () => {
       </Modal>
 
       {/* Filter Modal */}
-      <Modal visible={showFilterModal} animationType="slide" transparent>
+      <Modal visible={showFilterModal} animationType="slide" transparent onRequestClose={() => setShowFilterModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.filterModalContainer}>
             <View style={styles.modalHeader}>

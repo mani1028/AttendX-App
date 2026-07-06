@@ -384,7 +384,7 @@ export default function StudentMarksScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />
         }
       >
-        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+        <View style={styles.pageBody}>
         <View style={styles.mainCard}>
           <AppText style={styles.selectLabel}>Select Exam</AppText>
           <View style={styles.examSelectionRow}>
@@ -514,7 +514,6 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.background,
   },
   pageBody: {
-    paddingHorizontal: 20,
   },
   header: {
     backgroundColor: C.colors.primary,

@@ -238,7 +238,7 @@ export default function StudentAttendanceScreen() {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />
                 }
             >
-                <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+                <View style={styles.pageBody}>
                 {/* Month navigation */}
                 <View style={styles.monthNav}>
                     <TouchableOpacity
@@ -421,7 +421,6 @@ const styles = StyleSheet.create({
         color: C.colors.text,
     },
     pageBody: {
-        paddingHorizontal: 20,
     },
     statsOverview: {
         flexDirection: 'row',

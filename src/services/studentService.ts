@@ -1268,7 +1268,7 @@ export async function submitLeaveRequest(requestData: any): Promise<any> {
         ...requestData,
         school_code: schoolCode,
         student_id: studentId,
-      });
+      }, { suppressLogoutOn401: true } as any);
       return response.data;
     } catch (error: any) {
        if (error.response?.status !== 404) {throw error;}

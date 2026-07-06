@@ -4,8 +4,6 @@ import { safeJsonParse } from './storage';
 import { storage } from '../storage/storage';
 import { StorageKeys } from '../storage/StorageKeys';
 
-/* ================= CONSTANTS ================= */
-
 const SESSION_KEYS = [
   'userRole',
   'role',
@@ -108,7 +106,12 @@ export const setSessionData = async (data: any) => {
       }
 
       const normalizedRole = String(role || data.user?.role || '').trim().toLowerCase();
-      const isDirectorRole = normalizedRole === 'director' || normalizedRole === 'admin';
+      const isDirectorRole =
+        normalizedRole === 'director' ||
+        normalizedRole === 'admin' ||
+        normalizedRole === 'superadmin' ||
+        normalizedRole === 'super_admin' ||
+        normalizedRole === 'super admin';
 
       const employeeId = data.user.employee_id ?? data.user.employeeId;
       if (employeeId && !isDirectorRole) {
@@ -155,13 +158,15 @@ export const setSessionData = async (data: any) => {
         storageOps.push(['roll_number', String(userRollNo)]);
       }
 
-      const email = data.user.email ?? data.user.principal_email;
+      const loginUsername = data.user.username ?? data.user.user_name;
+      const email =
+        data.user.email ??
+        data.user.principal_email ??
+        (loginUsername && loginUsername.includes('@') ? loginUsername : undefined);
       if (email) {
         storageOps.push(['email', email]);
         await storage.setString(StorageKeys.USER_EMAIL, email);
       }
-
-      const loginUsername = data.user.username ?? data.user.user_name;
       if (loginUsername) {
         storageOps.push(['username', String(loginUsername)]);
       }
@@ -187,7 +192,7 @@ export const setSessionData = async (data: any) => {
     }
 
     // School code
-    const schoolCode = data.school_code ?? data.schoolCode ?? data.school_id;
+    const schoolCode = data.school_code ?? data.schoolCode ?? data.school_id ?? data.schoolId;
     if (schoolCode) {
       storageOps.push(['school_code', String(schoolCode)]);
       storageOps.push(['schoolCode', String(schoolCode)]);
@@ -442,6 +447,7 @@ export const performLogout = async (navigation?: any) => {
     // Reset API state
     const { setAuthToken } = require('../services/api');
     setAuthToken(null);
+    await storage.removeSecure(StorageKeys.AUTH_TOKEN);
 
     // Emit logout event for any listeners
     eventEmitter.emit('app-logout');

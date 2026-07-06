@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Buffer } from 'buffer';
 import API, { buildApiUrl } from './api';
-import { isSunday } from '../utils/holidayUtils';
+import { formatLocalDateKey, isSunday } from '../utils/holidayUtils';
 import { safeJsonParse } from '../utils/storage';
 import { storage } from '../storage/storage';
 import { StorageKeys } from '../storage/StorageKeys';
@@ -1361,6 +1362,7 @@ export async function downloadTeacherQuestionPaper(paperId: string): Promise<Arr
   const encodedPaperId = encodeURIComponent(paperId);
   const endpoints = [
     `staff/question-papers/${encodedPaperId}/download`,
+    `staff/question-papers/${encodedPaperId}/preview`,
     `manage/staff/question-papers/${encodedPaperId}/download`,
     `staff/question-papers/download/${encodedPaperId}`,
     'staff/question-papers/download',
@@ -1372,22 +1374,29 @@ export async function downloadTeacherQuestionPaper(paperId: string): Promise<Arr
     (await AsyncStorage.getItem('teacherId')) ||
     (await storage.getString(StorageKeys.EMPLOYEE_ID)) ||
     '';
+  const authToken = await storage.getSecure(StorageKeys.AUTH_TOKEN);
+  const authHeader = authToken ? `Bearer ${authToken}` : undefined;
+  const requestParams = {
+    school_code: schoolCode,
+    branch_id: branchId,
+    employee_id: employeeId,
+    teacher_id: employeeId,
+    paper_id: paperId,
+    id: paperId,
+  };
+  const requestHeaders = {
+    'X-School-Code': schoolCode || undefined,
+    'X-Branch-Id': branchId || undefined,
+    'X-User-Id': employeeId || undefined,
+    Authorization: authHeader,
+  };
 
   for (const endpoint of endpoints) {
     try {
       const response = await API.get<ArrayBuffer>(endpoint, {
         responseType: 'arraybuffer',
-        params: {
-          school_code: schoolCode,
-          branch_id: branchId,
-          employee_id: employeeId,
-          paper_id: paperId,
-          id: paperId,
-        },
-        headers: {
-          'X-School-Code': schoolCode || undefined,
-          'X-Branch-Id': branchId || undefined,
-        },
+        params: requestParams,
+        headers: requestHeaders,
         ...FALLBACK_404_CONFIG,
       } as any);
 
@@ -1399,9 +1408,51 @@ export async function downloadTeacherQuestionPaper(paperId: string): Promise<Arr
         return response.data;
       }
     } catch (error: any) {
+      if (error.message === 'JSON_RESPONSE_TRIGGER_FALLBACK') {
+        break;
+      }
       const status = error?.response?.status;
       if (status === 401 || status === 403) {
         throw error;
+      }
+    }
+  }
+
+  for (const endpoint of endpoints) {
+    try {
+      const resp = await API.get<any>(endpoint, {
+        params: requestParams,
+        headers: requestHeaders,
+        ...FALLBACK_404_CONFIG,
+      } as any);
+      const data = resp.data;
+
+      if (typeof data === 'string') {
+        const candidateStr = data.trim();
+        if (/^[A-Za-z0-9+\/=_\r\n-]+$/.test(candidateStr)) {
+          const base64 = candidateStr.replace(/\r|\n/g, '');
+          return Buffer.from(base64, 'base64').buffer as ArrayBuffer;
+        }
+      }
+
+      const candidate = data?.base64 || data?.file || data?.data || data?.payload || data?.pdf || data?.file_data;
+      if (candidate && typeof candidate === 'string') {
+        const base64 = String(candidate).replace(/\r|\n/g, '');
+        return Buffer.from(base64, 'base64').buffer as ArrayBuffer;
+      }
+
+      const remoteUrl = data?.url || data?.file_url || data?.download_url;
+      if (remoteUrl && typeof remoteUrl === 'string') {
+        const remoteResp = await API.get<ArrayBuffer>(remoteUrl, {
+          responseType: 'arraybuffer',
+          headers: requestHeaders,
+        } as any);
+        return remoteResp.data;
+      }
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 401 || status === 403) {
+        throw err;
       }
     }
   }
@@ -1425,6 +1476,175 @@ function firstNonEmptyArray<T>(...candidates: Array<T[] | undefined | null>): T[
 
 /* ============ LEAVE MANAGEMENT ============ */
 
+export type LeaveAllocationItem = {
+  type: 'CASUAL' | 'SICK' | 'PAID' | 'COMP_OFF' | 'LOP';
+  days: number;
+  month?: number;
+  year?: number;
+};
+
+export type StaffLeaveBalance = {
+  casual_remaining: number;
+  sick_remaining: number;
+  paid_remaining: number;
+  comp_off_remaining: number;
+};
+
+const PAID_LEAVE_TYPES: LeaveAllocationItem['type'][] = ['CASUAL', 'SICK', 'PAID', 'COMP_OFF'];
+
+export async function getStaffLeaveBalance(
+  schoolCode: string,
+  employeeId: string,
+  month: number,
+  year: number,
+): Promise<StaffLeaveBalance | null> {
+  try {
+    const res = await API.post('/manage/principal/staff-leave-balance', {
+      school_code: schoolCode,
+      employee_id: employeeId,
+      month,
+      year,
+    });
+    const b = res.data?.balance;
+    if (!b) { return null; }
+    return {
+      casual_remaining: Number(b.casual_remaining) || 0,
+      sick_remaining: Number(b.sick_remaining) || 0,
+      paid_remaining: Number(b.paid_remaining) || 0,
+      comp_off_remaining: Number(b.comp_off_remaining) || 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function getLeaveRemainingForType(
+  balance: StaffLeaveBalance | null,
+  type: LeaveAllocationItem['type'],
+): number | null {
+  if (type === 'LOP') { return null; }
+  if (!balance) { return 0; }
+  switch (type) {
+    case 'CASUAL': return balance.casual_remaining;
+    case 'SICK': return balance.sick_remaining;
+    case 'PAID': return balance.paid_remaining;
+    case 'COMP_OFF': return balance.comp_off_remaining;
+    default: return 0;
+  }
+}
+
+export function pickDefaultStaffLeaveType(
+  balance: StaffLeaveBalance | null,
+): LeaveAllocationItem['type'] {
+  for (const t of PAID_LEAVE_TYPES) {
+    if ((getLeaveRemainingForType(balance, t) ?? 0) > 0) { return t; }
+  }
+  return 'LOP';
+}
+
+type TeacherLeaveSubmitPayload = {
+  from_date: string;
+  to_date: string;
+  reason: string;
+  leave_type?: LeaveAllocationItem['type'];
+  leave_allocations?: LeaveAllocationItem[];
+};
+
+function parseYmdLocal(ymd: string): Date {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function countLeaveWorkingDays(
+  fromYmd: string,
+  toYmd: string,
+  holidays: Set<string> = new Set(),
+): number {
+  const start = parseYmdLocal(fromYmd);
+  const end = parseYmdLocal(toYmd);
+  let count = 0;
+  const current = new Date(start);
+  while (current <= end) {
+    const key = formatLocalDateKey(current);
+    if (!isSunday(current) && !holidays.has(key)) {
+      count += 1;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return count;
+}
+
+function splitLeaveRangeByMonth(fromYmd: string, toYmd: string): Array<{
+  startDate: string;
+  endDate: string;
+  month: number;
+  year: number;
+}> {
+  const from = parseYmdLocal(fromYmd);
+  const to = parseYmdLocal(toYmd);
+  const intervals: Array<{ startDate: string; endDate: string; month: number; year: number }> = [];
+  let current = new Date(from.getFullYear(), from.getMonth(), 1);
+  while (current <= to) {
+    const monthStart = new Date(Math.max(current.getTime(), from.getTime()));
+    const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+    const intervalEnd = new Date(Math.min(monthEnd.getTime(), to.getTime()));
+    if (monthStart <= intervalEnd) {
+      intervals.push({
+        startDate: formatLocalDateKey(monthStart),
+        endDate: formatLocalDateKey(intervalEnd),
+        month: current.getMonth() + 1,
+        year: current.getFullYear(),
+      });
+    }
+    current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+  }
+  return intervals;
+}
+
+// ponytail: mobile defaults to CASUAL per month; portal UI picks types / LOP fallback
+export function buildDefaultLeaveAllocations(
+  fromYmd: string,
+  toYmd: string,
+  holidays: Set<string> = new Set(),
+  leaveType: LeaveAllocationItem['type'] = 'CASUAL',
+): LeaveAllocationItem[] {
+  const allocations: LeaveAllocationItem[] = [];
+  for (const interval of splitLeaveRangeByMonth(fromYmd, toYmd)) {
+    const days = countLeaveWorkingDays(interval.startDate, interval.endDate, holidays);
+    if (days > 0) {
+      allocations.push({
+        type: leaveType,
+        days,
+        month: interval.month,
+        year: interval.year,
+      });
+    }
+  }
+  return allocations;
+}
+
+async function fetchSchoolHolidayDates(
+  schoolCode: string,
+  branchId?: string,
+): Promise<Set<string>> {
+  try {
+    const config = {
+      suppressFallback404Log: true,
+      ...(schoolCode && branchId
+        ? { headers: { 'X-School-Code': schoolCode, 'X-Branch-Id': branchId } }
+        : {}),
+    } as any;
+    const res = await API.get('/principal/calendar', config);
+    const raw = Array.isArray(res.data) ? res.data : (res.data?.events || []);
+    const dates = raw
+      .filter((e: any) => e?.event_type === 'holiday' && e?.event_date)
+      .map((e: any) => String(e.event_date).slice(0, 10));
+    return new Set(dates);
+  } catch {
+    return new Set();
+  }
+}
+
 export async function applyLeave(
   schoolCode: string,
   branchId: string,
@@ -1443,6 +1663,76 @@ export async function applyLeave(
         'X-Branch-Id': branchId,
       },
     }
+  );
+}
+
+export async function listTeacherLeaveRequests(
+  schoolCode: string,
+  branchId: string,
+  employeeId: string,
+): Promise<{ items?: any[] }> {
+  const body = {
+    school_code: schoolCode,
+    branch_id: branchId,
+    employee_id: employeeId,
+    teacher_id: employeeId,
+  };
+
+  try {
+    return await postFirstSuccessful(
+      ['manage/teacher/leave-requests/list', 'manage/staff/leave-requests/list'],
+      body,
+      { suppressLogoutOn401: true },
+    );
+  } catch {
+    for (const endpoint of ['manage/teacher/leave-requests', 'manage/staff/leave-requests']) {
+      try {
+        const res = await API.get(endpoint, {
+          params: body,
+          suppressFallback404Log: true,
+        } as any);
+        return res.data;
+      } catch {
+        // try next
+      }
+    }
+    throw new Error('Could not load leave history');
+  }
+}
+
+export async function submitTeacherLeave(
+  schoolCode: string,
+  branchId: string,
+  employeeId: string,
+  payload: TeacherLeaveSubmitPayload,
+): Promise<any> {
+  const leave_allocations = payload.leave_allocations?.length
+    ? payload.leave_allocations
+    : buildDefaultLeaveAllocations(
+        payload.from_date,
+        payload.to_date,
+        await fetchSchoolHolidayDates(schoolCode, branchId),
+        payload.leave_type ?? 'CASUAL',
+      );
+
+  const body = {
+    school_code: schoolCode,
+    branch_id: branchId,
+    employee_id: employeeId,
+    teacher_id: employeeId,
+    from_date: payload.from_date,
+    to_date: payload.to_date,
+    reason: payload.reason,
+    leave_allocations,
+  };
+  return postFirstSuccessful(
+    [
+      'manage/teacher/leave-requests/submit',
+      'manage/staff/leave-requests/submit',
+      'staff/leave/apply',
+    ],
+    body,
+    { suppressLogoutOn401: true },
   );
 }
 

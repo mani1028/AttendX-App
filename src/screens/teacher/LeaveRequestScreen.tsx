@@ -8,15 +8,26 @@ import {
   TextInput,
   Alert,
   Platform,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
+  Modal,
+  Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
-import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft, Calendar, FileText, Clock, CheckCircle2, XCircle } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import {
+  listTeacherLeaveRequests,
+  submitTeacherLeave,
+  getTeacherProfile,
+  getStaffLeaveBalance,
+  getLeaveRemainingForType,
+  pickDefaultStaffLeaveType,
+  type LeaveAllocationItem,
+  type StaffLeaveBalance,
+} from '../../services/teacherService';
 import API from '../../services/api';
 import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
@@ -24,10 +35,12 @@ import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 import { Theme } from '../../theme/tokens';
+import { resolveApiErrorMessage } from '../../utils/helpers';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 
 // Types
 interface LeaveRequest {
@@ -39,23 +52,85 @@ interface LeaveRequest {
   created_at: string;
 }
 
-// Helper functions
-const getSchoolCode = async (): Promise<string> => {
-  const code = await storage.getString(StorageKeys.SCHOOL_CODE);
-  return code || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
-};
+// ponytail: one resolver — login writes mixed AsyncStorage keys; profile API is fallback
+async function loadTeacherLeaveContext(): Promise<{
+  schoolCode: string;
+  branchId: string;
+  employeeId: string;
+}> {
+  const entries = await AsyncStorage.multiGet([
+    'school_code', 'schoolCode', 'branch_id', 'branchId',
+    'teacher_id', 'teacherId', 'employee_id', 'employeeId',
+  ]);
+  const bag: Record<string, string> = {};
+  entries.forEach(([key, val]) => { if (val) { bag[key] = val; } });
 
-const getTeacherId = async (): Promise<string> => {
-  const id = await AsyncStorage.getItem('teacher_id');
-  return id || (await AsyncStorage.getItem('teacherId')) ||
-         (await storage.getString(StorageKeys.EMPLOYEE_ID)) ||
-         (await storage.getString(StorageKeys.EMPLOYEE_ID)) || '';
-};
+  let schoolCode =
+    bag.school_code ||
+    bag.schoolCode ||
+    (await storage.getString(StorageKeys.SCHOOL_CODE)) ||
+    '';
+  let branchId =
+    bag.branch_id ||
+    bag.branchId ||
+    (await storage.getString(StorageKeys.BRANCH_ID)) ||
+    '';
+  let employeeId =
+    bag.teacher_id ||
+    bag.teacherId ||
+    bag.employee_id ||
+    bag.employeeId ||
+    (await storage.getString(StorageKeys.EMPLOYEE_ID)) ||
+    '';
 
-const getBranchId = async (): Promise<string> => {
-  const id = await storage.getString(StorageKeys.BRANCH_ID);
-  return id || (await storage.getString(StorageKeys.BRANCH_ID)) || '';
-};
+  if (!employeeId || !schoolCode) {
+    try {
+      const profile = await getTeacherProfile();
+      if (!employeeId) {
+        employeeId = String(profile?.teacher_id || profile?.employee_id || '').trim();
+      }
+      if (!schoolCode) {
+        schoolCode = String(profile?.school_code || '').trim();
+      }
+      if (!branchId) {
+        branchId = String(profile?.branch_id || '').trim();
+      }
+    } catch {
+      // keep stored values
+    }
+  }
+
+  if (schoolCode && employeeId) {
+    try {
+      const res = await API.get('/staff/marks/staff-context', {
+        params: {
+          school_code: schoolCode,
+          branch_id: branchId,
+          teacher_id: employeeId,
+          employee_id: employeeId,
+        },
+      });
+      const canonical = String(
+        res.data?.teacher_data?.teacher_id ||
+        res.data?.teacher_data?.employee_id ||
+        employeeId,
+      ).trim();
+      if (canonical) { employeeId = canonical; }
+    } catch {
+      // use employeeId as-is
+    }
+  }
+
+  return { schoolCode, branchId, employeeId };
+}
+
+const LEAVE_CATEGORY_OPTIONS: { key: LeaveAllocationItem['type']; label: string }[] = [
+  { key: 'CASUAL', label: 'Casual' },
+  { key: 'SICK', label: 'Sick' },
+  { key: 'PAID', label: 'Paid' },
+  { key: 'COMP_OFF', label: 'Comp Off' },
+  { key: 'LOP', label: 'LOP (Unpaid)' },
+];
 
 const isValidYear = (dateString: string): boolean => {
   if (!dateString) {return true;}
@@ -134,8 +209,13 @@ const LeaveHistoryCard: React.FC<{ request: LeaveRequest }> = ({ request }) => {
   );
 };
 
-export default function LeaveRequestScreen() {
-  const insets = useSafeAreaInsets();
+export default function LeaveRequestScreen({
+  embedded = false,
+  scrollHeader,
+}: {
+  embedded?: boolean;
+  scrollHeader?: React.ReactNode;
+}) {
   const navigation = useNavigation();
   const { setTabBarVisible } = useAuth();
   const [schoolCode, setSchoolCode] = useState<string>('');
@@ -145,6 +225,7 @@ export default function LeaveRequestScreen() {
 
   // Form fields
   const [leaveType, setLeaveType] = useState<'one-day' | 'multiple'>('one-day');
+  const [allocationType, setAllocationType] = useState<LeaveAllocationItem['type']>('CASUAL');
   const [fromDate, setFromDate] = useState<Date | null>(null);
   const [toDate, setToDate] = useState<Date | null>(null);
   const [reason, setReason] = useState<string>('');
@@ -158,20 +239,20 @@ export default function LeaveRequestScreen() {
   // Date picker states
   const [showFromDatePicker, setShowFromDatePicker] = useState<boolean>(false);
   const [showToDatePicker, setShowToDatePicker] = useState<boolean>(false);
+  const [leaveBalance, setLeaveBalance] = useState<StaffLeaveBalance | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
 
   useEffect(() => {
     isMounted.current = true;
-    const loadCredentials = async () => {
-      const code = await getSchoolCode();
-      const tid = await getTeacherId();
-      const bid = await getBranchId();
-      if (isMounted.current) {
-        setSchoolCode(code);
-        setTeacherId(tid);
-        setBranchId(bid);
-      }
+    const bootstrap = async () => {
+      const ctx = await loadTeacherLeaveContext();
+      if (!isMounted.current) { return; }
+      setSchoolCode(ctx.schoolCode);
+      setBranchId(ctx.branchId);
+      setTeacherId(ctx.employeeId);
+      setResolvedTeacherId(ctx.employeeId);
     };
-    loadCredentials();
+    bootstrap();
     setTabBarVisible(true);
     return () => {
       isMounted.current = false;
@@ -180,37 +261,44 @@ export default function LeaveRequestScreen() {
   }, []);
   const handleScroll = useScrollTabBar();
 
-
   useEffect(() => {
-    const resolveTeacherId = async () => {
-      if (!schoolCode || !teacherId) {return;}
-      try {
-        const res = await API.get('/staff/marks/staff-context', {
-          params: {
-            school_code: schoolCode,
-            branch_id: branchId,
-            teacher_id: teacherId,
-            employee_id: teacherId,
-          },
-        });
-
-        if (!isMounted.current) {return;}
-
-        const canonicalTeacherId = String(res.data?.teacher_data?.teacher_id || teacherId).trim();
-        setResolvedTeacherId(canonicalTeacherId);
-      } catch (err: any) {
-        if (!isMounted.current) {return;}
-        setResolvedTeacherId(teacherId);
-      }
-    };
-    resolveTeacherId();
-  }, [schoolCode, teacherId]);
-
-  useEffect(() => {
-    if (schoolCode && resolvedTeacherId) {
+    if (schoolCode && (resolvedTeacherId || teacherId)) {
       loadHistory();
     }
-  }, [schoolCode, resolvedTeacherId]);
+  }, [schoolCode, resolvedTeacherId, teacherId]);
+
+  const loadLeaveBalance = async (refDate?: Date | null) => {
+    const employeeId = resolvedTeacherId || teacherId;
+    if (!schoolCode || !employeeId) { return; }
+    const ref = refDate || new Date();
+    setBalanceLoading(true);
+    try {
+      const bal = await getStaffLeaveBalance(
+        schoolCode,
+        employeeId,
+        ref.getMonth() + 1,
+        ref.getFullYear(),
+      );
+      if (!isMounted.current) { return; }
+      setLeaveBalance(bal);
+      setAllocationType((prev) => {
+        if (prev === 'LOP') { return 'LOP'; }
+        const rem = getLeaveRemainingForType(bal, prev) ?? 0;
+        if (rem > 0) { return prev; }
+        return pickDefaultStaffLeaveType(bal);
+      });
+    } finally {
+      if (isMounted.current) {
+        setBalanceLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (schoolCode && (resolvedTeacherId || teacherId)) {
+      loadLeaveBalance(fromDate);
+    }
+  }, [schoolCode, resolvedTeacherId, teacherId, fromDate]);
 
   const hasDuplicateLeave = (newFromDate: string, newToDate: string): boolean => {
     return history.some((leave) => {
@@ -225,6 +313,8 @@ export default function LeaveRequestScreen() {
     setToDate(null);
     setReason('');
     setLeaveType('one-day');
+    setAllocationType(pickDefaultStaffLeaveType(leaveBalance));
+    loadLeaveBalance(null);
   };
 
   const handleDateChange = (
@@ -250,27 +340,13 @@ export default function LeaveRequestScreen() {
   };
 
   const loadHistory = async () => {
-    if (!schoolCode || !resolvedTeacherId) {return;}
+    const employeeId = resolvedTeacherId || teacherId;
+    if (!schoolCode || !employeeId) { return; }
     setLoadingHistory(true);
     try {
-      let res;
-      try {
-        res = await API.post('/manage/staff/leave-requests/list', {
-          school_code: schoolCode,
-          employee_id: resolvedTeacherId,
-          branch_id: branchId,
-        });
-      } catch {
-        res = await API.get('/manage/staff/leave-requests', {
-          params: {
-            school_code: schoolCode,
-            employee_id: resolvedTeacherId,
-            branch_id: branchId,
-          },
-        });
-      }
+      const data = await listTeacherLeaveRequests(schoolCode, branchId, employeeId);
       if (isMounted.current) {
-        setHistory(res.data?.items || []);
+        setHistory(data?.items || []);
       }
     } catch (error: any) {
       console.error('Failed to load history:', error);
@@ -289,10 +365,30 @@ export default function LeaveRequestScreen() {
   };
 
   const formatDateToYMD = (date: Date): string => {
-    return date.toISOString().split('T')[0];
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   };
 
   const handleSubmit = async () => {
+    Keyboard.dismiss();
+    let employeeId = resolvedTeacherId || teacherId;
+    let activeSchoolCode = schoolCode;
+    let activeBranchId = branchId;
+
+    if (!employeeId || !activeSchoolCode) {
+      const ctx = await loadTeacherLeaveContext();
+      employeeId = ctx.employeeId;
+      activeSchoolCode = ctx.schoolCode;
+      activeBranchId = ctx.branchId;
+      if (ctx.employeeId) {
+        setTeacherId(ctx.employeeId);
+        setResolvedTeacherId(ctx.employeeId);
+        setSchoolCode(ctx.schoolCode);
+        setBranchId(ctx.branchId);
+      }
+    }
     if (!fromDate) {
       Alert.alert('Error', 'Please select a leave date');
       return;
@@ -318,21 +414,33 @@ export default function LeaveRequestScreen() {
       Alert.alert('Error', 'Please provide a reason for leave');
       return;
     }
+    if (allocationType !== 'LOP') {
+      if (balanceLoading) {
+        Alert.alert('Please wait', 'Leave balance is still loading.');
+        return;
+      }
+      const rem = getLeaveRemainingForType(leaveBalance, allocationType) ?? 0;
+      if (rem <= 0) {
+        Alert.alert(
+          'No balance',
+          'This leave type has no balance remaining. Select LOP or another available type.',
+        );
+        return;
+      }
+    }
 
-    if (!resolvedTeacherId) {
+    if (!employeeId) {
       Alert.alert('Error', 'Teacher ID not found. Please re-login.');
       return;
     }
 
     setSubmitting(true);
     try {
-      await API.post('/manage/staff/leave-requests/submit', {
-        school_code: schoolCode,
-        employee_id: resolvedTeacherId,
-        branch_id: branchId,
+      await submitTeacherLeave(activeSchoolCode, activeBranchId, employeeId, {
         from_date: formatDateToYMD(fromDate),
         to_date: formatDateToYMD(finalToDate),
         reason: reason.trim(),
+        leave_type: allocationType,
       });
 
       if (isMounted.current) {
@@ -340,13 +448,14 @@ export default function LeaveRequestScreen() {
           { text: 'OK', onPress: resetForm },
         ]);
         loadHistory();
+        loadLeaveBalance(fromDate);
       }
     } catch (error: any) {
       if (error?.response?.status === 401) {
         // Handled by global interceptor, but we should stop local processing
         return;
       }
-      Alert.alert('Error', error?.response?.data?.detail || 'Failed to submit leave request');
+      Alert.alert('Error', resolveApiErrorMessage(error, 'Failed to submit leave request'));
     } finally {
       if (isMounted.current) {
         setSubmitting(false);
@@ -355,23 +464,42 @@ export default function LeaveRequestScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-
-
+    <SafeAreaView style={[styles.container, embedded && styles.containerEmbedded]} edges={['left', 'right', 'bottom']}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
       <ScrollView
-       style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={styles.scrollContent}
+        style={[styles.scrollView, !embedded && innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={[
+          embedded ? styles.scrollContentEmbedded : innerPageLayoutStyles.scrollPageContent,
+          styles.scrollContent,
+        ]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         overScrollMode="never"
         bounces={true}
-        // Make sure keyboard handling / inertia still works
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Navy Hero Header - scrolls with page */}
-        <StandardPageHeader title="Leave Request" onBackPress={() => navigation.goBack()} />
-        {/* Form Card */}
-<AppCard style={[styles.mainCard, innerPageLayoutStyles.contentFront]}>
+        {!embedded ? (
+          <StandardPageHeader
+            title="Leave Request"
+            subtitle="Apply for leave and track your requests"
+            showBack={navigation.canGoBack()}
+            onBackPress={() => navigation.goBack()}
+            scrollWithContent
+            containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          />
+        ) : scrollHeader ? (
+          scrollHeader
+        ) : null}
+        <View style={[
+          embedded ? innerPageLayoutStyles.contentFront : innerPageLayoutStyles.scrollBody,
+          embedded && styles.embeddedGutter,
+        ]}>
+        <AppCard style={[styles.mainCard, embedded && styles.mainCardEmbedded]} elevated={false} variant="flat">
           <View style={styles.cardHeader}>
             <Calendar size={20} color={Theme.colors.primary} />
             <AppText weight="bold" style={styles.cardTitle}>New Application</AppText>
@@ -390,6 +518,50 @@ export default function LeaveRequestScreen() {
             >
               <AppText weight="semibold" style={[styles.typeBtnText, leaveType === 'multiple' && styles.typeBtnTextActive]}>Multiple Days</AppText>
             </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <AppText weight="semibold" style={styles.inputLabel}>Leave Type</AppText>
+            {balanceLoading ? (
+              <AppText style={styles.balanceHint}>Loading leave balance…</AppText>
+            ) : null}
+            <View style={styles.chipContainer}>
+              {LEAVE_CATEGORY_OPTIONS.map((option) => {
+                const isLop = option.key === 'LOP';
+                const remaining = getLeaveRemainingForType(leaveBalance, option.key);
+                const noBalance = !isLop && (remaining ?? 0) <= 0;
+                const disabled = balanceLoading || noBalance;
+                const chipLabel = isLop
+                  ? option.label
+                  : noBalance
+                    ? option.label
+                    : `${option.label} (${remaining})`;
+                return (
+                  <TouchableOpacity
+                    key={option.key}
+                    accessibilityRole="button"
+                    disabled={disabled}
+                    style={[
+                      styles.chip,
+                      allocationType === option.key && styles.chipActive,
+                      disabled && styles.chipDisabled,
+                    ]}
+                    onPress={() => setAllocationType(option.key)}
+                  >
+                    <AppText
+                      weight="semibold"
+                      style={[
+                        styles.chipText,
+                        allocationType === option.key && styles.chipTextActive,
+                        disabled && styles.chipTextDisabled,
+                      ]}
+                    >
+                      {chipLabel}
+                    </AppText>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
 
           <View style={styles.formRow}>
@@ -430,15 +602,16 @@ export default function LeaveRequestScreen() {
           </View>
 
           <AppButton
-            title={submitting ? 'Submitting...' : 'Submit Application'}
+            title="Submit Application"
             onPress={handleSubmit}
+            loading={submitting}
             disabled={submitting}
-            style={StyleSheet.flatten([styles.submitButton, submitting && styles.submitButtonDisabled])}
+            style={styles.submitButton}
           />
         </AppCard>
 
         {/* History Section */}
-        <View style={styles.sectionHeader}>
+          <View style={styles.sectionHeader}>
           <AppText weight="bold" style={styles.sectionTitle}>Application History</AppText>
           <TouchableOpacity accessibilityRole="button" onPress={refreshAll}>
             <AppText weight="semibold" style={styles.refreshText}>Refresh</AppText>
@@ -462,26 +635,67 @@ export default function LeaveRequestScreen() {
             ))}
           </View>
         )}
-
-        {showFromDatePicker && (
-          <DateTimePicker
-            value={fromDate || new Date()}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(e, d) => handleDateChange(e, d, setFromDate, true)}
-            minimumDate={new Date()}
-          />
-        )}
-        {showToDatePicker && (
-          <DateTimePicker
-            value={toDate || fromDate || new Date()}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(e, d) => handleDateChange(e, d, setToDate)}
-            minimumDate={fromDate || new Date()}
-          />
-        )}
+        </View>
       </ScrollView>
+      </KeyboardAvoidingView>
+
+      {Platform.OS === 'ios' ? (
+        <>
+          <Modal visible={showFromDatePicker} transparent animationType="slide" onRequestClose={() => setShowFromDatePicker(false)}>
+            <View style={styles.pickerOverlay}>
+              <View style={styles.pickerSheet}>
+                <TouchableOpacity style={styles.pickerDone} onPress={() => setShowFromDatePicker(false)}>
+                  <AppText weight="bold" style={styles.pickerDoneText}>Done</AppText>
+                </TouchableOpacity>
+                <DateTimePicker
+                  value={fromDate || new Date()}
+                  mode="date"
+                  display="spinner"
+                  onChange={(e, d) => handleDateChange(e, d, setFromDate, true)}
+                  minimumDate={new Date()}
+                />
+              </View>
+            </View>
+          </Modal>
+          <Modal visible={showToDatePicker} transparent animationType="slide" onRequestClose={() => setShowToDatePicker(false)}>
+            <View style={styles.pickerOverlay}>
+              <View style={styles.pickerSheet}>
+                <TouchableOpacity style={styles.pickerDone} onPress={() => setShowToDatePicker(false)}>
+                  <AppText weight="bold" style={styles.pickerDoneText}>Done</AppText>
+                </TouchableOpacity>
+                <DateTimePicker
+                  value={toDate || fromDate || new Date()}
+                  mode="date"
+                  display="spinner"
+                  onChange={(e, d) => handleDateChange(e, d, setToDate)}
+                  minimumDate={fromDate || new Date()}
+                />
+              </View>
+            </View>
+          </Modal>
+        </>
+      ) : (
+        <>
+          {showFromDatePicker ? (
+            <DateTimePicker
+              value={fromDate || new Date()}
+              mode="date"
+              display="default"
+              onChange={(e, d) => handleDateChange(e, d, setFromDate, true)}
+              minimumDate={new Date()}
+            />
+          ) : null}
+          {showToDatePicker ? (
+            <DateTimePicker
+              value={toDate || fromDate || new Date()}
+              mode="date"
+              display="default"
+              onChange={(e, d) => handleDateChange(e, d, setToDate)}
+              minimumDate={fromDate || new Date()}
+            />
+          ) : null}
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -489,7 +703,11 @@ export default function LeaveRequestScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: Theme.colors.background,
+  },
+  containerEmbedded: {
+    backgroundColor: Theme.colors.background,
+    flex: 1,
   },
   scrollView: {
     flex: 1,
@@ -534,22 +752,22 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 130,
   },
+  scrollContentEmbedded: {
+    paddingBottom: 100,
+  },
   mainCard: {
-    marginTop: Theme.spacing.md,
-    marginHorizontal: 20,
-    borderRadius: 24,
-    padding: 20,
+    marginTop: Theme.spacing.sm,
+    marginHorizontal: 0,
+    borderRadius: 12,
+    padding: 16,
     backgroundColor: Theme.colors.card,
-    marginBottom: 20,
-    ...Platform.select({
-      android: { elevation: 4 },
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-      },
-    }),
+    marginBottom: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Theme.colors.border,
+  },
+  mainCardEmbedded: {
+    marginTop: 4,
+    marginHorizontal: 0,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -594,6 +812,41 @@ const styles = StyleSheet.create({
   },
   typeBtnTextActive: {
     color: Theme.colors.primary,
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
+    borderRadius: 12,
+    backgroundColor: Theme.colors.background,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  chipActive: {
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
+  },
+  chipDisabled: {
+    opacity: 0.45,
+  },
+  balanceHint: {
+    ...Theme.typography.caption,
+    color: Theme.colors.textMuted,
+    marginBottom: 6,
+  },
+  chipText: {
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
+  },
+  chipTextActive: {
+    color: Theme.colors.card,
+  },
+  chipTextDisabled: {
+    color: Theme.colors.textMuted,
   },
   formRow: {
     flexDirection: 'row',
@@ -648,16 +901,35 @@ const styles = StyleSheet.create({
     height: 52,
     marginTop: 10,
   },
-  submitButtonDisabled: {
-    opacity: 0.7,
+  pickerOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  pickerSheet: {
+    backgroundColor: Theme.colors.card,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: 24,
+  },
+  pickerDone: {
+    alignItems: 'flex-end',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  pickerDoneText: {
+    color: Theme.colors.primary,
+    fontSize: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginHorizontal: 20,
     marginTop: 30,
     marginBottom: 15,
+  },
+  embeddedGutter: {
+    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
   },
   sectionTitle: {
     fontSize: 18,
@@ -669,7 +941,6 @@ const styles = StyleSheet.create({
   },
   historyList: {
     gap: 12,
-    paddingHorizontal: 20,
   },
   historyCard: {
     borderRadius: 20,

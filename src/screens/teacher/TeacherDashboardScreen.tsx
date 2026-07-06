@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
 import LinearGradient from 'react-native-linear-gradient';
 import {
   Percent,
@@ -60,7 +60,7 @@ interface TeacherProfile extends Partial<ApiTeacherProfile> {
 
 export default function TeacherDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const insets = useSafeAreaInsets();
+  const tabBarScrollPadding = useTabBarScrollPadding();
   const { userName, setTabBarVisible, isClassTeacher: authIsClassTeacher } = useAuth();
 
   const isMounted = useRef(true);
@@ -196,18 +196,18 @@ export default function TeacherDashboardScreen() {
   };
 
   const quickActions = [
-    { label: 'Attendance', icon: CalendarCheck2, color: Theme.colors.blue, route: 'TeacherAttendance' },
-    { label: 'Records', icon: FileText, color: '#0ea5e9', route: 'TeacherViewAttendance' },
-    { label: 'Vital Scan', icon: Heart, color: Theme.colors.error, route: 'TeacherVitalScan' },
-    { label: 'Homework', icon: BookOpen, color: '#8b5cf6', route: 'TeacherHomeworkManagement' },
-    { label: 'Marks', icon: ClipboardEdit, color: '#f59e0b', route: 'TeacherMarksEntry' },
-    { label: 'Leave', icon: CalendarOff, color: Theme.colors.error, route: 'Leaves' },
-    { label: 'My Attendance', icon: ClipboardList, color: '#8b5cf6', route: 'TeacherMyAttendance' },
-    { label: 'Papers', icon: BookMarked, color: '#f59e0b', route: 'TeacherQuestionPapers' },
+    { label: 'Attendance', icon: CalendarCheck2, bg: 'rgba(37, 99, 235, 0.08)', color: '#2563eb', route: 'TeacherAttendance' },
+    { label: 'Records', icon: FileText, bg: 'rgba(14, 165, 233, 0.08)', color: '#0ea5e9', route: 'TeacherViewAttendance' },
+    { label: 'Vital Scan', icon: Heart, bg: 'rgba(220, 38, 38, 0.08)', color: '#dc2626', route: 'TeacherVitalScan' },
+    { label: 'Homework', icon: BookOpen, bg: 'rgba(139, 92, 246, 0.08)', color: '#8b5cf6', route: 'TeacherHomeworkManagement' },
+    { label: 'Marks', icon: ClipboardEdit, bg: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', route: 'TeacherMarksEntry' },
+    { label: 'Leave', icon: CalendarOff, bg: 'rgba(244, 63, 94, 0.08)', color: '#f43f5e', route: 'TeacherLeaveRequest' },
+    { label: 'My Attendance', icon: ClipboardList, bg: 'rgba(124, 58, 237, 0.08)', color: '#7c3aed', route: 'TeacherMyAttendance' },
+    { label: 'Papers', icon: BookMarked, bg: 'rgba(249, 115, 22, 0.08)', color: '#f97316', route: 'TeacherQuestionPapers' },
     ...(effectiveIsClassTeacher ? [
-      { label: 'Face Review', icon: Scan, color: '#ec4899', route: 'TeacherFaceReview' },
-      { label: 'Enrollment', icon: UserPlus, color: Theme.colors.success, route: 'TeacherStudentRegistration' },
-      { label: 'Approvals', icon: BadgeCheck, color: Theme.colors.success, route: 'StudentRegistrationRequests' },
+      { label: 'Face Review', icon: Scan, bg: 'rgba(236, 72, 153, 0.08)', color: '#ec4899', route: 'TeacherFaceReview' },
+      { label: 'Enrollment', icon: UserPlus, bg: 'rgba(34, 197, 94, 0.08)', color: '#22c55e', route: 'TeacherStudentRegistration' },
+      { label: 'Approvals', icon: BadgeCheck, bg: 'rgba(6, 182, 212, 0.08)', color: '#06b6d4', route: 'StudentRegistrationRequests' },
     ] : []),
   ];
 
@@ -231,7 +231,7 @@ export default function TeacherDashboardScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarScrollPadding }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={fetchDashboardData} tintColor={Theme.colors.primary} />}
       >
         <DashboardHeroHeader
@@ -331,7 +331,7 @@ export default function TeacherDashboardScreen() {
                     onPress={() => safeNavigate(navigation, action.route as any)}
                     activeOpacity={0.6}
                   >
-                    <View style={[styles.actionIcon, { backgroundColor: action.color + '15' }]}>
+                    <View style={[styles.actionIcon, { backgroundColor: action.bg }]}>
                       <ActionIcon size={26} color={action.color} strokeWidth={2.2} />
                     </View>
                     <Text style={styles.actionText}>{action.label}</Text>
@@ -439,7 +439,6 @@ export default function TeacherDashboardScreen() {
           )}
         </View>
 
-        <View style={{ height: insets.bottom + 140 }} />
         </View>
       </ScrollView>
       <AccountSwitcher visible={switcherVisible} onClose={() => setSwitcherVisible(false)} />

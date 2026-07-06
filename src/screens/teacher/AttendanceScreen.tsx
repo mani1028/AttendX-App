@@ -17,6 +17,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
 import { Linking } from 'react-native';
 import { useCameraDevice, Camera } from 'react-native-vision-camera';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
@@ -259,6 +260,7 @@ SafeCameraDeviceResolver.displayName = 'SafeCameraDeviceResolver';
 
 export default function TeacherAttendanceScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarScrollPadding = useTabBarScrollPadding();
   const navigation = useNavigation();
   const { setTabBarVisible, userRole } = useAuth();
   const isTeacherRole = userRole?.toLowerCase().includes('teacher');
@@ -1180,7 +1182,7 @@ export default function TeacherAttendanceScreen() {
     return (
       <View style={styles.container}>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarScrollPadding }]} showsVerticalScrollIndicator={false}>
           <View style={[styles.headerStandard, { paddingTop: HEADER_CONSTANTS.PADDING_TOP_WITH_INSETS(insets) }]}>
             <View style={styles.headerContent}>
               <TouchableOpacity style={styles.backBtn} onPress={resetFlow}>
@@ -1267,7 +1269,7 @@ export default function TeacherAttendanceScreen() {
       />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarScrollPadding }]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
@@ -1962,9 +1964,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: Theme.spacing.xs,
   },
-  scrollContent: {
-    paddingBottom: 120,
-  },
+  scrollContent: {},
   stepperWrapper: {
     marginTop: -20,
     marginBottom: Theme.spacing.lg,

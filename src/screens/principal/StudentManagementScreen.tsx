@@ -1,5 +1,5 @@
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,16 +11,18 @@ import {
   RefreshControl,
   Modal,
   Platform,
+  Pressable,
   NativeSyntheticEvent,
   NativeScrollEvent,
   useWindowDimensions,
   Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { launchImageLibrary, launchCamera, type CameraOptions, type ImageLibraryOptions } from 'react-native-image-picker';
+import { launchImageLibrary, type CameraOptions, type ImageLibraryOptions } from 'react-native-image-picker';
 import LinearGradient from 'react-native-linear-gradient';
 import {
   ChevronLeft,
@@ -69,8 +71,10 @@ import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import AppText from '../../components/common/AppText';
 import AvatarBubble from '../../components/common/AvatarBubble';
 import AppButton from '../../components/common/AppButton';
+import CustomPickerModal from '../../components/common/CustomPickerModal';
 import { BLOOD_GROUPS, validateStudentRegistrationStep } from '../../utils/studentRegistrationValidation';
 import { Theme, C } from '../../theme/tokens';
+import { launchCameraWithPermission as launchCamera } from '../../utils/cameraUtils';
 
 
 
@@ -100,6 +104,22 @@ interface Student {
   id?: string;
   code?: string;
 }
+
+const resolveStudentId = (student: Student): string => {
+  const candidates = [
+    student.student_id,
+    student.studentId,
+    student.id,
+    student.code,
+    student.roll_number,
+    student.admission_number,
+  ];
+  for (const value of candidates) {
+    const text = String(value ?? '').trim();
+    if (text && text !== '—') { return text; }
+  }
+  return '';
+};
 
 interface SelectedClass {
   class_grade: string;
@@ -527,7 +547,8 @@ const Stepper = ({ currentStep }: { currentStep: number }) => (
 
 export default function StudentPage() {
   const navigation = useNavigation();
-  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const { width, height: windowHeight } = useWindowDimensions();
   const isCompactScreen = width < 520;
   const columnCount = width < 420 ? 1 : 2;
   const { userName, setTabBarVisible } = useAuth();
@@ -551,8 +572,10 @@ export default function StudentPage() {
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showClassPicker, setShowClassPicker] = useState(false);
+  const [showGradePicker, setShowGradePicker] = useState(false);
+  const [showSectionPicker, setShowSectionPicker] = useState(false);
   const [viewStudent, setViewStudent] = useState<Student | null>(null);
+  const closeViewStudent = () => setViewStudent(null);
   const [editStudent, setEditStudent] = useState<any>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -626,7 +649,7 @@ export default function StudentPage() {
         photo: selectedPhoto?.base64 || '',
       };
 
-      const res = await API.post('/principal/students/register', payload, {
+      const res = await API.post('/principal/students', payload, {
         headers: getHeaders(),
       });
 
@@ -1425,6 +1448,47 @@ export default function StudentPage() {
     };
   }, [students, filtered]);
 
+  const gradeOptions = useMemo(
+    () => Array.from(new Set(classes.map(c => c.class_grade))).sort().map(g => ({ label: `Class ${g}`, value: g })),
+    [classes],
+  );
+
+  const sectionOptions = useMemo(
+    () => classes
+      .filter(c => c.class_grade === selected?.class_grade)
+      .map(c => c.section)
+      .filter((sec, i, arr) => arr.indexOf(sec) === i)
+      .sort()
+      .map(sec => ({ label: `Section ${sec}`, value: sec })),
+    [classes, selected?.class_grade],
+  );
+
+  const handleGradeChange = useCallback((val: string) => {
+    if (!val) {
+      setSelected(null);
+      return;
+    }
+    const curSec = selected?.section || '';
+    const possibleSections = classes.filter(c => c.class_grade === val).map(c => c.section);
+    const newSec = possibleSections.includes(curSec) ? curSec : (possibleSections[0] || '');
+    const match = classes.find(cl => cl.class_grade === val && cl.section === newSec);
+    if (match) {
+      setSelected({ class_grade: match.class_grade, section: match.section, label: match.label });
+    } else {
+      setSelected({ class_grade: val, section: newSec, label: `${val}-${newSec}` });
+    }
+  }, [classes, selected?.section]);
+
+  const handleSectionChange = useCallback((val: string) => {
+    if (!selected?.class_grade || !val) { return; }
+    const match = classes.find(cl => cl.class_grade === selected.class_grade && cl.section === val);
+    if (match) {
+      setSelected({ class_grade: match.class_grade, section: match.section, label: match.label });
+    } else {
+      setSelected({ class_grade: selected.class_grade, section: val, label: `${selected.class_grade}-${val}` });
+    }
+  }, [classes, selected?.class_grade]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = useMemo(() => {
     return filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -1448,10 +1512,20 @@ export default function StudentPage() {
     const statusStyle = getStatusBadge(student.status);
     const StatusIcon = statusStyle.icon;
     const { color } = PALETTE[index % PALETTE.length];
-    const studentId = student.student_id || student.studentId || (student as any).id || (student as any).code || '—';
+    const studentId = resolveStudentId(student);
+    const openAttendance = () => {
+      if (!studentId) {
+        Alert.alert('Missing student ID', 'This student record has no ID for attendance lookup.');
+        return;
+      }
+      (navigation as any).navigate('PrincipalStudentAttendanceReport', {
+        studentId,
+        studentName: student.student_full_name,
+      });
+    };
 
     return (
-      <View key={studentId || index} style={styles.studentCard}>
+      <View key={studentId || student.student_full_name || index} style={styles.studentCard}>
         <View style={styles.studentCardHeader}>
           <View style={styles.studentCellName}>
             <AvatarBubble
@@ -1476,7 +1550,7 @@ export default function StudentPage() {
         <View style={styles.studentCardFooter}>
           <TouchableOpacity accessibilityRole="button"
             style={[styles.cardActionBtn, styles.cardActionSecondary]}
-            onPress={() => (navigation as any).navigate('PrincipalStudentAttendanceReport', { studentId: studentId, studentName: student.student_full_name })}
+            onPress={openAttendance}
           >
             <Clock size={14} color={C.primary} />
             <AppText style={styles.cardActionSecondaryText} weight="semibold">Attendance</AppText>
@@ -1494,10 +1568,10 @@ export default function StudentPage() {
     const statusStyle = getStatusBadge(student.status);
     const StatusIcon = statusStyle.icon;
     const { color } = PALETTE[index % PALETTE.length];
-    const studentId = student.student_id || student.studentId || (student as any).id || (student as any).code || '—';
+    const studentId = resolveStudentId(student);
 
     return (
-      <View key={studentId || index} style={styles.tableRow}>
+      <View key={studentId || student.student_full_name || index} style={styles.tableRow}>
         <View style={[styles.tableCell, styles.cellStudent]}>
           <AvatarBubble
             displayName={student.student_full_name}
@@ -1519,8 +1593,13 @@ export default function StudentPage() {
           </View>
         </View>
         <View style={[styles.tableCell, styles.cellActions]}>
-          <TouchableOpacity accessibilityRole="button" style={styles.iconBtn} onPress={() => setViewStudent(student)}>
-            <User size={16} color={C.t3} />
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={styles.tableViewBtn}
+            onPress={() => setViewStudent(student)}
+          >
+            <User size={14} color={C.primary} />
+            <AppText style={styles.tableViewBtnText} weight="semibold">Profile</AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -1529,28 +1608,32 @@ export default function StudentPage() {
 
   return (
     <View style={styles.container}>
-
-      <StandardPageHeader
-        title="Student Management"
-        subtitle="Student directory and registration"
-        onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
-        rightActions={(
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={heroHeaderStyles.iconBtn}
-            onPress={handleRefresh}
-          >
-            <RefreshCw size={20} color={Theme.colors.card} />
-          </TouchableOpacity>
-        )}
-      />
-
       <ScrollView
-       style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />}
+        showsVerticalScrollIndicator={false}
       >
+        <StandardPageHeader
+          scrollWithContent
+          title="Student Management"
+          subtitle="Student directory and registration"
+          onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+          containerStyle={styles.headerBleed}
+          rightActions={(
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={heroHeaderStyles.iconBtn}
+              onPress={handleRefresh}
+            >
+              <RefreshCw size={20} color={Theme.colors.card} />
+            </TouchableOpacity>
+          )}
+        />
+
+        <View style={innerPageLayoutStyles.scrollBody}>
         <View style={[innerPageLayoutStyles.segmentedControl, styles.tabSwitcher]}>
           <TouchableOpacity accessibilityRole="button"
             style={[innerPageLayoutStyles.segmentedTab, activeTab === 'list' && innerPageLayoutStyles.segmentedTabActive]}
@@ -1572,8 +1655,7 @@ export default function StudentPage() {
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.contentOverlap, innerPageLayoutStyles.contentFront]}>
-          <View style={styles.content}>
+        <View style={styles.content}>
             {activeTab === 'list' ? (
               <>
                 {/* Sub Header */}
@@ -1636,33 +1718,41 @@ export default function StudentPage() {
                         </TouchableOpacity>
                       )}
                     </View>
-                    <TouchableOpacity accessibilityRole="button"
-                      style={styles.dropdownTrigger}
-                      onPress={() => setShowClassPicker(true)}
-                    >
-                      {selected ? (
-                        <View style={styles.selectedClassInfo}>
-                          <View style={styles.selectedClassIcon}>
-                            <Users size={16} color={C.primary} />
-                          </View>
-                          <View>
-                            <AppText style={styles.selectedClassLabel} weight="bold">
-                              Class {selected.label}
-                            </AppText>
-                            <AppText style={styles.selectedClassSub}>
-                              {students.length} Students · {classes.find(c => c.label === selected.label)?.present || 0} Present
-                            </AppText>
-                          </View>
-                        </View>
-                      ) : (
-                        <AppText style={styles.placeholderText}>Select a class...</AppText>
-                      )}
-                      <ChevronDown size={20} color={C.t3} />
-                    </TouchableOpacity>
+                    <View style={styles.selectRow}>
+                      <View style={styles.selectField}>
+                        <AppText style={styles.selectLabel}>Class</AppText>
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          style={styles.selectTrigger}
+                          onPress={() => setShowGradePicker(true)}
+                          activeOpacity={0.85}
+                        >
+                          <AppText style={[styles.selectValue, !selected?.class_grade && styles.selectPlaceholder]} numberOfLines={1}>
+                            {selected?.class_grade ? `Class ${selected.class_grade}` : 'Select class'}
+                          </AppText>
+                          <ChevronDown size={16} color={C.t3} />
+                        </TouchableOpacity>
+                      </View>
+                      <View style={styles.selectField}>
+                        <AppText style={styles.selectLabel}>Section</AppText>
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          style={[styles.selectTrigger, !selected?.class_grade && styles.selectTriggerDisabled]}
+                          onPress={() => selected?.class_grade && setShowSectionPicker(true)}
+                          activeOpacity={0.85}
+                          disabled={!selected?.class_grade}
+                        >
+                          <AppText style={[styles.selectValue, !selected?.section && styles.selectPlaceholder]} numberOfLines={1}>
+                            {selected?.section ? `Section ${selected.section}` : 'Select section'}
+                          </AppText>
+                          <ChevronDown size={16} color={C.t3} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   </View>
 
                   {/* Students Panel */}
-                  <View style={styles.tableContainer}>
+                  <View style={[styles.tableContainer, isCompactScreen && styles.sectionBleed]}>
                     <View style={styles.filterBar}>
                       <View style={styles.filterHeader}>
                         <View>
@@ -1818,62 +1908,22 @@ export default function StudentPage() {
         </View>
       </ScrollView>
 
-      {/* Class Picker Modal */}
-      <Modal
-        visible={showClassPicker}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowClassPicker(false)}
-      >
-        <TouchableOpacity accessibilityRole="button"
-          style={styles.pickerOverlay}
-          activeOpacity={1}
-          onPress={() => setShowClassPicker(false)}
-        >
-          <View style={styles.pickerContent}>
-            <View style={styles.pickerHeader}>
-              <AppText style={styles.pickerTitle} weight="bold">Select Class & Section</AppText>
-              <TouchableOpacity accessibilityRole="button" onPress={() => setShowClassPicker(false)}>
-                <X size={20} color={C.t2} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={[styles.pickerList, innerPageLayoutStyles.scrollViewFront]}>
-              {classes.map((c) => {
-                const normalizedSection = String(c.section || '').trim();
-                const isActive = selected?.label === c.label;
-                const absent = (c.students_total || 0) - (c.present || 0);
-
-                return (
-                  <TouchableOpacity accessibilityRole="button"
-                    key={`${c.class_grade}-${normalizedSection}`}
-                    style={[styles.pickerItem, isActive && styles.pickerItemActive]}
-                    onPress={() => {
-                      setSelected({
-                        class_grade: c.class_grade,
-                        section: normalizedSection,
-                        label: c.label,
-                      });
-                      setShowClassPicker(false);
-                    }}
-                  >
-                    <View style={styles.pickerItemInfo}>
-                      <AppText style={[styles.pickerItemLabel, isActive && styles.pickerItemLabelActive]} weight="semibold">
-                        Class {c.label}
-                      </AppText>
-                      <View style={styles.pickerItemStats}>
-                        <AppText style={styles.pickerItemStatText}>{c.students_total} Total</AppText>
-                        <AppText style={[styles.pickerItemStatText, { color: C.success }]}>{c.present} Present</AppText>
-                        <AppText style={[styles.pickerItemStatText, { color: C.error }]}>{absent} Absent</AppText>
-                      </View>
-                    </View>
-                    {isActive && <CheckCircle2 size={18} color={C.primary} />}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      <CustomPickerModal
+        visible={showGradePicker}
+        title="Select Class"
+        options={gradeOptions}
+        selectedValue={selected?.class_grade || ''}
+        onValueChange={handleGradeChange}
+        onClose={() => setShowGradePicker(false)}
+      />
+      <CustomPickerModal
+        visible={showSectionPicker}
+        title="Select Section"
+        options={sectionOptions}
+        selectedValue={selected?.section || ''}
+        onValueChange={handleSectionChange}
+        onClose={() => setShowSectionPicker(false)}
+      />
 
       {/* Add Class Modal */}
       <AddClassModal
@@ -1883,111 +1933,168 @@ export default function StudentPage() {
         existingClasses={classes}
       />
 
-      {/* View Student Modal */}
-      <Modal visible={!!viewStudent} transparent animationType="slide" onRequestClose={() => setViewStudent(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <AppText style={styles.modalTitle} weight="bold">Student Details</AppText>
-              <TouchableOpacity accessibilityRole="button" onPress={() => setViewStudent(null)} style={styles.closeBtn}>
-                <X size={18} color={C.text} />
+      {/* View Student Sheet */}
+      <Modal visible={!!viewStudent} transparent animationType="slide" onRequestClose={closeViewStudent}>
+        <View style={styles.sheetOverlay}>
+          <Pressable style={styles.sheetBackdrop} onPress={closeViewStudent} />
+          <View
+            style={[
+              styles.sheetCard,
+              { maxHeight: windowHeight * 0.92, paddingBottom: Math.max(insets.bottom, 16) },
+            ]}
+          >
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <AppText style={styles.sheetTitle} weight="semibold">Student Profile</AppText>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={closeViewStudent}
+                style={styles.sheetCloseBtn}
+                accessibilityLabel="Close"
+              >
+                <X size={20} color={C.t2} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={[styles.modalBody, innerPageLayoutStyles.scrollViewFront]}>
-              {viewStudent && (
-                <View style={styles.profileSheet}>
-                  <LinearGradient
-                    colors={[C.primary, C.primaryDark]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.profileHeaderCardGradient}
-                  >
-                    <View style={styles.profileAvatarContainer}>
-                      <View style={styles.profileAvatarLarge}>
-                        <AppText style={styles.profileAvatarText} weight="bold">
-                          {viewStudent.student_full_name ? viewStudent.student_full_name.charAt(0).toUpperCase() : 'S'}
-                        </AppText>
-                      </View>
-                    </View>
-                    <View style={styles.profileHeaderMeta}>
-                      <AppText style={styles.profileName} weight="bold" numberOfLines={1}>{viewStudent.student_full_name || '—'}</AppText>
-                      <AppText style={styles.profileRole} weight="semibold" numberOfLines={1}>Student · Class {selected?.label || '—'}</AppText>
-                      <AppText style={styles.profileSubText} numberOfLines={1}>ID: {viewStudent.student_id || viewStudent.studentId || (viewStudent as any).id || (viewStudent as any).code || '—'} · Roll No: {viewStudent.roll_number || '—'}</AppText>
-                      <View style={[
-                        styles.statusPill,
-                        viewStudent.status === 'PRESENT' ? styles.statusActiveCard : styles.statusInactiveCard,
-                      ]}>
-                        {viewStudent.status === 'PRESENT' ? (
-                          <CheckCircle2 size={10} color="#34d399" />
-                        ) : (
-                          <XCircle size={10} color="#f87171" />
-                        )}
-                        <AppText style={[
-                          styles.statusText,
-                          viewStudent.status === 'PRESENT' ? styles.statusActiveCardText : styles.statusInactiveCardText,
-                        ]} weight="bold">
-                          {viewStudent.status || 'UNKNOWN'}
-                        </AppText>
-                      </View>
-                    </View>
-                  </LinearGradient>
 
-                  <View style={styles.detailSection}>
-                    <AppText style={styles.detailSectionTitle} weight="bold">Enrollment Information</AppText>
-                    <View style={styles.detailGrid}>
-                      {([
-                        ['Student ID', viewStudent.student_id],
-                        ['Roll Number', viewStudent.roll_number],
-                        ['Admission No', viewStudent.admission_number],
-                        ['Status', viewStudent.status],
-                        ['Class', selected?.label],
-                      ] as const).map(([label, value]) => (
-                        <View key={label} style={[styles.detailItem, { width: columnCount === 1 ? '100%' : '48%' }]}>
-                          <View style={styles.detailIconContainer}>
-                            {getIconForField(label, C.primary, 16)}
-                          </View>
-                          <View style={styles.detailInfoContainer}>
-                            <AppText style={styles.detailLabel} weight="bold">{label}</AppText>
-                            <AppText style={styles.detailValue} weight="semibold" numberOfLines={2}>{value || '—'}</AppText>
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-
-                  <View style={styles.detailSection}>
-                    <AppText style={styles.detailSectionTitle} weight="bold">Personal & Contact Info</AppText>
-                    <View style={styles.detailGrid}>
-                      {([
-                        ['Parent Name', viewStudent.parent_name],
-                        ['Phone', viewStudent.phone],
-                        ['Emergency', viewStudent.emergency_contact],
-                        ['Gender', viewStudent.gender],
-                        ['DOB', viewStudent.dob],
-                        ['Email', viewStudent.email],
-                        ['Address', viewStudent.address],
-                      ] as const).map(([label, value]) => (
-                        <View key={label} style={[styles.detailItem, { width: columnCount === 1 ? '100%' : '48%' }]}>
-                          <View style={styles.detailIconContainer}>
-                            {getIconForField(label, C.primary, 16)}
-                          </View>
-                          <View style={styles.detailInfoContainer}>
-                            <AppText style={styles.detailLabel} weight="bold">{label}</AppText>
-                            <AppText style={styles.detailValue} weight="semibold" numberOfLines={2}>{value || '—'}</AppText>
-                          </View>
-                        </View>
-                      ))}
-                    </View>
+            <ScrollView
+              style={styles.studentSheetScroll}
+              contentContainerStyle={styles.studentSheetContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+          {viewStudent && (
+            <View style={styles.profileSheet}>
+              <LinearGradient
+                colors={[C.primary, C.primaryDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.profileHeaderCardGradient}
+              >
+                <View style={styles.profileAvatarContainer}>
+                  <View style={styles.profileAvatarLarge}>
+                    <AppText style={styles.profileAvatarText} weight="bold">
+                      {viewStudent.student_full_name ? viewStudent.student_full_name.charAt(0).toUpperCase() : 'S'}
+                    </AppText>
                   </View>
                 </View>
-              )}
+                <View style={styles.profileHeaderMeta}>
+                  <AppText style={styles.profileName} weight="semibold" numberOfLines={2}>
+                    {viewStudent.student_full_name || '—'}
+                  </AppText>
+                  <AppText style={styles.profileRole} numberOfLines={1}>
+                    Class {selected?.label || '—'}
+                  </AppText>
+                  <AppText style={styles.profileSubText} numberOfLines={1}>
+                    {viewStudent.student_id || viewStudent.studentId || (viewStudent as any).id || '—'} · Roll {viewStudent.roll_number || '—'}
+                  </AppText>
+                  <View style={[
+                    styles.statusPill,
+                    viewStudent.status === 'PRESENT' ? styles.statusActiveCard : styles.statusInactiveCard,
+                  ]}>
+                    <View style={[
+                      styles.statusDot,
+                      viewStudent.status === 'PRESENT' ? styles.statusDotPresent : styles.statusDotAbsent,
+                    ]} />
+                    <AppText style={[
+                      styles.statusText,
+                      viewStudent.status === 'PRESENT' ? styles.statusActiveCardText : styles.statusInactiveCardText,
+                    ]} weight="semibold">
+                      {viewStudent.status === 'PRESENT' ? 'Present' : viewStudent.status === 'ABSENT' ? 'Absent' : 'Late'}
+                    </AppText>
+                  </View>
+                </View>
+              </LinearGradient>
+
+              <View style={styles.detailSection}>
+                <AppText style={styles.detailSectionTitle} weight="semibold">Enrollment</AppText>
+                <View style={styles.detailGrid}>
+                  {([
+                    ['Student ID', viewStudent.student_id],
+                    ['Roll number', viewStudent.roll_number],
+                    ['Admission no.', viewStudent.admission_number],
+                    ['Status', viewStudent.status === 'PRESENT' ? 'Present' : viewStudent.status === 'ABSENT' ? 'Absent' : viewStudent.status],
+                    ['Class', selected?.label],
+                  ] as const).map(([label, value]) => (
+                    <View key={label} style={[styles.detailItem, { width: columnCount === 1 ? '100%' : '48%' }]}>
+                      <View style={styles.detailIconContainer}>
+                        {getIconForField(label, C.primary, 16)}
+                      </View>
+                      <View style={styles.detailInfoContainer}>
+                        <AppText style={styles.detailLabel}>{label}</AppText>
+                        <AppText style={styles.detailValue} weight="medium" numberOfLines={2}>{value || '—'}</AppText>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.detailSection}>
+                <AppText style={styles.detailSectionTitle} weight="semibold">Personal & contact</AppText>
+                <View style={styles.detailGrid}>
+                  {([
+                    ['Parent', viewStudent.parent_name],
+                    ['Phone', viewStudent.phone],
+                    ['Emergency', viewStudent.emergency_contact],
+                    ['Gender', viewStudent.gender],
+                    ['Date of birth', viewStudent.dob],
+                    ['Email', typeof viewStudent.email === 'string' ? viewStudent.email.toLowerCase() : viewStudent.email],
+                    ['Address', viewStudent.address],
+                  ] as const).map(([label, value]) => (
+                    <View key={label} style={[styles.detailItem, { width: columnCount === 1 ? '100%' : '48%' }]}>
+                      <View style={styles.detailIconContainer}>
+                        {getIconForField(label, C.primary, 16)}
+                      </View>
+                      <View style={styles.detailInfoContainer}>
+                        <AppText style={styles.detailLabel}>{label}</AppText>
+                        <AppText style={styles.detailValue} weight="medium" numberOfLines={3}>{value || '—'}</AppText>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+          )}
             </ScrollView>
+
+            {viewStudent ? (
+              <View style={styles.sheetFooter}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={[styles.sheetFooterBtn, styles.cardActionSecondary]}
+                  onPress={closeViewStudent}
+                >
+                  <AppText style={styles.cardActionSecondaryText} weight="semibold">Close</AppText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={[styles.sheetFooterBtn, styles.cardActionPrimary]}
+                  onPress={() => {
+                    const student = viewStudent;
+                    const studentId = resolveStudentId(student);
+                    closeViewStudent();
+                    if (!studentId) {
+                      Alert.alert('Missing student ID', 'This student record has no ID for attendance lookup.');
+                      return;
+                    }
+                    (navigation as any).navigate('PrincipalStudentAttendanceReport', {
+                      studentId,
+                      studentName: student.student_full_name,
+                    });
+                  }}
+                >
+                  <Clock size={14} color={Theme.colors.card} />
+                  <AppText style={styles.cardActionPrimaryText} weight="semibold">Attendance</AppText>
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </View>
         </View>
       </Modal>
     </View>
   );
 }
+
+const PAGE_PAD = 16;
 
 const styles = StyleSheet.create({
   header: {
@@ -2031,30 +2138,21 @@ const styles = StyleSheet.create({
   secondaryBtnText: { color: C.t1, fontSize: 13 },
   summaryRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
-    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 12,
   },
   summaryCard: {
-    width: '32%',
+    flex: 1,
     backgroundColor: C.white,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    ...Platform.select({
-      android: { elevation: 1 },
-      ios: {
-        shadowColor: Theme.colors.text,
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 4 },
-      },
-    }),
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: 'center',
   },
-  summaryValue: { fontSize: 20, color: C.t1 },
-  summaryLabel: { ...Theme.typography.label, color: C.t3, marginTop: 2 },
+  summaryValue: { fontSize: 18, color: C.t1 },
+  summaryLabel: { fontSize: 11, color: C.t3, marginTop: 2, fontWeight: '500', textAlign: 'center' },
   welcomeSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2135,8 +2233,6 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   tabSwitcher: {
-    marginHorizontal: Theme.spacing.md,
-    marginTop: Theme.spacing.md,
     marginBottom: Theme.spacing.sm,
   },
   enrollmentContainer: {
@@ -2467,7 +2563,123 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, color: C.t1, fontWeight: '700' },
   closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Theme.colors.background, alignItems: 'center', justifyContent: 'center' },
   modalBody: { paddingHorizontal: 20, paddingBottom: Theme.spacing.lg },
-  profileSheet: { gap: 18 },
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  sheetCard: {
+    backgroundColor: C.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    width: '100%',
+    overflow: 'hidden',
+    ...Platform.select({
+      android: { elevation: 16 },
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.18,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: -4 },
+      },
+    }),
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.border,
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  sheetFooter: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    backgroundColor: C.white,
+  },
+  sheetFooterBtn: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    marginBottom: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
+  },
+  sheetTitle: { fontSize: 17, color: C.t1 },
+  sheetCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: C.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  studentSheetScroll: { flexShrink: 1 },
+  studentSheetContent: { paddingHorizontal: 20, paddingBottom: 24 },
+  tableViewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: C.primarySoft,
+  },
+  tableViewBtnText: { ...Theme.typography.caption, color: C.primary },
+  selectRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  selectField: { flex: 1 },
+  selectLabel: {
+    fontSize: 11,
+    color: C.t3,
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  selectTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: C.bg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+    gap: 8,
+  },
+  selectTriggerDisabled: { opacity: 0.5 },
+  selectValue: {
+    flex: 1,
+    fontSize: 14,
+    color: C.t1,
+    fontWeight: '600',
+  },
+  selectPlaceholder: {
+    color: C.t3,
+    fontWeight: '400',
+  },
+  profileSheet: { gap: 16 },
   profileHeaderCardGradient: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2500,14 +2712,15 @@ const styles = StyleSheet.create({
   statusInactiveCardText: { color: '#f87171' },
   tableContainer: {
     backgroundColor: C.white,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
-    borderRadius: 14,
+    borderRadius: 10,
     overflow: 'hidden',
   },
   filterBar: {
-    padding: Theme.spacing.md,
-    gap: 12,
+    paddingHorizontal: PAGE_PAD,
+    paddingVertical: 12,
+    gap: 10,
   },
   filterHeader: {
     flexDirection: 'row',
@@ -2540,10 +2753,17 @@ const styles = StyleSheet.create({
   exportBtnText: { ...Theme.typography.caption, color: Theme.colors.card },
   errorBox: { padding: Theme.spacing.md, backgroundColor: C.dangerSoft },
   errorBoxText: { color: C.danger, ...Theme.typography.caption },
-  mobileList: { padding: 12, gap: 12 },
+  mobileList: { paddingHorizontal: PAGE_PAD, paddingBottom: 12, gap: 10 },
   loadingContainer: { padding: 40, alignItems: 'center', gap: 12 },
   loadingText: { fontSize: 13, color: C.t3 },
-  studentCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 12, gap: 10, marginBottom: 12 },
+  studentCard: {
+    backgroundColor: C.white,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
+    borderRadius: 10,
+    padding: 12,
+    gap: 10,
+  },
   studentCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   studentCellName: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   studentIdentity: { flex: 1 },
@@ -2558,10 +2778,10 @@ const styles = StyleSheet.create({
   cardActionPrimaryText: { color: Theme.colors.card, ...Theme.typography.caption },
   cardActionSecondary: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border },
   cardActionSecondaryText: { color: C.primary, ...Theme.typography.caption },
-  profileRole: { fontSize: 13, color: C.primary, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  profileRole: { fontSize: 13, color: '#e2e8f0', fontWeight: '500' },
   profileStatusText: { fontSize: 10 },
   detailSection: { gap: 10, marginTop: Theme.spacing.xs },
-  detailSectionTitle: { ...Theme.typography.caption, color: C.t3, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
+  detailSectionTitle: { fontSize: 13, color: C.t3, fontWeight: '600' },
   detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
   detailItem: {
     flexDirection: 'row',
@@ -2587,8 +2807,8 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  detailLabel: { fontSize: 10, color: C.t4, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.5 },
-  detailValue: { fontSize: 13, color: C.t1, marginTop: 2, fontWeight: '600' },
+  detailLabel: { fontSize: 11, color: C.t3, fontWeight: '500' },
+  detailValue: { fontSize: 14, color: C.t1, marginTop: 2, fontWeight: '500' },
   selectorHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2634,14 +2854,20 @@ const styles = StyleSheet.create({
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: 5,
-    borderRadius: 999,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
     alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: C.border,
+    marginTop: 4,
   },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusDotPresent: { backgroundColor: '#34d399' },
+  statusDotAbsent: { backgroundColor: '#f87171' },
   statusActive: {
     backgroundColor: C.successSoft,
     borderColor: C.success,
@@ -2733,7 +2959,7 @@ const styles = StyleSheet.create({
     color: C.t3,
   },
   grid: {
-    gap: 16,
+    gap: 12,
   },
   formGroup: {
     marginBottom: Theme.spacing.md,
@@ -2743,11 +2969,11 @@ const styles = StyleSheet.create({
   },
   selectorContainer: {
     backgroundColor: C.white,
-    borderRadius: 14,
-    borderWidth: 1,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
-    padding: Theme.spacing.md,
-    marginBottom: Theme.spacing.md,
+    padding: 12,
+    marginBottom: 12,
   },
   panelTitle: {
     fontSize: 16,
@@ -2956,7 +3182,24 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingHorizontal: PAGE_PAD,
+    paddingBottom: 100,
+  },
+  headerBleed: {
+    marginHorizontal: -PAGE_PAD,
+    marginBottom: 12,
+  },
+  sectionBleed: {
+    marginHorizontal: -PAGE_PAD,
+    borderRadius: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+  },
+  pagePad: {
+    paddingHorizontal: PAGE_PAD,
+  },
   content: {
-    padding: Theme.spacing.md,
+    paddingTop: 4,
   },
 });

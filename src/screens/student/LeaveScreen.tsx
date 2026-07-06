@@ -486,7 +486,7 @@ export default function LeaveScreen({ navigation }: any) {
                     <RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor={C.colors.primary} />
                 }
             >
-                <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+                <View style={styles.pageBody}>
                 <View style={styles.formCard}>
                     <Text style={styles.cardTitle}>APPLY LEAVE</Text>
 
@@ -516,7 +516,17 @@ export default function LeaveScreen({ navigation }: any) {
                     {/* Class Teacher */}
                     <View style={styles.formGroup}>
                         <Text style={styles.formLabel}>Class Teacher</Text>
-                        <View style={styles.autoTeacherCard}>
+                        <TouchableOpacity
+                            style={styles.autoTeacherCard}
+                            onPress={() => {
+                                if (teachers.length > 0) {
+                                    setShowTeacherModal(true);
+                                } else {
+                                    Alert.alert('No teachers', 'No class teacher is available yet. Please try again later.');
+                                }
+                            }}
+                            activeOpacity={0.8}
+                        >
                             <View style={styles.autoTeacherTextBlock}>
                                 <Text style={[styles.dropdownText, !selectedTeacher && styles.dropdownPlaceholder]}>
                                     {selectedTeacher ? selectedTeacher.teacher_full_name : 'Class teacher will be selected automatically'}
@@ -526,7 +536,7 @@ export default function LeaveScreen({ navigation }: any) {
                                 </Text>
                             </View>
                             <Icon name="user-check" size={20} color={C.colors.blue} />
-                        </View>
+                        </TouchableOpacity>
                     </View>
 
                     {/* Date Selection */}
@@ -801,7 +811,6 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.background,
   },
   pageBody: {
-    paddingHorizontal: 20,
   },
   header: {
         backgroundColor: C.colors.primary,

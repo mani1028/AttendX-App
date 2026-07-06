@@ -5,6 +5,8 @@ import { ENV } from '../config/api.config';
 import { isOnline, initializeNetworkListener } from '../hooks/useNetworkState';
 import { requestQueueManager } from './requestQueueManager';
 import { decodeJwt } from '../utils/jwt';
+import { storage } from '../storage/storage';
+import { StorageKeys } from '../storage/StorageKeys';
 
 /* ================= BASE URL ================= */
 
@@ -37,6 +39,43 @@ if (__DEV__) {
 
 export function setAuthToken(token?: string | null) {
   authToken = token ?? null;
+}
+
+export function getApiBaseUrl(): string {
+  return RUNTIME_API_BASE;
+}
+
+export function isTransientNetworkError(error: any): boolean {
+  if (!error?.request || error?.response) {
+    return false;
+  }
+  const code = String(error.code || '').toUpperCase();
+  const message = String(error.message || '').toLowerCase();
+  return code === 'ERR_NETWORK' || code === 'ECONNABORTED' || message.includes('network error');
+}
+
+/** Retry GET on transient network failures (common on Android burst loads). */
+export async function getWithRetry<T = any>(
+  url: string,
+  config: Record<string, unknown> = {},
+  maxAttempts = 3,
+) {
+  let lastError: any;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await API.get<T>(url, {
+        ...config,
+        suppressNetworkErrorLog: attempt < maxAttempts - 1 ? true : config.suppressNetworkErrorLog,
+      } as any);
+    } catch (error: any) {
+      lastError = error;
+      if (!isTransientNetworkError(error) || attempt >= maxAttempts - 1) {
+        throw error;
+      }
+      await new Promise<void>(resolve => setTimeout(resolve, 400 * (attempt + 1)));
+    }
+  }
+  throw lastError;
 }
 
 /* ================= AXIOS INSTANCE ================= */
@@ -96,7 +135,10 @@ API.interceptors.request.use(async config => {
     config.url = config.url.substring(1);
   }
 
-  const token = authToken || (await normalizeStorageKey(['token', 'auth_token', 'authToken']));
+  const token =
+    authToken ||
+    (await normalizeStorageKey(['token', 'auth_token', 'authToken'])) ||
+    (await storage.getSecure(StorageKeys.AUTH_TOKEN));
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
     if (!authToken) {
@@ -287,7 +329,11 @@ API.interceptors.response.use(
     const suppressFallback404Log = Boolean((safeError.config as any)?.suppressFallback404Log) ||
       safeError.config?.headers?.['X-Suppress-Fallback-404-Log'] === 'true' ||
       safeError.config?.headers?.['x-suppress-fallback-404-log'] === 'true';
-    if (suppressFallback404Log && (safeError.response?.status === 404 || safeError.response?.status === 405)) {
+    const isFallbackProbeStatus =
+      safeError.response?.status === 404 ||
+      safeError.response?.status === 405 ||
+      safeError.response?.status === 422;
+    if (suppressFallback404Log && isFallbackProbeStatus) {
       return Promise.reject(safeError);
     }
 
@@ -310,8 +356,13 @@ API.interceptors.response.use(
       }
 
       const suppressFallback404Log = (safeError.config as any)?.suppressFallback404Log;
-      // Suppress 405/404 errors during fallback attempts (they are expected)
-      if ((safeError.response.status === 405 || safeError.response.status === 404) && suppressFallback404Log) {
+      // Suppress 404/405/422 errors during fallback endpoint probing (they are expected)
+      if (
+        (safeError.response.status === 405 ||
+          safeError.response.status === 404 ||
+          safeError.response.status === 422) &&
+        suppressFallback404Log
+      ) {
         return Promise.reject(safeError);
       }
 

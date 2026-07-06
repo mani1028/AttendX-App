@@ -39,8 +39,10 @@ export const LAYOUT_CONFIG: Record<string, RoleLayoutConfig> = {
     menu: [
       item('Schools Overview', 'MainTabs', 'School', 'Dashboard'),
       item('Revenue Analytics', 'AdminRevenue', 'TrendingUp'),
+      item('Blog Manager', 'AdminBlogManager', 'BookOpen'),
+      item('Website Forms', 'AdminFormLeads', 'Inbox'),
       item('Marketing Agents', 'MainTabs', 'Users', 'Agents'),
-      item('Pricing Plans', 'PricingManager', 'CreditCard'),
+      item('Plans', 'MainTabs', 'CreditCard', 'Plans'),
       item('AutoPay Tracker', 'AutoPayTracker', 'RefreshCw'),
       item('Attendance Settings', 'ManualAttendanceManager', 'ClipboardCheck'),
       item('System Settings', 'AdminSettings', 'Settings'),
@@ -50,7 +52,8 @@ export const LAYOUT_CONFIG: Record<string, RoleLayoutConfig> = {
     pageTitles: {
       MainTabs: 'Schools Overview',
       AdminRevenue: 'Revenue Analytics',
-      PricingManager: 'Pricing Management',
+      AdminBlogManager: 'Blog Manager',
+      AdminFormLeads: 'Website Forms',
       AutoPayTracker: 'AutoPay Tracker',
       ManualAttendanceManager: 'Attendance Settings',
       AdminSettings: 'System Settings',
@@ -59,7 +62,7 @@ export const LAYOUT_CONFIG: Record<string, RoleLayoutConfig> = {
     },
     sections: [
       { title: 'Overview', itemTitles: ['Schools Overview', 'Revenue Analytics'] },
-      { title: 'Management', itemTitles: ['Marketing Agents', 'Pricing Plans', 'AutoPay Tracker', 'Attendance Settings', 'System Settings', 'Payment History'] },
+      { title: 'Management', itemTitles: ['Marketing Agents', 'Plans', 'Blog Manager', 'Website Forms', 'AutoPay Tracker', 'Attendance Settings', 'System Settings', 'Payment History'] },
       { title: 'Danger Zone', itemTitles: ['Delete School'] },
     ],
   },
@@ -130,8 +133,8 @@ export const LAYOUT_CONFIG: Record<string, RoleLayoutConfig> = {
       item('Dashboard', 'MainTabs', 'LayoutDashboard', 'Home'),
       item('Branches', 'MainTabs', 'GitBranch', 'Branches'),
       item('Add Branch', 'MainTabs', 'PlusCircle', 'AddBranch'),
-      item('Subscription', 'DirectorBilling', 'CreditCard'),
-      item('Payment History', 'DirectorBilling', 'Receipt'),
+      item('Subscription', 'DirectorBilling', 'CreditCard', undefined, { variant: 'subscription' }),
+      item('Payment History', 'DirectorBilling', 'Receipt', undefined, { variant: 'payments' }),
       item('Renewal Payment', 'RenewalPayment', 'RefreshCw'),
     ],
     pageTitles: {

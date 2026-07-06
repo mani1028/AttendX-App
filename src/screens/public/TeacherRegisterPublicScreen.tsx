@@ -15,7 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { launchImageLibrary } from 'react-native-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import API from '../../services/api';
 
@@ -25,6 +25,7 @@ import Loader from '../../components/common/Loader';
 import { Theme } from '../../theme/tokens';
 import BloodGroupPicker from '../../components/common/BloodGroupPicker';
 import { isValidBloodGroup } from '../../utils/studentRegistrationValidation';
+import { launchCameraWithPermission as launchCamera } from '../../utils/cameraUtils';
 interface FormData {
   branch_id: string;
   teacher_full_name: string;
@@ -263,6 +264,11 @@ export default function TeacherRegisterPublicScreen() {
       setOtp('');
       setOtpSent(false);
       setEmailVerified(false);
+      return;
+    }
+
+    if (name === 'designation' && value === 'Accountant') {
+      setFormData(prev => ({ ...prev, designation: value, department_subject: 'Others' }));
       return;
     }
 

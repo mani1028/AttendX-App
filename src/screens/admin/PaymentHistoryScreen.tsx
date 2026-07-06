@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Theme, colors } from '../../theme/tokens';
@@ -14,7 +15,6 @@ import { RootStackParamList } from '../../navigation/types';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import {
-  ChevronRight,
   CreditCard,
   Landmark,
   CheckCircle2,
@@ -22,9 +22,9 @@ import {
   XCircle,
   Calendar,
   ArrowUpRight,
-  ArrowDownLeft,
   Filter,
 } from 'lucide-react-native';
+import * as adminService from '../../services/adminService';
 
 interface PaymentTransaction {
   id: string;
@@ -34,111 +34,7 @@ interface PaymentTransaction {
   status: 'paid' | 'pending' | 'failed';
   paymentMethod: 'card' | 'bank';
   planName: string;
-  type: 'received' | 'refund';
 }
-
-const MOCK_DATA: PaymentTransaction[] = [
-  {
-    id: '1',
-    schoolName: 'Sunrise Academy',
-    amount: '₹4,999',
-    date: '2026-06-15',
-    status: 'paid',
-    paymentMethod: 'card',
-    planName: 'Premium',
-    type: 'received',
-  },
-  {
-    id: '2',
-    schoolName: 'Green Valley School',
-    amount: '₹2,499',
-    date: '2026-06-14',
-    status: 'paid',
-    paymentMethod: 'bank',
-    planName: 'Standard',
-    type: 'received',
-  },
-  {
-    id: '3',
-    schoolName: 'Lighthouse Public School',
-    amount: '₹999',
-    date: '2026-06-14',
-    status: 'pending',
-    paymentMethod: 'card',
-    planName: 'Basic',
-    type: 'received',
-  },
-  {
-    id: '4',
-    schoolName: 'Horizon International',
-    amount: '₹4,999',
-    date: '2026-06-13',
-    status: 'failed',
-    paymentMethod: 'card',
-    planName: 'Premium',
-    type: 'received',
-  },
-  {
-    id: '5',
-    schoolName: 'Crescent Moon Academy',
-    amount: '₹2,499',
-    date: '2026-06-12',
-    status: 'paid',
-    paymentMethod: 'bank',
-    planName: 'Standard',
-    type: 'received',
-  },
-  {
-    id: '6',
-    schoolName: 'Royal Oak School',
-    amount: '₹999',
-    date: '2026-06-11',
-    status: 'paid',
-    paymentMethod: 'card',
-    planName: 'Basic',
-    type: 'received',
-  },
-  {
-    id: '7',
-    schoolName: 'Sunrise Academy',
-    amount: '₹4,999',
-    date: '2026-05-15',
-    status: 'paid',
-    paymentMethod: 'card',
-    planName: 'Premium',
-    type: 'received',
-  },
-  {
-    id: '8',
-    schoolName: 'Silver Bells Academy',
-    amount: '₹1,250',
-    date: '2026-05-10',
-    status: 'paid',
-    paymentMethod: 'bank',
-    planName: 'Standard',
-    type: 'refund',
-  },
-  {
-    id: '9',
-    schoolName: 'Maple Leaf Public School',
-    amount: '₹2,499',
-    date: '2026-05-08',
-    status: 'failed',
-    paymentMethod: 'bank',
-    planName: 'Standard',
-    type: 'received',
-  },
-  {
-    id: '10',
-    schoolName: 'Green Valley School',
-    amount: '₹2,499',
-    date: '2026-05-03',
-    status: 'paid',
-    paymentMethod: 'bank',
-    planName: 'Standard',
-    type: 'received',
-  },
-];
 
 type FilterStatus = 'all' | 'paid' | 'pending' | 'failed';
 
@@ -170,25 +66,62 @@ const FILTER_CHIPS: { key: FilterStatus; label: string }[] = [
   { key: 'failed', label: 'Failed' },
 ];
 
-const DATE_RANGES = ['This Week', 'This Month', 'Last 3 Months', 'All Time'];
+function normalizeStatus(raw: string): 'paid' | 'pending' | 'failed' {
+  const value = (raw || '').toLowerCase();
+  if (['paid', 'success', 'captured'].includes(value)) return 'paid';
+  if (['failed', 'cancelled', 'refunded'].includes(value)) return 'failed';
+  if (['pending', 'created', 'processing'].includes(value)) return 'pending';
+  return 'pending';
+}
+
+function mapPaymentRow(row: any, index: number): PaymentTransaction {
+  const status = normalizeStatus(row.status || row.payment_status);
+  const amountNum = Number(row.amount || row.last_payment_amount || 0);
+  const paidAt = row.paid_at || row.created_at || row.payment_date || '';
+  const method = String(row.payment_method || row.method || '').toLowerCase();
+  return {
+    id: String(row.id || row.payment_id || index),
+    schoolName: row.school_name || row.school_id || 'School',
+    amount: `₹${amountNum.toLocaleString('en-IN')}`,
+    date: paidAt ? new Date(paidAt).toLocaleDateString('en-IN') : '—',
+    status,
+    paymentMethod: method.includes('bank') || method.includes('upi') ? 'bank' : 'card',
+    planName: row.plan_name || row.description || 'Subscription',
+  };
+}
 
 export default function PaymentHistoryScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const [transactions] = useState<PaymentTransaction[]>(MOCK_DATA);
+  const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterStatus>('all');
-  const [activeDateRange, setActiveDateRange] = useState('This Month');
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  const loadPayments = useCallback(async () => {
+    try {
+      const rows = await adminService.getAllPlatformPayments();
+      setTransactions(rows.map(mapPaymentRow));
+    } catch {
+      setTransactions([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPayments();
+  }, [loadPayments]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1200);
-  }, []);
+    loadPayments();
+  }, [loadPayments]);
 
-  const filtered = transactions.filter(t => {
-    if (activeFilter !== 'all' && t.status !== activeFilter) return false;
-    return true;
-  });
+  const filtered = useMemo(() => {
+    if (activeFilter === 'all') return transactions;
+    return transactions.filter(t => t.status === activeFilter);
+  }, [transactions, activeFilter]);
 
   const totalPaid = filtered.filter(t => t.status === 'paid').length;
   const totalAmount = filtered
@@ -200,49 +133,25 @@ export default function PaymentHistoryScreen() {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader
-        title="Payment History"
-        subtitle="Review platform payment transactions"
-        onBackPress={() => navigation.goBack()}
-      />
-
       <ScrollView
-        style={innerPageLayoutStyles.scrollViewFront}
-        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        style={{ flex: 1 }}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
-        <View style={innerPageLayoutStyles.contentFront}>
-        <AppCard style={styles.dateRangeCard}>
-          <View style={styles.dateRangeHeader}>
-            <Calendar size={16} color={Theme.colors.textMuted} />
-            <AppText variant="caption" weight="semibold" muted> Date Range</AppText>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: Theme.spacing.sm }}>
-            {DATE_RANGES.map(range => (
-              <TouchableOpacity
-                key={range}
-                style={[
-                  styles.dateChip,
-                  activeDateRange === range && styles.dateChipActive,
-                ]}
-                onPress={() => setActiveDateRange(range)}
-                activeOpacity={0.7}
-              >
-                <AppText
-                  variant="caption"
-                  weight="semibold"
-                  style={{
-                    color: activeDateRange === range ? '#fff' : Theme.colors.textMuted,
-                  }}
-                >
-                  {range}
-                </AppText>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </AppCard>
+        <StandardPageHeader
+          scrollWithContent
+          title="Payment History"
+          subtitle="Review platform payment transactions"
+          onBackPress={() => navigation.goBack()}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
 
+        <View style={innerPageLayoutStyles.scrollBody}>
+        {loading ? (
+          <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 40 }} />
+        ) : (
+          <>
         <View style={styles.summaryRow}>
           <AppCard style={styles.summaryMini}>
             <AppText variant="label" muted>Transactions</AppText>
@@ -296,13 +205,9 @@ export default function PaymentHistoryScreen() {
                 <View style={styles.txLeft}>
                   <View style={[
                     styles.txIconBox,
-                    { backgroundColor: tx.type === 'refund' ? Theme.colors.warningBg : colors.primary + '1A' },
+                    { backgroundColor: colors.primary + '1A' },
                   ]}>
-                    {tx.type === 'refund' ? (
-                      <ArrowDownLeft size={18} color={Theme.colors.warning} />
-                    ) : (
                       <ArrowUpRight size={18} color={Theme.colors.primary} />
-                    )}
                   </View>
                   <View style={{ flex: 1 }}>
                     <AppText variant="h4" weight="bold">{tx.schoolName}</AppText>
@@ -313,7 +218,7 @@ export default function PaymentHistoryScreen() {
                   <AppText
                     variant="h4"
                     weight="extrabold"
-                    style={{ color: tx.type === 'refund' ? Theme.colors.warning : Theme.colors.text }}
+                    style={{ color: Theme.colors.text }}
                   >
                     {tx.amount}
                   </AppText>
@@ -340,11 +245,13 @@ export default function PaymentHistoryScreen() {
           );
         })}
 
-        {filtered.length === 0 && (
+        {filtered.length === 0 && !loading && (
           <View style={styles.emptyState}>
             <Filter size={40} color={Theme.colors.textMuted} style={{ opacity: 0.4 }} />
             <AppText variant="body" muted style={{ marginTop: 12 }}>No transactions found</AppText>
           </View>
+        )}
+          </>
         )}
         </View>
       </ScrollView>

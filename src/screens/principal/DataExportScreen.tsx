@@ -826,7 +826,7 @@ export default function PrincipalDataExportPage() {
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[innerPageLayoutStyles.contentFront, styles.card]}>
+        <View style={styles.panel}>
             <View style={styles.header}>
               <AppText style={styles.title} weight="bold">Advanced Filters</AppText>
               <AppText style={styles.subtitle}>
@@ -942,17 +942,11 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  card: {
-    margin: Theme.spacing.md,
+  panel: {
     backgroundColor: C.card,
-    borderRadius: 18,
+    borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
     marginBottom: 40,
   },

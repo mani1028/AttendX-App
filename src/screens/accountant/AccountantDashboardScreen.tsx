@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
 import {
   BarChart3,
   Bell,
@@ -30,7 +30,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import AppText from '../../components/common/AppText';
 import DashboardHeroHeader from '../../components/dashboard/DashboardHeroHeader';
-import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { innerPageLayoutStyles, SCROLL_PAGE_GUTTER } from '../../components/layout/innerPageLayoutStyles';
 import QuickActionGrid, { QuickActionItem } from '../../components/dashboard/QuickActionGrid';
 import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
@@ -38,9 +38,8 @@ import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import { getDashboardSummary } from '../../services/accountantService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const PAGE_GUTTER = 14;
 const CARD_GAP = 12;
-const STAT_CARD_WIDTH = (SCREEN_WIDTH - PAGE_GUTTER * 2 - CARD_GAP) / 2;
+const STAT_CARD_WIDTH = (SCREEN_WIDTH - SCROLL_PAGE_GUTTER * 2 - CARD_GAP) / 2;
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -121,7 +120,7 @@ function formatCompactCurrency(value: number): string {
 
 export default function AccountantDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const insets = useSafeAreaInsets();
+  const tabBarScrollPadding = useTabBarScrollPadding();
   const { userName, setTabBarVisible } = useAuth();
   const { unreadCount } = useUnreadNotifications();
   const [refreshing, setRefreshing] = useState(false);
@@ -205,7 +204,7 @@ export default function AccountantDashboardScreen() {
     ? (summary.total_fees_collected / (summary.total_fees_collected + summary.total_pending_fees)) * 100
     : 0;
   const safeCollectionRate = Math.max(0, Math.min(100, collectionRate));
-  const contentBottomPadding = Math.max(insets.bottom + 120, 140);
+  const contentBottomPadding = tabBarScrollPadding;
 
   const summaryCards = [
     {
@@ -239,16 +238,19 @@ export default function AccountantDashboardScreen() {
   ];
 
   const quickActions = [
-    { label: 'Collections', icon: CreditCard, route: 'AccountantPaymentEntry', color: '#6648dc', tint: 'rgba(102, 72, 220, 0.10)' },
-    { label: 'Payment History', icon: ReceiptText, route: 'AccountantPaymentHistory', color: '#0ea5e9', tint: 'rgba(14, 165, 233, 0.10)' },
-    { label: 'Reports & Trends', icon: BarChart3, route: 'AccountantReports', color: '#a855f7', tint: 'rgba(168, 85, 247, 0.10)' },
-    { label: 'Pending Dues', icon: Clock, route: 'AccountantFeeManagement', color: '#f97316', tint: 'rgba(249, 115, 22, 0.10)' },
-    { label: 'Fees', icon: CircleDollarSign, route: 'AccountantFeeManagement', color: '#16a34a', tint: 'rgba(22, 163, 74, 0.10)' },
-    { label: 'Expense Ledger', icon: TrendingUp, route: 'AccountantExpense', color: Theme.colors.error, tint: 'rgba(239, 68, 68, 0.10)' },
-    { label: 'Payroll', icon: Users, route: 'AccountantPayroll', color: '#0ea5e9', tint: 'rgba(14, 165, 233, 0.10)' },
-    { label: 'Notifications', icon: Bell, route: 'Notifications', color: Theme.colors.textSec, tint: 'rgba(100, 116, 139, 0.10)' },
-    { label: 'Salaries', icon: Wallet, route: 'Salaries', color: '#ca8a04', tint: 'rgba(202, 138, 4, 0.10)', isTab: true },
-    { label: 'Staff Attendance', icon: CalendarCheck, route: 'AccountantStaffAttendance', color: '#ec4899', tint: 'rgba(236, 72, 153, 0.10)' },
+    { label: 'Collections', icon: CreditCard, route: 'AccountantPaymentEntry', color: '#6648dc', tint: 'rgba(102, 72, 220, 0.08)' },
+    { label: 'Face Verify', icon: CalendarCheck, route: 'AccountantFaceVerify', color: '#ec4899', tint: 'rgba(236, 72, 153, 0.08)' },
+    { label: 'My Attendance', icon: Calendar, route: 'TeacherMyAttendance', color: '#8b5cf6', tint: 'rgba(139, 92, 246, 0.08)' },
+    { label: 'Settings', icon: Wallet, route: 'AccountantSettings', color: '#64748b', tint: 'rgba(100, 116, 139, 0.08)' },
+    { label: 'Payment History', icon: ReceiptText, route: 'AccountantPaymentHistory', color: '#0ea5e9', tint: 'rgba(14, 165, 233, 0.08)' },
+    { label: 'Reports & Trends', icon: BarChart3, route: 'AccountantReports', color: '#a855f7', tint: 'rgba(168, 85, 247, 0.08)' },
+    { label: 'Pending Dues', icon: Clock, route: 'AccountantFeeManagement', color: '#f97316', tint: 'rgba(249, 115, 22, 0.08)' },
+    { label: 'Fees', icon: CircleDollarSign, route: 'AccountantFeeManagement', color: '#22c55e', tint: 'rgba(34, 197, 94, 0.08)' },
+    { label: 'Expense Ledger', icon: TrendingUp, route: 'AccountantExpense', color: '#dc2626', tint: 'rgba(220, 38, 38, 0.08)' },
+    { label: 'Payroll', icon: Users, route: 'AccountantPayroll', color: '#7c3aed', tint: 'rgba(124, 58, 237, 0.08)' },
+    { label: 'Notifications', icon: Bell, route: 'Notifications', color: '#64748b', tint: 'rgba(100, 116, 139, 0.08)' },
+    { label: 'Salaries', icon: Wallet, route: 'Salaries', color: '#ca8a04', tint: 'rgba(202, 138, 4, 0.08)', isTab: true },
+    { label: 'Staff Attendance', icon: CalendarCheck, route: 'AccountantStaffAttendance', color: '#06b6d4', tint: 'rgba(6, 182, 212, 0.08)' },
   ] as const;
 
   return (
@@ -287,7 +289,7 @@ export default function AccountantDashboardScreen() {
           pageSubtitle="Collections, dues, expenses & net balance"
           showDateBadge
           fullBleed
-          style={{ marginHorizontal: -PAGE_GUTTER }}
+          style={{ marginHorizontal: -SCROLL_PAGE_GUTTER }}
         />
 
         <View style={innerPageLayoutStyles.contentFront}>
@@ -429,7 +431,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: PAGE_GUTTER,
+    paddingHorizontal: SCROLL_PAGE_GUTTER,
   },
   statsGrid: {
     flexDirection: 'row',

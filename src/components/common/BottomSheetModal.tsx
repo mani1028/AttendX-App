@@ -57,7 +57,7 @@ export default function BottomSheetModal({
   return (
     <GorhomBottomSheetModal
       ref={bottomSheetModalRef}
-      index={1}
+      index={0}
       snapPoints={snapPoints}
       onChange={handleSheetChanges}
       backdropComponent={renderBackdrop}

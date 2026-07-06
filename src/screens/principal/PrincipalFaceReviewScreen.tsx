@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { launchImageLibrary } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import {
   ChevronLeft,
@@ -39,6 +39,7 @@ import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { Theme } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
+import { launchCameraWithPermission as launchCamera } from '../../utils/cameraUtils';
 
 
 
@@ -581,14 +582,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     marginRight: 10,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: Theme.colors.border,
     minWidth: 130,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
   },
   statVal: { fontSize: 22, fontWeight: '800' },
   statLabel: { ...Theme.typography.label, color: Theme.colors.textMuted, marginTop: 3, fontWeight: '500' },

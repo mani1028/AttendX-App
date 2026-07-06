@@ -14,7 +14,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { launchImageLibrary } from 'react-native-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -73,6 +73,7 @@ import {
   toSectionPickerOptions,
 } from '../../utils/studentRegistrationValidation';
 import { formatErrorMessage } from '../../utils/helpers';
+import { launchCameraWithPermission as launchCamera } from '../../utils/cameraUtils';
 
 // Types
 interface ClassOption {
@@ -680,13 +681,19 @@ export default function StudentRegistrationScreen() {
 
       <ScrollView
         ref={scrollRef}
-        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.contentContainer}
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={[innerPageLayoutStyles.scrollPageContent, styles.contentContainer]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
-        {/* Navy Hero Header */}
-        <StandardPageHeader title="Student Registration" onBackPress={() => navigation.goBack()} />
+        <StandardPageHeader
+          title="Student Registration"
+          onBackPress={() => navigation.goBack()}
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
+        <View style={innerPageLayoutStyles.scrollBody}>
 
         {serverError && (
           <View style={styles.errorBox}>
@@ -1454,6 +1461,7 @@ export default function StudentRegistrationScreen() {
         <View style={styles.footer}>
           <AppText style={styles.footerText}>School: {loggedSchoolCode || '—'}</AppText>
           <AppText style={styles.footerText}>Branch: {defaultBranchId || '—'}</AppText>
+        </View>
         </View>
       </ScrollView>
 

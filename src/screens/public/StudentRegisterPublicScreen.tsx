@@ -15,7 +15,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { launchImageLibrary } from 'react-native-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   ChevronLeft,
@@ -63,6 +63,7 @@ import {
   toSectionPickerOptions,
 } from '../../utils/studentRegistrationValidation';
 import { formatErrorMessage } from '../../utils/helpers';
+import { launchCameraWithPermission as launchCamera } from '../../utils/cameraUtils';
 interface ClassOption {
   class_name: string;
   sections: string[];
@@ -555,18 +556,21 @@ export default function StudentRegisterPublicScreen() {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader title="Student Registration" onBackPress={() => navigation.goBack()} />
-
-
-
       <ScrollView
         ref={scrollRef}
-        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.contentContainer}
+        style={{ flex: 1 }}
+        contentContainerStyle={[innerPageLayoutStyles.scrollPageContent, styles.contentContainer]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Navy Hero Header */}
-        <StandardPageHeader title="Student Registration" onBackPress={() => navigation.goBack()} />
+        <StandardPageHeader
+          scrollWithContent
+          title="Student Registration"
+          onBackPress={() => navigation.goBack()}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
 
+        <View style={innerPageLayoutStyles.scrollBody}>
         {serverError && (
           <View style={styles.errorBox}>
             <AppText style={styles.errorBoxText}>{serverError}</AppText>
@@ -1326,10 +1330,11 @@ export default function StudentRegisterPublicScreen() {
           <AppText style={styles.footerText}>School: {publicSchoolCode || '—'}</AppText>
           <AppText style={styles.footerText}>Branch: {publicBranchId || '—'}</AppText>
         </View>
+        </View>
       </ScrollView>
 
       {/* Roll Number Modal */}
-      <Modal visible={showRollNumberModal} transparent animationType="fade">
+      <Modal visible={showRollNumberModal} transparent animationType="fade" onRequestClose={() => setShowRollNumberModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <AppText weight="bold" style={styles.modalTitle}>Registration Complete</AppText>

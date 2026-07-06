@@ -115,7 +115,7 @@ const AccountantDashboardScreen = () => {
         onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
       />
 
-      <View style={[styles.contentOverlap, innerPageLayoutStyles.contentFront]}>
+      <View style={[styles.contentOverlap]}>
         <ScrollView
          style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
           contentContainerStyle={styles.scrollContent}

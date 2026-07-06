@@ -15,10 +15,7 @@ import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { getPublicPaymentSettings, isAutoPayGloballyEnabled } from '../../services/paymentService';
-
-
-
-// Types (simplified for brevity)
+import type { RootStackParamList } from '../../navigation/types';
 interface Plan {
   id: string;
   title: string;
@@ -54,16 +51,15 @@ interface SubscriptionInfo {
   last_payment_amount?: number;
 }
 
-type RootStackParamList = {
-  RenewalPayment: undefined;
-};
-
 type RenewalPaymentRouteProp = RouteProp<RootStackParamList, 'RenewalPayment'>;
 
 export default function RenewalPaymentScreen() {
   const navigation = useNavigation();
   const route = useRoute<RenewalPaymentRouteProp>();
   const insets = useSafeAreaInsets();
+  const upgradeMode = route.params?.upgradeMode ?? null;
+  const preselectPlanId = route.params?.preselectPlan ?? null;
+  const isUpgradeFlow = upgradeMode === 'branch' || upgradeMode === 'plan';
 
   // State mirrors the web version
   const [plans, setPlans] = useState<any[]>([]);
@@ -99,6 +95,26 @@ export default function RenewalPaymentScreen() {
 
   const branchLimit = useMemo(() => getEffectiveBranchLimit(subInfo), [subInfo]);
   const atBranchLimit = useMemo(() => isAtBranchLimit(branchCount, branchLimit), [branchCount, branchLimit]);
+
+  const renewalTitle = useMemo(() => {
+    if (upgradeMode === 'branch') { return 'Add a Branch'; }
+    if (upgradeMode === 'plan') { return 'Upgrade Your Plan'; }
+    if (subInfo?.days_remaining !== undefined && subInfo.days_remaining < 0) { return 'Renew Your Subscription'; }
+    return 'Subscription & Renewal';
+  }, [upgradeMode, subInfo?.days_remaining]);
+
+  const renewalSubtitle = useMemo(() => {
+    if (upgradeMode === 'branch') {
+      return 'Pick a plan with more branch slots, then add your new location from the dashboard.';
+    }
+    if (upgradeMode === 'plan') {
+      return 'Move to a higher tier and unlock more features across your institution.';
+    }
+    if (subInfo?.days_remaining !== undefined && subInfo.days_remaining < 0) {
+      return 'Your subscription has expired. Select a plan to regain access.';
+    }
+    return 'Choose a plan and renew your subscription';
+  }, [upgradeMode, subInfo?.days_remaining]);
 
   const fetchPricingPlans = useCallback(async (): Promise<any[]> => {
     const endpoints = ['pricing/public/plans', '/pricing/public/plans', 'pricing/plans'];
@@ -263,6 +279,17 @@ export default function RenewalPaymentScreen() {
     [billingCycle, wantsAutoPay, schoolId]
   );
 
+  useEffect(() => {
+    if (!preselectPlanId || preselectHandled.current || displayPlans.length === 0 || loadingPlan || error) {
+      return;
+    }
+    const target = displayPlans.find((plan) => String(plan.id) === String(preselectPlanId));
+    if (target) {
+      preselectHandled.current = true;
+      handleSelect(target);
+    }
+  }, [preselectPlanId, displayPlans, handleSelect, loadingPlan, error]);
+
   const getCheckoutHtml = (data: any) => {
     if (!data) {return '';}
     return `
@@ -426,8 +453,8 @@ export default function RenewalPaymentScreen() {
           showsVerticalScrollIndicator={false}
         >
           <StandardPageHeader
-            title="Subscription & Renewal"
-            subtitle="Choose a plan and renew your subscription"
+            title={renewalTitle}
+            subtitle={renewalSubtitle}
             onBackPress={() => navigation.goBack()}
           />
 
@@ -470,6 +497,14 @@ export default function RenewalPaymentScreen() {
                   <Text style={styles.branchHint}>
                     Plans are billed per branch. Your total updates with each active branch.
                   </Text>
+                )}
+                {upgradeMode === 'branch' && (
+                  <View style={styles.branchUpgradeCard}>
+                    <Text style={styles.branchUpgradeTitle}>Adding a Branch</Text>
+                    <Text style={styles.branchUpgradeBody}>
+                      {branchCount} of {formatBranchLimit(branchLimit)} branches active. Choose a plan below with more branch slots, complete payment, then return to the dashboard and tap Add Branch.
+                    </Text>
+                  </View>
                 )}
               </View>
             </View>
@@ -525,7 +560,13 @@ export default function RenewalPaymentScreen() {
 
             {/* Plans list */}
             <View style={{ marginBottom: 12 }}>
-              <Text style={styles.sectionTitle}>Select a Plan to {subInfo.days_remaining !== undefined && subInfo.days_remaining < 0 ? 'Renew' : 'Upgrade'}</Text>
+              <Text style={styles.sectionTitle}>
+                {upgradeMode === 'branch'
+                  ? 'Select a Plan with More Branches'
+                  : isUpgradeFlow
+                    ? 'Select a Plan to Upgrade'
+                    : `Select a Plan to ${subInfo.days_remaining !== undefined && subInfo.days_remaining < 0 ? 'Renew' : 'Upgrade'}`}
+              </Text>
               {displayPlans.length === 0 ? (
                 <View style={styles.card}>
                   <Text style={styles.emptyMsg}>No public plans found. Please contact support.</Text>
@@ -932,6 +973,25 @@ const styles = StyleSheet.create({
     color: Theme.colors.textMuted,
     marginTop: 8,
     lineHeight: 16,
+  },
+  branchUpgradeCard: {
+    marginTop: 14,
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    padding: 14,
+  },
+  branchUpgradeTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1d4ed8',
+    marginBottom: 6,
+  },
+  branchUpgradeBody: {
+    fontSize: 12,
+    color: '#475569',
+    lineHeight: 18,
   },
   planFeaturesList: {
     marginBottom: Theme.spacing.lg,

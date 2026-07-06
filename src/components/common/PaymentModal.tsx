@@ -119,7 +119,7 @@ export default function PaymentModal({ isOpen, onClose, onSelectPlan, schoolName
   if (!isOpen) {return null;}
 
   return (
-    <Modal visible={isOpen} transparent animationType="fade">
+    <Modal visible={isOpen} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.modal}>
           <View style={styles.header}>

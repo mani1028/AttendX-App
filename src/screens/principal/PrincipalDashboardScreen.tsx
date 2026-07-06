@@ -18,10 +18,8 @@ import {
 } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, RefreshCw, Calendar as CalendarIcon, Users, User, UserPlus, Grid, TrendingUp, Home, GitBranch, AlertCircle, BarChart3, ClipboardList, Megaphone, Settings, Eye } from 'lucide-react-native';
-import { Svg, Circle } from 'react-native-svg';
-import LinearGradient from 'react-native-linear-gradient';
+import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
+import { Calendar as CalendarIcon, Users, User, UserPlus, Grid, TrendingUp, AlertCircle, ClipboardList, Megaphone, Settings, Eye, Scan, FileDown, GraduationCap } from 'lucide-react-native';
 import API from '../../services/api';
 import * as principalService from '../../services/principalService';
 import { useAuth } from '../../context/AuthContext';
@@ -32,11 +30,10 @@ import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import { safeNavigate } from '../../utils/navigationHelpers';
 import DashboardHeroHeader from '../../components/dashboard/DashboardHeroHeader';
 import QuickActionGrid, { QuickActionItem } from '../../components/dashboard/QuickActionGrid';
+import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const PAGE_GUTTER = 14;
-const QUICK_ACTION_COLUMNS = 4;
-const QUICK_ACTION_GRID_GAP = 12;
 
 interface ClassData {
   class_id?: string;
@@ -72,43 +69,51 @@ interface StatsData {
   };
 }
 
-const AttendanceRing = ({ pct, color, size = 80 }: { pct: number; color: string; size?: number }) => {
-  const radius = 54;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (circumference * Math.min(pct, 100)) / 100;
+const CARD_SHADOW = Platform.select({
+  ios: {
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+  },
+  android: { elevation: 2 },
+});
 
-  return (
-    <View style={{ width: size, height: size, position: 'relative' }}>
-      <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-        <AppText weight="bold" style={[styles.ringPercentage, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
-          {Math.round(pct)}%
-        </AppText>
-      </View>
-      <View style={{ transform: [{ rotate: '-90deg' }] }}>
-        <Svg width={size} height={size} viewBox="0 0 120 120">
-          <Circle
-            cx="60"
-            cy="60"
-            r={radius}
-            fill="none"
-            stroke={C.border}
-            strokeWidth="10"
-          />
-          <Circle
-            cx="60"
-            cy="60"
-            r={radius}
-            fill="none"
-            stroke={color}
-            strokeWidth="10"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-          />
-        </Svg>
-      </View>
+const AttendanceMetric = ({
+  label,
+  pct,
+  present,
+  total,
+  absent,
+  color,
+  onPress,
+}: {
+  label: string;
+  pct: number;
+  present: number;
+  total: number;
+  absent: number;
+  color: string;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity style={styles.metricCard} onPress={onPress} activeOpacity={0.75}>
+    <View style={styles.metricTop}>
+      <AppText style={styles.metricLabel} weight="semibold">{label}</AppText>
+      <AppText weight="bold" style={[styles.metricPct, { color }]}>{Math.round(pct)}%</AppText>
     </View>
-  );
+    <View style={styles.metricBarTrack}>
+      <View style={[styles.metricBarFill, { width: `${Math.min(pct, 100)}%` as DimensionValue, backgroundColor: color }]} />
+    </View>
+    <AppText style={styles.metricValue} weight="bold">{present}<AppText style={styles.metricValueMuted}> / {total}</AppText></AppText>
+    <AppText style={styles.metricSub}>{absent} absent</AppText>
+  </TouchableOpacity>
+);
+
+const pctColor = (pct: number): string => {
+  if (pct === 0) { return C.muted; }
+  if (pct >= 75) { return C.success; }
+  if (pct >= 50) { return C.warning; }
+  return C.error;
 };
 
 const StatCard = ({
@@ -116,59 +121,36 @@ const StatCard = ({
   value,
   subtext,
   icon: IconComponent,
-  iconBg,
   iconColor,
-  trend,
-  trendUp,
   onPress,
   loading,
-}: any) => {
-  const badgeColor = trendUp ? C.success : C.error;
-  const badgeBg = trendUp ? 'rgba(5, 150, 105, 0.08)' : 'rgba(220, 38, 38, 0.08)';
-  return (
-    <TouchableOpacity
-      style={styles.statCard}
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
-      <View style={styles.cardTop}>
-        <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
-          <IconComponent size={20} color={iconColor} />
-        </View>
-        {trend && (
-          <View style={[styles.trendBadge, { backgroundColor: badgeBg }]}>
-            <View style={[styles.trendDot, { backgroundColor: badgeColor }]} />
-            <AppText weight="bold" style={[styles.trendText, { color: badgeColor }]}>{trend}</AppText>
-          </View>
-        )}
-      </View>
-      <AppText style={styles.cardLabel} weight="bold">{label}</AppText>
+}: any) => (
+  <TouchableOpacity style={styles.statCard} onPress={onPress} activeOpacity={0.8}>
+    <View style={[styles.iconBox, { backgroundColor: `${iconColor}12` }]}>
+      <IconComponent size={18} color={iconColor} />
+    </View>
+    <View style={styles.statCopy}>
+      <AppText style={styles.cardLabel} weight="medium">{label}</AppText>
       {loading ? (
         <View style={styles.skeletonText} />
       ) : (
-        <AppText weight="bold" style={[styles.cardValue, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
-          {value}
-        </AppText>
+        <AppText weight="bold" style={styles.cardValue}>{value}</AppText>
       )}
-      {loading ? (
-        <View style={[styles.skeletonText, { width: '60%', marginTop: Theme.spacing.sm }]} />
-      ) : (
-        <AppText style={styles.cardSub}>{subtext}</AppText>
-      )}
-    </TouchableOpacity>
-  );
-};
+      {!loading ? <AppText style={styles.cardSub} numberOfLines={1}>{subtext}</AppText> : null}
+    </View>
+  </TouchableOpacity>
+);
 
 const BarRow = ({ label, percentage, present, total, onPress }: any) => (
   <TouchableOpacity style={styles.barRow} onPress={onPress} activeOpacity={0.8}>
-    <AppText style={styles.barLabel} weight="bold">{label}</AppText>
+    <AppText style={styles.barLabel} weight="semibold">{label}</AppText>
     <View style={styles.barTrack}>
       <View
         style={[
           styles.barFill,
           {
             width: (percentage + '%') as DimensionValue,
-            backgroundColor: percentage >= 75 ? C.success : percentage >= 50 ? C.warning : C.error,
+            backgroundColor: pctColor(percentage),
           },
         ]}
       />
@@ -178,7 +160,7 @@ const BarRow = ({ label, percentage, present, total, onPress }: any) => (
       style={[
         styles.barPct,
         {
-          color: percentage >= 75 ? C.success : percentage >= 50 ? C.warning : C.error,
+          color: pctColor(percentage),
           fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
         },
       ]}
@@ -190,17 +172,16 @@ const BarRow = ({ label, percentage, present, total, onPress }: any) => (
 );
 
 const ClassChip = ({ label, percentage, present, total, onPress }: any) => {
-  const isGood = percentage >= 75;
-  const statusColor = isGood ? C.success : percentage >= 50 ? C.warning : C.error;
+  const statusColor = pctColor(percentage);
   return (
     <TouchableOpacity
-      style={[styles.classChip, { borderColor: C.border }]}
+      style={styles.classChip}
       onPress={onPress}
       activeOpacity={0.8}
     >
       <View style={styles.classChipHeader}>
         <AppText style={styles.chipLabel} weight="bold">{label}</AppText>
-        <AppText weight="bold" style={[styles.chipPct, { color: statusColor, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
+        <AppText weight="bold" style={[styles.chipPct, { color: statusColor }]}>
           {percentage}%
         </AppText>
       </View>
@@ -215,21 +196,21 @@ const ClassChip = ({ label, percentage, present, total, onPress }: any) => {
 };
 
 const QUICK_ACTIONS = [
-  { label: 'Teachers', route: 'PrincipalTeacherManagement', icon: Users, bg: 'rgba(37, 99, 235, 0.08)', color: '#2563eb' },
-  { label: 'Students', route: 'PrincipalStudentManagement', icon: User, bg: 'rgba(34, 197, 94, 0.08)', color: '#22c55e' },
-  { label: 'Attendance', route: 'PrincipalAttendance', icon: CalendarIcon, bg: 'rgba(249, 115, 22, 0.08)', color: '#f97316' },
-  { label: 'Exams', route: 'PrincipalExams', icon: ClipboardList, bg: 'rgba(124, 58, 237, 0.08)', color: '#7c3aed' },
-  { label: 'Reports', route: 'PrincipalReports', icon: BarChart3, bg: 'rgba(14, 165, 233, 0.08)', color: '#0ea5e9' },
-  { label: 'Notices', route: 'PrincipalAnnouncements', icon: Megaphone, bg: 'rgba(236, 72, 153, 0.08)', color: '#ec4899' },
-  { label: 'Settings', route: 'PrincipalSettings', icon: Settings, bg: 'rgba(100, 116, 139, 0.08)', color: Theme.colors.textSec },
-  { label: 'Profile', route: 'Profile', icon: User, bg: 'rgba(139, 92, 246, 0.08)', color: '#8b5cf6' },
-  { label: 'Teacher Leaves', route: 'PrincipalTeacherLeaves', icon: CalendarIcon, bg: 'rgba(234, 88, 12, 0.08)', color: '#ea580c' },
-  { label: 'Staff Requests', route: 'PrincipalTeacherRegistrationRequests', icon: UserPlus, bg: 'rgba(217, 119, 6, 0.08)', color: '#d97706' },
-  { label: 'Student 360', route: 'Student360', icon: Eye, bg: 'rgba(6, 182, 212, 0.08)', color: '#06b6d4' },
+  { label: 'Face Review', route: 'PrincipalFaceReview', icon: Scan },
+  { label: 'Calendar', route: 'PrincipalCalendarManagement', icon: CalendarIcon },
+  { label: 'Promotion', route: 'PrincipalStudentPromotion', icon: GraduationCap },
+  { label: 'Visitors', route: 'VisitorDashboard', icon: Users },
+  { label: 'Export', route: 'PrincipalDataExport', icon: FileDown },
+  { label: 'Exams', route: 'PrincipalExams', icon: ClipboardList },
+  { label: 'Notices', route: 'PrincipalAnnouncements', icon: Megaphone },
+  { label: 'Leaves', route: 'PrincipalTeacherLeaves', icon: CalendarIcon },
+  { label: 'Requests', route: 'PrincipalTeacherRegistrationRequests', icon: UserPlus },
+  { label: 'Student 360', route: 'Student360', icon: Eye },
+  { label: 'Settings', route: 'PrincipalSettings', icon: Settings },
 ] as const;
 
 export default function PrincipalDashboardScreen() {
-  const insets = useSafeAreaInsets();
+  const tabBarScrollPadding = useTabBarScrollPadding();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName, setTabBarVisible } = useAuth();
   const isMounted = useRef(true);
@@ -394,6 +375,7 @@ export default function PrincipalDashboardScreen() {
   };
 
   const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  const headerDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const cards = stats?.cards || {};
   const breakdown = stats?.today_breakdown || {};
   const teacherAtt = breakdown?.teachers || {};
@@ -406,7 +388,7 @@ export default function PrincipalDashboardScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarScrollPadding }]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
@@ -415,18 +397,17 @@ export default function PrincipalDashboardScreen() {
       >
         <DashboardHeroHeader
           userName={userName || 'Principal'}
-          greetingLine={`GOOD ${getGreeting().toUpperCase()}`}
-          subtitle={schoolCode ? `School: ${schoolCode} • Manage your school` : 'Manage your school'}
+          greetingLine={`Good ${getGreeting()}`}
+          greetingUppercase={false}
+          showWave={false}
+          subtitle={schoolCode ? `${schoolCode} · ${headerDate}` : headerDate}
           unreadCount={unreadCount}
           onAvatarPress={() => safeNavigate(navigation, 'Profile')}
           onNotificationsPress={() => safeNavigate(navigation, 'Notifications')}
-          pageTitle="Principal Dashboard"
-          showDateBadge
           fullBleed
-          style={{ marginHorizontal: -PAGE_GUTTER }}
         />
 
-      {/* Error Banner */}
+        <View style={[innerPageLayoutStyles.contentFront, styles.dashboardSheet]}>
       {error ? (
         <View style={styles.errorBanner}>
           <AlertCircle size={18} color={C.error} />
@@ -434,87 +415,123 @@ export default function PrincipalDashboardScreen() {
         </View>
       ) : null}
 
-      {/* Stat Cards */}
-      <View style={styles.grid4}>
+      <View style={styles.sectionCard}>
+        <AppText style={styles.sectionTitle} weight="bold">Overview</AppText>
+        <View style={styles.grid4}>
         <StatCard
-          label="Total teachers"
+          label="Teachers"
           value={(cards.total_teachers ?? 0).toLocaleString()}
           subtext={`${teacherAtt.present ?? 0} present today`}
           icon={Users}
-          iconBg={C.primary + '15'}
           iconColor={C.primary}
-          trend="Live"
-          trendUp={true}
-          accentColor={C.primary}
           onPress={() => goToAttendanceView('teachers')}
           loading={loading}
         />
 
         <StatCard
-          label="Total students"
+          label="Students"
           value={(cards.total_students ?? 0).toLocaleString()}
           subtext={`${studentAtt.present ?? 0} present today`}
           icon={User}
-          iconBg={C.successSoft}
-          iconColor={C.success}
-          trend="Live"
-          trendUp={true}
-          accentColor={C.success}
+          iconColor={C.primary}
           onPress={() => goToAttendanceView('students')}
           loading={loading}
         />
 
         <StatCard
-          label="Active classes"
+          label="Classes"
           value={(cards.total_classes ?? 0).toLocaleString()}
-          subtext={`${classes.length} sections tracked`}
+          subtext={`${classes.length} sections`}
           icon={Grid}
-          iconBg={C.warningSoft}
-          iconColor={C.warning}
-          trend="Active"
-          trendUp={true}
-          accentColor={C.warning}
+          iconColor={C.primary}
           onPress={() => goToAttendanceView('students')}
           loading={loading}
         />
 
         <StatCard
-          label="Today's attendance"
+          label="Attendance"
           value={`${cards.today_attendance_pct ?? 0}%`}
-          subtext="combined percentage"
+          subtext="Today combined"
           icon={TrendingUp}
-          iconBg="rgba(124, 58, 237, 0.1)"
-          iconColor="#7c3aed"
-          trend={(cards.today_attendance_pct ?? 0) >= 75 ? 'Good' : 'Low'}
-          trendUp={(cards.today_attendance_pct ?? 0) >= 75}
-          accentColor="#7c3aed"
+          iconColor={pctColor(cards.today_attendance_pct ?? 0)}
           onPress={() => goToAttendanceView('students')}
           loading={loading}
         />
-      </View>
-
-      <View style={styles.quickAccessPanel}>
-        <View style={styles.panelHead}>
-          <View>
-            <AppText style={styles.panelTitle} weight="bold">Quick Access</AppText>
-            <AppText style={styles.panelSub}>Jump straight to the core Principal tools.</AppText>
-          </View>
         </View>
 
-        <QuickActionGrid style={styles.quickActionGrid}>
+        <View style={styles.overviewDivider} />
+
+        {loading ? (
+          <View style={styles.attendanceRow}>
+            {[1, 2].map(i => (
+              <View key={`metric-skel-${i}`} style={[styles.metricCard, styles.metricSkeleton]} />
+            ))}
+          </View>
+        ) : (
+          <View style={styles.attendanceRow}>
+            <AttendanceMetric
+              label="Teachers"
+              pct={teacherAtt.attendance_pct ?? 0}
+              present={teacherAtt.present ?? 0}
+              total={teacherAtt.total ?? 0}
+              absent={teacherAtt.absent ?? 0}
+              color={C.primary}
+              onPress={() => goToAttendanceView('teachers')}
+            />
+            <AttendanceMetric
+              label="Students"
+              pct={studentAtt.attendance_pct ?? 0}
+              present={studentAtt.present ?? 0}
+              total={studentAtt.total ?? 0}
+              absent={studentAtt.absent ?? 0}
+              color={C.success}
+              onPress={() => goToAttendanceView('students')}
+            />
+          </View>
+        )}
+
+        {!loading && (
+          <View style={styles.summaryStrip}>
+            <View style={styles.sumItem}>
+              <AppText weight="bold" style={[styles.sumVal, { color: (teacherAtt.present ?? 0) + (studentAtt.present ?? 0) > 0 ? C.success : C.muted }]}>
+                {(teacherAtt.present ?? 0) + (studentAtt.present ?? 0)}
+              </AppText>
+              <AppText style={styles.sumLabel}>Present</AppText>
+            </View>
+            <View style={styles.sumDivider} />
+            <View style={styles.sumItem}>
+              <AppText weight="bold" style={[styles.sumVal, { color: (teacherAtt.absent ?? 0) + (studentAtt.absent ?? 0) > 0 ? C.error : C.muted }]}>
+                {(teacherAtt.absent ?? 0) + (studentAtt.absent ?? 0)}
+              </AppText>
+              <AppText style={styles.sumLabel}>Absent</AppText>
+            </View>
+            <View style={styles.sumDivider} />
+            <View style={styles.sumItem}>
+              <AppText weight="bold" style={[styles.sumVal, { color: pctColor(cards.today_attendance_pct ?? 0) }]}>
+                {cards.today_attendance_pct ?? 0}%
+              </AppText>
+              <AppText style={styles.sumLabel}>Overall</AppText>
+            </View>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.sectionCard}>
+        <AppText style={styles.sectionTitle} weight="bold">Tools</AppText>
+        <QuickActionGrid style={styles.toolsGrid} columns={3}>
           {QUICK_ACTIONS.map((action) => {
             const IconComponent = action.icon;
             return (
-              <QuickActionItem key={action.label}>
+              <QuickActionItem key={action.label} columns={3}>
                 <TouchableOpacity
-                  style={styles.quickActionItemInner}
+                  style={styles.toolItem}
                   onPress={() => safeNavigate(navigation, action.route as any)}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.quickActionIcon, { backgroundColor: action.bg }]}>
-                    <IconComponent size={18} color={action.color} />
+                  <View style={styles.toolIcon}>
+                    <IconComponent size={18} color={C.primary} />
                   </View>
-                  <AppText style={styles.quickActionLabel} weight="semibold">
+                  <AppText style={styles.toolLabel} weight="medium" numberOfLines={2}>
                     {action.label}
                   </AppText>
                 </TouchableOpacity>
@@ -524,112 +541,14 @@ export default function PrincipalDashboardScreen() {
         </QuickActionGrid>
       </View>
 
-      {/* Main Grid */}
-      <View style={styles.mainGrid}>
-        {/* Attendance Breakdown Rings */}
-        <View style={styles.panel}>
-          <View style={styles.panelHead}>
-            <View>
-              <AppText style={styles.panelTitle} weight="bold">Attendance Breakdown</AppText>
-              <AppText style={styles.panelSub}>{breakdown.date || today}</AppText>
-            </View>
-          </View>
-
-          <View style={styles.ringGrid}>
-            {loading ? (
-              [1, 2].map(i => (
-                <View key={`ring-skeleton-${i}`} style={styles.skeletonRingRow}>
-                  <View style={[styles.skeletonBox, { width: 80, height: 80, borderRadius: 40 }]} />
-                  <View style={{ flex: 1, gap: 8 }}>
-                    <View style={[styles.skeletonBox, { width: '50%', height: 11 }]} />
-                    <View style={[styles.skeletonBox, { width: '65%', height: 28 }]} />
-                    <View style={[styles.skeletonBox, { width: '40%', height: 10 }]} />
-                    <View style={[styles.skeletonBox, { width: '55%', height: 10 }]} />
-                  </View>
-                </View>
-              ))
-            ) : (
-              <>
-                <TouchableOpacity
-                  style={styles.ringRow}
-                  onPress={() => goToAttendanceView('teachers')}
-                  activeOpacity={0.7}
-                >
-                  <AttendanceRing pct={teacherAtt.attendance_pct ?? 0} color={C.primary} />
-                  <View style={styles.ringInfo}>
-                    <AppText style={styles.ringLabel} weight="bold">Teachers</AppText>
-                    <AppText weight="bold" style={[styles.ringValue, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
-                      {teacherAtt.present ?? 0}
-                      <AppText style={styles.ringTotal}> / {teacherAtt.total ?? 0}</AppText>
-                    </AppText>
-                    <AppText style={styles.ringSub}>{teacherAtt.absent ?? 0} absent today</AppText>
-                    <AppText weight="bold" style={[styles.ringPct, { color: (teacherAtt.attendance_pct ?? 0) >= 75 ? C.success : C.error }]}>
-                      {teacherAtt.attendance_pct ?? 0}% attendance
-                    </AppText>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.ringRow}
-                  onPress={() => goToAttendanceView('students')}
-                  activeOpacity={0.7}
-                >
-                  <AttendanceRing pct={studentAtt.attendance_pct ?? 0} color={C.success} />
-                  <View style={styles.ringInfo}>
-                    <AppText style={styles.ringLabel} weight="bold">Students</AppText>
-                    <AppText weight="bold" style={[styles.ringValue, { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
-                      {studentAtt.present ?? 0}
-                      <AppText style={styles.ringTotal}> / {studentAtt.total ?? 0}</AppText>
-                    </AppText>
-                    <AppText style={styles.ringSub}>{studentAtt.absent ?? 0} absent today</AppText>
-                    <AppText weight="bold" style={[styles.ringPct, { color: (studentAtt.attendance_pct ?? 0) >= 75 ? C.success : C.error }]}>
-                      {studentAtt.attendance_pct ?? 0}% attendance
-                    </AppText>
-                  </View>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-
-          {!loading && (
-            <View style={styles.summaryStrip}>
-              <TouchableOpacity style={styles.sumItem} onPress={() => goToAttendanceView('students')}>
-                <AppText weight="bold" style={[styles.sumVal, { color: C.success, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
-                  {(teacherAtt.present ?? 0) + (studentAtt.present ?? 0)}
-                </AppText>
-                <AppText style={styles.sumLabel}>Present</AppText>
-              </TouchableOpacity>
-
-              <View style={styles.sumDivider} />
-
-              <TouchableOpacity style={styles.sumItem} onPress={() => goToAttendanceView('students')}>
-                <AppText weight="bold" style={[styles.sumVal, { color: C.error, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
-                  {(teacherAtt.absent ?? 0) + (studentAtt.absent ?? 0)}
-                </AppText>
-                <AppText style={styles.sumLabel}>Absent</AppText>
-              </TouchableOpacity>
-
-              <View style={styles.sumDivider} />
-
-              <TouchableOpacity style={styles.sumItem} onPress={() => goToAttendanceView('students')}>
-                <AppText weight="bold" style={[styles.sumVal, { color: '#7c3aed', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }]}>
-                  {cards.today_attendance_pct ?? 0}%
-                </AppText>
-                <AppText style={styles.sumLabel} weight="semibold">Overall</AppText>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </View>
-
       {/* Section Overview */}
       {(loading || classes.length > 0) && (
-        <View style={[styles.panel, styles.sectionOverviewPanel]}>
-          <View style={styles.panelHead}>
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHead}>
             <View>
-              <AppText style={styles.panelTitle} weight="bold">Section Overview</AppText>
-              <AppText style={styles.panelSub}>
-                {loading ? 'Loading sections…' : `${classes.length} sections tracked`}
+              <AppText style={styles.sectionTitle} weight="bold">Sections</AppText>
+              <AppText style={styles.sectionSub}>
+                {loading ? 'Loading…' : `${classes.length} active`}
               </AppText>
             </View>
           </View>
@@ -664,8 +583,7 @@ export default function PrincipalDashboardScreen() {
         </View>
       )}
 
-      {/* Bottom Spacer for Tab Bar */}
-      <View style={{ height: insets.bottom + 140 }} />
+        </View>
       </ScrollView>
     </View>
   );
@@ -719,8 +637,116 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: PAGE_GUTTER,
-    paddingBottom: 120,
+    paddingHorizontal: HEADER_CONSTANTS.DASHBOARD_HORIZONTAL,
+  },
+  dashboardSheet: {
+    marginTop: -20,
+    marginHorizontal: -HEADER_CONSTANTS.DASHBOARD_HORIZONTAL,
+    paddingHorizontal: HEADER_CONSTANTS.DASHBOARD_HORIZONTAL,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  sectionCard: {
+    backgroundColor: C.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    ...CARD_SHADOW,
+  },
+  overviewDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: C.border,
+    marginVertical: 14,
+  },
+  sectionHead: {
+    marginBottom: 14,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    color: C.text,
+    letterSpacing: -0.3,
+  },
+  sectionSub: {
+    fontSize: 12,
+    color: C.muted,
+    marginTop: 2,
+    marginBottom: 12,
+  },
+  toolsGrid: {
+    marginTop: 12,
+  },
+  toolItem: {
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 6,
+  },
+  toolIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(30, 58, 138, 0.07)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  toolLabel: {
+    fontSize: 11,
+    color: C.textSec,
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  attendanceRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 4,
+  },
+  metricCard: {
+    flex: 1,
+    backgroundColor: C.bg,
+    borderRadius: 12,
+    padding: 12,
+    gap: 5,
+  },
+  metricSkeleton: {
+    minHeight: 108,
+    backgroundColor: C.border,
+  },
+  metricTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: C.muted,
+  },
+  metricPct: {
+    fontSize: 18,
+    letterSpacing: -0.5,
+  },
+  metricBarTrack: {
+    height: 5,
+    backgroundColor: C.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  metricBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  metricValue: {
+    fontSize: 20,
+    color: C.text,
+    letterSpacing: -0.3,
+  },
+  metricValueMuted: {
+    fontSize: 14,
+    color: C.muted,
+    fontWeight: '500',
+  },
+  metricSub: {
+    fontSize: 11,
+    color: C.muted,
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -818,71 +844,43 @@ const styles = StyleSheet.create({
   grid4: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginTop: -30,
-    marginBottom: 16,
-    zIndex: 1,
-    position: 'relative',
-    ...Platform.select({ android: { elevation: 4 } }),
+    gap: 8,
+    marginTop: 12,
   },
   statCard: {
-    backgroundColor: C.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 12,
-    width: '48.5%',
-    shadowColor: Theme.colors.primary,
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  cardTop: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    gap: 10,
+    backgroundColor: C.bg,
+    borderRadius: 12,
+    padding: 10,
+    width: '48.5%',
+  },
+  statCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  trendBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  trendDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  trendText: {
-    fontSize: 9,
-    fontWeight: 'bold',
-    letterSpacing: 0.3,
-  },
   cardLabel: {
-    ...Theme.typography.label,
-    letterSpacing: 0.3,
+    fontSize: 11,
     color: C.muted,
-    marginBottom: 6,
   },
   cardValue: {
-    fontSize: 24,
+    fontSize: 20,
     color: C.text,
+    letterSpacing: -0.4,
+    lineHeight: 24,
   },
   cardSub: {
-    ...Theme.typography.label,
-    color: C.muted,
-    marginTop: 6,
+    fontSize: 10,
+    color: C.textSec,
+    marginTop: 1,
   },
   skeletonText: {
     height: 16,
@@ -890,73 +888,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: Theme.spacing.xs,
   },
-  mainGrid: {
-    gap: 16,
-    marginBottom: 16,
-  },
-  quickAccessPanel: {
-    backgroundColor: C.card,
-    borderRadius: 20,
-    marginBottom: 16,
-    shadowColor: Theme.colors.text,
-    shadowOpacity: 0.06,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.12)',
-  },
-  quickActionGrid: {
-    paddingHorizontal: 12,
-    paddingBottom: 14,
-  },
-  sectionOverviewPanel: {
-    marginBottom: 20,
-  },
-  panel: {
-    backgroundColor: C.card,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: C.border,
-    overflow: 'hidden',
-    shadowColor: Theme.colors.text,
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 2,
-  },
-  panelHead: {
-    paddingHorizontal: 14,
+  summaryStrip: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     paddingTop: 14,
-    paddingBottom: 10,
-  },
-  panelTitle: {
-    ...Theme.typography.body,
-    color: C.text,
-  },
-  panelSub: {
-    ...Theme.typography.caption,
-    color: C.muted,
-    marginTop: 2,
-  },
-  quickActionItemInner: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  quickActionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 5,
-  },
-  quickActionLabel: {
-    ...Theme.typography.label,
-    color: C.text,
-    textAlign: 'center',
-    lineHeight: 14,
-    marginTop: 2,
+    marginTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.border,
   },
   barBody: {
     padding: Theme.spacing.md,
@@ -986,106 +924,62 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   barPct: {
-    ...Theme.typography.label,
+    fontSize: 11,
+    fontWeight: '700',
     width: 36,
     textAlign: 'right',
   },
   barCount: {
-    ...Theme.typography.label,
+    fontSize: 11,
     color: C.muted,
     width: 52,
     textAlign: 'right',
   },
-  ringGrid: {
-    flexDirection: 'column',
-  },
-  ringRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    padding: Theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  ringInfo: {
-    flex: 1,
-  },
-  ringLabel: {
-    ...Theme.typography.label,
-    letterSpacing: 0.3,
-    color: C.muted,
-    marginBottom: Theme.spacing.xs,
-  },
-  ringValue: {
-    fontSize: 20,
-    color: C.text,
-  },
-  ringTotal: {
-    fontSize: 13,
-    color: C.muted,
-  },
-  ringSub: {
-    ...Theme.typography.label,
-    color: C.muted,
-    marginTop: Theme.spacing.xs,
-  },
-  ringPct: {
-    ...Theme.typography.caption,
-    marginTop: Theme.spacing.xs,
-  },
-  ringPercentage: {
-    fontSize: 18,
-    color: C.text,
-  },
-  summaryStrip: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 12,
-    paddingHorizontal: Theme.spacing.md,
-    backgroundColor: Theme.colors.background,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-  },
   sumDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: C.border,
+    width: StyleSheet.hairlineWidth,
+    height: 28,
+    backgroundColor: 'rgba(148, 163, 184, 0.25)',
     alignSelf: 'center',
   },
   sumItem: {
     alignItems: 'center',
+    minWidth: 72,
   },
   sumVal: {
-    fontSize: 16,
+    fontSize: 17,
+    letterSpacing: -0.3,
   },
   sumLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: C.muted,
-    marginTop: 2,
+    marginTop: 3,
+    fontWeight: '500',
   },
   classGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    padding: 12,
   },
   classChip: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
-    width: SCREEN_WIDTH > 400 ? '48%' : '100%',
-    backgroundColor: C.card,
+    borderRadius: 12,
+    padding: 12,
+    flexBasis: '47%',
+    flexGrow: 1,
+    backgroundColor: C.bg,
   },
   chipLabel: {
-    ...Theme.typography.body,
+    fontSize: 14,
     color: C.text,
+    fontWeight: '600',
   },
   chipPct: {
-    ...Theme.typography.body,
+    fontSize: 14,
+    fontWeight: '700',
   },
   chipSub: {
-    ...Theme.typography.label,
+    fontSize: 11,
     color: C.muted,
+    marginTop: 2,
   },
   classChipHeader: {
     flexDirection: 'row',
@@ -1095,11 +989,11 @@ const styles = StyleSheet.create({
   },
   progressTrackCompact: {
     width: '100%',
-    height: 6,
-    backgroundColor: Theme.colors.border,
-    borderRadius: 3,
+    height: 4,
+    backgroundColor: C.border,
+    borderRadius: 2,
     overflow: 'hidden',
-    marginBottom: Theme.spacing.sm,
+    marginBottom: 6,
   },
   progressFillCompact: {
     height: '100%',

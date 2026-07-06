@@ -17,7 +17,7 @@ import {
   NativeScrollEvent,
   Animated,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import { safeNavigate } from '../../utils/navigationHelpers';
@@ -47,8 +47,10 @@ import {
   CheckCircle2,
   AlertTriangle,
   Bell,
-  Briefcase,
   Zap,
+  CreditCard,
+  GitBranch,
+  ShieldCheck,
 } from 'lucide-react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Line, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
@@ -72,8 +74,21 @@ import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 import {
   getDirectorDashboardOverview,
+  getDirectorBillingData,
   type DirectorDashboardStats,
 } from '../../services/directorService';
+import {
+  getEffectiveBranchLimit,
+  formatBranchLimit,
+  isAtBranchLimit,
+  canAddBranch,
+  getNextPlanCode,
+  normalizePricingPlan,
+  parsePublicPricingPlans,
+} from '../../utils/pricingPlans';
+import {
+  DirectorUpgradeChoiceModal,
+} from '../../components/director/DirectorBranchUpgradeFlow';
 
 
 
@@ -448,10 +463,11 @@ const BranchManagementCard: React.FC<{
 
 
 const QUICK_ACTIONS = [
-  { label: 'Add Branch', route: 'DirectorPrincipalRegistration', icon: PlusCircle, bg: 'rgba(59, 130, 246, 0.08)', color: Theme.colors.blue },
-  { label: 'Billing Info', route: 'DirectorBilling', icon: Briefcase, bg: 'rgba(59, 130, 246, 0.08)', color: Theme.colors.blue },
-  { label: 'Renew Plan', route: 'RenewalPayment', icon: Zap, bg: 'rgba(59, 130, 246, 0.08)', color: Theme.colors.blue },
-  { label: 'My Profile', route: 'Profile', icon: User, bg: 'rgba(59, 130, 246, 0.08)', color: Theme.colors.blue },
+  { label: 'Add Branch', route: 'DirectorPrincipalRegistration', icon: PlusCircle, bg: 'rgba(37, 99, 235, 0.08)', color: '#2563eb' },
+  { label: 'Upgrade', icon: Zap, bg: 'rgba(124, 58, 237, 0.08)', color: '#7c3aed', opensUpgradeModal: true },
+  { label: 'Subscription', route: 'DirectorBilling', icon: ShieldCheck, bg: 'rgba(249, 115, 22, 0.08)', color: '#f97316', params: { variant: 'subscription' } },
+  { label: 'Payments', route: 'DirectorBilling', icon: CreditCard, bg: 'rgba(34, 197, 94, 0.08)', color: '#22c55e', params: { variant: 'payments' } },
+  { label: 'My Profile', route: 'Profile', icon: User, bg: 'rgba(236, 72, 153, 0.08)', color: '#ec4899' },
 ] as const;
 
 const formatAttendanceBadge = (total: number, pct: number, present: number | null): string => {
@@ -460,8 +476,22 @@ const formatAttendanceBadge = (total: number, pct: number, present: number | nul
   return `${pct}% Present`;
 };
 
+const formatBillingDate = (value?: string) => {
+  if (!value) { return '—'; }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) { return String(value).slice(0, 10); }
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+const getPaymentStatusLabel = (status?: string) => {
+  const key = String(status || '').toLowerCase();
+  if (key === 'paid' || key === 'success' || key === 'captured') { return 'Paid'; }
+  if (key === 'failed' || key === 'cancelled') { return 'Failed'; }
+  return 'Pending';
+};
+
 export default function DirectorDashboardScreen() {
-  const insets = useSafeAreaInsets();
+  const tabBarScrollPadding = useTabBarScrollPadding();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName, setTabBarVisible } = useAuth();
   const { unreadCount } = useUnreadNotifications();
@@ -571,9 +601,76 @@ export default function DirectorDashboardScreen() {
   // Director details for profile card
   const [directorEmail, setDirectorEmail] = useState<string>('');
   const [directorPhone, setDirectorPhone] = useState<string>('');
+  const [subscription, setSubscription] = useState<any>(null);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [billingLoading, setBillingLoading] = useState<boolean>(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
+  const [nextPlan, setNextPlan] = useState<any>(null);
 
   const ROWS_PER_PAGE = 7;
   const DASHBOARD_BRANCH_LIMIT = 5;
+  const DASHBOARD_PAYMENT_PREVIEW = 4;
+
+  const branchLimit = useMemo(() => getEffectiveBranchLimit(subscription), [subscription]);
+  const atBranchLimit = useMemo(
+    () => isAtBranchLimit(stats.branches, branchLimit),
+    [stats.branches, branchLimit],
+  );
+  const branchSlotsAvailable = useMemo(
+    () => !loading && canAddBranch(stats.branches, branchLimit),
+    [stats.branches, branchLimit, loading],
+  );
+  const recentPayments = useMemo(() => payments.slice(0, DASHBOARD_PAYMENT_PREVIEW), [payments]);
+
+  const openUpgradeModal = useCallback(() => setShowUpgradeModal(true), []);
+
+  const handleAddBranchPress = useCallback(() => {
+    if (!branchSlotsAvailable) {
+      openUpgradeModal();
+      return;
+    }
+    safeNavigate(navigation, 'DirectorPrincipalRegistration');
+  }, [branchSlotsAvailable, navigation, openUpgradeModal]);
+
+  const handleUpgradePlanChoice = useCallback(() => {
+    setShowUpgradeModal(false);
+    safeNavigate(navigation, 'RenewalPayment', {
+      upgradeMode: 'plan',
+      preselectPlan: nextPlan?.id ? String(nextPlan.id) : undefined,
+    });
+  }, [navigation, nextPlan?.id]);
+
+  const handleAddBranchSlotChoice = useCallback(() => {
+    setShowUpgradeModal(false);
+    safeNavigate(navigation, 'RenewalPayment', { upgradeMode: 'branch' });
+  }, [navigation]);
+
+  const fetchNextPlan = useCallback(async () => {
+    if (!subscription) {
+      setNextPlan(null);
+      return;
+    }
+    try {
+      const res = await API.get('pricing/public/plans', { suppressFallback404Log: true } as any);
+      const allPlans = parsePublicPricingPlans(res.data);
+      const currentPlanCode = String(subscription.plan_code || subscription.current_plan_code || 'trial');
+      const nextCode = getNextPlanCode(currentPlanCode);
+      if (!nextCode) {
+        setNextPlan(null);
+        return;
+      }
+      const found = allPlans.find(
+        (plan) => String(plan.plan_code || '').toLowerCase() === nextCode.toLowerCase(),
+      );
+      setNextPlan(found ? normalizePricingPlan(found, 'monthly', Math.max(1, stats.branches || 1)) : null);
+    } catch {
+      setNextPlan(null);
+    }
+  }, [subscription, stats.branches]);
+
+  useEffect(() => {
+    fetchNextPlan();
+  }, [fetchNextPlan]);
 
   const navigateToBranchesTab = useCallback(() => {
     const routeNames = (navigation.getState?.()?.routeNames ?? []) as string[];
@@ -617,12 +714,18 @@ export default function DirectorDashboardScreen() {
   const fetchStatsAndBranches = useCallback(async () => {
     if (!schoolCode) {return;}
     setLoading(true);
+    setBillingLoading(true);
     try {
-      const { stats: statsData, branches: branchArray } = await getDirectorDashboardOverview(schoolCode);
+      const [{ stats: statsData, branches: branchArray }, billingData] = await Promise.all([
+        getDirectorDashboardOverview(schoolCode),
+        getDirectorBillingData(schoolCode),
+      ]);
 
       if (isMounted.current) {
         setStats(statsData);
         setBranches(branchArray);
+        setSubscription(billingData.subscription);
+        setPayments(billingData.payments);
       }
 
       await Promise.all([
@@ -639,6 +742,7 @@ export default function DirectorDashboardScreen() {
     } finally {
       if (isMounted.current) {
         setLoading(false);
+        setBillingLoading(false);
         setRefreshing(false);
       }
     }
@@ -865,7 +969,7 @@ export default function DirectorDashboardScreen() {
 
       <ScrollView
         ref={overviewRef}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: tabBarScrollPadding }]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
@@ -973,12 +1077,24 @@ export default function DirectorDashboardScreen() {
                 <QuickActionGrid>
                   {QUICK_ACTIONS.map((action) => {
                     const IconComponent = action.icon;
+                    const isAddBranch = action.label === 'Add Branch';
+                    const opensUpgradeModal = 'opensUpgradeModal' in action && action.opensUpgradeModal;
                     return (
                       <QuickActionItem key={action.label}>
                         <TouchableOpacity
                           accessibilityRole="button"
                           style={styles.gridItemInner}
-                          onPress={() => safeNavigate(navigation, action.route as any)}
+                          onPress={() => {
+                            if (isAddBranch) {
+                              handleAddBranchPress();
+                              return;
+                            }
+                            if (opensUpgradeModal) {
+                              openUpgradeModal();
+                              return;
+                            }
+                            safeNavigate(navigation, (action as any).route, (action as any).params);
+                          }}
                           activeOpacity={0.75}
                         >
                           <View style={[styles.iconContainer, { backgroundColor: action.bg }]}>
@@ -1017,6 +1133,151 @@ export default function DirectorDashboardScreen() {
           )}
 
           {loading && <ActivityIndicator size="large" color={colors.accent} style={styles.loader} />}
+
+          {view === 'dashboard' && atBranchLimit && (
+            <AppCard style={styles.branchLimitBanner}>
+              <View style={styles.branchLimitTop}>
+                <AlertTriangle size={20} color="#b45309" />
+                <View style={{ flex: 1 }}>
+                  <AppText style={styles.branchLimitTitle} weight="bold">Branch Limit Reached</AppText>
+                  <AppText style={styles.branchLimitText}>
+                    You have used all {stats.branches} of {formatBranchLimit(branchLimit)} branch slots on your {subscription?.current_plan_name || subscription?.current_plan || 'current'} plan.
+                  </AppText>
+                </View>
+              </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={styles.branchLimitBtn}
+                onPress={openUpgradeModal}
+              >
+                <Zap size={16} color={Theme.colors.card} />
+                <AppText style={styles.branchLimitBtnText} weight="bold">Upgrade</AppText>
+              </TouchableOpacity>
+            </AppCard>
+          )}
+
+          {view === 'dashboard' && (
+            <AppCard style={styles.billingOverviewCard}>
+              <View style={styles.chartHeader}>
+                <View style={{ flex: 1 }}>
+                  <AppText style={styles.cardTitle}>Billing Overview</AppText>
+                  <AppText style={styles.branchPanelSubtitle}>Plan status and branch usage</AppText>
+                </View>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={styles.viewAllBtn}
+                  onPress={() => safeNavigate(navigation, 'DirectorBilling', { variant: 'subscription' })}
+                >
+                  <AppText style={styles.viewAllBtnText}>Manage</AppText>
+                  <ChevronRight size={14} color={Theme.colors.primary} />
+                </TouchableOpacity>
+              </View>
+
+              {billingLoading && payments.length === 0 && !subscription ? (
+                <ActivityIndicator size="small" color={colors.accent} style={{ marginVertical: 16 }} />
+              ) : (
+                <View style={styles.billingSummaryGrid}>
+                  <View style={styles.billingSummaryItem}>
+                    <AppText style={styles.billingSummaryLabel}>Current Plan</AppText>
+                    <AppText style={styles.billingSummaryValue} weight="bold" numberOfLines={1}>
+                      {subscription?.current_plan_name || subscription?.current_plan || 'No Active Plan'}
+                    </AppText>
+                  </View>
+                  <View style={styles.billingSummaryItem}>
+                    <AppText style={styles.billingSummaryLabel}>Status</AppText>
+                    <AppText style={styles.billingSummaryValue} weight="bold" numberOfLines={1}>
+                      {String(subscription?.subscription_status || subscription?.status || 'Inactive').replace(/_/g, ' ')}
+                    </AppText>
+                  </View>
+                  <View style={styles.billingSummaryItem}>
+                    <AppText style={styles.billingSummaryLabel}>Valid Until</AppText>
+                    <AppText style={styles.billingSummaryValue} weight="bold">
+                      {formatBillingDate(subscription?.subscription_end_at || subscription?.trial_end_at)}
+                    </AppText>
+                  </View>
+                  <View style={styles.billingSummaryItem}>
+                    <AppText style={styles.billingSummaryLabel}>Branches</AppText>
+                    <AppText style={[styles.billingSummaryValue, atBranchLimit && styles.billingSummaryValueWarn]} weight="bold">
+                      {stats.branches} / {formatBranchLimit(branchLimit)}
+                    </AppText>
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.billingActionsRow}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={[styles.billingActionBtn, styles.billingActionBtnPrimary]}
+                  onPress={openUpgradeModal}
+                >
+                  <Zap size={15} color={Theme.colors.card} />
+                  <AppText style={[styles.billingActionText, styles.billingActionTextOnPrimary]} weight="semibold">Upgrade</AppText>
+                </TouchableOpacity>
+                {branchSlotsAvailable ? (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    style={styles.billingActionBtn}
+                    onPress={handleAddBranchPress}
+                  >
+                    <PlusCircle size={15} color={Theme.colors.primary} />
+                    <AppText style={styles.billingActionText} weight="semibold">Add Branch</AppText>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </AppCard>
+          )}
+
+          {view === 'dashboard' && (
+            <AppCard style={styles.paymentHistoryCard}>
+              <View style={styles.chartHeader}>
+                <View style={{ flex: 1 }}>
+                  <AppText style={styles.cardTitle}>Payment History</AppText>
+                  <AppText style={styles.branchPanelSubtitle}>
+                    {payments.length} transaction{payments.length === 1 ? '' : 's'} recorded
+                  </AppText>
+                </View>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={styles.viewAllBtn}
+                  onPress={() => safeNavigate(navigation, 'DirectorBilling', { variant: 'payments' })}
+                >
+                  <AppText style={styles.viewAllBtnText}>View All</AppText>
+                  <ChevronRight size={14} color={Theme.colors.primary} />
+                </TouchableOpacity>
+              </View>
+
+              {recentPayments.length === 0 ? (
+                <View style={styles.branchEmptyState}>
+                  <CreditCard size={24} color={colors.textMuted} />
+                  <AppText style={styles.branchEmptyTitle} weight="semibold">No payments yet</AppText>
+                  <AppText style={styles.branchEmptyText}>Renewal and upgrade payments will appear here.</AppText>
+                </View>
+              ) : (
+                <View style={styles.paymentPreviewList}>
+                  {recentPayments.map((payment, index) => (
+                    <TouchableOpacity
+                      key={payment.id || index}
+                      accessibilityRole="button"
+                      style={[styles.paymentPreviewRow, index > 0 && styles.paymentPreviewRowBorder]}
+                      onPress={() => safeNavigate(navigation, 'DirectorBilling', { variant: 'payments' })}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <AppText style={styles.paymentPreviewTitle} weight="semibold" numberOfLines={1}>
+                          {payment.plan_name || 'Subscription Payment'}
+                        </AppText>
+                        <AppText style={styles.paymentPreviewMeta}>
+                          {formatBillingDate(payment.paid_at || payment.created_at)} · {getPaymentStatusLabel(payment.status)}
+                        </AppText>
+                      </View>
+                      <AppText style={styles.paymentPreviewAmount} weight="bold">
+                        ₹{payment.amount || '0'}
+                      </AppText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </AppCard>
+          )}
 
           {/* Dashboard View */}
           {view === 'dashboard' && (
@@ -1090,8 +1351,10 @@ export default function DirectorDashboardScreen() {
                     {filteredBranches.length} branch{filteredBranches.length !== 1 ? 'es' : ''} registered
                   </AppText>
                 </View>
-                <TouchableOpacity accessibilityRole="button" style={styles.addBranchBtn} onPress={() => safeNavigate(navigation, 'DirectorPrincipalRegistration')}>
-                  <AppText style={styles.addBranchBtnText}>+ Add Branch</AppText>
+                <TouchableOpacity accessibilityRole="button" style={styles.addBranchBtn} onPress={handleAddBranchPress}>
+                  <AppText style={styles.addBranchBtnText}>
+                    {branchSlotsAvailable ? '+ Add Branch' : 'Upgrade'}
+                  </AppText>
                 </TouchableOpacity>
               </View>
 
@@ -1164,7 +1427,7 @@ export default function DirectorDashboardScreen() {
       </ScrollView>
 
       {/* Edit Branch Modal */}
-      <Modal visible={editBranchModalVisible} transparent animationType="slide">
+      <Modal visible={editBranchModalVisible} transparent animationType="slide" onRequestClose={cancelEdit}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -1240,7 +1503,7 @@ export default function DirectorDashboardScreen() {
       </Modal>
 
       {/* Branch Selector Modal */}
-      <Modal visible={branchSelectorVisible} transparent animationType="slide">
+      <Modal visible={branchSelectorVisible} transparent animationType="slide" onRequestClose={() => setBranchSelectorVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -1307,6 +1570,15 @@ export default function DirectorDashboardScreen() {
           </View>
         </View>
       </Modal>
+
+      <DirectorUpgradeChoiceModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        nextPlan={nextPlan}
+        currentPlanName={subscription?.current_plan_name || subscription?.current_plan || subscription?.plan_code}
+        onUpgradePlan={handleUpgradePlanChoice}
+        onAddBranchSlot={handleAddBranchSlotChoice}
+      />
     </View>
   );
 }
@@ -1903,7 +2175,6 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
   },
   contentContainer: {
-    paddingBottom: 120,
     paddingHorizontal: HEADER_CONSTANTS.DASHBOARD_HORIZONTAL,
   },
   mainContentWrapper: {
@@ -3157,6 +3428,140 @@ const styles = StyleSheet.create({
   settingsDetailValue: {
     ...Theme.typography.body,
     color: colors.textPrimary,
+  },
+  branchLimitBanner: {
+    padding: 16,
+    marginBottom: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    backgroundColor: '#fffbeb',
+  },
+  branchLimitTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 14,
+  },
+  branchLimitTitle: {
+    fontSize: 15,
+    color: '#92400e',
+    marginBottom: 4,
+  },
+  branchLimitText: {
+    fontSize: 13,
+    color: '#b45309',
+    lineHeight: 18,
+  },
+  branchLimitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Theme.colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  branchLimitBtnText: {
+    color: Theme.colors.card,
+    fontSize: 14,
+  },
+  billingOverviewCard: {
+    padding: 18,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+  },
+  billingSummaryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 14,
+  },
+  billingSummaryItem: {
+    width: '48%',
+    backgroundColor: Theme.colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12,
+  },
+  billingSummaryLabel: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  billingSummaryValue: {
+    fontSize: 14,
+    color: colors.textPrimary,
+  },
+  billingSummaryValueWarn: {
+    color: '#b45309',
+  },
+  billingActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  billingActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: Theme.colors.background,
+  },
+  billingActionBtnPrimary: {
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
+  },
+  billingActionText: {
+    fontSize: 12,
+    color: Theme.colors.primary,
+  },
+  billingActionTextOnPrimary: {
+    color: Theme.colors.card,
+  },
+  paymentHistoryCard: {
+    padding: 18,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+  },
+  paymentPreviewList: {
+    gap: 0,
+  },
+  paymentPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 12,
+  },
+  paymentPreviewRowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  paymentPreviewTitle: {
+    fontSize: 14,
+    color: colors.textPrimary,
+  },
+  paymentPreviewMeta: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  paymentPreviewAmount: {
+    fontSize: 15,
+    color: Theme.colors.primary,
   },
 
 });

@@ -1,3 +1,4 @@
+const path = require('path');
 const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
 
 const defaultConfig = getDefaultConfig(__dirname);
@@ -25,7 +26,11 @@ const config = {
     sourceExts: [...defaultConfig.resolver.sourceExts, 'cjs'],
     blockList: [
       /node_modules\/@giphy\/react-native-sdk\/.*/,
-    ]
+    ],
+    extraNodeModules: {
+      react: path.resolve(__dirname, 'node_modules/react'),
+      'react-native': path.resolve(__dirname, 'node_modules/react-native'),
+    },
   },
 };
 

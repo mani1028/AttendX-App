@@ -27,7 +27,7 @@ export default function PrincipalStack() {
       <Stack.Screen name="TeacherManagement" component={TeacherManagementScreen} options={{ title: 'Manage Teachers' }} />
       <Stack.Screen name="TeacherRegistrationRequests" component={TeacherRegistrationRequestsScreen} options={{ title: 'Registration Requests' }} />
       <Stack.Screen name="StudentManagement" component={StudentManagementScreen} options={{ title: 'Manage Students' }} />
-      <Stack.Screen name="StudentPromotion" component={StudentPromotionScreen} options={{ title: 'Student Promotion' }} />
+      <Stack.Screen name="StudentPromotion" component={StudentPromotionScreen} options={{ title: 'Student Promotion', headerShown: false }} />
       <Stack.Screen name="TeacherAssignment" component={TeacherAssignmentsScreen} options={{ title: 'Teacher Assignment', headerShown: false }} />
       <Stack.Screen name="Attendance" component={AttendanceScreen} options={{ title: 'Attendance' }} />
       <Stack.Screen name="FeeManagement" component={PrincipalFeeManagementScreen} options={{ title: 'Fee Management' }} />

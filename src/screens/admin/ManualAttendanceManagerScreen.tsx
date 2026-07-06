@@ -131,11 +131,9 @@ export default function ManualAttendanceManagerScreen() {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader title="Attendance Settings" onBackPress={() => navigation.goBack()} />
-
       <ScrollView
-        style={innerPageLayoutStyles.scrollViewFront}
-        contentContainerStyle={styles.content}
+        style={{ flex: 1 }}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -146,6 +144,14 @@ export default function ManualAttendanceManagerScreen() {
           />
         }
       >
+        <StandardPageHeader
+          scrollWithContent
+          title="Attendance Settings"
+          onBackPress={() => navigation.goBack()}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
+
+        <View style={[innerPageLayoutStyles.scrollBody, styles.content]}>
         <AppCard style={styles.noteCard}>
           <AppText style={styles.noteText}>
             Only one attendance mode can be active per school. Set how many times attendance is taken each day (1 or 2).
@@ -243,6 +249,7 @@ export default function ManualAttendanceManagerScreen() {
             );
           })
         )}
+        </View>
       </ScrollView>
     </View>
   );

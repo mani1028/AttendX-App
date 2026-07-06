@@ -36,6 +36,7 @@ import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import {
   innerPageLayoutStyles,
   segmentedControlIconColor,
+  SCROLL_PAGE_GUTTER,
 } from '../../components/layout/innerPageLayoutStyles';
 import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { Theme, C } from '../../theme/tokens';
@@ -96,7 +97,6 @@ const formatAcademicYear = (startYear: number) => {
   return `${startYear}-${endYearShort}`;
 };
 
-const PAGE_GUTTER = 14;
 
 export default function ExamsPage() {
   const navigation = useNavigation();
@@ -576,7 +576,7 @@ export default function ExamsPage() {
         </View>
       ) : null}
 
-      <View style={styles.body}>
+      <View style={[styles.body, innerPageLayoutStyles.contentFront]}>
         <View style={[innerPageLayoutStyles.contentFront, styles.tabBarWrap]}>
           <View style={innerPageLayoutStyles.segmentedControl}>
             <TouchableOpacity accessibilityRole="button"
@@ -633,7 +633,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabBarWrap: {
-    paddingHorizontal: PAGE_GUTTER,
+    paddingHorizontal: SCROLL_PAGE_GUTTER,
     paddingTop: 14,
     paddingBottom: Theme.spacing.sm,
   },
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     flex: 1,
-    paddingHorizontal: PAGE_GUTTER,
+    paddingHorizontal: SCROLL_PAGE_GUTTER,
     paddingTop: Theme.spacing.sm,
   },
   examGrid: {

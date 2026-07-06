@@ -13,7 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import Share from 'react-native-share';
+import { sharePdfBuffer } from '../../utils/sharePdfBuffer';
 import {
   FileText,
   Download,
@@ -554,17 +554,12 @@ export default function TeacherQuestionPapersScreen() {
     try {
       setProcessingId(paperId);
       const buffer = await downloadTeacherQuestionPaper(paperId);
-      if (!buffer || buffer.byteLength === 0) {
-        throw new Error('Received an empty file from the server.');
-      }
-      const base64Data = arrayBufferToBase64(buffer);
-      const dataUri = `data:application/pdf;base64,${base64Data}`;
-      await Share.open({
-        url: dataUri,
-        type: 'application/pdf',
-        title: isDownload ? 'Save Question Paper' : 'View Question Paper',
-        failOnCancel: false,
-      });
+      const safeTitle = title.replace(/[^a-zA-Z0-9._-]/g, '_');
+      await sharePdfBuffer(
+        buffer,
+        `${safeTitle}.pdf`,
+        isDownload ? 'Save Question Paper' : 'View Question Paper',
+      );
     } catch (err: any) {
       const message = String(err?.message || '');
       if (message.includes('User did not share') || message.includes('cancel')) {
@@ -604,43 +599,44 @@ export default function TeacherQuestionPapersScreen() {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader
-        title="Question Papers"
-        subtitle={headerSubtitle}
-        onBackPress={() =>
-          navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)
-        }
-        rightActions={(
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              style={heroHeaderStyles.iconBtn}
-              onPress={openUploadModal}
-              accessibilityLabel="Upload question paper"
-            >
-              <Plus size={20} color={Theme.colors.card} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              style={heroHeaderStyles.iconBtn}
-              onPress={onRefresh}
-              accessibilityLabel="Refresh question papers"
-            >
-              <RefreshCw size={20} color={Theme.colors.card} />
-            </TouchableOpacity>
-          </View>
-        )}
-      />
-
       <ScrollView
         style={innerPageLayoutStyles.scrollViewFront}
-        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />
         }
         showsVerticalScrollIndicator={false}
       >
-        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+        <StandardPageHeader
+          title="Question Papers"
+          subtitle={headerSubtitle}
+          onBackPress={() =>
+            navigation.canGoBack() ? navigation.goBack() : navigation.navigate('TeacherDashboard' as never)
+          }
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          rightActions={(
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={heroHeaderStyles.iconBtn}
+                onPress={openUploadModal}
+                accessibilityLabel="Upload question paper"
+              >
+                <Plus size={20} color={Theme.colors.card} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={heroHeaderStyles.iconBtn}
+                onPress={onRefresh}
+                accessibilityLabel="Refresh question papers"
+              >
+                <RefreshCw size={20} color={Theme.colors.card} />
+              </TouchableOpacity>
+            </View>
+          )}
+        />
+        <View style={[innerPageLayoutStyles.scrollBody, styles.pageBody]}>
           <View style={styles.toolbarCard}>
             <View style={styles.searchRow}>
               <Search size={18} color={Theme.colors.textMuted} />
@@ -1003,7 +999,7 @@ export default function TeacherQuestionPapersScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
-  pageBody: { paddingHorizontal: Theme.spacing.md, paddingBottom: 96 },
+  pageBody: { paddingBottom: 96 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   toolbarCard: {
     backgroundColor: Theme.colors.card,

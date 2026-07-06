@@ -35,8 +35,6 @@ import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { Theme, C } from '../../theme/tokens';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 
-const PAGE_GUTTER = 14;
-
 type Announcement = {
   id: number;
   title: string;
@@ -323,7 +321,7 @@ const AnnouncementsScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+        <View style={styles.pageBody}>
           <View style={styles.contentPadding}>
             {/* Form Section */}
             <View style={styles.card}>
@@ -586,13 +584,14 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   pageBody: {
-    paddingHorizontal: PAGE_GUTTER,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
+    paddingTop: 12,
     paddingBottom: 40,
+    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
   },
   contentPadding: {
     paddingTop: 14,
@@ -601,15 +600,10 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: C.card,
-    padding: 20,
-    borderRadius: 18,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
-    borderWidth: 1,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
   },
 

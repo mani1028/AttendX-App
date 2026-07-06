@@ -146,6 +146,7 @@ export default function TeacherRegistrationRequestsScreen() {
           data={requests}
           keyExtractor={item => String(item.id)}
           renderItem={renderItem}
+          style={innerPageLayoutStyles.scrollViewFront}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchRequests(); }} />}
           ListEmptyComponent={

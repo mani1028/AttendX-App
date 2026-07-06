@@ -302,8 +302,7 @@ export default function HomeworkScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor={C.colors.primary} />
         }
       >
-        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
-        <View style={styles.mainCard}>
+        <View style={styles.pageBody}>
           {/* Filter Row */}
           <View style={styles.filterRow}>
             {/* Subject Filter */}
@@ -323,7 +322,6 @@ export default function HomeworkScreen() {
              <View style={styles.pendingDot} />
              <Text style={styles.pendingText}>{pendingCount} Homework Pending</Text>
           </View>
-        </View>
 
         {/* Homework List */}
         {loading ? (
@@ -524,7 +522,6 @@ const styles = StyleSheet.create({
     backgroundColor: C.colors.background,
   },
   pageBody: {
-    paddingHorizontal: 20,
   },
   contentContainer: {
     paddingBottom: 40,
@@ -560,18 +557,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  mainCard: {
-    backgroundColor: C.colors.card,
-    borderRadius: 12,
-    padding: 12,
-    ...C.shadow.sm,
-    marginBottom: 15,
-    marginTop: 10,
-  },
   filterRow: {
     flexDirection: 'row',
     gap: 8,
     marginBottom: 12,
+    marginTop: 4,
   },
   filterChip: {
     flex: 1,

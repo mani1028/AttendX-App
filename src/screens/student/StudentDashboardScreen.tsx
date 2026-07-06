@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import {
   ClipboardList,
@@ -45,7 +46,8 @@ import {
   downloadQuestionPaper,
 } from '../../services/studentService';
 import { normalizePhotoUri } from '../../utils/normalizePhotoUri';
-import { resolveStudentRollNumber } from '../../utils/helpers';
+import { resolveStudentRollNumber, resolveApiErrorMessage } from '../../utils/helpers';
+import { sharePdfBuffer } from '../../utils/sharePdfBuffer';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeJsonParse } from '../../utils/storage';
@@ -54,28 +56,6 @@ import AccountSwitcher from '../../components/common/AccountSwitcher';
 const getStudentPhotoCacheKey = (studentId: string, schoolCode: string): string | null => {
   if (!studentId) {return null;}
   return `profile_photo_url:student:${schoolCode || 'unknown'}:${studentId}`;
-};
-
-const arrayBufferToBase64 = (data: ArrayBuffer): string => {
-  const runtimeBuffer = (globalThis as any).Buffer;
-  if (runtimeBuffer?.from) {
-    return runtimeBuffer.from(data).toString('base64');
-  }
-
-  const bytes = new Uint8Array(data);
-  let binary = '';
-  const chunkSize = 0x8000;
-
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
-  }
-
-  const btoaFn = (globalThis as any).btoa;
-  if (typeof btoaFn === 'function') {
-    return btoaFn(binary);
-  }
-
-  throw new Error('Base64 encoder is unavailable');
 };
 
 const getStudentDashboardCacheKey = (schoolCode: string, studentId: string): string | null => {
@@ -140,6 +120,7 @@ function DashboardEmptyRow({
 
 export default function StudentDashboardScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarScrollPadding = useTabBarScrollPadding();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { userName } = useAuth();
   const isMounted = useRef(true);
@@ -363,32 +344,18 @@ export default function StudentDashboardScreen() {
     setViewingPaperTitle(title);
     try {
       const buffer = await downloadQuestionPaper(paperId);
-      const base64 = arrayBufferToBase64(buffer);
-      const dataUri = `data:application/pdf;base64,${base64}`;
-
-      // Use Share to open with an external PDF viewer (more reliable on mobile)
-      try {
-        const Share = require('react-native-share').default;
-
-        await Share.open({
-          url: dataUri,
-          type: 'application/pdf',
-          title: title || 'Question Paper',
-          failOnCancel: false,
-        });
-      } catch (shareErr) {
-        const message = String((shareErr as any)?.message || '');
-        if (message.includes('User did not share') || message.includes('cancel')) {
-          // user cancelled sharing - silently ignore
-        } else {
-          // Fallback: expose modal with WebView using data URI if Share fails
-          setViewingPaperUrl(dataUri);
-          setViewerVisible(true);
-        }
-      }
+      const safeTitle = (title || 'Paper').replace(/[^a-zA-Z0-9._-]/g, '_');
+      await sharePdfBuffer(buffer, `${safeTitle}.pdf`, title || 'Question Paper');
     } catch (error: any) {
+      const message = String(error?.message || '');
+      if (message.includes('User did not share') || message.includes('cancel')) {
+        return;
+      }
       console.error('Error viewing paper:', error);
-      Alert.alert('Download Failed', error.message || 'Could not open the question paper. Please try again later.');
+      Alert.alert(
+        'Download Failed',
+        resolveApiErrorMessage(error, 'Could not open the question paper. Please try again later.'),
+      );
     } finally {
       setLoadingViewer(false);
     }
@@ -402,10 +369,10 @@ export default function StudentDashboardScreen() {
   ];
 
   const quickAccess = [
-    { name: 'Homework', icon: ClipboardList, color: '#EEF2FF', iconColor: '#2563EB', screen: 'StudentHomework' },
-    { name: 'Attendance', icon: CheckCircle2, color: '#FEF2F2', iconColor: '#DC2626', screen: 'StudentAttendance' },
-    { name: 'Holidays', icon: CalendarDays, color: '#F0FDF4', iconColor: '#16A34A', screen: 'MainTabs', params: { screen: 'Leave' } },
-    { name: 'Marks', icon: BarChart3, color: '#FFFBEB', iconColor: '#D97706', screen: 'StudentMarks' },
+    { name: 'Homework', icon: ClipboardList, bg: 'rgba(37, 99, 235, 0.08)', color: '#2563eb', screen: 'StudentHomework' },
+    { name: 'Attendance', icon: CheckCircle2, bg: 'rgba(220, 38, 38, 0.08)', color: '#dc2626', screen: 'StudentAttendance' },
+    { name: 'Holidays', icon: CalendarDays, bg: 'rgba(34, 197, 94, 0.08)', color: '#22c55e', screen: 'MainTabs', params: { screen: 'Leave' } },
+    { name: 'Marks', icon: BarChart3, bg: 'rgba(217, 119, 6, 0.08)', color: '#d97706', screen: 'StudentMarks' },
   ];
 
   if (loading) {
@@ -425,7 +392,7 @@ export default function StudentDashboardScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         contentContainerStyle={{
-          paddingBottom: insets.bottom + 100,
+          paddingBottom: tabBarScrollPadding,
           paddingHorizontal: HEADER_CONSTANTS.DASHBOARD_HORIZONTAL,
         }}
         refreshControl={
@@ -493,8 +460,8 @@ export default function StudentDashboardScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={item.name}
                     >
-                      <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-                        <IconComponent size={22} color={item.iconColor} />
+                      <View style={[styles.iconContainer, { backgroundColor: item.bg }]}>
+                        <IconComponent size={22} color={item.color} />
                       </View>
                       <AppText style={styles.gridLabel}>{item.name}</AppText>
                     </TouchableOpacity>

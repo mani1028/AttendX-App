@@ -298,32 +298,33 @@ export default function TeacherMyAttendanceScreen() {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader
-        title="My Attendance"
-        subtitle={headerSubtitle}
-        onBackPress={canGoBack ? () => navigation.goBack() : () => navigation.navigate('TeacherDashboard')}
-        showBack={canGoBack}
-        rightActions={(
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={heroHeaderStyles.iconBtn}
-            onPress={onRefresh}
-            accessibilityLabel="Refresh attendance"
-          >
-            <RefreshCw size={20} color={Theme.colors.card} />
-          </TouchableOpacity>
-        )}
-      />
-
       <ScrollView
         style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />
         }
       >
-        <View style={[innerPageLayoutStyles.contentFront, styles.pageBody]}>
+        <StandardPageHeader
+          title="My Attendance"
+          subtitle={headerSubtitle}
+          onBackPress={canGoBack ? () => navigation.goBack() : () => navigation.navigate('TeacherDashboard')}
+          showBack={canGoBack}
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          rightActions={(
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={heroHeaderStyles.iconBtn}
+              onPress={onRefresh}
+              accessibilityLabel="Refresh attendance"
+            >
+              <RefreshCw size={20} color={Theme.colors.card} />
+            </TouchableOpacity>
+          )}
+        />
+        <View style={[innerPageLayoutStyles.scrollBody, styles.pageBody]}>
           {loadError ? (
             <AppCard style={styles.errorCard}>
               <AlertCircle size={32} color={Theme.colors.error} />
@@ -524,9 +525,7 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  pageBody: {
-    paddingHorizontal: 20,
-  },
+  pageBody: {},
   errorCard: {
     padding: 24,
     alignItems: 'center',

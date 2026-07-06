@@ -18,8 +18,10 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Animated,
+  StatusBar,
+  KeyboardAvoidingView,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp, useRoute } from '@react-navigation/native';
 import {
@@ -46,6 +48,9 @@ import {
   Settings,
   FileText,
   Users,
+  TrendingUp,
+  BookOpen,
+  Inbox,
 } from 'lucide-react-native';
 import * as adminService from '../../services/adminService';
 import API from '../../services/api';
@@ -55,6 +60,7 @@ import AppCard from '../../components/common/AppCard';
 import Loader from '../../components/common/Loader';
 import AppText from '../../components/common/AppText';
 import DashboardHeroHeader from '../../components/dashboard/DashboardHeroHeader';
+import AdminQuickActionGrid from '../../components/admin/AdminQuickActionGrid';
 import { useAuth } from '../../context/AuthContext';
 import type { RootStackParamList } from '../../navigation/types';
 import { formatErrorMessage } from '../../utils/helpers';
@@ -573,7 +579,11 @@ const SchoolFormModal: React.FC<{
   ];
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, mode === 'edit' && styles.modalContentLarge]}>
           <View style={styles.modalHeader}>
@@ -928,6 +938,7 @@ const SchoolFormModal: React.FC<{
           </View>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -1013,7 +1024,7 @@ const SubscriptionModal: React.FC<{
 
   if (loading) {
     return (
-      <Modal visible={visible} transparent animationType="slide">
+      <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { padding: 40 }]}>
             <Loader />
@@ -1024,7 +1035,7 @@ const SubscriptionModal: React.FC<{
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, styles.subscriptionModal]}>
           <View style={styles.modalHeader}>
@@ -1205,7 +1216,7 @@ const DeleteConfirmModal: React.FC<{
   onCancel: () => void;
   deleting: boolean;
 }> = ({ visible, school, onConfirm, onCancel, deleting }) => (
-  <Modal visible={visible} transparent animationType="fade">
+  <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
     <View style={styles.modalOverlay}>
       <View style={styles.deleteModal}>
         <View style={styles.deleteIconWrap}>
@@ -1234,20 +1245,11 @@ const DeleteConfirmModal: React.FC<{
 );
 
 export default function AdminDashboardScreen() {
-  const insets = useSafeAreaInsets();
+  const tabBarScrollPadding = useTabBarScrollPadding();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<any>();
-  const { userName, setTabBarVisible, userRole, isTabBarVisible } = useAuth();
+  const { userName, setTabBarVisible, userRole } = useAuth();
   const isAgent = userRole?.toLowerCase() === 'agent';
-  const headerTranslateY = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(headerTranslateY, {
-      toValue: isTabBarVisible ? 0 : -200,
-      duration: 260,
-      useNativeDriver: true,
-    }).start();
-  }, [isTabBarVisible]);
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -1321,8 +1323,7 @@ export default function AdminDashboardScreen() {
     } catch (err: any) {
       console.error('Error fetching schools:', err);
       if (err.response?.status === 401) {
-        Alert.alert('Session Expired', 'Please login again');
-        (navigation as any).replace('Login');
+        // Global API interceptor handles logout; avoid invalid stack navigation.
       } else if (!isRefresh) {
         // Only alert if we don't have cached data and it's not a background refresh
         Alert.alert('Error', 'Failed to load schools');
@@ -1464,42 +1465,82 @@ export default function AdminDashboardScreen() {
     return days !== null && days <= 3 && days > 0;
   });
 
+  const quickActions = useMemo(() => [
+    {
+      key: 'revenue',
+      label: 'Revenue',
+      icon: <TrendingUp size={20} color="#22c55e" />,
+      iconBg: 'rgba(34, 197, 94, 0.08)',
+      onPress: () => (navigation as any).navigate('AdminRevenue'),
+    },
+    {
+      key: 'blogs',
+      label: 'Blogs',
+      icon: <BookOpen size={20} color="#7c3aed" />,
+      iconBg: 'rgba(124, 58, 237, 0.08)',
+      onPress: () => (navigation as any).navigate('AdminBlogManager'),
+    },
+    {
+      key: 'forms',
+      label: 'Website Forms',
+      icon: <Inbox size={20} color="#2563eb" />,
+      iconBg: 'rgba(37, 99, 235, 0.08)',
+      onPress: () => (navigation as any).navigate('AdminFormLeads'),
+    },
+    {
+      key: 'autopay',
+      label: 'Auto Pay',
+      icon: <CreditCard size={20} color="#06b6d4" />,
+      iconBg: 'rgba(6, 182, 212, 0.08)',
+      onPress: () => (navigation as any).navigate('AutoPayTracker'),
+    },
+    {
+      key: 'manual',
+      label: 'Manual Attendance',
+      icon: <Users size={20} color="#f97316" />,
+      iconBg: 'rgba(249, 115, 22, 0.08)',
+      onPress: () => (navigation as any).navigate('ManualAttendanceManager'),
+    },
+    {
+      key: 'plans',
+      label: 'Plans',
+      icon: <DollarSign size={20} color="#ec4899" />,
+      iconBg: 'rgba(236, 72, 153, 0.08)',
+      onPress: () => (navigation as any).navigate('MainTabs', { screen: 'Plans' }),
+    },
+    {
+      key: 'payments',
+      label: 'Payments',
+      icon: <FileText size={20} color="#d97706" />,
+      iconBg: 'rgba(217, 119, 6, 0.08)',
+      onPress: () => (navigation as any).navigate('PaymentHistory'),
+    },
+  ], [navigation]);
+
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-
-      {/* Standardized Header - Animated Slide In/Out */}
-      <Animated.View
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 1000,
-          transform: [{ translateY: headerTranslateY }],
-        }}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: tabBarScrollPadding }]}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
       >
         <DashboardHeroHeader
           userName={userName || 'Admin'}
           greetingLine={isAgent ? 'AGENT PORTAL' : 'ADMIN PORTAL'}
-          subtitle="Here's what's happening across your schools today."
+          subtitle="Your schools at a glance"
           unreadCount={unreadCount}
           onAvatarPress={() => (navigation as any).navigate('Profile')}
           onNotificationsPress={() => (navigation as any).navigate('Notifications')}
           onRefreshPress={onRefresh}
           refreshing={loading}
           showDateBadge
+          fullBleed
           innerStyle={{ paddingHorizontal: HEADER_CONSTANTS.DASHBOARD_HORIZONTAL }}
         />
-      </Animated.View>
-
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 130 }]}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textPrimary} />}
-      >
         {/* Expiring Alert */}
         {expiringSchools.length > 0 && (
           <View style={styles.alertBanner}>
@@ -1526,51 +1567,7 @@ export default function AdminDashboardScreen() {
         {!isAgent && (
           <>
             <AppText style={styles.sectionTitle}>Quick Actions</AppText>
-            <View style={styles.quickActionsGrid}>
-              <TouchableOpacity
-                style={styles.quickActionCard}
-                onPress={() => (navigation as any).navigate('AutoPayTracker')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: colors.primary + '15' }]}>
-                  <CreditCard size={20} color={colors.primary} />
-                </View>
-                <AppText style={styles.quickActionLabel}>Auto Pay</AppText>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickActionCard}
-                onPress={() => (navigation as any).navigate('ManualAttendanceManager')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: colors.success + '15' }]}>
-                  <Users size={20} color={colors.success} />
-                </View>
-                <AppText style={styles.quickActionLabel}>Manual Attn</AppText>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickActionCard}
-                onPress={() => (navigation as any).navigate('PricingManager')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: colors.secondary + '15' }]}>
-                  <DollarSign size={20} color={colors.secondary} />
-                </View>
-                <AppText style={styles.quickActionLabel}>Pricing</AppText>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickActionCard}
-                onPress={() => (navigation as any).navigate('PaymentHistory')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: colors.warning + '15' }]}>
-                  <FileText size={20} color={colors.warning} />
-                </View>
-                <AppText style={styles.quickActionLabel}>Payments</AppText>
-              </TouchableOpacity>
-            </View>
+            <AdminQuickActionGrid actions={quickActions} />
           </>
         )}
 
@@ -1718,8 +1715,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
   },
   contentContainer: {
-    padding: Theme.spacing.md,
-    paddingBottom: 40,
+    paddingHorizontal: HEADER_CONSTANTS.DASHBOARD_HORIZONTAL,
   },
   headerStandard: {
     backgroundColor: '#1e3a8a',
@@ -1811,20 +1807,22 @@ const styles = StyleSheet.create({
   },
   statsGrid: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 10,
     marginBottom: 20,
   },
   statCard: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
+    width: '47%',
+    flexGrow: 1,
+    backgroundColor: Theme.colors.card,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: Theme.colors.background,
+    borderColor: colors.border,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
     elevation: 2,
   },
   statValue: {
@@ -1851,35 +1849,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: 12,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-  },
-  quickActionCard: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: Theme.colors.background,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  quickActionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  quickActionLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    textAlign: 'center',
   },
   filterBar: {
     marginBottom: Theme.spacing.md,

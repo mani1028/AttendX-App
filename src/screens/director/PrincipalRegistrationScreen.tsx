@@ -16,7 +16,16 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { ChevronLeft } from 'lucide-react-native';
 import API from '../../services/api';
 import { formatErrorMessage } from '../../utils/helpers';
-import AppButton from '../../components/common/AppButton';
+import { getDirectorDashboardOverview } from '../../services/directorService';
+import { getSubscriptionStatus } from '../../services/paymentService';
+import {
+  canAddBranch,
+  getEffectiveBranchLimit,
+} from '../../utils/pricingPlans';
+import {
+  DirectorBranchLimitPanel,
+  DirectorUpgradeChoiceModal,
+} from '../../components/director/DirectorBranchUpgradeFlow';
 import AppCard from '../../components/common/AppCard';
 import AppInput from '../../components/common/AppInput';
 import { useAuth } from '../../context/AuthContext';
@@ -351,6 +360,12 @@ export default function PrincipalRegistrationScreen() {
   const insets = useSafeAreaInsets();
   const { setTabBarVisible } = useAuth();
   const [schoolCode, setSchoolCode] = useState<string>('');
+  const [limitChecking, setLimitChecking] = useState<boolean>(true);
+  const [branchLimitReached, setBranchLimitReached] = useState<boolean>(false);
+  const [branchCount, setBranchCount] = useState<number>(0);
+  const [branchLimit, setBranchLimit] = useState<number>(1);
+  const [planName, setPlanName] = useState<string>('Trial');
+  const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const [activeStep, setActiveStep] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [existingBranchIds, setExistingBranchIds] = useState<string[]>([]);
@@ -395,7 +410,9 @@ export default function PrincipalRegistrationScreen() {
       const code = await getSchoolCode();
       setSchoolCode(code);
       if (code) {
-        loadExistingBranches(code);
+        await Promise.all([loadExistingBranches(code), checkBranchLimit(code)]);
+      } else {
+        setLimitChecking(false);
       }
     };
     load();
@@ -403,6 +420,27 @@ export default function PrincipalRegistrationScreen() {
     setTabBarVisible(true);
     return () => setTabBarVisible(true);
   }, [setTabBarVisible]);
+
+  const checkBranchLimit = async (code: string) => {
+    setLimitChecking(true);
+    try {
+      const [overview, status] = await Promise.all([
+        getDirectorDashboardOverview(code),
+        getSubscriptionStatus(code),
+      ]);
+      const count = overview.stats.branches;
+      const limit = getEffectiveBranchLimit(status);
+      setBranchCount(count);
+      setBranchLimit(limit);
+      setPlanName(String(status?.current_plan_name || status?.current_plan || 'Trial'));
+      setBranchLimitReached(!canAddBranch(count, limit));
+    } catch (err) {
+      console.error('Failed to verify branch limits:', err);
+      setBranchLimitReached(false);
+    } finally {
+      setLimitChecking(false);
+    }
+  };
 
   // Load existing branch IDs
   const loadExistingBranches = async (code: string) => {
@@ -777,6 +815,35 @@ export default function PrincipalRegistrationScreen() {
         contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
       >
+        {limitChecking ? (
+          <AppCard>
+            <Text style={styles.limitCheckingText}>Verifying branch limits…</Text>
+          </AppCard>
+        ) : branchLimitReached ? (
+          <>
+            <DirectorBranchLimitPanel
+              branchCount={branchCount}
+              branchLimit={branchLimit}
+              planName={planName}
+              onCancel={() => navigation.goBack()}
+              onUpgradePress={() => setShowUpgradeModal(true)}
+            />
+            <DirectorUpgradeChoiceModal
+              visible={showUpgradeModal}
+              onClose={() => setShowUpgradeModal(false)}
+              currentPlanName={planName}
+              onUpgradePlan={() => {
+                setShowUpgradeModal(false);
+                (navigation as any).navigate('RenewalPayment', { upgradeMode: 'plan' });
+              }}
+              onAddBranchSlot={() => {
+                setShowUpgradeModal(false);
+                (navigation as any).navigate('RenewalPayment', { upgradeMode: 'branch' });
+              }}
+            />
+          </>
+        ) : (
+        <>
         {/* Form Card */}
         <AppCard style={styles.formCard} padded={false}>
           <View style={styles.cardHeader}>
@@ -876,6 +943,8 @@ export default function PrincipalRegistrationScreen() {
           <Text style={styles.footerText}>🏢 Branch ID: {safeTrim(form.branch_id) || '—'}</Text>
           <Text style={styles.footerText}>👑 Role: Principal (Registration)</Text>
         </View>
+        </>
+        )}
       </ScrollView>
     </View>
   );
@@ -885,6 +954,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Theme.colors.background,
+  },
+  limitCheckingText: {
+    fontSize: 14,
+    color: Theme.colors.textSec,
+    fontWeight: '600',
+    padding: 24,
+    textAlign: 'center',
   },
   headerStandard: {
     paddingBottom: Theme.spacing.lg,

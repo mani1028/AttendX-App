@@ -207,22 +207,38 @@ export default function ManageDataScreen() {
   if (!isClassTeacher) {
     return (
       <View style={styles.container}>
-        <StandardPageHeader title="Manage Profiles" onBackPress={() => navigation.goBack()} />
-        <View style={styles.centered}>
-          <AppText style={styles.emptyText}>Manage Profiles is available for class teachers only.</AppText>
-        </View>
+        <ScrollView
+          style={innerPageLayoutStyles.scrollViewFront}
+          contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
+        >
+          <StandardPageHeader
+            title="Manage Profiles"
+            onBackPress={() => navigation.goBack()}
+            scrollWithContent
+            containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          />
+          <View style={[styles.centered, innerPageLayoutStyles.scrollBody]}>
+            <AppText style={styles.emptyText}>Manage Profiles is available for class teachers only.</AppText>
+          </View>
+        </ScrollView>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader title="Manage Profiles" onBackPress={() => navigation.goBack()} />
-
       <ScrollView
-        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.content}
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={[innerPageLayoutStyles.scrollPageContent, styles.content]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchStudents(); }} />}
       >
+        <StandardPageHeader
+          title="Manage Profiles"
+          onBackPress={() => navigation.goBack()}
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
+        <View style={innerPageLayoutStyles.scrollBody}>
         <AppText style={styles.subtitle}>Search, view, edit, and delete student records for your classes.</AppText>
 
         <View style={styles.filtersRow}>
@@ -302,8 +318,8 @@ export default function ManageDataScreen() {
             </TouchableOpacity>
           </View>
         )}
+        </View>
       </ScrollView>
-
       <CustomPickerModal
         visible={classPickerOpen}
         title="Select Class"
@@ -360,7 +376,7 @@ export default function ManageDataScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
-  content: { padding: 16, paddingBottom: 120 },
+  content: { paddingBottom: 120 },
   subtitle: { color: C.textSec, marginBottom: 16 },
   filtersRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   filterChip: {

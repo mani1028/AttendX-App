@@ -68,9 +68,19 @@ export default function DeleteSchoolScreen() {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader title="Delete School" onBackPress={() => navigation.goBack()} />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <StandardPageHeader
+          scrollWithContent
+          title="Delete School"
+          onBackPress={() => navigation.goBack()}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
 
-      <ScrollView style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={[innerPageLayoutStyles.scrollBody, styles.content]}>
         <AppCard style={styles.warningCard}>
           <AlertTriangle size={24} color={Theme.colors.error} />
           <AppText weight="bold" style={styles.warningTitle}>Danger Zone</AppText>
@@ -149,6 +159,7 @@ export default function DeleteSchoolScreen() {
             )}
           </>
         )}
+        </View>
       </ScrollView>
     </View>
   );

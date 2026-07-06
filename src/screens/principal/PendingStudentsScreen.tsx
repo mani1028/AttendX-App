@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
   },
   summaryContainer: {
     flexDirection: 'row',
-    margin: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     gap: 12,
   },
   summaryCard: {
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
   },
   alertBanner: {
     backgroundColor: '#fee2e2',
-    margin: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     marginTop: 0,
     padding: 12,
     borderRadius: 8,
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
   },
   collectionCard: {
     backgroundColor: Theme.colors.card,
-    margin: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     marginTop: 0,
     padding: Theme.spacing.md,
     borderRadius: 12,
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     marginTop: Theme.spacing.xs,
   },
   studentsList: {
-    margin: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     marginTop: 0,
     backgroundColor: Theme.colors.background,
     borderRadius: 12,
@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
   emptyContainer: {
     padding: Theme.spacing.xxl,
     alignItems: 'center',
-    margin: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     backgroundColor: Theme.colors.background,
     borderRadius: 12,
     borderWidth: 1,

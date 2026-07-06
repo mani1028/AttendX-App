@@ -3,7 +3,7 @@ import {
   View, ScrollView, TouchableOpacity, TextInput,
   Modal, ActivityIndicator, StyleSheet, Alert, Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -66,7 +66,7 @@ function teacherLabel(t: any) {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function PrincipalTeacherAssignmentsScreen() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
+  const tabBarScrollPadding = useTabBarScrollPadding();
   const { setTabBarVisible } = useAuth();
 
   const [schoolCode, setSchoolCode] = useState('');
@@ -388,21 +388,23 @@ export default function PrincipalTeacherAssignmentsScreen() {
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      <StandardPageHeader
-        title="Staff Assignment"
-        onBackPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('PrincipalDashboard' as never)}
-        rightIcon={<BookOpen size={20} color={Theme.colors.card} />}
-        onRightIconPress={() => setShowGlobalPoolManager(true)}
-      />
-
       <ScrollView
-       style={[styles.page, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={styles.pageContent}
+        style={styles.page}
+        contentContainerStyle={[styles.pageContent, innerPageLayoutStyles.scrollPageContent, { paddingBottom: tabBarScrollPadding }]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
       >
+        <StandardPageHeader
+          scrollWithContent
+          title="Staff Assignment"
+          onBackPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('PrincipalDashboard' as never)}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          rightIcon={<BookOpen size={20} color={Theme.colors.card} />}
+          onRightIconPress={() => setShowGlobalPoolManager(true)}
+        />
 
-        {/* Header (Section Title) */}
+        <View style={innerPageLayoutStyles.scrollBody}>
         <View style={styles.header}>
           <AppText style={styles.title} weight="bold">Staff Assignment Management</AppText>
           <AppText style={styles.subtitle}>Assign class staff and subject staff for each class-section</AppText>
@@ -646,6 +648,7 @@ export default function PrincipalTeacherAssignmentsScreen() {
           )}
         </>
       )}
+        </View>
       </ScrollView>
 
       {/* ── Global Pool Manager Modal ────────────────────────────────────── */}
@@ -949,7 +952,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   page: { flex: 1, backgroundColor: C.bg },
-  pageContent: { paddingHorizontal: Theme.spacing.md, paddingBottom: 120 },
+  pageContent: {},
   header: {
     paddingTop: Theme.spacing.lg,
     paddingBottom: Theme.spacing.md,

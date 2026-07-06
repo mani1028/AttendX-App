@@ -42,7 +42,6 @@ import SchoolDetailsScreen from '../screens/admin/SchoolDetailsScreen';
 import SettingsScreen from '../screens/admin/SettingsScreen';
 import AutoPayTrackerScreen from '../screens/admin/AutoPayTrackerScreen';
 import ManualAttendanceManagerScreen from '../screens/admin/ManualAttendanceManagerScreen';
-import PricingManagerScreen from '../screens/admin/PricingManagerScreen';
 import PaymentHistoryScreen from '../screens/admin/PaymentHistoryScreen';
 
 // ─── Teacher Screens ────────────────────────────────────────────────────────
@@ -125,6 +124,8 @@ import PrincipalDataExportScreen from '../screens/principal/DataExportScreen';
 import TeacherLeaveScreen from '../screens/principal/TeacherLeaveScreen';
 import AttendanceGalleryScreen from '../screens/teacher/AttendanceGalleryScreen';
 import AdminRevenueScreen from '../screens/admin/AdminRevenueScreen';
+import AdminBlogManagerScreen from '../screens/admin/AdminBlogManagerScreen';
+import AdminFormLeadsScreen from '../screens/admin/AdminFormLeadsScreen';
 import DeleteSchoolScreen from '../screens/admin/DeleteSchoolScreen';
 import AccountantPaymentHistoryScreen from '../screens/accountant/AccountantPaymentHistoryScreen';
 import AccountantReportsScreen from '../screens/accountant/ReportsScreen';
@@ -136,11 +137,7 @@ const Tab = createBottomTabNavigator();
 
 // ─── Wrapper Components ────────────────────────────────────────────────────
 
-const TeacherLeavesWrapper = React.memo(() => {
-  const { isClassTeacher } = useAuth();
-  return isClassTeacher ? <TeacherLeaveApprovalScreen /> : <TeacherLeaveRequestScreen />;
-});
-TeacherLeavesWrapper.displayName = 'TeacherLeavesWrapper';
+import TeacherLeavesTabScreen from '../screens/teacher/TeacherLeavesTabScreen';
 
 const SalariesWrapper = React.memo(() => {
   const [schoolCode, setSchoolCode] = useState('');
@@ -163,6 +160,11 @@ const AgentRegisterPlaceholder = () => <View style={{ flex: 1, backgroundColor: 
 
 const AccountantFaceVerifyScreen = () => <TeacherAttendanceScreen />;
 
+const tabScreenOptions = {
+  headerShown: false,
+  sceneContainerStyle: { backgroundColor: Theme.colors.background },
+};
+
 const AdminTabNavigator = () => {
   const { userRole } = useAuth();
   const isAgent = userRole?.toLowerCase() === 'agent';
@@ -176,9 +178,7 @@ const AdminTabNavigator = () => {
           accentColor={Theme.colors.primary}
         />
       )}
-      screenOptions={{
-        headerShown: false,
-      }}
+      screenOptions={tabScreenOptions}
     >
       <Tab.Screen name="Dashboard" component={AdminDashboardScreen} />
       {!isAgent && <Tab.Screen name="Agents" component={AdminAgentsScreen} />}
@@ -204,9 +204,7 @@ const AdminTabNavigator = () => {
 const PrincipalTabNavigator = () => (
   <Tab.Navigator
     tabBar={(props) => <RoleTabBar {...props} tabs={principalTabs} accentColor={Theme.colors.accentPrincipal} />}
-    screenOptions={{
-      headerShown: false,
-    }}
+    screenOptions={tabScreenOptions}
   >
     <Tab.Screen name="Home" component={PrincipalDashboardScreen} />
     <Tab.Screen name="Staff" component={PrincipalTeacherManagementScreen} />
@@ -219,14 +217,16 @@ const PrincipalTabNavigator = () => (
 const DirectorTabNavigator = () => (
   <Tab.Navigator
     tabBar={(props) => <RoleTabBar {...props} tabs={directorTabs} accentColor={Theme.colors.accentDirector} />}
-    screenOptions={{
-      headerShown: false,
-    }}
+    screenOptions={tabScreenOptions}
   >
     <Tab.Screen name="Home" component={DirectorDashboardScreen} />
     <Tab.Screen name="Branches" component={DirectorDashboardScreen} />
     <Tab.Screen name="AddBranch" component={PrincipalRegistrationScreen} />
-    <Tab.Screen name="Billing" component={DirectorBillingScreen} />
+    <Tab.Screen
+      name="Billing"
+      component={DirectorBillingScreen}
+      initialParams={{ variant: 'subscription' }}
+    />
     <Tab.Screen name="Profile" component={ProfileScreen} />
   </Tab.Navigator>
 );
@@ -234,14 +234,12 @@ const DirectorTabNavigator = () => (
 const TeacherTabNavigator = () => (
   <Tab.Navigator
     tabBar={(props) => <RoleTabBar {...props} tabs={teacherTabs} accentColor={Theme.colors.accentTeacher} />}
-    screenOptions={{
-      headerShown: false,
-    }}
+    screenOptions={tabScreenOptions}
   >
     <Tab.Screen name="Home" component={TeacherDashboardScreen} />
     <Tab.Screen name="Homework" component={TeacherHomeworkManagementScreen} />
     <Tab.Screen name="Scan" component={TeacherAttendanceScreen} />
-    <Tab.Screen name="Leaves" component={TeacherLeavesWrapper} />
+    <Tab.Screen name="Leaves" component={TeacherLeavesTabScreen} />
     <Tab.Screen name="Marks" component={TeacherMarksEntryScreen} />
   </Tab.Navigator>
 );
@@ -249,9 +247,7 @@ const TeacherTabNavigator = () => (
 const StudentTabNavigator = () => (
   <Tab.Navigator
     tabBar={(props) => <StudentTabBar {...props} />}
-    screenOptions={{
-      headerShown: false,
-    }}
+    screenOptions={tabScreenOptions}
   >
     <Tab.Screen name="Home" component={StudentDashboardScreen} />
     <Tab.Screen name="Homework" component={StudentHomeworkScreen} />
@@ -265,9 +261,7 @@ const StudentTabNavigator = () => (
 const AccountantTabNavigator = () => (
   <Tab.Navigator
     tabBar={(props) => <RoleTabBar {...props} tabs={accountantTabs} accentColor={Theme.colors.accentAccountant} />}
-    screenOptions={{
-      headerShown: false,
-    }}
+    screenOptions={tabScreenOptions}
   >
     <Tab.Screen name="Dashboard" component={AccountantDashboardScreen} />
     <Tab.Screen name="Fees" component={PrincipalFeeManagementScreen} />
@@ -286,6 +280,10 @@ const MainTabs = () => {
 
   switch (userRole?.toLowerCase()) {
     case 'admin':
+    case 'superadmin':
+    case 'super_admin':
+    case 'super admin':
+    case 'administrator':
     case 'agent':
       return <ErrorBoundary><Suspense fallback={null}><AdminTabNavigator /></Suspense></ErrorBoundary>;
     case 'principal': return <ErrorBoundary><Suspense fallback={null}><PrincipalTabNavigator /></Suspense></ErrorBoundary>;
@@ -350,8 +348,9 @@ export default function AppNavigator() {
           <Stack.Screen name="AdminSettings" component={SettingsScreen} />
           <Stack.Screen name="AutoPayTracker" component={AutoPayTrackerScreen} />
           <Stack.Screen name="ManualAttendanceManager" component={ManualAttendanceManagerScreen} />
-          <Stack.Screen name="PricingManager" component={PricingManagerScreen} />
           <Stack.Screen name="AdminRevenue" component={AdminRevenueScreen} />
+          <Stack.Screen name="AdminBlogManager" component={AdminBlogManagerScreen} />
+          <Stack.Screen name="AdminFormLeads" component={AdminFormLeadsScreen} />
           <Stack.Screen name="DeleteSchool" component={DeleteSchoolScreen} />
           <Stack.Screen name="AttendanceGallery" component={AttendanceGalleryScreen} />
           <Stack.Screen name="AccountantFaceVerify" component={AccountantFaceVerifyScreen} />

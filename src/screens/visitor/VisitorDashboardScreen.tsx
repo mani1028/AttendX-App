@@ -15,13 +15,15 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Feather';
-import { Bell } from 'lucide-react-native';
+import { QrCode, RefreshCw } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import DashboardHeroHeader from '../../components/dashboard/DashboardHeroHeader';
+import StandardPageHeader from '../../components/layout/StandardPageHeader';
+import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
-import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { useCanNavigateBack } from '../../hooks/useCanNavigateBack';
+import { safeGoBack } from '../../utils/navigationHelpers';
 import { visitorApi, qrApi } from '../../services/visitorApi';
 import { Theme, colors } from '../../theme/tokens';
 import AppButton from '../../components/common/AppButton';
@@ -318,7 +320,7 @@ const FilterModal: React.FC<{
 
 export default function VisitorDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const insets = useSafeAreaInsets();
+  const canGoBack = useCanNavigateBack();
   const { userName } = useAuth();
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -512,38 +514,63 @@ export default function VisitorDashboardScreen() {
     return 'Evening';
   };
 
+  const pageHeaderActions = (
+    <>
+      <TouchableOpacity style={heroHeaderStyles.iconBtn} onPress={loadQRCode} accessibilityLabel="QR Code">
+        <QrCode size={18} color={Theme.colors.card} />
+      </TouchableOpacity>
+      <TouchableOpacity style={heroHeaderStyles.iconBtn} onPress={onRefresh} accessibilityLabel="Refresh">
+        <RefreshCw size={18} color={Theme.colors.card} />
+      </TouchableOpacity>
+    </>
+  );
+
+  const bodyHeaderActions = (
+    <View style={styles.headerActions}>
+      <TouchableOpacity accessibilityRole="button" style={styles.qrBtn} onPress={loadQRCode}>
+        <AppText style={styles.qrBtnText}>📱 QR Code</AppText>
+      </TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" style={styles.refreshBtn} onPress={onRefresh}>
+        <Icon name="refresh-cw" size={16} color={colors.textPrimary} />
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-
-
-      <DashboardHeroHeader
-        userName={userName || 'User'}
-        greetingLine="VISITOR PORTAL"
-        subtitle="Manage campus visitors and check-ins."
-        unreadCount={unreadCount}
-        onNotificationsPress={() => navigation.navigate('Notifications')}
-        showDateBadge
-        fullBleed={false}
-      />
+      {canGoBack ? (
+        <StandardPageHeader
+          title="Visitor Management"
+          subtitle="Manage campus visitors and check-ins"
+          onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+          rightActions={pageHeaderActions}
+        />
+      ) : (
+        <DashboardHeroHeader
+          userName={userName || 'User'}
+          greetingLine="VISITOR PORTAL"
+          subtitle="Manage campus visitors and check-ins."
+          unreadCount={unreadCount}
+          onNotificationsPress={() => navigation.navigate('Notifications')}
+          showDateBadge
+          fullBleed={false}
+        />
+      )}
 
       <ScrollView
         style={innerPageLayoutStyles.scrollViewFront}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[
+          styles.contentContainer,
+          canGoBack && styles.contentContainerInner,
+        ]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
       >
-
-        {/* Header */}
-        <View style={styles.header}>
-          <AppText style={styles.title}>Visitor Management</AppText>
-          <View style={styles.headerActions}>
-            <TouchableOpacity accessibilityRole="button" style={styles.qrBtn} onPress={loadQRCode}>
-              <AppText style={styles.qrBtnText}>📱 QR Code</AppText>
-            </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" style={styles.refreshBtn} onPress={onRefresh}>
-              <Icon name="refresh-cw" size={16} color={colors.textPrimary} />
-            </TouchableOpacity>
+        {!canGoBack ? (
+          <View style={styles.header}>
+            <AppText style={styles.title}>Visitor Management</AppText>
+            {bodyHeaderActions}
           </View>
-        </View>
+        ) : null}
 
         {/* Error Message */}
         {errorMsg && (
@@ -654,6 +681,9 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: Theme.spacing.md,
     paddingBottom: 40,
+  },
+  contentContainerInner: {
+    paddingTop: 12,
   },
   welcomeSection: {
     flexDirection: 'row',

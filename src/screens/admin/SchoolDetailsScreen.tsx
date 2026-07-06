@@ -164,8 +164,15 @@ const SchoolDetailsScreen = () => {
   if (loading) {
     return (
       <View style={styles.container}>
-        <StandardPageHeader title="School Details" onBackPress={() => safeGoBack(navigation as any)} />
-        <ActivityIndicator size="large" color={Theme.colors.primary} style={styles.loader} />
+        <ScrollView contentContainerStyle={innerPageLayoutStyles.scrollPageContent}>
+          <StandardPageHeader
+            scrollWithContent
+            title="School Details"
+            onBackPress={() => safeGoBack(navigation as any)}
+            containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          />
+          <ActivityIndicator size="large" color={Theme.colors.primary} style={styles.loader} />
+        </ScrollView>
       </View>
     );
   }
@@ -173,32 +180,45 @@ const SchoolDetailsScreen = () => {
   if (!school) {
     return (
       <View style={styles.container}>
-        <StandardPageHeader title="School Details" onBackPress={() => safeGoBack(navigation as any)} />
-        <View style={styles.emptyState}>
-          <AlertCircle size={48} color={Theme.colors.border} />
-          <AppText style={styles.emptyText}>
-            {errorMessage || 'School details not available'}
-          </AppText>
-          {schoolDbId ? (
-            <TouchableOpacity style={styles.retryBtn} onPress={fetchSchoolDetails}>
-              <RefreshCw size={16} color={Theme.colors.primary} />
-              <AppText style={styles.retryBtnText}>Retry</AppText>
-            </TouchableOpacity>
-          ) : null}
-        </View>
+        <ScrollView contentContainerStyle={innerPageLayoutStyles.scrollPageContent}>
+          <StandardPageHeader
+            scrollWithContent
+            title="School Details"
+            onBackPress={() => safeGoBack(navigation as any)}
+            containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          />
+          <View style={styles.emptyState}>
+            <AlertCircle size={48} color={Theme.colors.border} />
+            <AppText style={styles.emptyText}>
+              {errorMessage || 'School details not available'}
+            </AppText>
+            {schoolDbId ? (
+              <TouchableOpacity style={styles.retryBtn} onPress={fetchSchoolDetails}>
+                <RefreshCw size={16} color={Theme.colors.primary} />
+                <AppText style={styles.retryBtnText}>Retry</AppText>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </ScrollView>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader title="School Details" onBackPress={() => safeGoBack(navigation as any)} />
-
       <ScrollView
-        style={[styles.scrollContent, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={styles.scrollContentContainer}
+        style={{ flex: 1 }}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
+        <StandardPageHeader
+          scrollWithContent
+          title="School Details"
+          onBackPress={() => safeGoBack(navigation as any)}
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        />
+
+        <View style={innerPageLayoutStyles.scrollBody}>
         <View style={styles.headerCard}>
           <View style={styles.schoolIcon}>
             <School size={28} color="#fff" />
@@ -272,6 +292,7 @@ const SchoolDetailsScreen = () => {
             <AppText style={styles.footerText}>Created: {formatDate(school.created_at)}</AppText>
           </View>
         )}
+        </View>
       </ScrollView>
     </View>
   );

@@ -13,6 +13,7 @@ import {
   NativeScrollEvent,
   Animated,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -29,7 +30,6 @@ import {
   MoreVertical,
   BellOff,
   Clock,
-  Sparkles,
 } from 'lucide-react-native';
 import API from '../../services/api';
 import AppText from '../../components/common/AppText';
@@ -169,6 +169,18 @@ const formatFullDate = (dateString: string) =>
     year: 'numeric',
   });
 
+const normalizeNotification = (item: any): Notification => ({
+  id: String(item.id ?? item.notification_id ?? ''),
+  title: String(item.title ?? item.subject ?? item.heading ?? 'Notification').trim(),
+  description: String(
+    item.description ?? item.message ?? item.body ?? item.content ?? '',
+  ).trim(),
+  type: String(item.type ?? item.notification_type ?? 'event'),
+  event_date: item.event_date ?? null,
+  created_at: item.created_at ?? new Date().toISOString(),
+  is_read: Boolean(item.is_read),
+});
+
 // ─── Notification Card ────────────────────────────────────────────────────────
 function NotificationCard({
   item,
@@ -251,6 +263,7 @@ function NotificationCard({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function NotificationsScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const { setTabBarVisible, userRole } = useAuth();
   const { refreshUnreadCount } = useUnreadNotifications();
   const handleScroll = useScrollTabBar();
@@ -301,7 +314,10 @@ export default function NotificationsScreen() {
       setNotifications(
         deduplicated
           .filter((item: any) => !deletedIds.includes(item.id))
-          .map((item: any) => ({ ...item, is_read: item.is_read || readIds.includes(item.id) }))
+          .map((item: any) => normalizeNotification({
+            ...item,
+            is_read: item.is_read || readIds.includes(item.id),
+          }))
       );
     } catch (err: any) {
       if (isMounted.current && err?.response?.status !== 401) {
@@ -371,6 +387,7 @@ export default function NotificationsScreen() {
   };
 
   const markAllRead = async () => {
+    if (notifications.filter(n => !n.is_read).length === 0) { return; }
     try {
       const allIds = notifications.map(n => n.id);
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
@@ -440,13 +457,18 @@ export default function NotificationsScreen() {
         subtitle={
           unreadCount > 0
             ? `${unreadCount} unread message${unreadCount !== 1 ? 's' : ''}`
-            : "You're all caught up!"
+            : notifications.length > 0
+              ? `${notifications.length} notification${notifications.length !== 1 ? 's' : ''} · all read`
+              : "You're all caught up!"
         }
         onBackPress={handleBackPress}
-        titleBadge={unreadCount > 0 ? unreadCount : undefined}
         rightActions={(
           <>
-            <TouchableOpacity onPress={markAllRead} style={heroHeaderStyles.iconBtn}>
+            <TouchableOpacity
+              onPress={markAllRead}
+              disabled={unreadCount === 0}
+              style={[heroHeaderStyles.iconBtn, unreadCount === 0 && styles.iconBtnDisabled]}
+            >
               <CheckCheck size={20} color={Theme.colors.card} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowActionMenu(true)} style={heroHeaderStyles.iconBtn}>
@@ -458,8 +480,11 @@ export default function NotificationsScreen() {
 
       {/* ── List ── */}
       <ScrollView
-       style={[styles.scroll, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={styles.scrollContent}
+        style={[styles.scroll, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          notifications.length === 0 && !loading && styles.scrollContentEmpty,
+        ]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
@@ -491,15 +516,7 @@ export default function NotificationsScreen() {
             </AppText>
           </View>
         ) : (
-          <>
-            {/* Section header */}
-            <View style={styles.sectionHeader}>
-              <Sparkles size={14} color={primaryColor} />
-              <AppText style={[styles.sectionHeaderText, { color: primaryColor }]}>
-                {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
-              </AppText>
-            </View>
-
+          <View style={styles.listWrap}>
             {notifications.map(item => (
               <NotificationCard
                 key={item.id}
@@ -508,7 +525,7 @@ export default function NotificationsScreen() {
                 onDelete={() => handleDeleteNotification(item.id)}
               />
             ))}
-          </>
+          </View>
         )}
         <View style={{ height: 48 }} />
       </ScrollView>
@@ -520,25 +537,31 @@ export default function NotificationsScreen() {
         animationType="slide"
         onRequestClose={() => setShowActionMenu(false)}
       >
-        <TouchableOpacity
-          style={styles.sheetOverlay}
-          activeOpacity={1}
-          onPress={() => setShowActionMenu(false)}
-        >
-          <View style={styles.sheet}>
+        <View style={styles.sheetOverlay}>
+          <TouchableOpacity
+            style={styles.detailBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowActionMenu(false)}
+          />
+          <View style={styles.sheet} onStartShouldSetResponder={() => true}>
             <View style={styles.sheetHandle} />
             <AppText style={styles.sheetTitle}>Actions</AppText>
 
             <TouchableOpacity
-              style={styles.sheetItem}
+              style={[styles.sheetItem, unreadCount === 0 && styles.sheetItemDisabled]}
+              disabled={unreadCount === 0}
               onPress={() => { markAllRead(); setShowActionMenu(false); }}
             >
               <View style={[styles.sheetItemIcon, { backgroundColor: '#ecfdf5' }]}>
-                <CheckCheck size={20} color={Theme.colors.success} />
+                <CheckCheck size={20} color={unreadCount === 0 ? '#94a3b8' : Theme.colors.success} />
               </View>
               <View style={styles.sheetItemText}>
-                <AppText style={styles.sheetItemLabel}>Mark All as Read</AppText>
-                <AppText style={styles.sheetItemHint}>{unreadCount} unread</AppText>
+                <AppText style={[styles.sheetItemLabel, unreadCount === 0 && styles.sheetItemLabelDisabled]}>
+                  Mark All as Read
+                </AppText>
+                <AppText style={styles.sheetItemHint}>
+                  {unreadCount > 0 ? `${unreadCount} unread` : 'No unread messages'}
+                </AppText>
               </View>
             </TouchableOpacity>
 
@@ -562,9 +585,9 @@ export default function NotificationsScreen() {
               </View>
             </TouchableOpacity>
 
-            <View style={{ height: Platform.OS === 'ios' ? 28 : 16 }} />
+            <View style={{ height: insets.bottom + (Platform.OS === 'ios' ? 8 : 16) }} />
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* ── Detail Bottom Sheet ── */}
@@ -575,86 +598,96 @@ export default function NotificationsScreen() {
         onRequestClose={() => setShowDetailModal(false)}
       >
         <View style={styles.detailOverlay}>
-          <View style={styles.detailSheet}>
-            {selectedNotification && (() => {
-              const cfg = getTypeConfig(selectedNotification.type);
-              return (
-                <>
-                  {/* Sheet handle */}
-                  <View style={styles.sheetHandle} />
+          <TouchableOpacity
+            style={styles.detailBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowDetailModal(false)}
+          />
+          {selectedNotification ? (
+            <View style={styles.detailSheet} onStartShouldSetResponder={() => true}>
+              {(() => {
+                const cfg = getTypeConfig(selectedNotification.type);
+                const title = selectedNotification.title || 'Notification';
+                const body = selectedNotification.description || 'No message provided.';
+                return (
+                  <>
+                    <View style={styles.sheetHandle} />
 
-                  {/* Header */}
-                  <View style={styles.detailHeader}>
-                    <View style={[styles.detailIconRing, { backgroundColor: cfg.bg }]}>
-                      {React.cloneElement(cfg.icon as React.ReactElement<any>, { size: 28, color: cfg.color })}
+                    <View style={styles.detailHeader}>
+                      <View style={[styles.detailIconRing, { backgroundColor: cfg.bg }]}>
+                        {React.cloneElement(cfg.icon as React.ReactElement<any>, {
+                          size: 28,
+                          color: cfg.color,
+                        })}
+                      </View>
+                      <View style={styles.detailHeaderActions}>
+                        <TouchableOpacity
+                          onPress={() => handleDeleteNotification(selectedNotification.id)}
+                          disabled={deleting}
+                          style={[styles.detailActionBtn, { backgroundColor: '#fef2f2' }]}
+                        >
+                          <Trash2 size={16} color={Theme.colors.error} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => setShowDetailModal(false)}
+                          style={[styles.detailActionBtn, { backgroundColor: Theme.colors.background }]}
+                        >
+                          <X size={16} color={Theme.colors.textSec} />
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <View style={styles.detailHeaderActions}>
-                      <TouchableOpacity
-                        onPress={() => handleDeleteNotification(selectedNotification.id)}
-                        disabled={deleting}
-                        style={[styles.detailActionBtn, { backgroundColor: '#fef2f2' }]}
-                      >
-                        <Trash2 size={16} color={Theme.colors.error} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => setShowDetailModal(false)}
-                        style={[styles.detailActionBtn, { backgroundColor: Theme.colors.background }]}
-                      >
-                        <X size={16} color={Theme.colors.textSec} />
-                      </TouchableOpacity>
+
+                    <View style={styles.detailMetaRow}>
+                      <View style={[styles.typePill, { backgroundColor: cfg.bg }]}>
+                        <AppText style={[styles.typePillText, { color: cfg.color }]}>{cfg.label}</AppText>
+                      </View>
+                      <View style={styles.timeRow}>
+                        <Clock size={11} color="#94a3b8" />
+                        <AppText style={styles.timeText}>
+                          {formatDate(selectedNotification.created_at)}
+                        </AppText>
+                      </View>
                     </View>
-                  </View>
 
-                  {/* Meta row */}
-                  <View style={styles.detailMetaRow}>
-                    <View style={[styles.typePill, { backgroundColor: cfg.bg }]}>
-                      <AppText style={[styles.typePillText, { color: cfg.color }]}>{cfg.label}</AppText>
-                    </View>
-                    <View style={styles.timeRow}>
-                      <Clock size={11} color="#94a3b8" />
-                      <AppText style={styles.timeText}>{formatDate(selectedNotification.created_at)}</AppText>
-                    </View>
-                  </View>
+                    <ScrollView
+                      style={styles.detailScrollArea}
+                      contentContainerStyle={styles.detailScrollContent}
+                      showsVerticalScrollIndicator={false}
+                      bounces={false}
+                      nestedScrollEnabled
+                    >
+                      <AppText style={styles.detailTitle}>{title}</AppText>
 
-                  <ScrollView
-                   style={[styles.detailScrollArea, innerPageLayoutStyles.scrollViewFront]}
-                    showsVerticalScrollIndicator={false}
-                    bounces={false}
-                  >
-                    <AppText style={styles.detailTitle}>{selectedNotification.title}</AppText>
+                      <View style={styles.detailDivider} />
 
-                    <View style={styles.detailDivider} />
+                      <AppText style={styles.detailSectionLabel}>MESSAGE</AppText>
+                      <AppText style={styles.detailBody} selectable>
+                        {body}
+                      </AppText>
 
-                    <AppText style={styles.detailSectionLabel}>MESSAGE</AppText>
-                    <AppText style={styles.detailBody}>{selectedNotification.description}</AppText>
+                      {selectedNotification.event_date ? (
+                        <LinearGradient colors={cfg.gradientColors} style={styles.detailEventBox}>
+                          <Calendar size={20} color={cfg.color} />
+                          <View>
+                            <AppText style={[styles.detailEventLabel, { color: cfg.color }]}>
+                              Scheduled Date
+                            </AppText>
+                            <AppText style={styles.detailEventValue}>
+                              {formatFullDate(selectedNotification.event_date)}
+                            </AppText>
+                          </View>
+                        </LinearGradient>
+                      ) : null}
 
-                    {selectedNotification.event_date && (
-                      <LinearGradient
-                        colors={cfg.gradientColors}
-                        style={styles.detailEventBox}
-                      >
-                        <Calendar size={20} color={cfg.color} />
-                        <View>
-                          <AppText style={[styles.detailEventLabel, { color: cfg.color }]}>
-                            Scheduled Date
-                          </AppText>
-                          <AppText style={styles.detailEventValue}>
-                            {formatFullDate(selectedNotification.event_date)}
-                          </AppText>
-                        </View>
-                      </LinearGradient>
-                    )}
-
-                    <AppText style={styles.detailReceivedOn}>
-                      Received · {formatFullDate(selectedNotification.created_at)}
-                    </AppText>
-
-                    <View style={{ height: 24 }} />
-                  </ScrollView>
-                </>
-              );
-            })()}
-          </View>
+                      <AppText style={styles.detailReceivedOn}>
+                        Received · {formatFullDate(selectedNotification.created_at)}
+                      </AppText>
+                    </ScrollView>
+                  </>
+                );
+              })()}
+            </View>
+          ) : null}
         </View>
       </Modal>
     </View>
@@ -676,10 +709,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  iconBtnDisabled: {
+    opacity: 0.45,
+  },
 
   // Scroll
   scroll: { flex: 1 },
-  scrollContent: { paddingTop: Theme.spacing.md, paddingBottom: 40 },
+  scrollContent: {
+    paddingTop: 12,
+    paddingBottom: 40,
+  },
+  scrollContentEmpty: {
+    flexGrow: 1,
+  },
+  listWrap: {
+    paddingTop: 4,
+  },
 
   // States
   centeredState: {
@@ -718,22 +763,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     fontWeight: '500',
-  },
-
-  // Section header
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-  },
-  sectionHeaderText: {
-    ...Theme.typography.caption,
-    fontWeight: '700',
-    color: Theme.colors.primary,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
   },
 
   // Card
@@ -894,6 +923,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 14,
   },
+  sheetItemDisabled: {
+    opacity: 0.5,
+  },
   sheetItemIcon: {
     width: 44,
     height: 44,
@@ -906,6 +938,9 @@ const styles = StyleSheet.create({
     ...Theme.typography.bodyMd,
     fontWeight: '700',
     color: Theme.colors.text,
+  },
+  sheetItemLabelDisabled: {
+    color: '#94a3b8',
   },
   sheetItemHint: {
     ...Theme.typography.caption,
@@ -925,12 +960,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'flex-end',
   },
+  detailBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
   detailSheet: {
-    backgroundColor: Theme.colors.background,
+    backgroundColor: Theme.colors.card,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
     paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 20,
     maxHeight: '88%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -6 },
@@ -969,7 +1008,13 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 14,
   },
-  detailScrollArea: { maxHeight: 480 },
+  detailScrollArea: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  detailScrollContent: {
+    paddingBottom: 8,
+  },
   detailTitle: {
     fontSize: 22,
     fontWeight: '800',
@@ -980,7 +1025,7 @@ const styles = StyleSheet.create({
   },
   detailDivider: {
     height: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: Theme.colors.border,
     marginBottom: 14,
   },
   detailSectionLabel: {
