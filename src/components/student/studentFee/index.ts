@@ -1,0 +1,1 @@
+export { studentFeeStyles } from './studentFeeStyles';

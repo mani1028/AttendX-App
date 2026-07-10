@@ -216,7 +216,7 @@ export default function NotificationPanel({ type = 'student', isDirector = false
             keyExtractor={item => item.id}
             renderItem={renderItem}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={fetchNotifications} />}
-            contentContainerStyle={{ paddingBottom: 20 }}
+            contentContainerStyle={{ paddingBottom: Theme.spacing.xl }}
           />
         )}
         {!loading && notifications.length > 0 && (type === 'student' || type === 'teacher') && (
@@ -252,29 +252,29 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Theme.colors.card,
   },
-  badgeText: { color: Theme.colors.card, fontSize: 10, fontWeight: '900' },
+  badgeText: { color: Theme.colors.card, fontSize: Theme.typography.label.fontSize, fontWeight: '900' },
   modalContent: { backgroundColor: Theme.colors.background },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Theme.spacing.md, borderBottomWidth: 1, borderBottomColor: Theme.colors.border },
-  modalTitle: { fontSize: 16, fontWeight: '700', color: Theme.colors.text },
-  closeText: { fontSize: 20, color: Theme.colors.textSec, padding: Theme.spacing.xs },
+  modalTitle: { fontSize: Theme.typography.h4.fontSize, fontWeight: '700', color: Theme.colors.text },
+  closeText: { fontSize: Theme.typography.h3.fontSize, color: Theme.colors.textSec, padding: Theme.spacing.xs },
   loader: { margin: 40 },
   emptyState: { alignItems: 'center', padding: 40 },
   emptyIcon: { fontSize: 40, marginBottom: Theme.spacing.sm, opacity: 0.5 },
-  notificationItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: Theme.colors.background },
+  notificationItem: { padding: Theme.spacing.md, borderBottomWidth: 1, borderBottomColor: Theme.colors.background },
   newItem: { backgroundColor: '#f0f9ff', borderLeftWidth: 3, borderLeftColor: '#0c4a6e' },
-  notificationHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  typeBadge: { backgroundColor: '#dbeafe', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  typeText: { fontSize: 10, fontWeight: '600', color: '#0c4a6e', textTransform: 'uppercase' },
+  notificationHeader: { flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.sm, marginBottom: 6 },
+  typeBadge: { backgroundColor: Theme.colors.blueLight, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  typeText: { fontSize: Theme.typography.label.fontSize, fontWeight: '600', color: '#0c4a6e', textTransform: 'uppercase' },
   newBadge: { backgroundColor: Theme.colors.error, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  newBadgeText: { fontSize: 10, fontWeight: '700', color: Theme.colors.card },
+  newBadgeText: { fontSize: Theme.typography.label.fontSize, fontWeight: '700', color: Theme.colors.card },
   notifTitle: { ...Theme.typography.body, fontWeight: '600', marginBottom: Theme.spacing.xs, color: Theme.colors.text },
-  notifDesc: { fontSize: 13, color: Theme.colors.textSec, marginBottom: 6 },
-  notifFooter: { flexDirection: 'row', gap: 12, alignItems: 'center', marginTop: Theme.spacing.xs },
-  footerText: { ...Theme.typography.label, color: '#94a3b8' },
+  notifDesc: { fontSize: Theme.typography.caption.fontSize, color: Theme.colors.textSec, marginBottom: 6 },
+  notifFooter: { flexDirection: 'row', gap: Theme.spacing.md, alignItems: 'center', marginTop: Theme.spacing.xs },
+  footerText: { ...Theme.typography.label, color: Theme.colors.textMuted },
   deleteText: { ...Theme.typography.label, color: Theme.colors.error, fontWeight: '600' },
-  footer: { padding: 12, borderTopWidth: 1, borderTopColor: Theme.colors.border },
+  footer: { padding: Theme.spacing.md, borderTopWidth: 1, borderTopColor: Theme.colors.border },
   viewAllBtn: { alignItems: 'center' },
   viewAllText: { color: '#0c4a6e', fontWeight: '600' },
-  toast: { position: 'absolute', bottom: 20, left: 20, right: 20, backgroundColor: Theme.colors.error, padding: 12, borderRadius: 8, alignItems: 'center', zIndex: 1000 },
+  toast: { position: 'absolute', bottom: 20, left: 20, right: 20, backgroundColor: Theme.colors.error, padding: Theme.spacing.md, borderRadius: Theme.radius.sm, alignItems: 'center', zIndex: 1000 },
   toastText: { color: Theme.colors.card, fontWeight: '600' },
 });

@@ -1,36 +1,27 @@
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { Buffer } from 'buffer';
-import { View, TouchableOpacity, ScrollView, Alert, StyleSheet, Platform, ActivityIndicator, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { View, TouchableOpacity, ScrollView, Alert, Platform, ActivityIndicator, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { BarChart3, PenSquare, ClipboardList } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import RNFS from 'react-native-fs';
-import Share from 'react-native-share';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API from '../../services/api';
 import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
 import { useAuth } from '../../context/AuthContext';
+import Loader from '../../components/common/Loader';
 
 import { safeGoBack } from '../../utils/navigationHelpers';
 import { Theme, C } from '../../theme/tokens';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { dataExportStyles as styles } from '../../components/principal/dataExport/dataExportStyles';
+import AttendanceExportTab from '../../components/principal/dataExport/AttendanceExportTab';
+import MarksExportTab from '../../components/principal/dataExport/MarksExportTab';
+import CombinedExportTab from '../../components/principal/dataExport/CombinedExportTab';
+import { getDateRangeForAttendance, getDateRangeForCombined, downloadAndShareFile, resolveExportError } from '../../components/principal/dataExport/helpers';
+import type { ClassSectionPair, Exam } from '../../components/principal/dataExport/types';
 
-
-
-
-interface ClassSectionPair {
-  class_grade?: string;
-  section?: string;
-}
-
-interface Exam {
-  exam_id: number;
-  exam_name: string;
-  academic_year: string;
-}
 
 export default function PrincipalDataExportPage() {
   const navigation = useNavigation();
@@ -43,7 +34,6 @@ export default function PrincipalDataExportPage() {
     return () => setTabBarVisible(true);
   }, []);
   const handleScroll = useScrollTabBar();
-
 
   useEffect(() => {
     const loadContext = async () => {
@@ -225,79 +215,8 @@ export default function PrincipalDataExportPage() {
     }
   };
 
-  const getDateRangeForAttendance = () => {
-    switch (attendancePeriod) {
-      case 'weekly':
-        const weekStart = new Date(attendanceAnchorDate);
-        weekStart.setDate(weekStart.getDate() - 6);
-        return { start_date: weekStart.toISOString().slice(0, 10), end_date: attendanceAnchorDate };
-      case 'monthly':
-        const monthStart = new Date(attendanceAnchorDate);
-        monthStart.setDate(1);
-        return { start_date: monthStart.toISOString().slice(0, 10), end_date: attendanceAnchorDate };
-      case '3months':
-        const threeMonthsStart = new Date(attendanceAnchorDate);
-        threeMonthsStart.setMonth(threeMonthsStart.getMonth() - 3);
-        return { start_date: threeMonthsStart.toISOString().slice(0, 10), end_date: attendanceAnchorDate };
-      case '6months':
-        const sixMonthsStart = new Date(attendanceAnchorDate);
-        sixMonthsStart.setMonth(sixMonthsStart.getMonth() - 6);
-        return { start_date: sixMonthsStart.toISOString().slice(0, 10), end_date: attendanceAnchorDate };
-      case 'year':
-        const yearStart = new Date(attendanceAnchorDate);
-        yearStart.setFullYear(yearStart.getFullYear() - 1);
-        return { start_date: yearStart.toISOString().slice(0, 10), end_date: attendanceAnchorDate };
-      case 'custom':
-        return { start_date: attendanceStartDate, end_date: attendanceEndDate };
-      default:
-        return { start_date: attendanceAnchorDate, end_date: attendanceAnchorDate };
-    }
-  };
 
-  const getDateRangeForCombined = () => {
-    switch (combinedPeriod) {
-      case 'weekly':
-        const weekStart = new Date(combinedAnchorDate);
-        weekStart.setDate(weekStart.getDate() - 6);
-        return { start_date: weekStart.toISOString().slice(0, 10), end_date: combinedAnchorDate };
-      case 'monthly':
-        const monthStart = new Date(combinedAnchorDate);
-        monthStart.setDate(1);
-        return { start_date: monthStart.toISOString().slice(0, 10), end_date: combinedAnchorDate };
-      case 'custom':
-        return { start_date: combinedStartDate, end_date: combinedEndDate };
-      default:
-        return { start_date: combinedAnchorDate, end_date: combinedAnchorDate };
-    }
-  };
 
-  const downloadAndShareFile = async (data: any, filename: string) => {
-    try {
-      const base64Data = Buffer.from(data).toString('base64');
-      const filePath = `${RNFS.CachesDirectoryPath}/${filename}`;
-
-      await RNFS.writeFile(filePath, base64Data, 'base64');
-
-      const fileUri = Platform.OS === 'android'
-        ? `file://${filePath}`
-        : filePath;
-
-      await Share.open({
-        url: fileUri,
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        filename: filename,
-        failOnCancel: false,
-      });
-
-      // Clean up file after sharing
-      setTimeout(() => RNFS.unlink(filePath).catch(() => {}), 5000);
-    } catch (error: any) {
-      if (error?.message !== 'User did not share') {
-        console.error('Error saving/sharing file:', error);
-        Alert.alert('Error', 'Failed to save or share file');
-      }
-    }
-  };
 
   const onExportAttendance = async () => {
     setMessage('');
@@ -308,7 +227,7 @@ export default function PrincipalDataExportPage() {
       return;
     }
 
-    const { start_date, end_date } = getDateRangeForAttendance();
+    const { start_date, end_date } = getDateRangeForAttendance(attendancePeriod, attendanceAnchorDate, attendanceStartDate, attendanceEndDate);
 
     if (!start_date || !end_date) {
       setError('Please select valid date range.');
@@ -337,17 +256,7 @@ export default function PrincipalDataExportPage() {
 
       setMessage('Attendance export created successfully. File ready to share.');
     } catch (err: any) {
-      let fallback = 'Export failed. Please try again.';
-
-      if (err?.response?.status === 401) {
-        fallback = 'Session expired. Please login again and retry export.';
-      } else if (err?.response?.status) {
-        fallback = `Export failed (${err.response.status}).`;
-      } else if (err?.message) {
-        fallback = err.message;
-      }
-
-      setError(fallback);
+      setError(resolveExportError(err));
     } finally {
       setExporting(false);
     }
@@ -389,17 +298,7 @@ export default function PrincipalDataExportPage() {
 
       setMessage('Marks export created successfully. File ready to share.');
     } catch (err: any) {
-      let fallback = 'Export failed. Please try again.';
-
-      if (err?.response?.status === 401) {
-        fallback = 'Session expired. Please login again and retry export.';
-      } else if (err?.response?.status) {
-        fallback = `Export failed (${err.response.status}).`;
-      } else if (err?.message) {
-        fallback = err.message;
-      }
-
-      setError(fallback);
+      setError(resolveExportError(err));
     } finally {
       setExporting(false);
     }
@@ -419,7 +318,7 @@ export default function PrincipalDataExportPage() {
       return;
     }
 
-    const { start_date, end_date } = getDateRangeForCombined();
+    const { start_date, end_date } = getDateRangeForCombined(combinedPeriod, combinedAnchorDate, combinedStartDate, combinedEndDate);
 
     if (combinedPeriod === 'custom' && (!start_date || !end_date)) {
       setError('Choose both start and end dates for custom range.');
@@ -451,17 +350,7 @@ export default function PrincipalDataExportPage() {
 
       setMessage('Combined export created successfully. File ready to share.');
     } catch (err: any) {
-      let fallback = 'Export failed. Please try again.';
-
-      if (err?.response?.status === 401) {
-        fallback = 'Session expired. Please login again and retry export.';
-      } else if (err?.response?.status) {
-        fallback = `Export failed (${err.response.status}).`;
-      } else if (err?.message) {
-        fallback = err.message;
-      }
-
-      setError(fallback);
+      setError(resolveExportError(err));
     } finally {
       setExporting(false);
     }
@@ -479,353 +368,43 @@ export default function PrincipalDataExportPage() {
     </TouchableOpacity>
   );
 
-  const renderAttendanceTab = () => (
-    <>
-      <View style={styles.grid}>
-        <View style={styles.field}>
-          <AppText style={styles.label} weight="bold">Period</AppText>
-          <View style={styles.selectWrapper}>
-            {['weekly', 'monthly', '3months', '6months', 'year', 'custom'].map((period) => (
-              <TouchableOpacity accessibilityRole="button"
-                key={period}
-                style={[styles.periodOption, attendancePeriod === period && styles.periodOptionSelected]}
-                onPress={() => setAttendancePeriod(period as any)}
-              >
-                <AppText style={[styles.periodOptionText, attendancePeriod === period && styles.periodOptionTextSelected]} weight="semibold">
-                  {period.charAt(0).toUpperCase() + period.slice(1)}
-                </AppText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {attendancePeriod !== 'custom' ? (
-          <View style={styles.field}>
-            <AppText style={styles.label} weight="bold">End Date (Anchor Date)</AppText>
-            {renderDatePicker('anchor', attendanceAnchorDate, setAttendanceAnchorDate)}
-          </View>
-        ) : (
-          <>
-            <View style={styles.field}>
-              <AppText style={styles.label} weight="bold">Start Date</AppText>
-              {renderDatePicker('start', attendanceStartDate, setAttendanceStartDate)}
-            </View>
-            <View style={styles.field}>
-              <AppText style={styles.label} weight="bold">End Date</AppText>
-              {renderDatePicker('end', attendanceEndDate, setAttendanceEndDate)}
-            </View>
-          </>
-        )}
-
-        <View style={styles.field}>
-          <AppText style={styles.label} weight="bold">Class (Optional)</AppText>
-          <View style={styles.selectWrapper}>
-            <TouchableOpacity accessibilityRole="button"
-              style={[styles.classOption, !classGrade && styles.classOptionSelected]}
-              onPress={() => setClassGrade('')}
-            >
-              <AppText style={[styles.classOptionText, !classGrade && styles.classOptionTextSelected]} weight="semibold">All Classes</AppText>
-            </TouchableOpacity>
-            {classOptions.map((cls) => (
-              <TouchableOpacity accessibilityRole="button"
-                key={cls}
-                style={[styles.classOption, classGrade === cls && styles.classOptionSelected]}
-                onPress={() => setClassGrade(cls)}
-              >
-                <AppText style={[styles.classOptionText, classGrade === cls && styles.classOptionTextSelected]} weight="semibold">{cls}</AppText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.field}>
-          <AppText style={styles.label} weight="bold">Section (Optional)</AppText>
-          <View style={styles.selectWrapper}>
-            <TouchableOpacity accessibilityRole="button"
-              style={[styles.classOption, !section && styles.classOptionSelected]}
-              onPress={() => setSection('')}
-            >
-              <AppText style={[styles.classOptionText, !section && styles.classOptionTextSelected]} weight="semibold">All Sections</AppText>
-            </TouchableOpacity>
-            {sectionOptions.map((sec) => (
-              <TouchableOpacity accessibilityRole="button"
-                key={sec}
-                style={[styles.classOption, section === sec && styles.classOptionSelected]}
-                onPress={() => setSection(sec)}
-              >
-                <AppText style={[styles.classOptionText, section === sec && styles.classOptionTextSelected]} weight="semibold">{sec}</AppText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.actions}>
-        <TouchableOpacity accessibilityRole="button" style={styles.exportButton} onPress={onExportAttendance} disabled={exporting}>
-          <AppText style={styles.exportButtonText} weight="bold">
-            {exporting ? 'Preparing Excel...' : 'Download Attendance Excel'}
-          </AppText>
-        </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton} onPress={resetFilters} disabled={exporting}>
-          <AppText style={styles.secondaryButtonText} weight="semibold">Reset Filters</AppText>
-        </TouchableOpacity>
-      </View>
-
-      <AppText style={styles.hint}>
-        Export includes attendance data with attendance percentage column for each student.
-        Percentage calculated as: (Present Days / Total Days) × 100
-      </AppText>
-    </>
-  );
-
-  const renderMarksTab = () => (
-    <>
-      <View style={styles.marksGrid}>
-        <View style={styles.field}>
-          <AppText style={styles.label} weight="bold">Select Exam</AppText>
-          <View style={styles.selectWrapper}>
-            <TouchableOpacity accessibilityRole="button"
-              style={[styles.classOption, !selectedExam && styles.classOptionSelected]}
-              onPress={() => setSelectedExam('')}
-            >
-              <AppText style={[styles.classOptionText, !selectedExam && styles.classOptionTextSelected]} weight="semibold">-- Select Exam --</AppText>
-            </TouchableOpacity>
-            {examsList.map((exam) => (
-              <TouchableOpacity accessibilityRole="button"
-                key={exam.exam_id}
-                style={[styles.classOption, selectedExam === exam.exam_id.toString() && styles.classOptionSelected]}
-                onPress={() => setSelectedExam(exam.exam_id.toString())}
-              >
-                <AppText style={[styles.classOptionText, selectedExam === exam.exam_id.toString() && styles.classOptionTextSelected]} weight="semibold">
-                  {exam.exam_name} ({exam.academic_year})
-                </AppText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.field}>
-          <AppText style={styles.label} weight="bold">Class (Optional)</AppText>
-          <View style={styles.selectWrapper}>
-            <TouchableOpacity accessibilityRole="button"
-              style={[styles.classOption, !classGrade && styles.classOptionSelected]}
-              onPress={() => setClassGrade('')}
-            >
-              <AppText style={[styles.classOptionText, !classGrade && styles.classOptionTextSelected]} weight="semibold">All Classes</AppText>
-            </TouchableOpacity>
-            {classOptions.map((cls) => (
-              <TouchableOpacity accessibilityRole="button"
-                key={cls}
-                style={[styles.classOption, classGrade === cls && styles.classOptionSelected]}
-                onPress={() => setClassGrade(cls)}
-              >
-                <AppText style={[styles.classOptionText, classGrade === cls && styles.classOptionTextSelected]} weight="semibold">{cls}</AppText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.field}>
-          <AppText style={styles.label} weight="bold">Section (Optional)</AppText>
-          <View style={styles.selectWrapper}>
-            <TouchableOpacity accessibilityRole="button"
-              style={[styles.classOption, !section && styles.classOptionSelected]}
-              onPress={() => setSection('')}
-            >
-              <AppText style={[styles.classOptionText, !section && styles.classOptionTextSelected]} weight="semibold">All Sections</AppText>
-            </TouchableOpacity>
-            {sectionOptions.map((sec) => (
-              <TouchableOpacity accessibilityRole="button"
-                key={sec}
-                style={[styles.classOption, section === sec && styles.classOptionSelected]}
-                onPress={() => setSection(sec)}
-              >
-                <AppText style={[styles.classOptionText, section === sec && styles.classOptionTextSelected]} weight="semibold">{sec}</AppText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.actions}>
-        <TouchableOpacity accessibilityRole="button" style={styles.exportButton} onPress={onExportMarks} disabled={exporting || !selectedExam}>
-          <AppText style={styles.exportButtonText} weight="bold">
-            {exporting ? 'Preparing Excel...' : 'Download Marks Excel'}
-          </AppText>
-        </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton} onPress={resetFilters} disabled={exporting}>
-          <AppText style={styles.secondaryButtonText} weight="semibold">Reset Filters</AppText>
-        </TouchableOpacity>
-      </View>
-
-      <AppText style={styles.hint}>
-        Export includes subject-wise marks with overall grade and percentage.
-      </AppText>
-    </>
-  );
-
-  const renderCombinedTab = () => (
-    <>
-      <View style={styles.grid}>
-        <View style={styles.field}>
-          <AppText style={styles.label} weight="bold">Select Exam</AppText>
-          <View style={styles.selectWrapper}>
-            <TouchableOpacity accessibilityRole="button"
-              style={[styles.classOption, !selectedExam && styles.classOptionSelected]}
-              onPress={() => setSelectedExam('')}
-            >
-              <AppText style={[styles.classOptionText, !selectedExam && styles.classOptionTextSelected]} weight="semibold">-- Select Exam --</AppText>
-            </TouchableOpacity>
-            {examsList.map((exam) => (
-              <TouchableOpacity accessibilityRole="button"
-                key={exam.exam_id}
-                style={[styles.classOption, selectedExam === exam.exam_id.toString() && styles.classOptionSelected]}
-                onPress={() => setSelectedExam(exam.exam_id.toString())}
-              >
-                <AppText style={[styles.classOptionText, selectedExam === exam.exam_id.toString() && styles.classOptionTextSelected]} weight="semibold">
-                  {exam.exam_name} ({exam.academic_year})
-                </AppText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.field}>
-          <AppText style={styles.label} weight="bold">Attendance Period</AppText>
-          <View style={styles.selectWrapper}>
-            {['weekly', 'monthly', 'custom'].map((period) => (
-              <TouchableOpacity accessibilityRole="button"
-                key={period}
-                style={[styles.periodOption, combinedPeriod === period && styles.periodOptionSelected]}
-                onPress={() => setCombinedPeriod(period as any)}
-              >
-                <AppText style={[styles.periodOptionText, combinedPeriod === period && styles.periodOptionTextSelected]} weight="semibold">
-                  {period.charAt(0).toUpperCase() + period.slice(1)}
-                </AppText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {combinedPeriod !== 'custom' ? (
-          <View style={styles.field}>
-            <AppText style={styles.label} weight="bold">End Date (Anchor Date)</AppText>
-            <TouchableOpacity accessibilityRole="button"
-              style={styles.dateInput}
-              onPress={() => {
-                setDatePickerMode('anchor');
-                setShowCombinedDatePicker(true);
-              }}
-            >
-              <AppText style={styles.dateInputText}>{combinedAnchorDate || 'Select Date'}</AppText>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            <View style={styles.field}>
-              <AppText style={styles.label} weight="bold">Start Date</AppText>
-              <TouchableOpacity accessibilityRole="button"
-                style={styles.dateInput}
-                onPress={() => {
-                  setDatePickerMode('start');
-                  setShowCombinedDatePicker(true);
-                }}
-              >
-                <AppText style={styles.dateInputText}>{combinedStartDate || 'Select Date'}</AppText>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.field}>
-              <AppText style={styles.label} weight="bold">End Date</AppText>
-              <TouchableOpacity accessibilityRole="button"
-                style={styles.dateInput}
-                onPress={() => {
-                  setDatePickerMode('end');
-                  setShowCombinedDatePicker(true);
-                }}
-              >
-                <AppText style={styles.dateInputText}>{combinedEndDate || 'Select Date'}</AppText>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-
-        <View style={styles.field}>
-          <AppText style={styles.label} weight="bold">Class (Optional)</AppText>
-          <View style={styles.selectWrapper}>
-            <TouchableOpacity accessibilityRole="button"
-              style={[styles.classOption, !classGrade && styles.classOptionSelected]}
-              onPress={() => setClassGrade('')}
-            >
-              <AppText style={[styles.classOptionText, !classGrade && styles.classOptionTextSelected]} weight="semibold">All Classes</AppText>
-            </TouchableOpacity>
-            {classOptions.map((cls) => (
-              <TouchableOpacity accessibilityRole="button"
-                key={cls}
-                style={[styles.classOption, classGrade === cls && styles.classOptionSelected]}
-                onPress={() => setClassGrade(cls)}
-              >
-                <AppText style={[styles.classOptionText, classGrade === cls && styles.classOptionTextSelected]} weight="semibold">{cls}</AppText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.field}>
-          <AppText style={styles.label} weight="bold">Section (Optional)</AppText>
-          <View style={styles.selectWrapper}>
-            <TouchableOpacity accessibilityRole="button"
-              style={[styles.classOption, !section && styles.classOptionSelected]}
-              onPress={() => setSection('')}
-            >
-              <AppText style={[styles.classOptionText, !section && styles.classOptionTextSelected]} weight="semibold">All Sections</AppText>
-            </TouchableOpacity>
-            {sectionOptions.map((sec) => (
-              <TouchableOpacity accessibilityRole="button"
-                key={sec}
-                style={[styles.classOption, section === sec && styles.classOptionSelected]}
-                onPress={() => setSection(sec)}
-              >
-                <AppText style={[styles.classOptionText, section === sec && styles.classOptionTextSelected]} weight="semibold">{sec}</AppText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.actions}>
-        <TouchableOpacity accessibilityRole="button" style={styles.exportButton} onPress={onExportCombined} disabled={exporting || !selectedExam}>
-          <AppText style={styles.exportButtonText} weight="bold">
-            {exporting ? 'Preparing Excel...' : 'Download Combined Excel'}
-          </AppText>
-        </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton} onPress={resetFilters} disabled={exporting}>
-          <AppText style={styles.secondaryButtonText} weight="semibold">Reset Filters</AppText>
-        </TouchableOpacity>
-      </View>
-
-      <AppText style={styles.hint}>
-        Export includes marks data with subject-wise scores, overall grade, percentage, AND attendance percentage for the selected date range.
-      </AppText>
-    </>
-  );
+  const exportTabProps = {
+    attendancePeriod, setAttendancePeriod,
+    attendanceStartDate, setAttendanceStartDate,
+    attendanceEndDate, setAttendanceEndDate,
+    attendanceAnchorDate, setAttendanceAnchorDate,
+    combinedPeriod, setCombinedPeriod,
+    combinedStartDate, setCombinedStartDate,
+    combinedEndDate, setCombinedEndDate,
+    combinedAnchorDate, setCombinedAnchorDate,
+    classGrade, setClassGrade,
+    section, setSection,
+    classOptions, sectionOptions,
+    selectedExam, setSelectedExam,
+    examsList, exporting,
+    onExportAttendance, onExportMarks, onExportCombined,
+    resetFilters, renderDatePicker,
+    setDatePickerMode, setShowAttendanceDatePicker, setShowCombinedDatePicker,
+  };
 
   return (
     <View style={styles.container}>
 
-
-      <StandardPageHeader
+      <ScrollView
+        style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
+        <StandardPageHeader
+        scrollWithContent
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
         title="Data Export"
         subtitle="Export attendance, marks, or combined data"
         onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
       />
 
-      <ScrollView
-        style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={innerPageLayoutStyles.scrollContent}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        showsVerticalScrollIndicator={false}
-      >
         <View style={styles.panel}>
             <View style={styles.header}>
               <AppText style={styles.title} weight="bold">Advanced Filters</AppText>
@@ -865,9 +444,9 @@ export default function PrincipalDataExportPage() {
             </View>
 
             <View style={styles.body}>
-              {activeTab === 'attendance' && renderAttendanceTab()}
-              {activeTab === 'marks' && renderMarksTab()}
-              {activeTab === 'combined' && renderCombinedTab()}
+              {activeTab === 'attendance' && <AttendanceExportTab {...exportTabProps} />}
+              {activeTab === 'marks' && <MarksExportTab {...exportTabProps} />}
+              {activeTab === 'combined' && <CombinedExportTab {...exportTabProps} />}
 
               {message ? <View style={styles.messageContainer}><AppText style={styles.messageText}>{message}</AppText></View> : null}
               {error ? <View style={styles.errorContainer}><AppText style={styles.errorText}>{error}</AppText></View> : null}
@@ -926,218 +505,9 @@ export default function PrincipalDataExportPage() {
 
       {exporting && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={C.primary} />
-          <AppText style={styles.loadingText}>Exporting...</AppText>
+          <Loader size="lg" label="Preparing export…" />
         </View>
       )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  panel: {
-    backgroundColor: C.card,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.border,
-    marginBottom: 40,
-  },
-  header: {
-    padding: 20,
-    backgroundColor: C.primarySoft,
-  },
-  title: {
-    fontSize: 20,
-    color: C.primary,
-  },
-  subtitle: {
-    ...Theme.typography.body,
-    color: C.textMuted,
-    marginTop: Theme.spacing.xs,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    backgroundColor: C.bg,
-    paddingHorizontal: Theme.spacing.md,
-  },
-  tab: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  activeTab: {
-    borderBottomColor: C.primary,
-  },
-  tabText: {
-    ...Theme.typography.body,
-    color: C.textMuted,
-  },
-  activeTabText: {
-    color: C.primary,
-  },
-  body: {
-    padding: 20,
-  },
-  grid: {
-    gap: 16,
-  },
-  marksGrid: {
-    gap: 16,
-  },
-  field: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 13,
-    color: C.text,
-  },
-  selectWrapper: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  periodOption: {
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.sm,
-    borderRadius: 8,
-    backgroundColor: C.bg,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  periodOptionSelected: {
-    backgroundColor: C.primary,
-    borderColor: C.primary,
-  },
-  periodOptionText: {
-    ...Theme.typography.body,
-    color: C.text,
-  },
-  periodOptionTextSelected: {
-    color: Theme.colors.card,
-  },
-  classOption: {
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.sm,
-    borderRadius: 8,
-    backgroundColor: C.bg,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  classOptionSelected: {
-    backgroundColor: C.primary,
-    borderColor: C.primary,
-  },
-  classOptionText: {
-    ...Theme.typography.body,
-    color: C.text,
-  },
-  classOptionTextSelected: {
-    color: Theme.colors.card,
-  },
-  dateInput: {
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: C.bg,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  dateInputText: {
-    ...Theme.typography.body,
-    color: C.text,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: Theme.spacing.lg,
-  },
-  exportButton: {
-    flex: 2,
-    paddingVertical: 14,
-    borderRadius: 10,
-    backgroundColor: C.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  exportButtonText: {
-    ...Theme.typography.body,
-    color: Theme.colors.card,
-  },
-  secondaryButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
-    backgroundColor: C.bg,
-    borderWidth: 1,
-    borderColor: C.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButtonText: {
-    ...Theme.typography.body,
-    color: C.text,
-  },
-  hint: {
-    ...Theme.typography.caption,
-    color: C.textMuted,
-    marginTop: Theme.spacing.md,
-    lineHeight: 18,
-    fontStyle: 'italic',
-  },
-  messageContainer: {
-    marginTop: Theme.spacing.md,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: C.successSoft,
-    borderWidth: 1,
-    borderColor: C.success,
-  },
-  messageText: {
-    color: C.success,
-    fontSize: 13,
-  },
-  errorContainer: {
-    marginTop: Theme.spacing.md,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: C.errorSoft,
-    borderWidth: 1,
-    borderColor: C.error,
-  },
-  errorText: {
-    color: C.error,
-    fontSize: 13,
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: Theme.colors.card,
-  },
-});

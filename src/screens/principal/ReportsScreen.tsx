@@ -10,6 +10,7 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
@@ -161,7 +162,16 @@ const Reports = () => {
   return (
     <View style={styles.container}>
 
-      <StandardPageHeader
+      <ScrollView
+        style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={[innerPageLayoutStyles.scrollContent, { paddingBottom: tabBarScrollPadding }]}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
+      >
+        <StandardPageHeader
+        scrollWithContent
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
         title="Financial Reports"
         subtitle="Visualize collection trends and financial health"
         onBackPress={() => safeGoBack(navigation as any, isAccountant ? 'AccountantDashboard' : 'PrincipalDashboard')}
@@ -176,16 +186,6 @@ const Reports = () => {
           </TouchableOpacity>
         )}
       />
-
-      <ScrollView
-        style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={[innerPageLayoutStyles.scrollContent, { paddingBottom: tabBarScrollPadding }]}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
-        }
-      >
         <View style={styles.pageBody}>
         <View style={styles.subHeader}>
           <View style={styles.subHeaderRow}>
@@ -203,7 +203,7 @@ const Reports = () => {
 
           {loading && collections.length === 0 ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={C.primary} />
+              <ScreenSkeleton variant="list" />
               <AppText style={styles.loadingText}>Loading collections...</AppText>
             </View>
           ) : collections.length > 0 ? (
@@ -355,18 +355,18 @@ const styles = StyleSheet.create({
   },
   subHeader: {
     backgroundColor: C.card,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
     marginBottom: Theme.spacing.sm,
     marginTop: 14,
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
   },
   subHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Theme.spacing.sm,
   },
   subHeaderText: {
     ...Theme.typography.body,
@@ -376,18 +376,18 @@ const styles = StyleSheet.create({
     backgroundColor: C.card,
     marginBottom: Theme.spacing.sm,
     padding: Theme.spacing.md,
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.border,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Theme.spacing.sm,
     marginBottom: Theme.spacing.md,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: Theme.typography.h3.fontSize,
     color: C.text,
   },
   loadingContainer: {
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: Theme.spacing.md,
     color: C.textMuted,
   },
   emptyContainer: {
@@ -403,27 +403,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    marginTop: 12,
+    marginTop: Theme.spacing.md,
     color: C.textMuted,
     ...Theme.typography.body,
   },
   chartContainer: {
-    gap: 12,
+    gap: Theme.spacing.md,
   },
   barChart: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Theme.spacing.md,
   },
   label: {
     minWidth: 80,
     color: C.text,
-    fontSize: 13,
+    fontSize: Theme.typography.caption.fontSize,
   },
   barWrapper: {
     flex: 1,
     backgroundColor: C.bgAlt,
-    borderRadius: 8,
+    borderRadius: Theme.radius.sm,
     overflow: 'hidden',
     height: 34,
   },
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     paddingRight: Theme.spacing.sm,
-    borderRadius: 8,
+    borderRadius: Theme.radius.sm,
   },
   barValue: {
     color: Theme.colors.card,
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
@@ -463,18 +463,18 @@ const styles = StyleSheet.create({
   },
   totalValue: {
     color: C.success,
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
   },
   statsContainer: {
     flexDirection: 'row',
     margin: Theme.spacing.md,
     marginTop: 0,
-    gap: 12,
+    gap: Theme.spacing.md,
   },
   statCard: {
     flex: 1,
     padding: Theme.spacing.md,
-    borderRadius: 16,
+    borderRadius: Theme.radius.lg,
     alignItems: 'center',
     borderWidth: 1,
   },
@@ -493,17 +493,17 @@ const styles = StyleSheet.create({
   statIconContainer: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: Theme.radius.lg,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Theme.spacing.xs,
   },
   statNumber: {
-    fontSize: 18,
+    fontSize: Theme.typography.h3.fontSize,
     marginTop: Theme.spacing.xs,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: Theme.typography.label.fontSize,
     color: C.text3,
     marginTop: 2,
     textTransform: 'uppercase',
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
     margin: Theme.spacing.md,
     marginTop: 0,
     padding: Theme.spacing.md,
-    borderRadius: 16,
+    borderRadius: Theme.radius.lg,
     borderWidth: 1,
     borderColor: C.border,
     ...Platform.select({
@@ -528,19 +528,19 @@ const styles = StyleSheet.create({
     }),
   },
   trendTitle: {
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
     color: C.text,
     marginBottom: Theme.spacing.md,
   },
   trendGrid: {
     flexDirection: 'row',
-    gap: 16,
+    gap: Theme.spacing.md,
   },
   trendItem: {
     flex: 1,
     backgroundColor: C.bg,
-    padding: 12,
-    borderRadius: 8,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.radius.sm,
   },
   trendLabel: {
     ...Theme.typography.caption,

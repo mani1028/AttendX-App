@@ -129,14 +129,14 @@ const styles = StyleSheet.create({
 
 const sizeStyles = StyleSheet.create({
   sm: { minHeight: 36, paddingHorizontal: 14 },
-  md: { minHeight: 48, paddingHorizontal: 20 },
+  md: { minHeight: 48, paddingHorizontal: Theme.spacing.xl },
   lg: { minHeight: 56, paddingHorizontal: 28 },
 });
 
 const sizeTextStyles = StyleSheet.create({
-  sm: { fontSize: 13 },
+  sm: { fontSize: Theme.typography.caption.fontSize },
   md: { ...Theme.typography.bodyMd },
-  lg: { fontSize: 16 },
+  lg: { fontSize: Theme.typography.h4.fontSize },
 });
 
 const typeStyles = StyleSheet.create({

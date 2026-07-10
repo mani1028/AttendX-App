@@ -1,16 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  RefreshControl,
-  TextInput,
-  Modal,
-  Platform,
-} from 'react-native';
+import { View, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, TextInput, Modal, Platform } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation } from '@react-navigation/native';
 import {
   Bell,
@@ -32,6 +22,7 @@ import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { formatErrorMessage } from '../../utils/helpers';
 import { safeGoBack } from '../../utils/navigationHelpers';
+import { notificationManagerStyles as styles } from '../../components/admin/notificationManager/notificationManagerStyles';
 
 interface Notification {
   id: string;
@@ -49,10 +40,10 @@ const TARGET_OPTIONS = ['all', 'principal', 'teacher', 'student', 'staff'];
 const STATUS_OPTIONS = ['all', 'sent', 'pending', 'failed'];
 
 const priorityColor: Record<string, string> = {
-  low: '#6b7280',
-  normal: '#2563eb',
-  high: '#f59e0b',
-  urgent: '#ef4444',
+  low: Theme.colors.textMuted,
+  normal: Theme.colors.blue,
+  high: Theme.colors.warning,
+  urgent: Theme.colors.error,
 };
 
 const NotificationManagerScreen = () => {
@@ -171,9 +162,9 @@ const NotificationManagerScreen = () => {
   const renderNotificationCard = (item: Notification) => (
     <View key={item.id} style={styles.card}>
       <View style={styles.cardHeader}>
-        <View style={[styles.priorityBadge, { backgroundColor: (priorityColor[item.priority] || '#6b7280') + '20' }]}>
-          <View style={[styles.priorityDot, { backgroundColor: priorityColor[item.priority] || '#6b7280' }]} />
-          <AppText style={[styles.priorityText, { color: priorityColor[item.priority] || '#6b7280' }]}>
+        <View style={[styles.priorityBadge, { backgroundColor: (priorityColor[item.priority] || Theme.colors.textMuted) + '20' }]}>
+          <View style={[styles.priorityDot, { backgroundColor: priorityColor[item.priority] || Theme.colors.textMuted }]} />
+          <AppText style={[styles.priorityText, { color: priorityColor[item.priority] || Theme.colors.textMuted }]}>
             {item.priority.toUpperCase()}
           </AppText>
         </View>
@@ -181,7 +172,7 @@ const NotificationManagerScreen = () => {
           style={styles.deleteBtn}
           onPress={() => handleDeleteNotification(item.id)}
         >
-          <Trash2 size={16} color={Theme.colors.error || '#ef4444'} />
+          <Trash2 size={16} color={Theme.colors.error || Theme.colors.error} />
         </TouchableOpacity>
       </View>
 
@@ -220,7 +211,7 @@ const NotificationManagerScreen = () => {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.composeBtn} onPress={() => setShowComposeModal(true)}>
-            <Plus size={18} color="#fff" />
+            <Plus size={18} color={Theme.colors.card} />
             <AppText style={styles.composeBtnText}>New Notification</AppText>
           </TouchableOpacity>
         </View>
@@ -243,7 +234,7 @@ const NotificationManagerScreen = () => {
         )}
 
         {loading ? (
-          <ActivityIndicator size="large" color={Theme.colors.primary} style={styles.loader} />
+          <ScreenSkeleton variant="list" />
         ) : notifications.length === 0 ? (
           <View style={styles.emptyState}>
             <Bell size={48} color={Theme.colors.border} />
@@ -317,7 +308,7 @@ const NotificationManagerScreen = () => {
                   >
                     <AppText style={[
                       styles.optionText,
-                      composePriority === opt && { color: '#fff' },
+                      composePriority === opt && { color: Theme.colors.card },
                     ]}>
                       {opt.charAt(0).toUpperCase() + opt.slice(1)}
                     </AppText>
@@ -339,10 +330,10 @@ const NotificationManagerScreen = () => {
                 disabled={sending}
               >
                 {sending ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={Theme.colors.card} />
                 ) : (
                   <>
-                    <Send size={16} color="#fff" />
+                    <Send size={16} color={Theme.colors.card} />
                     <AppText style={styles.sendBtnText}>Send</AppText>
                   </>
                 )}
@@ -415,294 +406,5 @@ const NotificationManagerScreen = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  contentArea: {
-    flex: 1,
-        borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: Theme.colors.background,
-    paddingTop: 20,
-  },
-  actionBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  filterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: Theme.colors.primary + '10',
-    borderWidth: 1,
-    borderColor: Theme.colors.primary + '30',
-  },
-  filterBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Theme.colors.primary,
-  },
-  composeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: Theme.colors.primary,
-  },
-  composeBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  activeFilters: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 20,
-    marginBottom: 8,
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    backgroundColor: Theme.colors.primary + '15',
-  },
-  filterChipText: {
-    fontSize: 12,
-    color: Theme.colors.primary,
-    fontWeight: '500',
-  },
-  loader: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  list: {
-    flex: 1,
-  },
-  listContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Theme.colors.textSec,
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: Theme.colors.textMuted,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  card: {
-    backgroundColor: Theme.colors.card,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  priorityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-  },
-  priorityDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  priorityText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  deleteBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#fef2f2',
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Theme.colors.text,
-    marginBottom: 6,
-  },
-  cardMessage: {
-    fontSize: 13,
-    color: Theme.colors.textSec,
-    lineHeight: 18,
-    marginBottom: 10,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  tag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    backgroundColor: Theme.colors.background,
-  },
-  tagText: {
-    fontSize: 11,
-    color: Theme.colors.textSec,
-    fontWeight: '500',
-  },
-  dateText: {
-    fontSize: 11,
-    color: Theme.colors.textMuted,
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: Theme.colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '85%',
-  },
-  filterModalContainer: {
-    backgroundColor: Theme.colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '60%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Theme.colors.text,
-  },
-  modalBody: {
-    padding: 20,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Theme.colors.textSec,
-    marginBottom: 8,
-    marginTop: 12,
-  },
-  input: {
-    backgroundColor: Theme.colors.background,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 15,
-    color: Theme.colors.text,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  multiline: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  optionRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  optionChip: {
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: 18,
-    backgroundColor: Theme.colors.background,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  optionChipActive: {
-    backgroundColor: Theme.colors.primary,
-    borderColor: Theme.colors.primary,
-  },
-  optionText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Theme.colors.textSec,
-  },
-  optionTextActive: {
-    color: '#fff',
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 20,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
-  },
-  cancelBtn: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    backgroundColor: Theme.colors.background,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  cancelBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Theme.colors.textSec,
-  },
-  sendBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: Theme.colors.primary,
-  },
-  sendBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-  },
-});
 
 export default NotificationManagerScreen;

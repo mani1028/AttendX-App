@@ -2,20 +2,7 @@ import { Theme, C } from '../../theme/tokens';
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  ActivityIndicator,
-  Dimensions,
-  Platform,
-  DimensionValue,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Dimensions, Platform, DimensionValue, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
@@ -32,6 +19,7 @@ import DashboardHeroHeader from '../../components/dashboard/DashboardHeroHeader'
 import QuickActionGrid, { QuickActionItem } from '../../components/dashboard/QuickActionGrid';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { principalDashboardStyles as styles } from '../../components/principal/principalDashboard/principalDashboardStyles';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -71,7 +59,7 @@ interface StatsData {
 
 const CARD_SHADOW = Platform.select({
   ios: {
-    shadowColor: '#0f172a',
+    shadowColor: Theme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -110,7 +98,7 @@ const AttendanceMetric = ({
 );
 
 const pctColor = (pct: number): string => {
-  if (pct === 0) { return C.muted; }
+  if (pct === 0) { return C.colors.sky; }
   if (pct >= 75) { return C.success; }
   if (pct >= 50) { return C.warning; }
   return C.error;
@@ -196,17 +184,17 @@ const ClassChip = ({ label, percentage, present, total, onPress }: any) => {
 };
 
 const QUICK_ACTIONS = [
-  { label: 'Face Review', route: 'PrincipalFaceReview', icon: Scan },
-  { label: 'Calendar', route: 'PrincipalCalendarManagement', icon: CalendarIcon },
-  { label: 'Promotion', route: 'PrincipalStudentPromotion', icon: GraduationCap },
-  { label: 'Visitors', route: 'VisitorDashboard', icon: Users },
-  { label: 'Export', route: 'PrincipalDataExport', icon: FileDown },
-  { label: 'Exams', route: 'PrincipalExams', icon: ClipboardList },
-  { label: 'Notices', route: 'PrincipalAnnouncements', icon: Megaphone },
-  { label: 'Leaves', route: 'PrincipalTeacherLeaves', icon: CalendarIcon },
-  { label: 'Requests', route: 'PrincipalTeacherRegistrationRequests', icon: UserPlus },
-  { label: 'Student 360', route: 'Student360', icon: Eye },
-  { label: 'Settings', route: 'PrincipalSettings', icon: Settings },
+  { label: 'Face Review', route: 'PrincipalFaceReview', icon: Scan, color: C.colors.violet, bg: C.colors.violetLight },
+  { label: 'Calendar', route: 'PrincipalCalendarManagement', icon: CalendarIcon, color: C.colors.blue, bg: C.colors.blueLight },
+  { label: 'Promotion', route: 'PrincipalStudentPromotion', icon: GraduationCap, color: C.success, bg: C.colors.greenLight },
+  { label: 'Visitors', route: 'VisitorDashboard', icon: Users, color: C.info, bg: C.colors.skyLight },
+  { label: 'Export', route: 'PrincipalDataExport', icon: FileDown, color: C.warning, bg: C.colors.amberLight },
+  { label: 'Exams', route: 'PrincipalExams', icon: ClipboardList, color: C.primary, bg: C.primarySoft },
+  { label: 'Notices', route: 'PrincipalAnnouncements', icon: Megaphone, color: C.colors.red, bg: C.colors.redLight },
+  { label: 'Leaves', route: 'PrincipalTeacherLeaves', icon: CalendarIcon, color: '#06b6d4', bg: 'rgba(6,182,212,0.1)' },
+  { label: 'Requests', route: 'PrincipalTeacherRegistrationRequests', icon: UserPlus, color: C.success, bg: C.colors.greenLight },
+  { label: 'Student 360', route: 'Student360', icon: Eye, color: C.colors.violet, bg: C.colors.violetLight },
+  { label: 'Settings', route: 'PrincipalSettings', icon: Settings, color: C.textSec, bg: C.bgAlt },
 ] as const;
 
 export default function PrincipalDashboardScreen() {
@@ -384,13 +372,12 @@ export default function PrincipalDashboardScreen() {
 
   return (
     <View style={styles.container}>
-
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarScrollPadding }]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.text} />
         }
@@ -423,7 +410,7 @@ export default function PrincipalDashboardScreen() {
           value={(cards.total_teachers ?? 0).toLocaleString()}
           subtext={`${teacherAtt.present ?? 0} present today`}
           icon={Users}
-          iconColor={C.primary}
+          iconColor={C.colors.blue}
           onPress={() => goToAttendanceView('teachers')}
           loading={loading}
         />
@@ -433,7 +420,7 @@ export default function PrincipalDashboardScreen() {
           value={(cards.total_students ?? 0).toLocaleString()}
           subtext={`${studentAtt.present ?? 0} present today`}
           icon={User}
-          iconColor={C.primary}
+          iconColor={C.success}
           onPress={() => goToAttendanceView('students')}
           loading={loading}
         />
@@ -443,7 +430,7 @@ export default function PrincipalDashboardScreen() {
           value={(cards.total_classes ?? 0).toLocaleString()}
           subtext={`${classes.length} sections`}
           icon={Grid}
-          iconColor={C.primary}
+          iconColor={C.colors.violet}
           onPress={() => goToAttendanceView('students')}
           loading={loading}
         />
@@ -528,8 +515,8 @@ export default function PrincipalDashboardScreen() {
                   onPress={() => safeNavigate(navigation, action.route as any)}
                   activeOpacity={0.75}
                 >
-                  <View style={styles.toolIcon}>
-                    <IconComponent size={18} color={C.primary} />
+                  <View style={[styles.toolIcon, { backgroundColor: action.bg }]}>
+                    <IconComponent size={18} color={action.color} />
                   </View>
                   <AppText style={styles.toolLabel} weight="medium" numberOfLines={2}>
                     {action.label}
@@ -588,511 +575,3 @@ export default function PrincipalDashboardScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  headerStandard: {
-    backgroundColor: C.navy,
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    color: Theme.colors.card,
-  },
-  headerIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  refreshIconBtn: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 18,
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  badge: { position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 14 },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: HEADER_CONSTANTS.DASHBOARD_HORIZONTAL,
-  },
-  dashboardSheet: {
-    marginTop: -20,
-    marginHorizontal: -HEADER_CONSTANTS.DASHBOARD_HORIZONTAL,
-    paddingHorizontal: HEADER_CONSTANTS.DASHBOARD_HORIZONTAL,
-    paddingTop: 4,
-    paddingBottom: 4,
-  },
-  sectionCard: {
-    backgroundColor: C.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    ...CARD_SHADOW,
-  },
-  overviewDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: C.border,
-    marginVertical: 14,
-  },
-  sectionHead: {
-    marginBottom: 14,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    color: C.text,
-    letterSpacing: -0.3,
-  },
-  sectionSub: {
-    fontSize: 12,
-    color: C.muted,
-    marginTop: 2,
-    marginBottom: 12,
-  },
-  toolsGrid: {
-    marginTop: 12,
-  },
-  toolItem: {
-    alignItems: 'center',
-    width: '100%',
-    paddingVertical: 6,
-  },
-  toolIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(30, 58, 138, 0.07)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  toolLabel: {
-    fontSize: 11,
-    color: C.textSec,
-    textAlign: 'center',
-    lineHeight: 14,
-  },
-  attendanceRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 4,
-  },
-  metricCard: {
-    flex: 1,
-    backgroundColor: C.bg,
-    borderRadius: 12,
-    padding: 12,
-    gap: 5,
-  },
-  metricSkeleton: {
-    minHeight: 108,
-    backgroundColor: C.border,
-  },
-  metricTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  metricLabel: {
-    fontSize: 12,
-    color: C.muted,
-  },
-  metricPct: {
-    fontSize: 18,
-    letterSpacing: -0.5,
-  },
-  metricBarTrack: {
-    height: 5,
-    backgroundColor: C.border,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  metricBarFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  metricValue: {
-    fontSize: 20,
-    color: C.text,
-    letterSpacing: -0.3,
-  },
-  metricValueMuted: {
-    fontSize: 14,
-    color: C.muted,
-    fontWeight: '500',
-  },
-  metricSub: {
-    fontSize: 11,
-    color: C.muted,
-  },
-  heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 18,
-  },
-  profileAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-  },
-  profileAvatarText: {
-    color: Theme.colors.card,
-    fontSize: 18,
-  },
-  heroActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  heroCopy: {
-    gap: 4,
-    marginTop: Theme.spacing.xs,
-  },
-  heroGreetingLabel: {
-    ...Theme.typography.caption,
-    color: 'rgba(255,255,255,0.72)',
-    letterSpacing: 0.5,
-  },
-  heroGreetingName: {
-    fontSize: 28,
-    color: Theme.colors.card,
-    letterSpacing: -0.5,
-  },
-  heroSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.85)',
-  },
-  welcomeSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: Theme.spacing.md,
-    paddingTop: 20,
-    paddingBottom: Theme.spacing.sm,
-    marginBottom: 12,
-    marginTop: Theme.spacing.xs,
-  },
-  welcomeTitle: {
-    fontSize: 18,
-    color: C.text,
-  },
-  welcomeSub: {
-    ...Theme.typography.caption,
-    color: C.muted,
-    marginTop: 2,
-  },
-  dateBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: C.card,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  dateText: {
-    ...Theme.typography.caption,
-    color: C.text,
-  },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: C.errorSoft,
-    marginBottom: Theme.spacing.md,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.errorSoft,
-  },
-  errorText: {
-    flex: 1,
-    ...Theme.typography.body,
-    color: C.error,
-  },
-  grid4: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
-  },
-  statCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: C.bg,
-    borderRadius: 12,
-    padding: 10,
-    width: '48.5%',
-  },
-  statCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardLabel: {
-    fontSize: 11,
-    color: C.muted,
-  },
-  cardValue: {
-    fontSize: 20,
-    color: C.text,
-    letterSpacing: -0.4,
-    lineHeight: 24,
-  },
-  cardSub: {
-    fontSize: 10,
-    color: C.textSec,
-    marginTop: 1,
-  },
-  skeletonText: {
-    height: 16,
-    backgroundColor: C.border,
-    borderRadius: 8,
-    marginTop: Theme.spacing.xs,
-  },
-  summaryStrip: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: 14,
-    marginTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: C.border,
-  },
-  barBody: {
-    padding: Theme.spacing.md,
-    gap: 12,
-  },
-  barRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  barLabel: {
-    ...Theme.typography.caption,
-    color: C.text,
-    width: 52,
-  },
-  barTrack: {
-    flex: 1,
-    height: 12,
-    backgroundColor: C.bg,
-    borderRadius: 4,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  barPct: {
-    fontSize: 11,
-    fontWeight: '700',
-    width: 36,
-    textAlign: 'right',
-  },
-  barCount: {
-    fontSize: 11,
-    color: C.muted,
-    width: 52,
-    textAlign: 'right',
-  },
-  sumDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 28,
-    backgroundColor: 'rgba(148, 163, 184, 0.25)',
-    alignSelf: 'center',
-  },
-  sumItem: {
-    alignItems: 'center',
-    minWidth: 72,
-  },
-  sumVal: {
-    fontSize: 17,
-    letterSpacing: -0.3,
-  },
-  sumLabel: {
-    fontSize: 11,
-    color: C.muted,
-    marginTop: 3,
-    fontWeight: '500',
-  },
-  classGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  classChip: {
-    borderRadius: 12,
-    padding: 12,
-    flexBasis: '47%',
-    flexGrow: 1,
-    backgroundColor: C.bg,
-  },
-  chipLabel: {
-    fontSize: 14,
-    color: C.text,
-    fontWeight: '600',
-  },
-  chipPct: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  chipSub: {
-    fontSize: 11,
-    color: C.muted,
-    marginTop: 2,
-  },
-  classChipHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Theme.spacing.sm,
-  },
-  progressTrackCompact: {
-    width: '100%',
-    height: 4,
-    backgroundColor: C.border,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 6,
-  },
-  progressFillCompact: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  progressTrack: {
-    width: 72,
-    height: 8,
-    backgroundColor: C.bg,
-    borderRadius: 6,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: C.border,
-    marginBottom: 6,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 6,
-  },
-  bottomBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    flexWrap: 'wrap',
-    backgroundColor: C.card,
-    borderRadius: 12,
-    padding: 12,
-    marginHorizontal: Theme.spacing.md,
-    marginBottom: Theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  bottomItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  bottomText: {
-    ...Theme.typography.label,
-    color: C.muted,
-  },
-  bottomStrong: {
-    color: C.text,
-  },
-  liveIndicator: {
-    marginLeft: 'auto',
-  },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: C.success,
-  },
-  emptyState: {
-    padding: Theme.spacing.lg,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 13,
-    color: C.muted,
-  },
-  skeletonBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  skeletonBox: {
-    backgroundColor: C.border,
-    borderRadius: 6,
-  },
-  skeletonRingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    padding: Theme.spacing.md,
-  },
-  skeletonClassChip: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 12,
-    width: SCREEN_WIDTH > 400 ? '47%' : '100%',
-  },
-  decCircle1: {
-    position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    top: -50,
-    right: -40,
-  },
-  decCircle2: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    bottom: -20,
-    left: 60,
-  },
-});

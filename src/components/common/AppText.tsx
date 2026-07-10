@@ -35,6 +35,8 @@ export default function AppText({
   return (
     <Text
       {...props}
+      allowFontScaling
+      maxFontSizeMultiplier={1.35}
       style={[
         styles[variant],
         weight ? { fontWeight: weights[weight] as any } : null,

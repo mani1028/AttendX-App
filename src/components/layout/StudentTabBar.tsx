@@ -331,7 +331,7 @@ const StudentTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
               ]}
             >
               <Animated.View style={{ transform: [{ rotate: plusRotation }] }}>
-                <Plus size={24} color="#fff" strokeWidth={2.5} />
+                <Plus size={24} color={Theme.colors.card} strokeWidth={2.5} />
               </Animated.View>
             </Animated.View>
           </View>
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Theme.colors.text,
   },
   arcContainer: {
     position: 'absolute',
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#0f172a',
+        shadowColor: Theme.colors.text,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.14,
         shadowRadius: 12,
@@ -405,13 +405,13 @@ const styles = StyleSheet.create({
   },
   arcLabelWrap: {
     marginTop: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: Theme.radius.md,
     backgroundColor: Theme.colors.card,
     ...Platform.select({
       ios: {
-        shadowColor: '#0f172a',
+        shadowColor: Theme.colors.text,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.08,
         shadowRadius: 4,
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     }),
   },
   arcLabel: {
-    fontSize: 11,
+    fontSize: Theme.typography.label.fontSize,
     fontWeight: '700',
     color: Theme.colors.text,
     textAlign: 'center',
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     minHeight: 64,
     paddingTop: 10,
     paddingHorizontal: 6,
-    paddingBottom: 4,
+    paddingBottom: Theme.spacing.xs,
     backgroundColor: Theme.colors.card,
     borderRadius: 28,
     borderWidth: StyleSheet.hairlineWidth,
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
     ...Platform.select({
       ios: {
-        shadowColor: '#0f172a',
+        shadowColor: Theme.colors.text,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.12,
         shadowRadius: 16,
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: '#0f172a',
+        shadowColor: Theme.colors.text,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.12,
         shadowRadius: 8,
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: Theme.typography.label.fontSize,
     marginTop: 3,
     fontWeight: '500',
     textAlign: 'center',
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   centerButton: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: Theme.radius.xxl,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -515,9 +515,9 @@ const styles = StyleSheet.create({
     borderColor: '#BFDBFE',
   },
   centerLabel: {
-    fontSize: 10,
+    fontSize: Theme.typography.label.fontSize,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
 });
 

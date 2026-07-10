@@ -1,16 +1,7 @@
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import { Theme, C } from '../../theme/tokens';
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Dimensions,
-  Platform,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Dimensions, Platform, RefreshControl, ScrollView, TouchableOpacity, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
@@ -36,6 +27,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
 import { getDashboardSummary } from '../../services/accountantService';
+import { accountantDashboardStyles as styles } from '../../components/accountant/accountantDashboard/accountantDashboardStyles';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_GAP = 12;
@@ -158,19 +150,23 @@ export default function AccountantDashboardScreen() {
     }
 
     const cacheKey = `accountant_dashboard_summary_${schoolCode}`;
+    let hasCachedSummary = false;
 
     try {
       const cached = await AsyncStorage.getItem(cacheKey);
       if (cached) {
         setSummary(JSON.parse(cached));
         setLoadingSummary(false);
+        hasCachedSummary = true;
       }
     } catch (cacheError) {
       console.warn('Failed to load accountant dashboard cache:', cacheError);
     }
 
     try {
-      setLoadingSummary(true);
+      if (!hasCachedSummary) {
+        setLoadingSummary(true);
+      }
       const data = await getDashboardSummary(schoolCode);
       const nextSummary = {
         total_fees_collected: toNumber(data.total_fees_collected),
@@ -211,7 +207,7 @@ export default function AccountantDashboardScreen() {
       label: 'Total Fees Collected',
       value: summary.total_fees_collected,
       icon: CircleDollarSign,
-      iconColor: '#6648dc',
+      iconColor: Theme.colors.violet,
       tint: 'rgba(102, 72, 220, 0.10)',
     },
     {
@@ -238,17 +234,17 @@ export default function AccountantDashboardScreen() {
   ];
 
   const quickActions = [
-    { label: 'Collections', icon: CreditCard, route: 'AccountantPaymentEntry', color: '#6648dc', tint: 'rgba(102, 72, 220, 0.08)' },
+    { label: 'Collections', icon: CreditCard, route: 'AccountantPaymentEntry', color: Theme.colors.violet, tint: 'rgba(102, 72, 220, 0.08)' },
     { label: 'Face Verify', icon: CalendarCheck, route: 'AccountantFaceVerify', color: '#ec4899', tint: 'rgba(236, 72, 153, 0.08)' },
     { label: 'My Attendance', icon: Calendar, route: 'TeacherMyAttendance', color: '#8b5cf6', tint: 'rgba(139, 92, 246, 0.08)' },
-    { label: 'Settings', icon: Wallet, route: 'AccountantSettings', color: '#64748b', tint: 'rgba(100, 116, 139, 0.08)' },
-    { label: 'Payment History', icon: ReceiptText, route: 'AccountantPaymentHistory', color: '#0ea5e9', tint: 'rgba(14, 165, 233, 0.08)' },
+    { label: 'Settings', icon: Wallet, route: 'AccountantSettings', color: Theme.colors.textSec, tint: 'rgba(100, 116, 139, 0.08)' },
+    { label: 'Payment History', icon: ReceiptText, route: 'AccountantPaymentHistory', color: Theme.colors.info, tint: 'rgba(14, 165, 233, 0.08)' },
     { label: 'Reports & Trends', icon: BarChart3, route: 'AccountantReports', color: '#a855f7', tint: 'rgba(168, 85, 247, 0.08)' },
     { label: 'Pending Dues', icon: Clock, route: 'AccountantFeeManagement', color: '#f97316', tint: 'rgba(249, 115, 22, 0.08)' },
-    { label: 'Fees', icon: CircleDollarSign, route: 'AccountantFeeManagement', color: '#22c55e', tint: 'rgba(34, 197, 94, 0.08)' },
-    { label: 'Expense Ledger', icon: TrendingUp, route: 'AccountantExpense', color: '#dc2626', tint: 'rgba(220, 38, 38, 0.08)' },
-    { label: 'Payroll', icon: Users, route: 'AccountantPayroll', color: '#7c3aed', tint: 'rgba(124, 58, 237, 0.08)' },
-    { label: 'Notifications', icon: Bell, route: 'Notifications', color: '#64748b', tint: 'rgba(100, 116, 139, 0.08)' },
+    { label: 'Fees', icon: CircleDollarSign, route: 'AccountantFeeManagement', color: Theme.colors.success, tint: 'rgba(34, 197, 94, 0.08)' },
+    { label: 'Expense Ledger', icon: TrendingUp, route: 'AccountantExpense', color: Theme.colors.error, tint: 'rgba(220, 38, 38, 0.08)' },
+    { label: 'Payroll', icon: Users, route: 'AccountantPayroll', color: Theme.colors.violet, tint: 'rgba(124, 58, 237, 0.08)' },
+    { label: 'Notifications', icon: Bell, route: 'Notifications', color: Theme.colors.textSec, tint: 'rgba(100, 116, 139, 0.08)' },
     { label: 'Salaries', icon: Wallet, route: 'Salaries', color: '#ca8a04', tint: 'rgba(202, 138, 4, 0.08)', isTab: true },
     { label: 'Staff Attendance', icon: CalendarCheck, route: 'AccountantStaffAttendance', color: '#06b6d4', tint: 'rgba(6, 182, 212, 0.08)' },
   ] as const;
@@ -281,10 +277,10 @@ export default function AccountantDashboardScreen() {
               : 'Collections, dues, expenses & balance'
           }
           unreadCount={unreadCount}
-          onAvatarPress={() => navigation.navigate('AccountantProfile')}
+          onAvatarPress={() => navigation.navigate('Profile')}
           onNotificationsPress={() => navigation.navigate('Notifications')}
           onRefreshPress={onRefresh}
-          refreshing={refreshing || loadingSummary}
+          refreshing={refreshing}
           pageTitle="Financial Dashboard"
           pageSubtitle="Collections, dues, expenses & net balance"
           showDateBadge
@@ -367,12 +363,12 @@ export default function AccountantDashboardScreen() {
               </View>
               {loadingSummary ? (
                 <View style={styles.syncChip}>
-                  <ActivityIndicator size="small" color="#6648dc" />
+                  <ActivityIndicator size="small" color={Theme.colors.violet} />
                   <AppText style={styles.syncChipText} weight="semibold">Syncing</AppText>
                 </View>
               ) : (
                 <View style={styles.syncChip}>
-                  <Calendar size={14} color="#6648dc" />
+                  <Calendar size={14} color={Theme.colors.violet} />
                   <AppText style={styles.syncChipText} weight="semibold">
                     {formatDateSafe(new Date())}
                   </AppText>
@@ -421,221 +417,3 @@ export default function AccountantDashboardScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: SCROLL_PAGE_GUTTER,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: CARD_GAP,
-    marginTop: -30,
-    marginBottom: 16,
-    zIndex: 1,
-    position: 'relative',
-    ...Platform.select({ android: { elevation: 4 } }),
-  },
-  statCard: {
-    backgroundColor: C.card,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 14,
-    minHeight: 136,
-    ...Platform.select({
-      ios: {
-        shadowColor: Theme.colors.text,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 18,
-      },
-      android: { elevation: 3 },
-    }),
-  },
-  statIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  statValue: {
-    fontSize: 24,
-    color: Theme.colors.text,
-    marginBottom: Theme.spacing.xs,
-    letterSpacing: -0.6,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: Theme.colors.textSec,
-    lineHeight: 18,
-  },
-  rateRow: {
-    marginTop: 10,
-  },
-  rateTrack: {
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(37, 99, 235, 0.12)',
-    overflow: 'hidden',
-  },
-  rateFill: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: '#6648dc',
-  },
-  rateText: {
-    marginTop: 6,
-    ...Theme.typography.label,
-    color: Theme.colors.textSec,
-  },
-  quickAccessPanel: {
-    backgroundColor: C.card,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: C.border,
-    marginBottom: 16,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: Theme.colors.text,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.06,
-        shadowRadius: 16,
-      },
-      android: { elevation: 2 },
-    }),
-  },
-  panelHead: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    color: Theme.colors.text,
-  },
-  sectionSub: {
-    ...Theme.typography.caption,
-    color: Theme.colors.textMuted,
-    marginTop: 2,
-  },
-  quickGrid: {
-    paddingHorizontal: 12,
-    paddingBottom: 14,
-  },
-  quickCard: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  quickIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Theme.spacing.sm,
-  },
-  quickLabel: {
-    ...Theme.typography.label,
-    lineHeight: 14,
-    color: '#334155',
-    textAlign: 'center',
-  },
-  summaryPanel: {
-    backgroundColor: C.card,
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    paddingBottom: 6,
-    borderWidth: 1,
-    borderColor: C.border,
-    marginBottom: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: Theme.colors.text,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.07,
-        shadowRadius: 18,
-      },
-      android: { elevation: 3 },
-    }),
-  },
-  summaryPanelHead: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingTop: 18,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    marginBottom: 4,
-  },
-  summaryPanelTitleWrap: {
-    flex: 1,
-  },
-  summaryPanelTitle: {
-    fontSize: 17,
-    color: Theme.colors.text,
-  },
-  summaryPanelSub: {
-    ...Theme.typography.caption,
-    color: Theme.colors.textMuted,
-    marginTop: 2,
-  },
-  syncChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(102, 72, 220, 0.10)',
-  },
-  syncChipText: {
-    ...Theme.typography.label,
-    color: '#6648dc',
-  },
-  snapshotItem: {
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  snapshotCopy: {
-    flex: 1,
-  },
-  snapshotLabel: {
-    ...Theme.typography.body,
-    color: Theme.colors.text,
-    marginBottom: 3,
-  },
-  snapshotHint: {
-    ...Theme.typography.label,
-    color: Theme.colors.textSec,
-  },
-  snapshotValue: {
-    fontSize: 16,
-    color: Theme.colors.text,
-    marginLeft: 12,
-  },
-  positiveValue: {
-    color: '#16a34a',
-  },
-  negativeValue: {
-    color: Theme.colors.error,
-  },
-});

@@ -9,6 +9,7 @@ import {
   Dimensions,
   Modal,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -209,7 +210,7 @@ export default function AttendanceGalleryScreen() {
         )}
 
         {loading ? (
-          <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 32 }} />
+          <ScreenSkeleton variant="list" />
         ) : error ? (
           <AppText style={styles.error}>{error}</AppText>
         ) : (
@@ -271,14 +272,14 @@ export default function AttendanceGalleryScreen() {
                   disabled={previewIndex <= 0}
                   onPress={() => setPreviewIndex(i => Math.max(0, i - 1))}
                 >
-                  <ChevronLeft size={32} color="#fff" />
+                  <ChevronLeft size={32} color={Theme.colors.card} />
                 </TouchableOpacity>
                 <AppText style={styles.previewLabel}>{images[previewIndex].session_label}</AppText>
                 <TouchableOpacity
                   disabled={previewIndex >= images.length - 1}
                   onPress={() => setPreviewIndex(i => Math.min(images.length - 1, i + 1))}
                 >
-                  <ChevronRight size={32} color="#fff" />
+                  <ChevronRight size={32} color={Theme.colors.card} />
                 </TouchableOpacity>
               </View>
             </>
@@ -294,21 +295,21 @@ const thumbSize = (SCREEN_W - 48) / 2;
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
   content: { paddingBottom: 100 },
-  tabs: { marginBottom: 12 },
-  dateBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, backgroundColor: Theme.colors.card, borderRadius: 10, marginBottom: 12, borderWidth: 1, borderColor: Theme.colors.border },
+  tabs: { marginBottom: Theme.spacing.md },
+  dateBtn: { flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.sm, padding: Theme.spacing.md, backgroundColor: Theme.colors.card, borderRadius: Theme.radius.md, marginBottom: Theme.spacing.md, borderWidth: 1, borderColor: Theme.colors.border },
   dateText: { color: Theme.colors.text, fontWeight: '600' },
-  filters: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  filterChip: { flex: 1, padding: 10, backgroundColor: Theme.colors.card, borderRadius: 8, borderWidth: 1, borderColor: Theme.colors.border },
-  filterText: { textAlign: 'center', color: Theme.colors.text, fontSize: 13 },
-  error: { color: Theme.colors.error, textAlign: 'center', marginTop: 24 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  thumbWrap: { width: thumbSize, marginBottom: 4 },
-  thumb: { width: thumbSize, height: thumbSize, borderRadius: 12, backgroundColor: Theme.colors.backgroundAlt },
-  thumbLabel: { fontSize: 11, color: Theme.colors.textMuted, marginTop: 4, textAlign: 'center' },
+  filters: { flexDirection: 'row', gap: Theme.spacing.sm, marginBottom: Theme.spacing.md },
+  filterChip: { flex: 1, padding: 10, backgroundColor: Theme.colors.card, borderRadius: Theme.radius.sm, borderWidth: 1, borderColor: Theme.colors.border },
+  filterText: { textAlign: 'center', color: Theme.colors.text, fontSize: Theme.typography.caption.fontSize },
+  error: { color: Theme.colors.error, textAlign: 'center', marginTop: Theme.spacing.lg },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Theme.spacing.md },
+  thumbWrap: { width: thumbSize, marginBottom: Theme.spacing.xs },
+  thumb: { width: thumbSize, height: thumbSize, borderRadius: Theme.radius.md, backgroundColor: Theme.colors.backgroundAlt },
+  thumbLabel: { fontSize: Theme.typography.label.fontSize, color: Theme.colors.textMuted, marginTop: Theme.spacing.xs, textAlign: 'center' },
   previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
   previewClose: { position: 'absolute', top: 56, right: 20, zIndex: 2 },
-  previewCloseText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  previewCloseText: { color: Theme.colors.card, fontWeight: '700', fontSize: Theme.typography.h4.fontSize },
   previewImage: { width: SCREEN_W - 24, height: SCREEN_W - 24 },
-  previewNav: { flexDirection: 'row', alignItems: 'center', gap: 24, marginTop: 20 },
-  previewLabel: { color: '#fff', fontWeight: '600', minWidth: 100, textAlign: 'center' },
+  previewNav: { flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.lg, marginTop: Theme.spacing.xl },
+  previewLabel: { color: Theme.colors.card, fontWeight: '600', minWidth: 100, textAlign: 'center' },
 });

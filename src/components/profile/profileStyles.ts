@@ -1,0 +1,290 @@
+import { StyleSheet } from 'react-native';
+import {Theme, colors} from '../../theme/tokens';
+
+export const profileStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Theme.colors.background,
+  },
+  logoutBtnHeader: {
+    backgroundColor: 'rgba(239, 68, 68, 0.25)',
+  },
+  profileCard: {
+    marginBottom: Theme.spacing.md,
+  },
+  profileSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileTextInfo: {
+    marginLeft: Theme.spacing.xl,
+  },
+  profileAvatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: Theme.colors.blue,
+    backgroundColor: Theme.colors.border,
+  },
+  userName: {
+    fontSize: Theme.typography.h2.fontSize,
+    fontWeight: '800',
+    color: Theme.colors.text,
+  },
+  userRole: {
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+    fontWeight: '600',
+    marginTop: Theme.spacing.xs,
+  },
+  content: {
+    flex: 1,
+  },
+  section: {
+    marginTop: 25,
+  },
+  sectionTitle: {
+    ...Theme.typography.caption,
+    fontWeight: '700',
+    color: Theme.colors.textSec,
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  infoCard: {
+    padding: 0,
+    overflow: 'hidden',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+  },
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: Theme.radius.md,
+    backgroundColor: Theme.colors.blueLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoContent: {
+    flex: 1,
+    marginLeft: 15,
+  },
+  infoLabel: {
+    fontSize: Theme.typography.label.fontSize,
+    color: Theme.colors.textMuted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  infoValue: {
+    ...Theme.typography.bodyMd,
+    fontWeight: '600',
+    color: Theme.colors.text,
+    marginTop: 2,
+  },
+  editIcon: {
+    padding: 6,
+    borderRadius: Theme.radius.sm,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Theme.colors.background,
+    marginHorizontal: 15,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+  },
+  menuIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: Theme.radius.md,
+    backgroundColor: Theme.colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuText: {
+    flex: 1,
+    marginLeft: 15,
+    ...Theme.typography.bodyMd,
+    fontWeight: '600',
+    color: Theme.colors.text,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Theme.colors.background,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: Theme.spacing.xl,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.xl,
+  },
+  modalTitle: {
+    fontSize: Theme.typography.h3.fontSize,
+    fontWeight: '800',
+  },
+  modalBody: {
+    marginBottom: Theme.spacing.xl,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.background,
+  },
+  settingLabel: {
+    ...Theme.typography.bodyMd,
+    fontWeight: '600',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+  },
+  passwordStepLabel: {
+    fontSize: Theme.typography.h4.fontSize,
+    fontWeight: '700',
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.sm,
+  },
+  passwordStepDesc: {
+    fontSize: Theme.typography.caption.fontSize,
+    color: Theme.colors.textSec,
+    marginBottom: Theme.spacing.xl,
+    lineHeight: 18,
+  },
+  passwordInputGroup: {
+    marginBottom: Theme.spacing.md,
+  },
+  passwordInputLabel: {
+    fontSize: Theme.typography.caption.fontSize,
+    fontWeight: '600',
+    color: Theme.colors.text,
+    marginBottom: Theme.spacing.sm,
+    textTransform: 'uppercase',
+  },
+  passwordInput: {
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.radius.sm,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: 10,
+    ...Theme.typography.body,
+    color: Theme.colors.text,
+    backgroundColor: Theme.colors.background,
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.radius.sm,
+    backgroundColor: Theme.colors.background,
+    paddingRight: Theme.spacing.sm,
+  },
+  passwordInputField: {
+    flex: 1,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: 10,
+    ...Theme.typography.body,
+    color: Theme.colors.text,
+  },
+  passwordToggleIcon: {
+    padding: 6,
+  },
+  passwordRequirements: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: Theme.radius.sm,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: Theme.colors.success,
+  },
+  passwordReqTitle: {
+    ...Theme.typography.caption,
+    fontWeight: '700',
+    color: '#047857',
+    marginBottom: Theme.spacing.sm,
+    textTransform: 'uppercase',
+  },
+  passwordReq: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  passwordReqDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Theme.colors.textSec,
+    marginRight: 10,
+  },
+  passwordReqText: {
+    ...Theme.typography.caption,
+    color: Theme.colors.textSec,
+  },
+  passwordReqTextMet: {
+    color: Theme.colors.success,
+    fontWeight: '600',
+  },
+  passwordModalButton: {
+    marginTop: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
+  },
+  errorAlert: {
+    backgroundColor: Theme.colors.redLight,
+    borderRadius: Theme.radius.sm,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: Theme.colors.error,
+  },
+  errorAlertText: {
+    ...Theme.typography.caption,
+    color: '#991b1b',
+    fontWeight: '600',
+  },
+  successAlert: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: Theme.radius.sm,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: Theme.colors.success,
+  },
+  successAlertText: {
+    ...Theme.typography.caption,
+    color: '#047857',
+    fontWeight: '600',
+  },
+  cancelBtn: {
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.md,
+    borderRadius: Theme.radius.sm,
+    backgroundColor: Theme.colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    ...Theme.typography.body,
+    color: Theme.colors.textSec,
+    fontWeight: '600',
+  },
+});

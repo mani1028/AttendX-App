@@ -1,15 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  Image,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Image, ActivityIndicator } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
@@ -40,6 +31,7 @@ import { Theme } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 import { launchCameraWithPermission as launchCamera } from '../../utils/cameraUtils';
+import { principalFaceReviewStyles as styles } from '../../components/principal/principalFaceReview/principalFaceReviewStyles';
 
 
 
@@ -142,7 +134,7 @@ function PhotoUploadModal({ target, onClose, onSuccess }: PhotoModalProps) {
       <View style={styles.overlay}>
         <View style={styles.modalBox}>
           <View style={styles.modalHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.sm }}>
               <UploadCloud size={18} color={Theme.colors.primary} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalTitle}>Upload Photo</Text>
@@ -367,7 +359,7 @@ export default function PrincipalFaceReviewScreen() {
           ) : (
             <View style={styles.btnCol}>
               <TouchableOpacity accessibilityRole="button"
-                style={[styles.actionBtn, { backgroundColor: !item.has_photo ? Theme.colors.error : '#f59e0b' }]}
+                style={[styles.actionBtn, { backgroundColor: !item.has_photo ? Theme.colors.error : Theme.colors.warning }]}
                 onPress={() => setModal({ id, name: item.name, type: isStaff ? 'Staff' : 'Student' })}>
                 <UploadCloud size={11} color={Theme.colors.card} />
                 <Text style={styles.actionBtnText}>{!item.has_photo ? 'Upload Photo' : 'Update Photo'}</Text>
@@ -391,7 +383,14 @@ export default function PrincipalFaceReviewScreen() {
     <View style={styles.container}>
 
 
-      <StandardPageHeader
+      <ScrollView
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <StandardPageHeader
+        scrollWithContent
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
         title="Face Photo Review"
         subtitle="Principal Control"
         onBackPress={() => navigation.goBack()}
@@ -407,11 +406,6 @@ export default function PrincipalFaceReviewScreen() {
         )}
       />
 
-      <ScrollView
-        style={innerPageLayoutStyles.scrollViewFront}
-        contentContainerStyle={innerPageLayoutStyles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
         <View style={innerPageLayoutStyles.contentFront}>
 
         {/* Summary stats */}
@@ -529,7 +523,7 @@ export default function PrincipalFaceReviewScreen() {
         {/* Grid */}
         {loading ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color={Theme.colors.primary} />
+            <ScreenSkeleton variant="list" />
             <Text style={styles.loadingText}>Loading…</Text>
           </View>
         ) : items.length === 0 ? (
@@ -573,165 +567,3 @@ export default function PrincipalFaceReviewScreen() {
 }
 
 /* ─── Styles ─── */
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Theme.colors.background },
-
-  statsScroll: { marginBottom: Theme.spacing.md, marginHorizontal: Theme.spacing.md },
-  statCard: {
-    backgroundColor: Theme.colors.card,
-    borderRadius: 12,
-    padding: 12,
-    marginRight: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Theme.colors.border,
-    minWidth: 130,
-  },
-  statVal: { fontSize: 22, fontWeight: '800' },
-  statLabel: { ...Theme.typography.label, color: Theme.colors.textMuted, marginTop: 3, fontWeight: '500' },
-
-  tabs: {
-    marginHorizontal: Theme.spacing.md,
-    marginBottom: 14,
-  },
-  tabCount: { ...Theme.typography.caption, fontWeight: '400' },
-
-  searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.card,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    paddingHorizontal: 12,
-    height: 42,
-    marginBottom: 10,
-  },
-  searchInput: { flex: 1, ...Theme.typography.body, color: Theme.colors.text },
-
-  chip: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    backgroundColor: Theme.colors.card,
-    marginRight: Theme.spacing.sm,
-  },
-  chipActive: { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary },
-  chipText: { ...Theme.typography.caption, color: Theme.colors.textMuted, fontWeight: '600' },
-  chipTextActive: { color: Theme.colors.card },
-
-  resultInfo: { ...Theme.typography.caption, color: Theme.colors.textMuted, marginBottom: 10 },
-
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: Theme.colors.errorBg,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
-  },
-  errorBoxText: { flex: 1, color: Theme.colors.error, fontSize: 13 },
-
-  centered: { alignItems: 'center', paddingVertical: Theme.spacing.xxl, gap: 12 },
-  loadingText: { color: Theme.colors.textMuted, ...Theme.typography.body, marginTop: Theme.spacing.sm },
-  emptyTitle: { ...Theme.typography.bodyMd, fontWeight: '700', color: Theme.colors.text, textAlign: 'center' },
-  emptyText: { fontSize: 13, color: Theme.colors.textMuted, textAlign: 'center' },
-
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-
-  card: {
-    width: '47%',
-    backgroundColor: Theme.colors.card,
-    borderRadius: 14,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  photoArea: {
-    height: 130,
-    backgroundColor: Theme.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  photo: { width: '100%', height: '100%', resizeMode: 'cover' },
-  noPhotoWrap: { alignItems: 'center', gap: 4 },
-  noPhotoText: { ...Theme.typography.label, color: Theme.colors.textMuted },
-  badge: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    borderRadius: 20,
-    paddingVertical: 3,
-    paddingHorizontal: 7,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  badgeText: { fontSize: 10, fontWeight: '700' },
-  cardBody: { padding: 10 },
-  cardName: { fontSize: 13, fontWeight: '700', color: Theme.colors.text },
-  cardSub: { ...Theme.typography.label, color: Theme.colors.textMuted, marginBottom: Theme.spacing.sm },
-  resolvedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
-  resolvedText: { ...Theme.typography.caption, fontWeight: '700' },
-  btnCol: { gap: 5 },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    paddingVertical: 6,
-    borderRadius: 7,
-  },
-  actionBtnText: { color: Theme.colors.card, ...Theme.typography.label, fontWeight: '700' },
-
-  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 20 },
-  pageBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    backgroundColor: Theme.colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pageBtnDisabled: { opacity: 0.4 },
-  pageInfo: { fontSize: 13, fontWeight: '600', color: Theme.colors.text },
-
-  // Modal
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: Theme.spacing.md },
-  modalBox: {
-    backgroundColor: Theme.colors.background, borderRadius: 18, width: '100%', maxWidth: 440,
-    overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.25, shadowRadius: 30, elevation: 20,
-  },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Theme.spacing.md, borderBottomWidth: 1, borderBottomColor: Theme.colors.border },
-  modalTitle: { ...Theme.typography.body, fontWeight: '700', color: Theme.colors.text },
-  modalSubtitle: { ...Theme.typography.caption, color: Theme.colors.textMuted, marginTop: 2 },
-  closeX: { fontSize: 20, color: Theme.colors.textMuted, paddingHorizontal: Theme.spacing.xs },
-  modalBody: { padding: Theme.spacing.md },
-  errorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Theme.colors.errorBg, borderRadius: 8, padding: 10, marginBottom: 12 },
-  errorText: { flex: 1, color: Theme.colors.error, fontSize: 13 },
-  previewWrap: { alignItems: 'center', gap: 6, marginBottom: 14 },
-  previewImg: { width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: Theme.colors.success },
-  previewName: { fontSize: 13, fontWeight: '600', color: Theme.colors.text, maxWidth: 220 },
-  previewHint: { ...Theme.typography.label, color: Theme.colors.textMuted },
-  emptyPreview: { height: 130, backgroundColor: Theme.colors.background, borderRadius: 12, borderWidth: 2, borderColor: Theme.colors.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 14 },
-  emptyPreviewText: { ...Theme.typography.body, color: Theme.colors.textMuted },
-  emptyPreviewHint: { ...Theme.typography.label, color: Theme.colors.textMuted },
-  pickRow: { flexDirection: 'row', gap: 10 },
-  pickBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Theme.colors.primary, borderRadius: 8, paddingVertical: 10 },
-  pickBtnText: { color: Theme.colors.card, fontSize: 13, fontWeight: '700' },
-  modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, padding: 14, borderTopWidth: 1, borderTopColor: Theme.colors.border },
-  outlineBtn: { paddingVertical: Theme.spacing.sm, paddingHorizontal: Theme.spacing.md, borderRadius: 8, borderWidth: 1, borderColor: Theme.colors.border },
-  outlineBtnText: { fontSize: 13, fontWeight: '600', color: Theme.colors.text },
-  primaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Theme.colors.primary, borderRadius: 8, paddingVertical: Theme.spacing.sm, paddingHorizontal: Theme.spacing.md },
-  primaryBtnText: { color: Theme.colors.card, fontSize: 13, fontWeight: '700' },
-});

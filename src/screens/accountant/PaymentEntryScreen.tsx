@@ -34,13 +34,15 @@ export default function PaymentEntryScreen() {
     <View style={styles.container}>
 
 
-      <StandardPageHeader title="Payment Entry" onBackPress={() => navigation.goBack()} />
-
       <ScrollView
         style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.content}
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
+        <StandardPageHeader
+        scrollWithContent
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed} title="Payment Entry" onBackPress={() => navigation.goBack()} />
+
         <AppText style={styles.title}>New Payment</AppText>
         <AppText style={styles.subtitle}>Record new payments and fee collections.</AppText>
 
@@ -58,20 +60,20 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
   },
   content: {
-    padding: 20,
+    padding: Theme.spacing.xl,
     paddingBottom: 100,
         backgroundColor: Theme.colors.background,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
   },
   title: {
-    fontSize: 24,
+    fontSize: Theme.typography.h2.fontSize,
     fontWeight: '800',
     color: colors.textPrimary,
     marginBottom: Theme.spacing.sm,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
     color: colors.textMuted,
     marginBottom: Theme.spacing.lg,
   },
@@ -80,7 +82,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: Theme.radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
     borderStyle: 'dashed',

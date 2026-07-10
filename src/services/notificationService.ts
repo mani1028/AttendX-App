@@ -1,6 +1,7 @@
 import notifee, { AndroidImportance, AndroidBadgeIconType, AuthorizationStatus, AndroidVisibility } from '@notifee/react-native';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Theme } from '../theme/tokens';
 import {
   getMessaging,
   getToken,
@@ -122,7 +123,7 @@ class NotificationService {
         vibration: true,
         sound: 'default',
         lights: true,
-        lightColor: '#007AFF',
+        lightColor: Theme.colors.info,
       });
 
       // Channel for urgent notifications (appears on lock screen)
@@ -146,7 +147,7 @@ class NotificationService {
         vibration: true,
         sound: 'default',
         lights: true,
-        lightColor: '#007AFF',
+        lightColor: Theme.colors.info,
       });
 
       // Channel for lock screen notifications
@@ -158,7 +159,7 @@ class NotificationService {
         vibration: true,
         sound: 'default',
         lights: true,
-        lightColor: '#007AFF',
+        lightColor: Theme.colors.info,
       });
 
       console.log('Notification channels created');

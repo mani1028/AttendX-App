@@ -52,6 +52,7 @@ export async function sharePdfBuffer(
       type: 'application/pdf',
       title,
       failOnCancel: false,
+      showAppsToView: true,
     });
   } catch (err: any) {
     const message = String(err?.message || '').toLowerCase();

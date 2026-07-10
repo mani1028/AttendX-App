@@ -34,9 +34,9 @@ export default function PrincipalStack() {
       <Stack.Screen name="Reports" component={ReportsScreen} options={{ title: 'Reports' }} />
       <Stack.Screen name="Exams" component={ExamsScreen} options={{ title: 'Exams' }} />
       <Stack.Screen name="Expense" component={ExpenseScreen} options={{ title: 'Expenses' }} />
-      <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+      <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings', headerShown: false }} />
       <Stack.Screen name="Announcements" component={AnnouncementsScreen} options={{ title: 'Announcements' }} />
-      <Stack.Screen name="DataExport" component={DataExportScreen} options={{ title: 'Export Center' }} />
+      <Stack.Screen name="DataExport" component={DataExportScreen} options={{ title: 'Export Center', headerShown: false }} />
       <Stack.Screen name="PrincipalFaceReview" component={PrincipalFaceReviewScreen} options={{ title: 'Face Review' }} />
       <Stack.Screen name="Student360" component={Student360Screen} options={{ title: 'Student 360' }} />
     </Stack.Navigator>

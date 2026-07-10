@@ -2,7 +2,6 @@ import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
   TextInput,
@@ -14,8 +13,8 @@ import {
   NativeScrollEvent,
   useWindowDimensions,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation } from '@react-navigation/native';
-import LinearGradient from 'react-native-linear-gradient';
 import {
   RefreshCw,
   Plus,
@@ -42,60 +41,16 @@ import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { Theme, C } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
+import { examsStyles as styles } from '../../components/principal/exams/examsStyles';
+import type { StudentMarks } from '../../components/principal/exams';
 
 
 
 
 
-// Types
-interface Exam {
-  exam_id: number;
-  exam_name: string;
-  academic_year: string;
-  class_grade?: string;
-  section?: string;
-  subject_name?: string;
-  subject_count: number;
-  total_max_marks?: number;
-  creation_date: string;
-}
 
-interface SubjectMark {
-  subject_name: string;
-  max_marks: number;
-  marks_obtained: number;
-  percentage: number;
-  grade: string;
-}
+import { getCurrentAcademicYearStart, formatAcademicYear, type Exam, type MarksReport } from '../../components/principal/exams';
 
-interface StudentMarks {
-  student_id: number;
-  student_name: string;
-  roll_number: string;
-  class_grade: string;
-  section: string;
-  subjects: SubjectMark[];
-  total_marks: number;
-  total_max_marks: number;
-  overall_percentage: number;
-  overall_grade: string;
-}
-
-interface MarksReport {
-  exam_name: string;
-  academic_year: string;
-  students: StudentMarks[];
-}
-
-const getCurrentAcademicYearStart = () => {
-  const now = new Date();
-  return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-};
-
-const formatAcademicYear = (startYear: number) => {
-  const endYearShort = String((startYear + 1) % 100).padStart(2, '0');
-  return `${startYear}-${endYearShort}`;
-};
 
 
 export default function ExamsPage() {
@@ -335,7 +290,7 @@ export default function ExamsPage() {
       </View>
       <View style={styles.tableCellSubjects}>
         <ScrollView style={innerPageLayoutStyles.scrollViewFront} horizontal showsHorizontalScrollIndicator={false}>
-          {student.subjects.map((subject, idx) => (
+          {student.subjects.map((subject: any, idx: number) => (
             <View key={idx} style={styles.subjectChip}>
               <AppText style={styles.subjectName} weight="semibold">{subject.subject_name}</AppText>
               <AppText style={styles.subjectMarks}>
@@ -383,7 +338,7 @@ export default function ExamsPage() {
       <View style={styles.studentCardMobileDivider} />
 
       <ScrollView style={innerPageLayoutStyles.scrollViewFront} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.studentCardMobileScroll}>
-        {student.subjects.map((subject, idx) => (
+        {student.subjects.map((subject: any, idx: number) => (
           <View key={idx} style={styles.subjectChipMobile}>
             <AppText style={styles.subjectChipMobileName} weight="semibold">
               {subject.subject_name}
@@ -419,7 +374,7 @@ export default function ExamsPage() {
     >
       {loading && exams.length === 0 ? (
         <View style={styles.noData}>
-          <ActivityIndicator size="large" color={C.primary} />
+          <ScreenSkeleton variant="list" />
           <AppText style={styles.noDataText}>Loading exams...</AppText>
         </View>
       ) : exams.length === 0 ? (
@@ -487,7 +442,7 @@ export default function ExamsPage() {
     if (!marksReport || !marksReport.students) {
       return (
         <View style={styles.noData}>
-          <ActivityIndicator size="large" color={C.primary} />
+          <ScreenSkeleton variant="list" />
           <AppText style={styles.noDataText}>Loading performance data...</AppText>
         </View>
       );
@@ -553,30 +508,38 @@ export default function ExamsPage() {
 
   return (
     <View style={styles.container}>
+      <ScrollView
+        style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+      >
+        <StandardPageHeader
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          title="Exams & Performance"
+          subtitle="Manage examinations and track student results"
+          onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+          rightActions={(
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={heroHeaderStyles.iconBtn}
+              onPress={() => loadExams()}
+            >
+              <RefreshCw size={20} color={Theme.colors.card} />
+            </TouchableOpacity>
+          )}
+        />
 
+        {error ? (
+          <View style={styles.errorContainer}>
+            <AppText style={styles.errorText}>⚠ {error}</AppText>
+          </View>
+        ) : null}
 
-      <StandardPageHeader
-        title="Exams & Performance"
-        subtitle="Manage examinations and track student results"
-        onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
-        rightActions={(
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={heroHeaderStyles.iconBtn}
-            onPress={() => loadExams()}
-          >
-            <RefreshCw size={20} color={Theme.colors.card} />
-          </TouchableOpacity>
-        )}
-      />
-
-      {error ? (
-        <View style={styles.errorContainer}>
-          <AppText style={styles.errorText}>⚠ {error}</AppText>
-        </View>
-      ) : null}
-
-      <View style={[styles.body, innerPageLayoutStyles.contentFront]}>
+        <View style={[styles.body, innerPageLayoutStyles.contentFront]}>
         <View style={[innerPageLayoutStyles.contentFront, styles.tabBarWrap]}>
           <View style={innerPageLayoutStyles.segmentedControl}>
             <TouchableOpacity accessibilityRole="button"
@@ -620,547 +583,7 @@ export default function ExamsPage() {
           {activeTab === 'classwise' && renderClasswiseTab()}
         </View>
       </View>
+      </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  body: {
-    flex: 1,
-  },
-  tabBarWrap: {
-    paddingHorizontal: SCROLL_PAGE_GUTTER,
-    paddingTop: 14,
-    paddingBottom: Theme.spacing.sm,
-  },
-  tabBody: {
-    flex: 1,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  refreshBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: C.card,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: Theme.spacing.sm,
-  },
-  refreshBtnText: {
-    ...Theme.typography.caption,
-    color: C.text,
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: C.primary,
-    borderWidth: 1.5,
-    borderColor: C.primary,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: Theme.spacing.sm,
-  },
-  addBtnText: {
-    ...Theme.typography.caption,
-    color: Theme.colors.card,
-  },
-  errorContainer: {
-    backgroundColor: C.errorSoft,
-    padding: 14,
-    marginHorizontal: 20,
-    marginBottom: Theme.spacing.md,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: C.error,
-  },
-  errorText: {
-    ...Theme.typography.body,
-    color: C.error,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1.5,
-    borderBottomColor: C.border,
-    marginHorizontal: 20,
-    marginBottom: Theme.spacing.md,
-  },
-  tab: {
-    paddingVertical: 12,
-    paddingHorizontal: Theme.spacing.md,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  activeTab: {
-    borderBottomColor: C.primary,
-  },
-  tabText: {
-    ...Theme.typography.body,
-    color: C.textMuted,
-  },
-  activeTabText: {
-    color: C.primary,
-  },
-  tabContent: {
-    flex: 1,
-    paddingHorizontal: SCROLL_PAGE_GUTTER,
-    paddingTop: Theme.spacing.sm,
-  },
-  examGrid: {
-    gap: 16,
-    paddingBottom: Theme.spacing.lg,
-  },
-  examCard: {
-    backgroundColor: C.card,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    padding: 20,
-  },
-  examCardHead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Theme.spacing.md,
-  },
-  examName: {
-    ...Theme.typography.bodyMd,
-    color: C.text,
-    flex: 1,
-  },
-  badgeGroup: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  badge: {
-    backgroundColor: C.primarySoft,
-    paddingHorizontal: 10,
-    paddingVertical: Theme.spacing.xs,
-    borderRadius: 6,
-  },
-  badgeText: {
-    ...Theme.typography.caption,
-    color: C.primary,
-    textTransform: 'uppercase',
-  },
-  examInfo: {
-    gap: 8,
-    marginBottom: Theme.spacing.md,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  infoLabel: {
-    ...Theme.typography.caption,
-    color: C.textMuted,
-  },
-  infoValue: {
-    ...Theme.typography.caption,
-    color: C.text,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  actionBtnSecondary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: C.bg,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    borderRadius: 8,
-    paddingVertical: 10,
-  },
-  actionBtnSecondaryText: {
-    ...Theme.typography.caption,
-    color: C.primary,
-  },
-  formPanel: {
-    backgroundColor: C.card,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    padding: 20,
-    marginBottom: 20,
-  },
-  formTitle: {
-    fontSize: 16,
-    marginBottom: 20,
-    color: C.text,
-  },
-  formGroup: {
-    marginBottom: Theme.spacing.md,
-  },
-  label: {
-    ...Theme.typography.caption,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    color: C.textMuted,
-    marginBottom: 6,
-  },
-  input: {
-    borderWidth: 1.5,
-    borderColor: C.border,
-    borderRadius: 8,
-    padding: 12,
-    ...Theme.typography.body,
-    backgroundColor: C.bg,
-    color: C.text,
-  },
-  submitBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: C.success,
-    borderRadius: 8,
-    paddingVertical: 12,
-    marginTop: Theme.spacing.sm,
-  },
-  submitBtnText: {
-    ...Theme.typography.body,
-    color: Theme.colors.card,
-  },
-  yearSelectorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: C.bg,
-  },
-  yearSelectorTextWrap: {
-    flex: 1,
-    gap: 2,
-  },
-  yearSelectorTitle: {
-    fontSize: 16,
-    color: C.text,
-  },
-  yearSelectorHint: {
-    ...Theme.typography.label,
-    color: C.textMuted,
-  },
-  yearNextBtn: {
-    backgroundColor: C.primary,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  yearNextBtnText: {
-    ...Theme.typography.caption,
-    color: Theme.colors.card,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  choiceChip: {
-    borderWidth: 1.5,
-    borderColor: C.border,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: C.bg,
-  },
-  choiceChipActive: {
-    backgroundColor: C.primary,
-    borderColor: C.primary,
-  },
-  choiceChipText: {
-    ...Theme.typography.caption,
-    color: C.text,
-  },
-  choiceChipTextActive: {
-    color: Theme.colors.card,
-  },
-  helperText: {
-    ...Theme.typography.caption,
-    color: C.textMuted,
-    paddingVertical: 10,
-  },
-  noData: {
-    padding: Theme.spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  noDataText: {
-    ...Theme.typography.body,
-    color: C.textMuted,
-    marginTop: 12,
-  },
-  infoPanel: {
-    backgroundColor: C.card,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    padding: 20,
-    marginBottom: 20,
-  },
-  infoTitle: {
-    fontSize: 18,
-    color: C.text,
-    marginBottom: Theme.spacing.sm,
-  },
-  infoSubtitle: {
-    ...Theme.typography.body,
-    color: C.textMuted,
-  },
-  classSectionContainer: {
-    marginBottom: Theme.spacing.lg,
-  },
-  classSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    paddingHorizontal: Theme.spacing.xs,
-  },
-  classSectionTitle: {
-    fontSize: 16,
-    color: C.text,
-  },
-  studentCount: {
-    ...Theme.typography.caption,
-    color: C.textMuted,
-  },
-  tableContainer: {
-    backgroundColor: C.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.border,
-    overflow: 'hidden',
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: C.bg,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  headerCell: {
-    ...Theme.typography.caption,
-    color: C.text,
-  },
-  headerCellName: {
-    width: '25%',
-  },
-  headerCellClass: {
-    width: '15%',
-  },
-  headerCellSubjects: {
-    width: '40%',
-  },
-  headerCellTotal: {
-    width: '20%',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  tableRowAlt: {
-    backgroundColor: C.bg + '50',
-  },
-  tableCellName: {
-    width: '25%',
-  },
-  studentName: {
-    fontSize: 13,
-    color: C.text,
-  },
-  rollNumber: {
-    ...Theme.typography.label,
-    color: C.textMuted,
-    marginTop: 2,
-  },
-  tableCellClass: {
-    width: '15%',
-    justifyContent: 'center',
-  },
-  classText: {
-    ...Theme.typography.caption,
-    color: C.text,
-  },
-  tableCellSubjects: {
-    width: '40%',
-  },
-  subjectChip: {
-    backgroundColor: C.bg,
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginRight: Theme.spacing.sm,
-    minWidth: 80,
-  },
-  subjectName: {
-    ...Theme.typography.label,
-    color: C.text,
-  },
-  subjectMarks: {
-    fontSize: 10,
-    color: C.textMuted,
-    marginTop: 2,
-  },
-  subjectGrade: {
-    fontSize: 10,
-    marginTop: 2,
-  },
-  tableCellTotal: {
-    width: '20%',
-    alignItems: 'flex-end',
-  },
-  totalMarks: {
-    ...Theme.typography.caption,
-    color: C.text,
-  },
-  percentage: {
-    ...Theme.typography.label,
-    marginTop: 2,
-  },
-  grade: {
-    ...Theme.typography.label,
-    marginTop: 2,
-  },
-  tabOuterContainer: {
-    backgroundColor: C.bg,
-    borderTopLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderTopRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-        paddingTop: Theme.spacing.md,
-    zIndex: 10,
-  },
-  tabScrollContainer: {
-    paddingHorizontal: Theme.spacing.md,
-    flexDirection: 'row',
-    gap: 8,
-    paddingBottom: 10,
-  },
-  tabItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: Theme.spacing.md,
-    borderRadius: 12,
-    backgroundColor: 'rgba(226, 232, 240, 0.4)',
-    borderWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.6)',
-  },
-  tabItemActive: {
-    backgroundColor: C.primary,
-    borderColor: C.primary,
-  },
-  tabItemText: {
-    fontSize: 13,
-    color: C.muted,
-  },
-  tabItemTextActive: {
-    color: C.white,
-  },
-  mobileCardsContainer: {
-    gap: 12,
-  },
-  studentCardMobile: {
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 16,
-    padding: Theme.spacing.md,
-    ...Platform.select({
-      android: { elevation: 2 },
-      ios: {
-        shadowColor: C.primary,
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
-      },
-    }),
-  },
-  studentCardMobileHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  studentCardMobileName: {
-    ...Theme.typography.bodyMd,
-    color: C.text,
-  },
-  studentCardMobileRoll: {
-    ...Theme.typography.label,
-    color: C.muted,
-    marginTop: 2,
-  },
-  studentCardMobileBadge: {
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: Theme.spacing.xs,
-    borderRadius: 6,
-  },
-  studentCardMobileBadgeText: {
-    ...Theme.typography.label,
-  },
-  studentCardMobileDivider: {
-    height: 1,
-    backgroundColor: C.border,
-    marginVertical: 12,
-  },
-  studentCardMobileScroll: {
-    gap: 8,
-    paddingBottom: Theme.spacing.xs,
-  },
-  subjectChipMobile: {
-    backgroundColor: 'rgba(241, 245, 249, 0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.6)',
-    paddingHorizontal: 10,
-    paddingVertical: Theme.spacing.sm,
-    borderRadius: 12,
-    minWidth: 90,
-    alignItems: 'center',
-  },
-  subjectChipMobileName: {
-    ...Theme.typography.label,
-    color: C.text,
-  },
-  subjectChipMobileMarks: {
-    fontSize: 10,
-    color: C.muted,
-    marginTop: 2,
-  },
-  subjectChipMobileGradeBg: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginTop: Theme.spacing.xs,
-  },
-  subjectChipMobileGrade: {
-    fontSize: 10,
-  },
-  studentCardMobileFooter: {
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(226, 232, 240, 0.6)',
-    alignItems: 'flex-end',
-  },
-  studentCardMobileFooterText: {
-    ...Theme.typography.caption,
-    color: C.muted,
-  },
-});

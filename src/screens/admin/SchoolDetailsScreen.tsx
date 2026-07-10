@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import {
   School,
@@ -171,7 +172,7 @@ const SchoolDetailsScreen = () => {
             onBackPress={() => safeGoBack(navigation as any)}
             containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
           />
-          <ActivityIndicator size="large" color={Theme.colors.primary} style={styles.loader} />
+          <ScreenSkeleton variant="list" />
         </ScrollView>
       </View>
     );
@@ -221,23 +222,23 @@ const SchoolDetailsScreen = () => {
         <View style={innerPageLayoutStyles.scrollBody}>
         <View style={styles.headerCard}>
           <View style={styles.schoolIcon}>
-            <School size={28} color="#fff" />
+            <School size={28} color={Theme.colors.card} />
           </View>
           <AppText style={styles.schoolName}>{school.name}</AppText>
           <View style={styles.codeBadge}>
             <AppText style={styles.codeText}>Code: {school.school_code}</AppText>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: school.status === 'active' ? '#dcfce7' : '#fef2f2' }]}>
-            <AppText style={[styles.statusText, { color: school.status === 'active' ? '#16a34a' : '#ef4444' }]}>
+            <AppText style={[styles.statusText, { color: school.status === 'active' ? '#16a34a' : Theme.colors.error }]}>
               {school.status === 'active' ? 'Active' : school.status || 'Unknown'}
             </AppText>
           </View>
         </View>
 
         <View style={styles.statsRow}>
-          {renderStatCard('Students', school.total_students || 0, '#2563eb')}
+          {renderStatCard('Students', school.total_students || 0, Theme.colors.blue)}
           {renderStatCard('Teachers', school.total_teachers || 0, '#16a34a')}
-          {renderStatCard('Staff', school.total_staff || 0, '#f59e0b')}
+          {renderStatCard('Staff', school.total_staff || 0, Theme.colors.warning)}
         </View>
 
         <View style={styles.sectionCard}>
@@ -274,10 +275,10 @@ const SchoolDetailsScreen = () => {
                   <AppText style={styles.paymentDate}>{formatDate(payment.date)}</AppText>
                 </View>
                 <View style={[styles.paymentStatus, {
-                  backgroundColor: payment.status === 'completed' ? '#dcfce7' : '#fef3c7',
+                  backgroundColor: payment.status === 'completed' ? '#dcfce7' : Theme.colors.amberLight,
                 }]}>
                   <AppText style={[styles.paymentStatusText, {
-                    color: payment.status === 'completed' ? '#16a34a' : '#d97706',
+                    color: payment.status === 'completed' ? '#16a34a' : Theme.colors.warning,
                   }]}>
                     {payment.status}
                   </AppText>
@@ -307,7 +308,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContentContainer: {
-    padding: 20,
+    padding: Theme.spacing.xl,
     paddingBottom: 40,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -323,12 +324,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
-    paddingHorizontal: 24,
+    paddingHorizontal: Theme.spacing.lg,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
     color: Theme.colors.textSec,
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -336,25 +337,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
     paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
+    paddingHorizontal: Theme.spacing.xl,
+    borderRadius: Theme.radius.xl,
     backgroundColor: Theme.colors.primary + '10',
   },
   retryBtnText: {
-    fontSize: 14,
+    fontSize: Theme.typography.body.fontSize,
     fontWeight: '600',
     color: Theme.colors.primary,
   },
   headerCard: {
     backgroundColor: Theme.colors.card,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: Theme.radius.lg,
+    padding: Theme.spacing.xl,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: Theme.colors.border,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   schoolIcon: {
     width: 56,
@@ -363,74 +364,74 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   schoolName: {
-    fontSize: 20,
+    fontSize: Theme.typography.h3.fontSize,
     fontWeight: '800',
     color: Theme.colors.text,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: Theme.spacing.sm,
   },
   codeBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: Theme.spacing.xs,
+    paddingHorizontal: Theme.spacing.md,
+    borderRadius: Theme.radius.md,
     backgroundColor: Theme.colors.background,
     marginBottom: 10,
   },
   codeText: {
-    fontSize: 12,
+    fontSize: Theme.typography.caption.fontSize,
     fontWeight: '600',
     color: Theme.colors.textSec,
   },
   statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: Theme.spacing.xs,
+    paddingHorizontal: Theme.spacing.md,
+    borderRadius: Theme.radius.md,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: Theme.typography.caption.fontSize,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   statsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
   },
   statCard: {
     flex: 1,
     backgroundColor: Theme.colors.card,
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     padding: 14,
     borderLeftWidth: 3,
     borderWidth: 1,
     borderColor: Theme.colors.border,
   },
   statValue: {
-    fontSize: 22,
+    fontSize: Theme.typography.h2.fontSize,
     fontWeight: '800',
     color: Theme.colors.text,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: Theme.typography.label.fontSize,
     color: Theme.colors.textMuted,
     marginTop: 2,
   },
   sectionCard: {
     backgroundColor: Theme.colors.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: Theme.radius.lg,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     borderWidth: 1,
     borderColor: Theme.colors.border,
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: Theme.typography.bodyMd.fontSize,
     fontWeight: '700',
     color: Theme.colors.text,
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   infoRow: {
     flexDirection: 'row',
@@ -442,29 +443,29 @@ const styles = StyleSheet.create({
   infoIcon: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: Theme.radius.md,
     backgroundColor: Theme.colors.primary + '10',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: Theme.spacing.md,
   },
   infoContent: {
     flex: 1,
   },
   infoLabel: {
-    fontSize: 12,
+    fontSize: Theme.typography.caption.fontSize,
     color: Theme.colors.textMuted,
     marginBottom: 2,
   },
   infoValue: {
-    fontSize: 14,
+    fontSize: Theme.typography.body.fontSize,
     fontWeight: '500',
     color: Theme.colors.text,
   },
   emptyPayments: {
-    fontSize: 14,
+    fontSize: Theme.typography.body.fontSize,
     color: Theme.colors.textMuted,
-    paddingVertical: 8,
+    paddingVertical: Theme.spacing.sm,
   },
   paymentRow: {
     flexDirection: 'row',
@@ -476,31 +477,31 @@ const styles = StyleSheet.create({
   },
   paymentInfo: {},
   paymentAmount: {
-    fontSize: 15,
+    fontSize: Theme.typography.bodyMd.fontSize,
     fontWeight: '700',
     color: Theme.colors.text,
   },
   paymentDate: {
-    fontSize: 12,
+    fontSize: Theme.typography.caption.fontSize,
     color: Theme.colors.textMuted,
     marginTop: 2,
   },
   paymentStatus: {
     paddingVertical: 3,
     paddingHorizontal: 10,
-    borderRadius: 8,
+    borderRadius: Theme.radius.sm,
   },
   paymentStatusText: {
-    fontSize: 11,
+    fontSize: Theme.typography.label.fontSize,
     fontWeight: '600',
     textTransform: 'capitalize',
   },
   footerInfo: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: Theme.spacing.md,
   },
   footerText: {
-    fontSize: 12,
+    fontSize: Theme.typography.caption.fontSize,
     color: Theme.colors.textMuted,
   },
 });

@@ -1,23 +1,9 @@
-import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  ActivityIndicator,
-  Modal,
-  TextInput,
-  Alert,
-  Platform,
-  Image,
-} from 'react-native';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { View, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
 import { QrCode, RefreshCw } from 'lucide-react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import DashboardHeroHeader from '../../components/dashboard/DashboardHeroHeader';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
@@ -26,297 +12,25 @@ import { useCanNavigateBack } from '../../hooks/useCanNavigateBack';
 import { safeGoBack } from '../../utils/navigationHelpers';
 import { visitorApi, qrApi } from '../../services/visitorApi';
 import { Theme, colors } from '../../theme/tokens';
-import AppButton from '../../components/common/AppButton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
-import QRCode from 'react-native-qrcode-svg';
 import type { RootStackParamList } from '../../navigation/types';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import { formatErrorMessage } from '../../utils/helpers';
-import { storage } from '../../storage/storage';
-import { StorageKeys } from '../../storage/StorageKeys';
-
-
-
-// Types
-interface Visitor {
-  id: string;
-  visitor_no: string;
-  full_name: string;
-  phone: string;
-  student_name: string;
-  class_name: string;
-  class_grade: string;
-  purpose: string;
-  status: 'pending' | 'checked_in' | 'checked_out' | 'rejected';
-  visited_at: string;
-}
-
-interface Stats {
-  total_visitors: number;
-  today_visitors: number;
-  currently_present: number;
-  pending_approval: number;
-}
-
-interface QRData {
-  token: string;
-  url: string;
-  qrImage?: string;
-  branch_id?: string;
-}
-
-// Helper functions
-const getSchoolCode = async (): Promise<string> => {
-  const code = await storage.getString(StorageKeys.SCHOOL_CODE);
-  return code || (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
-};
-
-const getBranchId = async (): Promise<string> => {
-  const id = await storage.getString(StorageKeys.BRANCH_ID);
-  return id || (await storage.getString(StorageKeys.BRANCH_ID)) || '';
-};
-
-const formatDate = (dateString: string): string => {
-  if (!dateString) {return '-';}
-  const date = new Date(dateString);
-  return date.toLocaleDateString();
-};
-
-const formatTime = (dateString: string): string => {
-  if (!dateString) {return '';}
-  return '';
-};
-
-// Status Badge Component
-const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const getStatusConfig = () => {
-    switch (status) {
-      case 'pending':
-        return { bg: 'rgba(217, 119, 6, 0.15)', color: '#fbbf24', label: 'PENDING' };
-      case 'checked_in':
-        return { bg: 'rgba(5, 150, 105, 0.15)', color: '#34d399', label: 'CHECKED IN' };
-      case 'checked_out':
-        return { bg: 'rgba(37, 99, 235, 0.15)', color: '#60a5fa', label: 'CHECKED OUT' };
-      case 'rejected':
-        return { bg: 'rgba(220, 38, 38, 0.15)', color: '#f87171', label: 'REJECTED' };
-      default:
-        return { bg: 'rgba(148, 163, 184, 0.1)', color: colors.textMuted, label: status?.toUpperCase() || 'UNKNOWN' };
-    }
-  };
-  const config = getStatusConfig();
-  return (
-    <View style={[styles.badge, { backgroundColor: config.bg }]}>
-      <AppText style={[styles.badgeText, { color: config.color }]}>{config.label}</AppText>
-    </View>
-  );
-};
-
-// Stat Card Component
-const StatCard: React.FC<{
-  title: string;
-  value: number;
-  loading: boolean;
-  color?: string;
-}> = ({ title, value, loading, color }) => (
-  <AppCard style={styles.statCard}>
-    <AppText style={styles.statTitle}>{title}</AppText>
-    {loading ? (
-      <ActivityIndicator size="small" color={color || colors.accent} />
-    ) : (
-      <AppText style={[styles.statValue, color && { color }]}>{value}</AppText>
-    )}
-  </AppCard>
-);
-
-// Visitor Row Component
-const VisitorRow: React.FC<{
-  visitor: Visitor;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
-  onCheckout: (id: string) => void;
-}> = ({ visitor, onApprove, onReject, onCheckout }) => {
-  const isPending = visitor.status === 'pending';
-  const isCheckedIn = visitor.status === 'checked_in';
-
-  return (
-    <AppCard style={styles.visitorRow}>
-      <View style={styles.visitorHeader}>
-        <AppText style={styles.visitorNo}>{visitor.visitor_no?.slice(0, 8) || '-'}</AppText>
-        <StatusBadge status={visitor.status} />
-      </View>
-
-      <View style={styles.visitorInfo}>
-        <View style={styles.visitorName}>
-          <AppText style={styles.visitorNameText}>{visitor.full_name}</AppText>
-          <AppText style={styles.visitorPhone}>{visitor.phone}</AppText>
-        </View>
-        <View style={styles.visitorStudent}>
-          <AppText style={styles.visitorStudentName}>{visitor.student_name}</AppText>
-          <AppText style={styles.visitorClass}>
-            {visitor.class_name} {visitor.class_grade ? `(${visitor.class_grade})` : ''}
-          </AppText>
-        </View>
-      </View>
-
-      <View style={styles.visitorDetails}>
-        <AppText style={styles.visitorPurpose}>Purpose: {visitor.purpose}</AppText>
-      </View>
-
-      <View style={styles.visitorActions}>
-        {isPending && (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.approveBtn]} onPress={() => onApprove(visitor.id)}>
-              <AppText style={styles.actionBtnText}>✓ Approve</AppText>
-            </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.rejectBtn]} onPress={() => onReject(visitor.id)}>
-              <AppText style={styles.actionBtnText}>✗ Reject</AppText>
-            </TouchableOpacity>
-          </View>
-        )}
-        {isCheckedIn && (
-          <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, styles.checkoutBtn]} onPress={() => onCheckout(visitor.id)}>
-            <AppText style={styles.actionBtnText}>Checkout</AppText>
-          </TouchableOpacity>
-        )}
-      </View>
-    </AppCard>
-  );
-};
-
-// QR Modal Component
-const QRModal: React.FC<{
-  visible: boolean;
-  qrData: QRData | null;
-  onClose: () => void;
-}> = ({ visible, qrData, onClose }) => {
-  if (!qrData) {return null;}
-
-  return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <AppText style={styles.modalTitle}>Visitor QR Code</AppText>
-
-          {qrData.qrImage ? (
-            <Image source={{ uri: qrData.qrImage }} style={styles.qrImage} />
-          ) : qrData.url ? (
-            <View style={styles.qrCodeContainer}>
-              <QRCode value={qrData.url} size={200} backgroundColor={colors.surface} color={colors.textPrimary} />
-            </View>
-          ) : null}
-
-          {qrData.url && (
-            <View style={styles.qrUrlContainer}>
-              <AppText style={styles.qrUrlLabel}>Registration Link:</AppText>
-              <AppText style={styles.qrUrlText} selectable>{qrData.url}</AppText>
-            </View>
-          )}
-
-          <AppText style={styles.modalMessage}>
-            Scan this QR code for visitors to register and check-in
-          </AppText>
-
-          <AppButton title="Close" onPress={onClose} style={{ marginTop: 20, width: '100%' }} />
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
-// Filter Modal Component
-const FilterModal: React.FC<{
-  visible: boolean;
-  dateFrom: string;
-  dateTo: string;
-  onApply: (dateFrom: string, dateTo: string) => void;
-  onReset: () => void;
-  onClose: () => void;
-}> = ({ visible, dateFrom, dateTo, onApply, onReset, onClose }) => {
-  const [localDateFrom, setLocalDateFrom] = useState(dateFrom);
-  const [localDateTo, setLocalDateTo] = useState(dateTo);
-  const [showFromPicker, setShowFromPicker] = useState(false);
-  const [showToPicker, setShowToPicker] = useState(false);
-
-  useEffect(() => {
-    setLocalDateFrom(dateFrom);
-    setLocalDateTo(dateTo);
-  }, [dateFrom, dateTo, visible]);
-
-  const handleApply = () => {
-    onApply(localDateFrom, localDateTo);
-    onClose();
-  };
-
-  const handleReset = () => {
-    setLocalDateFrom('');
-    setLocalDateTo('');
-    onReset();
-    onClose();
-  };
-
-  return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.modalOverlay}>
-        <View style={styles.filterModalContent}>
-          <View style={styles.modalHeader}>
-            <AppText style={styles.modalTitle}>Filter Visitors</AppText>
-            <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.modalClose}>
-              <AppText style={styles.modalCloseText}>✕</AppText>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.filterBody}>
-            <View style={styles.filterField}>
-              <AppText style={styles.filterLabel}>From Date</AppText>
-              <TouchableOpacity accessibilityRole="button" style={styles.dateBtn} onPress={() => setShowFromPicker(true)}>
-                <AppText style={styles.dateText}>{localDateFrom || 'Select date'}</AppText>
-              </TouchableOpacity>
-              {showFromPicker && (
-                <DateTimePicker
-                  value={localDateFrom ? new Date(localDateFrom) : new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  maximumDate={new Date()}
-                  onChange={(event, date) => {
-                    setShowFromPicker(false);
-                    if (date) {setLocalDateFrom(date.toISOString().split('T')[0]);}
-                  }}
-                />
-              )}
-            </View>
-
-            <View style={styles.filterField}>
-              <AppText style={styles.filterLabel}>To Date</AppText>
-              <TouchableOpacity accessibilityRole="button" style={styles.dateBtn} onPress={() => setShowToPicker(true)}>
-                <AppText style={styles.dateText}>{localDateTo || 'Select date'}</AppText>
-              </TouchableOpacity>
-              {showToPicker && (
-                <DateTimePicker
-                  value={localDateTo ? new Date(localDateTo) : new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  maximumDate={new Date()}
-                  onChange={(event, date) => {
-                    setShowToPicker(false);
-                    if (date) {setLocalDateTo(date.toISOString().split('T')[0]);}
-                  }}
-                />
-              )}
-            </View>
-          </View>
-
-          <View style={styles.filterFooter}>
-            <AppButton title="Reset" onPress={handleReset} type="secondary" style={{ flex: 1 }} />
-            <AppButton title="Apply Filters" onPress={handleApply} style={{ flex: 1 }} />
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-};
+import {
+  visitorDashboardStyles as styles,
+  getSchoolCode,
+  getBranchId,
+  StatCard,
+  VisitorRow,
+  QRModal,
+  FilterModal,
+  type Visitor,
+  type Stats,
+  type QRData,
+} from '../../components/visitor/visitorDashboard';
 
 export default function VisitorDashboardScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -327,35 +41,29 @@ export default function VisitorDashboardScreen() {
   const [loadingVisitors, setLoadingVisitors] = useState(true);
   const [loadingStats, setLoadingStats] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string>('');
+  const [errorMsg, setErrorMsg] = useState('');
   const [activeTab, setActiveTab] = useState<'pending' | 'checked_in' | 'all'>('pending');
   const [qrData, setQRData] = useState<QRData | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
-
-  const [schoolCode, setSchoolCode] = useState<string>('');
-  const [branchId, setBranchId] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [schoolCode, setSchoolCode] = useState('');
+  const [branchId, setBranchId] = useState('');
   const { unreadCount } = useUnreadNotifications();
 
-  // Load credentials
   useEffect(() => {
     const load = async () => {
-      const code = await getSchoolCode();
-      const bid = await getBranchId();
-      setSchoolCode(code);
-      setBranchId(bid);
+      setSchoolCode(await getSchoolCode());
+      setBranchId(await getBranchId());
     };
     load();
   }, []);
 
-  // Fetch data
   const fetchData = useCallback(async () => {
     setErrorMsg('');
     const cacheKey = `visitor_list_${activeTab}_${dateFrom || 'all'}_${dateTo || 'all'}`;
     let cacheLoaded = false;
-
     try {
       const cached = await AsyncStorage.getItem(cacheKey);
       if (cached) {
@@ -366,35 +74,25 @@ export default function VisitorDashboardScreen() {
           setLoadingVisitors(false);
         }
       }
-
-      // Build filters
-      const filters: any = {};
-      if (activeTab !== 'all') {
-        filters.status_filter = activeTab;
-      }
-      if (dateFrom) {filters.date_from = dateFrom;}
-      if (dateTo) {filters.date_to = dateTo;}
-
+      const filters: Record<string, string> = {};
+      if (activeTab !== 'all') filters.status_filter = activeTab;
+      if (dateFrom) filters.date_from = dateFrom;
+      if (dateTo) filters.date_to = dateTo;
       const visitorsRes = await visitorApi.listVisitors(filters);
       const nextVisitors = visitorsRes.data?.data || [];
       setVisitors(nextVisitors);
       await AsyncStorage.setItem(cacheKey, JSON.stringify(nextVisitors));
     } catch (error: any) {
-      console.log('DEBUG 403 ERROR:', error.response?.data);
-      console.error('Failed to fetch visitors:', error);
-
-      const message = error?.response?.data?.detail ||
-                    error?.response?.data?.message ||
-                    'You do not have permission to view visitor data.';
-      setErrorMsg(message);
+      setErrorMsg(
+        error?.response?.data?.detail ||
+        error?.response?.data?.message ||
+        'You do not have permission to view visitor data.',
+      );
     } finally {
-      if (!cacheLoaded) {
-        setLoadingVisitors(false);
-      }
+      if (!cacheLoaded) setLoadingVisitors(false);
     }
   }, [activeTab, dateFrom, dateTo]);
 
-  // Fetch stats
   const fetchStats = useCallback(async () => {
     const cacheKey = 'visitor_stats_cache';
     try {
@@ -403,7 +101,6 @@ export default function VisitorDashboardScreen() {
         setStats(JSON.parse(cached));
         setLoadingStats(false);
       }
-
       const statsRes = await visitorApi.getVisitorStats();
       const nextStats = statsRes.data?.data || {};
       setStats(nextStats);
@@ -415,13 +112,11 @@ export default function VisitorDashboardScreen() {
     }
   }, []);
 
-  // Initial load
   useEffect(() => {
     fetchData();
     fetchStats();
   }, []);
 
-  // Reload when filters change
   useEffect(() => {
     if (!loadingVisitors) {
       setLoadingVisitors(true);
@@ -468,51 +163,26 @@ export default function VisitorDashboardScreen() {
   const loadQRCode = useCallback(async () => {
     try {
       const res = await qrApi.getActiveQR();
-      let qrData = res.data?.data || null;
-
-      if (!qrData) {
+      let nextQr = res.data?.data || null;
+      if (!nextQr) {
         const createRes = await qrApi.generateQR(30);
-        qrData = createRes.data?.data || null;
+        nextQr = createRes.data?.data || null;
       }
-
-      if (!qrData) {
+      if (!nextQr) {
         Alert.alert('Error', 'No active QR is available and failed to create a new QR');
         return;
       }
-
-      setQRData(qrData);
+      setQRData(nextQr);
       setShowQRModal(true);
     } catch (error: any) {
       Alert.alert('Error', formatErrorMessage(error?.response?.data?.detail) || 'Failed to load QR code');
     }
   }, []);
 
-  const handleTabChange = (tab: 'pending' | 'checked_in' | 'all') => {
-    setActiveTab(tab);
-  };
-
-  const handleApplyFilters = (from: string, to: string) => {
-    setDateFrom(from);
-    setDateTo(to);
-  };
-
-  const handleResetFilters = () => {
-    setDateFrom('');
-    setDateTo('');
-  };
-
-  // Filtered visitors based on tab
   const filteredVisitors = useMemo(() => {
-    if (activeTab === 'all') {return visitors;}
+    if (activeTab === 'all') return visitors;
     return visitors.filter(v => v.status === activeTab);
   }, [visitors, activeTab]);
-
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) {return 'Morning';}
-    if (hour < 17) {return 'Afternoon';}
-    return 'Evening';
-  };
 
   const pageHeaderActions = (
     <>
@@ -538,33 +208,33 @@ export default function VisitorDashboardScreen() {
 
   return (
     <View style={styles.container}>
-      {canGoBack ? (
-        <StandardPageHeader
-          title="Visitor Management"
-          subtitle="Manage campus visitors and check-ins"
-          onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
-          rightActions={pageHeaderActions}
-        />
-      ) : (
-        <DashboardHeroHeader
-          userName={userName || 'User'}
-          greetingLine="VISITOR PORTAL"
-          subtitle="Manage campus visitors and check-ins."
-          unreadCount={unreadCount}
-          onNotificationsPress={() => navigation.navigate('Notifications')}
-          showDateBadge
-          fullBleed={false}
-        />
-      )}
-
       <ScrollView
         style={innerPageLayoutStyles.scrollViewFront}
-        contentContainerStyle={[
-          styles.contentContainer,
-          canGoBack && styles.contentContainerInner,
-        ]}
+        contentContainerStyle={[styles.contentContainer, canGoBack && styles.contentContainerInner]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+        nestedScrollEnabled
       >
+        {canGoBack ? (
+          <StandardPageHeader
+            scrollWithContent
+            containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+            title="Visitor Management"
+            subtitle="Manage campus visitors and check-ins"
+            onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+            rightActions={pageHeaderActions}
+          />
+        ) : (
+          <DashboardHeroHeader
+            userName={userName || 'User'}
+            greetingLine="VISITOR PORTAL"
+            subtitle="Manage campus visitors and check-ins."
+            unreadCount={unreadCount}
+            onNotificationsPress={() => navigation.navigate('Notifications')}
+            showDateBadge
+            fullBleed
+          />
+        )}
+
         {!canGoBack ? (
           <View style={styles.header}>
             <AppText style={styles.title}>Visitor Management</AppText>
@@ -572,14 +242,12 @@ export default function VisitorDashboardScreen() {
           </View>
         ) : null}
 
-        {/* Error Message */}
-        {errorMsg && (
+        {errorMsg ? (
           <View style={styles.errorContainer}>
             <AppText style={styles.errorText}>{errorMsg}</AppText>
           </View>
-        )}
+        ) : null}
 
-        {/* Stats Grid */}
         <View style={styles.statsGrid}>
           <StatCard title="Total Visitors" value={stats?.total_visitors || 0} loading={loadingStats} />
           <StatCard title="Today's" value={stats?.today_visitors || 0} loading={loadingStats} color={colors.accent} />
@@ -587,51 +255,36 @@ export default function VisitorDashboardScreen() {
           <StatCard title="Pending" value={stats?.pending_approval || 0} loading={loadingStats} color={colors.warning} />
         </View>
 
-        {/* Tabs */}
         <View style={styles.tabContainer}>
-          <TouchableOpacity accessibilityRole="button"
-            style={[styles.tab, activeTab === 'pending' && styles.tabActive]}
-            onPress={() => handleTabChange('pending')}
-          >
-            <AppText style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>
-              ⏳ Pending ({stats?.pending_approval || 0})
-            </AppText>
-          </TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button"
-            style={[styles.tab, activeTab === 'checked_in' && styles.tabActive]}
-            onPress={() => handleTabChange('checked_in')}
-          >
-            <AppText style={[styles.tabText, activeTab === 'checked_in' && styles.tabTextActive]}>
-              ✅ Checked In ({stats?.currently_present || 0})
-            </AppText>
-          </TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button"
-            style={[styles.tab, activeTab === 'all' && styles.tabActive]}
-            onPress={() => handleTabChange('all')}
-          >
-            <AppText style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>
-              📋 All
-            </AppText>
-          </TouchableOpacity>
+          {(['pending', 'checked_in', 'all'] as const).map(tab => (
+            <TouchableOpacity
+              key={tab}
+              accessibilityRole="button"
+              style={[styles.tab, activeTab === tab && styles.tabActive]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <AppText style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                {tab === 'pending' ? `⏳ Pending (${stats?.pending_approval || 0})` : tab === 'checked_in' ? `✅ Checked In (${stats?.currently_present || 0})` : '📋 All'}
+              </AppText>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* Filter Button */}
-        {(dateFrom || dateTo) && (
+        {(dateFrom || dateTo) ? (
           <View style={styles.activeFilters}>
             <AppText style={styles.activeFiltersLabel}>Active Filters:</AppText>
-            {dateFrom && <View style={styles.filterTag}><AppText style={styles.filterTagText}>From: {dateFrom}</AppText></View>}
-            {dateTo && <View style={styles.filterTag}><AppText style={styles.filterTagText}>To: {dateTo}</AppText></View>}
-            <TouchableOpacity accessibilityRole="button" onPress={handleResetFilters}>
+            {dateFrom ? <View style={styles.filterTag}><AppText style={styles.filterTagText}>From: {dateFrom}</AppText></View> : null}
+            {dateTo ? <View style={styles.filterTag}><AppText style={styles.filterTagText}>To: {dateTo}</AppText></View> : null}
+            <TouchableOpacity accessibilityRole="button" onPress={() => { setDateFrom(''); setDateTo(''); }}>
               <AppText style={styles.clearFiltersText}>Clear</AppText>
             </TouchableOpacity>
           </View>
-        )}
+        ) : null}
 
         <TouchableOpacity accessibilityRole="button" style={styles.filterBtn} onPress={() => setShowFilterModal(true)}>
           <AppText style={styles.filterBtnText}>🔽 Filter by Date</AppText>
         </TouchableOpacity>
 
-        {/* Visitors List */}
         {loadingVisitors ? (
           <Loader />
         ) : filteredVisitors.length === 0 ? (
@@ -653,505 +306,15 @@ export default function VisitorDashboardScreen() {
         )}
       </ScrollView>
 
-      {/* QR Modal */}
-      <QRModal
-        visible={showQRModal}
-        qrData={qrData}
-        onClose={() => setShowQRModal(false)}
-      />
-
-      {/* Filter Modal */}
+      <QRModal visible={showQRModal} qrData={qrData} onClose={() => setShowQRModal(false)} />
       <FilterModal
         visible={showFilterModal}
         dateFrom={dateFrom}
         dateTo={dateTo}
-        onApply={handleApplyFilters}
-        onReset={handleResetFilters}
+        onApply={(from, to) => { setDateFrom(from); setDateTo(to); }}
+        onReset={() => { setDateFrom(''); setDateTo(''); }}
         onClose={() => setShowFilterModal(false)}
       />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  contentContainer: {
-    padding: Theme.spacing.md,
-    paddingBottom: 40,
-  },
-  contentContainerInner: {
-    paddingTop: 12,
-  },
-  welcomeSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Theme.spacing.lg,
-    marginTop: 20,
-    backgroundColor: colors.surface,
-    padding: 20,
-    borderRadius: 20,
-    // Shadow
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
-  welcomeTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  welcomeSub: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  dateBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  dateText: {
-    ...Theme.typography.caption,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  qrBtn: {
-    backgroundColor: colors.accentSoft,
-    paddingHorizontal: 12,
-    paddingVertical: Theme.spacing.sm,
-    borderRadius: 8,
-  },
-  qrBtnText: {
-    ...Theme.typography.caption,
-    color: Theme.colors.card,
-    fontWeight: '600',
-  },
-  refreshBtn: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: Theme.spacing.sm,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  refreshBtnLabel: {
-    fontSize: 16,
-  },
-  errorContainer: {
-    backgroundColor: colors.errorSoft,
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: Theme.spacing.md,
-  },
-  errorText: {
-    color: colors.error,
-    fontSize: 13,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 20,
-  },
-  statCard: {
-    flex: 1,
-    minWidth: '45%',
-    padding: 14,
-    alignItems: 'center',
-  },
-  statTitle: {
-    ...Theme.typography.label,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    color: colors.textMuted,
-    marginBottom: Theme.spacing.sm,
-  },
-  statValue: {
-    ...Theme.typography.h1,
-    color: colors.textPrimary,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    marginBottom: Theme.spacing.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  tabActive: {
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-  },
-  tabText: {
-    ...Theme.typography.caption,
-    fontWeight: '600',
-    color: colors.textMuted,
-  },
-  tabTextActive: {
-    color: colors.accent,
-  },
-  activeFilters: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-    padding: 10,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  activeFiltersLabel: {
-    ...Theme.typography.caption,
-    fontWeight: '600',
-    color: colors.textMuted,
-  },
-  filterTag: {
-    backgroundColor: Theme.colors.background,
-    paddingHorizontal: 10,
-    paddingVertical: Theme.spacing.xs,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterTagText: {
-    ...Theme.typography.label,
-    color: colors.textPrimary,
-  },
-  clearFiltersText: {
-    ...Theme.typography.label,
-    color: colors.error,
-    fontWeight: '600',
-  },
-  filterBtn: {
-    backgroundColor: colors.surface,
-    paddingVertical: 10,
-    paddingHorizontal: Theme.spacing.md,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignSelf: 'flex-start',
-    marginBottom: Theme.spacing.md,
-  },
-  filterBtnText: {
-    fontSize: 13,
-    color: colors.textMuted,
-    fontWeight: '600',
-  },
-  visitorRow: {
-    marginBottom: 12,
-  },
-  visitorHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  visitorNo: {
-    ...Theme.typography.label,
-    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
-    backgroundColor: Theme.colors.background,
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 6,
-    color: colors.textMuted,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  visitorInfo: {
-    flexDirection: 'row',
-    marginBottom: 12,
-    gap: 16,
-  },
-  visitorName: {
-    flex: 1,
-  },
-  visitorNameText: {
-    ...Theme.typography.bodyMd,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  visitorPhone: {
-    ...Theme.typography.caption,
-    color: colors.textMuted,
-  },
-  visitorStudent: {
-    flex: 1,
-  },
-  visitorStudentName: {
-    ...Theme.typography.body,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  visitorClass: {
-    ...Theme.typography.caption,
-    color: colors.textMuted,
-  },
-  visitorDetails: {
-    marginBottom: 12,
-  },
-  visitorPurpose: {
-    fontSize: 13,
-    color: colors.textPrimary,
-    marginBottom: Theme.spacing.xs,
-    opacity: 0.8,
-  },
-  visitorTime: {
-    ...Theme.typography.caption,
-    color: colors.textMuted,
-  },
-  visitorActions: {
-    marginTop: Theme.spacing.sm,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  actionBtn: {
-    paddingVertical: Theme.spacing.sm,
-    paddingHorizontal: Theme.spacing.md,
-    borderRadius: 8,
-    alignItems: 'center',
-    flex: 1,
-  },
-  approveBtn: {
-    backgroundColor: 'rgba(21, 128, 61, 0.2)',
-  },
-  rejectBtn: {
-    backgroundColor: 'rgba(185, 28, 28, 0.2)',
-  },
-  checkoutBtn: {
-    backgroundColor: 'rgba(37, 99, 235, 0.2)',
-    width: '100%',
-  },
-  actionBtnText: {
-    ...Theme.typography.caption,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: Theme.spacing.xs,
-    borderRadius: 20,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  emptyCard: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-    opacity: 0.5,
-  },
-  emptyTitle: {
-    ...Theme.typography.h4,
-    color: colors.textPrimary,
-    marginBottom: Theme.spacing.xs,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: Theme.spacing.lg,
-    width: '100%',
-    maxWidth: 400,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterModalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    width: '100%',
-    maxWidth: 400,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: Theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  modalTitle: {
-    ...Theme.typography.h3,
-    color: colors.textPrimary,
-  },
-  modalClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Theme.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCloseText: {
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  headerStandard: {
-    backgroundColor: '#6648dc',
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    ...Theme.typography.h3,
-    color: Theme.colors.card,
-  },
-  headerIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  refreshIconBtn: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 18,
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  modalMessage: {
-    fontSize: 13,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginTop: Theme.spacing.md,
-  },
-  filterBody: {
-    padding: Theme.spacing.md,
-  },
-  filterField: {
-    marginBottom: Theme.spacing.md,
-  },
-  filterLabel: {
-    ...Theme.typography.caption,
-    fontWeight: '600',
-    color: colors.textMuted,
-    marginBottom: 6,
-  },
-  dateBtn: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 12,
-    backgroundColor: Theme.colors.background,
-  },
-  filterDateText: {
-    ...Theme.typography.body,
-    color: colors.textPrimary,
-  },
-  filterFooter: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: Theme.spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  qrImage: {
-    width: 200,
-    height: 200,
-    resizeMode: 'contain',
-    marginVertical: Theme.spacing.md,
-  },
-  qrCodeContainer: {
-    alignItems: 'center',
-    marginVertical: Theme.spacing.md,
-    backgroundColor: Theme.colors.background,
-    padding: 10,
-    borderRadius: 12,
-  },
-  qrUrlContainer: {
-    backgroundColor: Theme.colors.background,
-    padding: 12,
-    borderRadius: 10,
-    width: '100%',
-    marginTop: Theme.spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  qrUrlLabel: {
-    ...Theme.typography.label,
-    color: colors.textMuted,
-    marginBottom: Theme.spacing.xs,
-  },
-  qrUrlText: {
-    ...Theme.typography.caption,
-    color: colors.textPrimary,
-    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
-  },
-});

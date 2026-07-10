@@ -13,6 +13,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
@@ -170,7 +171,7 @@ export default function PricingScreen() {
             icon: PLAN_ICONS[idx] || '🚀',
             features: mapped.features.length > 0 ? mapped.features : ['Core features included'],
             popular: mapped.highlighted,
-            color: mapped.highlighted ? Theme.colors.blue : '#64748b',
+            color: mapped.highlighted ? Theme.colors.blue : Theme.colors.textSec,
             isCustomPricing: mapped.isCustomPricing,
           } satisfies Plan;
         });
@@ -329,12 +330,6 @@ export default function PricingScreen() {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader
-        title="Choose Your Plan"
-        subtitle="Per-branch pricing — scale as your institution grows"
-        onBackPress={() => navigation.goBack()}
-      />
-
       <ScrollView
         style={innerPageLayoutStyles.scrollViewFront}
         contentContainerStyle={innerPageLayoutStyles.scrollContent}
@@ -342,6 +337,14 @@ export default function PricingScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
+        <StandardPageHeader
+        scrollWithContent
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        title="Choose Your Plan"
+        subtitle="Per-branch pricing — scale as your institution grows"
+        onBackPress={() => navigation.goBack()}
+      />
+
         <View style={innerPageLayoutStyles.contentFront}>
         {autoPayInfoEnabled && !registrationData?.isLoggedIn && (
           <View style={styles.autoPayBanner}>
@@ -354,7 +357,7 @@ export default function PricingScreen() {
         <View style={styles.cardsContainer}>
           {plansList.length === 0 ? (
           <View style={styles.emptyWrap}>
-            <ActivityIndicator size="large" color={Theme.colors.primary} />
+            <ScreenSkeleton variant="list" />
             <Text style={styles.emptyText}>Loading plans…</Text>
           </View>
         ) : (
@@ -385,7 +388,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
   },
   cardsContainer: {
-    gap: 20,
+    gap: Theme.spacing.xl,
     marginBottom: Theme.spacing.xl,
     paddingHorizontal: Theme.spacing.md,
   },
@@ -394,7 +397,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
     borderWidth: 1,
     borderColor: Theme.colors.border,
-    borderRadius: 30,
+    borderRadius: Theme.radius.xxxl,
     position: 'relative',
     shadowColor: Theme.colors.textSec,
     shadowOffset: { width: 0, height: 10 },
@@ -419,11 +422,11 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.blue,
     paddingHorizontal: Theme.spacing.md,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: Theme.radius.xl,
     zIndex: 1,
   },
   popularBadgeText: {
-    fontSize: 10,
+    fontSize: Theme.typography.label.fontSize,
     fontWeight: '800',
     color: Theme.colors.card,
     textTransform: 'uppercase',
@@ -433,17 +436,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 20,
+    marginBottom: Theme.spacing.xl,
   },
   planIcon: {
-    padding: 12,
+    padding: Theme.spacing.md,
     backgroundColor: '#eff6ff',
-    borderRadius: 16,
+    borderRadius: Theme.radius.lg,
     borderWidth: 1,
-    borderColor: '#dbeafe',
+    borderColor: Theme.colors.blueLight,
   },
   planIconText: {
-    fontSize: 22,
+    fontSize: Theme.typography.h2.fontSize,
   },
   planHeaderRight: {
     alignItems: 'flex-end',
@@ -456,10 +459,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#eff6ff',
     paddingHorizontal: Theme.spacing.sm,
     paddingVertical: Theme.spacing.xs,
-    borderRadius: 8,
+    borderRadius: Theme.radius.sm,
   },
   planName: {
-    fontSize: 18,
+    fontSize: Theme.typography.h3.fontSize,
     fontWeight: '800',
     color: Theme.colors.text,
   },
@@ -481,7 +484,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   planBreakdown: {
-    fontSize: 12,
+    fontSize: Theme.typography.caption.fontSize,
     color: Theme.colors.blue,
     fontWeight: '700',
     marginBottom: Theme.spacing.md,
@@ -489,25 +492,25 @@ const styles = StyleSheet.create({
   emptyWrap: {
     alignItems: 'center',
     paddingVertical: 40,
-    gap: 12,
+    gap: Theme.spacing.md,
   },
   emptyText: {
     color: Theme.colors.textSec,
-    fontSize: 14,
+    fontSize: Theme.typography.body.fontSize,
   },
   featuresContainer: {
-    gap: 12,
+    gap: Theme.spacing.md,
     marginBottom: 28,
   },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Theme.spacing.md,
   },
   featureIcon: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     backgroundColor: '#eff6ff',
     alignItems: 'center',
     justifyContent: 'center',
@@ -526,7 +529,7 @@ const styles = StyleSheet.create({
   },
   selectBtn: {
     paddingVertical: Theme.spacing.md,
-    borderRadius: 20,
+    borderRadius: Theme.radius.xl,
     backgroundColor: Theme.colors.background,
     alignItems: 'center',
     borderWidth: 1,
@@ -551,22 +554,22 @@ const styles = StyleSheet.create({
   },
   footerText: {
     ...Theme.typography.caption,
-    color: '#94a3b8',
+    color: Theme.colors.textMuted,
     textAlign: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 20,
+    marginBottom: Theme.spacing.xl,
+    paddingHorizontal: Theme.spacing.xl,
   },
   autoPayBanner: {
     backgroundColor: '#eff6ff',
-    borderRadius: 14,
+    borderRadius: Theme.radius.md,
     padding: 14,
-    marginBottom: 16,
+    marginBottom: Theme.spacing.md,
     borderWidth: 1,
-    borderColor: '#dbeafe',
+    borderColor: Theme.colors.blueLight,
   },
   autoPayBannerText: {
-    fontSize: 13,
-    color: '#1e40af',
+    fontSize: Theme.typography.caption.fontSize,
+    color: Theme.colors.primaryDark,
     lineHeight: 20,
     fontWeight: '500',
   },

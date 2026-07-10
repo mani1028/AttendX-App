@@ -43,7 +43,7 @@ const AccountCard: React.FC<Props> = ({ account, onPress, onDelete }) => {
 
         <View style={styles.right}>
           <Pressable onPress={() => onDelete && onDelete(account)} hitSlop={8}>
-            <X size={20} color="#9ca3af" />
+            <X size={20} color={Theme.colors.textMuted} />
           </Pressable>
         </View>
       </Animated.View>
@@ -57,8 +57,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Theme.colors.background,
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: Theme.radius.lg,
+    padding: Theme.spacing.md,
     borderWidth: 1,
     borderColor: '#eef2ff',
     shadowColor: '#6a5af9',
@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  left: { marginRight: 12 },
+  left: { marginRight: Theme.spacing.md },
   avatar: {
     width: 56,
     height: 56,
@@ -75,12 +75,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarTxt: { color: Theme.colors.card, fontWeight: '800', fontSize: 18 },
+  avatarTxt: { color: Theme.colors.card, fontWeight: '800', fontSize: Theme.typography.h3.fontSize },
   mid: { flex: 1 },
   name: { fontWeight: '800', color: Theme.colors.text },
   role: { ...Theme.typography.caption, color: '#8b9bb4', marginTop: 2, textTransform: 'uppercase' },
-  school: { ...Theme.typography.caption, color: '#94a3b8', marginTop: Theme.spacing.xs },
-  right: { marginLeft: 12 },
+  school: { ...Theme.typography.caption, color: Theme.colors.textMuted, marginTop: Theme.spacing.xs },
+  right: { marginLeft: Theme.spacing.md },
 });
 
 export default AccountCard;

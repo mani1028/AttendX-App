@@ -1,16 +1,8 @@
 import { Theme, C } from '../../theme/tokens';
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useRef } from 'react';
-import {
-  StyleSheet,
-  View,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Modal,
-  Alert,
-} from 'react-native';
+import { View, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, Alert } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
@@ -52,6 +44,7 @@ import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { safeJsonParse } from '../../utils/storage';
 import AccountSwitcher from '../../components/common/AccountSwitcher';
+import { studentDashboardStyles as styles } from '../../components/student/studentDashboard/studentDashboardStyles';
 
 const getStudentPhotoCacheKey = (studentId: string, schoolCode: string): string | null => {
   if (!studentId) {return null;}
@@ -369,16 +362,16 @@ export default function StudentDashboardScreen() {
   ];
 
   const quickAccess = [
-    { name: 'Homework', icon: ClipboardList, bg: 'rgba(37, 99, 235, 0.08)', color: '#2563eb', screen: 'StudentHomework' },
-    { name: 'Attendance', icon: CheckCircle2, bg: 'rgba(220, 38, 38, 0.08)', color: '#dc2626', screen: 'StudentAttendance' },
-    { name: 'Holidays', icon: CalendarDays, bg: 'rgba(34, 197, 94, 0.08)', color: '#22c55e', screen: 'MainTabs', params: { screen: 'Leave' } },
-    { name: 'Marks', icon: BarChart3, bg: 'rgba(217, 119, 6, 0.08)', color: '#d97706', screen: 'StudentMarks' },
+    { name: 'Homework', icon: ClipboardList, bg: 'rgba(37, 99, 235, 0.08)', color: Theme.colors.blue, screen: 'StudentHomework' },
+    { name: 'Attendance', icon: CheckCircle2, bg: 'rgba(220, 38, 38, 0.08)', color: Theme.colors.error, screen: 'StudentAttendance' },
+    { name: 'Holidays', icon: CalendarDays, bg: 'rgba(34, 197, 94, 0.08)', color: Theme.colors.success, screen: 'MainTabs', params: { screen: 'Leave' } },
+    { name: 'Marks', icon: BarChart3, bg: 'rgba(217, 119, 6, 0.08)', color: Theme.colors.warning, screen: 'StudentMarks' },
   ];
 
   if (loading) {
     return (
       <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={C.colors.primary} />
+        <ScreenSkeleton variant="dashboard" />
       </View>
     );
   }
@@ -588,7 +581,7 @@ export default function StudentDashboardScreen() {
 
       {loadingViewer && (
         <View style={styles.loaderOverlay}>
-          <ActivityIndicator size="large" color={C.colors.blue} />
+          <ScreenSkeleton variant="dashboard" />
           <AppText style={styles.loaderText}>Opening paper...</AppText>
         </View>
       )}
@@ -600,248 +593,3 @@ export default function StudentDashboardScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.colors.background,
-  },
-  center: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerContent: {
-    backgroundColor: C.colors.primary,
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    marginBottom: 20,
-    marginHorizontal: -20,
-    overflow: 'hidden',
-  },
-  statsGrid: {
-    marginTop: Theme.spacing.md,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  statCard: {
-    backgroundColor: C.colors.card,
-    borderRadius: 22,
-    paddingVertical: 12,
-    paddingHorizontal: Theme.spacing.md,
-    width: '46%',
-    marginBottom: Theme.spacing.md,
-    ...C.shadow.sm,
-  },
-  attendancePctCard: {
-    backgroundColor: C.colors.card,
-    borderRadius: 22,
-    paddingHorizontal: 20,
-    paddingVertical: Theme.spacing.md,
-    marginTop: Theme.spacing.sm,
-    ...C.shadow.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  statLabel: {
-    ...Theme.typography.body,
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#111827',
-    marginTop: 2,
-  },
-  chartPlaceholder: {
-    width: 110,
-    height: 40,
-    justifyContent: 'center',
-  },
-  sheet: {
-    marginTop: -20,
-  },
-  sectionCard: {
-    backgroundColor: C.colors.card,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 14,
-    ...C.shadow.sm,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  sectionAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: C.colors.text,
-    lineHeight: 22,
-  },
-  viewAll: {
-    fontSize: 13,
-    color: C.colors.blue,
-    fontWeight: '700',
-  },
-  gridItemInner: {
-    alignItems: 'center',
-    width: '100%',
-    paddingVertical: 4,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  gridLabel: {
-    fontSize: 11,
-    color: C.colors.text,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 14,
-  },
-  listRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  listRowDivider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: C.colors.border,
-  },
-  rowIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  rowBody: {
-    flex: 1,
-    minWidth: 0,
-  },
-  rowTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: C.colors.text,
-  },
-  rowMeta: {
-    fontSize: 12,
-    color: C.colors.textMuted,
-    marginTop: 2,
-  },
-  rowStatus: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginLeft: 8,
-  },
-  rowActionBtn: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-    marginLeft: 8,
-  },
-  rowActionText: {
-    color: C.colors.blue,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  emptyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  emptyIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  emptyCopy: {
-    flex: 1,
-  },
-  emptyMessage: {
-    fontSize: 14,
-    color: C.colors.textMuted,
-    lineHeight: 20,
-  },
-  emptyAction: {
-    marginTop: 4,
-    fontSize: 13,
-    color: C.colors.blue,
-    fontWeight: '700',
-  },
-  viewerContainer: {
-    flex: 1,
-    backgroundColor: C.colors.card,
-  },
-  viewerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Theme.spacing.md,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: C.colors.border,
-  },
-  viewerCloseBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  viewerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    ...Theme.typography.h3,
-    color: C.colors.text,
-  },
-  loaderOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: C.colors.card + 'CC', // 0.8 opacity
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 999,
-  },
-  loaderText: {
-    marginTop: 12,
-    ...Theme.typography.bodyMd,
-    color: C.colors.blue,
-    fontWeight: '600',
-  },
-  decCircle1: {
-    position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    top: -50,
-    right: -40,
-  },
-  decCircle2: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    bottom: -20,
-    left: 60,
-  },
-});

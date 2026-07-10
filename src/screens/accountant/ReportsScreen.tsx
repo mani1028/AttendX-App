@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
@@ -76,7 +77,7 @@ export default function ReportsScreen() {
 
         <View style={innerPageLayoutStyles.scrollBody}>
         {loading ? (
-          <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 40 }} />
+          <ScreenSkeleton variant="list" />
         ) : error ? (
           <AppText style={styles.error}>{error}</AppText>
         ) : (
@@ -132,20 +133,20 @@ export default function ReportsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
   scrollView: { flex: 1 },
-  error: { color: Theme.colors.error, textAlign: 'center', marginTop: 32 },
-  metricsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  error: { color: Theme.colors.error, textAlign: 'center', marginTop: Theme.spacing.xl },
+  metricsRow: { flexDirection: 'row', gap: 10, marginBottom: Theme.spacing.md },
   metric: { flex: 1, padding: 14 },
-  metricLabel: { fontSize: 11, color: Theme.colors.textMuted, textTransform: 'uppercase', fontWeight: '700' },
-  metricValue: { fontSize: 18, color: Theme.colors.text, marginTop: 4 },
-  chartCard: { padding: 16, marginBottom: 12 },
-  chartTitle: { fontSize: 16, color: Theme.colors.text, marginBottom: 14 },
-  empty: { color: Theme.colors.textMuted, textAlign: 'center', paddingVertical: 24 },
-  barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
-  barLabel: { width: 52, fontSize: 11, color: Theme.colors.textMuted, textAlign: 'right' },
-  barTrack: { flex: 1, height: 24, backgroundColor: Theme.colors.backgroundAlt, borderRadius: 6, overflow: 'hidden' },
-  barFill: { height: '100%', backgroundColor: Theme.colors.primary, borderRadius: 6 },
-  barValue: { width: 72, fontSize: 11, color: Theme.colors.text, textAlign: 'right' },
-  tableCard: { padding: 16 },
+  metricLabel: { fontSize: Theme.typography.label.fontSize, color: Theme.colors.textMuted, textTransform: 'uppercase', fontWeight: '700' },
+  metricValue: { fontSize: Theme.typography.h3.fontSize, color: Theme.colors.text, marginTop: Theme.spacing.xs },
+  chartCard: { padding: Theme.spacing.md, marginBottom: Theme.spacing.md },
+  chartTitle: { fontSize: Theme.typography.h4.fontSize, color: Theme.colors.text, marginBottom: 14 },
+  empty: { color: Theme.colors.textMuted, textAlign: 'center', paddingVertical: Theme.spacing.lg },
+  barRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: Theme.spacing.sm },
+  barLabel: { width: 52, fontSize: Theme.typography.label.fontSize, color: Theme.colors.textMuted, textAlign: 'right' },
+  barTrack: { flex: 1, height: 24, backgroundColor: Theme.colors.backgroundAlt, borderRadius: Theme.radius.sm, overflow: 'hidden' },
+  barFill: { height: '100%', backgroundColor: Theme.colors.primary, borderRadius: Theme.radius.sm },
+  barValue: { width: 72, fontSize: Theme.typography.label.fontSize, color: Theme.colors.text, textAlign: 'right' },
+  tableCard: { padding: Theme.spacing.md },
   tableRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Theme.colors.borderLight },
   tableMonth: { color: Theme.colors.textSec },
   tableAmount: { color: Theme.colors.text },

@@ -19,6 +19,7 @@ import { offlineQueueSync } from './src/services/offlineQueueSync';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 import { Theme } from './src/theme/tokens';
+import { ThemeProvider } from './src/theme/ThemeContext';
 
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
@@ -88,6 +89,7 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
+        <ThemeProvider>
         <AuthProvider>
           <NotificationContextProvider>
             <ErrorBoundary>
@@ -107,6 +109,7 @@ export default function App() {
             </ErrorBoundary>
           </NotificationContextProvider>
         </AuthProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

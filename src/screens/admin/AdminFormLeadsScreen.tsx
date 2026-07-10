@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation } from '@react-navigation/native';
 import { Mail, Phone, Building2, Search, Inbox } from 'lucide-react-native';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
@@ -130,7 +131,7 @@ export default function AdminFormLeadsScreen() {
           </ScrollView>
 
           {loading ? (
-            <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 40 }} />
+            <ScreenSkeleton variant="list" />
           ) : filtered.length === 0 ? (
             <AdminEmptyState
               icon={<Inbox size={28} color={Theme.colors.primary} />}
@@ -201,45 +202,45 @@ const styles = StyleSheet.create({
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Theme.spacing.sm,
     backgroundColor: Theme.colors.card,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    borderRadius: Theme.radius.md,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: Theme.colors.border,
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
-  searchInput: { flex: 1, color: Theme.colors.text, fontSize: 15 },
-  chipScroll: { marginBottom: 12 },
+  searchInput: { flex: 1, color: Theme.colors.text, fontSize: Theme.typography.bodyMd.fontSize },
+  chipScroll: { marginBottom: Theme.spacing.md },
   chip: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: Theme.spacing.sm,
+    borderRadius: Theme.radius.xl,
     backgroundColor: Theme.colors.card,
     borderWidth: 1,
     borderColor: Theme.colors.border,
-    marginRight: 8,
+    marginRight: Theme.spacing.sm,
   },
   chipActive: { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary },
-  chipText: { fontSize: 13, color: Theme.colors.textMuted },
+  chipText: { fontSize: Theme.typography.caption.fontSize, color: Theme.colors.textMuted },
   chipTextActive: { color: Theme.colors.card },
   leadCard: { marginBottom: 10 },
-  leadTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
-  typeBadge: { fontSize: 12, color: Theme.colors.primary, marginTop: 4 },
-  status: { fontSize: 11, fontWeight: '800', color: Theme.colors.textMuted },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  metaText: { fontSize: 13, color: Theme.colors.textSec, flex: 1 },
-  message: { fontSize: 13, color: Theme.colors.text, marginTop: 8, lineHeight: 18 },
-  statusRow: { marginTop: 12 },
+  leadTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: Theme.spacing.sm },
+  typeBadge: { fontSize: Theme.typography.caption.fontSize, color: Theme.colors.primary, marginTop: Theme.spacing.xs },
+  status: { fontSize: Theme.typography.label.fontSize, fontWeight: '800', color: Theme.colors.textMuted },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Theme.spacing.xs },
+  metaText: { fontSize: Theme.typography.caption.fontSize, color: Theme.colors.textSec, flex: 1 },
+  message: { fontSize: Theme.typography.caption.fontSize, color: Theme.colors.text, marginTop: Theme.spacing.sm, lineHeight: 18 },
+  statusRow: { marginTop: Theme.spacing.md },
   statusChip: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: Theme.radius.sm,
     backgroundColor: Theme.colors.background,
     marginRight: 6,
   },
   statusChipActive: { backgroundColor: Theme.colors.primary },
-  statusChipText: { fontSize: 11, fontWeight: '700', color: Theme.colors.textMuted, textTransform: 'capitalize' },
+  statusChipText: { fontSize: Theme.typography.label.fontSize, fontWeight: '700', color: Theme.colors.textMuted, textTransform: 'capitalize' },
   statusChipTextActive: { color: Theme.colors.card },
 });

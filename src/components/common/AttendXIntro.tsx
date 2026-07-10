@@ -190,8 +190,8 @@ const styles = StyleSheet.create({
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 20,
+    gap: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.xl,
     transform: [{ translateY: -24 }],
   },
   cloudLogo: {
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   textSide: {
     flexDirection: 'column',
     justifyContent: 'center',
-    gap: 4,
+    gap: Theme.spacing.xs,
   },
   lettersRow: {
     flexDirection: 'row',
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   tagline: {
     fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
     color: '#3a9fd6',
     marginTop: 6,
   },
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     bottom: 60,
     width: '100%',
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: Theme.typography.caption.fontSize,
     color: Theme.colors.textSec,
     fontWeight: '600',
     letterSpacing: 0.5,

@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { CheckCircle2, XCircle, Eye, X, RefreshCw } from 'lucide-react-native';
@@ -130,17 +131,21 @@ export default function TeacherRegistrationRequestsScreen() {
     </AppCard>
   );
 
+  const listHeader = (
+    <StandardPageHeader
+      scrollWithContent
+      containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+      title="Staff Registration"
+      onBackPress={() => navigation.goBack()}
+      rightIcon={<RefreshCw size={20} color={Theme.colors.card} />}
+      onRightIconPress={() => { setRefreshing(true); fetchRequests(); }}
+    />
+  );
+
   return (
     <View style={styles.container}>
-      <StandardPageHeader
-        title="Staff Registration"
-        onBackPress={() => navigation.goBack()}
-        rightIcon={<RefreshCw size={20} color={Theme.colors.card} />}
-        onRightIconPress={() => { setRefreshing(true); fetchRequests(); }}
-      />
-
       {loading ? (
-        <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 40 }} />
+        <ScreenSkeleton variant="list" />
       ) : (
         <FlatList
           data={requests}
@@ -148,6 +153,7 @@ export default function TeacherRegistrationRequestsScreen() {
           renderItem={renderItem}
           style={innerPageLayoutStyles.scrollViewFront}
           contentContainerStyle={styles.list}
+          ListHeaderComponent={listHeader}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchRequests(); }} />}
           ListEmptyComponent={
             <AppText style={styles.empty}>No pending staff registration requests.</AppText>
@@ -165,7 +171,7 @@ export default function TeacherRegistrationRequestsScreen() {
           </View>
 
           {detailLoading ? (
-            <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 40 }} />
+            <ScreenSkeleton variant="list" />
           ) : (
             <ScrollView style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.modalBody}>
               {Object.keys(editData).slice(0, 20).map(key => (
@@ -186,7 +192,7 @@ export default function TeacherRegistrationRequestsScreen() {
               title={actionLoading ? 'Processing...' : 'Accept'}
               onPress={handleAccept}
               disabled={actionLoading}
-              leftIcon={<CheckCircle2 size={18} color="#fff" />}
+              leftIcon={<CheckCircle2 size={18} color={Theme.colors.card} />}
             />
             <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} disabled={actionLoading}>
               <XCircle size={18} color={Theme.colors.error} />
@@ -201,24 +207,24 @@ export default function TeacherRegistrationRequestsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
-  list: { padding: 16, paddingBottom: 100 },
-  card: { marginBottom: 12, padding: 14 },
-  cardTop: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-  avatar: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#d97706' },
-  name: { fontSize: 16, color: Theme.colors.text },
-  meta: { fontSize: 12, color: Theme.colors.textMuted, marginTop: 2 },
-  viewBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: `${Theme.colors.primary}12`, borderRadius: 8 },
+  list: { padding: Theme.spacing.md, paddingBottom: 100 },
+  card: { marginBottom: Theme.spacing.md, padding: 14 },
+  cardTop: { flexDirection: 'row', gap: Theme.spacing.md, marginBottom: Theme.spacing.md },
+  avatar: { width: 48, height: 48, borderRadius: Theme.radius.md, backgroundColor: Theme.colors.amberLight, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: Theme.colors.warning },
+  name: { fontSize: Theme.typography.h4.fontSize, color: Theme.colors.text },
+  meta: { fontSize: Theme.typography.caption.fontSize, color: Theme.colors.textMuted, marginTop: 2 },
+  viewBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: Theme.spacing.sm, paddingHorizontal: Theme.spacing.md, backgroundColor: `${Theme.colors.primary}12`, borderRadius: Theme.radius.sm },
   viewBtnText: { color: Theme.colors.primary, fontWeight: '600' },
   empty: { textAlign: 'center', color: Theme.colors.textMuted, marginTop: 40 },
   modal: { flex: 1, backgroundColor: Theme.colors.background },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Theme.colors.border, backgroundColor: Theme.colors.card },
-  modalTitle: { fontSize: 18 },
-  modalBody: { padding: 16, paddingBottom: 40 },
-  field: { marginBottom: 12 },
-  fieldLabel: { fontSize: 11, color: Theme.colors.textMuted, textTransform: 'capitalize', marginBottom: 4, fontWeight: '600' },
-  fieldInput: { backgroundColor: Theme.colors.card, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 10, padding: 10, color: Theme.colors.text },
-  modalActions: { padding: 16, gap: 10, borderTopWidth: 1, borderTopColor: Theme.colors.border, backgroundColor: Theme.colors.card },
-  rejectBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Theme.spacing.md, borderBottomWidth: 1, borderBottomColor: Theme.colors.border, backgroundColor: Theme.colors.card },
+  modalTitle: { fontSize: Theme.typography.h3.fontSize },
+  modalBody: { padding: Theme.spacing.md, paddingBottom: 40 },
+  field: { marginBottom: Theme.spacing.md },
+  fieldLabel: { fontSize: Theme.typography.label.fontSize, color: Theme.colors.textMuted, textTransform: 'capitalize', marginBottom: Theme.spacing.xs, fontWeight: '600' },
+  fieldInput: { backgroundColor: Theme.colors.card, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: Theme.radius.md, padding: 10, color: Theme.colors.text },
+  modalActions: { padding: Theme.spacing.md, gap: 10, borderTopWidth: 1, borderTopColor: Theme.colors.border, backgroundColor: Theme.colors.card },
+  rejectBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Theme.spacing.sm, paddingVertical: Theme.spacing.md },
   rejectText: { color: Theme.colors.error },
 });

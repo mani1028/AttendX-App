@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Theme.spacing.md,
     minWidth: 0,
   },
   avatarWrap: {
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: Theme.colors.card,
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
   },
   greetingStack: {
     flex: 1,
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   greetingLabel: {
-    fontSize: 11,
+    fontSize: Theme.typography.label.fontSize,
     color: 'rgba(255,255,255,0.72)',
     fontWeight: '600',
     letterSpacing: 0.6,
@@ -247,17 +247,17 @@ const styles = StyleSheet.create({
   greetingLabelNormal: {
     textTransform: 'none',
     letterSpacing: 0.2,
-    fontSize: 12,
+    fontSize: Theme.typography.caption.fontSize,
   },
   greetingName: {
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
     color: Theme.colors.card,
     fontWeight: '700',
     lineHeight: 20,
     marginTop: 1,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: Theme.typography.caption.fontSize,
     color: 'rgba(255,255,255,0.7)',
     fontWeight: '500',
     marginTop: 2,
@@ -266,8 +266,8 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginLeft: 8,
+    gap: Theme.spacing.sm,
+    marginLeft: Theme.spacing.sm,
   },
   iconBtn: {
     width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
@@ -287,13 +287,13 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.error,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: Theme.spacing.xs,
     borderWidth: 1.5,
     borderColor: Theme.colors.gradientStart,
   },
   badgeText: {
     color: Theme.colors.card,
-    fontSize: 10,
+    fontSize: Theme.typography.label.fontSize,
     fontWeight: '700',
     lineHeight: 14,
   },

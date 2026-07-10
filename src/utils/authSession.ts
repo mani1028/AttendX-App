@@ -161,6 +161,7 @@ export const setSessionData = async (data: any) => {
       const loginUsername = data.user.username ?? data.user.user_name;
       const email =
         data.user.email ??
+        data.user.director_email ??
         data.user.principal_email ??
         (loginUsername && loginUsername.includes('@') ? loginUsername : undefined);
       if (email) {
@@ -171,13 +172,42 @@ export const setSessionData = async (data: any) => {
         storageOps.push(['username', String(loginUsername)]);
       }
 
+      if (data.user.director_email) {
+        storageOps.push(['director_email', String(data.user.director_email)]);
+        if (!email) {
+          storageOps.push(['email', String(data.user.director_email)]);
+          await storage.setString(StorageKeys.USER_EMAIL, String(data.user.director_email));
+        }
+      }
+
+      if (data.user.director_employee_id) {
+        storageOps.push(['director_employee_id', String(data.user.director_employee_id)]);
+        if (isDirectorRole) {
+          storageOps.push(['employee_id', String(data.user.director_employee_id)]);
+          storageOps.push(['employeeId', String(data.user.director_employee_id)]);
+        }
+      }
+
+      const resolvedAddress =
+        data.user.address ??
+        data.user.director_address ??
+        data.user.principal_address;
+      if (resolvedAddress) {
+        storageOps.push(['address', String(resolvedAddress)]);
+      }
+      if (data.user.director_address) {
+        storageOps.push(['director_address', String(data.user.director_address)]);
+      }
+
       if (data.user.principal_email) {
         storageOps.push(['principal_email', data.user.principal_email]);
       }
 
       if (data.user.principal_address) {
         storageOps.push(['principal_address', data.user.principal_address]);
-        storageOps.push(['address', data.user.principal_address]);
+        if (!resolvedAddress) {
+          storageOps.push(['address', data.user.principal_address]);
+        }
       }
 
       if (data.user.principal_mobile) {
@@ -384,13 +414,53 @@ export const updateUserData = async (updates: Record<string, any>): Promise<void
     const updatedUser = { ...currentUser, ...updates };
     await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
 
-    // Update specific fields if they exist
+    const storageOps: Array<[string, string]> = [];
+
     if (updates.is_class_teacher !== undefined) {
-      await AsyncStorage.setItem('is_class_teacher', updates.is_class_teacher ? '1' : '0');
+      storageOps.push(['is_class_teacher', updates.is_class_teacher ? '1' : '0']);
     }
 
     if (updates.email) {
-      await AsyncStorage.setItem('email', updates.email);
+      storageOps.push(['email', String(updates.email)]);
+      await storage.setString(StorageKeys.USER_EMAIL, String(updates.email));
+    }
+    if (updates.director_email) {
+      storageOps.push(['director_email', String(updates.director_email)]);
+      storageOps.push(['email', String(updates.director_email)]);
+      await storage.setString(StorageKeys.USER_EMAIL, String(updates.director_email));
+    }
+    if (updates.principal_email) {
+      storageOps.push(['principal_email', String(updates.principal_email)]);
+      storageOps.push(['email', String(updates.principal_email)]);
+      await storage.setString(StorageKeys.USER_EMAIL, String(updates.principal_email));
+    }
+    if (updates.address) {
+      storageOps.push(['address', String(updates.address)]);
+    }
+    if (updates.director_address) {
+      storageOps.push(['director_address', String(updates.director_address)]);
+      storageOps.push(['address', String(updates.director_address)]);
+    }
+    if (updates.principal_address) {
+      storageOps.push(['principal_address', String(updates.principal_address)]);
+      storageOps.push(['address', String(updates.principal_address)]);
+    }
+    if (updates.director_employee_id) {
+      storageOps.push(['director_employee_id', String(updates.director_employee_id)]);
+      storageOps.push(['employee_id', String(updates.director_employee_id)]);
+    }
+    if (updates.name) {
+      storageOps.push(['user_name', String(updates.name)]);
+    }
+    if (updates.director_name) {
+      storageOps.push(['user_name', String(updates.director_name)]);
+    }
+    if (updates.phone) {
+      storageOps.push(['phone', String(updates.phone)]);
+    }
+
+    if (storageOps.length > 0) {
+      await AsyncStorage.multiSet(storageOps);
     }
   } catch (error) {
     console.error('Error updating user data:', error);

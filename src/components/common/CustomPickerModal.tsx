@@ -85,7 +85,7 @@ const CustomPickerModal: React.FC<CustomPickerModalProps> = ({
           <View style={styles.pickerShell}>
             <ScrollView style={{ maxHeight: listMaxHeight }} keyboardShouldPersistTaps="handled">
               {!Array.isArray(filteredOptions) || filteredOptions.length === 0 ? (
-                <View style={{ padding: 20, alignItems: 'center' }}>
+                <View style={{ padding: Theme.spacing.xl, alignItems: 'center' }}>
                   <Text style={{ color: Theme.colors.textSec }}>No matching options</Text>
                 </View>
               ) : (
@@ -138,13 +138,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: Theme.spacing.xl,
   },
   pickerCard: {
     backgroundColor: Theme.colors.card,
     width: '100%',
     maxWidth: 400,
-    borderRadius: 20,
+    borderRadius: Theme.radius.xl,
     overflow: 'hidden',
     elevation: 5,
   },
@@ -171,14 +171,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 14,
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     marginBottom: Theme.spacing.xs,
   },
   pickerOptionActive: {
     backgroundColor: Theme.colors.background,
   },
   pickerOptionText: {
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
     color: Theme.colors.textSec,
   },
   pickerOptionTextActive: {
@@ -191,9 +191,9 @@ const styles = StyleSheet.create({
     borderTopColor: Theme.colors.background,
   },
   pickerCancelBtn: {
-    paddingVertical: 12,
+    paddingVertical: Theme.spacing.md,
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: Theme.radius.md,
     backgroundColor: Theme.colors.background,
   },
   pickerCancelText: {
@@ -212,8 +212,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderWidth: 1,
     borderColor: Theme.colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: Theme.radius.sm,
+    paddingHorizontal: Theme.spacing.md,
     ...Theme.typography.body,
     color: Theme.colors.text,
     backgroundColor: Theme.colors.background,

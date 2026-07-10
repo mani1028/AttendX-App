@@ -148,10 +148,10 @@ export default function DeleteSchoolScreen() {
                 disabled={loading || confirmationText !== expected}
               >
                 {loading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={Theme.colors.card} />
                 ) : (
                   <>
-                    <Trash2 size={18} color="#fff" />
+                    <Trash2 size={18} color={Theme.colors.card} />
                     <AppText style={styles.deleteBtnText} weight="bold">Delete Permanently</AppText>
                   </>
                 )}
@@ -167,36 +167,36 @@ export default function DeleteSchoolScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
-  content: { padding: 16, paddingBottom: 100 },
-  warningCard: { padding: 16, alignItems: 'center', marginBottom: 20, borderColor: Theme.colors.error, borderWidth: 1 },
-  warningTitle: { fontSize: 18, color: Theme.colors.error, marginTop: 8 },
-  warningText: { textAlign: 'center', color: Theme.colors.textSec, marginTop: 8, lineHeight: 20 },
-  label: { fontSize: 13, fontWeight: '600', color: Theme.colors.textSec, marginBottom: 6, marginTop: 12 },
+  content: { padding: Theme.spacing.md, paddingBottom: 100 },
+  warningCard: { padding: Theme.spacing.md, alignItems: 'center', marginBottom: Theme.spacing.xl, borderColor: Theme.colors.error, borderWidth: 1 },
+  warningTitle: { fontSize: Theme.typography.h3.fontSize, color: Theme.colors.error, marginTop: Theme.spacing.sm },
+  warningText: { textAlign: 'center', color: Theme.colors.textSec, marginTop: Theme.spacing.sm, lineHeight: 20 },
+  label: { fontSize: Theme.typography.caption.fontSize, fontWeight: '600', color: Theme.colors.textSec, marginBottom: 6, marginTop: Theme.spacing.md },
   input: {
     backgroundColor: Theme.colors.card,
     borderWidth: 1,
     borderColor: Theme.colors.border,
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: Theme.spacing.md,
     color: Theme.colors.text,
-    fontSize: 15,
+    fontSize: Theme.typography.bodyMd.fontSize,
   },
-  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.sm },
   passwordInput: { flex: 1 },
-  confirmHint: { fontSize: 12, color: Theme.colors.error, marginBottom: 8, fontWeight: '600' },
+  confirmHint: { fontSize: Theme.typography.caption.fontSize, color: Theme.colors.error, marginBottom: Theme.spacing.sm, fontWeight: '600' },
   deleteBtn: {
-    marginTop: 24,
+    marginTop: Theme.spacing.lg,
     backgroundColor: Theme.colors.error,
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: Theme.spacing.sm,
   },
-  deleteBtnText: { color: '#fff', fontSize: 16 },
-  successCard: { padding: 24, alignItems: 'center', gap: 12 },
-  successTitle: { fontSize: 20, color: Theme.colors.success },
+  deleteBtnText: { color: Theme.colors.card, fontSize: Theme.typography.h4.fontSize },
+  successCard: { padding: Theme.spacing.lg, alignItems: 'center', gap: Theme.spacing.md },
+  successTitle: { fontSize: Theme.typography.h3.fontSize, color: Theme.colors.success },
   successText: { textAlign: 'center', color: Theme.colors.textSec },
 });

@@ -1,0 +1,321 @@
+import { StyleSheet } from 'react-native';
+import {Theme, C, colors} from '../../../theme/tokens';
+
+export const homeworkStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: C.colors.background,
+  },
+  pageBody: {
+  },
+  contentContainer: {
+    paddingBottom: 40,
+    paddingTop: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.md,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: Theme.spacing.sm,
+    marginBottom: Theme.spacing.md,
+    marginTop: Theme.spacing.xs,
+  },
+  filterChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: C.colors.inputBg,
+    paddingHorizontal: 10,
+    height: 44,
+    borderRadius: Theme.radius.sm,
+    borderWidth: 1,
+    borderColor: C.colors.border,
+  },
+  filterChipText: {
+    fontSize: Theme.typography.caption.fontSize,
+    fontWeight: '500',
+    color: C.colors.text,
+    flex: 1,
+  },
+  pendingStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: Theme.spacing.xs,
+  },
+  pendingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.colors.amber,
+  },
+  pendingText: {
+    ...Theme.typography.caption,
+    fontWeight: '600',
+    color: C.colors.textSec,
+  },
+  listContainer: {
+    paddingHorizontal: Theme.spacing.xs,
+  },
+  homeworkCard: {
+    backgroundColor: C.colors.card,
+    borderRadius: Theme.radius.lg,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
+    ...C.shadow.sm,
+    borderWidth: 1,
+    borderColor: C.colors.border,
+  },
+  cardHeader: {
+    marginBottom: Theme.spacing.md,
+  },
+  subjectName: {
+    ...Theme.typography.h3,
+    color: C.colors.text,
+  },
+  cardDetails: {
+    marginBottom: Theme.spacing.md,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    marginBottom: 6,
+  },
+  detailLabel: {
+    ...Theme.typography.body,
+    color: C.colors.textSec,
+    width: 110,
+  },
+  detailValue: {
+    ...Theme.typography.body,
+    color: C.colors.text,
+    fontWeight: '500',
+    flex: 1,
+  },
+  viewButton: {
+    backgroundColor: C.colors.blueLight,
+    paddingVertical: 10,
+    borderRadius: Theme.radius.md,
+    alignItems: 'center',
+  },
+  viewButtonText: {
+    ...Theme.typography.body,
+    fontWeight: '600',
+    color: C.colors.primary,
+  },
+  loaderContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  loaderText: {
+    marginTop: Theme.spacing.md,
+    fontSize: Theme.typography.caption.fontSize,
+    color: C.colors.textSec,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    padding: Theme.spacing.xxl,
+    marginTop: 40,
+  },
+  emptyTitle: {
+    ...Theme.typography.h3,
+    color: C.colors.text,
+    marginTop: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
+  },
+  emptyText: {
+    ...Theme.typography.body,
+    color: C.colors.textSec,
+    textAlign: 'center',
+  },
+  modalContent: {
+    backgroundColor: C.colors.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Theme.spacing.xl,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: C.colors.primary,
+  },
+  modalTitle: {
+    ...Theme.typography.h3,
+    color: C.colors.card,
+  },
+  modalBody: {
+    padding: Theme.spacing.xl,
+  },
+  modalSubjectBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: C.colors.blueLight,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: 6,
+    borderRadius: Theme.radius.md,
+    marginBottom: Theme.spacing.md,
+  },
+  modalSubjectText: {
+    ...Theme.typography.caption,
+    fontWeight: '600',
+    color: C.colors.blue,
+  },
+  modalHomeworkTitle: {
+    fontSize: Theme.typography.h2.fontSize,
+    fontWeight: '800',
+    color: C.colors.text,
+    marginBottom: Theme.spacing.xl,
+  },
+  modalDetailSection: {
+    marginBottom: Theme.spacing.xl,
+  },
+  modalDetailLabel: {
+    ...Theme.typography.body,
+    fontWeight: '600',
+    color: C.colors.textSec,
+    marginBottom: Theme.spacing.sm,
+  },
+  modalDetailText: {
+    ...Theme.typography.body,
+    color: C.colors.textSec,
+    lineHeight: 20,
+  },
+  modalInfoGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Theme.spacing.md,
+    marginBottom: Theme.spacing.lg,
+  },
+  modalInfoItem: {
+    flex: 1,
+    alignItems: 'center',
+    padding: Theme.spacing.md,
+    backgroundColor: C.colors.backgroundAlt,
+    borderRadius: Theme.radius.md,
+    gap: Theme.spacing.sm,
+  },
+  modalInfoLabel: {
+    ...Theme.typography.label,
+    fontWeight: '600',
+    color: C.colors.textSec,
+  },
+  modalInfoValue: {
+    ...Theme.typography.caption,
+    fontWeight: '500',
+    color: C.colors.text,
+    textAlign: 'center',
+  },
+  attachmentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Theme.spacing.sm,
+    paddingVertical: 14,
+    borderRadius: Theme.radius.md,
+    backgroundColor: C.colors.blueLight,
+    marginBottom: Theme.spacing.md,
+  },
+  attachmentText: {
+    ...Theme.typography.body,
+    fontWeight: '600',
+    color: C.colors.primary,
+  },
+  submitButton: {
+    borderRadius: Theme.radius.md,
+    overflow: 'hidden',
+  },
+  submitGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Theme.spacing.sm,
+    paddingVertical: 14,
+  },
+  submitButtonText: {
+    ...Theme.typography.bodyMd,
+    fontWeight: '700',
+    color: C.colors.card,
+  },
+  // Subject Picker Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: '#00000080',
+    justifyContent: 'flex-end',
+  },
+  pickerModalContent: {
+    backgroundColor: C.colors.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: Theme.spacing.sm,
+    maxHeight: '70%',
+  },
+  pickerIndicator: {
+    width: 40,
+    height: 4,
+    backgroundColor: C.colors.border,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: Theme.spacing.sm,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Theme.spacing.xl,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: C.colors.border,
+  },
+  pickerTitle: {
+    ...Theme.typography.h3,
+    color: C.colors.text,
+  },
+  closePickerButton: {
+    padding: Theme.spacing.xs,
+  },
+  pickerOptionsList: {
+    padding: Theme.spacing.md,
+  },
+  subjectOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Theme.spacing.md,
+    borderRadius: Theme.radius.md,
+    marginBottom: Theme.spacing.xs,
+  },
+  selectedSubjectOption: {
+    backgroundColor: C.colors.blueLight,
+  },
+  subjectOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.md,
+  },
+  subjectIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: Theme.radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  subjectOptionText: {
+    ...Theme.typography.bodyMd,
+    fontWeight: '500',
+    color: C.colors.textSec,
+  },
+  selectedSubjectOptionText: {
+    color: C.colors.blue,
+    fontWeight: '600',
+  },
+  checkContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: Theme.radius.md,
+    backgroundColor: C.colors.blueLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});

@@ -79,7 +79,7 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
   };
 
   return (
-    <ScreenContainer bgColor="#f5f7fa" statusBarStyle="dark-content">
+    <ScreenContainer bgColor={Theme.colors.background} statusBarStyle="dark-content">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={styles.blobTop} />
@@ -137,7 +137,7 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
           </Animated.View>
 
           <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('ForgotPassword')} style={styles.backLink}>
-            <ChevronLeft size={14} color="#8898aa" />
+            <ChevronLeft size={14} color={Theme.colors.textMuted} />
             <Text style={styles.backLinkText}>Back to Forgot Password</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -150,21 +150,21 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: Theme.spacing.lg, paddingBottom: Theme.spacing.xxl },
   blobTop: { position: 'absolute', top: -80, right: -60, width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(0,31,80,0.06)' },
   blobBottom: { position: 'absolute', bottom: -60, left: -80, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(56,189,248,0.05)' },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: Theme.spacing.xl },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Theme.colors.background, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Theme.spacing.xl, marginBottom: Theme.spacing.xl },
+  backBtn: { width: 36, height: 36, borderRadius: Theme.radius.lg, backgroundColor: Theme.colors.background, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 },
   logo: { width: 160, height: 50 },
   card: { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 28, padding: 28, shadowColor: Theme.colors.primary, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 28, elevation: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', alignItems: 'center' },
-  iconCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(0,31,80,0.08)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  cardTitle: { fontSize: 22, fontWeight: '800', color: Theme.colors.text, textAlign: 'center', letterSpacing: -0.5, marginBottom: Theme.spacing.sm },
-  cardSubtitle: { ...Theme.typography.body, color: '#8898aa', textAlign: 'center', marginBottom: 28, lineHeight: 22 },
+  iconCircle: { width: 72, height: 72, borderRadius: Theme.radius.xxxl, backgroundColor: 'rgba(0,31,80,0.08)', alignItems: 'center', justifyContent: 'center', marginBottom: Theme.spacing.xl },
+  cardTitle: { fontSize: Theme.typography.h2.fontSize, fontWeight: '800', color: Theme.colors.text, textAlign: 'center', letterSpacing: -0.5, marginBottom: Theme.spacing.sm },
+  cardSubtitle: { ...Theme.typography.body, color: Theme.colors.textMuted, textAlign: 'center', marginBottom: 28, lineHeight: 22 },
   identifierText: { color: Theme.colors.primary, fontWeight: '600' },
   otpInput: { textAlign: 'center', ...Theme.typography.h2, letterSpacing: 12 },
-  errorBox: { backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: 12, padding: 12, marginBottom: 12, alignSelf: 'stretch', borderLeftWidth: 3, borderLeftColor: Theme.colors.error },
-  errorText: { color: Theme.colors.error, fontSize: 13, fontWeight: '500' },
-  resendRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
-  resendText: { ...Theme.typography.body, color: '#8898aa' },
+  errorBox: { backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: Theme.radius.md, padding: Theme.spacing.md, marginBottom: Theme.spacing.md, alignSelf: 'stretch', borderLeftWidth: 3, borderLeftColor: Theme.colors.error },
+  errorText: { color: Theme.colors.error, fontSize: Theme.typography.caption.fontSize, fontWeight: '500' },
+  resendRow: { flexDirection: 'row', justifyContent: 'center', marginTop: Theme.spacing.xl },
+  resendText: { ...Theme.typography.body, color: Theme.colors.textMuted },
   resendLink: { ...Theme.typography.body, color: Theme.colors.primary, fontWeight: '600' },
-  resendDisabled: { color: '#8898aa' },
+  resendDisabled: { color: Theme.colors.textMuted },
   backLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: Theme.spacing.lg, gap: 6 },
-  backLinkText: { ...Theme.typography.body, color: '#8898aa', fontWeight: '500' },
+  backLinkText: { ...Theme.typography.body, color: Theme.colors.textMuted, fontWeight: '500' },
 });

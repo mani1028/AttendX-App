@@ -88,10 +88,10 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: Theme.spacing.md,
   },
   label: {
-    fontSize: 13,
+    fontSize: Theme.typography.caption.fontSize,
     fontWeight: '500',
     color: Theme.colors.textMuted,
     marginTop: Theme.spacing.xs,

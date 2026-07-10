@@ -1,4 +1,5 @@
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 // AccountantDashboardScreen.tsx
 // React Native Conversion (Android + iOS)
 // Exact same logic preserved
@@ -91,7 +92,7 @@ const AccountantDashboardScreen = () => {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={C.primary} />
+        <ScreenSkeleton variant="list" />
         <AppText style={styles.header}>Loading...</AppText>
       </View>
     );
@@ -109,20 +110,21 @@ const AccountantDashboardScreen = () => {
     <View style={styles.mainContainer}>
 
 
-      <StandardPageHeader
-        title="Financial Overview"
-        subtitle="Manage school finances, fees, and reports"
-        onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
-      />
-
-      <View style={[styles.contentOverlap]}>
-        <ScrollView
+      <ScrollView
          style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
+        <StandardPageHeader
+        scrollWithContent
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        title="Financial Overview"
+        subtitle="Manage school finances, fees, and reports"
+        onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
+      />
+
           <View style={styles.headerRow}>
             <LayoutDashboard size={28} color={C.primary} />
             <AppText style={styles.header} weight="bold">
@@ -180,7 +182,6 @@ const AccountantDashboardScreen = () => {
             )}
           </View>
         </ScrollView>
-      </View>
     </View>
   );
 };
@@ -220,7 +221,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: Theme.spacing.xl,
     paddingTop: Theme.spacing.lg,
     paddingBottom: 40,
   },
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    fontSize: 28,
+    fontSize: Theme.typography.h1.fontSize,
     color: C.text,
   },
   headerRow: {
@@ -247,15 +248,15 @@ const styles = StyleSheet.create({
   },
 
   tabButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.xl,
     backgroundColor: C.card,
-    borderRadius: 10,
+    borderRadius: Theme.radius.md,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: C.border,
-    marginRight: 12,
+    marginRight: Theme.spacing.md,
   },
 
   activeTabButton: {
@@ -274,8 +275,8 @@ const styles = StyleSheet.create({
 
   content: {
     backgroundColor: C.card,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: Theme.radius.lg,
+    padding: Theme.spacing.xl,
     borderWidth: 1,
     borderColor: C.border,
     marginBottom: 30,

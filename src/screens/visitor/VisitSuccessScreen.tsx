@@ -110,14 +110,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f0fdf4',
-    padding: 20,
+    padding: Theme.spacing.xl,
   },
   card: {
     width: '100%',
     maxWidth: 400,
     padding: Theme.spacing.lg,
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: Theme.radius.lg,
     backgroundColor: Theme.colors.background,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   iconContainer: {
-    marginBottom: 20,
+    marginBottom: Theme.spacing.xl,
   },
   successIcon: {
     fontSize: 64,
@@ -136,11 +136,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Theme.colors.success,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   message: {
     ...Theme.typography.body,
-    color: '#4a5568',
+    color: Theme.colors.textSec,
     textAlign: 'center',
     marginBottom: Theme.spacing.lg,
     lineHeight: 20,
@@ -149,11 +149,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#ecfdf5',
     borderWidth: 1,
     borderColor: '#a7f3d0',
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     padding: Theme.spacing.md,
     width: '100%',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: Theme.spacing.xl,
   },
   visitorNumberLabel: {
     ...Theme.typography.caption,
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     marginBottom: Theme.spacing.xs,
   },
   visitorNumberValue: {
-    fontSize: 24,
+    fontSize: Theme.typography.h2.fontSize,
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
     fontWeight: '800',
     color: Theme.colors.success,
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#eff6ff',
     borderWidth: 1,
     borderColor: '#bfdbfe',
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     padding: Theme.spacing.md,
     width: '100%',
     marginBottom: Theme.spacing.lg,
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     ...Theme.typography.body,
     fontWeight: '700',
     color: Theme.colors.primary,
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   instructionsList: {
     gap: 10,
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   instructionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Theme.spacing.sm,
   },
   instructionBullet: {
     ...Theme.typography.body,
@@ -197,8 +197,8 @@ const styles = StyleSheet.create({
   },
   instructionText: {
     flex: 1,
-    fontSize: 13,
-    color: '#6648dc',
+    fontSize: Theme.typography.caption.fontSize,
+    color: Theme.colors.violet,
     lineHeight: 18,
   },
   homeBtn: {
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   },
   redirectText: {
     ...Theme.typography.label,
-    color: '#94a3b8',
+    color: Theme.colors.textMuted,
     textAlign: 'center',
   },
 });

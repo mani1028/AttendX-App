@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   spinnerWrapper: {
     width: 52,
     height: 52,
-    marginBottom: 20,
+    marginBottom: Theme.spacing.xl,
   },
   spinner: {
     width: 52,
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     borderTopColor: Theme.colors.primary,
   },
   label: {
-    fontSize: 13,
+    fontSize: Theme.typography.caption.fontSize,
     fontWeight: '500',
     color: Theme.colors.textMuted,
     letterSpacing: 0.5,
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     bottom: 60,
     width: '100%',
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: Theme.typography.caption.fontSize,
     color: Theme.colors.textSec, // Darker slate for better contrast on white
     fontWeight: '600',
     letterSpacing: 0.5,

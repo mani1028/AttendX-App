@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useState, useEffect } from 'react';
-import { ActivityIndicator, View, StatusBar } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -100,7 +100,6 @@ import RenewalPaymentScreen from '../screens/director/RenewalPaymentScreen';
 
 // ─── Accountant Screens ─────────────────────────────────────────────────────
 import AccountantDashboardScreen from '../screens/accountant/AccountantDashboardScreen';
-import AccountantProfileScreen from '../screens/accountant/AccountantProfileScreen';
 import AccountantPayrollScreen from '../screens/accountant/PayrollScreen';
 import AccountantSettingsScreen from '../screens/accountant/SettingsScreen';
 import SalariesManagement from '../screens/accountant/SalariesManagement';
@@ -268,6 +267,7 @@ const AccountantTabNavigator = () => (
     <Tab.Screen name="Salaries" component={SalariesWrapper} />
     <Tab.Screen name="Payroll" component={AccountantPayrollScreen} />
     <Tab.Screen name="Expenses" component={PrincipalExpenseScreen} />
+    <Tab.Screen name="Profile" component={ProfileScreen} />
   </Tab.Navigator>
 );
 
@@ -307,14 +307,13 @@ export default function AppNavigator() {
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={Theme.colors.info} />
       </View>
     );
   }
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
       {userToken === null ? (
         // ─── Auth Stack (Not Logged In) ─────────────────────────────────────
@@ -408,7 +407,7 @@ export default function AppNavigator() {
           <Stack.Screen name="RenewalPayment" component={RenewalPaymentScreen} />
           <Stack.Screen name="Pricing" component={PricingScreen} />
           <Stack.Screen name="AccountantDashboard" component={AccountantDashboardScreen} />
-          <Stack.Screen name="AccountantProfile" component={AccountantProfileScreen} />
+          <Stack.Screen name="AccountantProfile" component={ProfileScreen} />
           <Stack.Screen name="AccountantPaymentEntry" component={PrincipalPaymentEntryScreen} />
           <Stack.Screen name="AccountantPayroll" component={AccountantPayrollScreen} />
           <Stack.Screen name="AccountantFeeManagement" component={PrincipalFeeManagementScreen} />

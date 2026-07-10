@@ -1,12 +1,11 @@
 import { Theme } from '../../theme/tokens';
 import { useScreenEntrance } from '../../theme/motion';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
-  Text,
   View,
   TouchableOpacity,
   ScrollView,
@@ -14,7 +13,6 @@ import {
   Animated,
   Dimensions,
   StatusBar,
-  TextInput,
   Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -23,8 +21,10 @@ import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../api/authService';
 import { setAuthToken } from '../../services/api';
 import { formatErrorMessage } from '../../utils/helpers';
-import { Eye, EyeOff, AlertCircle, Building2, User, Lock, ChevronRight } from 'lucide-react-native';
-import GradientButton from '../../components/GradientButton';
+import { AlertCircle, Building2, User, Lock, ChevronRight } from 'lucide-react-native';
+import AppButton from '../../components/common/AppButton';
+import { AppInput } from '../../components/common/AppInput';
+import AppText from '../../components/common/AppText';
 import { useRoute } from '@react-navigation/native';
 import AccountSwitcher from '../../components/common/AccountSwitcher';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,11 +44,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [schoolId, setSchoolId] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loginMessage, setLoginMessage] = useState('');
   const [loginMessageType, setLoginMessageType] = useState<'error' | 'success'>('error');
-  const [focusedField, setFocusedField] = useState<'school' | 'user' | 'pass' | null>(null);
 
   const { fadeAnim, slideAnim } = useScreenEntrance();
 
@@ -116,8 +114,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 resizeMode="contain"
               />
             </View>
-            <Text style={styles.welcome}>Welcome Back</Text>
-            <Text style={styles.subWelcome}>SECURE INSTITUTION PORTAL</Text>
+            <AppText variant="h1" weight="extrabold" style={styles.welcome}>Welcome Back</AppText>
+            <AppText variant="caption" muted style={styles.subWelcome}>SECURE INSTITUTION PORTAL</AppText>
           </Animated.View>
 
           {/* LOGIN CARD */}
@@ -127,7 +125,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
               {savedAccounts.length > 0 && showSavedOnly ? (
                 <View style={styles.savedAccountsContainer}>
-                  <Text style={styles.savedAccountsTitle}>Choose an account</Text>
+                  <AppText variant="h4" weight="bold" color={Theme.colors.textSec} style={styles.savedAccountsTitle}>
+                    Choose an account
+                  </AppText>
                   {savedAccounts.map((acc) => (
                     <TouchableOpacity
                       key={acc.id}
@@ -174,15 +174,17 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                         )}
                       </View>
                       <View style={styles.savedInfo}>
-                        <Text style={styles.savedName}>{acc.name || 'User'}</Text>
-                        <Text style={styles.savedRole}>{String(acc.role || '').toUpperCase()} • {acc.schoolCode}</Text>
+                        <AppText variant="bodyMd" weight="bold">{acc.name || 'User'}</AppText>
+                        <AppText variant="label" weight="semibold" muted style={styles.savedRole}>
+                          {String(acc.role || '').toUpperCase()} • {acc.schoolCode}
+                        </AppText>
                       </View>
-                      <ChevronRight size={20} color="#CBD5E1" />
+                      <ChevronRight size={20} color={Theme.colors.border} />
                     </TouchableOpacity>
                   ))}
 
                   <TouchableOpacity onPress={() => setShowSavedOnly(false)} style={styles.loginAnotherBtn}>
-                    <Text style={styles.loginAnotherTxt}>Log into another account</Text>
+                    <AppText variant="body" weight="bold" color={Theme.colors.primary}>Log into another account</AppText>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -190,79 +192,66 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                   {loginMessage ? (
                     <View style={[styles.banner, loginMessageType === 'success' ? styles.bannerOk : styles.bannerErr]}>
                       <AlertCircle size={16} color={loginMessageType === 'success' ? Theme.colors.success : Theme.colors.error} />
-                      <Text style={[styles.bannerTxt, { color: loginMessageType === 'success' ? Theme.colors.success : Theme.colors.error }]}>
+                      <AppText
+                        variant="caption"
+                        weight="semibold"
+                        color={loginMessageType === 'success' ? Theme.colors.success : Theme.colors.error}
+                        style={styles.bannerTxt}
+                      >
                         {loginMessage}
-                      </Text>
+                      </AppText>
                     </View>
                   ) : null}
 
-                  <View style={styles.form}>
-                    <Field label="School ID">
-                      <View style={[styles.inputGroup, focusedField === 'school' && styles.inputActive]}>
-                        <Building2 size={20} color={focusedField === 'school' ? Theme.colors.primary : '#8B9BB4'} />
-                        <TextInput
-                          style={styles.input}
-                          placeholder="SSC1111"
-                          placeholderTextColor="#B7C0D0"
-                          value={schoolId}
-                          onChangeText={t => setSchoolId(t.toUpperCase())}
-                          onFocus={() => setFocusedField('school')}
-                          onBlur={() => setFocusedField(null)}
-                          autoCapitalize="characters"
-                          returnKeyType="next"
-                        />
-                      </View>
-                    </Field>
+                  <View>
+                    <AppInput
+                      label="School ID"
+                      placeholder="SSC1111"
+                      value={schoolId}
+                      onChangeText={t => setSchoolId(t.toUpperCase())}
+                      autoCapitalize="characters"
+                      returnKeyType="next"
+                      leftIcon={<Building2 size={20} color={Theme.colors.textMuted} />}
+                    />
 
-                    <Field label="Email / ID / Roll No">
-                      <View style={[styles.inputGroup, focusedField === 'user' && styles.inputActive]}>
-                        <User size={20} color={focusedField === 'user' ? Theme.colors.primary : '#8B9BB4'} />
-                        <TextInput
-                          style={styles.input}
-                          placeholder="name@school.com / EMP001"
-                          placeholderTextColor="#B7C0D0"
-                          value={username}
-                          onChangeText={setUsername}
-                          onFocus={() => setFocusedField('user')}
-                          onBlur={() => setFocusedField(null)}
-                          autoCapitalize="none"
-                          keyboardType="email-address"
-                          returnKeyType="next"
-                        />
-                      </View>
-                    </Field>
+                    <AppInput
+                      label="Email / ID / Roll No"
+                      placeholder="name@school.com / EMP001"
+                      value={username}
+                      onChangeText={setUsername}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      returnKeyType="next"
+                      leftIcon={<User size={20} color={Theme.colors.textMuted} />}
+                    />
 
-                    <Field label="Password">
-                      <View style={[styles.inputGroup, focusedField === 'pass' && styles.inputActive]}>
-                        <Lock size={20} color={focusedField === 'pass' ? Theme.colors.primary : '#8B9BB4'} />
-                        <TextInput
-                          style={styles.input}
-                          placeholder="••••••••"
-                          placeholderTextColor="#B7C0D0"
-                          value={password}
-                          onChangeText={setPassword}
-                          secureTextEntry={!showPassword}
-                          onFocus={() => setFocusedField('pass')}
-                          onBlur={() => setFocusedField(null)}
-                          returnKeyType="done"
-                          onSubmitEditing={handleLogin}
-                        />
-                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                          {showPassword ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
-                        </TouchableOpacity>
-                      </View>
-                    </Field>
+                    <AppInput
+                      label="Password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry
+                      returnKeyType="done"
+                      onSubmitEditing={handleLogin}
+                      leftIcon={<Lock size={20} color={Theme.colors.textMuted} />}
+                    />
                   </View>
 
                   <View style={styles.actionRow}>
-                    <GradientButton text="SIGN IN →" onPress={handleLogin} loading={loading} style={styles.signInBtn} />
+                    <AppButton
+                      title="SIGN IN →"
+                      onPress={handleLogin}
+                      loading={loading}
+                      size="lg"
+                      style={styles.signInBtn}
+                    />
                   </View>
 
                   <TouchableOpacity
                     onPress={() => navigation.navigate('ForgotPassword')}
                     style={styles.forgotBtn}
                   >
-                    <Text style={styles.forgotTxt}>Forgot password?</Text>
+                    <AppText variant="body" weight="bold" color={Theme.colors.primary}>Forgot password?</AppText>
                   </TouchableOpacity>
 
                   <View style={styles.dividerLine} />
@@ -271,14 +260,15 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                     onPress={() => Linking.openURL('https://portal.attendx.ai/register-school')}
                     style={styles.registerBtn}
                   >
-                    <Text style={styles.registerTxt}>
-                      New Institution? <Text style={styles.registerLink}>Register Now</Text>
-                    </Text>
+                    <AppText variant="body" color={Theme.colors.textSec}>
+                      New Institution?{' '}
+                      <AppText variant="body" weight="extrabold" color={Theme.colors.primary}>Register Now</AppText>
+                    </AppText>
                   </TouchableOpacity>
 
                   {savedAccounts.length > 0 && (
                     <TouchableOpacity onPress={() => setShowSavedOnly(true)} style={styles.viewSavedBtn}>
-                      <Text style={styles.viewSavedTxt}>VIEW SAVED ACCOUNTS</Text>
+                      <AppText variant="label" style={styles.viewSavedTxt}>VIEW SAVED ACCOUNTS</AppText>
                     </TouchableOpacity>
                   )}
                 </>
@@ -293,20 +283,13 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
-const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <View style={styles.field}>
-    <Text style={styles.fieldLabel}>{label}</Text>
-    {children}
-  </View>
-);
-
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F5F7FA' },
+  root: { flex: 1, backgroundColor: Theme.colors.background },
   kav: { flex: 1 },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: Theme.spacing.lg,
-    paddingVertical: isSmallDevice ? 20 : 40,
+    paddingVertical: isSmallDevice ? Theme.spacing.lg : Theme.spacing.xl,
     justifyContent: 'center',
   },
   cornerTopRight: {
@@ -341,11 +324,11 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  welcome: { fontSize: 32, fontWeight: '800', color: '#111827', textAlign: 'center' },
-  subWelcome: { fontSize: 13, letterSpacing: 2, color: '#8B9BB4', textAlign: 'center', marginTop: Theme.spacing.xs },
+  welcome: { textAlign: 'center' },
+  subWelcome: { letterSpacing: 2, textAlign: 'center', marginTop: Theme.spacing.xs },
   cardContainer: {
     width: '100%',
-    borderRadius: 24,
+    borderRadius: Theme.radius.xxl,
     backgroundColor: Theme.colors.card,
     overflow: 'hidden',
     shadowColor: Theme.colors.primary,
@@ -361,89 +344,50 @@ const styles = StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 20,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.radius.md,
+    marginBottom: Theme.spacing.xl,
     borderWidth: 1,
   },
-  bannerErr: { backgroundColor: '#fef2f2', borderColor: '#fee2e2' },
-  bannerOk: { backgroundColor: '#ecfdf5', borderColor: '#d1fae5' },
-  bannerTxt: { fontSize: 13, fontWeight: '600', marginLeft: Theme.spacing.sm },
-  form: { gap: 16 },
-  field: { gap: 8 },
-  fieldLabel: {
-    ...Theme.typography.caption,
-    fontWeight: '700',
-    color: '#8B9BB4',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginLeft: Theme.spacing.xs,
-  },
-  inputGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    height: 56,
-    paddingHorizontal: Theme.spacing.md,
-  },
-  inputActive: {
-    borderColor: Theme.colors.primary,
-    backgroundColor: Theme.colors.background,
-  },
-  input: {
-    flex: 1,
-    height: '100%',
-    marginLeft: 12,
-    ...Theme.typography.bodyMd,
-    color: '#111827',
-    fontWeight: '600',
-  },
-  eyeBtn: { padding: Theme.spacing.xs },
+  bannerErr: { backgroundColor: Theme.colors.redLight, borderColor: Theme.colors.redLight },
+  bannerOk: { backgroundColor: Theme.colors.greenLight, borderColor: Theme.colors.greenLight },
+  bannerTxt: { marginLeft: Theme.spacing.sm },
   actionRow: { marginTop: Theme.spacing.sm },
-  signInBtn: { width: '100%', height: 56, borderRadius: 12 },
+  signInBtn: { width: '100%' },
   forgotBtn: { alignSelf: 'center', marginTop: Theme.spacing.md },
-  forgotTxt: { color: Theme.colors.primary, ...Theme.typography.body, fontWeight: '700' },
-  dividerLine: { width: '100%', height: 1, backgroundColor: Theme.colors.background, marginVertical: 20 },
+  dividerLine: { width: '100%', height: 1, backgroundColor: Theme.colors.background, marginVertical: Theme.spacing.xl },
   registerBtn: { alignItems: 'center' },
-  registerTxt: { ...Theme.typography.body, color: Theme.colors.textSec },
-  registerLink: { color: Theme.colors.primary, fontWeight: '800' },
   viewSavedBtn: {
-    marginTop: 12,
-    paddingVertical: 12,
+    marginTop: Theme.spacing.md,
+    paddingVertical: Theme.spacing.md,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.radius.md,
   },
-  viewSavedTxt: { ...Theme.typography.caption, color: '#111827', fontWeight: '700', letterSpacing: 1 },
+  viewSavedTxt: { letterSpacing: 1 },
   savedAccountsContainer: {
-    gap: 12,
+    gap: Theme.spacing.md,
     marginTop: Theme.spacing.sm,
   },
   savedAccountsTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#374151',
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
     textAlign: 'center',
   },
   savedAccountCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    padding: 14,
-    borderRadius: 16,
+    backgroundColor: Theme.colors.inputBg,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.radius.lg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: Theme.colors.border,
   },
   savedAvatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#eff6ff',
+    backgroundColor: Theme.colors.blueLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -454,28 +398,15 @@ const styles = StyleSheet.create({
   },
   savedInfo: {
     flex: 1,
-    marginLeft: 14,
-  },
-  savedName: {
-    ...Theme.typography.bodyMd,
-    fontWeight: '700',
-    color: '#111827',
+    marginLeft: Theme.spacing.md,
   },
   savedRole: {
-    ...Theme.typography.label,
-    fontWeight: '600',
-    color: '#8B9BB4',
     marginTop: 2,
   },
   loginAnotherBtn: {
     marginTop: Theme.spacing.md,
     alignItems: 'center',
-    paddingVertical: 12,
-  },
-  loginAnotherTxt: {
-    ...Theme.typography.body,
-    fontWeight: '700',
-    color: Theme.colors.primary,
+    paddingVertical: Theme.spacing.md,
   },
 });
 

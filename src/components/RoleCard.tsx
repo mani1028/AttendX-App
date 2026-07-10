@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../theme/tokens';
+import { colors, Theme } from '../theme/tokens';
 
 type Props = {
   title: string;
@@ -23,7 +23,7 @@ export default function RoleCard({ title, subtitle, onPress }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    borderRadius: Theme.radius.lg,
     overflow: 'hidden',
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -36,16 +36,16 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 14,
-    gap: 4,
+    gap: Theme.spacing.xs,
     flex: 1,
   },
   title: {
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: Theme.typography.caption.fontSize,
     color: colors.textMuted,
   },
 });

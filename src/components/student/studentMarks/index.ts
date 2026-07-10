@@ -1,0 +1,1 @@
+export { studentMarksStyles } from './studentMarksStyles';

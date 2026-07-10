@@ -3,8 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { AlertTriangle, ChevronLeft, CreditCard, Phone, Shield, Users } from 'lucide-react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import LinearGradient from 'react-native-linear-gradient';
 
 import AppText from '../../components/common/AppText';
 import { storage } from '../../storage/storage';
@@ -51,11 +49,11 @@ const PaymentDueScreen = () => {
   const isDirector = userRole.toLowerCase() === 'director';
 
   return (
-    <LinearGradient colors={['#eef2f7', '#e8edf5']} style={styles.container}>
+    <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-          <LinearGradient colors={['#e84b2f', '#f97316', '#fbbf24']} start={{x: 0, y: 0}} end={{x: 1, y: 0}} style={styles.accentBar} />
+          <View style={styles.accentBar} />
 
           <View style={styles.innerCard}>
             <View style={styles.badgeContainer}>
@@ -68,9 +66,9 @@ const PaymentDueScreen = () => {
 
             {schoolId ? (
               <View style={styles.institutionBox}>
-                <LinearGradient colors={[Theme.colors.primary, '#2563eb']} style={styles.institutionIconBg}>
+                <View style={styles.institutionIconBg}>
                   <Shield size={20} color={Theme.colors.card} />
-                </LinearGradient>
+                </View>
                 <View style={styles.institutionTextWrap}>
                   <AppText style={styles.institutionLabel}>REGISTERED INSTITUTION</AppText>
                   <AppText style={styles.institutionId}>{schoolId}</AppText>
@@ -99,7 +97,7 @@ const PaymentDueScreen = () => {
                 </TouchableOpacity>
               ) : (
                 <View style={[styles.btn, styles.btnDisabled]}>
-                  <Phone size={16} color="#94a3b8" />
+                  <Phone size={16} color={Theme.colors.textMuted} />
                   <AppText style={styles.btnDisabledText}>Contact Admin</AppText>
                 </View>
               )}
@@ -134,22 +132,23 @@ const PaymentDueScreen = () => {
         </Animated.View>
 
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Theme.colors.backgroundAlt,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
+    padding: Theme.spacing.xl,
   },
   card: {
     backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 24,
+    borderRadius: Theme.radius.xxl,
     overflow: 'hidden',
     shadowColor: '#0f1629',
     shadowOffset: { width: 0, height: 10 },
@@ -160,6 +159,7 @@ const styles = StyleSheet.create({
   accentBar: {
     height: 4,
     width: '100%',
+    backgroundColor: Theme.colors.warning,
   },
   innerCard: {
     padding: Theme.spacing.lg,
@@ -169,10 +169,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff0ed',
     paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    paddingHorizontal: Theme.spacing.md,
+    borderRadius: Theme.radius.xl,
     alignSelf: 'flex-start',
-    marginBottom: 20,
+    marginBottom: Theme.spacing.xl,
     borderWidth: 1,
     borderColor: '#ffd7d0',
   },
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     marginRight: Theme.spacing.sm,
   },
   badgeText: {
-    fontSize: 10,
+    fontSize: Theme.typography.label.fontSize,
     fontWeight: '700',
     color: '#e84b2f',
     letterSpacing: 1,
@@ -206,23 +206,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7f8fc',
     borderWidth: 1,
     borderColor: '#e4e8f0',
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     padding: Theme.spacing.md,
     marginBottom: Theme.spacing.lg,
   },
   institutionIconBg: {
     width: 40,
     height: 40,
-    borderRadius: 10,
+    borderRadius: Theme.radius.md,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Theme.spacing.md,
+    backgroundColor: Theme.colors.primary,
   },
   institutionTextWrap: {
     flex: 1,
   },
   institutionLabel: {
-    fontSize: 10,
+    fontSize: Theme.typography.label.fontSize,
     fontWeight: '700',
     color: '#9ba3be',
     letterSpacing: 1,
@@ -241,8 +242,8 @@ const styles = StyleSheet.create({
   buttonsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
-    gap: 12,
+    marginBottom: Theme.spacing.xl,
+    gap: Theme.spacing.md,
   },
   btn: {
     flex: 1,
@@ -250,7 +251,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: Theme.radius.md,
   },
   btnSecondary: {
     backgroundColor: Theme.colors.background,
@@ -258,7 +259,7 @@ const styles = StyleSheet.create({
     borderColor: '#e4e8f0',
   },
   btnSecondaryText: {
-    fontSize: 13,
+    fontSize: Theme.typography.caption.fontSize,
     fontWeight: '700',
     color: '#0f1629',
     marginLeft: Theme.spacing.sm,
@@ -267,7 +268,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#6A5AF9',
   },
   btnDirectorText: {
-    fontSize: 13,
+    fontSize: Theme.typography.caption.fontSize,
     fontWeight: '700',
     color: Theme.colors.card,
     marginLeft: Theme.spacing.sm,
@@ -276,15 +277,15 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
   },
   btnDisabledText: {
-    fontSize: 13,
+    fontSize: Theme.typography.caption.fontSize,
     fontWeight: '700',
-    color: '#94a3b8',
+    color: Theme.colors.textMuted,
     marginLeft: Theme.spacing.sm,
   },
   notice: {
     flexDirection: 'row',
     padding: Theme.spacing.md,
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     borderWidth: 1,
   },
   noticeBlue: {
@@ -298,24 +299,24 @@ const styles = StyleSheet.create({
   noticeIcon: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: Theme.radius.sm,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: Theme.spacing.md,
   },
   noticeIconBlue: {
-    backgroundColor: '#2563eb',
+    backgroundColor: Theme.colors.blue,
   },
   noticeIconAmber: {
-    backgroundColor: '#f59e0b',
+    backgroundColor: Theme.colors.warning,
   },
   noticeTextWrap: {
     flex: 1,
   },
   noticeTitleBlue: {
-    fontSize: 13,
+    fontSize: Theme.typography.caption.fontSize,
     fontWeight: '700',
-    color: '#2563eb',
+    color: Theme.colors.blue,
     marginBottom: Theme.spacing.xs,
   },
   noticeBodyBlue: {
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   noticeTitleAmber: {
-    fontSize: 13,
+    fontSize: Theme.typography.caption.fontSize,
     fontWeight: '700',
     color: '#b45309',
     marginBottom: Theme.spacing.xs,

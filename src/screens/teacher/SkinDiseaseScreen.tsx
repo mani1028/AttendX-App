@@ -1,18 +1,7 @@
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Image,
-  Alert,
-  Platform,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert, Platform, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
@@ -28,6 +17,7 @@ import { Theme } from '../../theme/tokens';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 import { launchCameraWithPermission as launchCamera } from '../../utils/cameraUtils';
+import { skinDiseaseStyles as styles } from '../../components/teacher/skinDisease/skinDiseaseStyles';
 
 
 
@@ -237,7 +227,7 @@ export default function SkinDiseaseScreen() {
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.8) {return Theme.colors.success;}
-    if (confidence >= 0.6) {return '#f59e0b';}
+    if (confidence >= 0.6) {return Theme.colors.warning;}
     return Theme.colors.error;
   };
 
@@ -302,7 +292,7 @@ export default function SkinDiseaseScreen() {
       {/* Loading Indicator */}
       {loading && (
         <AppCard style={styles.loadingCard}>
-          <ActivityIndicator size="large" color="#7C3AED" />
+          <ScreenSkeleton variant="list" />
           <Text style={styles.loadingText}>Analyzing Image...</Text>
           <Text style={styles.loadingSubtext}>
             Our AI model is processing your skin image
@@ -422,222 +412,3 @@ export default function SkinDiseaseScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  mainContent: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 40,
-  },
-  card: {
-        padding: Theme.spacing.lg,
-    marginBottom: 20,
-    backgroundColor: Theme.colors.card,
-    borderRadius: 24,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-  },
-  imageSelector: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: Theme.colors.background,
-    minHeight: 200,
-  },
-  placeholderContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-  },
-  placeholderIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  placeholderText: {
-    fontSize: 16,
-    color: Theme.colors.textSec,
-    fontWeight: '500',
-  },
-  placeholderSubtext: {
-    ...Theme.typography.caption,
-    color: Theme.colors.textMuted,
-    marginTop: Theme.spacing.xs,
-  },
-  previewImage: {
-    width: '100%',
-    height: 250,
-    borderRadius: 12,
-    resizeMode: 'cover',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: Theme.spacing.md,
-  },
-  changeBtn: {
-    flex: 1,
-  },
-  analyzeBtn: {
-    flex: 2,
-    backgroundColor: Theme.colors.primary,
-  },
-  loadingCard: {
-    padding: 30,
-    alignItems: 'center',
-    backgroundColor: Theme.colors.card,
-    borderRadius: 16,
-    marginBottom: 20,
-  },
-  loadingText: {
-    ...Theme.typography.h4,
-    color: Theme.colors.text,
-    marginTop: Theme.spacing.md,
-  },
-  loadingSubtext: {
-    ...Theme.typography.caption,
-    color: Theme.colors.textSec,
-    marginTop: Theme.spacing.sm,
-    textAlign: 'center',
-  },
-  resultCard: {
-    padding: Theme.spacing.lg,
-    backgroundColor: Theme.colors.card,
-    borderColor: '#10B981',
-    borderWidth: 1,
-    borderRadius: 24,
-    marginBottom: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-  },
-  resultHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 20,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.background,
-  },
-  resultIcon: {
-    fontSize: 28,
-  },
-  resultTitle: {
-    ...Theme.typography.h3,
-    color: '#10B981',
-  },
-  resultSection: {
-    marginBottom: Theme.spacing.md,
-  },
-  resultLabel: {
-    ...Theme.typography.caption,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    color: Theme.colors.textSec,
-    marginBottom: Theme.spacing.sm,
-  },
-  diseaseName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Theme.colors.text,
-  },
-  confidenceContainer: {
-    gap: 8,
-  },
-  confidenceBar: {
-    height: 8,
-    backgroundColor: Theme.colors.background,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  confidenceFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  confidenceText: {
-    ...Theme.typography.body,
-    fontWeight: '600',
-  },
-  descriptionText: {
-    ...Theme.typography.body,
-    color: Theme.colors.textSec,
-    lineHeight: 20,
-  },
-  precautionItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: Theme.spacing.sm,
-  },
-  precautionBullet: {
-    ...Theme.typography.body,
-    color: '#10B981',
-    marginRight: Theme.spacing.sm,
-  },
-  precautionText: {
-    flex: 1,
-    ...Theme.typography.body,
-    color: Theme.colors.textSec,
-    lineHeight: 20,
-  },
-  disclaimer: {
-    flexDirection: 'row',
-    backgroundColor: '#FEF3C7',
-    padding: 12,
-    borderRadius: 10,
-    marginTop: Theme.spacing.md,
-    marginBottom: Theme.spacing.md,
-    gap: 10,
-  },
-  disclaimerIcon: {
-    fontSize: 16,
-  },
-  disclaimerText: {
-    flex: 1,
-    ...Theme.typography.caption,
-    color: '#92400E',
-    lineHeight: 16,
-  },
-  resetBtn: {
-    marginTop: Theme.spacing.sm,
-  },
-  infoGrid: {
-    gap: 12,
-  },
-  infoCard: {
-    padding: Theme.spacing.md,
-    alignItems: 'center',
-    backgroundColor: Theme.colors.card,
-    borderRadius: 24,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-  },
-  infoIcon: {
-    fontSize: 28,
-    marginBottom: Theme.spacing.sm,
-  },
-  infoTitle: {
-    ...Theme.typography.body,
-    fontWeight: '700',
-    color: Theme.colors.text,
-    marginBottom: Theme.spacing.xs,
-  },
-  infoText: {
-    ...Theme.typography.caption,
-    color: Theme.colors.textSec,
-    textAlign: 'center',
-  },
-});

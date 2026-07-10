@@ -105,7 +105,7 @@ export default function AdminRevenueScreen() {
             <>
               <View style={styles.grid}>
                 <StatCard label="Total Revenue" value={fmt(stats?.total_revenue)} icon={Banknote} color="#16a34a" bg="#f0fdf4" />
-                <StatCard label="This Month" value={fmt(stats?.monthly_revenue ?? stats?.revenue_this_month)} icon={TrendingUp} color="#2563eb" bg="#eff6ff" />
+                <StatCard label="This Month" value={fmt(stats?.monthly_revenue ?? stats?.revenue_this_month)} icon={TrendingUp} color={Theme.colors.blue} bg="#eff6ff" />
                 <StatCard label="Transactions" value={String(stats?.stats?.paid_count ?? stats?.paid_count ?? 0)} icon={Activity} color="#9333ea" bg="#faf5ff" />
                 <StatCard label="Schools" value={String(stats?.stats?.total_schools ?? stats?.total ?? 0)} icon={Building2} color="#ea580c" bg="#fff7ed" />
               </View>
@@ -136,12 +136,12 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   statCard: { width: '48%', padding: 14, flexGrow: 1 },
-  statIcon: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  statLabel: { fontSize: 10, color: Theme.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' },
-  statValue: { fontSize: 18, color: Theme.colors.text, marginTop: 4 },
-  section: { marginTop: 24 },
-  sectionTitle: { fontSize: 16, marginBottom: 12, color: Theme.colors.text },
-  paymentRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, padding: 12 },
-  paymentMeta: { fontSize: 12, color: Theme.colors.textMuted, marginTop: 2 },
-  paymentAmount: { color: Theme.colors.success, fontSize: 15 },
+  statIcon: { width: 40, height: 40, borderRadius: Theme.radius.md, alignItems: 'center', justifyContent: 'center', marginBottom: Theme.spacing.sm },
+  statLabel: { fontSize: Theme.typography.label.fontSize, color: Theme.colors.textMuted, fontWeight: '700', textTransform: 'uppercase' },
+  statValue: { fontSize: Theme.typography.h3.fontSize, color: Theme.colors.text, marginTop: Theme.spacing.xs },
+  section: { marginTop: Theme.spacing.lg },
+  sectionTitle: { fontSize: Theme.typography.h4.fontSize, marginBottom: Theme.spacing.md, color: Theme.colors.text },
+  paymentRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Theme.spacing.sm, padding: Theme.spacing.md },
+  paymentMeta: { fontSize: Theme.typography.caption.fontSize, color: Theme.colors.textMuted, marginTop: 2 },
+  paymentAmount: { color: Theme.colors.success, fontSize: Theme.typography.bodyMd.fontSize },
 });

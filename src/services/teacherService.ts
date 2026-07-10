@@ -244,9 +244,9 @@ export async function getClassesSections(branchId: string, schoolCode: string): 
 
 export async function verifyTeacher(payload: any): Promise<any> {
   const endpoints = [
-    'director/staff/register',
     'manage/verify-staff',
     'manage/verify-teacher',
+    'staff/verify',
   ];
   // Backend expects JSON by default now
   // Suppress global 401 logout for face-verification requests so we can show an error
@@ -770,8 +770,12 @@ export async function updateTeacherProfile(data: any): Promise<any> {
 /* ============ STUDENT REGISTRATION REQUESTS (Class Teacher Only) ============ */
 
 const TEACHER_STUDENT_REGISTER_ENDPOINTS = [
-  'manage/student/register-request',
   'student/register-request',
+  'manage/student/register-request',
+  'student/register',
+  'manage/student/register',
+  'staff/student/register-request',
+  'manage/staff/student/register-request',
 ];
 
 /** Submit a new student from the teacher registration form (multipart with photo). */
@@ -834,10 +838,15 @@ export async function getStudentRegistrationRequests(
   branchId: string,
   params?: any
 ): Promise<any> {
-  return getFirstSuccessful<any>(
-    ['staff/student-registration-requests'],
+  const data = await getFirstSuccessful<any>(
+    [
+      'staff/student-registration-requests',
+      'teacher/student-registration-requests',
+      'manage/staff/student-registration-requests',
+    ],
     {
       params: {
+        school_code: schoolCode,
         branch_id: branchId,
         ...params,
       },
@@ -848,6 +857,15 @@ export async function getStudentRegistrationRequests(
       suppressFallback404Log: false,
     } as any
   );
+
+  const items = data?.items || data?.requests || (Array.isArray(data) ? data : []);
+  const normalized = (Array.isArray(items) ? items : []).map((item: any) => {
+    const row = asRecord(item);
+    const id = toText(firstDefined(row.id, row.request_id, row.registration_id), '');
+    return { ...row, id: id || row.id };
+  });
+
+  return { ...asRecord(data), items: normalized };
 }
 
 export async function approveStudentRegistration(
@@ -855,17 +873,48 @@ export async function approveStudentRegistration(
   branchId: string,
   requestId: string
 ): Promise<any> {
-  const endpoint = `staff/student-registration-requests/${requestId}/accept`;
-  return postFirstSuccessful(
-    [endpoint],
-    {},
-    {
-      headers: {
-        'X-School-Code': schoolCode,
-        'X-Branch-Id': branchId,
-      },
+  const encodedId = encodeURIComponent(requestId);
+  const body = {
+    school_code: schoolCode,
+    school_id: schoolCode,
+    branch_id: branchId,
+    request_id: requestId,
+  };
+  const headers = {
+    'X-School-Code': schoolCode,
+    'X-Branch-Id': branchId,
+  };
+  const endpoints = [
+    `staff/student-registration-requests/${encodedId}/accept`,
+    `staff/student-registration-requests/${encodedId}/approve`,
+    `teacher/student-registration-requests/${encodedId}/accept`,
+    `manage/staff/student-registration-requests/${encodedId}/accept`,
+  ];
+
+  let lastError: any = null;
+  for (const endpoint of endpoints) {
+    for (const method of ['post', 'put'] as const) {
+      try {
+        const response = await API[method](endpoint, body, {
+          headers,
+          suppressFallback404Log: true,
+        } as any);
+        return response.data;
+      } catch (error: any) {
+        lastError = error;
+        const status = error?.response?.status;
+        if (status === 404 || status === 405) {
+          continue;
+        }
+        throw error;
+      }
     }
-  );
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+  throw new Error('Could not approve registration request');
 }
 
 export async function rejectStudentRegistration(
@@ -873,13 +922,51 @@ export async function rejectStudentRegistration(
   branchId: string,
   requestId: string
 ): Promise<any> {
-  const endpoint = `staff/student-registration-requests/${requestId}/reject`;
-  return API.delete(endpoint, {
-    headers: {
-      'X-School-Code': schoolCode,
-      'X-Branch-Id': branchId,
-    },
-  });
+  const encodedId = encodeURIComponent(requestId);
+  const body = {
+    school_code: schoolCode,
+    school_id: schoolCode,
+    branch_id: branchId,
+    request_id: requestId,
+  };
+  const headers = {
+    'X-School-Code': schoolCode,
+    'X-Branch-Id': branchId,
+  };
+  const endpoints = [
+    `staff/student-registration-requests/${encodedId}/reject`,
+    `teacher/student-registration-requests/${encodedId}/reject`,
+    `manage/staff/student-registration-requests/${encodedId}/reject`,
+  ];
+
+  let lastError: any = null;
+  for (const endpoint of endpoints) {
+    try {
+      const response = await API.delete(endpoint, { headers, data: body } as any);
+      return response.data;
+    } catch (error: any) {
+      lastError = error;
+      const status = error?.response?.status;
+      if (status === 404 || status === 405) {
+        try {
+          const postResponse = await API.post(endpoint, body, { headers, suppressFallback404Log: true } as any);
+          return postResponse.data;
+        } catch (postError: any) {
+          lastError = postError;
+          if (postError?.response?.status === 404 || postError?.response?.status === 405) {
+            continue;
+          }
+          throw postError;
+        }
+      }
+      throw error;
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+  throw new Error('Could not reject registration request');
 }
 
 /* ============ ATTENDANCE ENDPOINTS ============ */
@@ -1279,7 +1366,7 @@ export async function deleteTeacherQuestionPaper(paperId: string): Promise<void>
 function mapTeacherQuestionPaperRecord(paper: any) {
   const p = asRecord(paper);
   return {
-    paper_id: toText(firstDefined(p.paper_id, p.id, p.paperId), ''),
+    paper_id: toText(firstDefined(p.paper_id, p.id, p.paperId, p.question_paper_id, p.qp_id), ''),
     title: toText(firstDefined(p.title, p.name), 'Untitled Paper'),
     description: toText(firstDefined(p.description, p.instructions), ''),
     exam_type: toText(firstDefined(p.exam_type, p.type, p.examType), ''),
@@ -1359,16 +1446,32 @@ export async function getTeacherQuestionPapers(params?: Record<string, any>): Pr
 
 /** Download a question paper file uploaded by staff. */
 export async function downloadTeacherQuestionPaper(paperId: string): Promise<ArrayBuffer> {
-  const encodedPaperId = encodeURIComponent(paperId);
+  const trimmedId = String(paperId || '').trim();
+  if (!trimmedId) {
+    throw new Error('This question paper is missing a file reference. Try refreshing the list.');
+  }
+
+  const encodedPaperId = encodeURIComponent(trimmedId);
   const endpoints = [
     `staff/question-papers/${encodedPaperId}/download`,
     `staff/question-papers/${encodedPaperId}/preview`,
     `manage/staff/question-papers/${encodedPaperId}/download`,
     `staff/question-papers/download/${encodedPaperId}`,
+    `staff/question-papers/${encodedPaperId}`,
     'staff/question-papers/download',
+    'manage/staff/question-papers/download',
   ];
-  const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || '';
-  const branchId = await storage.getString(StorageKeys.BRANCH_ID) || '';
+  let schoolCode = (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
+  let branchId = (await storage.getString(StorageKeys.BRANCH_ID)) || '';
+
+  try {
+    if (typeof branchId === 'string' && /^\d+$/.test(branchId)) {
+      branchId = String(Number(branchId));
+    }
+  } catch {
+    // keep original branchId
+  }
+
   const employeeId =
     (await AsyncStorage.getItem('teacher_id')) ||
     (await AsyncStorage.getItem('teacherId')) ||
@@ -1378,11 +1481,13 @@ export async function downloadTeacherQuestionPaper(paperId: string): Promise<Arr
   const authHeader = authToken ? `Bearer ${authToken}` : undefined;
   const requestParams = {
     school_code: schoolCode,
+    school_id: schoolCode,
     branch_id: branchId,
     employee_id: employeeId,
     teacher_id: employeeId,
-    paper_id: paperId,
-    id: paperId,
+    paper_id: trimmedId,
+    id: trimmedId,
+    question_paper_id: trimmedId,
   };
   const requestHeaders = {
     'X-School-Code': schoolCode || undefined,
@@ -1405,10 +1510,13 @@ export async function downloadTeacherQuestionPaper(paperId: string): Promise<Arr
         if (contentType.includes('application/json')) {
           throw new Error('JSON_RESPONSE_TRIGGER_FALLBACK');
         }
+        if (response.data.byteLength === 0) {
+          throw new Error('EMPTY_FILE');
+        }
         return response.data;
       }
     } catch (error: any) {
-      if (error.message === 'JSON_RESPONSE_TRIGGER_FALLBACK') {
+      if (error.message === 'JSON_RESPONSE_TRIGGER_FALLBACK' || error.message === 'EMPTY_FILE') {
         break;
       }
       const status = error?.response?.status;
@@ -1447,7 +1555,9 @@ export async function downloadTeacherQuestionPaper(paperId: string): Promise<Arr
           responseType: 'arraybuffer',
           headers: requestHeaders,
         } as any);
-        return remoteResp.data;
+        if (remoteResp?.data?.byteLength) {
+          return remoteResp.data;
+        }
       }
     } catch (err: any) {
       const status = err?.response?.status;

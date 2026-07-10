@@ -7,6 +7,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Theme, colors } from '../../theme/tokens';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
@@ -149,25 +150,25 @@ export default function PaymentHistoryScreen() {
 
         <View style={innerPageLayoutStyles.scrollBody}>
         {loading ? (
-          <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 40 }} />
+          <ScreenSkeleton variant="list" />
         ) : (
           <>
         <View style={styles.summaryRow}>
           <AppCard style={styles.summaryMini}>
             <AppText variant="label" muted>Transactions</AppText>
-            <AppText variant="h3" weight="bold" style={{ color: Theme.colors.primary, marginTop: 4 }}>
+            <AppText variant="h3" weight="bold" style={{ color: Theme.colors.primary, marginTop: Theme.spacing.xs }}>
               {filtered.length}
             </AppText>
           </AppCard>
           <AppCard style={styles.summaryMini}>
             <AppText variant="label" muted>Paid</AppText>
-            <AppText variant="h3" weight="bold" style={{ color: Theme.colors.success, marginTop: 4 }}>
+            <AppText variant="h3" weight="bold" style={{ color: Theme.colors.success, marginTop: Theme.spacing.xs }}>
               {totalPaid}
             </AppText>
           </AppCard>
           <AppCard style={styles.summaryMini}>
             <AppText variant="label" muted>Revenue</AppText>
-            <AppText variant="h3" weight="bold" style={{ color: Theme.colors.primary, marginTop: 4 }}>
+            <AppText variant="h3" weight="bold" style={{ color: Theme.colors.primary, marginTop: Theme.spacing.xs }}>
               ₹{totalAmount.toLocaleString('en-IN')}
             </AppText>
           </AppCard>
@@ -188,7 +189,7 @@ export default function PaymentHistoryScreen() {
                 variant="caption"
                 weight="bold"
                 style={{
-                  color: activeFilter === chip.key ? '#fff' : Theme.colors.textMuted,
+                  color: activeFilter === chip.key ? Theme.colors.card : Theme.colors.textMuted,
                 }}
               >
                 {chip.label}
@@ -248,7 +249,7 @@ export default function PaymentHistoryScreen() {
         {filtered.length === 0 && !loading && (
           <View style={styles.emptyState}>
             <Filter size={40} color={Theme.colors.textMuted} style={{ opacity: 0.4 }} />
-            <AppText variant="body" muted style={{ marginTop: 12 }}>No transactions found</AppText>
+            <AppText variant="body" muted style={{ marginTop: Theme.spacing.md }}>No transactions found</AppText>
           </View>
         )}
           </>
@@ -347,13 +348,13 @@ const styles = StyleSheet.create({
   txStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: Theme.spacing.xs,
     paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: Theme.spacing.xs,
     borderRadius: Theme.radius.sm,
   },
   txStatusText: {
-    fontSize: 11,
+    fontSize: Theme.typography.label.fontSize,
     fontWeight: '700',
   },
   emptyState: {

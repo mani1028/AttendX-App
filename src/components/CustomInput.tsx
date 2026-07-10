@@ -22,7 +22,7 @@ const CustomInput: React.FC<Props> = ({ placeholder, value, onChangeText, secure
       <TextInput
         style={styles.input}
         placeholder={placeholder}
-        placeholderTextColor="#94a3b8"
+        placeholderTextColor={Theme.colors.textMuted}
         value={value}
         onChangeText={onChangeText}
         secureTextEntry={secure && !show}
@@ -32,7 +32,7 @@ const CustomInput: React.FC<Props> = ({ placeholder, value, onChangeText, secure
       />
       {secure ? (
         <Pressable onPress={() => setShow(!show)}>
-          {show ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
+          {show ? <EyeOff size={18} color={Theme.colors.textMuted} /> : <Eye size={18} color={Theme.colors.textMuted} />}
         </Pressable>
       ) : null}
     </View>
@@ -44,13 +44,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Theme.colors.background,
-    borderRadius: 14,
+    borderRadius: Theme.radius.md,
     borderWidth: 1.5,
     borderColor: Theme.colors.border,
     height: 54,
     paddingHorizontal: Theme.spacing.md,
   },
-  input: { flex: 1, marginLeft: 12, ...Theme.typography.bodyMd, color: Theme.colors.text },
+  input: { flex: 1, marginLeft: Theme.spacing.md, ...Theme.typography.bodyMd, color: Theme.colors.text },
 });
 
 export default CustomInput;

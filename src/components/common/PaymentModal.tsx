@@ -143,7 +143,7 @@ export default function PaymentModal({ isOpen, onClose, onSelectPlan, schoolName
 
           <ScrollView contentContainerStyle={styles.plansContainer}>
             {loadingPlans ? (
-              <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginVertical: 24 }} />
+              <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginVertical: Theme.spacing.lg }} />
             ) : plans.length === 0 ? (
               <Text style={styles.emptyText}>No plans available. Please try again later.</Text>
             ) : (
@@ -203,40 +203,40 @@ export default function PaymentModal({ isOpen, onClose, onSelectPlan, schoolName
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modal: { backgroundColor: Theme.colors.text, borderRadius: 24, width: '100%', maxHeight: '90%', padding: 20 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  title: { fontSize: 20, fontWeight: '800', color: Theme.colors.card },
-  subtitle: { fontSize: 12, color: '#94a3b8', marginBottom: 16, lineHeight: 18 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: Theme.spacing.xl },
+  modal: { backgroundColor: Theme.colors.text, borderRadius: Theme.radius.xxl, width: '100%', maxHeight: '90%', padding: Theme.spacing.xl },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Theme.spacing.sm },
+  title: { fontSize: Theme.typography.h3.fontSize, fontWeight: '800', color: Theme.colors.card },
+  subtitle: { fontSize: Theme.typography.caption.fontSize, color: Theme.colors.textMuted, marginBottom: Theme.spacing.md, lineHeight: 18 },
   closeBtn: { padding: Theme.spacing.xs },
-  closeText: { fontSize: 20, color: '#94a3b8' },
-  plansContainer: { gap: 16, paddingBottom: Theme.spacing.md },
-  emptyText: { color: '#94a3b8', textAlign: 'center', paddingVertical: 24 },
-  planCard: { borderWidth: 2, borderColor: '#334155', borderRadius: 16, padding: Theme.spacing.md, backgroundColor: '#1e293b' },
+  closeText: { fontSize: Theme.typography.h3.fontSize, color: Theme.colors.textMuted },
+  plansContainer: { gap: Theme.spacing.md, paddingBottom: Theme.spacing.md },
+  emptyText: { color: Theme.colors.textMuted, textAlign: 'center', paddingVertical: Theme.spacing.lg },
+  planCard: { borderWidth: 2, borderColor: Theme.colors.cardAlt, borderRadius: Theme.radius.lg, padding: Theme.spacing.md, backgroundColor: Theme.colors.card },
   selectedPlan: { borderColor: Theme.colors.blue, backgroundColor: Theme.colors.primary },
   recommendedPlan: { borderColor: '#8b5cf6' },
-  recommendedBadge: { position: 'absolute', top: -10, left: '50%', transform: [{ translateX: -50 }], backgroundColor: '#8b5cf6', paddingHorizontal: 12, paddingVertical: Theme.spacing.xs, borderRadius: 20 },
-  recommendedText: { fontSize: 10, fontWeight: '700', color: Theme.colors.card },
+  recommendedBadge: { position: 'absolute', top: -10, left: '50%', transform: [{ translateX: -50 }], backgroundColor: '#8b5cf6', paddingHorizontal: Theme.spacing.md, paddingVertical: Theme.spacing.xs, borderRadius: Theme.radius.xl },
+  recommendedText: { fontSize: Theme.typography.label.fontSize, fontWeight: '700', color: Theme.colors.card },
   planName: { ...Theme.typography.h3, color: Theme.colors.card, marginBottom: Theme.spacing.sm },
-  planPrice: { fontSize: 24, fontWeight: '800', color: Theme.colors.blue, marginBottom: 8 },
-  period: { ...Theme.typography.caption, fontWeight: '400', color: '#94a3b8' },
-  breakdown: { fontSize: 12, color: '#93c5fd', marginBottom: 10, fontWeight: '600' },
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  planPrice: { fontSize: Theme.typography.h2.fontSize, fontWeight: '800', color: Theme.colors.blue, marginBottom: Theme.spacing.sm },
+  period: { ...Theme.typography.caption, fontWeight: '400', color: Theme.colors.textMuted },
+  breakdown: { fontSize: Theme.typography.caption.fontSize, color: '#93c5fd', marginBottom: 10, fontWeight: '600' },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.sm, marginBottom: 6 },
   check: { ...Theme.typography.body, color: Theme.colors.success },
-  featureText: { fontSize: 13, color: '#cbd5e1', flex: 1 },
-  buttons: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  featureText: { fontSize: Theme.typography.caption.fontSize, color: Theme.colors.textSec, flex: 1 },
+  buttons: { flexDirection: 'row', gap: Theme.spacing.md, marginTop: Theme.spacing.xl },
   infoText: { textAlign: 'center', ...Theme.typography.label, color: Theme.colors.textSec, marginTop: Theme.spacing.md },
   autoPayBanner: {
     backgroundColor: '#eff6ff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: Theme.radius.md,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     borderWidth: 1,
-    borderColor: '#dbeafe',
+    borderColor: Theme.colors.blueLight,
   },
   autoPayBannerText: {
-    fontSize: 12,
-    color: '#1e40af',
+    fontSize: Theme.typography.caption.fontSize,
+    color: Theme.colors.primaryDark,
     lineHeight: 18,
     fontWeight: '500',
   },

@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import AppCard from '../../components/common/AppCard';
 import AppText from '../../components/common/AppText';
 import {
@@ -24,6 +25,10 @@ import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { resolveApiErrorMessage } from '../../utils/helpers';
+
+function resolveRegistrationRequestId(req: Record<string, unknown>): string {
+  return String(req.id ?? req.request_id ?? req.registration_id ?? '').trim();
+}
 
 export default function StudentRegistrationRequestsScreen() {
   const [requests, setRequests] = useState<any[]>([]);
@@ -87,7 +92,12 @@ export default function StudentRegistrationRequestsScreen() {
     fetchRequests(true);
   };
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = async (req: Record<string, unknown>) => {
+    const id = resolveRegistrationRequestId(req);
+    if (!id) {
+      Alert.alert('Error', 'This request is missing an ID. Pull down to refresh and try again.');
+      return;
+    }
     const schoolCode = (await storage.getString(StorageKeys.SCHOOL_CODE)) || '';
     const branchId = (await storage.getString(StorageKeys.BRANCH_ID)) || '';
     if (!schoolCode || !branchId) {
@@ -98,7 +108,7 @@ export default function StudentRegistrationRequestsScreen() {
     try {
       setProcessingId(id);
       await approveStudentRegistration(schoolCode, branchId, id);
-      setRequests(prev => prev.filter(r => r.id !== id));
+      setRequests(prev => prev.filter(r => resolveRegistrationRequestId(r) !== id));
     } catch (err: any) {
       console.error('Approve failed', err);
       Alert.alert('Could not approve', resolveApiErrorMessage(err, 'Failed to approve this request.'));
@@ -107,7 +117,12 @@ export default function StudentRegistrationRequestsScreen() {
     }
   };
 
-  const handleReject = async (id: string) => {
+  const handleReject = async (req: Record<string, unknown>) => {
+    const id = resolveRegistrationRequestId(req);
+    if (!id) {
+      Alert.alert('Error', 'This request is missing an ID. Pull down to refresh and try again.');
+      return;
+    }
     Alert.alert('Reject registration', 'Are you sure you want to reject this registration request?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -123,7 +138,7 @@ export default function StudentRegistrationRequestsScreen() {
           try {
             setProcessingId(id);
             await rejectStudentRegistration(schoolCode, branchId, id);
-            setRequests(prev => prev.filter(r => r.id !== id));
+            setRequests(prev => prev.filter(r => resolveRegistrationRequestId(r) !== id));
           } catch (err: any) {
             console.error('Reject failed', err);
             Alert.alert('Could not reject', resolveApiErrorMessage(err, 'Failed to reject this request.'));
@@ -184,20 +199,22 @@ export default function StudentRegistrationRequestsScreen() {
             </AppCard>
           ) : loading ? (
             <View style={styles.loaderWrap}>
-              <ActivityIndicator size="large" color={Theme.colors.primary} />
+              <ScreenSkeleton variant="list" />
               <AppText style={styles.loaderText}>Loading registration requests...</AppText>
             </View>
           ) : requests.length === 0 ? (
             <AppCard style={styles.emptyCard}>
-              <Users size={40} color="#cbd5e1" style={{ marginBottom: Theme.spacing.sm }} />
+              <Users size={40} color={Theme.colors.textSec} style={{ marginBottom: Theme.spacing.sm }} />
               <AppText weight="semibold" style={styles.emptyTitle}>No pending requests</AppText>
               <AppText style={styles.emptyText}>
                 New student registration requests will appear here for your review.
               </AppText>
             </AppCard>
           ) : (
-            requests.map((req: any) => (
-              <AppCard key={req.id} style={styles.card}>
+            requests.map((req: any) => {
+              const requestId = resolveRegistrationRequestId(req);
+              return (
+              <AppCard key={requestId || req.student_full_name} style={styles.card}>
                 <View style={styles.cardHeader}>
                   <View style={styles.cardTitleRow}>
                     <View style={styles.cardIcon}>
@@ -230,7 +247,7 @@ export default function StudentRegistrationRequestsScreen() {
                   <TouchableOpacity
                     accessibilityRole="button"
                     style={[styles.quickActionBtn, styles.approveBtn, !!processingId && styles.quickActionDisabled]}
-                    onPress={() => handleApprove(req.id)}
+                    onPress={() => handleApprove(req)}
                     disabled={!!processingId}
                   >
                     <CheckCircle2 size={16} color={Theme.colors.card} />
@@ -240,7 +257,7 @@ export default function StudentRegistrationRequestsScreen() {
                   <TouchableOpacity
                     accessibilityRole="button"
                     style={[styles.quickActionBtn, styles.rejectBtn, !!processingId && styles.quickActionDisabled]}
-                    onPress={() => handleReject(req.id)}
+                    onPress={() => handleReject(req)}
                     disabled={!!processingId}
                   >
                     <XCircle size={16} color={Theme.colors.card} />
@@ -248,7 +265,8 @@ export default function StudentRegistrationRequestsScreen() {
                   </TouchableOpacity>
                 </View>
               </AppCard>
-            ))
+            );
+            })
           )}
         </View>
       </ScrollView>
@@ -259,49 +277,49 @@ export default function StudentRegistrationRequestsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
   pageBody: { paddingBottom: 96 },
-  loaderWrap: { paddingVertical: 48, alignItems: 'center', gap: 12 },
+  loaderWrap: { paddingVertical: Theme.spacing.xxl, alignItems: 'center', gap: Theme.spacing.md },
   loaderText: { color: Theme.colors.textMuted, ...Theme.typography.body },
   errorCard: {
-    padding: 24,
+    padding: Theme.spacing.lg,
     alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
+    gap: Theme.spacing.sm,
+    marginTop: Theme.spacing.xs,
   },
-  errorTitle: { color: Theme.colors.text, fontSize: 16, marginTop: 4 },
+  errorTitle: { color: Theme.colors.text, fontSize: Theme.typography.h4.fontSize, marginTop: Theme.spacing.xs },
   errorText: { color: Theme.colors.textMuted, textAlign: 'center', ...Theme.typography.body },
   retryBtn: {
-    marginTop: 8,
-    paddingHorizontal: 20,
+    marginTop: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.xl,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: Theme.radius.md,
     backgroundColor: Theme.colors.primary,
   },
   retryBtnText: { color: Theme.colors.card },
-  emptyCard: { padding: 28, alignItems: 'center', marginTop: 4 },
-  emptyTitle: { color: Theme.colors.text, marginBottom: 4 },
+  emptyCard: { padding: 28, alignItems: 'center', marginTop: Theme.spacing.xs },
+  emptyTitle: { color: Theme.colors.text, marginBottom: Theme.spacing.xs },
   emptyText: { color: Theme.colors.textMuted, textAlign: 'center', ...Theme.typography.body },
-  card: { padding: Theme.spacing.md, marginBottom: 12 },
+  card: { padding: Theme.spacing.md, marginBottom: Theme.spacing.md },
   cardHeader: { marginBottom: Theme.spacing.sm },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   cardIcon: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: Theme.radius.lg,
     backgroundColor: Theme.colors.successBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   studentName: { color: Theme.colors.text },
   meta: { ...Theme.typography.caption, color: Theme.colors.textMuted, marginTop: Theme.spacing.xs },
-  actionsRow: { flexDirection: 'row', marginTop: 12 },
+  actionsRow: { flexDirection: 'row', marginTop: Theme.spacing.md },
   quickActionBtn: {
     flex: 1,
     minHeight: 42,
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: Theme.spacing.sm,
     marginRight: Theme.spacing.sm,
     paddingHorizontal: 10,
   },
@@ -310,9 +328,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Theme.colors.border,
   },
-  viewBtnText: { color: Theme.colors.text, fontSize: 13 },
+  viewBtnText: { color: Theme.colors.text, fontSize: Theme.typography.caption.fontSize },
   approveBtn: { backgroundColor: Theme.colors.success },
   rejectBtn: { backgroundColor: Theme.colors.error, marginRight: 0 },
-  actionText: { color: Theme.colors.card, fontSize: 13 },
+  actionText: { color: Theme.colors.card, fontSize: Theme.typography.caption.fontSize },
   quickActionDisabled: { opacity: 0.5 },
 });

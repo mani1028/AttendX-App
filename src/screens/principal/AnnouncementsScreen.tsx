@@ -1,19 +1,9 @@
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 // AnnouncementsScreen.tsx
 
 import React, { useEffect, useState, useRef } from 'react';
-import {
-  View,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from 'react-native';
+import { View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Platform, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
@@ -34,6 +24,7 @@ import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutSt
 import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { Theme, C } from '../../theme/tokens';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { announcementsStyles as styles } from '../../components/principal/announcements/announcementsStyles';
 
 type Announcement = {
   id: number;
@@ -299,7 +290,16 @@ const AnnouncementsScreen = () => {
   return (
     <View style={styles.container}>
 
-      <StandardPageHeader
+      <ScrollView
+       style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <StandardPageHeader
+        scrollWithContent
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
         title="Announcements"
         subtitle="School Bulletins"
         onBackPress={() => safeGoBack(navigation as any, 'PrincipalDashboard')}
@@ -314,13 +314,6 @@ const AnnouncementsScreen = () => {
         )}
       />
 
-      <ScrollView
-       style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
         <View style={styles.pageBody}>
           <View style={styles.contentPadding}>
             {/* Form Section */}
@@ -421,7 +414,7 @@ const AnnouncementsScreen = () => {
 
               {listLoading ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={C.primary} />
+                  <ScreenSkeleton variant="list" />
                 </View>
               ) : announcements.length === 0 ? (
                 <View style={styles.emptyContainer}>
@@ -520,273 +513,3 @@ const AnnouncementsScreen = () => {
 };
 
 export default AnnouncementsScreen;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  headerStandard: {
-    backgroundColor: HEADER_CONSTANTS.BACKGROUND_COLOR,
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingBottom: HEADER_CONSTANTS.PADDING_BOTTOM,
-    borderBottomLeftRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    borderBottomRightRadius: HEADER_CONSTANTS.BORDER_RADIUS,
-    ...Platform.select({
-      android: { elevation: 10 },
-      ios: {},
-    }),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-  },
-  iconButton: {
-    width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    height: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
-    borderRadius: HEADER_CONSTANTS.ICON_BUTTON_BORDER_RADIUS,
-    backgroundColor: `rgba(255,255,255,${HEADER_CONSTANTS.BUTTON_BACKGROUND_OPACITY})`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: HEADER_CONSTANTS.TITLE_FONT_SIZE,
-    fontWeight: HEADER_CONSTANTS.TITLE_FONT_WEIGHT,
-    textAlign: 'center',
-  },
-  headerContent: {
-    marginTop: Theme.spacing.lg,
-  },
-  headerGreeting: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    fontSize: 28,
-    letterSpacing: -0.5,
-  },
-  headerSubtext: {
-    color: HEADER_CONSTANTS.TEXT_COLOR,
-    opacity: HEADER_CONSTANTS.SUBTITLE_OPACITY,
-    ...Theme.typography.body,
-    marginTop: Theme.spacing.xs,
-  },
-  contentOverlap: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  pageBody: {
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: 12,
-    paddingBottom: 40,
-    paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-  },
-  contentPadding: {
-    paddingTop: 14,
-    paddingBottom: Theme.spacing.lg,
-  },
-
-  card: {
-    backgroundColor: C.card,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.border,
-  },
-
-  sectionHeader: {
-    marginBottom: 20,
-  },
-
-  sectionTitle: {
-    fontSize: 18,
-    color: C.text,
-  },
-
-  label: {
-    marginBottom: Theme.spacing.sm,
-    marginTop: 10,
-    color: C.text,
-    fontSize: 13,
-    opacity: 0.8,
-  },
-
-  input: {
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 12,
-    padding: 14,
-    backgroundColor: C.bg,
-    color: C.text,
-    ...Theme.typography.bodyMd,
-    marginBottom: Theme.spacing.sm,
-  },
-
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-
-  typeRow: {
-    flexDirection: 'row',
-    paddingVertical: Theme.spacing.xs,
-  },
-
-  typeButton: {
-    paddingVertical: Theme.spacing.sm,
-    paddingHorizontal: Theme.spacing.md,
-    borderRadius: 20,
-    backgroundColor: C.bg,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-
-  activeType: {
-    backgroundColor: C.primary,
-    borderColor: C.primary,
-  },
-
-  typeText: {
-    color: C.textMuted,
-    fontSize: 13,
-  },
-
-  activeTypeText: {
-    color: Theme.colors.card,
-  },
-
-  submitButton: {
-    backgroundColor: C.primary,
-    padding: Theme.spacing.md,
-    borderRadius: 12,
-    marginTop: Theme.spacing.md,
-    alignItems: 'center',
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-
-  submitText: {
-    color: Theme.colors.card,
-    fontSize: 16,
-  },
-
-  loadingContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-
-  announcementCard: {
-    backgroundColor: C.bg,
-    padding: Theme.spacing.md,
-    borderRadius: 14,
-    marginBottom: Theme.spacing.md,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-
-  cardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-
-  postedDate: {
-    ...Theme.typography.label,
-    color: C.textMuted,
-  },
-
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: Theme.spacing.xs,
-    borderRadius: 6,
-    fontSize: 10,
-  },
-
-  title: {
-    fontSize: 17,
-    color: C.text,
-    marginBottom: 6,
-  },
-
-  description: {
-    marginBottom: Theme.spacing.md,
-    color: C.textMuted,
-    ...Theme.typography.body,
-    lineHeight: 20,
-  },
-
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: Theme.spacing.xs,
-  },
-
-  meta: {
-    ...Theme.typography.caption,
-    color: C.textMuted,
-  },
-
-  actionRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-    paddingTop: Theme.spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-  },
-
-  resendButton: {
-    flex: 1,
-    backgroundColor: C.primary,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-
-  deleteButton: {
-    flex: 1,
-    backgroundColor: C.errorSoft,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-
-  buttonText: {
-    color: Theme.colors.card,
-    fontSize: 13,
-  },
-
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-
-  emptyText: {
-    color: C.textMuted,
-    textAlign: 'center',
-    ...Theme.typography.bodyMd,
-  },
-});

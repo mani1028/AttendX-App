@@ -1,16 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { visitorApi } from '../../services/visitorApi';
@@ -24,6 +13,7 @@ import { safeGoBack } from '../../utils/navigationHelpers';
 import { Theme } from '../../theme/tokens';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { visitFormStyles as styles } from '../../components/visitor/visitForm/visitFormStyles';
 
 
 // Types
@@ -285,18 +275,20 @@ export default function VisitFormScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StandardPageHeader
+      <ScrollView
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={[styles.scrollContent, innerPageLayoutStyles.scrollContent]}
+        showsVerticalScrollIndicator={false}
+      >
+        <StandardPageHeader
+        scrollWithContent
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
         title="Visitor Check-In"
         subtitle={school?.school_name || 'School visit form'}
         onBackPress={() => safeGoBack(navigation as any, 'VisitorDashboard')}
         showBack={navigation.canGoBack()}
       />
 
-      <ScrollView
-        style={innerPageLayoutStyles.scrollViewFront}
-        contentContainerStyle={[styles.scrollContent, innerPageLayoutStyles.scrollContent]}
-        showsVerticalScrollIndicator={false}
-      >
         <View style={innerPageLayoutStyles.contentFront}>
         {/* School Header */}
         <AppCard style={styles.headerCard}>
@@ -322,7 +314,7 @@ export default function VisitFormScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Your full name"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={Theme.colors.textMuted}
                 value={form.full_name}
                 onChangeText={(text) => handleChange('full_name', text)}
               />
@@ -332,7 +324,7 @@ export default function VisitFormScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="10-digit phone number"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={Theme.colors.textMuted}
                 keyboardType="phone-pad"
                 maxLength={10}
                 value={form.phone}
@@ -348,7 +340,7 @@ export default function VisitFormScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="your.email@example.com"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={Theme.colors.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={form.email}
@@ -382,7 +374,7 @@ export default function VisitFormScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Full name of student"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.student_name}
                   onChangeText={(text) => handleChange('student_name', text)}
                 />
@@ -473,7 +465,7 @@ export default function VisitFormScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="Additional details"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={Theme.colors.textMuted}
                   value={form.sub_purpose}
                   onChangeText={(text) => handleChange('sub_purpose', text)}
                 />
@@ -485,7 +477,7 @@ export default function VisitFormScreen() {
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Any additional information..."
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={Theme.colors.textMuted}
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
@@ -516,228 +508,3 @@ export default function VisitFormScreen() {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f0f2f7',
-  },
-  scrollContent: {
-    padding: Theme.spacing.md,
-    paddingBottom: 40,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fef2f2',
-  },
-  errorCard: {
-    backgroundColor: Theme.colors.card,
-    borderRadius: 16,
-    padding: Theme.spacing.lg,
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 340,
-  },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: Theme.spacing.md,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Theme.colors.error,
-    marginBottom: Theme.spacing.sm,
-  },
-  errorMessage: {
-    ...Theme.typography.body,
-    color: Theme.colors.textSec,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  successContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#f0fdf4',
-  },
-  successCard: {
-    backgroundColor: Theme.colors.card,
-    borderRadius: 16,
-    padding: Theme.spacing.lg,
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 340,
-  },
-  successIcon: {
-    fontSize: 48,
-    marginBottom: Theme.spacing.md,
-  },
-  successTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Theme.colors.success,
-    marginBottom: Theme.spacing.sm,
-  },
-  successMessage: {
-    ...Theme.typography.body,
-    color: Theme.colors.textSec,
-    textAlign: 'center',
-    marginBottom: Theme.spacing.sm,
-  },
-  visitorNo: {
-    fontSize: 13,
-    color: '#4a5568',
-    marginBottom: Theme.spacing.sm,
-  },
-  visitorNoValue: {
-    fontWeight: '700',
-    color: '#6648dc',
-  },
-  redirectText: {
-    ...Theme.typography.caption,
-    color: '#94a3b8',
-  },
-  headerCard: {
-    padding: 20,
-    marginBottom: Theme.spacing.md,
-    alignItems: 'center',
-  },
-  schoolName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: Theme.colors.text,
-    marginBottom: Theme.spacing.sm,
-  },
-  formTitle: {
-    ...Theme.typography.body,
-    color: Theme.colors.textSec,
-  },
-  branchInfo: {
-    ...Theme.typography.caption,
-    color: Theme.colors.textSec,
-    marginTop: Theme.spacing.sm,
-  },
-  branchValue: {
-    fontWeight: '600',
-    color: '#6648dc',
-  },
-  formCard: {
-    padding: 20,
-  },
-  errorBanner: {
-    backgroundColor: '#fee2e2',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: Theme.spacing.md,
-  },
-  errorBannerText: {
-    color: '#b91c1c',
-    fontSize: 13,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: Theme.spacing.md,
-  },
-  field: {
-    flex: 1,
-  },
-  label: {
-    ...Theme.typography.caption,
-    fontWeight: '600',
-    color: '#4a5568',
-    marginBottom: 6,
-  },
-  required: {
-    color: Theme.colors.error,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    borderRadius: 10,
-    padding: 12,
-    ...Theme.typography.body,
-    backgroundColor: Theme.colors.background,
-    color: Theme.colors.text,
-  },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  pickerContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  pickerOption: {
-    paddingVertical: Theme.spacing.sm,
-    paddingHorizontal: Theme.spacing.md,
-    borderRadius: 20,
-    backgroundColor: Theme.colors.background,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  pickerOptionActive: {
-    backgroundColor: '#6648dc',
-    borderColor: '#6648dc',
-  },
-  pickerText: {
-    fontSize: 13,
-    color: '#4a5568',
-  },
-  pickerTextActive: {
-    color: Theme.colors.card,
-  },
-  section: {
-    marginTop: Theme.spacing.sm,
-    marginBottom: Theme.spacing.md,
-    paddingTop: Theme.spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
-  },
-  sectionTitle: {
-    ...Theme.typography.body,
-    fontWeight: '700',
-    color: Theme.colors.text,
-    marginBottom: 12,
-  },
-  chipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    paddingVertical: Theme.spacing.sm,
-    paddingHorizontal: Theme.spacing.md,
-    borderRadius: 20,
-    backgroundColor: Theme.colors.background,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  chipActive: {
-    backgroundColor: '#6648dc',
-    borderColor: '#6648dc',
-  },
-  chipText: {
-    fontSize: 13,
-    color: '#4a5568',
-  },
-  chipTextActive: {
-    color: Theme.colors.card,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: Theme.spacing.md,
-  },
-  submitBtn: {
-    flex: 2,
-  },
-  cancelBtn: {
-    flex: 1,
-  },
-});

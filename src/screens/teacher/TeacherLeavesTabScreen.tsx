@@ -157,8 +157,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
   tabBarInScroll: {
     paddingHorizontal: HEADER_CONSTANTS.PADDING_HORIZONTAL,
-    paddingTop: 4,
-    paddingBottom: 8,
+    paddingTop: Theme.spacing.xs,
+    paddingBottom: Theme.spacing.sm,
   },
   panel: { flex: 1 },
 });

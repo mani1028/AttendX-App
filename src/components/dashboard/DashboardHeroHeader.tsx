@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   fullBleed: {
     marginHorizontal: -HEADER_CONSTANTS.DASHBOARD_HORIZONTAL,
     marginTop: 0,
-    marginBottom: 20,
+    marginBottom: Theme.spacing.xl,
   },
   inner: {
     minHeight: HEADER_CONSTANTS.DASHBOARD_MIN_BODY_HEIGHT,
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   },
   titleCopy: {
     flex: 1,
-    marginRight: 12,
+    marginRight: Theme.spacing.md,
   },
   pageTitle: {
     fontSize: HEADER_CONSTANTS.HERO_TITLE_SIZE,
@@ -113,15 +113,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   dateText: {
-    fontSize: 11,
+    fontSize: Theme.typography.label.fontSize,
     color: Theme.colors.card,
   },
   footer: {
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
 });

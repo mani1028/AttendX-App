@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ChevronDown, ReceiptText, Search } from 'lucide-react-native';
@@ -261,7 +262,7 @@ export default function AccountantPaymentHistoryScreen() {
           ListHeaderComponent={listHeader}
           contentContainerStyle={innerPageLayoutStyles.scrollPageContent}
           ListFooterComponent={
-            <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 40 }} />
+            <ScreenSkeleton variant="list" />
           }
         />
       ) : (
@@ -326,13 +327,13 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   summaryCard: { flex: 1, padding: 14 },
   summaryLabel: {
-    fontSize: 11,
+    fontSize: Theme.typography.label.fontSize,
     color: Theme.colors.textMuted,
     textTransform: 'uppercase',
     fontWeight: '700',
     letterSpacing: 0.4,
   },
-  summaryValue: { fontSize: 20, color: Theme.colors.text, marginTop: 4 },
+  summaryValue: { fontSize: Theme.typography.h3.fontSize, color: Theme.colors.text, marginTop: Theme.spacing.xs },
   summaryValueGreen: { color: Theme.colors.success },
   searchWrap: {
     flexDirection: 'row',
@@ -340,19 +341,19 @@ const styles = StyleSheet.create({
     gap: 10,
     borderWidth: 1,
     borderColor: Theme.colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    borderRadius: Theme.radius.md,
+    paddingHorizontal: Theme.spacing.md,
     minHeight: 46,
     backgroundColor: Theme.colors.card,
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   searchInput: {
     flex: 1,
     color: Theme.colors.text,
-    fontSize: 15,
-    paddingVertical: 8,
+    fontSize: Theme.typography.bodyMd.fontSize,
+    paddingVertical: Theme.spacing.sm,
   },
-  filtersRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  filtersRow: { flexDirection: 'row', gap: Theme.spacing.sm, marginBottom: Theme.spacing.sm },
   filterChip: {
     flex: 1,
     flexDirection: 'row',
@@ -361,23 +362,23 @@ const styles = StyleSheet.create({
     gap: 6,
     borderWidth: 1,
     borderColor: Theme.colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    borderRadius: Theme.radius.md,
+    paddingHorizontal: Theme.spacing.md,
     minHeight: 44,
     backgroundColor: Theme.colors.card,
   },
-  filterChipText: { flex: 1, fontSize: 13, color: Theme.colors.text },
-  clearFiltersBtn: { alignSelf: 'flex-start', paddingVertical: 6, marginBottom: 8 },
-  clearFiltersText: { color: Theme.colors.primary, fontSize: 13 },
+  filterChipText: { flex: 1, fontSize: Theme.typography.caption.fontSize, color: Theme.colors.text },
+  clearFiltersBtn: { alignSelf: 'flex-start', paddingVertical: 6, marginBottom: Theme.spacing.sm },
+  clearFiltersText: { color: Theme.colors.primary, fontSize: Theme.typography.caption.fontSize },
   row: { marginBottom: 10, padding: 14 },
-  rowTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  rowTop: { flexDirection: 'row', alignItems: 'flex-start', gap: Theme.spacing.md },
   rowMain: { flex: 1, minWidth: 0 },
-  rowRight: { alignItems: 'flex-end', gap: 8 },
-  meta: { fontSize: 12, color: Theme.colors.textMuted, marginTop: 2 },
-  amount: { color: Theme.colors.success, fontSize: 16 },
-  methodBadge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  methodBadgeText: { fontSize: 11 },
-  emptyWrap: { alignItems: 'center', paddingVertical: 48, gap: 8 },
-  emptyTitle: { color: Theme.colors.text, fontSize: 16 },
-  empty: { textAlign: 'center', color: Theme.colors.textMuted, paddingHorizontal: 24 },
+  rowRight: { alignItems: 'flex-end', gap: Theme.spacing.sm },
+  meta: { fontSize: Theme.typography.caption.fontSize, color: Theme.colors.textMuted, marginTop: 2 },
+  amount: { color: Theme.colors.success, fontSize: Theme.typography.h4.fontSize },
+  methodBadge: { borderRadius: Theme.radius.full, paddingHorizontal: 10, paddingVertical: Theme.spacing.xs },
+  methodBadgeText: { fontSize: Theme.typography.label.fontSize },
+  emptyWrap: { alignItems: 'center', paddingVertical: Theme.spacing.xxl, gap: Theme.spacing.sm },
+  emptyTitle: { color: Theme.colors.text, fontSize: Theme.typography.h4.fontSize },
+  empty: { textAlign: 'center', color: Theme.colors.textMuted, paddingHorizontal: Theme.spacing.lg },
 });

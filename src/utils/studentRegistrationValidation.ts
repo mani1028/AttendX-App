@@ -200,7 +200,7 @@ export function validateStudentRegistrationStep(
     }
     if (!safeTrim(form.parent_guardian_email)) {
       errors.parent_guardian_email = 'Parent email is required.';
-    } else if (!isValidEmail(form.parent_guardian_email)) {
+    } else if (!isValidEmail(form.parent_guardian_email!)) {
       errors.parent_guardian_email = 'Invalid email.';
     }
   } else if (step === 3) {
@@ -212,7 +212,7 @@ export function validateStudentRegistrationStep(
     if (!form.state) { errors.state = 'State is required.'; }
     if (!safeTrim(form.pin_code)) {
       errors.pin_code = 'PIN code is required.';
-    } else if (!isValidPin(form.pin_code)) {
+    } else if (!isValidPin(form.pin_code!)) {
       errors.pin_code = 'Invalid PIN code.';
     }
     if (!safeTrim(form.emergency_contact_name)) {
@@ -338,8 +338,12 @@ export const isValidAcademicYear = (value: string): boolean =>
 
 /** Production AttendX API register-request endpoints (OpenAPI). */
 export const STAFF_STUDENT_REGISTER_ENDPOINTS = [
-  'manage/student/register-request',
   'student/register-request',
+  'manage/student/register-request',
+  'student/register',
+  'manage/student/register',
+  'staff/student/register-request',
+  'manage/staff/student/register-request',
 ] as const;
 
 export const PUBLIC_STUDENT_REGISTER_ENDPOINTS = [
@@ -412,10 +416,11 @@ export function buildStudentRegistrationFormData(
   formData.append('branch_id', branchId);
 
   if (photoFile?.uri) {
+    const photo = photoFile as { uri?: string; type?: string; fileName?: string; name?: string };
     formData.append('student_photo', {
-      uri: photoFile.uri,
-      type: photoFile.type || 'image/jpeg',
-      name: photoFile.fileName || 'student_photo.jpg',
+      uri: photo.uri,
+      type: photo.type || 'image/jpeg',
+      name: photo.fileName || photo.name || 'student_photo.jpg',
     } as any);
   }
 

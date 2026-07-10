@@ -22,8 +22,8 @@ export const HEADER_CONSTANTS = {
   DASHBOARD_PADDING_BOTTOM: 28,
   DASHBOARD_HORIZONTAL: 20,
   DASHBOARD_MIN_BODY_HEIGHT: 56,
-  GRADIENT_START: '#1e3a8a',
-  GRADIENT_END: '#3b82f6',
+  GRADIENT_START: Theme.colors.primary,
+  GRADIENT_END: Theme.colors.primaryLight,
 
   // Curved bottom corners
   BORDER_RADIUS: 30,
@@ -42,5 +42,5 @@ export const HEADER_CONSTANTS = {
 
   // Colors
   BACKGROUND_COLOR: Theme.colors.primary,
-  TEXT_COLOR: '#ffffff',
+  TEXT_COLOR: Theme.colors.card,
 } as const;

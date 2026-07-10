@@ -2,7 +2,7 @@ import API, { buildApiUrl } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFeesByStudent, getPaymentHistoryByFee } from './accountantService';
 import { formatLocalDateKey, getMonthSundayDates } from '../utils/holidayUtils';
-import { resolveStudentRollNumber } from '../utils/helpers';
+import { resolveStudentRollNumber, coerceAttendanceStatus } from '../utils/helpers';
 import { safeJsonParse } from '../utils/storage';
 import { storage } from '../storage/storage';
 import { StorageKeys } from '../storage/StorageKeys';
@@ -68,6 +68,12 @@ const LEAVE_TEACHERS_ENDPOINTS = [
 const LEAVE_REQUESTS_ENDPOINTS = [
   'student-dashboard/leave-requests',
   'manage/student-dashboard/leave-requests',
+];
+const LEAVE_SUBMIT_ENDPOINTS = [
+  'student-dashboard/leave-requests',
+  'manage/student-dashboard/leave-requests',
+  'student/leave-requests',
+  'manage/student/leave-requests',
 ];
 const SUBJECTS_ENDPOINTS = [
   'student-dashboard/subjects',
@@ -191,7 +197,7 @@ function firstNonEmptyStringArray(...values: unknown[]): string[] {
 }
 
 function normalizeAttendanceStatus(value: unknown): string {
-  return toText(value, '').trim().toUpperCase();
+  return coerceAttendanceStatus(value);
 }
 
 function normalizeAttendanceItem(item: Record<string, any>): Record<string, any> {
@@ -203,6 +209,22 @@ function normalizeAttendanceItem(item: Record<string, any>): Record<string, any>
     ...item,
     date: toText(item.date ?? item.attendance_date ?? item.day ?? item.attendanceDate, '').trim(),
     status,
+  };
+}
+
+function normalizeHomeworkItem(item: Record<string, any>, index: number): Record<string, any> {
+  return {
+    ...item,
+    homework_id: toText(firstDefined(item.homework_id, item.id, item.hw_id), `hw-${index}`),
+    title: toText(firstDefined(item.title, item.homework_title, item.name), 'Homework'),
+    description: toText(firstDefined(item.description, item.details, item.content), ''),
+    subject_name: toText(firstDefined(item.subject_name, item.subject), 'Subject'),
+    subject_id: toText(firstDefined(item.subject_id, item.subjectId), ''),
+    assigned_date: toText(firstDefined(item.assigned_date, item.created_date, item.date), '').slice(0, 10),
+    due_date: toText(firstDefined(item.due_date, item.deadline, item.submit_by), '').slice(0, 10),
+    teacher_full_name: toText(firstDefined(item.teacher_full_name, item.teacher_name, item.teacher), 'Admin'),
+    attachment_url: firstDefined(item.attachment_url, item.file_url, item.attachment),
+    status: item.status,
   };
 }
 
@@ -416,11 +438,10 @@ export async function getStudentAttendance(params: any = {}): Promise<Attendance
     if (schoolDayItems.length > 0) {
       const presentDays = schoolDayItems.filter((item: any) => item.status === 'PRESENT').length;
       const absentDays = schoolDayItems.filter((item: any) => item.status === 'ABSENT').length;
-      const lateDays = schoolDayItems.filter((item: any) => item.status === 'LATE').length;
-      const halfDayOnly = schoolDayItems.filter((item: any) => item.status === 'HALF_DAY' || item.status === 'HALF DAY').length;
+      const halfDays = schoolDayItems.filter((item: any) => item.status === 'HALF_DAY').length;
       const total = schoolDayItems.length || 1;
-      const percentage = Math.round(((presentDays + lateDays + (halfDayOnly * 0.5)) / total) * 100);
-      return { percentage, presentDays, absentDays, halfDays: lateDays + halfDayOnly, totalDays: total, items: normalizedItems };
+      const percentage = Math.round(((presentDays + (halfDays * 0.5)) / total) * 100);
+      return { percentage, presentDays, absentDays, halfDays, totalDays: total, items: normalizedItems };
     }
 
     const presentDays = toNumber(data.present_days ?? data.present);
@@ -445,7 +466,7 @@ export async function getStudentAttendanceByMonth(month: string, year: string): 
     const normalizedItems = items.map((item: any) => ({
       ...item,
       date: item.date || item.attendance_date || item.day || '',
-      status: String(item.status || '').toUpperCase(),
+      status: coerceAttendanceStatus(item.status),
     }));
 
     const monthIndex = Math.max(Number(month) - 1, 0);
@@ -1256,22 +1277,47 @@ export async function getLeaveRequests(): Promise<any[]> {
 }
 
 export async function submitLeaveRequest(requestData: any): Promise<any> {
-  const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE);
-  const studentId = (await AsyncStorage.getItem('student_id') ||
-                    await AsyncStorage.getItem('studentId') ||
-                    await AsyncStorage.getItem('roll_no') ||
-                    await AsyncStorage.getItem('roll_number') || '').trim().toUpperCase();
+  const schoolCode = (await storage.getString(StorageKeys.SCHOOL_CODE) || '').trim();
+  const branchId = (await storage.getString(StorageKeys.BRANCH_ID) || '').trim();
+  const studentId = (
+    await AsyncStorage.getItem('student_id') ||
+    await AsyncStorage.getItem('studentId') ||
+    await AsyncStorage.getItem('roll_no') ||
+    await AsyncStorage.getItem('roll_number') || ''
+  ).trim();
 
-  for (const endpoint of LEAVE_REQUESTS_ENDPOINTS) {
+  const body = {
+    ...requestData,
+    school_code: schoolCode,
+    school_id: schoolCode,
+    branch_id: branchId || undefined,
+    student_id: studentId,
+    roll_no: studentId,
+    leave_type: requestData.leave_type || 'CASUAL',
+  };
+
+  for (let index = 0; index < LEAVE_SUBMIT_ENDPOINTS.length; index++) {
+    const endpoint = LEAVE_SUBMIT_ENDPOINTS[index];
+    const isLastEndpoint = index === LEAVE_SUBMIT_ENDPOINTS.length - 1;
     try {
-      const response = await API.post(endpoint, {
-        ...requestData,
-        school_code: schoolCode,
-        student_id: studentId,
-      }, { suppressLogoutOn401: true } as any);
+      const response = await API.post(endpoint, body, {
+        headers: {
+          'X-School-Code': schoolCode || undefined,
+          'X-Branch-Id': branchId || undefined,
+          'X-Student-Id': studentId || undefined,
+          'X-Roll-No': studentId || undefined,
+        },
+        suppressLogoutOn401: true,
+        suppressErrorLog: !isLastEndpoint,
+        ...FALLBACK_404_CONFIG,
+      } as any);
       return response.data;
     } catch (error: any) {
-       if (error.response?.status !== 404) {throw error;}
+      const status = error?.response?.status;
+      if (status === 404 || status === 405 || status === 502 || status === 503 || status === 504) {
+        continue;
+      }
+      throw error;
     }
   }
   throw new Error('Could not submit leave request');
@@ -1304,7 +1350,10 @@ export async function getHomework(params: any): Promise<any[]> {
     }
 
     const data = await getFirstSuccessful<any>(HOMEWORK_ENDPOINTS, normalizedParams);
-    return data?.items || data?.homework || data?.data?.items || (Array.isArray(data) ? data : []);
+    const rawItems = data?.items || data?.homework || data?.data?.items || (Array.isArray(data) ? data : []);
+    return Array.isArray(rawItems)
+      ? rawItems.map((item: any, index: number) => normalizeHomeworkItem(asRecord(item), index))
+      : [];
   } catch (error) {
     return [];
   }
@@ -1329,7 +1378,6 @@ export async function submitStudentRegisterRequest(formData: FormData): Promise<
           'X-School-Code': await storage.getString(StorageKeys.SCHOOL_CODE) || undefined,
           'X-Branch-Id': await storage.getString(StorageKeys.BRANCH_ID) || undefined,
         },
-        suppressFallback404Log: true,
         suppressErrorLog: !isLastEndpoint,
         ...FALLBACK_404_CONFIG,
       } as any);
@@ -1381,7 +1429,7 @@ export async function verifyOtp(emailId: string, otp: string): Promise<any> {
   const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE);
   const branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID);
 
-  const endpoints = ['/auth/forgot-password', '/auth/verify-otp', '/auth/forgot-password/verify-otp', '/teacher/register/verify-otp'];
+  const endpoints = ['/auth/forgot-password/verify-otp', '/auth/verify-otp', '/teacher/register/verify-otp', '/auth/forgot-password'];
 
   let lastError: any;
   for (const endpoint of endpoints) {
@@ -1408,11 +1456,16 @@ export async function verifyOtp(emailId: string, otp: string): Promise<any> {
   throw lastError;
 }
 
-export async function changePassword(emailId: string, newPassword: string, otp: string): Promise<any> {
+export async function changePassword(
+  emailId: string,
+  newPassword: string,
+  otpOrToken: string,
+  resetToken?: string,
+): Promise<any> {
   const schoolCode = await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE) || await storage.getString(StorageKeys.SCHOOL_CODE);
   const branchId = await storage.getString(StorageKeys.BRANCH_ID) || await storage.getString(StorageKeys.BRANCH_ID);
 
-  const endpoints = ['/auth/forgot-password', '/auth/reset-password', '/auth/forgot-password/reset-password'];
+  const endpoints = ['/auth/forgot-password', '/auth/forgot-password/reset-password', '/auth/reset-password'];
 
   let lastError: any;
   for (const endpoint of endpoints) {
@@ -1421,7 +1474,8 @@ export async function changePassword(emailId: string, newPassword: string, otp: 
         email: emailId,
         email_id: emailId,
         identifier: emailId,
-        otp,
+        otp: otpOrToken,
+        reset_token: resetToken || otpOrToken,
         new_password: newPassword,
         confirm_password: newPassword,
         school_id: schoolCode,

@@ -1,19 +1,7 @@
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  RefreshControl,
-  Modal,
-  Platform,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from 'react-native';
+import { View, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Modal, Platform, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation } from '@react-navigation/native';
 import {
   Plus,
@@ -32,6 +20,7 @@ import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutSt
 import { Theme, C } from '../../theme/tokens';
 import * as accountantService from '../../services/accountantService';
 import { formatErrorMessage } from '../../utils/helpers';
+import { expenseStyles as styles } from '../../components/accountant/expense/expenseStyles';
 
 interface Expense {
   id: string;
@@ -60,12 +49,12 @@ const categories = [
 ];
 
 const categoryPalette: Record<string, { bg: string; text: string; bgSoft: string }> = {
-  Supplies: { bg: '#d97706', text: '#fff', bgSoft: '#fef3c7' },
-  Utilities: { bg: '#2563eb', text: '#fff', bgSoft: '#dbeafe' },
-  Maintenance: { bg: '#4f46e5', text: '#fff', bgSoft: '#e0e7ff' },
-  Salaries: { bg: '#16a34a', text: '#fff', bgSoft: '#d1fae5' },
-  Equipment: { bg: '#db2777', text: '#fff', bgSoft: '#fce7f3' },
-  Other: { bg: Theme.colors.textSec || '#64748b', text: '#fff', bgSoft: Theme.colors.background || '#f8fafc' },
+  Supplies: { bg: Theme.colors.warning, text: Theme.colors.card, bgSoft: Theme.colors.amberLight },
+  Utilities: { bg: Theme.colors.blue, text: Theme.colors.card, bgSoft: Theme.colors.blueLight },
+  Maintenance: { bg: '#4f46e5', text: Theme.colors.card, bgSoft: '#e0e7ff' },
+  Salaries: { bg: '#16a34a', text: Theme.colors.card, bgSoft: Theme.colors.greenLight },
+  Equipment: { bg: '#db2777', text: Theme.colors.card, bgSoft: '#fce7f3' },
+  Other: { bg: Theme.colors.textSec || Theme.colors.textSec, text: Theme.colors.card, bgSoft: Theme.colors.background || Theme.colors.inputBg },
 };
 
 const ExpenseScreen = () => {
@@ -240,14 +229,20 @@ const ExpenseScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader title="Expense Tracking" onBackPress={() => navigation.goBack()} />
-
       <ScrollView
-        style={innerPageLayoutStyles.scrollViewFront} contentContainerStyle={styles.content}
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={styles.content}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}
       >
+        <StandardPageHeader
+          scrollWithContent
+          containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+          title="Expense Tracking"
+          onBackPress={() => navigation.goBack()}
+        />
+
         {/* Action bar */}
         <View style={styles.actionBar}>
           <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilterModal(true)}>
@@ -256,13 +251,13 @@ const ExpenseScreen = () => {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.addBtn} onPress={() => setShowAddModal(true)}>
-            <Plus size={16} color="#fff" />
+            <Plus size={16} color={Theme.colors.card} />
             <AppText style={styles.addBtnText}>Add Expense</AppText>
           </TouchableOpacity>
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color={Theme.colors.primary} style={styles.loader} />
+          <ScreenSkeleton variant="list" />
         ) : (
           <>
             {renderCategorySummary()}
@@ -376,7 +371,7 @@ const ExpenseScreen = () => {
                 disabled={submitting}
               >
                 {submitting ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={Theme.colors.card} />
                 ) : (
                   <AppText style={styles.submitBtnText}>Add Expense</AppText>
                 )}
@@ -390,7 +385,7 @@ const ExpenseScreen = () => {
       <Modal visible={showDeleteModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.deleteModal}>
-            <AlertCircle size={40} color={C.error || '#ef4444'} />
+            <AlertCircle size={40} color={C.error || Theme.colors.error} />
             <AppText style={styles.deleteTitle}>Delete Expense?</AppText>
             <AppText style={styles.deleteMessage}>
               {selectedExpense?.title} - ₹{selectedExpense?.amount.toLocaleString('en-IN')}
@@ -403,7 +398,7 @@ const ExpenseScreen = () => {
                 <AppText style={styles.cancelBtnText}>Cancel</AppText>
               </TouchableOpacity>
               <TouchableOpacity style={styles.deleteConfirmBtn} onPress={handleDeleteExpense}>
-                <Trash2 size={16} color="#fff" />
+                <Trash2 size={16} color={Theme.colors.card} />
                 <AppText style={styles.deleteConfirmText}>Delete</AppText>
               </TouchableOpacity>
             </View>
@@ -442,406 +437,3 @@ const ExpenseScreen = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 100,
-        backgroundColor: Theme.colors.background,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-  },
-  actionBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  filterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: Theme.colors.primary + '10',
-    borderWidth: 1,
-    borderColor: Theme.colors.primary + '30',
-  },
-  filterBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Theme.colors.primary,
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: Theme.colors.primary,
-  },
-  addBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  summaryContainer: {
-    marginBottom: 20,
-  },
-  summaryCard: {
-    backgroundColor: Theme.colors.card || '#fff',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    marginBottom: 12,
-  },
-  summaryLabel: {
-    fontSize: 13,
-    color: Theme.colors.textMuted,
-    marginTop: 8,
-  },
-  summaryValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: Theme.colors.text,
-    marginTop: 4,
-  },
-  summaryCount: {
-    fontSize: 12,
-    color: Theme.colors.textMuted,
-    marginTop: 2,
-  },
-  categoryScroll: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-  },
-  categoryMiniCard: {
-    width: 120,
-    padding: 12,
-    borderRadius: 12,
-    marginRight: 10,
-    alignItems: 'center',
-  },
-  categoryDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginBottom: 6,
-  },
-  categoryMiniName: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Theme.colors.text,
-    marginBottom: 2,
-  },
-  categoryMiniAmount: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Theme.colors.text,
-  },
-  categoryMiniCount: {
-    fontSize: 10,
-    color: Theme.colors.textMuted,
-    marginTop: 2,
-  },
-  listHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  listTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Theme.colors.text,
-  },
-  listCount: {
-    fontSize: 13,
-    color: Theme.colors.textMuted,
-    backgroundColor: Theme.colors.background,
-    paddingVertical: 2,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  loader: {
-    paddingVertical: 40,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Theme.colors.textSec,
-    marginTop: 12,
-  },
-  emptySubtext: {
-    fontSize: 13,
-    color: Theme.colors.textMuted,
-    marginTop: 6,
-  },
-  expenseCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.card || '#fff',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  categoryBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  categoryBadgeText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  expenseInfo: {
-    flex: 1,
-  },
-  expenseTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Theme.colors.text,
-    marginBottom: 3,
-  },
-  expenseDate: {
-    fontSize: 12,
-    color: Theme.colors.textMuted,
-  },
-  expenseRight: {
-    alignItems: 'flex-end',
-  },
-  expenseAmount: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Theme.colors.text,
-    marginBottom: 4,
-  },
-  categoryTag: {
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-  },
-  categoryTagText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: Theme.colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '85%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Theme.colors.text,
-  },
-  modalBody: {
-    padding: 20,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Theme.colors.textSec,
-    marginBottom: 8,
-    marginTop: 12,
-  },
-  input: {
-    backgroundColor: Theme.colors.background,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 15,
-    color: Theme.colors.text,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  multiline: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  optionRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  optionChip: {
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: 18,
-    backgroundColor: Theme.colors.background,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  optionChipActive: {
-    backgroundColor: Theme.colors.primary,
-    borderColor: Theme.colors.primary,
-  },
-  optionText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Theme.colors.textSec,
-  },
-  optionTextActive: {
-    color: '#fff',
-  },
-  dateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: Theme.colors.background,
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  dateBtnText: {
-    fontSize: 15,
-    color: Theme.colors.text,
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 20,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
-  },
-  cancelBtn: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    backgroundColor: Theme.colors.background,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  cancelBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Theme.colors.textSec,
-  },
-  submitBtn: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    backgroundColor: Theme.colors.primary,
-  },
-  submitBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  // Delete modal
-  deleteModal: {
-    backgroundColor: Theme.colors.card,
-    borderRadius: 20,
-    padding: 24,
-    margin: 32,
-    alignItems: 'center',
-  },
-  deleteTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Theme.colors.text,
-    marginTop: 12,
-  },
-  deleteMessage: {
-    fontSize: 14,
-    color: Theme.colors.textSec,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  deleteActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
-    width: '100%',
-  },
-  deleteConfirmBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: C.error || '#ef4444',
-  },
-  deleteConfirmText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  // Filter modal
-  filterModal: {
-    backgroundColor: Theme.colors.card,
-    borderRadius: 20,
-    padding: 20,
-    margin: 32,
-  },
-  filterOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 14,
-    borderRadius: 12,
-    marginTop: 8,
-    backgroundColor: Theme.colors.background,
-  },
-  filterOptionActive: {
-    backgroundColor: Theme.colors.primary + '15',
-    borderWidth: 1,
-    borderColor: Theme.colors.primary,
-  },
-  filterDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  filterOptionText: {
-    fontSize: 15,
-    color: Theme.colors.text,
-    fontWeight: '500',
-  },
-  filterOptionTextActive: {
-    color: Theme.colors.primary,
-    fontWeight: '600',
-  },
-});
-
-export default ExpenseScreen;

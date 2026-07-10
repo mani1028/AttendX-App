@@ -6,6 +6,7 @@ export const accountantTabs: TabConfig[] = [
   { name: 'Salaries', label: 'Salaries', icon: 'Banknote' },
   { name: 'Payroll', label: 'Payroll', icon: 'Calculator' },
   { name: 'Expenses', label: 'Expenses', icon: 'TrendingDown' },
+  { name: 'Profile', label: 'Profile', icon: 'User' },
 ];
 
 export const adminTabs: TabConfig[] = [

@@ -1,6 +1,8 @@
 import { Theme, C } from '../../theme/tokens';
 import { useNavigation } from '@react-navigation/native';
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+import Loader from '../../components/common/Loader';
+import { attendanceStatusLabel } from '../../utils/helpers';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
@@ -23,14 +25,14 @@ import AppText from '../../components/common/AppText';
 
 interface AttendanceData {
     date: string;
-    status: 'PRESENT' | 'ABSENT' | 'LATE' | 'LEAVE' | 'HOLIDAY';
+    status: 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'LEAVE' | 'HOLIDAY';
 }
 
 interface MonthlyStats {
     total: number;
     present: number;
     absent: number;
-    late: number;
+    halfDay: number;
     leave: number;
     holiday: number;
     percentage: string;
@@ -49,7 +51,7 @@ export default function StudentAttendanceScreen() {
         total: 0,
         present: 0,
         absent: 0,
-        late: 0,
+        halfDay: 0,
         leave: 0,
         holiday: 0,
         percentage: '0',
@@ -92,14 +94,16 @@ export default function StudentAttendanceScreen() {
         const stats = data.reduce((acc, curr) => {
             if (curr.status === 'PRESENT') {acc.present++;}
             else if (curr.status === 'ABSENT') {acc.absent++;}
-            else if (curr.status === 'LATE') {acc.late++;}
+            else if (curr.status === 'HALF_DAY') {acc.halfDay++;}
             else if (curr.status === 'LEAVE') {acc.leave++;}
             else if (curr.status === 'HOLIDAY') {acc.holiday++;}
             return acc;
-        }, { present: 0, absent: 0, late: 0, leave: 0, holiday: 0 });
+        }, { present: 0, absent: 0, halfDay: 0, leave: 0, holiday: 0 });
 
-        const total = stats.present + stats.absent + stats.late + stats.leave;
-        const percentage = total > 0 ? ((stats.present + stats.late) / total * 100).toFixed(1) : '0';
+        const total = stats.present + stats.absent + stats.halfDay + stats.leave;
+        const percentage = total > 0
+            ? ((stats.present + stats.halfDay * 0.5) / total * 100).toFixed(1)
+            : '0';
 
         setStats({
             total,
@@ -111,7 +115,7 @@ export default function StudentAttendanceScreen() {
     const attendanceStatusColors: Record<string, string> = {
         PRESENT: C.colors.success,
         ABSENT: C.colors.error,
-        LATE: C.colors.warning,
+        HALF_DAY: C.colors.warning,
         LEAVE: C.colors.blue,
         HOLIDAY: C.colors.textMuted,
     };
@@ -133,7 +137,7 @@ export default function StudentAttendanceScreen() {
                     bgColor = C.colors.successBg;
                     textColor = C.colors.success;
                     break;
-                case 'LATE':
+                case 'HALF_DAY':
                     bgColor = C.colors.warningBg;
                     textColor = C.colors.warning;
                     break;
@@ -157,7 +161,7 @@ export default function StudentAttendanceScreen() {
                 customStyles: {
                     container: {
                         backgroundColor: bgColor,
-                        borderRadius: 10,
+                        borderRadius: Theme.radius.md,
                         justifyContent: 'center',
                         alignItems: 'center',
                     },
@@ -175,7 +179,7 @@ export default function StudentAttendanceScreen() {
             customStyles: {
                 container: {
                     backgroundColor: C.colors.primary,
-                    borderRadius: 10,
+                    borderRadius: Theme.radius.md,
                     elevation: 3,
                     shadowColor: C.colors.primary,
                     shadowOffset: { width: 0, height: 2 },
@@ -204,14 +208,29 @@ export default function StudentAttendanceScreen() {
         setCurrentMonth(newDate);
     };
 
-    const getStatusText = (date: string) => {
+    const getStatusForDate = (date: string) => {
         const record = attendance.find(a => a.date === date);
-        return record ? record.status : 'NO RECORD';
+        return record?.status ?? '';
+    };
+
+    const getStatusLabel = (date: string) => {
+        const status = getStatusForDate(date);
+        return status ? attendanceStatusLabel(status) : 'No Record';
     };
 
     return (
         <View style={styles.container}>
-            <StandardPageHeader
+            <ScrollView
+                style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
+                contentContainerStyle={innerPageLayoutStyles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />}
+      >
+        <StandardPageHeader
+        scrollWithContent
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
                 title="My Attendance"
                 subtitle={monthLabel}
                 onBackPress={canGoBack ? () => navigation.goBack() : undefined}
@@ -227,17 +246,6 @@ export default function StudentAttendanceScreen() {
                     </TouchableOpacity>
                 )}
             />
-
-            <ScrollView
-                style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
-                contentContainerStyle={innerPageLayoutStyles.scrollContent}
-                showsVerticalScrollIndicator={false}
-                onScroll={handleScroll}
-                scrollEventThrottle={16}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />
-                }
-            >
                 <View style={styles.pageBody}>
                 {/* Month navigation */}
                 <View style={styles.monthNav}>
@@ -273,8 +281,8 @@ export default function StudentAttendanceScreen() {
                         </View>
                         <View style={styles.statRow}>
                             <View style={[styles.statDot, { backgroundColor: C.colors.warning }]} />
-                            <Text style={styles.statLabel}>Late:</Text>
-                            <Text style={styles.statValue}>{stats.late}</Text>
+                            <Text style={styles.statLabel}>Half Day:</Text>
+                            <Text style={styles.statValue}>{stats.halfDay}</Text>
                         </View>
                         <View style={styles.statRow}>
                             <View style={[styles.statDot, { backgroundColor: C.colors.error }]} />
@@ -341,13 +349,13 @@ export default function StudentAttendanceScreen() {
                         <View style={styles.statusInfo}>
                             <Text style={styles.statusLabel}>Attendance Status</Text>
                             <Text style={[styles.statusValue, {
-                                color: attendanceStatusColors[getStatusText(selectedDate)] || C.colors.textMuted,
+                                color: attendanceStatusColors[getStatusForDate(selectedDate)] || C.colors.textMuted,
                             }]}>
-                                {getStatusText(selectedDate)}
+                                {getStatusLabel(selectedDate)}
                             </Text>
                         </View>
                         <View style={[styles.statusIndicator, {
-                            backgroundColor: attendanceStatusColors[getStatusText(selectedDate)] || C.colors.textMuted,
+                            backgroundColor: attendanceStatusColors[getStatusForDate(selectedDate)] || C.colors.textMuted,
                         }]} />
                     </View>
                 </View>
@@ -365,7 +373,7 @@ export default function StudentAttendanceScreen() {
                         </View>
                         <View style={styles.legendItem}>
                             <View style={[styles.legendDot, { backgroundColor: C.colors.warningBg }]} />
-                            <Text style={styles.legendText}>Late</Text>
+                            <Text style={styles.legendText}>Half Day</Text>
                         </View>
                         <View style={styles.legendItem}>
                             <View style={[styles.legendDot, { backgroundColor: C.colors.blueLight }]} />
@@ -382,7 +390,7 @@ export default function StudentAttendanceScreen() {
 
             {loading && !refreshing && (
                 <View style={styles.loaderOverlay}>
-                    <ActivityIndicator size="large" color={C.colors.primary} />
+                    <Loader size="lg" label="Loading attendance…" />
                 </View>
             )}
         </View>
@@ -402,22 +410,22 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         backgroundColor: C.colors.card,
-        borderRadius: 16,
+        borderRadius: Theme.radius.lg,
         paddingVertical: 10,
-        paddingHorizontal: 8,
-        marginBottom: 16,
+        paddingHorizontal: Theme.spacing.sm,
+        marginBottom: Theme.spacing.md,
         ...C.shadow.sm,
     },
     monthNavBtn: {
         width: 40,
         height: 40,
-        borderRadius: 20,
+        borderRadius: Theme.radius.xl,
         backgroundColor: C.colors.background,
         justifyContent: 'center',
         alignItems: 'center',
     },
     monthNavLabel: {
-        fontSize: 16,
+        fontSize: Theme.typography.h4.fontSize,
         color: C.colors.text,
     },
     pageBody: {
@@ -425,11 +433,11 @@ const styles = StyleSheet.create({
     statsOverview: {
         flexDirection: 'row',
         backgroundColor: C.colors.card,
-        borderRadius: 20,
-        padding: 20,
+        borderRadius: Theme.radius.xl,
+        padding: Theme.spacing.xl,
         alignItems: 'center',
         ...C.shadow.sm,
-        marginBottom: 20,
+        marginBottom: Theme.spacing.xl,
     },
     percentageCircle: {
         width: 80,
@@ -445,7 +453,7 @@ const styles = StyleSheet.create({
         color: C.colors.text,
     },
     percentageLabel: {
-        fontSize: 10,
+        fontSize: Theme.typography.label.fontSize,
         color: C.colors.textMuted,
     },
     statsDivider: {
@@ -456,7 +464,7 @@ const styles = StyleSheet.create({
     },
     statsRight: {
         flex: 1,
-        gap: 8,
+        gap: Theme.spacing.sm,
     },
     statRow: {
         flexDirection: 'row',
@@ -469,7 +477,7 @@ const styles = StyleSheet.create({
         marginRight: Theme.spacing.sm,
     },
     statLabel: {
-        fontSize: 13,
+        fontSize: Theme.typography.caption.fontSize,
         color: C.colors.textMuted,
         flex: 1,
     },
@@ -480,21 +488,21 @@ const styles = StyleSheet.create({
     },
     calendarCard: {
         backgroundColor: C.colors.card,
-        borderRadius: 20,
+        borderRadius: Theme.radius.xl,
         padding: 10,
-        marginBottom: 20,
+        marginBottom: Theme.spacing.xl,
         ...C.shadow.sm,
         overflow: 'hidden',
     },
     calendar: {
-        borderRadius: 20,
+        borderRadius: Theme.radius.xl,
         backgroundColor: C.colors.card,
     },
     detailsCard: {
         backgroundColor: C.colors.card,
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 20,
+        borderRadius: Theme.radius.xl,
+        padding: Theme.spacing.xl,
+        marginBottom: Theme.spacing.xl,
         ...C.shadow.sm,
     },
     detailsHeader: {
@@ -511,7 +519,7 @@ const styles = StyleSheet.create({
         color: C.colors.text,
     },
     detailsDate: {
-        fontSize: 13,
+        fontSize: Theme.typography.caption.fontSize,
         color: C.colors.textMuted,
     },
     statusBox: {
@@ -535,13 +543,13 @@ const styles = StyleSheet.create({
     statusIndicator: {
         width: 12,
         height: 12,
-        borderRadius: 6,
+        borderRadius: Theme.radius.sm,
     },
     legendCard: {
         backgroundColor: C.colors.card,
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 20,
+        borderRadius: Theme.radius.xl,
+        padding: Theme.spacing.xl,
+        marginBottom: Theme.spacing.xl,
     },
     legendTitle: {
         ...Theme.typography.caption,
@@ -567,7 +575,7 @@ const styles = StyleSheet.create({
         marginRight: Theme.spacing.sm,
     },
     legendText: {
-        fontSize: 13,
+        fontSize: Theme.typography.caption.fontSize,
         color: C.colors.textSec,
     },
     loaderOverlay: {

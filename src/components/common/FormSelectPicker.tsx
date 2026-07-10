@@ -68,8 +68,8 @@ const styles = StyleSheet.create({
     gap: 10,
     borderWidth: 1,
     borderColor: Theme.colors.border,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: Theme.radius.md,
+    padding: Theme.spacing.md,
     backgroundColor: Theme.colors.background,
   },
   triggerError: {

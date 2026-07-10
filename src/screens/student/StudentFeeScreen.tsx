@@ -1,21 +1,9 @@
 import { Theme, C } from '../../theme/tokens';
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  ActivityIndicator,
-  TouchableOpacity,
-  Dimensions,
-  Platform,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-  Modal,
-  Alert,
-} from 'react-native';
+import { View, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity, Dimensions, Platform, NativeSyntheticEvent, NativeScrollEvent, Modal, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
@@ -29,6 +17,7 @@ import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { heroHeaderStyles } from '../../components/layout/HeroHeaderShell';
 import { RefreshCw } from 'lucide-react-native';
+import { studentFeeStyles as styles } from '../../components/student/studentFee/studentFeeStyles';
 
 const { width } = Dimensions.get('window');
 
@@ -353,7 +342,7 @@ export default function StudentFeeScreen({ navigation }: any) {
   if (loading && !refreshing) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color={C.colors.primary} />
+        <ScreenSkeleton variant="list" />
       </View>
     );
   }
@@ -362,7 +351,17 @@ export default function StudentFeeScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <StandardPageHeader
+      <ScrollView
+        style={innerPageLayoutStyles.scrollViewFront}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />}
+      >
+        <StandardPageHeader
+        scrollWithContent
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
         title="Fee & Payments"
         subtitle={`${fees.length} fee record${fees.length === 1 ? '' : 's'}`}
         onBackPress={() => (canGoBack ? navigation.goBack() : navigation.navigate('MainTabs'))}
@@ -378,17 +377,6 @@ export default function StudentFeeScreen({ navigation }: any) {
           </TouchableOpacity>
         )}
       />
-
-      <ScrollView
-        style={innerPageLayoutStyles.scrollViewFront}
-        contentContainerStyle={innerPageLayoutStyles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.colors.primary} />
-        }
-      >
         <View style={styles.pageBody}>
         {/* Ledger Info Card */}
         <View style={styles.ledgerCard}>
@@ -506,7 +494,7 @@ export default function StudentFeeScreen({ navigation }: any) {
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.downloadButton, { marginTop: 20 }]}
+                  style={[styles.downloadButton, { marginTop: Theme.spacing.xl }]}
                   onPress={() => handleDownloadReceipt(selectedPayment.id, selectedPayment.receipt_no || '')}
                   disabled={!!downloading}
                 >
@@ -527,348 +515,3 @@ export default function StudentFeeScreen({ navigation }: any) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.colors.background,
-  },
-  pageBody: {
-  },
-  header: {
-    backgroundColor: C.colors.primary,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: C.colors.card,
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  notificationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: C.colors.card + '1A', // ~0.1 opacity
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-  ledgerCard: {
-    backgroundColor: C.colors.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    ...C.shadow.sm,
-    marginTop: 10,
-  },
-  ledgerTitle: {
-    ...Theme.typography.body,
-    fontWeight: '800',
-    color: C.colors.primary,
-    marginBottom: 12,
-  },
-  ledgerRow: {
-    flexDirection: 'row',
-    marginBottom: 6,
-  },
-  ledgerLabel: {
-    ...Theme.typography.caption,
-    color: C.colors.textSec,
-    width: 100,
-  },
-  ledgerValue: {
-    ...Theme.typography.caption,
-    fontWeight: '700',
-    color: C.colors.primary,
-  },
-  summaryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: Theme.spacing.md,
-    ...C.shadow.md,
-  },
-  summaryIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: C.colors.card + '33', // ~0.2 opacity
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  summaryContent: {
-    flex: 1,
-  },
-  summaryLabel: {
-    ...Theme.typography.body,
-    color: C.colors.card + 'CC', // ~0.8 opacity
-    marginBottom: Theme.spacing.xs,
-    fontWeight: '500',
-  },
-  summaryValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: C.colors.card,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: C.colors.card,
-    borderRadius: 12,
-    padding: 6,
-    marginBottom: 20,
-    marginTop: 10,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: C.colors.blue,
-  },
-  tabText: {
-    ...Theme.typography.body,
-    fontWeight: '600',
-    color: C.colors.textSec,
-  },
-  activeTabText: {
-    color: C.colors.blue,
-  },
-  detailsCard: {
-    backgroundColor: C.colors.card,
-    borderRadius: 16,
-    padding: 20,
-    ...C.shadow.sm,
-  },
-  detailsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 20,
-  },
-  detailsTitle: {
-    ...Theme.typography.body,
-    fontWeight: '800',
-    color: C.colors.primary,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  detailLabel: {
-    ...Theme.typography.body,
-    color: C.colors.textSec,
-    fontWeight: '500',
-  },
-  detailValue: {
-    ...Theme.typography.bodyMd,
-    fontWeight: '700',
-    color: C.colors.primary,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: C.colors.borderLight,
-  },
-  statusBadge: {
-    backgroundColor: C.colors.successBg,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  statusText: {
-    ...Theme.typography.label,
-    fontWeight: 'bold',
-    color: C.colors.success,
-  },
-  dueDateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dueDateValue: {
-    ...Theme.typography.body,
-    color: C.colors.textSec,
-    fontWeight: '500',
-  },
-  historySection: {
-    backgroundColor: C.colors.card,
-    borderRadius: 16,
-    padding: 20,
-    ...C.shadow.sm,
-  },
-  historyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  historyHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  viewAllText: {
-    fontSize: 13,
-    color: C.colors.blue,
-    fontWeight: '600',
-  },
-  historyItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: C.colors.background,
-  },
-  historyIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: C.colors.successBg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: Theme.spacing.md,
-  },
-  historyInfo: {
-    flex: 1,
-  },
-  historyAmount: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: C.colors.primary,
-  },
-  historyMethod: {
-    ...Theme.typography.caption,
-    color: C.colors.textMuted,
-    marginTop: 2,
-  },
-  historyRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  historyDate: {
-    ...Theme.typography.caption,
-    color: C.colors.textSec,
-  },
-  downloadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    marginTop: 20,
-    borderWidth: 1,
-    borderColor: C.colors.blue,
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-  downloadButtonText: {
-    ...Theme.typography.body,
-    color: C.colors.blue,
-    fontWeight: '700',
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: C.colors.background,
-  },
-  emptyHistory: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  emptyHistoryText: {
-    color: C.colors.textMuted,
-    ...Theme.typography.body,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: '#00000080',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: C.colors.card,
-    borderRadius: 20,
-    width: '100%',
-    maxHeight: '80%',
-    overflow: 'hidden',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: C.colors.borderLight,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: C.colors.primary,
-  },
-  modalBody: {
-    padding: 20,
-  },
-  receiptContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  receiptAmount: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: C.colors.primary,
-    marginTop: 10,
-  },
-  receiptStatus: {
-    ...Theme.typography.body,
-    color: C.colors.success,
-    fontWeight: '600',
-    marginTop: 5,
-  },
-  detailList: {
-    backgroundColor: C.colors.background,
-    borderRadius: 16,
-    padding: Theme.spacing.md,
-  },
-  modalDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: C.colors.border,
-  },
-  modalDetailLabel: {
-    fontSize: 13,
-    color: C.colors.textSec,
-    fontWeight: '500',
-  },
-  modalDetailValue: {
-    fontSize: 13,
-    color: C.colors.primary,
-    fontWeight: '700',
-    flex: 1,
-    textAlign: 'right',
-    marginLeft: 10,
-  },
-});

@@ -1,20 +1,9 @@
 import { useNavigation } from '@react-navigation/native';
 import { Theme } from '../../theme/tokens';
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  Switch,
-  Platform,
-  Modal,
-} from 'react-native';
+import { View, ScrollView, TouchableOpacity, TextInput, Alert, Switch, Platform, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, X, Plus, Edit2, ClipboardList, Trash2, CreditCard } from 'lucide-react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import * as adminService from '../../services/adminService';
 import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
@@ -24,6 +13,7 @@ import { formatErrorMessage } from '../../utils/helpers';
 import { formatStoredPriceDisplay } from '../../utils/pricingPlans';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { adminPlansStyles as styles } from '../../components/admin/adminPlans/adminPlansStyles';
 
 // Pricing Plan Interface
 interface Plan {
@@ -179,7 +169,7 @@ const PlanFormModal: React.FC<{
               />
             </View>
 
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: Theme.spacing.xl }}>
               <View style={{ flex: 1 }}>
                 <AppText style={styles.formLabel}>Monthly Price</AppText>
                 <TextInput
@@ -202,7 +192,7 @@ const PlanFormModal: React.FC<{
               </View>
             </View>
 
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: Theme.spacing.xl }}>
               <View style={{ flex: 1 }}>
                 <AppText style={styles.formLabel}>Max Branches</AppText>
                 <TextInput
@@ -227,7 +217,7 @@ const PlanFormModal: React.FC<{
               </View>
             </View>
 
-            <View style={[styles.formGroup, { gap: 12 }]}>
+            <View style={[styles.formGroup, { gap: Theme.spacing.md }]}>
               <View style={styles.switchRow}>
                 <AppText style={styles.switchLabel}>Active (Show to schools)</AppText>
                 <Switch
@@ -338,12 +328,12 @@ const PlansManagementModal: React.FC<{
         />
 
         <View style={innerPageLayoutStyles.scrollBody}>
-      <View style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface, marginBottom: 12 }}>
+      <View style={{ paddingVertical: Theme.spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface, marginBottom: Theme.spacing.md }}>
         <TouchableOpacity accessibilityRole="button"
           style={{
             backgroundColor: colors.primary,
             height: 40,
-            borderRadius: 8,
+            borderRadius: Theme.radius.sm,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
@@ -361,7 +351,7 @@ const PlansManagementModal: React.FC<{
           }}
         >
           <Plus size={16} color={Theme.colors.card} />
-          <AppText style={{ color: Theme.colors.card, fontWeight: '700', fontSize: 13 }}>Add Pricing Plan</AppText>
+          <AppText style={{ color: Theme.colors.card, fontWeight: '700', fontSize: Theme.typography.caption.fontSize }}>Add Pricing Plan</AppText>
         </TouchableOpacity>
       </View>
 
@@ -369,7 +359,7 @@ const PlansManagementModal: React.FC<{
           <View style={{ marginTop: 40 }}><Loader /></View>
         ) : plans.length === 0 ? (
           <View style={{ padding: 40, alignItems: 'center' }}>
-            <CreditCard size={40} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 12 }} />
+            <CreditCard size={40} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: Theme.spacing.md }} />
             <AppText style={{ ...Theme.typography.body, color: colors.textMuted }}>No plans found</AppText>
           </View>
         ) : (
@@ -387,7 +377,7 @@ const PlansManagementModal: React.FC<{
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <AppText style={styles.planName}>{plan.title}</AppText>
-                      <View style={{ flexDirection: 'row', gap: 4 }}>
+                      <View style={{ flexDirection: 'row', gap: Theme.spacing.xs }}>
                         {plan.active && (
                           <View style={[styles.statusBadge, { backgroundColor: colors.successSoft }]}>
                             <AppText style={[styles.statusText, { color: colors.success }]}>Active</AppText>
@@ -405,7 +395,7 @@ const PlansManagementModal: React.FC<{
                     </View>
                   </View>
 
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ flexDirection: 'row', gap: Theme.spacing.sm }}>
                     <TouchableOpacity accessibilityRole="button"
                       style={styles.planEditBtn}
                       onPress={() => {
@@ -471,151 +461,3 @@ export default function AdminPlansScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screenContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    width: '100%',
-    maxHeight: '90%',
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    overflow: 'hidden',
-    flexDirection: 'column',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 15,
-    elevation: 8,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  modalTitle: { ...Theme.typography.h3, color: colors.textPrimary },
-  modalClose: { padding: Theme.spacing.xs },
-  modalBodyScroll: {
-    flexGrow: 0,
-    flexShrink: 1,
-  },
-  modalBodyContent: {
-    padding: 20,
-    paddingBottom: 8,
-  },
-  modalFooter: { flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: colors.border },
-  formGroup: { marginBottom: Theme.spacing.md },
-  formLabel: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 6 },
-  formInput: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, ...Theme.typography.body, color: colors.textPrimary },
-  formInputError: { borderColor: colors.error },
-  formError: { ...Theme.typography.label, color: colors.error, marginTop: Theme.spacing.xs },
-  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  switchLabel: { ...Theme.typography.body, color: colors.textPrimary },
-  textArea: { height: 60, textAlignVertical: 'top' },
-  planCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: Theme.spacing.md,
-    marginBottom: 14,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: Theme.colors.background,
-  },
-  planCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  planName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  planCodeBadge: {
-    backgroundColor: 'rgba(30, 58, 138, 0.06)',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginTop: Theme.spacing.xs,
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: 'rgba(30, 58, 138, 0.1)',
-  },
-  planCodeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: colors.primary,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    letterSpacing: 0.5,
-  },
-  planEditBtn: {
-    padding: Theme.spacing.sm,
-    backgroundColor: 'rgba(30, 58, 138, 0.06)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(30, 58, 138, 0.1)',
-  },
-  planDeleteBtn: {
-    padding: Theme.spacing.sm,
-    backgroundColor: colors.errorSoft,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(220, 38, 38, 0.1)',
-  },
-  planDesc: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 10,
-    lineHeight: 18,
-  },
-  planLimits: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.background,
-  },
-  limitItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  priceLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  priceValue: {
-    ...Theme.typography.body,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  statusBadge: {
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-  },
-  statusText: {
-    fontSize: 9,
-    fontWeight: '700',
-  },
-});

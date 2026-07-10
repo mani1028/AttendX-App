@@ -67,13 +67,13 @@ const styles = StyleSheet.create({
     padding: Theme.spacing.lg,
   },
   title: {
-    fontSize: 24,
+    fontSize: Theme.typography.h2.fontSize,
     fontWeight: '700',
     color: Theme.colors.primary, // Navy (Brand Color)
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   message: {
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
     color: Theme.colors.textSec,
     textAlign: 'center',
     marginBottom: Theme.spacing.lg,
@@ -81,8 +81,8 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: Theme.colors.primary, // Navy
     paddingHorizontal: Theme.spacing.lg,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: Theme.spacing.md,
+    borderRadius: Theme.radius.sm,
   },
   buttonText: {
     color: Theme.colors.card,

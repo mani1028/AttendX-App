@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Theme, colors } from '../../theme/tokens';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
@@ -140,17 +141,17 @@ export default function AutoPayTrackerScreen() {
 
           {loading ? (
             <View style={styles.loadingState}>
-              <ActivityIndicator size="large" color={Theme.colors.primary} />
+              <ScreenSkeleton variant="list" />
             </View>
           ) : loadError ? (
             <View style={styles.emptyState}>
               <AlertTriangle size={40} color={Theme.colors.warning} style={{ opacity: 0.7 }} />
-              <AppText variant="body" style={{ marginTop: 12, textAlign: 'center' }}>{loadError}</AppText>
+              <AppText variant="body" style={{ marginTop: Theme.spacing.md, textAlign: 'center' }}>{loadError}</AppText>
             </View>
           ) : filtered.length === 0 ? (
             <View style={styles.emptyState}>
               <Repeat size={40} color={Theme.colors.textMuted} style={{ opacity: 0.4 }} />
-              <AppText variant="body" weight="semibold" style={{ marginTop: 12 }}>
+              <AppText variant="body" weight="semibold" style={{ marginTop: Theme.spacing.md }}>
                 {search ? 'No matching schools found' : 'No schools with automatic renewal enabled'}
               </AppText>
               {!search && (
@@ -186,7 +187,7 @@ export default function AutoPayTrackerScreen() {
                       <AppText variant="caption" muted>Method</AppText>
                       <View style={styles.methodRow}>
                         <CreditCard size={14} color={Theme.colors.textMuted} />
-                        <AppText variant="body" weight="semibold" style={{ marginLeft: 4 }}>
+                        <AppText variant="body" weight="semibold" style={{ marginLeft: Theme.spacing.xs }}>
                           {school.paymentMethod === 'card' ? 'Card' : 'Bank'}
                         </AppText>
                       </View>
@@ -258,7 +259,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: Theme.typography.label.fontSize,
     textAlign: 'center',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
@@ -291,7 +292,7 @@ const styles = StyleSheet.create({
     borderRadius: Theme.radius.sm,
   },
   statusText: {
-    fontSize: 11,
+    fontSize: Theme.typography.label.fontSize,
     fontWeight: '700',
   },
   divider: {
@@ -310,7 +311,7 @@ const styles = StyleSheet.create({
   methodRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: Theme.spacing.xs,
   },
   cardBottom: {
     flexDirection: 'row',

@@ -1,7 +1,7 @@
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import { Theme } from '../../theme/tokens';
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Switch, Modal, TextInput, Platform, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Switch, Modal, TextInput, Platform, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft, CreditCard, ShieldCheck, Bell, Settings, Trash2, AlertTriangle, X, CheckCircle } from 'lucide-react-native';
@@ -15,6 +15,8 @@ import API from '../../services/api';
 import * as adminService from '../../services/adminService';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
+import { settingsStyles as styles } from '../../components/admin/settings/settingsStyles';
 
 interface School {
   id: string;
@@ -126,7 +128,7 @@ const SecureDeleteModal: React.FC<{
 
           <ScrollView style={[styles.modalBody, innerPageLayoutStyles.scrollViewFront]} contentContainerStyle={{ paddingBottom: Theme.spacing.lg }}>
             {step === 1 && (
-              <View style={{ gap: 16 }}>
+              <View style={{ gap: Theme.spacing.md }}>
                 <View style={[styles.warningBanner, { backgroundColor: colors.errorSoft, borderColor: colors.errorSoft }]}>
                   <AlertTriangle size={18} color={colors.error} />
                   <AppText style={{ color: colors.error, ...Theme.typography.caption, fontWeight: '700', flex: 1 }}>
@@ -179,7 +181,7 @@ const SecureDeleteModal: React.FC<{
             )}
 
             {step === 2 && (
-              <View style={{ gap: 16 }}>
+              <View style={{ gap: Theme.spacing.md }}>
                 <View style={[styles.warningBanner, { backgroundColor: colors.errorSoft, borderColor: colors.errorSoft }]}>
                   <AlertTriangle size={18} color={colors.error} />
                   <AppText style={{ color: colors.error, ...Theme.typography.caption, fontWeight: '700', flex: 1 }}>
@@ -189,7 +191,7 @@ const SecureDeleteModal: React.FC<{
 
                 <View style={styles.formGroup}>
                   <AppText style={styles.formLabel}>Type this to confirm deletion:</AppText>
-                  <View style={{ backgroundColor: Theme.colors.background, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginBottom: Theme.spacing.sm }}>
+                  <View style={{ backgroundColor: Theme.colors.background, padding: Theme.spacing.md, borderRadius: Theme.radius.md, borderWidth: 1, borderColor: colors.border, marginBottom: Theme.spacing.sm }}>
                     <AppText style={{ fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', ...Theme.typography.body, fontWeight: 'bold', color: colors.textPrimary, textAlign: 'center' }}>
                       {expectedConfirmation}
                     </AppText>
@@ -206,7 +208,7 @@ const SecureDeleteModal: React.FC<{
                   />
                 </View>
 
-                <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flexDirection: 'row', gap: Theme.spacing.md }}>
                   <View style={{ flex: 1 }}>
                     <AppButton
                       title="Back"
@@ -228,7 +230,7 @@ const SecureDeleteModal: React.FC<{
             )}
 
             {step === 3 && (
-              <View style={{ gap: 16, alignItems: 'center', paddingVertical: 20 }}>
+              <View style={{ gap: Theme.spacing.md, alignItems: 'center', paddingVertical: Theme.spacing.xl }}>
                 <View style={[styles.deleteIconWrap, { backgroundColor: colors.successSoft }]}>
                   <CheckCircle size={32} color={colors.success} />
                 </View>
@@ -368,7 +370,7 @@ export default function SettingsScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.accent} />
+        <ScreenSkeleton variant="list" />
       </View>
     );
   }
@@ -489,213 +491,3 @@ export default function SettingsScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Theme.colors.background },
-  headerStandard: {
-    backgroundColor: colors.accent,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Theme.colors.card,
-  },
-  contentContainer: {
-    gap: Theme.spacing.md,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingBottom: Theme.spacing.md,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  rowText: {
-    ...Theme.typography.bodyMd,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: Theme.spacing.xs,
-  },
-  helperText: {
-    fontSize: 13,
-    color: colors.textMuted,
-    lineHeight: 18,
-  },
-  dangerZoneCard: {
-    backgroundColor: Theme.colors.card,
-    borderRadius: 20,
-    borderColor: '#fecaca',
-    borderWidth: 1.5,
-    padding: Theme.spacing.md,
-    shadowColor: colors.error,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-    marginTop: 20,
-  },
-  dangerZoneTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.error,
-    marginBottom: Theme.spacing.xs,
-  },
-  dangerZoneSub: {
-    ...Theme.typography.caption,
-    color: colors.textMuted,
-    marginBottom: Theme.spacing.md,
-    lineHeight: 18,
-  },
-  dangerZoneActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.error,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  dangerZoneActionBtnText: {
-    color: Theme.colors.card,
-    ...Theme.typography.body,
-    fontWeight: '700',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    width: '100%',
-    maxHeight: '90%',
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  modalClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Theme.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modalBody: {
-    padding: 20,
-  },
-  formGroup: {
-    marginBottom: 20,
-  },
-  formLabel: {
-    ...Theme.typography.label,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    color: colors.textMuted,
-    marginBottom: Theme.spacing.sm,
-    letterSpacing: 0.5,
-  },
-  formInput: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: 12,
-    ...Theme.typography.bodyMd,
-    backgroundColor: Theme.colors.background,
-    color: colors.textPrimary,
-  },
-  warningBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.warningSoft,
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.warningSoft,
-  },
-  deleteIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Theme.spacing.md,
-  },
-  deletedDetailsCard: {
-    backgroundColor: Theme.colors.card,
-    padding: Theme.spacing.md,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    width: '100%',
-    marginVertical: 12,
-    gap: 8,
-  },
-  deletedDetailsText: {
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-});

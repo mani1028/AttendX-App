@@ -31,6 +31,62 @@ export const formatErrorMessage = (detail: any): string => {
   return String(detail);
 };
 
+/** Present / Absent / Half Day only — maps legacy LATE to HALF_DAY. */
+export function coerceAttendanceStatus(value: unknown): string {
+  const raw = String(value ?? '').trim().toUpperCase().replace(/\s+/g, '_');
+  if (!raw) { return 'ABSENT'; }
+  if (raw === 'PRESENT' || raw === 'P') { return 'PRESENT'; }
+  if (raw === 'ABSENT' || raw === 'A') { return 'ABSENT'; }
+  if (raw === 'HALF_DAY' || raw === 'HALFDAY' || raw === 'HALF' || raw === 'LATE' || raw === 'HD') {
+    return 'HALF_DAY';
+  }
+  if (raw === 'LEAVE' || raw === 'ON_LEAVE' || raw === 'ONLEAVE') { return 'LEAVE'; }
+  if (raw === 'HOLIDAY' || raw === 'SUNDAY_HOLIDAY' || raw === 'SUNDAY') { return 'HOLIDAY'; }
+  return raw;
+}
+
+export function attendanceStatusLabel(status: string): string {
+  switch (coerceAttendanceStatus(status)) {
+    case 'PRESENT': return 'Present';
+    case 'ABSENT': return 'Absent';
+    case 'HALF_DAY': return 'Half Day';
+    case 'LEAVE': return 'On Leave';
+    case 'HOLIDAY': return 'Holiday';
+    default: return status || 'Unknown';
+  }
+}
+
+/** Strip nginx/HTML error pages and map common HTTP statuses to readable copy. */
+export function formatHttpErrorMessage(error: any, fallback = 'Something went wrong. Please try again.'): string {
+  const status = error?.response?.status;
+  if (status === 413) {
+    return 'The file is too large to upload. Please use a smaller photo (under 1 MB).';
+  }
+
+  const raw =
+    error?.response?.data?.detail
+    ?? error?.response?.data?.message
+    ?? error?.response?.data?.error
+    ?? (typeof error?.response?.data === 'string' ? error.response.data : null);
+
+  let text = formatErrorMessage(raw);
+  if (text.includes('<html') || text.includes('<center>') || text.includes('<title>')) {
+    if (status === 413 || text.includes('413')) {
+      return 'The photo is too large for the server. Please use a smaller image or upload from gallery.';
+    }
+    if (status === 502 || status === 503 || status === 504) {
+      return 'Server is temporarily unavailable. Please try again in a moment.';
+    }
+    return `Request failed${status ? ` (${status})` : ''}. Please try again.`;
+  }
+
+  if (error?.code === 'IMAGE_TOO_LARGE') {
+    return 'Photo is too large. Move closer, retake, or upload from gallery.';
+  }
+
+  return text || fallback;
+}
+
 const PLACEHOLDER_ROLL_VALUES = new Set(['-', '—', '–', 'n/a', 'na', 'null', 'undefined', 'none']);
 
 /** Returns true when a value looks like a real roll number (not a UI placeholder). */

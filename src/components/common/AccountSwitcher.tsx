@@ -11,6 +11,7 @@ import {
   Image,
   ActivityIndicator,
   Pressable,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -138,7 +139,12 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
     setSwitching(account.id);
     const success = await switchToAccount(account);
     setSwitching(null);
-    if (success) { handleClose(); }
+    if (success) {
+      await refreshAuth();
+      handleClose();
+      return;
+    }
+    Alert.alert('Switch Failed', 'Could not switch to that account. Please log in again.');
   };
 
   const handleSwitchLinked = async (profile: any) => {
@@ -162,10 +168,12 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
         await setSessionData(sessionData);
         setAuthToken(res.token);
         await refreshAuth();
+        await refreshAuth();
         handleClose();
       }
     } catch (e) {
       console.error(e);
+      Alert.alert('Switch Failed', 'Could not switch to the linked profile. Please try again.');
     } finally {
       setSwitching(null);
     }
@@ -222,7 +230,7 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
             {/* CURRENT ACTIVE ACCOUNT */}
             <View style={styles.sectionCard}>
               <TouchableOpacity style={styles.accountRow} onPress={handleClose} activeOpacity={0.8}>
-                {renderAvatar({ name: userName, avatar_bg: '#ede9fe' }, 48)}
+                {renderAvatar({ name: userName, avatar_bg: Theme.colors.violetLight }, 48)}
                 <View style={styles.itemInfoSmall}>
                   <Text style={styles.itemName}>{userName}</Text>
                   <Text style={styles.roleBadge}>{userRole?.toUpperCase()}</Text>
@@ -290,7 +298,7 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
                           {switching === profile.roll_no ? (
                             <ActivityIndicator size="small" color={Theme.colors.primary} />
                           ) : (
-                            <ChevronRight size={18} color="#94a3b8" />
+                            <ChevronRight size={18} color={Theme.colors.textMuted} />
                           )}
                         </View>
                       </TouchableOpacity>
@@ -324,7 +332,7 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
                         {switching === profile.roll_no ? (
                           <ActivityIndicator size="small" color={Theme.colors.primary} />
                         ) : (
-                          <ChevronRight size={18} color="#94a3b8" />
+                          <ChevronRight size={18} color={Theme.colors.textMuted} />
                         )}
                       </View>
                     </TouchableOpacity>
@@ -343,7 +351,7 @@ const AccountSwitcher: React.FC<Props> = ({ visible, onClose }) => {
               <Text style={styles.primaryText}>LOG INTO ANOTHER ACCOUNT</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => {/* Register flow */ }} style={{ marginTop: 12 }}>
+            <TouchableOpacity onPress={() => {/* Register flow */ }} style={{ marginTop: Theme.spacing.md }}>
               <Text style={styles.registerText}>New Institution? <Text style={{ color: Theme.colors.primary, fontWeight: '700' }}>Register Now</Text></Text>
             </TouchableOpacity>
 
@@ -382,7 +390,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#cbd5e1', // Slate 300
+    backgroundColor: Theme.colors.textSec, // Slate 300
     alignSelf: 'center',
     marginTop: Theme.spacing.xs,
     marginBottom: Theme.spacing.sm,
@@ -391,12 +399,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Theme.spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#e2e8f0', // Slate 200 divider
+    borderColor: Theme.colors.border, // Slate 200 divider
     marginBottom: Theme.spacing.md,
   },
   title: {
     ...Theme.typography.h3,
-    color: '#0f172a',
+    color: Theme.colors.text,
     fontWeight: '700',
   },
   scroll: {
@@ -406,9 +414,9 @@ const styles = StyleSheet.create({
     marginBottom: Theme.spacing.md,
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: Theme.typography.caption.fontSize,
     fontWeight: '600',
-    color: '#94a3b8',
+    color: Theme.colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: Theme.spacing.md,
@@ -419,10 +427,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Theme.spacing.md,
     paddingHorizontal: Theme.spacing.md,
-    borderRadius: 16,
-    backgroundColor: '#f8fafc', // Light elegant background for current account
+    borderRadius: Theme.radius.lg,
+    backgroundColor: Theme.colors.inputBg, // Light elegant background for current account
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.backgroundAlt,
   },
   itemInfoSmall: {
     flex: 1,
@@ -443,7 +451,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Theme.spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.backgroundAlt,
   },
   itemInfo: {
     flex: 1,
@@ -451,12 +459,12 @@ const styles = StyleSheet.create({
   },
   itemName: {
     ...Theme.typography.h4,
-    color: '#0f172a',
+    color: Theme.colors.text,
     fontWeight: '600',
   },
   itemRole: {
-    fontSize: 13,
-    color: '#64748b',
+    fontSize: Theme.typography.caption.fontSize,
+    color: Theme.colors.textSec,
     marginTop: 2,
   },
   actionWrapper: {
@@ -473,30 +481,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryButton: {
-    backgroundColor: '#0f172a', // Dark charcoal/navy button matching Instagram premium look
+    backgroundColor: Theme.colors.text, // Dark charcoal/navy button matching Instagram premium look
     paddingVertical: 15,
-    borderRadius: 14,
+    borderRadius: Theme.radius.md,
     width: '100%',
     alignItems: 'center',
-    shadowColor: '#0f172a',
+    shadowColor: Theme.colors.text,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
   primaryText: {
-    color: '#ffffff',
+    color: Theme.colors.card,
     fontWeight: '700',
     letterSpacing: 0.5,
-    fontSize: 14,
+    fontSize: Theme.typography.body.fontSize,
   },
   registerText: {
-    color: '#64748b',
+    color: Theme.colors.textSec,
     ...Theme.typography.body,
   },
   helpText: {
-    color: '#94a3b8',
-    fontSize: 12,
+    color: Theme.colors.textMuted,
+    fontSize: Theme.typography.caption.fontSize,
     marginTop: Theme.spacing.md,
     textAlign: 'center',
     lineHeight: 16,

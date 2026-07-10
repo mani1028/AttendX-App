@@ -178,7 +178,7 @@ const StandardPageHeader: React.FC<StandardPageHeaderProps> = ({
         ) : null}
 
         <View style={styles.dashFooterRow}>
-          <View style={{ flex: 1, marginRight: 12 }}>
+          <View style={{ flex: 1, marginRight: Theme.spacing.md }}>
             <AppText style={heroHeaderStyles.title} numberOfLines={1} adjustsFontSizeToFit>
               {displayTitle}
             </AppText>
@@ -280,14 +280,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: Theme.spacing.md,
     minHeight: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
   },
   navLeading: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Theme.spacing.md,
     minWidth: 0,
   },
   titleBlock: {
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: HEADER_CONSTANTS.INNER_PAGE_TITLE_SIZE,
     fontWeight: '800',
-    color: '#ffffff',
+    color: Theme.colors.card,
     letterSpacing: -0.3,
     textAlign: 'left',
     lineHeight: 28,
@@ -311,12 +311,12 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   portalLabel: {
-    fontSize: 11,
+    fontSize: Theme.typography.label.fontSize,
     color: 'rgba(255,255,255,0.65)',
     fontWeight: '700',
     letterSpacing: 1,
     textTransform: 'uppercase',
-    marginTop: 12,
+    marginTop: Theme.spacing.md,
   },
   dashFooterRow: {
     flexDirection: 'row',
@@ -329,12 +329,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   dateText: {
-    fontSize: 11,
+    fontSize: Theme.typography.label.fontSize,
     color: Theme.colors.card,
     fontWeight: '700',
   },
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     right: 2,
     minWidth: 15,
     height: 15,
-    borderRadius: 8,
+    borderRadius: Theme.radius.sm,
     backgroundColor: Theme.colors.error,
     borderWidth: 1.5,
     borderColor: HEADER_CONSTANTS.GRADIENT_START,
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   legacyGreeting: {
-    marginTop: 16,
+    marginTop: Theme.spacing.md,
   },
   legacyGreetingTitle: {
     ...Theme.typography.h2,

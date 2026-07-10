@@ -101,7 +101,7 @@ const RoleTabBar: React.FC<RoleTabBarProps> = ({
                     { backgroundColor: accentColor, transform: [{ scale: pressAnim }] },
                   ]}
                 >
-                  {IconComponent && <IconComponent size={26} color="#fff" />}
+                  {IconComponent && <IconComponent size={26} color={Theme.colors.card} />}
                 </Animated.View>
                 <Text style={[styles.centerLabel, { color: isFocused ? accentColor : Theme.colors.textMuted }]}>
                   {tabConfig.label}
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     ...Platform.select({
       ios: {
-        shadowColor: '#0f172a',
+        shadowColor: Theme.colors.text,
         shadowOffset: { width: 0, height: -2 },
         shadowOpacity: 0.05,
         shadowRadius: 8,
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     minHeight: 56,
     paddingTop: 6,
-    paddingHorizontal: 4,
+    paddingHorizontal: Theme.spacing.xs,
   },
   tabItem: {
     flex: 1,
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: Theme.typography.label.fontSize,
     marginTop: 3,
     fontWeight: '500',
     textAlign: 'center',
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   tabLabelCompact: {
-    fontSize: 9,
+    fontSize: Theme.typography.label.fontSize,
   },
   centerSlot: {
     flex: 1,
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     ...Platform.select({
       ios: {
-        shadowColor: '#1e3a8a',
+        shadowColor: Theme.colors.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.28,
         shadowRadius: 8,
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     }),
   },
   centerLabel: {
-    fontSize: 10,
+    fontSize: Theme.typography.label.fontSize,
     fontWeight: '600',
     marginTop: 2,
   },

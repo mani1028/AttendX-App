@@ -1,15 +1,16 @@
 import { StyleSheet } from 'react-native';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import {Theme, colors} from '../../theme/tokens';
 
 export const adminScreenStyles = StyleSheet.create({
   body: {
-    paddingTop: 4,
+    paddingTop: Theme.spacing.xs,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
     fontWeight: '700',
-    marginBottom: 12,
-    marginTop: 4,
+    marginBottom: Theme.spacing.md,
+    marginTop: Theme.spacing.xs,
   },
   skeletonGrid: {
     flexDirection: 'row',
@@ -20,7 +21,7 @@ export const adminScreenStyles = StyleSheet.create({
     width: '48%',
     flexGrow: 1,
     height: 96,
-    borderRadius: 14,
-    backgroundColor: '#E2E8F0',
+    borderRadius: Theme.radius.md,
+    backgroundColor: Theme.colors.border,
   },
 });

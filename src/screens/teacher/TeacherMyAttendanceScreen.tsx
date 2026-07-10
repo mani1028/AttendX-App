@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation } from '@react-navigation/native';
 import { Calendar } from 'react-native-calendars';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,6 +16,7 @@ import { resolveApiErrorMessage } from '../../utils/helpers';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
 import { Theme, C } from '../../theme/tokens';
+import { teacherMyAttendanceStyles as styles } from '../../components/teacher/teacherMyAttendance/teacherMyAttendanceStyles';
 
 type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'LEAVE' | 'HOLIDAY' | 'NO_RECORD';
 
@@ -230,7 +224,7 @@ export default function TeacherMyAttendanceScreen() {
         customStyles: {
           container: {
             backgroundColor: colors.bg,
-            borderRadius: 10,
+            borderRadius: Theme.radius.md,
             justifyContent: 'center',
             alignItems: 'center',
           },
@@ -247,7 +241,7 @@ export default function TeacherMyAttendanceScreen() {
       customStyles: {
         container: {
           backgroundColor: C.colors.primary,
-          borderRadius: 10,
+          borderRadius: Theme.radius.md,
           elevation: 3,
           shadowColor: C.colors.primary,
           shadowOffset: { width: 0, height: 2 },
@@ -510,271 +504,9 @@ export default function TeacherMyAttendanceScreen() {
 
       {loading && !refreshing && !loadError && (
         <View style={styles.loaderOverlay}>
-          <ActivityIndicator size="large" color={C.colors.primary} />
+          <ScreenSkeleton variant="list" />
         </View>
       )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  pageBody: {},
-  errorCard: {
-    padding: 24,
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-  errorTitle: { color: Theme.colors.text, fontSize: 16, marginTop: 4 },
-  errorText: { color: Theme.colors.textMuted, textAlign: 'center', ...Theme.typography.body },
-  retryBtn: {
-    marginTop: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: Theme.colors.primary,
-  },
-  retryBtnText: { color: Theme.colors.card },
-  monthNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: C.colors.card,
-    borderRadius: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    marginBottom: 16,
-    ...C.shadow.sm,
-  },
-  monthNavBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: C.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  monthNavLabel: {
-    fontSize: 16,
-    color: C.colors.text,
-  },
-  statsOverview: {
-    flexDirection: 'row',
-    backgroundColor: C.colors.card,
-    borderRadius: 20,
-    padding: 20,
-    alignItems: 'center',
-    ...C.shadow.sm,
-    marginBottom: 20,
-  },
-  percentageCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 6,
-    borderColor: C.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  percentageValue: {
-    ...Theme.typography.h3,
-    color: C.colors.text,
-  },
-  percentageLabel: {
-    fontSize: 10,
-    color: C.colors.textMuted,
-  },
-  statsDivider: {
-    width: 1,
-    height: 60,
-    backgroundColor: C.colors.border,
-    marginHorizontal: 25,
-  },
-  statsRight: {
-    flex: 1,
-    gap: 8,
-  },
-  statRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: Theme.spacing.sm,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: C.colors.textMuted,
-    flex: 1,
-  },
-  statValue: {
-    ...Theme.typography.body,
-    fontWeight: '700',
-    color: C.colors.text,
-  },
-  calendarCard: {
-    backgroundColor: C.colors.card,
-    borderRadius: 20,
-    padding: 10,
-    marginBottom: 20,
-    ...C.shadow.sm,
-    overflow: 'hidden',
-  },
-  calendar: {
-    borderRadius: 20,
-    backgroundColor: C.colors.card,
-  },
-  detailsCard: {
-    backgroundColor: C.colors.card,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    ...C.shadow.sm,
-  },
-  detailsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: C.colors.border,
-    paddingBottom: 10,
-  },
-  detailsTitle: {
-    ...Theme.typography.h4,
-    color: C.colors.text,
-  },
-  detailsDate: {
-    fontSize: 13,
-    color: C.colors.textMuted,
-  },
-  statusBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: C.colors.background,
-    borderRadius: 12,
-    padding: 16,
-  },
-  statusInfo: {
-    flex: 1,
-  },
-  statusLabel: {
-    fontSize: 12,
-    color: C.colors.textMuted,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  statusValue: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  statusIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  sessionRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-  },
-  sessionChip: {
-    flex: 1,
-    backgroundColor: C.colors.background,
-    borderRadius: 12,
-    padding: 12,
-  },
-  sessionLabel: {
-    fontSize: 11,
-    color: C.colors.textMuted,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-  },
-  sessionValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: C.colors.text,
-  },
-  recentCard: {
-    padding: 20,
-    marginBottom: 20,
-  },
-  recentTitle: {
-    fontSize: 16,
-    color: C.colors.text,
-    marginBottom: Theme.spacing.md,
-  },
-  recentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: C.colors.border,
-    gap: 12,
-  },
-  recentDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  recentDate: {
-    flex: 1,
-    ...Theme.typography.body,
-    color: C.colors.textSec,
-  },
-  recentStatus: {
-    fontSize: 14,
-    color: C.colors.text,
-  },
-  legendCard: {
-    backgroundColor: C.colors.card,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    ...C.shadow.sm,
-  },
-  legendTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: C.colors.textMuted,
-    letterSpacing: 1,
-    marginBottom: 12,
-  },
-  legendGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    width: '30%',
-  },
-  legendDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: 12,
-    color: C.colors.textSec,
-  },
-  loaderOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});

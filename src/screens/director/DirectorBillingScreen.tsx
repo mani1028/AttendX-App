@@ -1,17 +1,7 @@
 import { Theme } from '../../theme/tokens';
 import React, { useState, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Animated,
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  SafeAreaView,
-} from 'react-native';
+import { View, ScrollView, TouchableOpacity, Animated, ActivityIndicator, Alert, Modal, Platform, SafeAreaView } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation, useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import {
   CreditCard,
@@ -28,7 +18,6 @@ import {
   Eye,
   X,
 } from 'lucide-react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import { Buffer } from 'buffer';
@@ -47,6 +36,7 @@ import { getDirectorBillingData } from '../../services/directorService';
 
 
 import type { RootStackParamList } from '../../navigation/types';
+import { directorBillingStyles as styles } from '../../components/director/directorBilling/directorBillingStyles';
 
 
 export default function DirectorBillingScreen() {
@@ -215,7 +205,7 @@ export default function DirectorBillingScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={Theme.colors.primary} />
+        <ScreenSkeleton variant="list" />
       </View>
     );
   }
@@ -236,7 +226,7 @@ export default function DirectorBillingScreen() {
       case 'trial_active':
         return { label: 'ACTIVE TRIAL', color: Theme.colors.primary, icon: ShieldCheck };
       case 'grace_period':
-        return { label: 'GRACE PERIOD', color: '#f59e0b', icon: AlertTriangle };
+        return { label: 'GRACE PERIOD', color: Theme.colors.warning, icon: AlertTriangle };
       case 'payment_due':
         return { label: 'PAYMENT DUE', color: Theme.colors.error, icon: AlertCircle };
       case 'suspended':
@@ -279,7 +269,7 @@ export default function DirectorBillingScreen() {
     }
     return {
       icon: Clock,
-      color: '#3B82F6',
+      color: Theme.colors.primaryLight,
       bgColor: '#e8f0fe',
       label: 'Pending',
     };
@@ -289,22 +279,24 @@ export default function DirectorBillingScreen() {
     <View style={styles.container}>
 
 
-      <StandardPageHeader
-        title={paymentsOnly ? 'Payment History' : 'Billing & Plan'}
-        subtitle={paymentsOnly ? 'Subscription payment records' : 'Manage subscription and payment history'}
-        onBackPress={handleBackPress}
-      />
-
       <ScrollView
         style={[styles.content, innerPageLayoutStyles.scrollViewFront]}
         contentContainerStyle={innerPageLayoutStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <StandardPageHeader
+        scrollWithContent
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
+        title={paymentsOnly ? 'Payment History' : 'Billing & Plan'}
+        subtitle={paymentsOnly ? 'Subscription payment records' : 'Manage subscription and payment history'}
+        onBackPress={handleBackPress}
+      />
+
         <Animated.View style={[innerPageLayoutStyles.contentFront, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
 
           {!paymentsOnly && (
           <View style={styles.heroCard}>
-            <LinearGradient colors={[Theme.colors.primary, '#3B82F6']} style={styles.heroGradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
+            <View style={styles.heroGradient}>
               <View style={styles.heroHeader}>
                 <View style={{ flex: 1, marginRight: Theme.spacing.sm }}>
                   <AppText style={styles.heroLabel}>CURRENT PLAN</AppText>
@@ -330,12 +322,12 @@ export default function DirectorBillingScreen() {
                     </AppText>
                   )}
                   <TouchableOpacity accessibilityRole="button" style={styles.upgradeBtn} onPress={() => (navigation as any).navigate('RenewalPayment')}>
-                    <Zap size={16} color="#3B82F6" fill="#3B82F6" />
+                    <Zap size={16} color={Theme.colors.primaryLight} fill={Theme.colors.primaryLight} />
                     <AppText style={styles.upgradeText}>Renew Plan</AppText>
                   </TouchableOpacity>
                 </View>
               </View>
-            </LinearGradient>
+            </View>
           </View>
           )}
 
@@ -521,182 +513,3 @@ export default function DirectorBillingScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Theme.colors.background },
-  heroCard: {
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 8,
-    marginBottom: 20,
-  },
-  heroGradient: {
-    borderRadius: 24,
-    padding: Theme.spacing.lg,
-  },
-  heroHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 30 },
-  heroLabel: { ...Theme.typography.caption, fontWeight: '800', color: 'rgba(255,255,255,0.8)', letterSpacing: 1.5, marginBottom: Theme.spacing.xs, opacity: 0.8 },
-  heroPlan: { fontSize: 32, fontWeight: '900', color: Theme.colors.card, letterSpacing: -1 },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, gap: 6 },
-  statusText: { ...Theme.typography.caption, fontWeight: '800', letterSpacing: 0.5 },
-  heroFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', paddingTop: 20 },
-  validLabel: { fontSize: 13, marginBottom: Theme.spacing.xs, opacity: 0.9 },
-  validDate: { fontSize: 18, fontWeight: '800' },
-  upgradeBtn: { backgroundColor: Theme.colors.background, flexDirection: 'row', alignItems: 'center', paddingHorizontal: Theme.spacing.md, paddingVertical: 10, borderRadius: 12, gap: 8 },
-  upgradeText: { color: '#3B82F6', ...Theme.typography.body, fontWeight: '800' },
-  content: { flex: 1, paddingHorizontal: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: Theme.colors.text, marginBottom: 12, marginTop: Theme.spacing.lg, letterSpacing: -0.5 },
-  card: { backgroundColor: Theme.colors.card, borderRadius: 20, padding: Theme.spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2, borderWidth: 1, borderColor: Theme.colors.background },
-  methodRow: { flexDirection: 'row', alignItems: 'center' },
-  methodIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginRight: Theme.spacing.md },
-  methodDetails: { flex: 1 },
-  methodName: { fontSize: 16, fontWeight: '800', color: Theme.colors.text, marginBottom: 2 },
-  methodSub: { fontSize: 13, color: Theme.colors.textSec, fontWeight: '500' },
-  invoiceRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
-  invoiceMain: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  borderTop: { borderTopWidth: 1, borderTopColor: Theme.colors.background },
-  invoiceIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginRight: Theme.spacing.md },
-  invoiceName: { ...Theme.typography.bodyMd, fontWeight: '700', color: Theme.colors.text, marginBottom: 2 },
-  invoiceDate: { fontSize: 13, color: Theme.colors.textSec, fontWeight: '500' },
-  invoiceAmt: { fontSize: 16, fontWeight: '800', color: Theme.colors.primary, marginRight: 8 },
-  viewBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
-  downloadBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: Theme.colors.background, justifyContent: 'center', alignItems: 'center' },
-  emptyState: { paddingVertical: 20, alignItems: 'center' },
-  emptyStateText: { ...Theme.typography.body, color: '#94a3b8', fontWeight: '500' },
-  rowStatusBadge: {
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  rowStatusText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  alertBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#fffbeb',
-    borderColor: '#fef3c7',
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: Theme.spacing.md,
-    marginBottom: 20,
-    gap: 12,
-  },
-  alertTitle: {
-    ...Theme.typography.body,
-    fontWeight: '800',
-    color: '#92400e',
-    marginBottom: 2,
-  },
-  alertMessage: {
-    ...Theme.typography.caption,
-    color: '#b45309',
-    fontWeight: '500',
-    lineHeight: 16,
-  },
-  autoRenewCard: {
-    backgroundColor: Theme.colors.card,
-    borderRadius: 16,
-    padding: Theme.spacing.md,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: Theme.colors.successBg,
-  },
-  autoRenewHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    marginBottom: 14,
-  },
-  autoRenewIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Theme.colors.successBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  autoRenewTitle: {
-    fontSize: 15,
-    color: Theme.colors.text,
-    marginBottom: 4,
-  },
-  autoRenewSub: {
-    ...Theme.typography.caption,
-    color: Theme.colors.textSec,
-    lineHeight: 18,
-  },
-  disableAutoRenewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.errorBg,
-    backgroundColor: '#fff5f5',
-  },
-  disableAutoRenewText: {
-    color: Theme.colors.error,
-    fontSize: 14,
-  },
-  receiptModal: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  receiptModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.background,
-    backgroundColor: Theme.colors.card,
-  },
-  receiptModalTitle: {
-    fontSize: 18,
-    color: Theme.colors.text,
-  },
-  receiptModalSub: {
-    ...Theme.typography.caption,
-    color: Theme.colors.textSec,
-    marginTop: 2,
-  },
-  receiptCloseBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: Theme.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  receiptWebView: {
-    flex: 1,
-    backgroundColor: Theme.colors.card,
-  },
-  receiptModalFooter: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.background,
-    backgroundColor: Theme.colors.card,
-  },
-  receiptDownloadBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: Theme.colors.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  receiptDownloadText: {
-    color: Theme.colors.card,
-    fontSize: 15,
-  },
-});

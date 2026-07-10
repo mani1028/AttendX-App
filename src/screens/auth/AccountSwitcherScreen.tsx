@@ -5,6 +5,7 @@ import accountStorage, { StoredAccount } from '../../services/accountStorage';
 import AccountCard from '../../components/AccountCard';
 import GradientButton from '../../components/GradientButton';
 import { useNavigation } from '@react-navigation/native';
+import { Theme } from '../../theme/tokens';
 
 const AccountSwitcherScreen: React.FC = () => {
   const [accounts, setAccounts] = useState<StoredAccount[]>([]);
@@ -46,7 +47,7 @@ const AccountSwitcherScreen: React.FC = () => {
         renderItem={({ item }) => (
           <AccountCard account={item} onPress={handleLogin} onDelete={handleDelete} />
         )}
-        contentContainerStyle={{ paddingVertical: 12 }}
+        contentContainerStyle={{ paddingVertical: Theme.spacing.md }}
       />
 
       <View style={styles.bottom}>
@@ -57,9 +58,9 @@ const AccountSwitcherScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F7F7FC', padding: 20 },
-  title: { fontSize: 24, fontWeight: '800', color: '#111827' },
-  subtitle: { color: '#8B9BB4', marginTop: 6, marginBottom: 12 },
+  root: { flex: 1, backgroundColor: '#F7F7FC', padding: Theme.spacing.xl },
+  title: { fontSize: Theme.typography.h2.fontSize, fontWeight: '800', color: '#111827' },
+  subtitle: { color: '#8B9BB4', marginTop: 6, marginBottom: Theme.spacing.md },
   bottom: { marginTop: 'auto' },
 });
 

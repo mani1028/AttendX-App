@@ -74,7 +74,13 @@ export type RootStackParamList = {
   PrincipalExpense: undefined;
   PrincipalSettings: undefined;
   PrincipalStudentRegistration: undefined;
-  PrincipalStudentAttendanceReport: { studentId: string; studentName: string };
+  PrincipalStudentAttendanceReport: {
+    studentId: string;
+    studentName: string;
+    rollNumber?: string;
+    classGrade?: string;
+    section?: string;
+  };
   PrincipalCalendarManagement: undefined;
   PrincipalTeacherRegistrationRequests: undefined;
   PrincipalStudentPromotion: undefined;

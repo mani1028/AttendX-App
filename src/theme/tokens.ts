@@ -145,55 +145,12 @@ export const tokens = {
   },
 };
 
-export const Theme = {
-  colors: tokens.colors.light,
-  spacing: tokens.spacing,
-  radius: tokens.radius,
-  shadow: tokens.shadow,
-  typography: tokens.typography,
+import { buildTheme, lightTheme } from './buildTheme';
 
-  // Bridge flat properties for backwards compatibility with deleted constants/principalTheme.ts etc.
-  bg: tokens.colors.light.background,
-  bgAlt: tokens.colors.light.backgroundAlt,
-  card: tokens.colors.light.card,
-  sidebar: tokens.colors.light.card,
-  text: tokens.colors.light.text,
-  textMuted: tokens.colors.light.textMuted,
-  t1: tokens.colors.light.text,
-  t2: tokens.colors.light.textSec,
-  t3: tokens.colors.light.textMuted,
-  t4: tokens.colors.light.textMuted + '80',
-  text2: tokens.colors.light.textSec,
-  text3: tokens.colors.light.textMuted,
-  muted: tokens.colors.light.textMuted,
-  border: tokens.colors.light.border,
-  borderLight: tokens.colors.light.borderLight,
-  borderSoft: tokens.colors.light.border + '80',
-  primary: tokens.colors.light.primary,
-  primaryDark: tokens.colors.light.primaryDark,
-  primarySoft: tokens.colors.light.primary + '1A',
-  primaryHover: tokens.colors.light.primaryDark,
-  primaryBorder: tokens.colors.light.primary + '30',
-  accent: tokens.colors.light.primary,
-  success: tokens.colors.light.success,
-  successSoft: tokens.colors.light.successBg,
-  successBg: tokens.colors.light.successBg,
-  successText: tokens.colors.light.success,
-  successBorder: tokens.colors.light.success + '30',
-  error: tokens.colors.light.error,
-  errorSoft: tokens.colors.light.errorBg,
-  errorBg: tokens.colors.light.errorBg,
-  errorText: tokens.colors.light.error,
-  danger: tokens.colors.light.error,
-  dangerSoft: tokens.colors.light.errorBg,
-  dangerBorder: tokens.colors.light.error + '30',
-  warning: tokens.colors.light.warning,
-  warningSoft: tokens.colors.light.warningBg,
-  info: tokens.colors.light.info,
-  infoSoft: tokens.colors.light.infoBg,
-  navy: tokens.colors.light.primary,
-  white: '#ffffff',
-};
+/** Static light theme — prefer `useTheme()` from ThemeContext for runtime dark mode. */
+export const Theme = lightTheme;
+
+export const createTheme = buildTheme;
 
 export const C = Theme;
 

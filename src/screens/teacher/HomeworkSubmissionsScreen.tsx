@@ -89,7 +89,7 @@ export default function HomeworkSubmissionsScreen() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'submitted': return '#10B981';
-      case 'graded': return '#3B82F6';
+      case 'graded': return Theme.colors.primaryLight;
       default: return '#F59E0B';
     }
   };
@@ -97,7 +97,7 @@ export default function HomeworkSubmissionsScreen() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'submitted': return <CheckCircle2 size={16} color="#10B981" />;
-      case 'graded': return <CheckCircle2 size={16} color="#3B82F6" />;
+      case 'graded': return <CheckCircle2 size={16} color={Theme.colors.primaryLight} />;
       default: return <Clock size={16} color="#F59E0B" />;
     }
   };
@@ -172,7 +172,7 @@ export default function HomeworkSubmissionsScreen() {
                         style={styles.attachmentLink}
                         onPress={() => handleOpenAttachment(file.file_url)}
                       >
-                        <Paperclip size={14} color="#2563EB" />
+                        <Paperclip size={14} color={Theme.colors.blue} />
                         <AppText style={styles.attachmentText} numberOfLines={1}>{file.file_name}</AppText>
                         <ExternalLink size={14} color={Theme.colors.textMuted} />
                       </TouchableOpacity>
@@ -206,12 +206,12 @@ const styles = StyleSheet.create({
   emptyStateText: {
     marginTop: Theme.spacing.md,
     color: Theme.colors.textSec,
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
   },
   studentCard: {
     padding: Theme.spacing.md,
-    marginBottom: 12,
-    borderRadius: 16,
+    marginBottom: Theme.spacing.md,
+    borderRadius: Theme.radius.lg,
     borderWidth: 1,
     borderColor: Theme.colors.background,
   },
@@ -221,16 +221,16 @@ const styles = StyleSheet.create({
   studentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   studentAvatar: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: Theme.radius.xl,
     backgroundColor: Theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: Theme.spacing.md,
   },
   studentDetails: {
     flex: 1,
@@ -249,17 +249,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Theme.spacing.xs,
     paddingHorizontal: Theme.spacing.sm,
-    borderRadius: 8,
-    gap: 4,
+    borderRadius: Theme.radius.sm,
+    gap: Theme.spacing.xs,
   },
   statusText: {
-    fontSize: 10,
+    fontSize: Theme.typography.label.fontSize,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   metaText: {
     ...Theme.typography.caption,
@@ -268,11 +268,11 @@ const styles = StyleSheet.create({
   attachmentsSection: {
     borderTopWidth: 1,
     borderTopColor: Theme.colors.background,
-    paddingTop: 12,
+    paddingTop: Theme.spacing.md,
   },
   attachmentsTitle: {
-    fontSize: 13,
-    color: '#334155',
+    fontSize: Theme.typography.caption.fontSize,
+    color: Theme.colors.cardAlt,
     marginBottom: Theme.spacing.sm,
   },
   attachmentLink: {
@@ -280,13 +280,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Theme.colors.background,
     padding: Theme.spacing.sm,
-    borderRadius: 8,
+    borderRadius: Theme.radius.sm,
     marginBottom: 6,
-    gap: 8,
+    gap: Theme.spacing.sm,
   },
   attachmentText: {
     flex: 1,
     ...Theme.typography.caption,
-    color: '#2563EB',
+    color: Theme.colors.blue,
   },
 });

@@ -41,10 +41,10 @@ const DEFAULT_CLASSES: ClassItem[] = [
 ];
 
 const COLORS = [
-  { bg: '#e0f2fe', accent: '#0284c7' },
+  { bg: Theme.colors.skyLight, accent: '#0284c7' },
   { bg: '#dcfce7', accent: Theme.colors.success },
   { bg: '#fff1f2', accent: '#e11d48' },
-  { bg: '#fef3c7', accent: '#d97706' },
+  { bg: Theme.colors.amberLight, accent: Theme.colors.warning },
   { bg: '#f3e8ff', accent: '#9333ea' },
   { bg: '#ffedd5', accent: '#ea580c' },
   { bg: '#cffafe', accent: '#0891b2' },
@@ -94,7 +94,7 @@ export default function ClassSelector({ onSelectClass, classes = DEFAULT_CLASSES
             <TextInput
               style={styles.searchInput}
               placeholder="Search by class name..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={Theme.colors.textMuted}
               value={searchTerm}
               onChangeText={setSearchTerm}
             />
@@ -185,13 +185,13 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: Theme.radius.xl,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: Theme.typography.h3.fontSize,
     color: Theme.colors.card,
   },
   searchContainer: {
@@ -201,8 +201,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Theme.colors.card,
-    borderRadius: 14,
-    paddingHorizontal: 12,
+    borderRadius: Theme.radius.md,
+    paddingHorizontal: Theme.spacing.md,
     height: 48,
     elevation: 2,
     shadowColor: '#000',
@@ -232,14 +232,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: Theme.spacing.md,
   },
   classCard: {
     width: '48%',
     backgroundColor: Theme.colors.card,
-    borderRadius: 16,
+    borderRadius: Theme.radius.lg,
     padding: Theme.spacing.md,
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
     borderWidth: 1,
     borderColor: Theme.colors.border,
     shadowColor: Theme.colors.primary,
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     width: 4,
   },
   className: {
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
     color: Theme.colors.text,
     marginBottom: 10,
     paddingLeft: Theme.spacing.xs,
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Theme.spacing.sm,
   },
   infoText: {
     ...Theme.typography.caption,
@@ -282,8 +282,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: Theme.spacing.md,
+    paddingTop: Theme.spacing.md,
     borderTopWidth: 1,
     borderTopColor: Theme.colors.background,
     paddingLeft: Theme.spacing.xs,

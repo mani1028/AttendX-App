@@ -3,6 +3,7 @@ import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
+import { Theme } from '../../theme/tokens';
 
 interface HeroHeaderShellProps {
   children: React.ReactNode;
@@ -50,7 +51,7 @@ export const heroHeaderStyles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Theme.spacing.sm,
   },
   iconBtn: {
     width: HEADER_CONSTANTS.ICON_BUTTON_SIZE,
@@ -80,9 +81,9 @@ export const heroHeaderStyles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.25)',
   },
   titleIconLetter: {
-    fontSize: 20,
+    fontSize: Theme.typography.h3.fontSize,
     fontWeight: '800',
-    color: '#ffffff',
+    color: Theme.colors.card,
   },
   textBlock: {
     flex: 1,
@@ -91,7 +92,7 @@ export const heroHeaderStyles = StyleSheet.create({
   title: {
     fontSize: HEADER_CONSTANTS.HERO_TITLE_SIZE,
     fontWeight: '800',
-    color: '#ffffff',
+    color: Theme.colors.card,
     letterSpacing: -0.3,
   },
   subtitle: {
@@ -103,8 +104,8 @@ export const heroHeaderStyles = StyleSheet.create({
   titleBadge: {
     minWidth: 28,
     height: 28,
-    borderRadius: 14,
-    backgroundColor: '#dc2626',
+    borderRadius: Theme.radius.md,
+    backgroundColor: Theme.colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 6,
@@ -112,8 +113,8 @@ export const heroHeaderStyles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.3)',
   },
   titleBadgeText: {
-    color: '#ffffff',
-    fontSize: 13,
+    color: Theme.colors.card,
+    fontSize: Theme.typography.caption.fontSize,
     fontWeight: '800',
   },
 });

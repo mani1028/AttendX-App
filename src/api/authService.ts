@@ -169,7 +169,18 @@ function normalizeLoginResponse(data: LoginResponse, fallbackRole: AppRole): Nor
   const token = pickTokenValue(payload.token, payload.access_token, payload.accessToken, payload.user?.token, payload.user?.access_token);
   const name = payload.user?.name ?? payload.user?.full_name ?? payload.user?.username ?? payload.user?.user_name;
   const loginUsername = payload.user?.username ?? payload.user?.user_name ?? payload.username;
-  const loginEmail = payload.user?.email ?? payload.email ?? payload.user?.email_id;
+  const loginEmail =
+    payload.user?.email ??
+    payload.email ??
+    payload.user?.email_id ??
+    payload.user?.director_email ??
+    payload.director_email ??
+    payload.user?.principal_email ??
+    payload.principal_email;
+  const directorEmail = payload.user?.director_email ?? payload.director_email;
+  const directorEmployeeId = payload.user?.director_employee_id ?? payload.director_employee_id;
+  const directorName = payload.user?.director_name ?? payload.director_name;
+  const directorAddress = payload.user?.director_address ?? payload.director_address;
   // Student login returns roll_no in user object; fall back to student_id for other cases
   const studentId = payload.user?.student_id ?? payload.user?.roll_no ?? payload.user?.roll_number;
   const rollNumber = payload.user?.roll_no ?? payload.user?.roll_number ?? payload.user?.student_id;
@@ -178,9 +189,10 @@ function normalizeLoginResponse(data: LoginResponse, fallbackRole: AppRole): Nor
   const principalEmail = payload.user?.principal_email ?? payload.principal_email;
   const principalAddress = payload.user?.principal_address ?? payload.principal_address;
   const principalMobile = payload.user?.principal_mobile ?? payload.principal_mobile;
+  const userAddress = payload.user?.address ?? payload.address ?? directorAddress ?? principalAddress;
   const resolvedEmployeeId =
     role === 'director' || role === 'admin'
-      ? payload.user?.employee_id
+      ? (directorEmployeeId ?? payload.user?.employee_id)
       : payload.user?.employee_id ?? principalEmployeeId;
 
   return {
@@ -208,6 +220,11 @@ function normalizeLoginResponse(data: LoginResponse, fallbackRole: AppRole): Nor
       principal_email: principalEmail,
       principal_address: principalAddress,
       principal_mobile: principalMobile,
+      director_email: directorEmail,
+      director_employee_id: directorEmployeeId,
+      director_name: directorName,
+      director_address: directorAddress,
+      address: userAddress,
     },
     schoolName: payload.school_name ?? payload.schoolName ?? payload.school?.school_name ?? payload.school?.name,
     branchName: payload.branch_name ?? payload.branchName ?? payload.user?.branch_name ?? payload.branch?.branch_name ?? payload.branch?.name,

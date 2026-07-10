@@ -168,6 +168,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const accounts = await getSavedAccounts();
         setSavedAccounts(accounts);
       }
+      if (success) {
+        await refreshAuth();
+        setUserRole(account.role || null);
+        setUserToken(account.token);
+        setUserName(account.name || null);
+        setIsClassTeacher(account.isClassTeacher ?? false);
+      }
       return success;
     } catch (e) {
       console.error('Error switching account:', e);

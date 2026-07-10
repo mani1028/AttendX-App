@@ -1,0 +1,1 @@
+export { announcementsStyles } from './announcementsStyles';

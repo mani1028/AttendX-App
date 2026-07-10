@@ -9,8 +9,9 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		5E08F5C3E7B44A1DB2C6A901 /* RCTView+ColorFix.m in Sources */ = {isa = PBXBuildFile; fileRef = 5E08F5C2E7B44A1DB2C6A901 /* RCTView+ColorFix.m */; };
-		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
+		761780ED2CA45674006654EE /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.mm */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		B2C3D4E52CA45674006654EE /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E42CA45674006654EE /* main.m */; };
 		C9624CDA3B83298DE79D6AF9 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		DF60ABA2A4E7609C88B064CF /* Pods_AttendX.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C508C82432DE98D32848505 /* Pods_AttendX.framework */; };
 		F1A2B3C41D2E4F5A6B7C8D90 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = F1A2B3C31D2E4F5A6B7C8D90 /* GoogleService-Info.plist */; };
@@ -24,10 +25,12 @@
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = AttendX/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		5E08F5C2E7B44A1DB2C6A901 /* RCTView+ColorFix.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = "RCTView+ColorFix.m"; path = "AttendX/RCTView+ColorFix.m"; sourceTree = "<group>"; };
 		718AC38B2FADEDB0000D61FC /* AttendX.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = AttendX.entitlements; path = AttendX/AttendX.entitlements; sourceTree = "<group>"; };
-		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = AttendX/AppDelegate.swift; sourceTree = "<group>"; };
+		761780EC2CA45674006654EE /* AppDelegate.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = AppDelegate.mm; path = AttendX/AppDelegate.mm; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = AttendX/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		9BB4707B543AFAC57AA0A2B7 /* Pods-AttendX.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-AttendX.release.xcconfig"; path = "Target Support Files/Pods-AttendX/Pods-AttendX.release.xcconfig"; sourceTree = "<group>"; };
 		AC66A6260DE677926FA5E0C8 /* Pods-AttendX.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-AttendX.debug.xcconfig"; path = "Target Support Files/Pods-AttendX/Pods-AttendX.debug.xcconfig"; sourceTree = "<group>"; };
+		B2C3D4E32CA45674006654EE /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = AppDelegate.h; path = AttendX/AppDelegate.h; sourceTree = "<group>"; };
+		B2C3D4E42CA45674006654EE /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = main.m; path = AttendX/main.m; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F1A2B3C31D2E4F5A6B7C8D90 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "AttendX/GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -49,7 +52,9 @@
 			children = (
 				718AC38B2FADEDB0000D61FC /* AttendX.entitlements */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
-				761780EC2CA45674006654EE /* AppDelegate.swift */,
+				B2C3D4E32CA45674006654EE /* AppDelegate.h */,
+				761780EC2CA45674006654EE /* AppDelegate.mm */,
+				B2C3D4E42CA45674006654EE /* main.m */,
 				5E08F5C2E7B44A1DB2C6A901 /* RCTView+ColorFix.m */,
 				F1A2B3C31D2E4F5A6B7C8D90 /* GoogleService-Info.plist */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
@@ -138,7 +143,8 @@
 		83CBB9F71A601CBA00E9B192 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1210;
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2660;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1120;
@@ -192,7 +198,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"\\\"$WITH_ENVIRONMENT\\\" \\\"$REACT_NATIVE_XCODE\\\"\"\n";
+			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\n\n\"$WITH_ENVIRONMENT\" \"$REACT_NATIVE_XCODE\"\n";
 		};
 		698C0F1E21D396A0213B087A /* Generate Framework dSYMs */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -299,7 +305,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				5E08F5C3E7B44A1DB2C6A901 /* RCTView+ColorFix.m in Sources */,
-				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				761780ED2CA45674006654EE /* AppDelegate.mm in Sources */,
+				B2C3D4E52CA45674006654EE /* main.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -319,15 +326,8 @@
 				CODE_SIGN_ENTITLEMENTS = AttendX/AttendX.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
-				DEVELOPMENT_TEAM = M63CY4Q37Q;
+				CURRENT_PROJECT_VERSION = 7;
 				ENABLE_BITCODE = NO;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SRCROOT)/Pods/Headers/Public/React-Core",
-					"$(SRCROOT)/Pods/Headers/Public",
-					"$(SRCROOT)/Pods/Headers/Public/Yoga",
-				);
 				INFOPLIST_FILE = AttendX/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AttendX india";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
@@ -336,13 +336,12 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.4;
+				MARKETING_VERSION = 1.0.5;
 				OTHER_LDFLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.visys.attendx;
 				PRODUCT_NAME = AttendX;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SWIFT_OBJC_BRIDGING_HEADER = "AttendX/AttendX-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -363,14 +362,8 @@
 				CODE_SIGN_ENTITLEMENTS = AttendX/AttendX.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
-				DEVELOPMENT_TEAM = M63CY4Q37Q;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(SRCROOT)/Pods/Headers/Public/React-Core",
-					"$(SRCROOT)/Pods/Headers/Public",
-					"$(SRCROOT)/Pods/Headers/Public/Yoga",
-				);
+				CURRENT_PROJECT_VERSION = 7;
+				DEVELOPMENT_TEAM = RG944RLRN3;
 				INFOPLIST_FILE = AttendX/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "AttendX india";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
@@ -379,14 +372,13 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.4;
+				MARKETING_VERSION = 1.0.5;
 				OTHER_LDFLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.visys.attendx;
 				PRODUCT_NAME = AttendX;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
-				SWIFT_OBJC_BRIDGING_HEADER = "AttendX/AttendX-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
@@ -416,7 +408,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = "$(inherited)";
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -424,8 +416,10 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
+				DEVELOPMENT_TEAM = RG944RLRN3;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -485,6 +479,7 @@
 				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				USE_HERMES = true;
@@ -514,7 +509,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = "$(inherited)";
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -522,8 +517,10 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = YES;
+				DEVELOPMENT_TEAM = RG944RLRN3;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -575,6 +572,7 @@
 				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;

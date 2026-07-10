@@ -1,3 +1,4 @@
+import { Theme } from '../theme/tokens';
 export type AttendanceColor = 'green' | 'red' | 'orange' | 'gray';
 
 export interface AttendanceDisplayStatus {
@@ -77,9 +78,9 @@ export function getSessionDisplayStatus(
 
 export function colorToTheme(color: AttendanceColor): string {
   switch (color) {
-    case 'green': return '#059669';
-    case 'red': return '#dc2626';
-    case 'orange': return '#d97706';
-    default: return '#8898aa';
+    case 'green': return Theme.colors.success;
+    case 'red': return Theme.colors.error;
+    case 'orange': return Theme.colors.warning;
+    default: return Theme.colors.textMuted;
   }
 }

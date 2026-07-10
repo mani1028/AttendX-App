@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Switch,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation } from '@react-navigation/native';
 import { Plus, Edit2, Trash2, BookOpen } from 'lucide-react-native';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
@@ -161,7 +162,7 @@ export default function AdminBlogManagerScreen() {
 
         <View style={innerPageLayoutStyles.scrollBody}>
           {loading ? (
-            <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 40 }} />
+            <ScreenSkeleton variant="list" />
           ) : loadError ? (
             <AdminEmptyState
               icon={<BookOpen size={28} color={Theme.colors.error} />}
@@ -260,37 +261,37 @@ export default function AdminBlogManagerScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
-  blogCard: { marginTop: 12 },
-  blogHeader: { flexDirection: 'row', gap: 12 },
-  blogTitle: { fontSize: 16, color: Theme.colors.text },
-  blogMeta: { fontSize: 12, color: Theme.colors.textMuted, marginTop: 4 },
-  blogDesc: { fontSize: 13, color: Theme.colors.textSec, marginTop: 6 },
-  actions: { flexDirection: 'row', gap: 4 },
-  iconBtn: { padding: 8 },
-  editorCard: { marginTop: 20 },
-  editorTitle: { fontSize: 18, marginBottom: 12 },
-  field: { marginBottom: 12 },
-  label: { fontSize: 12, fontWeight: '700', color: Theme.colors.textMuted, marginBottom: 6, textTransform: 'uppercase' },
+  blogCard: { marginTop: Theme.spacing.md },
+  blogHeader: { flexDirection: 'row', gap: Theme.spacing.md },
+  blogTitle: { fontSize: Theme.typography.h4.fontSize, color: Theme.colors.text },
+  blogMeta: { fontSize: Theme.typography.caption.fontSize, color: Theme.colors.textMuted, marginTop: Theme.spacing.xs },
+  blogDesc: { fontSize: Theme.typography.caption.fontSize, color: Theme.colors.textSec, marginTop: 6 },
+  actions: { flexDirection: 'row', gap: Theme.spacing.xs },
+  iconBtn: { padding: Theme.spacing.sm },
+  editorCard: { marginTop: Theme.spacing.xl },
+  editorTitle: { fontSize: Theme.typography.h3.fontSize, marginBottom: Theme.spacing.md },
+  field: { marginBottom: Theme.spacing.md },
+  label: { fontSize: Theme.typography.caption.fontSize, fontWeight: '700', color: Theme.colors.textMuted, marginBottom: 6, textTransform: 'uppercase' },
   input: {
     borderWidth: 1,
     borderColor: Theme.colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    borderRadius: Theme.radius.md,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     backgroundColor: Theme.colors.card,
     color: Theme.colors.text,
   },
   textArea: { minHeight: 120, textAlignVertical: 'top' },
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  editorActions: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  editorActions: { flexDirection: 'row', gap: 10, marginTop: Theme.spacing.sm },
   cancelBtn: {
     flex: 1,
     borderWidth: 1,
     borderColor: Theme.colors.border,
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: Theme.spacing.md,
     backgroundColor: Theme.colors.card,
   },
 });

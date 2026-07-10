@@ -1,5 +1,5 @@
 import { Platform, StyleSheet } from 'react-native';
-import { Theme } from '../../theme/tokens';
+import {Theme, colors} from '../../theme/tokens';
 import { HEADER_CONSTANTS } from '../../constants/headerConstants';
 import { TAB_BAR_BODY_HEIGHT, TAB_BAR_EXTRA_GAP } from '../../utils/tabBarLayout';
 
@@ -39,7 +39,7 @@ export const innerPageLayoutStyles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 12,
+    paddingTop: Theme.spacing.md,
     paddingBottom: TAB_BAR_SCROLL_BASE,
     paddingHorizontal: PAGE_GUTTER,
   },
@@ -51,10 +51,10 @@ export const innerPageLayoutStyles = StyleSheet.create({
   /** Pull header edge-to-edge inside padded scroll content. */
   scrollHeaderBleed: {
     marginHorizontal: -PAGE_GUTTER,
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   scrollBody: {
-    paddingBottom: 8,
+    paddingBottom: Theme.spacing.sm,
   },
   /** Wrapper only — horizontal gutter is on the scroll container. */
   pageBody: {},
@@ -71,8 +71,8 @@ export const innerPageLayoutStyles = StyleSheet.create({
   /** Pill segmented switch — solid track so inactive tabs stay visible on hero gradient */
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
-    borderRadius: 14,
+    backgroundColor: Theme.colors.border,
+    borderRadius: Theme.radius.md,
     padding: Theme.spacing.xs,
     ...Platform.select({
       android: { elevation: 3 },
@@ -90,7 +90,7 @@ export const innerPageLayoutStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: Theme.radius.md,
     gap: 6,
   },
   segmentedTabActive: {
@@ -106,7 +106,7 @@ export const innerPageLayoutStyles = StyleSheet.create({
     }),
   },
   segmentedTabText: {
-    fontSize: 13,
+    fontSize: Theme.typography.caption.fontSize,
     color: SEGMENTED_INACTIVE_COLOR,
   },
   segmentedTabTextActive: {

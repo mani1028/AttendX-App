@@ -163,11 +163,11 @@ export default function ForgotPasswordScreen({ navigation }: any) {
                 <>
                   <Field label="School Code">
                     <View style={[styles.inputGroup, focusedField === 'school' && styles.inputActive]}>
-                      <Building2 size={18} color={focusedField === 'school' ? Theme.colors.primary : '#94a3b8'} />
+                      <Building2 size={18} color={focusedField === 'school' ? Theme.colors.primary : Theme.colors.textMuted} />
                       <TextInput
                         style={styles.input}
                         placeholder="SSC12345 / CBSE12345"
-                        placeholderTextColor="#94a3b8"
+                        placeholderTextColor={Theme.colors.textMuted}
                         value={schoolId}
                         onChangeText={t => setSchoolId(t.toUpperCase())}
                         onFocus={() => setFocusedField('school')}
@@ -180,11 +180,11 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
                   <Field label="Email / Employee ID / Roll No.">
                     <View style={[styles.inputGroup, focusedField === 'user' && styles.inputActive]}>
-                      <User size={18} color={focusedField === 'user' ? Theme.colors.primary : '#94a3b8'} />
+                      <User size={18} color={focusedField === 'user' ? Theme.colors.primary : Theme.colors.textMuted} />
                       <TextInput
                         style={styles.input}
                         placeholder="teacher@example.com or EMP001"
-                        placeholderTextColor="#94a3b8"
+                        placeholderTextColor={Theme.colors.textMuted}
                         value={identifier}
                         onChangeText={setIdentifier}
                         onFocus={() => setFocusedField('user')}
@@ -201,11 +201,11 @@ export default function ForgotPasswordScreen({ navigation }: any) {
               {otpSent && !otpVerified && (
                 <Field label="Enter OTP">
                   <View style={[styles.inputGroup, focusedField === 'otp' && styles.inputActive]}>
-                    <ShieldCheck size={18} color={focusedField === 'otp' ? Theme.colors.primary : '#94a3b8'} />
+                    <ShieldCheck size={18} color={focusedField === 'otp' ? Theme.colors.primary : Theme.colors.textMuted} />
                     <TextInput
                       style={styles.input}
                       placeholder="6-digit verification code"
-                      placeholderTextColor="#94a3b8"
+                      placeholderTextColor={Theme.colors.textMuted}
                       value={otp}
                       onChangeText={setOtp}
                       onFocus={() => setFocusedField('otp')}
@@ -221,11 +221,11 @@ export default function ForgotPasswordScreen({ navigation }: any) {
                 <>
                   <Field label="New Password">
                     <View style={[styles.inputGroup, focusedField === 'pass1' && styles.inputActive]}>
-                      <Lock size={18} color={focusedField === 'pass1' ? Theme.colors.primary : '#94a3b8'} />
+                      <Lock size={18} color={focusedField === 'pass1' ? Theme.colors.primary : Theme.colors.textMuted} />
                       <TextInput
                         style={styles.input}
                         placeholder="••••••••"
-                        placeholderTextColor="#94a3b8"
+                        placeholderTextColor={Theme.colors.textMuted}
                         value={newPassword}
                         onChangeText={setNewPassword}
                         secureTextEntry={!showNewPassword}
@@ -233,18 +233,18 @@ export default function ForgotPasswordScreen({ navigation }: any) {
                         onBlur={() => setFocusedField(null)}
                       />
                       <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={styles.eyeBtn}>
-                        {showNewPassword ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
+                        {showNewPassword ? <EyeOff size={18} color={Theme.colors.textMuted} /> : <Eye size={18} color={Theme.colors.textMuted} />}
                       </TouchableOpacity>
                     </View>
                   </Field>
 
                   <Field label="Confirm Password">
                     <View style={[styles.inputGroup, focusedField === 'pass2' && styles.inputActive]}>
-                      <Lock size={18} color={focusedField === 'pass2' ? Theme.colors.primary : '#94a3b8'} />
+                      <Lock size={18} color={focusedField === 'pass2' ? Theme.colors.primary : Theme.colors.textMuted} />
                       <TextInput
                         style={styles.input}
                         placeholder="••••••••"
-                        placeholderTextColor="#94a3b8"
+                        placeholderTextColor={Theme.colors.textMuted}
                         value={confirmPassword}
                         onChangeText={setConfirmPassword}
                         secureTextEntry={!showConfirmPassword}
@@ -252,7 +252,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
                         onBlur={() => setFocusedField(null)}
                       />
                       <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeBtn}>
-                        {showConfirmPassword ? <EyeOff size={18} color="#94a3b8" /> : <Eye size={18} color="#94a3b8" />}
+                        {showConfirmPassword ? <EyeOff size={18} color={Theme.colors.textMuted} /> : <Eye size={18} color={Theme.colors.textMuted} />}
                       </TouchableOpacity>
                     </View>
                   </Field>
@@ -300,12 +300,12 @@ const styles = StyleSheet.create({
   blob1: {
     position: 'absolute', top: -SCREEN_W * 0.1, right: -SCREEN_W * 0.1,
     width: SCREEN_W * 0.7, height: SCREEN_W * 0.7, borderRadius: SCREEN_W * 0.35,
-    backgroundColor: '#6648dc', opacity: 0.06,
+    backgroundColor: Theme.colors.violet, opacity: 0.06,
   },
   blob2: {
     position: 'absolute', bottom: -SCREEN_W * 0.2, left: -SCREEN_W * 0.2,
     width: SCREEN_W * 0.8, height: SCREEN_W * 0.8, borderRadius: SCREEN_W * 0.4,
-    backgroundColor: '#38bdf8', opacity: 0.04,
+    backgroundColor: Theme.colors.secondary, opacity: 0.04,
   },
   scroll: {
     flexGrow: 1,
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     backgroundColor: Theme.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
@@ -335,15 +335,15 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: Theme.typography.h3.fontSize,
     fontWeight: '700',
     color: Theme.colors.text,
   },
   card: {
     backgroundColor: Theme.colors.card,
-    borderRadius: 30,
+    borderRadius: Theme.radius.xxxl,
     padding: Theme.spacing.lg,
-    shadowColor: '#6648dc',
+    shadowColor: Theme.colors.violet,
     shadowOffset: { width: 0, height: 15 },
     shadowOpacity: 0.1,
     shadowRadius: 30,
@@ -352,13 +352,13 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.background,
   },
   cardTitle: {
-    fontSize: 24,
+    fontSize: Theme.typography.h2.fontSize,
     fontWeight: '800',
     color: Theme.colors.text,
     marginBottom: Theme.spacing.sm,
   },
   cardSubtitle: {
-    fontSize: 13,
+    fontSize: Theme.typography.caption.fontSize,
     color: Theme.colors.textSec,
     fontWeight: '500',
     lineHeight: 20,
@@ -367,16 +367,16 @@ const styles = StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 20,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.radius.md,
+    marginBottom: Theme.spacing.xl,
     borderWidth: 1,
   },
-  bannerErr: { backgroundColor: '#fef2f2', borderColor: '#fee2e2' },
-  bannerOk: { backgroundColor: '#ecfdf5', borderColor: '#d1fae5' },
-  bannerTxt: { fontSize: 13, fontWeight: '600', marginLeft: Theme.spacing.sm, flex: 1 },
-  form: { gap: 16 },
-  field: { gap: 8 },
+  bannerErr: { backgroundColor: '#fef2f2', borderColor: Theme.colors.redLight },
+  bannerOk: { backgroundColor: '#ecfdf5', borderColor: Theme.colors.greenLight },
+  bannerTxt: { fontSize: Theme.typography.caption.fontSize, fontWeight: '600', marginLeft: Theme.spacing.sm, flex: 1 },
+  form: { gap: Theme.spacing.md },
+  field: { gap: Theme.spacing.sm },
   fieldLabel: {
     ...Theme.typography.label,
     fontWeight: '700',
@@ -389,16 +389,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Theme.colors.background,
-    borderRadius: 14,
+    borderRadius: Theme.radius.md,
     borderWidth: 1.5,
     borderColor: Theme.colors.border,
     height: 54,
     paddingHorizontal: Theme.spacing.md,
   },
   inputActive: {
-    borderColor: '#6648dc',
+    borderColor: Theme.colors.violet,
     backgroundColor: Theme.colors.background,
-    shadowColor: '#6648dc',
+    shadowColor: Theme.colors.violet,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: '100%',
-    marginLeft: 12,
+    marginLeft: Theme.spacing.md,
     ...Theme.typography.bodyMd,
     color: Theme.colors.text,
     fontWeight: '500',
@@ -415,9 +415,9 @@ const styles = StyleSheet.create({
   eyeBtn: { padding: Theme.spacing.xs },
   submitBtnWrapper: {
     marginTop: Theme.spacing.lg,
-    borderRadius: 14,
+    borderRadius: Theme.radius.md,
     overflow: 'hidden',
-    shadowColor: '#6648dc',
+    shadowColor: Theme.colors.violet,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     height: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#6648dc',
+    backgroundColor: Theme.colors.violet,
   },
   submitTxt: {
     color: Theme.colors.card,
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   footer: { alignItems: 'center' },
   footerNote: {
     ...Theme.typography.label,
-    color: '#94a3b8',
+    color: Theme.colors.textMuted,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,

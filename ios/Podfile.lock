@@ -1366,6 +1366,27 @@ PODS:
     - React-jsiexecutor
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
+  - react-native-document-picker (12.0.1):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - react-native-get-random-values (1.11.0):
     - React-Core
   - react-native-image-picker (8.2.1):
@@ -2092,6 +2113,7 @@ DEPENDENCIES:
   - React-logger (from `../node_modules/react-native/ReactCommon/logger`)
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
+  - "react-native-document-picker (from `../node_modules/@react-native-documents/picker`)"
   - react-native-get-random-values (from `../node_modules/react-native-get-random-values`)
   - react-native-image-picker (from `../node_modules/react-native-image-picker`)
   - "react-native-netinfo (from `../node_modules/@react-native-community/netinfo`)"
@@ -2240,6 +2262,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   React-microtasksnativemodule:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
+  react-native-document-picker:
+    :path: "../node_modules/@react-native-documents/picker"
   react-native-get-random-values:
     :path: "../node_modules/react-native-get-random-values"
   react-native-image-picker:
@@ -2397,6 +2421,7 @@ SPEC CHECKSUMS:
   React-logger: 763728cf4eebc9c5dc9bfc3649e22295784f69f3
   React-Mapbuffer: 86e068fae064bbd3f24781d6ae5445b0266b2a10
   React-microtasksnativemodule: fd98e3e44af51599576705ec7a85a36e35978913
+  react-native-document-picker: 9f9cfb05393863aa02140591d335b3f5bd705b54
   react-native-get-random-values: d16467cf726c618e9c7a8c3c39c31faa2244bbba
   react-native-image-picker: 82a9e4371e48c518a69882b3c54de11134196cd2
   react-native-netinfo: 387c95161b1971d0b2acd61f5ecf394c8fd3fb95
@@ -2429,7 +2454,7 @@ SPEC CHECKSUMS:
   React-timing: 96e060d0d0bf18522d363716623ed2c61f7107c7
   React-utils: 93529ff7b4baa71aea1f42a48e9d3d06db398618
   ReactAppDependencyProvider: 4893bde33952f997a323eb1a1ee87a72764018ff
-  ReactCodegen: 31f8d982d351eb4dbf3af220f363c7398ae667c8
+  ReactCodegen: 1df98b888a331e005c228c008b4a9a69aa0bc01b
   ReactCommon: 0adf8f24a3415b6815613bad362d390726b33fc7
   RNCAsyncStorage: b44e8a4e798c3e1f56bffccd0f591f674fb9198f
   RNCClipboard: f6679d470d0da2bce2a37b0af7b9e0bf369ecda5
@@ -2451,6 +2476,6 @@ SPEC CHECKSUMS:
   VisionCamera: 0044a94f7489f19e19d5938e97dfc36f4784af3c
   Yoga: 6eb60fc2c0eef63e7d2ef4a56e0a3353534143a2
 
-PODFILE CHECKSUM: 5bb22a4f2020e11135f9340ba9c25b3a98b26b5f
+PODFILE CHECKSUM: dd7ca53d5eb615a9d3a495f78f8722eca217a87a
 
 COCOAPODS: 1.16.2

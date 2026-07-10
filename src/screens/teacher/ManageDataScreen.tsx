@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Modal,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { Search, Edit2, Trash2, X, Save, ChevronLeft, ChevronRight } from 'lucide-react-native';
@@ -266,7 +267,7 @@ export default function ManageDataScreen() {
         </View>
 
         {loading && records.length === 0 ? (
-          <ActivityIndicator size="large" color={C.primary} style={{ marginTop: 40 }} />
+          <ScreenSkeleton variant="list" />
         ) : paginated.length === 0 ? (
           <AppText style={styles.emptyText}>No students found for the selected filters.</AppText>
         ) : (
@@ -366,7 +367,7 @@ export default function ManageDataScreen() {
             ))}
           </ScrollView>
           <View style={styles.modalFooter}>
-            <AppButton title={saving ? 'Saving...' : 'Save Changes'} onPress={saveEdit} disabled={saving} leftIcon={<Save size={18} color="#fff" />} />
+            <AppButton title={saving ? 'Saving...' : 'Save Changes'} onPress={saveEdit} disabled={saving} leftIcon={<Save size={18} color={Theme.colors.card} />} />
           </View>
         </View>
       </Modal>
@@ -377,44 +378,44 @@ export default function ManageDataScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   content: { paddingBottom: 120 },
-  subtitle: { color: C.textSec, marginBottom: 16 },
-  filtersRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  subtitle: { color: C.textSec, marginBottom: Theme.spacing.md },
+  filtersRow: { flexDirection: 'row', gap: Theme.spacing.sm, marginBottom: Theme.spacing.md },
   filterChip: {
     flex: 1,
     backgroundColor: C.card,
-    borderRadius: 10,
+    borderRadius: Theme.radius.md,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: Theme.spacing.md,
     borderWidth: 1,
     borderColor: C.border,
   },
   filterChipDisabled: { opacity: 0.5 },
-  filterChipText: { color: C.text, fontSize: 13, textAlign: 'center' },
+  filterChipText: { color: C.text, fontSize: Theme.typography.caption.fontSize, textAlign: 'center' },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Theme.spacing.sm,
     backgroundColor: C.card,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    marginBottom: 16,
+    borderRadius: Theme.radius.md,
+    paddingHorizontal: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
     borderWidth: 1,
     borderColor: C.border,
   },
-  searchInput: { flex: 1, paddingVertical: 12, color: C.text },
-  card: { marginBottom: 12 },
+  searchInput: { flex: 1, paddingVertical: Theme.spacing.md, color: C.text },
+  card: { marginBottom: Theme.spacing.md },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start' },
-  name: { fontSize: 16, color: C.text },
-  meta: { color: C.textMuted, marginTop: 4, fontSize: 12 },
-  actions: { flexDirection: 'row', gap: 4 },
-  iconBtn: { padding: 8 },
+  name: { fontSize: Theme.typography.h4.fontSize, color: C.text },
+  meta: { color: C.textMuted, marginTop: Theme.spacing.xs, fontSize: Theme.typography.caption.fontSize },
+  actions: { flexDirection: 'row', gap: Theme.spacing.xs },
+  iconBtn: { padding: Theme.spacing.sm },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
-  tag: { backgroundColor: C.backgroundAlt, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  tagText: { fontSize: 11, color: C.textSec },
+  tag: { backgroundColor: C.backgroundAlt, borderRadius: Theme.radius.sm, paddingHorizontal: Theme.spacing.sm, paddingVertical: Theme.spacing.xs },
+  tagText: { fontSize: Theme.typography.label.fontSize, color: C.textSec },
   emptyText: { textAlign: 'center', color: C.textMuted, marginTop: 40 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 8 },
-  pageBtn: { padding: 8, borderRadius: 8, backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Theme.spacing.lg },
+  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Theme.spacing.md, marginTop: Theme.spacing.sm },
+  pageBtn: { padding: Theme.spacing.sm, borderRadius: Theme.radius.sm, backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
   pageBtnDisabled: { opacity: 0.4 },
   pageText: { color: C.textSec },
   modalRoot: { flex: 1, backgroundColor: C.background },
@@ -422,23 +423,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
     backgroundColor: C.card,
   },
-  modalTitle: { fontSize: 18, color: C.text },
-  modalBody: { padding: 16, paddingBottom: 40 },
+  modalTitle: { fontSize: Theme.typography.h3.fontSize, color: C.text },
+  modalBody: { padding: Theme.spacing.md, paddingBottom: 40 },
   fieldGroup: { marginBottom: 14 },
-  fieldLabel: { color: C.textSec, marginBottom: 6, fontSize: 12, fontWeight: '600' },
+  fieldLabel: { color: C.textSec, marginBottom: 6, fontSize: Theme.typography.caption.fontSize, fontWeight: '600' },
   fieldInput: {
     backgroundColor: C.card,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    borderRadius: Theme.radius.md,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: 10,
     color: C.text,
   },
-  modalFooter: { padding: 16, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.card },
+  modalFooter: { padding: Theme.spacing.md, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.card },
 });

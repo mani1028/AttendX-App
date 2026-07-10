@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { Settings, Video, ClipboardList, Image as ImageIcon } from 'lucide-react-native';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
@@ -178,7 +179,7 @@ export default function ManualAttendanceManagerScreen() {
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color={Theme.colors.primary} style={{ marginTop: 40 }} />
+          <ScreenSkeleton variant="list" />
         ) : schools.length === 0 ? (
           <AppText style={styles.empty}>No schools found.</AppText>
         ) : (
@@ -281,29 +282,29 @@ function ToggleRow({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
-  content: { padding: 16, paddingBottom: 100 },
-  noteCard: { marginBottom: 12, padding: 14, backgroundColor: '#EFF6FF' },
-  noteText: { fontSize: 13, lineHeight: 20, color: Theme.colors.textSec },
-  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  statCard: { width: '48%', flexGrow: 1, padding: 12, alignItems: 'center' },
-  statLabel: { fontSize: 10, color: Theme.colors.textMuted, textTransform: 'uppercase', fontWeight: '700' },
-  statValue: { fontSize: 20, color: Theme.colors.text, marginTop: 4 },
-  empty: { textAlign: 'center', color: Theme.colors.textMuted, marginTop: 32 },
-  schoolCard: { marginBottom: 12, padding: 14 },
-  schoolHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  schoolName: { flex: 1, fontSize: 16, color: Theme.colors.text },
+  content: { padding: Theme.spacing.md, paddingBottom: 100 },
+  noteCard: { marginBottom: Theme.spacing.md, padding: 14, backgroundColor: '#EFF6FF' },
+  noteText: { fontSize: Theme.typography.caption.fontSize, lineHeight: 20, color: Theme.colors.textSec },
+  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Theme.spacing.sm, marginBottom: Theme.spacing.md },
+  statCard: { width: '48%', flexGrow: 1, padding: Theme.spacing.md, alignItems: 'center' },
+  statLabel: { fontSize: Theme.typography.label.fontSize, color: Theme.colors.textMuted, textTransform: 'uppercase', fontWeight: '700' },
+  statValue: { fontSize: Theme.typography.h3.fontSize, color: Theme.colors.text, marginTop: Theme.spacing.xs },
+  empty: { textAlign: 'center', color: Theme.colors.textMuted, marginTop: Theme.spacing.xl },
+  schoolCard: { marginBottom: Theme.spacing.md, padding: 14 },
+  schoolHeader: { flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.sm, marginBottom: Theme.spacing.md },
+  schoolName: { flex: 1, fontSize: Theme.typography.h4.fontSize, color: Theme.colors.text },
   frequencyBlock: {
-    marginBottom: 8,
-    paddingBottom: 12,
+    marginBottom: Theme.spacing.sm,
+    paddingBottom: Theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Theme.colors.borderLight,
   },
-  blockTitle: { fontSize: 12, fontWeight: '700', color: Theme.colors.textMuted, marginBottom: 8, textTransform: 'uppercase' },
+  blockTitle: { fontSize: Theme.typography.caption.fontSize, fontWeight: '700', color: Theme.colors.textMuted, marginBottom: Theme.spacing.sm, textTransform: 'uppercase' },
   frequencyRow: { flexDirection: 'row', gap: 10 },
   frequencyChip: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: Theme.radius.md,
     borderWidth: 1,
     borderColor: Theme.colors.border,
     backgroundColor: Theme.colors.background,
@@ -313,7 +314,7 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.primary,
     backgroundColor: '#EFF6FF',
   },
-  frequencyChipText: { fontSize: 13, fontWeight: '600', color: Theme.colors.textSec },
+  frequencyChipText: { fontSize: Theme.typography.caption.fontSize, fontWeight: '600', color: Theme.colors.textSec },
   frequencyChipTextActive: { color: Theme.colors.primary },
   toggleRow: {
     flexDirection: 'row',
@@ -324,5 +325,5 @@ const styles = StyleSheet.create({
     borderTopColor: Theme.colors.borderLight,
   },
   toggleLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  toggleLabel: { color: Theme.colors.text, fontSize: 14 },
+  toggleLabel: { color: Theme.colors.text, fontSize: Theme.typography.body.fontSize },
 });

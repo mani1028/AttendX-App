@@ -11,9 +11,9 @@ const LoginCard: React.FC<Props> = ({ children }) => {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: Theme.colors.card,
-    borderRadius: 30,
-    padding: 20,
-    shadowColor: '#6648dc',
+    borderRadius: Theme.radius.xxxl,
+    padding: Theme.spacing.xl,
+    shadowColor: Theme.colors.violet,
     shadowOffset: { width: 0, height: 15 },
     shadowOpacity: 0.08,
     shadowRadius: 30,

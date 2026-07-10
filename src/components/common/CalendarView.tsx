@@ -15,18 +15,18 @@ import API from '../../services/api';
 import { formatLocalDateKey, getMonthSundayDates } from '../../utils/holidayUtils';
 
 const Colors = {
-  primary: '#6648dc',
-  primaryLight: '#dbeafe',
+  primary: Theme.colors.violet,
+  primaryLight: Theme.colors.blueLight,
   success: Theme.colors.success,
   danger: Theme.colors.error,
-  dangerLight: '#fee2e2',
-  amber: '#d97706',
+  dangerLight: Theme.colors.redLight,
+  amber: Theme.colors.warning,
   bg: '#f0f2f7',
   cardBg: Theme.colors.card,
   border: Theme.colors.border,
   text: Theme.colors.text,
-  textSecondary: '#4a5568',
-  textMuted: '#8898aa',
+  textSecondary: Theme.colors.textSec,
+  textMuted: Theme.colors.textMuted,
 };
 
 // Types
@@ -42,8 +42,8 @@ interface Event {
 
 const EVENT_COLORS: Record<string, string> = {
   holiday: Theme.colors.error,
-  festival: '#d97706',
-  exam: '#6648dc',
+  festival: Theme.colors.warning,
+  exam: Theme.colors.violet,
   event: Theme.colors.success,
 };
 
@@ -270,15 +270,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.cardBg,
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: Theme.spacing.md,
     color: Colors.textMuted,
     ...Theme.typography.body,
   },
   header: {
-    marginBottom: 20,
+    marginBottom: Theme.spacing.xl,
   },
   title: {
-    fontSize: 20,
+    fontSize: Theme.typography.h3.fontSize,
     fontWeight: '700',
     color: Colors.text,
   },
@@ -286,12 +286,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: Theme.spacing.xl,
   },
   navButton: {
     width: 40,
     height: 40,
-    borderRadius: 8,
+    borderRadius: Theme.radius.sm,
     backgroundColor: Colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   },
   weekdaysRow: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   weekday: {
     flex: 1,
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: 8,
+    borderRadius: Theme.radius.sm,
     padding: 6,
     backgroundColor: Colors.cardBg,
   },
@@ -377,17 +377,17 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.border,
   },
   eventsTitle: {
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
     fontWeight: '700',
     color: Colors.text,
-    marginBottom: 12,
+    marginBottom: Theme.spacing.md,
   },
   eventItem: {
-    padding: 12,
+    padding: Theme.spacing.md,
     marginBottom: 10,
     backgroundColor: Colors.bg,
     borderLeftWidth: 3,
-    borderRadius: 8,
+    borderRadius: Theme.radius.sm,
   },
   eventTitle: {
     ...Theme.typography.body,
@@ -404,11 +404,11 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: Theme.spacing.sm,
     paddingVertical: 2,
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     backgroundColor: Colors.primaryLight,
   },
   eventTypeText: {
-    fontSize: 10,
+    fontSize: Theme.typography.label.fontSize,
     fontWeight: '600',
     color: Colors.primary,
     textTransform: 'capitalize',

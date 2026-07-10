@@ -1,0 +1,1 @@
+export { accountantDashboardStyles } from './accountantDashboardStyles';

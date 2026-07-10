@@ -1,20 +1,10 @@
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useRef, useState, useCallback } from 'react';
-import {
-  StyleSheet,
-  View,
-  ScrollView,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-  TouchableOpacity,
-  RefreshControl,
-  ActivityIndicator,
-  Text,
-} from 'react-native';
+import { View, ScrollView, NativeSyntheticEvent, NativeScrollEvent, TouchableOpacity, RefreshControl, ActivityIndicator, Text } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useSharedValue } from 'react-native-reanimated';
 import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import { useTabBarScrollPadding } from '../../hooks/useTabBarScrollPadding';
-import LinearGradient from 'react-native-linear-gradient';
 import {
   Percent,
   CalendarCheck2,
@@ -46,6 +36,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getTeacherProfile, getAssignedClasses, getAttendanceReport, getTeacherCapability } from '../../services/teacherService';
 import { TeacherProfile as ApiTeacherProfile, TeacherCapability } from '../../types/api.types';
 import { normalizePhotoUri } from '../../utils/normalizePhotoUri';
+import { teacherDashboardStyles as styles } from '../../components/teacher/teacherDashboard/teacherDashboardStyles';
 
 interface TeacherProfile extends Partial<ApiTeacherProfile> {
   name: string;
@@ -196,17 +187,17 @@ export default function TeacherDashboardScreen() {
   };
 
   const quickActions = [
-    { label: 'Attendance', icon: CalendarCheck2, bg: 'rgba(37, 99, 235, 0.08)', color: '#2563eb', route: 'TeacherAttendance' },
-    { label: 'Records', icon: FileText, bg: 'rgba(14, 165, 233, 0.08)', color: '#0ea5e9', route: 'TeacherViewAttendance' },
-    { label: 'Vital Scan', icon: Heart, bg: 'rgba(220, 38, 38, 0.08)', color: '#dc2626', route: 'TeacherVitalScan' },
+    { label: 'Attendance', icon: CalendarCheck2, bg: 'rgba(37, 99, 235, 0.08)', color: Theme.colors.blue, route: 'TeacherAttendance' },
+    { label: 'Records', icon: FileText, bg: 'rgba(14, 165, 233, 0.08)', color: Theme.colors.info, route: 'TeacherViewAttendance' },
+    { label: 'Vital Scan', icon: Heart, bg: 'rgba(220, 38, 38, 0.08)', color: Theme.colors.error, route: 'TeacherVitalScan' },
     { label: 'Homework', icon: BookOpen, bg: 'rgba(139, 92, 246, 0.08)', color: '#8b5cf6', route: 'TeacherHomeworkManagement' },
-    { label: 'Marks', icon: ClipboardEdit, bg: 'rgba(245, 158, 11, 0.08)', color: '#f59e0b', route: 'TeacherMarksEntry' },
+    { label: 'Marks', icon: ClipboardEdit, bg: 'rgba(245, 158, 11, 0.08)', color: Theme.colors.warning, route: 'TeacherMarksEntry' },
     { label: 'Leave', icon: CalendarOff, bg: 'rgba(244, 63, 94, 0.08)', color: '#f43f5e', route: 'TeacherLeaveRequest' },
-    { label: 'My Attendance', icon: ClipboardList, bg: 'rgba(124, 58, 237, 0.08)', color: '#7c3aed', route: 'TeacherMyAttendance' },
+    { label: 'My Attendance', icon: ClipboardList, bg: 'rgba(124, 58, 237, 0.08)', color: Theme.colors.violet, route: 'TeacherMyAttendance' },
     { label: 'Papers', icon: BookMarked, bg: 'rgba(249, 115, 22, 0.08)', color: '#f97316', route: 'TeacherQuestionPapers' },
     ...(effectiveIsClassTeacher ? [
       { label: 'Face Review', icon: Scan, bg: 'rgba(236, 72, 153, 0.08)', color: '#ec4899', route: 'TeacherFaceReview' },
-      { label: 'Enrollment', icon: UserPlus, bg: 'rgba(34, 197, 94, 0.08)', color: '#22c55e', route: 'TeacherStudentRegistration' },
+      { label: 'Enrollment', icon: UserPlus, bg: 'rgba(34, 197, 94, 0.08)', color: Theme.colors.success, route: 'TeacherStudentRegistration' },
       { label: 'Approvals', icon: BadgeCheck, bg: 'rgba(6, 182, 212, 0.08)', color: '#06b6d4', route: 'StudentRegistrationRequests' },
     ] : []),
   ];
@@ -218,15 +209,13 @@ export default function TeacherDashboardScreen() {
   if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Theme.colors.primary} />
+        <ScreenSkeleton variant="dashboard" />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-
-
       <ScrollView
         onScroll={onScroll}
         scrollEventThrottle={16}
@@ -249,12 +238,7 @@ export default function TeacherDashboardScreen() {
 
         <View style={innerPageLayoutStyles.contentFront}>
         {/* Today's Inspiration Banner */}
-        <LinearGradient
-          colors={[HEADER_CONSTANTS.GRADIENT_START, HEADER_CONSTANTS.GRADIENT_END]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.quoteBanner}
-        >
+        <View style={styles.quoteBanner}>
           <View style={styles.quoteHeader}>
             <Sparkles size={16} color="rgba(255,255,255,0.8)" style={{ marginRight: 6 }} />
             <Text style={styles.quoteLabel}>Today's Inspiration</Text>
@@ -263,7 +247,7 @@ export default function TeacherDashboardScreen() {
             "Education is the most powerful weapon which you can use to change the world."
           </Text>
           <Text style={styles.quoteAuthor}>— Nelson Mandela</Text>
-        </LinearGradient>
+        </View>
 
         {/* Unified Analytics Card */}
         {effectiveIsClassTeacher && (
@@ -274,7 +258,7 @@ export default function TeacherDashboardScreen() {
               </Text>
               <TouchableOpacity style={styles.viewDetailsBtn} onPress={() => navigation.navigate('TeacherViewAttendance')}>
                 <Text style={styles.linkText}>Details</Text>
-                <ChevronRight size={16} color="#3B82F6" />
+                <ChevronRight size={16} color={Theme.colors.primaryLight} />
               </TouchableOpacity>
             </View>
 
@@ -285,7 +269,7 @@ export default function TeacherDashboardScreen() {
                   <Text style={styles.analyticsMainValue}>{attendanceStats.rate}%</Text>
                 </View>
                 <View style={[styles.analyticsIconWrap, { backgroundColor: '#EFF6FF' }]}>
-                  <Percent size={24} color="#2563EB" />
+                  <Percent size={24} color={Theme.colors.blue} />
                 </View>
               </View>
 
@@ -347,8 +331,8 @@ export default function TeacherDashboardScreen() {
           <Text style={styles.sectionTitle}>Summary</Text>
           <View style={{ height: 12 }} />
           <View style={styles.statsRow}>
-            <View style={[styles.statsCard, { borderLeftColor: '#3B82F6' }]}>
-              <Users size={20} color="#3B82F6" />
+            <View style={[styles.statsCard, { borderLeftColor: Theme.colors.primaryLight }]}>
+              <Users size={20} color={Theme.colors.primaryLight} />
               <Text style={styles.statsValue}>{assignedClasses.length || 0}</Text>
               <Text style={styles.statsLabel}>Classes</Text>
             </View>
@@ -358,8 +342,8 @@ export default function TeacherDashboardScreen() {
               <Text style={styles.statsLabel}>Subjects</Text>
             </View>
             {effectiveIsClassTeacher && (
-              <View style={[styles.statsCard, { borderLeftColor: attendanceStats.rate >= 75 ? Theme.colors.success : '#EF4444' }]}>
-                <Percent size={20} color={attendanceStats.rate >= 75 ? Theme.colors.success : '#EF4444'} />
+              <View style={[styles.statsCard, { borderLeftColor: attendanceStats.rate >= 75 ? Theme.colors.success : Theme.colors.error }]}>
+                <Percent size={20} color={attendanceStats.rate >= 75 ? Theme.colors.success : Theme.colors.error} />
                 <Text style={styles.statsValue}>{attendanceStats.rate}%</Text>
                 <Text style={styles.statsLabel}>Rate</Text>
               </View>
@@ -387,7 +371,7 @@ export default function TeacherDashboardScreen() {
                 <View key={idx} style={styles.classCard}>
                   <View style={styles.classCardHeader}>
                     <View style={styles.classBadge}>
-                      <BookOpen size={14} color="#1e3a8a" />
+                      <BookOpen size={14} color={Theme.colors.primary} />
                       <Text style={styles.classBadgeText}>Grade {item.class_grade}-{item.section}</Text>
                     </View>
                     <View style={styles.subjectBadge}>
@@ -416,8 +400,8 @@ export default function TeacherDashboardScreen() {
                         section: String(item.section || ''),
                       })}
                     >
-                      <CalendarCheck2 size={14} color="#3B82F6" />
-                      <Text style={[styles.classCardBtnText, { color: '#3B82F6' }]}>Attendance</Text>
+                      <CalendarCheck2 size={14} color={Theme.colors.primaryLight} />
+                      <Text style={[styles.classCardBtnText, { color: Theme.colors.primaryLight }]}>Attendance</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.classCardBtn, { backgroundColor: '#F5F3FF' }]}
@@ -445,242 +429,3 @@ export default function TeacherDashboardScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Theme.colors.background },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.colors.background },
-  gridItemInner: { alignItems: 'center', width: '100%' },
-  scrollContent: { paddingHorizontal: HEADER_CONSTANTS.DASHBOARD_HORIZONTAL, paddingTop: 0 },
-  section: { marginBottom: 26 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 22, color: Theme.colors.text, fontWeight: '800' },
-  viewDetailsBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', paddingHorizontal: 14, paddingVertical: Theme.spacing.sm, borderRadius: 20 },
-  linkText: { color: '#3B82F6', ...Theme.typography.body, fontWeight: '700', marginRight: 2 },
-
-  /* Unified Analytics Card Styles */
-  analyticsCard: {
-    backgroundColor: Theme.colors.card,
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: Theme.colors.background,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  analyticsTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  analyticsLabel: { ...Theme.typography.body, color: Theme.colors.textSec, fontWeight: '600' },
-  analyticsMainValue: { fontSize: 36, color: '#1E293B', fontWeight: '800', marginTop: Theme.spacing.xs },
-  analyticsIconWrap: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
-  progressBarContainer: { height: 10, backgroundColor: Theme.colors.background, borderRadius: 5, marginTop: 20, overflow: 'hidden' },
-  progressBarFill: { height: '100%', backgroundColor: '#2563EB', borderRadius: 5 },
-  analyticsDivider: { height: 1, backgroundColor: Theme.colors.background, marginVertical: 20 },
-  analyticsBottomRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  analyticsStatBox: { flexDirection: 'row', alignItems: 'center' },
-  miniDot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
-  analyticsStatValue: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
-  analyticsStatLabel: { fontSize: 13, color: Theme.colors.textSec, fontWeight: '600', marginTop: 2 },
-
-  actionIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Theme.spacing.sm,
-  },
-  actionText: {
-    ...Theme.typography.label,
-    color: '#1E293B',
-    textAlign: 'center',
-    fontWeight: '600',
-    lineHeight: 14,
-  },
-
-  /* Today's Inspiration Banner Styles */
-  quoteBanner: {
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 26,
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  quoteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  quoteLabel: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  quoteText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    lineHeight: 22,
-    fontStyle: 'italic',
-  },
-  quoteAuthor: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'right',
-    marginTop: 8,
-  },
-
-  /* My Classes Slider Styles */
-  classesScrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 8,
-    gap: 16,
-  },
-  classCard: {
-    width: 280,
-    backgroundColor: Theme.colors.card,
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  classCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  classBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  classBadgeText: {
-    color: '#1e3a8a',
-    fontSize: 11,
-    fontWeight: '700',
-    marginLeft: 4,
-  },
-  subjectBadge: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  subjectBadgeText: {
-    color: '#4B5563',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  classCardTitle: {
-    fontSize: 18,
-    color: Theme.colors.text,
-    fontWeight: '800',
-    marginBottom: 6,
-  },
-  classCardStats: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  classCardStatItem: {
-    flex: 1,
-  },
-  classCardStatLabel: {
-    fontSize: 10,
-    color: Theme.colors.textMuted,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  classCardStatValue: {
-    fontSize: 13,
-    color: Theme.colors.textSec,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  classCardDivider: {
-    height: 1,
-    backgroundColor: Theme.colors.border,
-    marginVertical: 12,
-  },
-  classCardFooter: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  classCardBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 10,
-    gap: 4,
-  },
-  classCardBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  noClassesCard: {
-    backgroundColor: Theme.colors.card,
-    borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  noClassesTitle: {
-    fontSize: 16,
-    color: Theme.colors.text,
-    fontWeight: '700',
-    marginTop: 8,
-  },
-  noClassesDesc: {
-    fontSize: 13,
-    color: Theme.colors.textMuted,
-    textAlign: 'center',
-    marginTop: 4,
-  },
-
-  /* Quick Stats Summary */
-  statsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statsCard: {
-    flex: 1,
-    backgroundColor: Theme.colors.card,
-    borderRadius: 16,
-    padding: 14,
-    borderLeftWidth: 3,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    alignItems: 'center',
-    gap: 4,
-  },
-  statsValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: Theme.colors.text,
-  },
-  statsLabel: {
-    fontSize: 11,
-    color: Theme.colors.textMuted,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-});

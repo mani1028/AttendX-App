@@ -12,6 +12,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -148,7 +149,7 @@ const SummaryCards = () => {
         label: 'Total Expenses',
         value: summaryData.total_expenses,
         formattedValue: formatAmount(summaryData.total_expenses),
-        gradient: ['#f59e0b', '#fbbf24'],
+        gradient: [Theme.colors.warning, Theme.colors.warning],
         icon: TrendingUp,
         iconBg: '#f59e0b20',
       },
@@ -156,7 +157,7 @@ const SummaryCards = () => {
         label: 'Net Balance',
         value: summaryData.net_balance,
         formattedValue: formatAmount(summaryData.net_balance),
-        gradient: ['#6648dc', Theme.colors.blue],
+        gradient: [Theme.colors.violet, Theme.colors.blue],
         icon: BarChart2,
         iconBg: '#6648dc20',
       },
@@ -166,7 +167,7 @@ const SummaryCards = () => {
   if (loading && !summary) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={C.navy} />
+        <ScreenSkeleton variant="list" />
         <AppText style={styles.loadingText}>Loading dashboard summary...</AppText>
       </View>
     );
@@ -191,7 +192,16 @@ const SummaryCards = () => {
     <View style={styles.container}>
 
 
-      <StandardPageHeader
+      <ScrollView
+        style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
+        contentContainerStyle={innerPageLayoutStyles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <StandardPageHeader
+        scrollWithContent
+        containerStyle={innerPageLayoutStyles.scrollHeaderBleed}
         title="Summary Cards"
         subtitle="Financial overview at a glance"
         onBackPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('PrincipalDashboard' as never)}
@@ -206,16 +216,6 @@ const SummaryCards = () => {
           </TouchableOpacity>
         )}
       />
-
-      <ScrollView
-        style={[styles.scrollView, innerPageLayoutStyles.scrollViewFront]}
-        contentContainerStyle={innerPageLayoutStyles.scrollContent}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
         <View style={innerPageLayoutStyles.contentFront}>
         <View style={styles.cardsContainer}>
           {cardData.map((card, index) => (
@@ -332,10 +332,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: C.bg,
-    padding: 20,
+    padding: Theme.spacing.xl,
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: Theme.spacing.md,
     ...Theme.typography.body,
     color: Theme.colors.textSec,
   },
@@ -344,12 +344,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: C.bg,
-    padding: 20,
+    padding: Theme.spacing.xl,
   },
   errorTitle: {
-    fontSize: 18,
+    fontSize: Theme.typography.h3.fontSize,
     color: Theme.colors.text,
-    marginTop: 12,
+    marginTop: Theme.spacing.md,
   },
   errorText: {
     ...Theme.typography.body,
@@ -357,11 +357,11 @@ const styles = StyleSheet.create({
     marginTop: Theme.spacing.xs,
   },
   retryButton: {
-    marginTop: 20,
-    backgroundColor: '#6648dc',
+    marginTop: Theme.spacing.xl,
+    backgroundColor: Theme.colors.violet,
     paddingHorizontal: Theme.spacing.lg,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: Theme.spacing.md,
+    borderRadius: Theme.radius.sm,
   },
   retryButtonText: {
     color: Theme.colors.card,
@@ -369,10 +369,10 @@ const styles = StyleSheet.create({
   },
   cardsContainer: {
     padding: Theme.spacing.md,
-    gap: 12,
+    gap: Theme.spacing.md,
   },
   cardWrapper: {
-    borderRadius: 16,
+    borderRadius: Theme.radius.lg,
     overflow: 'hidden',
     elevation: 3,
     shadowColor: '#000',
@@ -381,13 +381,13 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   card: {
-    padding: 20,
-    borderRadius: 16,
+    padding: Theme.spacing.xl,
+    borderRadius: Theme.radius.lg,
   },
   cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: Theme.spacing.md,
   },
   iconContainer: {
     width: 56,
@@ -400,13 +400,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    fontSize: 13,
+    fontSize: Theme.typography.caption.fontSize,
     color: Theme.colors.card,
     opacity: 0.9,
     marginBottom: Theme.spacing.xs,
   },
   value: {
-    fontSize: 24,
+    fontSize: Theme.typography.h2.fontSize,
     color: Theme.colors.card,
   },
   compactValue: {
@@ -420,33 +420,33 @@ const styles = StyleSheet.create({
     margin: Theme.spacing.md,
     marginTop: 0,
     padding: Theme.spacing.md,
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     borderWidth: 1,
     borderColor: Theme.colors.border,
   },
   summaryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Theme.spacing.sm,
     marginBottom: Theme.spacing.md,
   },
   summaryTitle: {
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
     color: Theme.colors.text,
   },
   summaryGrid: {
-    gap: 16,
+    gap: Theme.spacing.md,
     marginBottom: Theme.spacing.md,
   },
   summaryItem: {
-    gap: 8,
+    gap: Theme.spacing.sm,
   },
   summaryLabel: {
     ...Theme.typography.caption,
     color: Theme.colors.textSec,
   },
   summaryValue: {
-    fontSize: 20,
+    fontSize: Theme.typography.h3.fontSize,
     color: Theme.colors.text,
   },
   progressBarContainer: {
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
   },
   progressBarExpense: {
     height: '100%',
-    backgroundColor: '#f59e0b',
+    backgroundColor: Theme.colors.warning,
     borderRadius: 3,
   },
   statsRow: {
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
     marginBottom: Theme.spacing.xs,
   },
   statValue: {
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
     color: Theme.colors.text,
   },
   statDivider: {
@@ -501,13 +501,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: Theme.spacing.sm,
     backgroundColor: C.navy,
     marginHorizontal: Theme.spacing.md,
     marginTop: Theme.spacing.sm,
     marginBottom: Theme.spacing.md,
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingVertical: Theme.spacing.md,
+    borderRadius: Theme.radius.md,
   },
   refreshButtonText: {
     color: Theme.colors.card,
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     ...Theme.typography.label,
-    color: '#94a3b8',
+    color: Theme.colors.textMuted,
   },
 });
 

@@ -63,10 +63,10 @@ export function RequiredSectionTitle({
 
 const styles = StyleSheet.create({
   formGroup: {
-    marginBottom: 20,
+    marginBottom: Theme.spacing.xl,
   },
   formLabel: {
-    fontSize: 14,
+    fontSize: Theme.typography.body.fontSize,
     fontWeight: '600',
     color: Theme.colors.text,
     marginBottom: Theme.spacing.sm,
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   requiredStar: {
     color: '#DC2626',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: Theme.typography.body.fontSize,
   },
   requiredStarInline: {
     color: '#DC2626',
@@ -82,16 +82,16 @@ const styles = StyleSheet.create({
   },
   fieldError: {
     color: Theme.colors.error,
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: Theme.typography.caption.fontSize,
+    marginTop: Theme.spacing.xs,
   },
   legend: {
-    fontSize: 12,
+    fontSize: Theme.typography.caption.fontSize,
     color: Theme.colors.textSec,
     marginBottom: Theme.spacing.md,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: Theme.typography.h4.fontSize,
     fontWeight: '700',
     color: Theme.colors.text,
   },

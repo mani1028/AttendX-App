@@ -1,18 +1,7 @@
 import { useScrollTabBar } from '../../hooks/useScrollTabBar';
 import React, { useEffect, useState, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-  Platform,
-  TouchableOpacity,
-  Modal,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from 'react-native';
+import { View, ScrollView, ActivityIndicator, RefreshControl, Alert, Platform, TouchableOpacity, Modal, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -35,6 +24,7 @@ import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
 import { storage } from '../../storage/storage';
 import { StorageKeys } from '../../storage/StorageKeys';
+import { pendingStudentsStyles as styles } from '../../components/principal/pendingStudents/pendingStudentsStyles';
 
 
 
@@ -122,11 +112,11 @@ const PendingStudents = () => {
   const getStatusStyle = (status: string) => {
     switch (status) {
       case 'paid':
-        return { backgroundColor: '#d1fae5', color: '#065f46', icon: CheckCircle };
+        return { backgroundColor: Theme.colors.greenLight, color: '#065f46', icon: CheckCircle };
       case 'partial':
-        return { backgroundColor: '#fef3c7', color: '#92400e', icon: AlertTriangle };
+        return { backgroundColor: Theme.colors.amberLight, color: '#92400e', icon: AlertTriangle };
       default:
-        return { backgroundColor: '#fee2e2', color: '#991b1b', icon: AlertCircle };
+        return { backgroundColor: Theme.colors.redLight, color: '#991b1b', icon: AlertCircle };
     }
   };
 
@@ -257,7 +247,7 @@ const PendingStudents = () => {
               <AppText style={styles.summaryLabel} weight="regular">Unpaid Students</AppText>
             </View>
             <View style={[styles.summaryCard, styles.partialCard]}>
-              <Clock size={24} color="#d97706" />
+              <Clock size={24} color={Theme.colors.warning} />
               <AppText style={styles.summaryNumber} weight="bold">{partialCount}</AppText>
               <AppText style={styles.summaryLabel} weight="regular">Partial Payments</AppText>
             </View>
@@ -297,7 +287,7 @@ const PendingStudents = () => {
         {/* Students List */}
         {loading && students.length === 0 ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Theme.colors.success} />
+            <ScreenSkeleton variant="list" />
             <AppText style={styles.loadingText} weight="regular">Loading pending students...</AppText>
           </View>
         ) : students.length > 0 ? (
@@ -334,7 +324,7 @@ const PendingStudents = () => {
             <View style={styles.modalHeader}>
               <AppText style={styles.modalTitle} weight="bold">Student Fee Details</AppText>
               <TouchableOpacity accessibilityRole="button" onPress={() => setShowDetailsModal(false)}>
-                <X size={24} color="#4a5568" />
+                <X size={24} color={Theme.colors.textSec} />
               </TouchableOpacity>
             </View>
 
@@ -432,334 +422,5 @@ const PendingStudents = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  header: {
-    padding: 20,
-    backgroundColor: C.card,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  title: {
-    fontSize: 20,
-    color: Theme.colors.text,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  subtitle: {
-    ...Theme.typography.body,
-    color: '#4a5568',
-    marginTop: Theme.spacing.xs,
-  },
-  summaryContainer: {
-    flexDirection: 'row',
-    marginBottom: Theme.spacing.md,
-    gap: 12,
-  },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  unpaidCard: {
-    borderTopColor: Theme.colors.error,
-    borderTopWidth: 3,
-  },
-  partialCard: {
-    borderTopColor: '#d97706',
-    borderTopWidth: 3,
-  },
-  pendingCard: {
-    borderTopColor: Theme.colors.success,
-    borderTopWidth: 3,
-  },
-  summaryNumber: {
-    fontSize: 20,
-    color: Theme.colors.text,
-    marginTop: Theme.spacing.sm,
-  },
-  summaryLabel: {
-    ...Theme.typography.label,
-    color: '#4a5568',
-    marginTop: Theme.spacing.xs,
-  },
-  alertBanner: {
-    backgroundColor: '#fee2e2',
-    marginBottom: Theme.spacing.md,
-    marginTop: 0,
-    padding: 12,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: Theme.colors.error,
-  },
-  alertText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#7f1d1d',
-  },
-  collectionCard: {
-    backgroundColor: Theme.colors.card,
-    marginBottom: Theme.spacing.md,
-    marginTop: 0,
-    padding: Theme.spacing.md,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  collectionTitle: {
-    ...Theme.typography.body,
-    color: Theme.colors.text,
-    marginBottom: 12,
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: Theme.colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: Theme.colors.success,
-    borderRadius: 4,
-  },
-  collectionRate: {
-    fontSize: 24,
-    color: Theme.colors.success,
-    marginTop: Theme.spacing.sm,
-  },
-  collectionDetails: {
-    ...Theme.typography.caption,
-    color: '#4a5568',
-    marginTop: Theme.spacing.xs,
-  },
-  studentsList: {
-    marginBottom: Theme.spacing.md,
-    marginTop: 0,
-    backgroundColor: Theme.colors.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    overflow: 'hidden',
-  },
-  listHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: Theme.spacing.md,
-    backgroundColor: '#f7f9fc',
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-  },
-  listTitle: {
-    fontSize: 16,
-    color: Theme.colors.text,
-  },
-  studentCount: {
-    fontSize: 13,
-    color: '#4a5568',
-  },
-  studentRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: Theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-  },
-  studentInfo: {
-    flex: 1,
-  },
-  studentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: Theme.spacing.xs,
-  },
-  studentName: {
-    fontSize: 16,
-    color: Theme.colors.text,
-  },
-  urgentBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#fee2e2',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  urgentText: {
-    fontSize: 10,
-    color: Theme.colors.error,
-  },
-  studentClass: {
-    ...Theme.typography.caption,
-    color: '#4a5568',
-    marginBottom: Theme.spacing.sm,
-  },
-  feeDetails: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: Theme.spacing.xs,
-  },
-  feeText: {
-    ...Theme.typography.caption,
-    color: '#4a5568',
-  },
-  paidText: {
-    ...Theme.typography.caption,
-    color: Theme.colors.success,
-  },
-  dueText: {
-    ...Theme.typography.caption,
-  },
-  dueDate: {
-    ...Theme.typography.label,
-    color: '#8898aa',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: Theme.spacing.xs,
-    borderRadius: 12,
-  },
-  statusText: {
-    ...Theme.typography.label,
-  },
-  loadingContainer: {
-    padding: Theme.spacing.xl,
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    color: '#8898aa',
-  },
-  emptyContainer: {
-    padding: Theme.spacing.xxl,
-    alignItems: 'center',
-    marginBottom: Theme.spacing.md,
-    backgroundColor: Theme.colors.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    color: Theme.colors.success,
-    marginTop: Theme.spacing.md,
-  },
-  emptyText: {
-    ...Theme.typography.body,
-    color: '#4a5568',
-    marginTop: Theme.spacing.sm,
-    textAlign: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: Theme.colors.background,
-    borderRadius: 12,
-    width: '90%',
-    maxWidth: 400,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: Theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-  },
-  modalTitle: {
-    fontSize: 18,
-    color: Theme.colors.text,
-  },
-  modalBody: {
-    padding: Theme.spacing.md,
-  },
-  detailSection: {
-    marginBottom: Theme.spacing.md,
-  },
-  detailLabel: {
-    ...Theme.typography.caption,
-    color: '#8898aa',
-    marginBottom: Theme.spacing.xs,
-  },
-  detailValue: {
-    fontSize: 16,
-    color: Theme.colors.text,
-  },
-  paidDetail: {
-    color: Theme.colors.success,
-  },
-  dueDetail: {
-    // moved to weight="bold"
-  },
-  statusBadgeLarge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    alignSelf: 'flex-start',
-  },
-  statusTextLarge: {
-    fontSize: 13,
-  },
-  actionButtons: {
-    marginTop: Theme.spacing.md,
-  },
-  reminderButton: {
-    backgroundColor: Theme.colors.success,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    padding: 12,
-    borderRadius: 8,
-  },
-  reminderButtonText: {
-    color: Theme.colors.card,
-  },
-  modalFooter: {
-    padding: Theme.spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
-  },
-  closeModalButton: {
-    backgroundColor: '#f3f4f6',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  closeModalButtonText: {
-    color: '#4a5568',
-  },
-});
 
 export default PendingStudents;

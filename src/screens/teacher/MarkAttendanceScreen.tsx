@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import ScreenSkeleton from '../../components/common/ScreenSkeleton';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRoute } from '@react-navigation/native';
 import { ChevronLeft, Calendar, Users, CheckCircle2, XCircle, Clock, ChevronDown } from 'lucide-react-native';
@@ -264,21 +265,21 @@ export default function MarkAttendanceScreen() {
       />
       <View style={innerPageLayoutStyles.scrollBody}>
       <View style={styles.dateSection}>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View style={{ flexDirection: 'row', gap: Theme.spacing.md }}>
           <TouchableOpacity accessibilityRole="button" style={[styles.dateSelector, { flex: 1 }]} onPress={() => setShowDatePicker(true)}>
-            <Calendar size={20} color="#6648dc" />
-            <View style={{ flex: 1, marginLeft: 12 }}>
+            <Calendar size={20} color={Theme.colors.violet} />
+            <View style={{ flex: 1, marginLeft: Theme.spacing.md }}>
               <AppText style={styles.dateSelectorLabel}>Select Date</AppText>
               <AppText style={styles.dateSelectorValue}>{formatDate(selectedDate)}</AppText>
             </View>
           </TouchableOpacity>
 
           <View style={[styles.dateSelector, { width: 120 }]}>
-            <Clock size={20} color="#6648dc" />
-            <View style={{ flex: 1, marginLeft: 12 }}>
+            <Clock size={20} color={Theme.colors.violet} />
+            <View style={{ flex: 1, marginLeft: Theme.spacing.md }}>
               <AppText style={styles.dateSelectorLabel}>Session</AppText>
               <TouchableOpacity accessibilityRole="button"
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.xs }}
                 onPress={() => setSelectedDateSession(selectedSession === '1' ? '2' : '1')}
               >
                 <AppText style={styles.dateSelectorValue}>{selectedSession === '1' ? 'Morn' : 'After'}</AppText>
@@ -333,7 +334,7 @@ export default function MarkAttendanceScreen() {
 
       {/* Student List */}
       {loading ? (
-        <ActivityIndicator size="large" style={styles.loader} color="#6648dc" />
+        <ScreenSkeleton variant="list" />
       ) : filteredStudents.length === 0 ? (
         <View style={styles.emptyState}>
           <Users size={48} color="#CBD5E1" />
@@ -383,7 +384,7 @@ export default function MarkAttendanceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: Theme.colors.background,
   },
   scrollStyle: {
     flex: 1,
@@ -407,13 +408,13 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: Theme.radius.xl,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitleText: {
-    fontSize: 18,
+    fontSize: Theme.typography.h3.fontSize,
     color: Theme.colors.card,
   },
   headerSubtitleText: {
@@ -424,13 +425,13 @@ const styles = StyleSheet.create({
   dateSection: {
     paddingHorizontal: Theme.spacing.md,
     paddingTop: Theme.spacing.md,
-    paddingBottom: 12,
+    paddingBottom: Theme.spacing.md,
   },
   dateSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Theme.colors.card,
-    borderRadius: 16,
+    borderRadius: Theme.radius.lg,
     paddingHorizontal: Theme.spacing.md,
     paddingVertical: 14,
     borderWidth: 1.5,
@@ -455,14 +456,14 @@ const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
     paddingHorizontal: Theme.spacing.md,
-    paddingVertical: 12,
+    paddingVertical: Theme.spacing.md,
     gap: 10,
   },
   statCard: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 14,
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.md,
+    borderRadius: Theme.radius.md,
     borderLeftWidth: 5,
     alignItems: 'center',
     justifyContent: 'center',
@@ -473,12 +474,12 @@ const styles = StyleSheet.create({
     }),
   },
   statValue: {
-    fontSize: 20,
+    fontSize: Theme.typography.h3.fontSize,
     fontWeight: '800',
     color: Theme.colors.text,
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: Theme.typography.label.fontSize,
     color: Theme.colors.textSec,
     marginTop: Theme.spacing.xs,
     fontWeight: '600',
@@ -487,21 +488,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingHorizontal: Theme.spacing.md,
-    paddingVertical: 12,
-    gap: 8,
+    paddingVertical: Theme.spacing.md,
+    gap: Theme.spacing.sm,
   },
   filterTab: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: Theme.radius.md,
     backgroundColor: Theme.colors.card,
     borderWidth: 1,
     borderColor: Theme.colors.border,
     alignItems: 'center',
   },
   filterTabActive: {
-    backgroundColor: '#6648dc',
-    borderColor: '#6648dc',
+    backgroundColor: Theme.colors.violet,
+    borderColor: Theme.colors.violet,
   },
   filterTabText: {
     ...Theme.typography.caption,
@@ -518,7 +519,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
-    gap: 12,
+    gap: Theme.spacing.md,
   },
   emptyStateText: {
     ...Theme.typography.body,
@@ -537,7 +538,7 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.card,
     paddingHorizontal: Theme.spacing.md,
     paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: Theme.radius.md,
     borderWidth: 1,
     borderColor: Theme.colors.border,
     elevation: 2,
@@ -562,9 +563,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#FEF2F2',
-    paddingHorizontal: 12,
+    paddingHorizontal: Theme.spacing.md,
     paddingVertical: Theme.spacing.sm,
-    borderRadius: 10,
+    borderRadius: Theme.radius.md,
     borderWidth: 1,
     borderColor: '#FECACA',
   },
@@ -581,7 +582,7 @@ const styles = StyleSheet.create({
     color: '#16A34A',
   },
   saveButton: {
-    marginTop: 20,
-    marginBottom: 12,
+    marginTop: Theme.spacing.xl,
+    marginBottom: Theme.spacing.md,
   },
 });

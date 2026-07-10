@@ -1,21 +1,9 @@
 import { useNavigation } from '@react-navigation/native';
 import { Theme } from '../../theme/tokens';
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  Switch,
-  Platform,
-  Modal,
-  KeyboardAvoidingView,
-} from 'react-native';
+import { View, ScrollView, TouchableOpacity, TextInput, Alert, Switch, Platform, Modal, KeyboardAvoidingView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, X, Plus, Edit2, Users, Mail, Power } from 'lucide-react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import * as adminService from '../../services/adminService';
 import { colors } from '../../theme/tokens';
 import AppText from '../../components/common/AppText';
@@ -24,6 +12,7 @@ import Loader from '../../components/common/Loader';
 import { formatErrorMessage } from '../../utils/helpers';
 import StandardPageHeader from '../../components/layout/StandardPageHeader';
 import { innerPageLayoutStyles } from '../../components/layout/innerPageLayoutStyles';
+import { adminAgentsStyles as styles } from '../../components/admin/adminAgents/adminAgentsStyles';
 
 // Agent Interface
 interface Agent {
@@ -202,9 +191,9 @@ const AgentFormModal: React.FC<{
               {errors.password && <AppText style={styles.formError}>{errors.password}</AppText>}
             </View>
 
-            <AppText style={[styles.formLabel, { marginTop: 10, marginBottom: 12 }]}>Capabilities</AppText>
+            <AppText style={[styles.formLabel, { marginTop: 10, marginBottom: Theme.spacing.md }]}>Capabilities</AppText>
 
-            <View style={[styles.formGroup, { gap: 12 }]}>
+            <View style={[styles.formGroup, { gap: Theme.spacing.md }]}>
               <View style={styles.switchRow}>
                 <AppText style={styles.switchLabel}>Can Register Schools</AppText>
                 <Switch
@@ -334,7 +323,7 @@ const AgentManagementModal: React.FC<{
         />
 
         <View style={innerPageLayoutStyles.scrollBody}>
-      <View style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: colors.surface, marginBottom: 12 }}>
+      <View style={{ paddingVertical: Theme.spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: colors.surface, marginBottom: Theme.spacing.md }}>
         <View style={styles.searchContainer}>
           <Search size={16} color={colors.textMuted} style={{ marginRight: Theme.spacing.sm }} />
           <TextInput
@@ -355,7 +344,7 @@ const AgentManagementModal: React.FC<{
             backgroundColor: colors.primary,
             height: 40,
             paddingHorizontal: Theme.spacing.md,
-            borderRadius: 8,
+            borderRadius: Theme.radius.sm,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
@@ -373,7 +362,7 @@ const AgentManagementModal: React.FC<{
           }}
         >
           <Plus size={16} color={Theme.colors.card} />
-          <AppText style={{ color: Theme.colors.card, fontWeight: '700', fontSize: 13 }}>Register</AppText>
+          <AppText style={{ color: Theme.colors.card, fontWeight: '700', fontSize: Theme.typography.caption.fontSize }}>Register</AppText>
         </TouchableOpacity>
       </View>
 
@@ -381,7 +370,7 @@ const AgentManagementModal: React.FC<{
           <View style={{ marginTop: 40 }}><Loader /></View>
         ) : filteredAgents.length === 0 ? (
           <View style={{ padding: 40, alignItems: 'center' }}>
-            <Users size={40} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: 12 }} />
+            <Users size={40} color={colors.textMuted} style={{ opacity: 0.5, marginBottom: Theme.spacing.md }} />
             <AppText style={{ ...Theme.typography.body, color: colors.textMuted }}>No agents found</AppText>
           </View>
         ) : (
@@ -394,8 +383,8 @@ const AgentManagementModal: React.FC<{
                 </View>
 
                 {/* Info Column */}
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ flex: 1, marginLeft: Theme.spacing.md }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.sm }}>
                     <AppText style={styles.agentName}>{agent.full_name}</AppText>
                     <View style={[
                       styles.statusBadge,
@@ -445,7 +434,7 @@ const AgentManagementModal: React.FC<{
                   )}
 
                   {agent.can_view_payments ? (
-                    <View style={[styles.capTag, { backgroundColor: '#e0f2fe' }]}>
+                    <View style={[styles.capTag, { backgroundColor: Theme.colors.skyLight }]}>
                       <AppText style={[styles.capTagText, { color: '#0369a1' }]}>View Payments</AppText>
                     </View>
                   ) : (
@@ -512,178 +501,3 @@ export default function AdminAgentsScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screenContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    width: '100%',
-    maxHeight: '90%',
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    overflow: 'hidden',
-    flexDirection: 'column',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 15,
-    elevation: 8,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  modalTitle: { ...Theme.typography.h3, color: colors.textPrimary },
-  modalClose: { padding: Theme.spacing.xs },
-  modalBodyScroll: {
-    flexGrow: 0,
-    flexShrink: 1,
-  },
-  modalBodyContent: {
-    padding: 20,
-    paddingBottom: 8,
-  },
-  modalFooter: { flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: colors.border },
-  formGroup: { marginBottom: Theme.spacing.md },
-  formLabel: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 6 },
-  formInput: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, ...Theme.typography.body, color: colors.textPrimary },
-  formInputError: { borderColor: colors.error },
-  formError: { ...Theme.typography.label, color: colors.error, marginTop: Theme.spacing.xs },
-  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  switchLabel: { ...Theme.typography.body, color: colors.textPrimary },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, height: 40, flex: 1 },
-  searchInput: { flex: 1, ...Theme.typography.body, color: colors.textPrimary, padding: 0 },
-  clearBtn: { padding: Theme.spacing.xs },
-  agentCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: Theme.colors.background,
-    borderRadius: 16,
-    padding: Theme.spacing.md,
-    marginBottom: 14,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(30, 58, 138, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(30, 58, 138, 0.15)',
-  },
-  avatarText: {
-    ...Theme.typography.body,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  agentName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  agentUsername: {
-    ...Theme.typography.caption,
-    color: colors.textMuted,
-    marginTop: 1,
-  },
-  emailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: Theme.spacing.xs,
-  },
-  agentEmail: {
-    ...Theme.typography.caption,
-    color: colors.textMuted,
-  },
-  agentEditBtn: {
-    padding: Theme.spacing.sm,
-    backgroundColor: 'rgba(30, 58, 138, 0.06)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(30, 58, 138, 0.1)',
-  },
-  statusBadge: {
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  capabilitiesWrapper: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.background,
-  },
-  capTitle: {
-    ...Theme.typography.label,
-    fontWeight: '700',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  capabilitiesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  capTag: {
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: Theme.spacing.xs,
-    borderRadius: 6,
-  },
-  capTagText: {
-    ...Theme.typography.label,
-    fontWeight: '600',
-  },
-  cardActionsRow: {
-    marginTop: 14,
-  },
-  statusToggleBtn: {
-    width: '100%',
-    height: 36,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  btnDeactivate: {
-    borderColor: colors.errorSoft,
-    backgroundColor: colors.errorSoft,
-  },
-  btnActivate: {
-    borderColor: colors.successSoft,
-    backgroundColor: colors.successSoft,
-  },
-  actionBtnText: {
-    ...Theme.typography.caption,
-    fontWeight: '700',
-  },
-});
