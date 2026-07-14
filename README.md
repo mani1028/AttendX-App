@@ -1,5 +1,8 @@
 # AttendX React Native App
 
+**Last updated:** 2026-07-13
+
+
 AttendX is a React Native CLI project with Android and iOS targets.
 
 ## Run Locally
@@ -196,3 +199,5 @@ src/utils/storage.ts
 src/utils/validators.ts
 tsconfig.json
 ```
+
+**Last backup:** 2026-07-13 17:52:36
